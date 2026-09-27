@@ -1832,6 +1832,41 @@ The shipped profiles cover labor liberation, advertiser acquisition, and user
 acquisition. Their action descriptions are decision criteria, not generated
 copy; external execution remains a separately governed effect.
 
+## Twin document profile
+
+`mithril/twin-document` is a display-only profile for synthetic organisation /
+network twins (the Mithril Twin viewer is its consumer). Like the growth and
+Jev decision documents, it has its own pinned context,
+`https://mithril.fund/context/twin/v1` (`resources/context-twin-v1.jsonld`,
+equal to `mithril.twin/context-document`); the v1 context is untouched. Every
+twin term lives in the twin library namespace `https://mithril.fund/lib/twin/v1#`,
+not in `mith:`, so no core term is added or reused.
+
+```clojure
+(mithril/twin-document
+  :id "https://mithril.fund/lib/twin/example/polaris-device"
+  :dataset-kind "synthetic-demo"
+  :entities [(rdf/node :type "Device" :key "dev:1" :layer "node" :zone "net:corp"
+                       :software [(rdf/node :name "PDF viewer" :version "9.1" :eol true
+                                            :vulnerability "high")]
+                       :logs (rdf/node :sources ["edr"] :forward-to "none" :retention-days 7)
+                       :users [(rdf/node :person "p:1" :relation "primary")])]
+  :weights (rdf/node :network-value (rdf/literal "0.6" :datatype "xsd:decimal")))
+```
+
+`mithril.twin/admit` is closed and fail-closed: an unknown key or class at any
+depth, a nested `@id` (twin nodes refer to each other by `:key` literals), a
+`datasetKind` other than `synthetic-demo`, an `inference` block that is not
+`vizOnly`/`noRunners`, or any field that would not survive JSON-LD expansion
+and RDF lowering (`rdf-field-loss`) is refused. Decimals use the existing
+`rdf/literal … :datatype "xsd:decimal"` convention; hypothesis `steps` and a
+device's sample `events` are RDF lists. The Form and JSON-LD spellings compile
+to one graph digest. [`examples/twin-polaris-device.mith`](examples/twin-polaris-device.mith)
+is the reference document and [`ontology/twin-v1.mith`](ontology/twin-v1.mith)
+declares the device classes and their SHACL shapes. The profile describes
+data only: no runners, no scanning, no effects, and log events are synthetic
+samples, not telemetry.
+
 ## Run
 
 ```sh

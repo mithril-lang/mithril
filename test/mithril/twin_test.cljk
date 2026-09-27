@@ -1,0 +1,111 @@
+(ns mithril.twin-test
+  (:require [cljs.test :refer [deftest is testing]]
+            [clojure.string :as str]
+            [json-ld-api.core :as jsonld]
+            [json-ld-api.to-rdf :as to-rdf]
+            [mithril.compiler :as compiler]
+            [mithril.form :as form]
+            [mithril.twin :as twin]))
+
+(def fs (js/require "node:fs"))
+(defn- text [file] (.readFileSync fs file "utf8"))
+(def example-path "examples/twin-polaris-device.mith")
+(defn- code [f]
+  (try (f) nil (catch :default error (:mithril/error (ex-data error)))))
+(defn- predicates [doc]
+  (set (map #(get-in % [:predicate :value]) (twin/quads doc))))
+(def minimal
+  "(mithril/twin-document :id \"https://mithril.fund/lib/twin/example/min\"
+     :title \"t\" :dataset-kind \"synthetic-demo\" EXTRA)")
+(defn- with [extra] (str/replace minimal "EXTRA" extra))
+
+(deftest the-twin-tag-lowers-to-the-pinned-twin-context
+  (let [doc (form/parse (text example-path))
+        shipped (js->clj (js/JSON.parse (text "resources/context-twin-v1.jsonld")))]
+    (is (= twin/context-document shipped))
+    (is (= twin/context-uri (get doc "@context")))
+    (is (= "TwinDocument" (get doc "@type")))
+    (is (= "https://mithril.fund/lib/twin/example/polaris-device" (get doc "@id")))
+    (testing "multi-word twin keys lower to their camelCase terms"
+      (is (= 7 (get-in doc ["entities" 5 "logs" "retentionDays"])))
+      (is (= "none" (get-in doc ["entities" 5 "logs" "forwardTo"])))
+      (is (= {"@value" "0.6" "@type" "xsd:decimal"} (get-in doc ["weights" "networkValue"]))))
+    (testing "the v1 profile context is untouched by the twin terms"
+      (is (= "https://mithril.fund/context/v1"
+             (get (form/parse "(mithril/program :id \"https://mithril.fund/id/p\")") "@context"))))))
+
+(deftest every-twin-field-survives-rdf-lowering
+  (let [artifact (twin/compile-twin-text example-path (text example-path))
+        doc (:rdf-dataset artifact)
+        preds (predicates doc)
+        t #(str twin/base %)]
+    (is (= "https://mithril.fund/artifact/twin-v1" (:format artifact)))
+    (is (re-matches #"sha256:[0-9a-f]{64}" (:graph-digest artifact)))
+    (doseq [term ["software" "name" "version" "vendor" "sanctioned" "eol" "vulnerability"
+                  "logs" "sources" "forwardTo" "retentionDays" "events" "at" "action" "severity"
+                  "users" "person" "relation" "entities" "entityType" "layer" "zone" "boundary"
+                  "criticality" "roles" "holders" "grants" "level" "channels" "verification"
+                  "reach" "from" "to" "kind" "weights" "networkValue" "heatSaturation" "device"
+                  "maxEase" "minRetentionDays" "inference" "vizOnly" "noRunners" "key" "label"]]
+      (is (contains? preds (t term)) term))
+    (testing "decimal weights stay typed decimals and booleans stay booleans"
+      (let [qs (twin/quads doc)
+            obj (fn [p] (map :object (filter #(= (t p) (get-in % [:predicate :value])) qs)))]
+        (is (some #(and (= "0.6" (:value %)) (str/ends-with? (:datatype %) "#decimal")) (obj "networkValue")))
+        (is (some #(and (= "true" (:value %)) (str/ends-with? (:datatype %) "#boolean")) (obj "eol")))
+        (is (some #(and (= "7" (:value %)) (str/ends-with? (:datatype %) "#integer")) (obj "retentionDays")))))
+    (testing "Form and the JSON-LD spelling have one graph identity"
+      (let [json (js/JSON.stringify (clj->js doc))]
+        (is (= (:graph-digest artifact)
+               (:graph-digest (twin/compile-twin-text example-path json))))))
+    (testing "control: without the twin context the same fields are dropped"
+      (let [v1 (set (map #(get-in % [:predicate :value])
+                         (to-rdf/to-rdf (jsonld/expand (assoc doc "@context" compiler/context-uri)
+                                                       {:contexts {compiler/context-uri compiler/context-document}}))))]
+        (is (not (contains? v1 (t "software"))))
+        (is (not (some #(str/includes? % "retention") v1))))
+      (is (= :mithril.twin/rdf-field-loss
+             (code #(with-redefs [twin/context-document
+                                  (update twin/context-document "@context" dissoc "vendor")]
+                      (twin/admit doc))))))))
+
+(deftest the-twin-vocabulary-is-closed-and-fail-closed
+  (is (map? (twin/admit (form/parse (with "")))))
+  (testing "an unknown bare key is refused, not silently dropped"
+    (is (= :mithril.twin/unknown-key (code #(twin/admit (form/parse (with ":colour \"red\"")))))))
+  (testing "an unknown key inside a nested node is refused"
+    (is (= :mithril.twin/unknown-key
+           (code #(twin/admit (form/parse (with ":entities [(rdf/node :key \"a\" :shoe-size 9)]")))))))
+  (testing "an unknown class is refused"
+    (is (= :mithril.twin/unknown-class
+           (code #(twin/admit (form/parse (with ":entities [(rdf/node :type \"Runner\" :key \"a\")]")))))))
+  (testing "nested nodes are referenced by :key, never by IRI"
+    (is (= :mithril.twin/nested-id
+           (code #(twin/admit (form/parse (with ":entities [(rdf/node :id \"https://mithril.fund/x\")]")))))))
+  (testing "only synthetic, display-only twins are admitted"
+    (is (= :mithril.twin/not-synthetic
+           (code #(twin/admit (form/parse (str/replace (with "") "synthetic-demo" "production"))))))
+    (is (= :mithril.twin/not-display-only
+           (code #(twin/admit (form/parse (with ":inference (rdf/node :viz-only true :no-runners false)")))))))
+  (testing "the Form grammar still refuses decimals, maps and unknown tags"
+    (is (= :mithril.form/unsupported-value (code #(form/parse (with ":weights (rdf/node :pivot 0.5)")))))
+    (is (= :mithril.form/unsupported-value (code #(form/parse (with ":weights {:pivot 1}")))))
+    (is (= :mithril.form/unknown-tag (code #(form/parse "(twin/device :key \"a\")")))))
+  (testing "the pinned context and a mithril.fund @id are required"
+    (is (= :mithril.twin/unpinned-context
+           (code #(twin/admit (assoc (form/parse (with "")) "@context" "https://example.org/ctx")))))
+    (is (= :mithril.twin/invalid-identifier
+           (code #(twin/admit (assoc (form/parse (with "")) "@id" "urn:x:twin")))))
+    (is (= :mithril/unsupported-extension
+           (code #(twin/compile-twin-text "twin.json" (with "")))))))
+
+(deftest the-twin-ontology-is-a-compiled-rdf-owl-shacl-artifact
+  (let [artifact (compiler/compile-ontology-text "ontology/twin-v1.mith" (text "ontology/twin-v1.mith"))
+        graph (get-in artifact [:rdf-dataset "@graph"])]
+    (is (= "https://mithril.fund/artifact/ontology-v1" (:format artifact)))
+    (is (re-matches #"sha256:[0-9a-f]{64}" (:graph-digest artifact)))
+    (testing "every class the twin context names under twin/v1 is in the twin namespace"
+      (is (every? #(str/starts-with? (get % "@id" "") twin/base) (filter #(get % "@id") graph))))
+    (testing "the shapes target twin classes only"
+      (is (= #{"Software" "DeviceLogs" "DeviceUser" "TwinDocument"}
+             (set (keep #(some-> (get % "targetClass") (str/replace twin/base "")) graph)))))))
