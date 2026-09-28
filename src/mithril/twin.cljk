@@ -24,6 +24,25 @@
    "Weights" "Diagram" "Plane" "Placement" "CrossLink" "Inference"
    "Hypothesis" "Citation" "Attribute"])
 
+(def dataset-kinds
+  "Closed set of `datasetKind` labels a twin document may declare. Every label
+  is display-only and non-live:
+  - `synthetic-demo`: generated or fictional sample data (the default).
+  - `workshop-export`: an illustrative diagram hand-authored in a workshop and
+    exported from the viewer; not collected from live systems or customer
+    records.
+  Anything else (for example `live`, `production`, `customer`) is refused."
+  ["synthetic-demo" "workshop-export"])
+
+(def diagram-lenses
+  "Closed set of `diagram.lens` values: the lens a viewer restores on open."
+  ["layers" "org" "network" "access" "impersonation" "shadow"])
+
+(def diagram-frames
+  "Closed set of `diagram.frame` values: the frame dimension (org boundary or
+  network zone) for the access, impersonation and shadow-IT lenses."
+  ["org" "network"])
+
 (def list-terms
   "Ordered values: hypothesis steps and a device's sample event timeline."
   #{"steps" "events"})
@@ -56,7 +75,7 @@
    ;; diagram
    "arrangement" "camera" "mode" "tilt" "yaw" "zoom" "focusPlane"
    "selection" "planes" "transform" "x" "y" "z" "placements" "entity"
-   "tone" "showLabel" "crossLinks"
+   "tone" "showLabel" "crossLinks" "lens" "frame"
    ;; inference
    "vizOnly" "noRunners" "hypotheses" "summary" "category" "honesty"
    "observationCount" "relativeScore" "scoreNote" "nodeIds" "steps"])
@@ -125,8 +144,9 @@
 
 (defn admit
   "Closed-vocabulary admission of one lowered twin document. Refuses unknown
-  keys and classes, a non-synthetic dataset, and any field that would not
-  survive RDF lowering."
+  keys and classes, a datasetKind outside `dataset-kinds`, a diagram lens or
+  frame outside its closed set, and any field that would not survive RDF
+  lowering."
   [document]
   (when-not (map? document)
     (refuse! :mithril.twin/not-a-document "twin source must be one document"))
@@ -141,8 +161,15 @@
     (when-not (and (string? id)
                    (re-matches #"https://mithril\.fund/[A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=%-]+" id))
       (refuse! :mithril.twin/invalid-identifier "twin document @id must be a mithril.fund HTTPS IRI")))
-  (when-not (= "synthetic-demo" (get document "datasetKind"))
-    (refuse! :mithril.twin/not-synthetic "twin datasetKind must be synthetic-demo"))
+  (when-not (contains? (set dataset-kinds) (get document "datasetKind"))
+    (refuse! :mithril.twin/not-synthetic
+             (str "twin datasetKind must be one of " (str/join ", " dataset-kinds))))
+  (let [diagram (get document "diagram")]
+    (doseq [[term allowed] [["lens" diagram-lenses] ["frame" diagram-frames]]]
+      (when (and (map? diagram) (contains? diagram term)
+                 (not (contains? (set allowed) (get diagram term))))
+        (refuse! :mithril.twin/invalid-view
+                 (str "twin diagram " term " must be one of " (str/join ", " allowed))))))
   (when-let [inf (get document "inference")]
     (when-not (and (map? inf) (true? (get inf "vizOnly")) (true? (get inf "noRunners")))
       (refuse! :mithril.twin/not-display-only "twin inference must be vizOnly and noRunners")))

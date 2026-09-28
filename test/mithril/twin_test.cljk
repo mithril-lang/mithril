@@ -82,9 +82,13 @@
   (testing "nested nodes are referenced by :key, never by IRI"
     (is (= :mithril.twin/nested-id
            (code #(twin/admit (form/parse (with ":entities [(rdf/node :id \"https://mithril.fund/x\")]")))))))
-  (testing "only synthetic, display-only twins are admitted"
-    (is (= :mithril.twin/not-synthetic
-           (code #(twin/admit (form/parse (str/replace (with "") "synthetic-demo" "production"))))))
+  (testing "only the closed, non-live datasetKind labels and display-only twins are admitted"
+    (is (= ["synthetic-demo" "workshop-export"] twin/dataset-kinds))
+    (is (map? (twin/admit (form/parse (str/replace (with "") "synthetic-demo" "workshop-export")))))
+    (doseq [label ["production" "live" "customer" "real" "live-export" "" "Synthetic-Demo"]]
+      (is (= :mithril.twin/not-synthetic
+             (code #(twin/admit (form/parse (str/replace (with "") "synthetic-demo" label)))))
+          label))
     (is (= :mithril.twin/not-display-only
            (code #(twin/admit (form/parse (with ":inference (rdf/node :viz-only true :no-runners false)")))))))
   (testing "the Form grammar still refuses decimals, maps and unknown tags"
@@ -107,5 +111,40 @@
     (testing "every class the twin context names under twin/v1 is in the twin namespace"
       (is (every? #(str/starts-with? (get % "@id" "") twin/base) (filter #(get % "@id") graph))))
     (testing "the shapes target twin classes only"
-      (is (= #{"Software" "DeviceLogs" "DeviceUser" "TwinDocument"}
+      (is (= #{"Software" "DeviceLogs" "DeviceUser" "TwinDocument" "Diagram"}
              (set (keep #(some-> (get % "targetClass") (str/replace twin/base "")) graph)))))))
+
+(def view-example-path "examples/twin-workshop-view.mith")
+
+(deftest diagram-lens-and-frame-survive-rdf-lowering
+  (let [artifact (twin/compile-twin-text view-example-path (text view-example-path))
+        doc (:rdf-dataset artifact)
+        qs (twin/quads doc)
+        t #(str twin/base %)
+        obj (fn [p] (set (map #(get-in % [:object :value]) (filter #(= (t p) (get-in % [:predicate :value])) qs))))]
+    (is (= "workshop-export" (get doc "datasetKind")))
+    (is (= "impersonation" (get-in doc ["diagram" "lens"])))
+    (is (= "network" (get-in doc ["diagram" "frame"])))
+    (is (= #{"impersonation"} (obj "lens")))
+    (is (= #{"network"} (obj "frame")))
+    (is (= #{"workshop-export"} (obj "datasetKind")))
+    (testing "Form and the JSON-LD spelling have one graph identity"
+      (is (= (:graph-digest artifact)
+             (:graph-digest (twin/compile-twin-text view-example-path (js/JSON.stringify (clj->js doc)))))))
+    (testing "without the lens / frame context terms the admission refuses the loss"
+      (is (= :mithril.twin/rdf-field-loss
+             (code #(with-redefs [twin/context-document
+                                  (update twin/context-document "@context" dissoc "lens")]
+                      (twin/admit doc))))))))
+
+(deftest diagram-lens-and-frame-are-closed-enums
+  (is (= ["layers" "org" "network" "access" "impersonation" "shadow"] twin/diagram-lenses))
+  (is (= ["org" "network"] twin/diagram-frames))
+  (doseq [lens twin/diagram-lenses]
+    (is (map? (twin/admit (form/parse (with (str ":diagram (rdf/node :type \"Diagram\" :lens \"" lens "\")"))))) lens))
+  (doseq [frame twin/diagram-frames]
+    (is (map? (twin/admit (form/parse (with (str ":diagram (rdf/node :type \"Diagram\" :frame \"" frame "\")"))))) frame))
+  (doseq [bad [":lens \"heat\"" ":lens \"runner\"" ":lens 1" ":frame \"zone\"" ":frame true"]]
+    (is (= :mithril.twin/invalid-view
+           (code #(twin/admit (form/parse (with (str ":diagram (rdf/node :type \"Diagram\" " bad ")"))))))
+        bad)))
