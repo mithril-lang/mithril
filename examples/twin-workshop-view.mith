@@ -11,7 +11,7 @@
   [(rdf/node :key "b:hq" :label "Head office" :kind "company")]
   :entities
   [(rdf/node :type "Entity" :key "org:hq" :label "Head office" :entity-type "Holding" :layer "organization" :boundary "b:hq")
-   (rdf/node :type "Entity" :key "net:corp" :label "Corp VLAN" :entity-type "VLAN" :layer "network" :zone "net:corp")]
+   (rdf/node :type "Entity" :key "net:corp" :label "Corp VLAN" :entity-type "VLAN" :layer "network")]
   :edges
   [(rdf/node :type "Edge" :key "e:hq-corp" :from "org:hq" :to "net:corp" :kind "uses")]
   :diagram
