@@ -92,8 +92,23 @@
      [(shacl/property-shape
         :sh/path "https://mithril.fund/lib/twin/v1#datasetKind"
         :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/in [(rdf/literal "synthetic-demo") (rdf/literal "workshop-export")]
         :sh/min-count 1 :sh/max-count 1)
        (shacl/property-shape
         :sh/path "https://mithril.fund/lib/twin/v1#title"
         :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
-        :sh/min-count 1 :sh/max-count 1)])])
+        :sh/min-count 1 :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/lib/twin/v1#DiagramShape"
+     :sh/target-class "https://mithril.fund/lib/twin/v1#Diagram"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/lib/twin/v1#lens"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/in [(rdf/literal "layers") (rdf/literal "org") (rdf/literal "network") (rdf/literal "access") (rdf/literal "impersonation") (rdf/literal "shadow")]
+        :sh/max-count 1)
+       (shacl/property-shape
+        :sh/path "https://mithril.fund/lib/twin/v1#frame"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/in [(rdf/literal "org") (rdf/literal "network")]
+        :sh/max-count 1)])])

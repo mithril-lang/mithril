@@ -1856,7 +1856,8 @@ not in `mith:`, so no core term is added or reused.
 
 `mithril.twin/admit` is closed and fail-closed: an unknown key or class at any
 depth, a nested `@id` (twin nodes refer to each other by `:key` literals), a
-`datasetKind` other than `synthetic-demo`, an `inference` block that is not
+`datasetKind` outside the closed `mithril.twin/dataset-kinds` set, a
+`diagram` `lens` or `frame` outside its closed set, an `inference` block that is not
 `vizOnly`/`noRunners`, or any field that would not survive JSON-LD expansion
 and RDF lowering (`rdf-field-loss`) is refused. Decimals use the existing
 `rdf/literal … :datatype "xsd:decimal"` convention; hypothesis `steps` and a
@@ -1866,6 +1867,18 @@ is the reference document and [`ontology/twin-v1.mith`](ontology/twin-v1.mith)
 declares the device classes and their SHACL shapes. The profile describes
 data only: no runners, no scanning, no effects, and log events are synthetic
 samples, not telemetry.
+
+Closed value sets (also `sh:in` in the ontology's SHACL shapes):
+
+| Term | Values |
+| --- | --- |
+| `datasetKind` | `synthetic-demo` (generated or fictional sample data), `workshop-export` (an illustrative diagram hand-authored in a workshop and exported from the viewer; not collected from live systems or customer records) |
+| `diagram` `lens` | `layers`, `org`, `network`, `access`, `impersonation`, `shadow` (the lens a viewer restores on open) |
+| `diagram` `frame` | `org`, `network` (frame dimension for the access, impersonation and shadow-IT lenses) |
+
+Labels that imply live or customer data (`live`, `production`, `customer`, …)
+are refused. [`examples/twin-workshop-view.mith`](examples/twin-workshop-view.mith)
+round-trips `workshop-export` with a saved lens and frame.
 
 ## Run
 
