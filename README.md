@@ -1776,6 +1776,45 @@ The shipped profiles cover labor liberation, advertiser acquisition, and user
 acquisition. Their action descriptions are decision criteria, not generated
 copy; external execution remains a separately governed effect.
 
+## Domain components
+
+A component is one reverse domain: `com.amazonaws.s3` lives at
+`lib/com/amazonaws/s3/v1.mith`. `requires` names the components it is built
+from. An assembly lists roots, and composition closes that list, orders
+dependencies first, and refuses a cycle or two exports with the same symbol.
+The cloud simulation assembly composes Mithril's identity, authz, quota,
+consistency, fault and TLS components with the AWS, Azure, Google, WireMock
+and Pact domains. A stack is one provider: `aws` resources stay under
+`com.amazonaws.`, `azure` under `com.microsoft.azure.`, and `google` under
+`com.google.cloud.`. `plan` runs each resource in depends order and keeps
+`applied` false.
+
+```sh
+kbb --backend sci --classpath src bin/mithril-components.cljk \
+  lib examples/assemblies/cloud-simulation.mith
+kbb --backend sci --classpath src bin/mithril-twin-run.cljk \
+  lib examples/runs/s3-get.mith
+kbb --backend sci --classpath src bin/mithril-cluster.cljk \
+  render examples/clusters/cloud-simulation.mith
+kbb --backend sci --classpath src bin/mithril-stack.cljk \
+  lib examples/stacks/aws.mith
+```
+
+`mithril/twin-run` executes the sealed steps of one composed domain. Quota,
+authorization, consistency, fault and TLS are computed from the run. `applied`
+stays false. `mithril/cluster` wraps Docker or Podman: `render` prints Compose,
+`verify` compares a document to an observation, and `observe` runs only
+`docker ps` or `podman ps`.
+
+## Twin services
+
+`mithril/twin-service` is a simulation of service code. Routes are data. `invoke`
+returns both an HTTP `response` and a typed `return`. `boundary` must be
+`simulation`. Kinds are `static` (authored return), `echo` (the request comes
+back as the return), and `record` (the receipt lists the call with
+`applied: false`). The runtime has no network authority, and a key that names a
+live target or a secret is refused.
+
 ## Run
 
 ```sh
@@ -1786,6 +1825,7 @@ kbb --backend sci --classpath "$CP" bin/mithril.cljk compile-library lib/web/v1.
 kbb --backend sci --classpath "$CP" bin/mithril.cljk compile-web examples/hello-web.mith lib/web/v1.mith
 kbb --backend sci bin/mithril.cljk emit-desktop examples/mithril-desktop.mith
 kbb --backend sci --classpath "$CP" bin/mithril.cljk request examples/hello-web.mith lib/web/v1.mith GET /hello
+kbb --backend sci --classpath src bin/mithril-twin.cljk examples/twin-services.mith models GET /v1/models
 kbb --backend sci bin/mithril.cljk reason test/fixtures/reason/dm2-mini.mith test/fixtures/reason/conforming.nq
 kbb --backend sci --classpath "$(kbb -Spath):test" test/run.cljk
 kbb --backend sci --classpath "$CP":test test/run_synthesis.cljk

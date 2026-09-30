@@ -1,0 +1,15 @@
+(mithril/twin-run
+  :id "https://mithril.fund/twin/run/s3-get"
+  :boundary "simulation"
+  :domain "com.amazonaws.s3"
+  :operation "get-object"
+  :principal "sim-reader"
+  :action "s3:GetObject"
+  :allow ["sim-reader"]
+  :permission-boundary ["s3:GetObject"]
+  :quota 2
+  :consistency "strong"
+  :fault "none"
+  :tls "ok"
+  :object "hello"
+  :contract "unchecked")

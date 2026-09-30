@@ -4,6 +4,7 @@
             [mithril.desktop :as desktop]
             [mithril.hermes-fleet :as fleet]
             [mithril.reason-cli :as reason-cli]
+            [mithril.twin-sim :as twin]
             [mithril.web :as web]))
 
 (defn- usage! []
@@ -17,6 +18,7 @@
   (println "  mithril emit-desktop <app.mith|app.mithril>")
   (println "  mithril compile-web <app.mith|app.mithril> <library.mith>...")
   (println "  mithril request <app.mith|app.mithril> <library.mith> <METHOD> <PATH>")
+  (println "  mithril twin <twin-service.mith> <service> <METHOD> <PATH> [body]")
   (println "  mithril reason <ontology.mith> <data.(nq|nt|jsonld)> [--query-type <iri>] [--json]")
   (js/process.exit 2))
 
@@ -97,6 +99,16 @@
         (if (and path library-path method request-path (empty? extra))
           (print-json (web/dispatch (compile-web path [library-path])
                                     {:method method :path request-path}))
+          (usage!)))
+
+      "twin"
+      (let [[service method request-path body & extra] args]
+        (if (and path service method request-path (empty? extra))
+          (print-json (twin/invoke (compiler/parse-source (read-text path))
+                                   (cond-> {:service service
+                                            :method method
+                                            :path request-path}
+                                     body (assoc :body body))))
           (usage!)))
 
       (usage!))

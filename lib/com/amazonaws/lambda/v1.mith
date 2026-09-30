@@ -1,0 +1,11 @@
+(mithril/component
+  :id "https://mithril.fund/lib/com/amazonaws/lambda/v1"
+  :domain "com.amazonaws.lambda"
+  :version 1
+  :provides ["function"]
+  :requires ["com.amazonaws.iam" "fund.mithril.quota" "fund.mithril.fault"]
+  :exports [(mithril/export
+              :symbol "https://mithril.fund/lib/com/amazonaws/lambda/v1/effect/invoke"
+              :kind "mith:effect"
+              :label "invoke a declared function in the simulation"
+              :confidence-floor 6000)])

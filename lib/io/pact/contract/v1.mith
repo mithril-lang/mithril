@@ -1,0 +1,11 @@
+(mithril/component
+  :id "https://mithril.fund/lib/io/pact/contract/v1"
+  :domain "io.pact.contract"
+  :version 1
+  :provides ["contract"]
+  :requires []
+  :exports [(mithril/export
+              :symbol "https://mithril.fund/lib/io/pact/contract/v1/validator/interaction"
+              :kind "mith:validator"
+              :label "check one interaction against the declared contract"
+              :confidence-floor 6000)])

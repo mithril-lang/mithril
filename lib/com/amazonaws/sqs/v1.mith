@@ -1,0 +1,11 @@
+(mithril/component
+  :id "https://mithril.fund/lib/com/amazonaws/sqs/v1"
+  :domain "com.amazonaws.sqs"
+  :version 1
+  :provides ["queue"]
+  :requires ["com.amazonaws.iam" "fund.mithril.quota" "fund.mithril.consistency" "fund.mithril.fault"]
+  :exports [(mithril/export
+              :symbol "https://mithril.fund/lib/com/amazonaws/sqs/v1/store/receive"
+              :kind "mith:store"
+              :label "receive a message under a declared visibility"
+              :confidence-floor 6000)])

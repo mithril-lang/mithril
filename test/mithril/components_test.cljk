@@ -1,0 +1,57 @@
+(ns mithril.components-test
+  (:require [cljs.test :refer [deftest is testing]]
+            [mithril.components :as components]
+            [mithril.form :as form]))
+
+(defn read-text [path] (.readFileSync (js/require "fs") path "utf8"))
+(defn error-code [f] (try (f) nil (catch :default e (:mithril/error (ex-data e)))))
+
+(defn catalog [] (components/load-catalog "lib"))
+
+(defn index-of [xs value]
+  (loop [i 0 xs xs]
+    (cond (empty? xs) -1
+          (= value (first xs)) i
+          :else (recur (inc i) (rest xs)))))
+
+(deftest reverse-domain-components-compose
+  (let [catalog (catalog)
+        assembly (form/parse (read-text "examples/assemblies/cloud-simulation.mith"))
+        composed (components/compose-assembly catalog assembly)
+        domains (:domains composed)
+        s3 (components/compose catalog ["com.amazonaws.s3"])]
+    (is (= 20 (count catalog)))
+    (is (= (sort (keys catalog)) (sort (:components (components/admit-assembly assembly)))))
+    (is (= (count domains) (count catalog)))
+    (is (< (index-of domains "fund.mithril.identity")
+           (index-of domains "fund.mithril.authz")
+           (index-of domains "com.amazonaws.iam")
+           (index-of domains "com.amazonaws.s3")))
+    (is (= ["cluster" "consistency" "contract" "decision" "fault" "function" "http-mock"
+            "hypothesis" "identity" "object-store" "queue" "quota" "table" "tls"]
+           (:provides composed)))
+    (is (some #{"https://mithril.fund/lib/com/amazonaws/s3/v1/store/put-object"}
+              (map :symbol (:exports s3))))
+    (is (= 8 (count (:domains s3))))
+    (is (= "com.amazonaws.s3" (last (:domains s3))))))
+
+(deftest composition-fails-closed
+  (let [catalog (catalog)]
+    (testing "a root pulls only its requires"
+      (is (not (some #{"com.amazonaws.sqs"}
+                     (:domains (components/compose catalog ["com.amazonaws.s3"]))))))
+    (testing "path and domain disagree"
+      (is (= :mithril.component/domain
+             (error-code #(components/admit-component
+                            (form/parse (read-text "lib/com/amazonaws/s3/v1.mith"))
+                            "com.amazonaws.sqs")))))
+    (testing "a cycle and a missing component are refused"
+      (is (= :mithril.component/cycle
+             (error-code #(components/compose
+                            {"a.b" {:domain "a.b" :requires ["c.d"] :provides ["identity"]
+                                    :exports [{:symbol "https://mithril.fund/lib/a/b/v1/x"}]}
+                             "c.d" {:domain "c.d" :requires ["a.b"] :provides ["decision"]
+                                    :exports [{:symbol "https://mithril.fund/lib/c/d/v1/y"}]}}
+                            ["a.b"]))))
+      (is (= :mithril.component/unknown-component
+             (error-code #(components/compose catalog ["missing.domain"])))))))

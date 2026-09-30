@@ -1,0 +1,11 @@
+(mithril/component
+  :id "https://mithril.fund/lib/fund/mithril/quota/v1"
+  :domain "fund.mithril.quota"
+  :version 1
+  :provides ["quota"]
+  :requires []
+  :exports [(mithril/export
+              :symbol "https://mithril.fund/lib/fund/mithril/quota/v1/governor/take"
+              :kind "mith:governor"
+              :label "take one unit from a declared quota"
+              :confidence-floor 6000)])

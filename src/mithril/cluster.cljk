@@ -1,0 +1,160 @@
+(ns mithril.cluster
+  "A Mithril wrapper for a Docker-compatible cluster.
+
+  The document is the cluster. render writes Compose YAML. verify compares
+  that document to an observation. observe reads docker or podman with ps
+  and does not start, stop, or mount anything."
+  (:require [clojure.string :as str]))
+
+(def context-uri "https://mithril.fund/context/v1")
+(def ^:private cluster-keys
+  #{"@context" "@type" "@id" "boundary" "runtime" "name" "services"})
+(def ^:private service-keys #{"name" "image" "ports" "depends"})
+(def runtimes #{"docker" "podman"})
+
+(defn- fail! [code detail]
+  (throw (ex-info detail {:mithril/error code :detail detail})))
+
+(defn- iri? [value]
+  (boolean (and (string? value)
+                (re-matches #"https://mithril\.fund/[A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=%-]+" value))))
+
+(defn- quote-yaml [value]
+  (str "\"" (str/replace value "\"" "\\\"") "\""))
+
+(defn- admit-service [service names]
+  (when-not (and (map? service) (= service-keys (set (keys service))))
+    (fail! :mithril.cluster/unknown-key "cluster service contains an unknown or missing key"))
+  (let [name (get service "name")
+        image (get service "image")
+        ports (get service "ports")
+        depends (get service "depends")]
+    (when-not (and (string? name) (re-matches #"[a-z][a-z0-9-]{0,31}" name))
+      (fail! :mithril.cluster/service "service name must match [a-z][a-z0-9-]{0,31}"))
+    (when (or (str/includes? name "docker.sock") (str/includes? image "docker.sock"))
+      (fail! :mithril.cluster/forbidden "a cluster cannot name the docker socket"))
+    (when-not (and (string? image)
+                   (re-matches #"[a-z0-9][a-z0-9._/-]{0,200}(:[A-Za-z0-9._-]{1,64})?" image))
+      (fail! :mithril.cluster/image "image must be a lowercase repository and optional tag"))
+    (when-not (and (vector? ports)
+                   (every? #(and (string? %) (re-matches #"[0-9]{2,5}:[0-9]{2,5}" %)) ports))
+      (fail! :mithril.cluster/port "ports must be host:container number pairs"))
+    (when-not (and (vector? depends) (every? names depends)
+                   (= (count depends) (count (set depends)))
+                   (not (some #{name} depends)))
+      (fail! :mithril.cluster/depends "depends must name other services in this cluster"))
+    service))
+
+(defn- order [services]
+  (let [by-name (into {} (map (fn [service] [(get service "name") service]) services))]
+    (loop [pending (set (keys by-name))
+           done []]
+      (if (empty? pending)
+        (mapv by-name done)
+        (let [ready (sort (filter (fn [name]
+                                    (every? (set done) (get (get by-name name) "depends")))
+                                  pending))]
+          (when (empty? ready)
+            (fail! :mithril.cluster/cycle "service depends form a cycle"))
+          (recur (disj pending (first ready)) (conj done (first ready))))))))
+
+(defn admit [doc]
+  (when-not (and (map? doc) (= "Cluster" (get doc "@type")))
+    (fail! :mithril.cluster/not-a-cluster "@type must be Cluster"))
+  (when-not (= context-uri (get doc "@context"))
+    (fail! :mithril.cluster/unpinned-context "cluster must use the pinned Mithril context"))
+  (when-not (= cluster-keys (set (keys doc)))
+    (fail! :mithril.cluster/unknown-key "cluster contains an unknown or missing key"))
+  (when-not (= "simulation" (get doc "boundary"))
+    (fail! :mithril.cluster/boundary "boundary must be simulation"))
+  (when-not (contains? runtimes (get doc "runtime"))
+    (fail! :mithril.cluster/runtime "runtime must be docker or podman"))
+  (when-not (and (string? (get doc "name"))
+                 (re-matches #"[a-z][a-z0-9-]{0,31}" (get doc "name")))
+    (fail! :mithril.cluster/name "cluster name must match [a-z][a-z0-9-]{0,31}"))
+  (when-not (iri? (get doc "@id"))
+    (fail! :mithril.cluster/invalid-identifier "cluster @id must be a mithril.fund IRI"))
+  (let [services (get doc "services")]
+    (when-not (and (vector? services) (seq services))
+      (fail! :mithril.cluster/service "a cluster has at least one service"))
+    (let [names (map #(get % "name") services)]
+      (when-not (= (count names) (count (set names)))
+        (fail! :mithril.cluster/service "service names must be unique"))
+      (let [admitted (mapv #(admit-service % (set names)) services)]
+        (assoc doc "services" (order admitted))))))
+
+(defn- service-yaml [service]
+  (str "  " (get service "name") ":\n"
+       "    image: " (quote-yaml (get service "image")) "\n"
+       (when (seq (get service "ports"))
+         (str "    ports:\n"
+              (apply str (map #(str "      - " (quote-yaml %) "\n") (get service "ports")))))
+       (when (seq (get service "depends"))
+         (str "    depends_on:\n"
+              (apply str (map #(str "      - " (quote-yaml %) "\n") (get service "depends")))))))
+
+(defn render
+  "Compose YAML for an admitted cluster. Rendering does not talk to a runtime."
+  [doc]
+  (let [doc (admit doc)]
+    (str "name: " (quote-yaml (get doc "name")) "\n"
+         "services:\n"
+         (apply str (map service-yaml (get doc "services"))))))
+
+(defn- finding [service observed]
+  (cond
+    (nil? observed) "missing"
+    (not= (get service "image") (:image observed)) "image-mismatch"
+    (not= "running" (:status observed)) "stopped"
+    :else "running"))
+
+(defn verify
+  "Compare the cluster document to an observation of name, image, and status.
+  Unrelated containers are ignored. Nothing is started or stopped."
+  [doc observation]
+  (let [doc (admit doc)]
+    (when-not (and (vector? observation) (every? map? observation))
+      (fail! :mithril.cluster/observation "observation must be a vector of container maps"))
+    (let [by-name (into {} (map (juxt :name identity) observation))
+          rows (mapv (fn [service]
+                       (let [observed (get by-name (get service "name"))
+                             found (finding service observed)]
+                         {:name (get service "name")
+                          :image (get service "image")
+                          :finding found
+                          :observed (when observed (:status observed))}))
+                     (get doc "services"))]
+      {:boundary "simulation"
+       :applied false
+       :runtime (get doc "runtime")
+       :name (get doc "name")
+       :status (if (every? #(= "running" (:finding %)) rows) "holds" "diverged")
+       :services rows})))
+
+(defn- parse-ps [text]
+  (vec (for [line (str/split-lines text)
+             :when (not (str/blank? line))
+             :let [[name image status] (str/split line #"\t" 3)
+                   name (str/replace (or name "") #"^/" "")]]
+         {:name name
+          :image image
+          :status (if (and status (str/starts-with? status "Up")) "running" "exited")})))
+
+(defn observe
+  "Read `docker ps` or `podman ps` and verify the cluster. The argument vector
+  is fixed. A failed runtime is a refusal, not a passing cluster."
+  ([doc] (observe doc nil))
+  ([doc spawn]
+   (let [doc (admit doc)
+         runtime (get doc "runtime")
+         spawn (or spawn
+                   (fn [runtime]
+                     (let [cp (js/require "child_process")
+                           result (.spawnSync cp runtime
+                                              (clj->js ["ps" "--format" "{{.Names}}\t{{.Image}}\t{{.Status}}"])
+                                              (clj->js {:encoding "utf8"}))]
+                       (when-not (zero? (or (.-status result) 1))
+                         (fail! :mithril.cluster/runtime
+                                (str runtime " ps failed: " (or (.-stderr result) (.-error result)))))
+                       (parse-ps (.-stdout result)))))]
+     (verify doc (spawn runtime)))))

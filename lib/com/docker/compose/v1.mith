@@ -1,0 +1,11 @@
+(mithril/component
+  :id "https://mithril.fund/lib/com/docker/compose/v1"
+  :domain "com.docker.compose"
+  :version 1
+  :provides ["cluster"]
+  :requires ["fund.mithril.fault"]
+  :exports [(mithril/export
+              :symbol "https://mithril.fund/lib/com/docker/compose/v1/validator/verify"
+              :kind "mith:validator"
+              :label "verify a declared cluster without starting it"
+              :confidence-floor 6000)])

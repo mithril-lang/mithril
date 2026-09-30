@@ -1,0 +1,11 @@
+(mithril/component
+  :id "https://mithril.fund/lib/org/wiremock/http/v1"
+  :domain "org.wiremock.http"
+  :version 1
+  :provides ["http-mock"]
+  :requires ["fund.mithril.fault"]
+  :exports [(mithril/export
+              :symbol "https://mithril.fund/lib/org/wiremock/http/v1/handler/stub"
+              :kind "mith:handler"
+              :label "match a request and return the declared stub"
+              :confidence-floor 6000)])

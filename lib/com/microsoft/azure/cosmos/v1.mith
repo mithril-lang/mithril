@@ -1,0 +1,11 @@
+(mithril/component
+  :id "https://mithril.fund/lib/com/microsoft/azure/cosmos/v1"
+  :domain "com.microsoft.azure.cosmos"
+  :version 1
+  :provides ["table"]
+  :requires ["fund.mithril.authz" "fund.mithril.consistency" "fund.mithril.quota" "fund.mithril.fault"]
+  :exports [(mithril/export
+              :symbol "https://mithril.fund/lib/com/microsoft/azure/cosmos/v1/store/read-item"
+              :kind "mith:store"
+              :label "read an item under a declared Cosmos consistency"
+              :confidence-floor 6000)])

@@ -1,0 +1,196 @@
+(ns mithril.twin-sim-test
+  (:require [cljs.test :refer [deftest is testing]]
+            [clojure.string :as str]
+            [mithril.components :as components]
+            [mithril.form :as form]
+            [mithril.twin-sim :as twin]))
+
+(defn read-text [path] (.readFileSync (js/require "fs") path "utf8"))
+(defn error-code [f] (try (f) nil (catch :default e (:mithril/error (ex-data e)))))
+
+(defn demo []
+  (twin/admit (form/parse (read-text "examples/twin-services.mith"))))
+
+(deftest twin-services-return-response-and-value
+  (let [doc (demo)
+        models (twin/invoke doc {:service "models" :method "GET" :path "/v1/models"})
+        catalog (twin/invoke doc {:service "billing" :method "GET" :path "/v1/billing/catalog"})
+        checkout (twin/invoke doc {:service "billing" :method "POST" :path "/v1/billing/checkout"})
+        echo (twin/invoke doc {:service "echo" :method "POST" :path "/v1/echo" :body "{\"n\":1}"})
+        graph (twin/invoke doc {:service "graph" :method "GET" :path "/v1/hypothesis"})
+        missing (twin/invoke doc {:service "models" :method "GET" :path "/v1/missing"})]
+    (is (= "simulation" (:boundary models)))
+    (is (false? (:applied models)))
+    (is (= [] (:effects models)))
+    (is (= 200 (get-in models [:response :status])))
+    (is (= {"object" "list"
+            "data" [{"model" "twin-small" "availability" "simulation"}]}
+           (:return models)))
+    (is (= (:return models)
+           (js->clj (.parse js/JSON (get-in models [:response :body])))))
+    (is (= false (get-in catalog [:return "purchase"])))
+    (is (= 0 (get-in catalog [:return "plans" 0 "amount"])))
+    (is (= [{:kind "record" :service "billing" :method "POST"
+             :path "/v1/billing/checkout" :applied false}]
+           (:effects checkout)))
+    (is (false? (:applied checkout)))
+    (is (= {"object" "echo" "method" "POST" "path" "/v1/echo" "body" "{\"n\":1}"}
+           (:return echo)))
+    (is (= "hypothesis" (get-in graph [:return "honesty"])))
+    (is (= 0 (get-in graph [:return "observation-count"])))
+    (is (= 404 (get-in missing [:response :status])))
+    (is (= {"object" "error" "status" 404} (:return missing)))))
+
+(deftest twin-services-fail-closed
+  (let [doc (demo)]
+    (testing "live boundary and live targets are refused"
+      (is (= :mithril.twin/boundary
+             (error-code #(twin/admit (assoc doc "boundary" "production")))))
+      (is (= :mithril.twin/forbidden-key
+             (error-code #(twin/admit (assoc-in doc ["services" 0 "routes" 0 "return" "url"]
+                                                "https://api.example"))))))
+    (testing "a body is not forwarded except through echo"
+      (is (= :mithril.twin/unexpected-body
+             (error-code #(twin/invoke doc {:service "billing" :method "POST"
+                                            :path "/v1/billing/checkout" :body "{}"})))))
+    (testing "unknown service and a record that claims to apply"
+      (is (= :mithril.twin/unknown-service
+             (error-code #(twin/invoke doc {:service "live" :method "GET" :path "/v1/models"}))))
+      (is (= :mithril.twin/record-not-simulated
+             (error-code #(twin/admit
+                            (assoc-in doc ["services" 1 "routes" 1 "return" "applied"] true))))))))
+
+(deftest composed-domain-executes-without-applying
+  (let [catalog (components/load-catalog "lib")
+        run (form/parse (read-text "examples/runs/s3-get.mith"))
+        allowed (twin/execute catalog run)
+        denied (twin/execute catalog (assoc run "allow" []))
+        limited (twin/execute catalog (assoc run "quota" 0))
+        broken (twin/execute catalog (assoc run "fault" "unavailable"))
+        names (set (map #(last (str/split % #"/"))
+                        (mapcat (fn [component] (map :symbol (:exports component)))
+                                (vals catalog))))]
+    (is (every? twin/step-names names))
+    (is (false? (:applied allowed)))
+    (is (= [] (:effects allowed)))
+    (is (= 200 (get-in allowed [:response :status])))
+    (is (= "hello" (get-in allowed [:return "object"])))
+    (is (= 1 (get-in allowed [:return "remaining"])))
+    (is (= "allow" (get-in allowed [:return "decision"])))
+    (is (= "strong" (get-in allowed [:return "consistency"])))
+    (is (= 403 (get-in denied [:response :status])))
+    (is (= 429 (get-in limited [:response :status])))
+    (is (= "quota" (get-in limited [:return "reason"])))
+    (is (= 503 (get-in broken [:response :status])))
+    (is (not (contains? (get broken :return) "object")))))
+
+(defn- permissive-run [domain operation]
+  {"@context" "https://mithril.fund/context/v1"
+   "@type" "TwinRun"
+   "@id" "https://mithril.fund/twin/run/coverage"
+   "boundary" "simulation"
+   "domain" domain
+   "operation" operation
+   "principal" "sim-reader"
+   "action" "s3:GetObject"
+   "allow" ["sim-reader"]
+   "permission-boundary" ["s3:GetObject"]
+   "quota" 2
+   "consistency" "eventual"
+   "fault" "none"
+   "tls" "ok"
+   "object" "payload"
+   "contract" "holds"})
+
+(deftest every-exported-operation-executes
+  (let [catalog (components/load-catalog "lib")
+        exports (mapcat (fn [component]
+                          (map (fn [export]
+                                 [(:domain component) (last (str/split (:symbol export) #"/"))])
+                               (:exports component)))
+                        (vals catalog))
+        results (mapv (fn [[domain operation]]
+                        (twin/execute catalog (permissive-run domain operation)))
+                      exports)
+        recorded (twin/execute catalog (permissive-run "com.amazonaws.s3" "put-object"))]
+    (is (= 21 (count results)))
+    (is (every? #(false? (:applied %)) results))
+    (is (every? #(= 200 (get-in % [:response :status])) results))
+    (is (= true (get-in recorded [:return "recorded"])))
+    (is (= [{:kind "record" :operation "put-object" :applied false}]
+           (:effects recorded)))))
+
+(deftest refusal-fault-and-contract-stay-unapplied
+  (let [catalog (components/load-catalog "lib")
+        tls (twin/execute catalog (assoc (permissive-run "com.amazonaws.s3" "get-object")
+                                         "tls" "refused"))
+        boundary (twin/execute catalog (assoc (permissive-run "com.amazonaws.iam" "evaluate-policy")
+                                              "permission-boundary" ["s3:PutObject"]))
+        pact (twin/execute catalog (assoc (permissive-run "io.pact.contract" "interaction")
+                                          "contract" "violated"))
+        hypothesis (twin/execute catalog (permissive-run "fund.mithril.twin" "hypothesis"))]
+    (is (false? (:applied tls)))
+    (is (= 403 (get-in tls [:response :status])))
+    (is (= "tls" (get-in tls [:return "reason"])))
+    (is (not (contains? (:return tls) "object")))
+    (is (= 403 (get-in boundary [:response :status])))
+    (is (= "deny" (get-in boundary [:return "decision"])))
+    (is (false? (:applied pact)))
+    (is (= "violated" (get-in pact [:return "contract"])))
+    (is (= "hypothesis" (get-in hypothesis [:return "honesty"])))
+    (is (= 0 (get-in hypothesis [:return "observation-count"])))))
+
+(def ^:private write-ops
+  [["com.amazonaws.s3" "put-object"]
+   ["com.microsoft.azure.servicebus" "send"]
+   ["com.google.cloud.pubsub" "publish"]
+   ["com.amazonaws.lambda" "invoke"]])
+
+(def ^:private read-ops
+  [["com.amazonaws.s3" "get-object"]
+   ["com.amazonaws.sqs" "receive"]
+   ["com.amazonaws.dynamodb" "get-item"]
+   ["com.microsoft.azure.storage" "get-blob"]
+   ["com.microsoft.azure.cosmos" "read-item"]
+   ["com.google.cloud.firestore" "get-document"]])
+
+(deftest writes-stop-at-quota-and-reads-return-the-object
+  (let [catalog (components/load-catalog "lib")
+        blocked (mapv (fn [[domain operation]]
+                        (twin/execute catalog (assoc (permissive-run domain operation) "quota" 0)))
+                      write-ops)
+        reads (mapv (fn [[domain operation]]
+                      (twin/execute catalog (assoc (permissive-run domain operation) "consistency" "eventual")))
+                    read-ops)
+        timed-out (twin/execute catalog (assoc (permissive-run "com.amazonaws.sqs" "receive")
+                                               "fault" "timeout"))
+        verified (twin/execute catalog (permissive-run "com.docker.compose" "verify"))]
+    (is (every? #(= 429 (get-in % [:response :status])) blocked))
+    (is (every? #(empty? (:effects %)) blocked))
+    (is (every? #(false? (:applied %)) blocked))
+    (is (every? #(= "payload" (get-in % [:return "object"])) reads))
+    (is (every? #(= "eventual" (get-in % [:return "consistency"])) reads))
+    (is (= 503 (get-in timed-out [:response :status])))
+    (is (= "timeout" (get-in timed-out [:return "reason"])))
+    (is (= "declared" (get-in verified [:return "cluster"])))
+    (is (false? (:applied verified)))))
+
+(deftest admitted-writes-record-without-applying
+  (let [catalog (components/load-catalog "lib")
+        recorded (mapv (fn [[domain operation]]
+                         (twin/execute catalog (permissive-run domain operation)))
+                       write-ops)
+        stub (twin/execute catalog (permissive-run "org.wiremock.http" "stub"))
+        run (permissive-run "com.amazonaws.s3" "get-object")]
+    (is (= [["put-object"] ["send"] ["publish"] ["invoke"]]
+           (mapv #(mapv :operation (:effects %)) recorded)))
+    (is (every? #(and (false? (:applied %))
+                      (true? (get-in % [:return "recorded"]))
+                      (every? (fn [effect] (false? (:applied effect))) (:effects %)))
+                recorded))
+    (is (true? (get-in stub [:return "stub"])))
+    (is (false? (:applied stub)))
+    (is (= :mithril.twin/boundary
+           (error-code #(twin/execute catalog (assoc run "boundary" "production")))))
+    (is (= :mithril.twin/unimplemented
+           (error-code #(twin/execute catalog (assoc run "operation" "delete-bucket")))))))

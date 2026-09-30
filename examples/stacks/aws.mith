@@ -1,0 +1,48 @@
+(mithril/stack
+  :id "https://mithril.fund/stack/aws/app/v1"
+  :boundary "simulation"
+  :provider "aws"
+  :name "app"
+  :principal "sim-reader"
+  :allow ["sim-reader"]
+  :permission-boundary ["iam:EvaluatePolicy"
+                        "s3:GetObject"
+                        "sqs:ReceiveMessage"
+                        "dynamodb:GetItem"
+                        "lambda:InvokeFunction"]
+  :quota 2
+  :consistency "strong"
+  :fault "none"
+  :tls "ok"
+  :object "hello"
+  :contract "unchecked"
+  :resources [(mithril/resource
+                :name "boundary"
+                :domain "com.amazonaws.iam"
+                :operation "evaluate-policy"
+                :action "iam:EvaluatePolicy"
+                :depends [])
+              (mithril/resource
+                :name "bucket"
+                :domain "com.amazonaws.s3"
+                :operation "get-object"
+                :action "s3:GetObject"
+                :depends ["boundary"])
+              (mithril/resource
+                :name "queue"
+                :domain "com.amazonaws.sqs"
+                :operation "receive"
+                :action "sqs:ReceiveMessage"
+                :depends ["boundary"])
+              (mithril/resource
+                :name "table"
+                :domain "com.amazonaws.dynamodb"
+                :operation "get-item"
+                :action "dynamodb:GetItem"
+                :depends ["boundary"])
+              (mithril/resource
+                :name "function"
+                :domain "com.amazonaws.lambda"
+                :operation "invoke"
+                :action "lambda:InvokeFunction"
+                :depends ["bucket" "queue"])])

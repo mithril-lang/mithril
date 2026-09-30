@@ -1,0 +1,178 @@
+(ns mithril.stack
+  "Provider stacks for the AWS, Azure, and Google simulation.
+
+  A stack names resources of one provider. `plan` runs each resource through
+  the sealed twin steps and returns the computed responses. Nothing is
+  applied: there is no cloud API, account, or credential."
+  (:require [clojure.string :as str]
+            [mithril.twin-sim :as twin]))
+
+(def context-uri "https://mithril.fund/context/v1")
+
+(def providers
+  {"aws" "com.amazonaws."
+   "azure" "com.microsoft.azure."
+   "google" "com.google.cloud."})
+
+(def ^:private stack-keys
+  #{"@context" "@type" "@id" "boundary" "provider" "name" "principal" "allow"
+    "permission-boundary" "quota" "consistency" "fault" "tls" "object" "contract"
+    "resources"})
+(def ^:private resource-keys #{"name" "domain" "operation" "action" "depends"})
+
+(defn- fail! [code detail]
+  (throw (ex-info detail {:mithril/error code :detail detail})))
+
+(defn- iri? [value]
+  (boolean (and (string? value)
+                (re-matches #"https://mithril\.fund/[A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=%-]+" value))))
+
+(defn- domain? [value]
+  (boolean (and (string? value) (re-matches #"[a-z][a-z0-9]*(\.[a-z][a-z0-9]*)+" value))))
+
+(defn- name? [value]
+  (boolean (and (string? value) (re-matches #"[a-z][a-z0-9-]{0,31}" value))))
+
+(defn- string-list? [value pattern limit]
+  (and (vector? value) (<= (count value) limit)
+       (every? #(and (string? %) (re-matches pattern %)) value)
+       (= (count value) (count (set value)))))
+
+(defn- local-name [symbol]
+  (last (str/split symbol #"/")))
+
+(defn- admit-resource [provider resource names]
+  (when-not (and (map? resource) (= resource-keys (set (keys resource))))
+    (fail! :mithril.stack/unknown-key "resource contains an unknown or missing key"))
+  (let [name (get resource "name")
+        domain (get resource "domain")
+        operation (get resource "operation")
+        action (get resource "action")
+        depends (get resource "depends")
+        prefix (get providers provider)]
+    (when-not (name? name)
+      (fail! :mithril.stack/invalid-resource "resource name must match [a-z][a-z0-9-]{0,31}"))
+    (when-not (and (domain? domain) (str/starts-with? domain prefix))
+      (fail! :mithril.stack/provider
+             (str provider " resources must use the " prefix " domain")))
+    (when-not (contains? twin/step-names operation)
+      (fail! :mithril.stack/unknown-operation "operation is outside the sealed twin steps"))
+    (when-not (and (string? action) (re-matches #"[A-Za-z0-9:*-]{1,64}" action))
+      (fail! :mithril.stack/invalid-resource "action must be 1 through 64 catalog characters"))
+    (when-not (string-list? depends #"[a-z][a-z0-9-]{0,31}" 32)
+      (fail! :mithril.stack/invalid-resource "depends must be unique resource names"))
+    (when (some #{name} depends)
+      (fail! :mithril.stack/cycle (str "resource depends on itself: " name)))
+    (when-let [missing (first (remove names depends))]
+      (fail! :mithril.stack/unknown-resource (str "depends names an unknown resource: " missing)))
+    resource))
+
+(defn- order-resources [resources]
+  (let [by-name (into {} (map (fn [resource] [(get resource "name") resource]) resources))]
+    (loop [pending (set (keys by-name))
+           done []]
+      (if (empty? pending)
+        (mapv by-name done)
+        (let [ready (sort (filter (fn [name]
+                                    (every? (set done) (get (get by-name name) "depends")))
+                                  pending))]
+          (when (empty? ready)
+            (fail! :mithril.stack/cycle
+                   (str "resource depends form a cycle: " (str/join " " (sort pending)))))
+          (recur (disj pending (first ready)) (conj done (first ready))))))))
+
+(defn admit
+  "Fail closed unless `doc` is one provider's simulation stack."
+  [doc]
+  (when-not (and (map? doc) (= "Stack" (get doc "@type")))
+    (fail! :mithril.stack/not-a-stack "@type must be Stack"))
+  (when-not (= context-uri (get doc "@context"))
+    (fail! :mithril.stack/unpinned-context "stack must use the pinned Mithril context"))
+  (when-not (= stack-keys (set (keys doc)))
+    (fail! :mithril.stack/unknown-key "stack contains an unknown or missing key"))
+  (when-not (= "simulation" (get doc "boundary"))
+    (fail! :mithril.stack/boundary "boundary must be simulation"))
+  (let [provider (get doc "provider")]
+    (when-not (contains? providers provider)
+      (fail! :mithril.stack/provider "provider must be aws, azure, or google"))
+    (when-not (iri? (get doc "@id"))
+      (fail! :mithril.stack/invalid-identifier "stack @id must be a mithril.fund IRI"))
+    (when-not (name? (get doc "name"))
+      (fail! :mithril.stack/invalid-resource "stack name must match [a-z][a-z0-9-]{0,31}"))
+    (when-not (and (string? (get doc "principal"))
+                   (re-matches #"[a-z][a-z0-9-]{0,63}" (get doc "principal")))
+      (fail! :mithril.stack/invalid-resource "principal must match [a-z][a-z0-9-]{0,63}"))
+    (when-not (string-list? (get doc "allow") #"[a-z][a-z0-9-]{0,63}" 32)
+      (fail! :mithril.stack/invalid-resource "allow must be unique principals"))
+    (when-not (string-list? (get doc "permission-boundary") #"[A-Za-z0-9:*-]{1,64}" 32)
+      (fail! :mithril.stack/invalid-resource "permission-boundary must be unique actions"))
+    (when-not (and (integer? (get doc "quota")) (<= 0 (get doc "quota") 1000000))
+      (fail! :mithril.stack/invalid-resource "quota must be an integer from 0 through 1000000"))
+    (when-not (contains? #{"strong" "eventual"} (get doc "consistency"))
+      (fail! :mithril.stack/invalid-resource "consistency must be strong or eventual"))
+    (when-not (contains? #{"none" "unavailable" "timeout"} (get doc "fault"))
+      (fail! :mithril.stack/invalid-resource "fault must be none, unavailable, or timeout"))
+    (when-not (contains? #{"ok" "refused"} (get doc "tls"))
+      (fail! :mithril.stack/invalid-resource "tls must be ok or refused"))
+    (when-not (contains? #{"unchecked" "holds" "violated"} (get doc "contract"))
+      (fail! :mithril.stack/invalid-resource "contract must be unchecked, holds, or violated"))
+    (when-not (and (string? (get doc "object")) (<= (count (get doc "object")) 256))
+      (fail! :mithril.stack/invalid-resource "object must be a string of at most 256 characters"))
+    (let [resources (get doc "resources")]
+      (when-not (and (vector? resources) (seq resources))
+        (fail! :mithril.stack/invalid-resource "a stack has at least one resource"))
+      (let [names (map #(get % "name") resources)]
+        (when-not (and (every? name? names) (= (count names) (count (set names))))
+          (fail! :mithril.stack/invalid-resource "resource names must be unique"))
+        (let [admitted (mapv #(admit-resource provider % (set names)) resources)]
+          (assoc doc "resources" (order-resources admitted)))))))
+
+(defn- exports-operation? [component operation]
+  (boolean (some #(= operation (local-name (:symbol %))) (:exports component))))
+
+(defn- run-of [doc resource]
+  {"@context" context-uri
+   "@type" "TwinRun"
+   "@id" (str (get doc "@id") "/" (get resource "name"))
+   "boundary" "simulation"
+   "domain" (get resource "domain")
+   "operation" (get resource "operation")
+   "principal" (get doc "principal")
+   "action" (get resource "action")
+   "allow" (get doc "allow")
+   "permission-boundary" (get doc "permission-boundary")
+   "quota" (get doc "quota")
+   "consistency" (get doc "consistency")
+   "fault" (get doc "fault")
+   "tls" (get doc "tls")
+   "object" (get doc "object")
+   "contract" (get doc "contract")})
+
+(defn plan
+  "Compute every resource in dependency order. `:applied` stays false."
+  [catalog doc]
+  (let [doc (admit doc)]
+    (doseq [resource (get doc "resources")]
+      (let [domain (get resource "domain")
+            component (get catalog domain)]
+        (when-not component
+          (fail! :mithril.stack/unknown-component (str "no component for " domain)))
+        (when-not (exports-operation? component (get resource "operation"))
+          (fail! :mithril.stack/unknown-operation
+                 (str domain " does not export " (get resource "operation"))))))
+    (let [resources (mapv (fn [resource]
+                            (let [result (twin/execute catalog (run-of doc resource))]
+                              {:name (get resource "name")
+                               :domain (get resource "domain")
+                               :operation (get resource "operation")
+                               :depends (vec (get resource "depends"))
+                               :status (get-in result [:response :status])
+                               :applied false
+                               :effects (:effects result)
+                               :return (:return result)}))
+                          (get doc "resources"))]
+      {:boundary "simulation"
+       :applied false
+       :provider (get doc "provider")
+       :name (get doc "name")
+       :resources resources})))

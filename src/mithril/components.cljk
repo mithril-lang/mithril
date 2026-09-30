@@ -1,0 +1,195 @@
+(ns mithril.components
+  "Reverse-domain Mithril components and their composition.
+
+  A domain file is lib/<domain segments>/v1.mith. Composition closes the
+  requested roots under requires, puts dependencies first, and refuses a
+  cycle or a duplicate export."
+  (:require [clojure.string :as str]
+            [mithril.form :as form]))
+
+(def context-uri "https://mithril.fund/context/v1")
+
+(def export-kinds
+  #{"mith:router" "mith:handler" "mith:view" "mith:effect"
+    "mith:collector" "mith:analyzer" "mith:store" "mith:governor"
+    "mith:reasoner" "mith:query" "mith:validator" "mith:compiler"
+    "mith:tester" "mith:deployer"})
+
+(def capabilities
+  #{"identity" "decision" "quota" "consistency" "fault" "tls"
+    "hypothesis" "object-store" "queue" "table" "function"
+    "http-mock" "contract" "cluster"})
+
+(def ^:private component-keys
+  #{"@context" "@type" "@id" "domain" "version" "provides" "requires" "exports"})
+(def ^:private assembly-keys #{"@context" "@type" "@id" "components"})
+(def ^:private export-keys #{"symbol" "kind" "label" "confidenceFloor"})
+
+(defn- fail! [code detail]
+  (throw (ex-info detail {:mithril/error code :detail detail})))
+
+(defn- domain? [value]
+  (boolean (and (string? value) (re-matches #"[a-z][a-z0-9]*(\.[a-z][a-z0-9]*)+" value))))
+
+(defn domain-of-relative
+  "com/amazonaws/s3/v1.mith -> com.amazonaws.s3"
+  [relative]
+  (let [parts (str/split relative #"/")]
+    (when-not (and (>= (count parts) 3)
+                   (= "v1.mith" (last parts))
+                   (every? #(re-matches #"[a-z][a-z0-9]*" %) (butlast parts)))
+      (fail! :mithril.component/path "component path must be <reverse-domain>/v1.mith"))
+    (str/join "." (butlast parts))))
+
+(defn- iri? [value]
+  (boolean (and (string? value)
+                (re-matches #"https://mithril\.fund/[A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=%-]+" value))))
+
+(defn- library-iri [domain]
+  (str "https://mithril.fund/lib/" (str/replace domain "." "/") "/v1"))
+
+(defn- admit-export [domain entry]
+  (when-not (and (map? entry) (= export-keys (set (keys entry))))
+    (fail! :mithril.component/invalid-export "export contains an unknown or missing key"))
+  (let [symbol (get entry "symbol")
+        kind (get entry "kind")
+        label (get entry "label")
+        floor (get entry "confidenceFloor")
+        prefix (str (library-iri domain) "/")]
+    (when-not (and (iri? symbol) (str/starts-with? symbol prefix))
+      (fail! :mithril.component/invalid-export "export symbol must sit under the domain IRI"))
+    (when-not (contains? export-kinds kind)
+      (fail! :mithril.component/unknown-export-kind (str "unknown export kind: " kind)))
+    (when-not (and (string? label) (<= 1 (count label) 128))
+      (fail! :mithril.component/invalid-export "export label must be 1 through 128 characters"))
+    (when-not (and (integer? floor) (<= 0 floor 10000))
+      (fail! :mithril.component/invalid-export "confidenceFloor must be an integer from 0 through 10000"))
+    {:symbol symbol :kind kind :label label :confidence-floor floor :domain domain}))
+
+(defn admit-component
+  ([doc] (admit-component doc nil))
+  ([doc expected-domain]
+   (when-not (and (map? doc) (= "Component" (get doc "@type")))
+     (fail! :mithril.component/not-a-component "@type must be Component"))
+   (when-not (= context-uri (get doc "@context"))
+     (fail! :mithril.component/unpinned-context "component must use the pinned Mithril context"))
+   (when-not (= component-keys (set (keys doc)))
+     (fail! :mithril.component/unknown-key "component contains an unknown or missing key"))
+   (let [domain (get doc "domain")
+         version (get doc "version")
+         provides (get doc "provides")
+         requires (get doc "requires")
+         exports (get doc "exports")]
+     (when-not (domain? domain)
+       (fail! :mithril.component/domain "domain must be a reverse-domain name"))
+     (when (and expected-domain (not= expected-domain domain))
+       (fail! :mithril.component/domain "domain does not match the component path"))
+     (when-not (= (library-iri domain) (get doc "@id"))
+       (fail! :mithril.component/invalid-identifier "component @id must be the domain library IRI"))
+     (when-not (and (integer? version) (pos? version))
+       (fail! :mithril.component/invalid-version "version must be a positive integer"))
+     (when-not (and (vector? provides) (seq provides)
+                    (every? capabilities provides)
+                    (= (count provides) (count (set provides))))
+       (fail! :mithril.component/capability "provides must be unique known capabilities"))
+     (when-not (and (vector? requires)
+                    (every? domain? requires)
+                    (= (count requires) (count (set requires)))
+                    (not (some #{domain} requires)))
+       (fail! :mithril.component/requires "requires must be unique other reverse domains"))
+     (when-not (and (vector? exports) (seq exports))
+       (fail! :mithril.component/missing-exports "a component exports at least one operation"))
+     (let [admitted (mapv #(admit-export domain %) exports)
+           symbols (map :symbol admitted)]
+       (when-not (= (count symbols) (count (set symbols)))
+         (fail! :mithril.component/duplicate-export "export symbols must be unique inside a component"))
+       {:id (get doc "@id")
+        :domain domain
+        :version version
+        :provides (vec (sort provides))
+        :requires (vec requires)
+        :exports admitted}))))
+
+(defn admit-assembly [doc]
+  (when-not (and (map? doc) (= "Assembly" (get doc "@type")))
+    (fail! :mithril.component/not-an-assembly "@type must be Assembly"))
+  (when-not (= context-uri (get doc "@context"))
+    (fail! :mithril.component/unpinned-context "assembly must use the pinned Mithril context"))
+  (when-not (= assembly-keys (set (keys doc)))
+    (fail! :mithril.component/unknown-key "assembly contains an unknown or missing key"))
+  (let [components (get doc "components")]
+    (when-not (iri? (get doc "@id"))
+      (fail! :mithril.component/invalid-identifier "assembly @id must be a mithril.fund IRI"))
+    (when-not (and (vector? components) (seq components)
+                   (every? domain? components)
+                   (= (count components) (count (set components))))
+      (fail! :mithril.component/components "assembly components must be unique reverse domains"))
+    {:id (get doc "@id") :components (vec components)}))
+
+(defn- reach [catalog domain seen]
+  (when-not (contains? catalog domain)
+    (fail! :mithril.component/unknown-component (str "no component for " domain)))
+  (if (contains? seen domain)
+    seen
+    (reduce (fn [seen required] (reach catalog required seen))
+            (conj seen domain)
+            (:requires (get catalog domain)))))
+
+(defn- order [catalog domains]
+  (loop [pending (set domains)
+         done []]
+    (if (empty? pending)
+      done
+      (let [ready (sort (filter (fn [domain]
+                                  (every? (set done) (:requires (get catalog domain))))
+                                pending))]
+        (when (empty? ready)
+          (fail! :mithril.component/cycle
+                 (str "component requires form a cycle: " (str/join " " (sort pending)))))
+        (recur (disj pending (first ready)) (conj done (first ready)))))))
+
+(defn compose
+  "Close `roots` under requires. Dependencies precede the components that use them."
+  [catalog roots]
+  (when-not (and (vector? roots) (seq roots))
+    (fail! :mithril.component/components "compose needs at least one root domain"))
+  (let [closed (reduce (fn [seen domain] (reach catalog domain seen)) #{} roots)
+        domains (order catalog closed)
+        exports (vec (mapcat :exports (map catalog domains)))
+        symbols (map :symbol exports)]
+    (when-not (= (count symbols) (count (set symbols)))
+      (fail! :mithril.component/duplicate-export "composed export symbols must be unique"))
+    {:domains domains
+     :provides (vec (sort (set (mapcat :provides (map catalog domains)))))
+     :exports exports}))
+
+(defn compose-assembly [catalog assembly]
+  (compose catalog (:components (admit-assembly assembly))))
+
+(defn- source-files [fs dir prefix]
+  (mapcat (fn [name]
+            (let [path (str dir "/" name)
+                  rel (if (seq prefix) (str prefix "/" name) name)]
+              (if (.isDirectory (.statSync fs path))
+                (source-files fs path rel)
+                (when (str/ends-with? rel "/v1.mith")
+                  (let [text (.readFileSync fs path "utf8")]
+                    (when (form/source? text)
+                      [{:relative rel :text text}]))))))
+          (vec (js->clj (.readdirSync fs dir)))))
+
+(defn load-catalog
+  "Read every form component at <root>/<reverse-domain path>/v1.mith."
+  [root]
+  (let [files (source-files (js/require "fs") root "")
+        catalog (reduce (fn [catalog {:keys [relative text]}]
+                          (let [domain (domain-of-relative relative)
+                                admitted (admit-component (form/parse text) domain)]
+                            (when (contains? catalog domain)
+                              (fail! :mithril.component/duplicate-component
+                                     (str "duplicate component: " domain)))
+                            (assoc catalog domain admitted)))
+                        {} files)]
+    (when (empty? catalog)
+      (fail! :mithril.component/empty "no components were found"))
+    catalog))

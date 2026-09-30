@@ -1,0 +1,52 @@
+(ns mithril.cluster-test
+  (:require [cljs.test :refer [deftest is testing]]
+            [clojure.string :as str]
+            [mithril.cluster :as cluster]
+            [mithril.form :as form]))
+
+(defn read-text [path] (.readFileSync (js/require "fs") path "utf8"))
+(defn error-code [f] (try (f) nil (catch :default e (:mithril/error (ex-data e)))))
+
+(defn demo []
+  (form/parse (read-text "examples/clusters/cloud-simulation.mith")))
+
+(defn running [name image]
+  {:name name :image image :status "running"})
+
+(deftest cluster-renders-and-verifies
+  (let [doc (demo)
+        yaml (cluster/render doc)
+        seen (atom [])
+        observed (cluster/observe doc (fn [runtime]
+                                        (swap! seen conj runtime)
+                                        [(running "azurite" "mcr.microsoft.com/azure-storage/azurite:3")
+                                         (running "localstack" "localstack/localstack:3")
+                                         (running "wiremock" "wiremock/wiremock:3")]))
+        missing (cluster/verify doc [])
+        stopped (cluster/verify doc [(assoc (running "localstack" "localstack/localstack:3")
+                                            :status "exited")])]
+    (is (str/includes? yaml "image: \"localstack/localstack:3\""))
+    (is (str/includes? yaml "depends_on:"))
+    (is (< (.indexOf yaml "  localstack:") (.indexOf yaml "  wiremock:")))
+    (is (= ["docker"] @seen))
+    (is (= "holds" (:status observed)))
+    (is (false? (:applied observed)))
+    (is (= "diverged" (:status missing)))
+    (is (= "stopped" (:finding (first (filter #(= "localstack" (:name %)) (:services stopped))))))
+    (is (= "image-mismatch"
+           (:finding (first (filter #(= "localstack" (:name %))
+                                    (:services (cluster/verify doc [(running "localstack" "other/image:1")])))))))
+    (is (= "podman" (get (cluster/admit (assoc doc "runtime" "podman")) "runtime")))))
+
+(deftest cluster-refuses-host-control
+  (let [doc (demo)]
+    (testing "the socket, a cycle, and an unknown runtime are refused"
+      (is (= :mithril.cluster/forbidden
+             (error-code #(cluster/admit (assoc-in doc ["services" 0 "image"] "docker.sock/hook:1")))))
+      (is (= :mithril.cluster/cycle
+             (error-code #(cluster/admit
+                            (assoc doc "services"
+                                   [(assoc (first (get doc "services")) "depends" ["wiremock"])
+                                    (assoc (nth (get doc "services") 2) "depends" ["localstack"])])))))
+      (is (= :mithril.cluster/runtime
+             (error-code #(cluster/admit (assoc doc "runtime" "kubernetes"))))))))

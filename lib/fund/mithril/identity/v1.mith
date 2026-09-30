@@ -1,0 +1,11 @@
+(mithril/component
+  :id "https://mithril.fund/lib/fund/mithril/identity/v1"
+  :domain "fund.mithril.identity"
+  :version 1
+  :provides ["identity"]
+  :requires []
+  :exports [(mithril/export
+              :symbol "https://mithril.fund/lib/fund/mithril/identity/v1/governor/principal"
+              :kind "mith:governor"
+              :label "name the principal a simulation may act as"
+              :confidence-floor 6000)])

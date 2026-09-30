@@ -1,0 +1,32 @@
+(mithril/stack
+  :id "https://mithril.fund/stack/azure/app/v1"
+  :boundary "simulation"
+  :provider "azure"
+  :name "app"
+  :principal "sim-reader"
+  :allow ["sim-reader"]
+  :permission-boundary ["storage:GetBlob" "servicebus:Send" "cosmos:ReadItem"]
+  :quota 2
+  :consistency "eventual"
+  :fault "none"
+  :tls "ok"
+  :object "hello"
+  :contract "unchecked"
+  :resources [(mithril/resource
+                :name "blob"
+                :domain "com.microsoft.azure.storage"
+                :operation "get-blob"
+                :action "storage:GetBlob"
+                :depends [])
+              (mithril/resource
+                :name "topic"
+                :domain "com.microsoft.azure.servicebus"
+                :operation "send"
+                :action "servicebus:Send"
+                :depends ["blob"])
+              (mithril/resource
+                :name "item"
+                :domain "com.microsoft.azure.cosmos"
+                :operation "read-item"
+                :action "cosmos:ReadItem"
+                :depends [])])

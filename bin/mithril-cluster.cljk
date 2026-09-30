@@ -1,0 +1,37 @@
+(ns mithril.cluster-cli
+  "Render or verify a Mithril cluster document.
+
+  observe asks docker or podman for `ps` and does not start containers."
+  (:require [mithril.cluster :as cluster]
+            [mithril.form :as form]
+            ["node:fs" :as fs]))
+
+(defn- refuse! [code detail exit-code]
+  (println (str "REFUSE\t" (name code) "\t" detail))
+  (.exit js/process exit-code))
+
+(defn- keyword-string [x]
+  (if-let [ns (namespace x)] (str ns "/" (name x)) (name x)))
+
+(defn- json-safe [x]
+  (cond
+    (keyword? x) (keyword-string x)
+    (map? x) (into {} (map (fn [[k v]] [(if (keyword? k) (keyword-string k) k)
+                                         (json-safe v)]) x))
+    (vector? x) (mapv json-safe x)
+    :else x))
+
+(let [[command path & extra] *command-line-args*]
+  (when-not (and command path (empty? extra)
+                 (contains? #{"render" "verify" "observe"} command))
+    (println "usage: mithril-cluster <render|verify|observe> <cluster.mith>")
+    (.exit js/process 2))
+  (try
+    (let [doc (form/parse (.readFileSync fs path "utf8"))]
+      (case command
+        "render" (print (cluster/render doc))
+        "verify" (println (.stringify js/JSON (clj->js (json-safe (cluster/verify doc []))) nil 2))
+        "observe" (println (.stringify js/JSON (clj->js (json-safe (cluster/observe doc))) nil 2))))
+    (catch :default e
+      (refuse! (or (some-> e ex-data :mithril/error) :mithril/runtime-error)
+               (.-message e) 1))))

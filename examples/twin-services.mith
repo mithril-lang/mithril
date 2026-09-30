@@ -1,0 +1,58 @@
+(mithril/twin-service
+  :id "https://mithril.fund/twin/services/v1"
+  :boundary "simulation"
+  :services
+  [(mithril/service
+     :name "models"
+     :routes
+     [(mithril/route
+        :method "GET"
+        :path "/v1/models"
+        :kind "static"
+        :status 200
+        :content-type "application/json; charset=utf-8"
+        :return (rdf/node
+                  :object "list"
+                  :data [(rdf/node :model "twin-small" :availability "simulation")]))])
+   (mithril/service
+     :name "billing"
+     :routes
+     [(mithril/route
+        :method "GET"
+        :path "/v1/billing/catalog"
+        :kind "static"
+        :status 200
+        :content-type "application/json; charset=utf-8"
+        :return (rdf/node
+                  :object "catalog"
+                  :purchase false
+                  :plans [(rdf/node :plan "twin-observe" :amount 0)]))
+      (mithril/route
+        :method "POST"
+        :path "/v1/billing/checkout"
+        :kind "record"
+        :status 200
+        :content-type "application/json; charset=utf-8"
+        :return (rdf/node :object "checkout" :applied false :simulated true))])
+   (mithril/service
+     :name "echo"
+     :routes
+     [(mithril/route
+        :method "POST"
+        :path "/v1/echo"
+        :kind "echo"
+        :status 200)])
+   (mithril/service
+     :name "graph"
+     :routes
+     [(mithril/route
+        :method "GET"
+        :path "/v1/hypothesis"
+        :kind "static"
+        :status 200
+        :content-type "application/json; charset=utf-8"
+        :return (rdf/node
+                  :object "hypothesis"
+                  :honesty "hypothesis"
+                  :observation-count 0
+                  :paths []))])])

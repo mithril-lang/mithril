@@ -1,0 +1,369 @@
+(ns mithril.twin-sim
+  "Simulate service APIs declared as a Mithril twin-service document.
+
+  The document is the code. `invoke` returns an HTTP response and a typed
+  return value. Nothing is applied: there is no socket, DNS, credential, or
+  host call. A route of kind `record` is kept on the receipt with
+  `:applied false`."
+  (:require [clojure.string :as str]
+            [mithril.components :as components]))
+
+(def context-uri "https://mithril.fund/context/v1")
+
+(def ^:private document-keys #{"@context" "@type" "@id" "boundary" "services"})
+(def ^:private service-keys #{"name" "routes"})
+(def ^:private route-keys #{"method" "path" "kind" "status" "contentType" "return"})
+(def ^:private methods #{"GET" "HEAD" "POST" "PUT" "PATCH" "DELETE"})
+(def ^:private kinds #{"static" "echo" "record"})
+(def ^:private forbidden-keys
+  #{"url" "uri" "host" "endpoint" "secret" "token" "authorization" "webhook"
+    "fetch" "sql" "shell" "password" "credential" "callback" "href"})
+
+(defn- fail! [code detail]
+  (throw (ex-info detail {:mithril/error code :detail detail})))
+
+(defn- json [value]
+  (cond
+    (nil? value) "null"
+    (true? value) "true"
+    (false? value) "false"
+    (string? value)
+    (str "\""
+         (str/escape value {\\ "\\\\" \" "\\\"" \newline "\\n" \return "\\r" \tab "\\t"})
+         "\"")
+    (integer? value) (str value)
+    (vector? value) (str "[" (str/join "," (map json value)) "]")
+    (map? value)
+    (str "{"
+         (str/join ","
+                   (map (fn [[k v]] (str (json k) ":" (json v)))
+                        (sort-by key value)))
+         "}")
+    :else (fail! :mithril.twin/invalid-return "return value is not JSON data")))
+
+(defn- static-path? [path]
+  (boolean (re-matches #"/(?:[A-Za-z0-9._~-]+(?:/[A-Za-z0-9._~-]+)*)?" path)))
+
+(defn- walk-keys [value]
+  (cond
+    (map? value)
+    (doseq [[k v] value]
+      (when (contains? forbidden-keys k)
+        (fail! :mithril.twin/forbidden-key
+               (str "twin services cannot name a live target or secret: " k)))
+      (walk-keys v))
+    (vector? value) (doseq [v value] (walk-keys v))))
+
+(defn- json-data? [value]
+  (cond
+    (or (nil? value) (string? value) (integer? value) (boolean? value)) true
+    (vector? value) (every? json-data? value)
+    (map? value) (and (every? string? (keys value))
+                      (every? json-data? (vals value)))
+    :else false))
+
+(defn- admit-return [route kind]
+  (let [return (get route "return")]
+    (cond
+      (= kind "echo")
+      (when (contains? route "return")
+        (fail! :mithril.twin/invalid-return "echo routes compute return from the request"))
+
+      (contains? #{"static" "record"} kind)
+      (do
+        (when-not (map? return)
+          (fail! :mithril.twin/invalid-return "static and record routes return a map"))
+        (when-not (json-data? return)
+          (fail! :mithril.twin/invalid-return "return values are strings, integers, booleans, arrays, and maps"))
+        (walk-keys return)
+        (when (and (= kind "record")
+                   (not (and (false? (get return "applied"))
+                             (true? (get return "simulated")))))
+          (fail! :mithril.twin/record-not-simulated
+                 "a record route returns applied false and simulated true")))
+
+      :else
+      (fail! :mithril.twin/invalid-route "kind is static, echo, or record"))))
+
+(defn- admit-route [route]
+  (when-not (and (map? route) (every? route-keys (keys route)))
+    (fail! :mithril.twin/unknown-key "route contains an unknown key"))
+  (let [method (get route "method")
+        path (get route "path")
+        kind (get route "kind")
+        status (get route "status")
+        content-type (get route "contentType")]
+    (when-not (contains? methods method)
+      (fail! :mithril.twin/invalid-route "method is outside the twin catalog"))
+    (when-not (and (string? path) (static-path? path))
+      (fail! :mithril.twin/invalid-route "path must be a static absolute path"))
+    (when-not (contains? kinds kind)
+      (fail! :mithril.twin/invalid-route "kind is static, echo, or record"))
+    (when-not (and (integer? status) (<= 100 status 599))
+      (fail! :mithril.twin/invalid-route "status must be 100 through 599"))
+    (if (= kind "echo")
+      (when (contains? route "contentType")
+        (fail! :mithril.twin/invalid-route "echo routes use the runtime JSON content type"))
+      (when-not (and (string? content-type)
+                     (<= (count content-type) 128)
+                     (not (re-find #"[\r\n]" content-type)))
+        (fail! :mithril.twin/invalid-route "contentType must be one line of at most 128 characters")))
+    (admit-return route kind)
+    route))
+
+(defn- admit-service [service]
+  (when-not (and (map? service) (every? service-keys (keys service)))
+    (fail! :mithril.twin/unknown-key "service contains an unknown key"))
+  (let [name (get service "name")
+        routes (get service "routes")]
+    (when-not (and (string? name) (re-matches #"[a-z][a-z0-9-]{0,31}" name))
+      (fail! :mithril.twin/invalid-service "service name must match [a-z][a-z0-9-]{0,31}"))
+    (when-not (and (vector? routes) (seq routes))
+      (fail! :mithril.twin/invalid-service "a service has at least one route"))
+    (let [admitted (mapv admit-route routes)
+          identities (map (juxt #(get % "method") #(get % "path")) admitted)]
+      (when-not (= (count identities) (count (set identities)))
+        (fail! :mithril.twin/duplicate-route "method and path pairs must be unique inside a service"))
+      (assoc service "routes" admitted))))
+
+(defn admit
+  "Fail closed unless `doc` is a simulation twin of service APIs."
+  [doc]
+  (when-not (and (map? doc) (= "TwinService" (get doc "@type")))
+    (fail! :mithril.twin/not-a-twin-service "@type must be TwinService"))
+  (when-not (= context-uri (get doc "@context"))
+    (fail! :mithril.twin/unpinned-context "twin service must use the pinned Mithril context"))
+  (when-not (every? document-keys (keys doc))
+    (fail! :mithril.twin/unknown-key "twin service contains an unknown key"))
+  (when-not (= "simulation" (get doc "boundary"))
+    (fail! :mithril.twin/boundary "boundary must be simulation"))
+  (let [services (get doc "services")]
+    (when-not (and (vector? services) (seq services))
+      (fail! :mithril.twin/invalid-service "services must be a non-empty array"))
+    (walk-keys (dissoc doc "@context" "@id"))
+    (let [admitted (mapv admit-service services)
+          names (map #(get % "name") admitted)]
+      (when-not (= (count names) (count (set names)))
+        (fail! :mithril.twin/duplicate-service "service names must be unique"))
+      (assoc doc "services" admitted))))
+
+(defn- find-route [doc service-name method path]
+  (let [service (first (filter #(= service-name (get % "name")) (get doc "services")))]
+    (when-not service
+      (fail! :mithril.twin/unknown-service (str "no twin service named " service-name)))
+    (first (filter #(and (= method (get % "method")) (= path (get % "path")))
+                   (get service "routes")))))
+
+(defn- response-of [status content-type body return-value effects service]
+  {:boundary "simulation"
+   :applied false
+   :service service
+   :effects effects
+   :response {:status status
+              :headers {"content-type" content-type}
+              :body body}
+   :return return-value})
+
+(defn invoke
+  "Answer one request from an admitted twin. `:applied` is always false."
+  [doc request]
+  (let [doc (admit doc)
+        service (get request :service)
+        method (get request :method)
+        path (get request :path)
+        body (get request :body)]
+    (when-not (and (string? service) (string? method) (string? path))
+      (fail! :mithril.twin/invalid-request "request service, method, and path must be strings"))
+    (when-not (every? #{:service :method :path :body} (keys request))
+      (fail! :mithril.twin/invalid-request "request keys are service, method, path, and body"))
+    (if-let [route (find-route doc service method path)]
+      (let [kind (get route "kind")]
+        (when (and (contains? request :body) (not= kind "echo"))
+          (fail! :mithril.twin/unexpected-body "only echo routes accept a request body"))
+        (when (and (= kind "echo") (contains? request :body)
+                   (not (and (string? body) (<= (count body) 4096))))
+          (fail! :mithril.twin/invalid-request "echo body must be a string of at most 4096 characters"))
+        (let [return-value (case kind
+                             "echo" {"object" "echo"
+                                     "method" method
+                                     "path" path
+                                     "body" (if (contains? request :body) body nil)}
+                             (get route "return"))
+              content-type (if (= kind "echo")
+                             "application/json; charset=utf-8"
+                             (get route "contentType"))
+              encoded (json return-value)
+              effects (if (= kind "record")
+                        [{:kind "record"
+                          :service service
+                          :method method
+                          :path path
+                          :applied false}]
+                        [])]
+          (when (< 65536 (count encoded))
+            (fail! :mithril.twin/invalid-return "encoded return exceeds 65536 characters"))
+          (response-of (get route "status")
+                       content-type
+                       (if (= method "HEAD") "" encoded)
+                       return-value
+                       effects
+                       service)))
+      (response-of 404
+                   "application/json; charset=utf-8"
+                   (if (= method "HEAD") "" "{\"object\":\"error\",\"status\":404}")
+                   {"object" "error" "status" 404}
+                   []
+                   service))))
+
+(def ^:private run-keys
+  #{"@context" "@type" "@id" "boundary" "domain" "operation" "principal" "action" "allow"
+    "permission-boundary" "quota" "consistency" "fault" "tls" "object" "contract"})
+
+(def step-names
+  #{"principal" "decide" "take" "read-view" "inject" "handshake" "hypothesis"
+    "evaluate-policy" "get-object" "put-object" "receive" "get-item" "invoke"
+    "get-blob" "send" "read-item" "publish" "get-document" "stub" "interaction"
+    "verify"})
+
+(def ^:private reads #{"get-object" "receive" "get-item" "get-blob" "read-item" "get-document"})
+(def ^:private writes #{"put-object" "send" "publish" "invoke"})
+
+(defn- local-name [symbol]
+  (last (str/split symbol #"/")))
+
+(defn- string-list? [value pattern limit]
+  (and (vector? value) (<= (count value) limit)
+       (every? #(and (string? %) (re-matches pattern %)) value)
+       (= (count value) (count (set value)))))
+
+(defn- admit-run [doc]
+  (when-not (and (map? doc) (= "TwinRun" (get doc "@type")))
+    (fail! :mithril.twin/not-a-run "@type must be TwinRun"))
+  (when-not (= context-uri (get doc "@context"))
+    (fail! :mithril.twin/unpinned-context "twin run must use the pinned Mithril context"))
+  (when-not (= run-keys (set (keys doc)))
+    (fail! :mithril.twin/unknown-key "twin run contains an unknown or missing key"))
+  (when-not (= "simulation" (get doc "boundary"))
+    (fail! :mithril.twin/boundary "boundary must be simulation"))
+  (when-not (and (string? (get doc "domain"))
+                 (re-matches #"[a-z][a-z0-9]*(\.[a-z][a-z0-9]*)+" (get doc "domain")))
+    (fail! :mithril.twin/invalid-request "domain must be a reverse-domain name"))
+  (when-not (contains? step-names (get doc "operation"))
+    (fail! :mithril.twin/unimplemented "operation is outside the sealed twin steps"))
+  (when-not (and (string? (get doc "principal"))
+                 (re-matches #"[a-z][a-z0-9-]{0,63}" (get doc "principal")))
+    (fail! :mithril.twin/invalid-request "principal must match [a-z][a-z0-9-]{0,63}"))
+  (when-not (and (string? (get doc "action"))
+                 (re-matches #"[A-Za-z0-9:*-]{1,64}" (get doc "action")))
+    (fail! :mithril.twin/invalid-request "action must be 1 through 64 catalog characters"))
+  (when-not (string-list? (get doc "allow") #"[a-z][a-z0-9-]{0,63}" 32)
+    (fail! :mithril.twin/invalid-request "allow must be unique principals"))
+  (when-not (string-list? (get doc "permission-boundary") #"[A-Za-z0-9:*-]{1,64}" 32)
+    (fail! :mithril.twin/invalid-request "permission-boundary must be unique actions"))
+  (when-not (and (integer? (get doc "quota")) (<= 0 (get doc "quota") 1000000))
+    (fail! :mithril.twin/invalid-request "quota must be an integer from 0 through 1000000"))
+  (when-not (contains? #{"strong" "eventual"} (get doc "consistency"))
+    (fail! :mithril.twin/invalid-request "consistency must be strong or eventual"))
+  (when-not (contains? #{"none" "unavailable" "timeout"} (get doc "fault"))
+    (fail! :mithril.twin/invalid-request "fault must be none, unavailable, or timeout"))
+  (when-not (contains? #{"ok" "refused"} (get doc "tls"))
+    (fail! :mithril.twin/invalid-request "tls must be ok or refused"))
+  (when-not (contains? #{"unchecked" "holds" "violated"} (get doc "contract"))
+    (fail! :mithril.twin/invalid-request "contract must be unchecked, holds, or violated"))
+  (when-not (and (string? (get doc "object")) (<= (count (get doc "object")) 256))
+    (fail! :mithril.twin/invalid-request "object must be a string of at most 256 characters"))
+  doc)
+
+(defn- block [state status reason]
+  (if (:block state) state (assoc state :block {:status status :reason reason})))
+
+(defn- admitted? [state]
+  (and (nil? (:block state)) (= "allow" (:decision state))))
+
+(defn- step [run state local]
+  (cond
+    (= local "principal") (assoc state :principal (get run "principal"))
+    (= local "decide") (assoc state :decision (if (some #{(get run "principal")} (get run "allow"))
+                                                "allow" "deny"))
+    (= local "evaluate-policy")
+    (assoc state :decision
+           (if (and (= "allow" (:decision state))
+                    (some #{(get run "action")} (get run "permission-boundary")))
+             "allow" "deny"))
+    (= local "take") (if (pos? (get run "quota"))
+                       (assoc state :remaining (dec (get run "quota")))
+                       (block state 429 "quota"))
+    (= local "read-view") (assoc state :consistency (get run "consistency"))
+    (= local "inject") (if (= "none" (get run "fault"))
+                         state
+                         (block state 503 (get run "fault")))
+    (= local "handshake") (if (= "ok" (get run "tls"))
+                            state
+                            (block state 403 "tls"))
+    (= local "hypothesis") (assoc state :honesty "hypothesis" :observation-count 0)
+    (= local "interaction") (assoc state :contract (get run "contract"))
+    (= local "verify") (assoc state :cluster "declared")
+    (= local "stub") (assoc state :stub true)
+    (contains? reads local) (if (admitted? state) (assoc state :object (get run "object")) state)
+    (contains? writes local) (if (admitted? state) (assoc state :recorded true) state)
+    :else (fail! :mithril.twin/unimplemented (str "no twin step for " local))))
+
+(defn- return-value [run state primary status]
+  (cond-> {"applied" false
+           "domain" (get run "domain")
+           "operation" primary
+           "decision" (:decision state)
+           "status" status}
+    (some? (:remaining state)) (assoc "remaining" (:remaining state))
+    (:consistency state) (assoc "consistency" (:consistency state))
+    (:principal state) (assoc "principal" (:principal state))
+    (and (= 200 status) (contains? reads primary)) (assoc "object" (:object state))
+    (and (= 200 status) (contains? writes primary)) (assoc "recorded" true)
+    (:honesty state) (assoc "honesty" (:honesty state)
+                            "observation-count" (:observation-count state))
+    (:contract state) (assoc "contract" (:contract state))
+    (:cluster state) (assoc "cluster" (:cluster state))
+    (:stub state) (assoc "stub" true)
+    (:block state) (assoc "reason" (:reason (:block state)))))
+
+(defn execute
+  "Run one composed domain. Steps are the sealed exports in dependency order.
+  The returned response is computed from those steps. Nothing is applied."
+  [catalog run]
+  (let [run (admit-run run)
+        composed (components/compose catalog [(get run "domain")])
+        operation (get run "operation")
+        exports (filterv (fn [export]
+                           (or (not= (get run "domain") (:domain export))
+                               (= operation (local-name (:symbol export)))))
+                         (:exports composed))
+        _ (when-not (some #(and (= (get run "domain") (:domain %))
+                                (= operation (local-name (:symbol %))))
+                          exports)
+            (fail! :mithril.twin/unknown-service
+                   (str "domain does not export " operation)))
+        state (reduce (fn [state export]
+                        (let [local (local-name (:symbol export))]
+                          (when-not (contains? step-names local)
+                            (fail! :mithril.twin/unimplemented (str "no twin step for " local)))
+                          (step run state local)))
+                      {:decision "unset" :block nil}
+                      exports)
+        primary operation
+        status (cond (:block state) (:status (:block state))
+                     (= "deny" (:decision state)) 403
+                     :else 200)
+        return-value (return-value run state primary status)
+        effects (if (and (= 200 status) (contains? writes primary))
+                  [{:kind "record" :operation primary :applied false}]
+                  [])]
+    {:boundary "simulation"
+     :applied false
+     :domain (get run "domain")
+     :operation primary
+     :exports (mapv :symbol exports)
+     :effects effects
+     :response {:status status
+                :headers {"content-type" "application/json; charset=utf-8"}
+                :body (json return-value)}
+     :return return-value}))

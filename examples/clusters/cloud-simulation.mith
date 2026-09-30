@@ -1,0 +1,20 @@
+(mithril/cluster
+  :id "https://mithril.fund/cluster/cloud-simulation/v1"
+  :boundary "simulation"
+  :runtime "docker"
+  :name "cloud-simulation"
+  :services [(mithril/service
+               :name "localstack"
+               :image "localstack/localstack:3"
+               :ports ["4566:4566"]
+               :depends [])
+             (mithril/service
+               :name "azurite"
+               :image "mcr.microsoft.com/azure-storage/azurite:3"
+               :ports ["10000:10000"]
+               :depends [])
+             (mithril/service
+               :name "wiremock"
+               :image "wiremock/wiremock:3"
+               :ports ["8080:8080"]
+               :depends ["localstack"])])

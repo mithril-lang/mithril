@@ -1,0 +1,11 @@
+(mithril/component
+  :id "https://mithril.fund/lib/fund/mithril/tls/v1"
+  :domain "fund.mithril.tls"
+  :version 1
+  :provides ["tls"]
+  :requires []
+  :exports [(mithril/export
+              :symbol "https://mithril.fund/lib/fund/mithril/tls/v1/validator/handshake"
+              :kind "mith:validator"
+              :label "admit or refuse a declared TLS handshake outcome"
+              :confidence-floor 6000)])

@@ -28,14 +28,20 @@
    'mithril/hermes-bpmn-coding-scheduler-contract "HermesBpmnCodingSchedulerContract"
    'mithril/edit-proposal "EditProposal"
    'mithril/desktop-application "DesktopApplication"
-   'mithril/ontology "Ontology"})
+   'mithril/ontology "Ontology"
+   'mithril/twin-service "TwinService"
+   'mithril/component "Component"
+   'mithril/assembly "Assembly"
+   'mithril/stack "Stack"
+   'mithril/twin-run "TwinRun"
+   'mithril/cluster "Cluster"})
 
 (def ^:private nested-tags
   #{'mithril/choice 'mithril/export 'mithril/import 'mithril/route
     'mithril/source 'mithril/loop 'mithril/app 'mithril/page
     'mithril/agent-loop 'mithril/bot-policy 'mithril/growth-policy
     'mithril/growth-action 'mithril/hermes-job
-    'mithril/actor 'mithril/activity 'rdf/node})
+    'mithril/actor 'mithril/activity 'mithril/service 'mithril/resource 'rdf/node})
 
 (def ^:private typed-node-tags
   {'owl/class "owl:Class"

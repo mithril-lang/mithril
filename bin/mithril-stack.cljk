@@ -1,0 +1,35 @@
+(ns mithril.stack-cli
+  "Plan one AWS, Azure, or Google simulation stack."
+  (:require [mithril.components :as components]
+            [mithril.form :as form]
+            [mithril.stack :as stack]
+            ["node:fs" :as fs]))
+
+(defn- refuse! [code detail exit-code]
+  (println (str "REFUSE\t" (name code) "\t" detail))
+  (.exit js/process exit-code))
+
+(defn- keyword-string [x]
+  (if-let [ns (namespace x)] (str ns "/" (name x)) (name x)))
+
+(defn- json-safe [x]
+  (cond
+    (keyword? x) (keyword-string x)
+    (map? x) (into {} (map (fn [[k v]] [(if (keyword? k) (keyword-string k) k)
+                                         (json-safe v)]) x))
+    (vector? x) (mapv json-safe x)
+    :else x))
+
+(let [[root stack-path & extra] *command-line-args*]
+  (when-not (and root stack-path (empty? extra))
+    (println "usage: mithril-stack <lib-root> <stack.mith>")
+    (.exit js/process 2))
+  (try
+    (println (.stringify js/JSON
+                         (clj->js (json-safe
+                                   (stack/plan (components/load-catalog root)
+                                               (form/parse (.readFileSync fs stack-path "utf8")))))
+                         nil 2))
+    (catch :default e
+      (refuse! (or (some-> e ex-data :mithril/error) :mithril/runtime-error)
+               (.-message e) 1))))

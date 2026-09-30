@@ -1,0 +1,11 @@
+(mithril/component
+  :id "https://mithril.fund/lib/com/amazonaws/iam/v1"
+  :domain "com.amazonaws.iam"
+  :version 1
+  :provides ["decision"]
+  :requires ["fund.mithril.authz"]
+  :exports [(mithril/export
+              :symbol "https://mithril.fund/lib/com/amazonaws/iam/v1/governor/evaluate-policy"
+              :kind "mith:governor"
+              :label "evaluate a declared IAM policy and permission boundary"
+              :confidence-floor 6000)])

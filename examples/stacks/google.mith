@@ -1,0 +1,26 @@
+(mithril/stack
+  :id "https://mithril.fund/stack/google/app/v1"
+  :boundary "simulation"
+  :provider "google"
+  :name "app"
+  :principal "sim-reader"
+  :allow ["sim-reader"]
+  :permission-boundary ["pubsub:Publish" "firestore:GetDocument"]
+  :quota 2
+  :consistency "eventual"
+  :fault "none"
+  :tls "ok"
+  :object "hello"
+  :contract "unchecked"
+  :resources [(mithril/resource
+                :name "document"
+                :domain "com.google.cloud.firestore"
+                :operation "get-document"
+                :action "firestore:GetDocument"
+                :depends [])
+              (mithril/resource
+                :name "topic"
+                :domain "com.google.cloud.pubsub"
+                :operation "publish"
+                :action "pubsub:Publish"
+                :depends ["document"])])

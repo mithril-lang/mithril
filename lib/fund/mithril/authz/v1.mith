@@ -1,0 +1,11 @@
+(mithril/component
+  :id "https://mithril.fund/lib/fund/mithril/authz/v1"
+  :domain "fund.mithril.authz"
+  :version 1
+  :provides ["decision"]
+  :requires ["fund.mithril.identity"]
+  :exports [(mithril/export
+              :symbol "https://mithril.fund/lib/fund/mithril/authz/v1/governor/decide"
+              :kind "mith:governor"
+              :label "decide allow or deny for a principal and action"
+              :confidence-floor 6000)])

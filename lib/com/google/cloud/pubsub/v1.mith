@@ -1,0 +1,11 @@
+(mithril/component
+  :id "https://mithril.fund/lib/com/google/cloud/pubsub/v1"
+  :domain "com.google.cloud.pubsub"
+  :version 1
+  :provides ["queue"]
+  :requires ["fund.mithril.authz" "fund.mithril.quota" "fund.mithril.fault"]
+  :exports [(mithril/export
+              :symbol "https://mithril.fund/lib/com/google/cloud/pubsub/v1/store/publish"
+              :kind "mith:store"
+              :label "record a Pub/Sub publish without delivering it"
+              :confidence-floor 6000)])

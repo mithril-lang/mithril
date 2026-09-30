@@ -1,0 +1,34 @@
+(ns mithril.components-cli
+  "Compose reverse-domain Mithril components named by an assembly."
+  (:require [mithril.components :as components]
+            [mithril.form :as form]
+            ["node:fs" :as fs]))
+
+(defn- refuse! [code detail exit-code]
+  (println (str "REFUSE\t" (name code) "\t" detail))
+  (.exit js/process exit-code))
+
+(defn- keyword-string [x]
+  (if-let [ns (namespace x)] (str ns "/" (name x)) (name x)))
+
+(defn- json-safe [x]
+  (cond
+    (keyword? x) (keyword-string x)
+    (map? x) (into {} (map (fn [[k v]] [(if (keyword? k) (keyword-string k) k)
+                                         (json-safe v)]) x))
+    (vector? x) (mapv json-safe x)
+    (set? x) (mapv json-safe (sort x))
+    :else x))
+
+(let [[root assembly-path & extra] *command-line-args*]
+  (when-not (and root assembly-path (empty? extra))
+    (println "usage: mithril-components <lib-root> <assembly.mith>")
+    (.exit js/process 2))
+  (try
+    (let [catalog (components/load-catalog root)
+          assembly (form/parse (.readFileSync fs assembly-path "utf8"))
+          composed (components/compose-assembly catalog assembly)]
+      (println (.stringify js/JSON (clj->js (json-safe composed)) nil 2)))
+    (catch :default e
+      (refuse! (or (some-> e ex-data :mithril/error) :mithril/runtime-error)
+               (.-message e) 1))))

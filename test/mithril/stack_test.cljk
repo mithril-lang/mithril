@@ -1,0 +1,138 @@
+(ns mithril.stack-test
+  (:require [cljs.test :refer [deftest is testing]]
+            [mithril.components :as components]
+            [mithril.form :as form]
+            [mithril.stack :as stack]))
+
+(defn read-text [path] (.readFileSync (js/require "fs") path "utf8"))
+(defn error-code [f] (try (f) nil (catch :default e (:mithril/error (ex-data e)))))
+(defn catalog [] (components/load-catalog "lib"))
+(defn parse [path] (form/parse (read-text path)))
+
+(defn index-of [xs value]
+  (loop [i 0 xs xs]
+    (cond (empty? xs) -1
+          (= value (first xs)) i
+          :else (recur (inc i) (rest xs)))))
+
+(deftest provider-stacks-plan-without-applying
+  (let [catalog (catalog)
+        aws (stack/plan catalog (parse "examples/stacks/aws.mith"))
+        azure (stack/plan catalog (parse "examples/stacks/azure.mith"))
+        google (stack/plan catalog (parse "examples/stacks/google.mith"))
+        names (fn [planned] (mapv :name (:resources planned)))]
+    (is (= ["aws" "azure" "google"] [(:provider aws) (:provider azure) (:provider google)]))
+    (is (= ["boundary" "bucket" "queue" "function" "table"] (names aws)))
+    (is (= ["blob" "item" "topic"] (names azure)))
+    (is (= ["document" "topic"] (names google)))
+    (is (< (index-of (names aws) "bucket") (index-of (names aws) "function")))
+    (is (every? #(and (= "simulation" (:boundary %)) (false? (:applied %))) [aws azure google]))
+    (is (every? (fn [resource]
+                  (and (false? (:applied resource))
+                       (= 200 (:status resource))
+                       (false? (get (:return resource) "applied"))
+                       (every? #(false? (:applied %)) (:effects resource))))
+                (concat (:resources aws) (:resources azure) (:resources google))))
+    (is (= "hello" (get-in (first (filter #(= "bucket" (:name %)) (:resources aws)))
+                           [:return "object"])))
+    (is (true? (get-in (first (filter #(= "function" (:name %)) (:resources aws)))
+                       [:return "recorded"])))
+    (is (true? (get-in (first (filter #(= "topic" (:name %)) (:resources google)))
+                       [:return "recorded"])))))
+
+(defn resource [planned name]
+  (first (filter #(= name (:name %)) (:resources planned))))
+
+(deftest stack-controls-stop-before-apply
+  (let [catalog (catalog)
+        aws (parse "examples/stacks/aws.mith")
+        google (parse "examples/stacks/google.mith")
+        exhausted (stack/plan catalog (assoc aws "quota" 0))
+        denied (stack/plan catalog (assoc aws "permission-boundary"
+                                          ["iam:EvaluatePolicy"
+                                           "s3:GetObject"
+                                           "sqs:ReceiveMessage"
+                                           "dynamodb:GetItem"]))
+        timed-out (stack/plan catalog (assoc google "fault" "timeout"))
+        function (resource exhausted "function")
+        invoke (resource denied "function")
+        topic (resource timed-out "topic")]
+    (is (false? (:applied exhausted)))
+    (is (= 200 (:status (resource exhausted "boundary"))))
+    (is (= 429 (:status function)))
+    (is (= "quota" (get-in function [:return "reason"])))
+    (is (empty? (:effects function)))
+    (is (false? (:applied function)))
+    (is (= 403 (:status invoke)))
+    (is (= "deny" (get-in invoke [:return "decision"])))
+    (is (empty? (:effects invoke)))
+    (is (false? (:applied denied)))
+    (is (= 503 (:status topic)))
+    (is (= "timeout" (get-in topic [:return "reason"])))
+    (is (empty? (:effects topic)))
+    (is (false? (:applied timed-out)))))
+
+(deftest stack-unknown-principal-denies-every-resource
+  (let [catalog (catalog)
+        planned (mapv (fn [path]
+                        (stack/plan catalog (assoc (parse path) "allow" [])))
+                      ["examples/stacks/aws.mith"
+                       "examples/stacks/azure.mith"
+                       "examples/stacks/google.mith"])
+        resources (mapcat :resources planned)]
+    (is (= 10 (count resources)))
+    (is (every? #(false? (:applied %)) planned))
+    (is (every? (fn [resource]
+                  (and (= 403 (:status resource))
+                       (= "deny" (get-in resource [:return "decision"]))
+                       (not (contains? (:return resource) "object"))
+                       (not (contains? (:return resource) "recorded"))
+                       (empty? (:effects resource))
+                       (false? (:applied resource))))
+                resources))))
+
+(deftest stack-tls-stops-only-the-handshake
+  (let [catalog (catalog)
+        aws (stack/plan catalog (assoc (parse "examples/stacks/aws.mith") "tls" "refused"))
+        azure (stack/plan catalog (assoc (parse "examples/stacks/azure.mith") "tls" "refused"))
+        google (stack/plan catalog (assoc (parse "examples/stacks/google.mith") "tls" "refused"))
+        bucket (resource aws "bucket")
+        function (resource aws "function")
+        blob (resource azure "blob")
+        topic (resource azure "topic")
+        document (resource google "document")]
+    (is (every? #(false? (:applied %)) [aws azure google]))
+    (is (= 403 (:status bucket)))
+    (is (= "tls" (get-in bucket [:return "reason"])))
+    (is (not (contains? (:return bucket) "object")))
+    (is (empty? (:effects bucket)))
+    (is (= 200 (:status function)))
+    (is (true? (get-in function [:return "recorded"])))
+    (is (= 403 (:status blob)))
+    (is (= "tls" (get-in blob [:return "reason"])))
+    (is (not (contains? (:return blob) "object")))
+    (is (= 200 (:status topic)))
+    (is (true? (get-in topic [:return "recorded"])))
+    (is (= 200 (:status document)))
+    (is (= "hello" (get-in document [:return "object"])))))
+
+(deftest stacks-refuse-another-provider
+  (let [aws (parse "examples/stacks/aws.mith")
+        foreign (assoc-in aws ["resources" 1 "domain"] "com.microsoft.azure.storage")]
+    (testing "an AWS stack cannot contain an Azure domain"
+      (is (= :mithril.stack/provider (error-code #(stack/admit foreign)))))
+    (testing "a domain outside the catalog is refused before any step runs"
+      (is (= :mithril.stack/unknown-component
+             (error-code #(stack/plan (catalog)
+                                      (assoc-in aws ["resources" 1 "domain"] "com.amazonaws.ec2"))))))
+    (testing "an operation the domain does not export is refused"
+      (is (= :mithril.stack/unknown-operation
+             (error-code #(stack/plan (catalog)
+                                      (assoc-in aws ["resources" 1 "operation"] "receive"))))))
+    (testing "production and a depends cycle are refused"
+      (is (= :mithril.stack/boundary
+             (error-code #(stack/admit (assoc aws "boundary" "production")))))
+      (is (= :mithril.stack/cycle
+             (error-code #(stack/admit (-> aws
+                                           (assoc-in ["resources" 1 "depends"] ["function"])
+                                           (assoc-in ["resources" 4 "depends"] ["bucket"])))))))))

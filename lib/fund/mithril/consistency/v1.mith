@@ -1,0 +1,11 @@
+(mithril/component
+  :id "https://mithril.fund/lib/fund/mithril/consistency/v1"
+  :domain "fund.mithril.consistency"
+  :version 1
+  :provides ["consistency"]
+  :requires []
+  :exports [(mithril/export
+              :symbol "https://mithril.fund/lib/fund/mithril/consistency/v1/validator/read-view"
+              :kind "mith:validator"
+              :label "select the read visible under a declared consistency model"
+              :confidence-floor 6000)])

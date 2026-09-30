@@ -1,0 +1,11 @@
+(mithril/component
+  :id "https://mithril.fund/lib/fund/mithril/fault/v1"
+  :domain "fund.mithril.fault"
+  :version 1
+  :provides ["fault"]
+  :requires []
+  :exports [(mithril/export
+              :symbol "https://mithril.fund/lib/fund/mithril/fault/v1/effect/inject"
+              :kind "mith:effect"
+              :label "select a declared fault for one simulated call"
+              :confidence-floor 6000)])

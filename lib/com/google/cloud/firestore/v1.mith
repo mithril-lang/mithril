@@ -1,0 +1,11 @@
+(mithril/component
+  :id "https://mithril.fund/lib/com/google/cloud/firestore/v1"
+  :domain "com.google.cloud.firestore"
+  :version 1
+  :provides ["table"]
+  :requires ["fund.mithril.authz" "fund.mithril.consistency" "fund.mithril.quota" "fund.mithril.fault"]
+  :exports [(mithril/export
+              :symbol "https://mithril.fund/lib/com/google/cloud/firestore/v1/store/get-document"
+              :kind "mith:store"
+              :label "read a document under a declared consistency"
+              :confidence-floor 6000)])

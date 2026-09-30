@@ -1,0 +1,11 @@
+(mithril/component
+  :id "https://mithril.fund/lib/com/amazonaws/dynamodb/v1"
+  :domain "com.amazonaws.dynamodb"
+  :version 1
+  :provides ["table"]
+  :requires ["com.amazonaws.iam" "fund.mithril.quota" "fund.mithril.consistency" "fund.mithril.fault"]
+  :exports [(mithril/export
+              :symbol "https://mithril.fund/lib/com/amazonaws/dynamodb/v1/store/get-item"
+              :kind "mith:store"
+              :label "read an item under a declared consistency"
+              :confidence-floor 6000)])

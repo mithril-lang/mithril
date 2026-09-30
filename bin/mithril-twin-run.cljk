@@ -1,0 +1,35 @@
+(ns mithril.twin-run-cli
+  "Execute one composed twin domain from a twin-run document."
+  (:require [mithril.components :as components]
+            [mithril.form :as form]
+            [mithril.twin-sim :as twin]
+            ["node:fs" :as fs]))
+
+(defn- refuse! [code detail exit-code]
+  (println (str "REFUSE\t" (name code) "\t" detail))
+  (.exit js/process exit-code))
+
+(defn- keyword-string [x]
+  (if-let [ns (namespace x)] (str ns "/" (name x)) (name x)))
+
+(defn- json-safe [x]
+  (cond
+    (keyword? x) (keyword-string x)
+    (map? x) (into {} (map (fn [[k v]] [(if (keyword? k) (keyword-string k) k)
+                                         (json-safe v)]) x))
+    (vector? x) (mapv json-safe x)
+    :else x))
+
+(let [[root run-path & extra] *command-line-args*]
+  (when-not (and root run-path (empty? extra))
+    (println "usage: mithril-twin-run <lib-root> <run.mith>")
+    (.exit js/process 2))
+  (try
+    (println (.stringify js/JSON
+                         (clj->js (json-safe
+                                   (twin/execute (components/load-catalog root)
+                                                 (form/parse (.readFileSync fs run-path "utf8")))))
+                         nil 2))
+    (catch :default e
+      (refuse! (or (some-> e ex-data :mithril/error) :mithril/runtime-error)
+               (.-message e) 1))))

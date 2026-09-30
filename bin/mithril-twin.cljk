@@ -1,0 +1,46 @@
+(ns mithril.twin-cli
+  "Invoke one route of a twin-service document.
+
+  The process loads only the form reader and the simulation runtime. It does
+  not open a socket."
+  (:require [mithril.form :as form]
+            [mithril.twin-sim :as twin]
+            ["node:fs" :as fs]))
+
+(defn- refuse! [code detail exit-code]
+  (println (str "REFUSE\t" (name code) "\t" detail))
+  (.exit js/process exit-code))
+
+(defn- keyword-string [x]
+  (if-let [ns (namespace x)] (str ns "/" (name x)) (name x)))
+
+(defn- json-safe [x]
+  (cond
+    (keyword? x) (keyword-string x)
+    (map? x) (into {} (map (fn [[k v]] [(if (keyword? k) (keyword-string k) k)
+                                         (json-safe v)]) x))
+    (vector? x) (mapv json-safe x)
+    :else x))
+
+(defn- read-doc [path]
+  (let [text (.readFileSync fs path "utf8")]
+    (if (form/source? text)
+      (form/parse text)
+      (js->clj (.parse js/JSON text)))))
+
+(let [[path service method request-path body & extra] *command-line-args*]
+  (when-not (and path service method request-path (empty? extra))
+    (println "usage: mithril-twin <twin-service.mith> <service> <METHOD> <PATH> [body]")
+    (.exit js/process 2))
+  (try
+    (println (.stringify js/JSON
+                         (clj->js (json-safe
+                                   (twin/invoke (read-doc path)
+                                                (cond-> {:service service
+                                                         :method method
+                                                         :path request-path}
+                                                  body (assoc :body body)))))
+                         nil 2))
+    (catch :default e
+      (refuse! (or (some-> e ex-data :mithril/error) :mithril/runtime-error)
+               (.-message e) 1))))

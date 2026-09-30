@@ -1,0 +1,11 @@
+(mithril/component
+  :id "https://mithril.fund/lib/com/microsoft/azure/storage/v1"
+  :domain "com.microsoft.azure.storage"
+  :version 1
+  :provides ["object-store"]
+  :requires ["fund.mithril.authz" "fund.mithril.quota" "fund.mithril.consistency" "fund.mithril.fault" "fund.mithril.tls"]
+  :exports [(mithril/export
+              :symbol "https://mithril.fund/lib/com/microsoft/azure/storage/v1/store/get-blob"
+              :kind "mith:store"
+              :label "read a blob from the simulated container"
+              :confidence-floor 6000)])

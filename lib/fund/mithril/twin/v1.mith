@@ -1,0 +1,11 @@
+(mithril/component
+  :id "https://mithril.fund/lib/fund/mithril/twin/v1"
+  :domain "fund.mithril.twin"
+  :version 1
+  :provides ["hypothesis"]
+  :requires ["fund.mithril.authz"]
+  :exports [(mithril/export
+              :symbol "https://mithril.fund/lib/fund/mithril/twin/v1/analyzer/hypothesis"
+              :kind "mith:analyzer"
+              :label "rank a hypothesis path over the twin document"
+              :confidence-floor 6000)])

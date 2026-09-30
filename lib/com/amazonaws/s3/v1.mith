@@ -1,0 +1,16 @@
+(mithril/component
+  :id "https://mithril.fund/lib/com/amazonaws/s3/v1"
+  :domain "com.amazonaws.s3"
+  :version 1
+  :provides ["object-store"]
+  :requires ["com.amazonaws.iam" "fund.mithril.quota" "fund.mithril.consistency" "fund.mithril.fault" "fund.mithril.tls"]
+  :exports [(mithril/export
+              :symbol "https://mithril.fund/lib/com/amazonaws/s3/v1/store/get-object"
+              :kind "mith:store"
+              :label "read an object from the simulated bucket"
+              :confidence-floor 6000)
+            (mithril/export
+              :symbol "https://mithril.fund/lib/com/amazonaws/s3/v1/store/put-object"
+              :kind "mith:store"
+              :label "record an object write without applying it"
+              :confidence-floor 6000)])
