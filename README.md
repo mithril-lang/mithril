@@ -73,6 +73,62 @@ schema remains valid without a text decoder.
 ontologies the domain modules (checkpoint, decision, growth, state) accept:
 OWL 2 RL entailment first, then W3C SHACL Core over the entailed graph.
 
+`mithril.reason-ipld` can persist the exact Mithril ontology source, RDF data
+input, and the typed OWL/SHACL result as two CID-addressed DAG-CBOR blocks.
+The v2 semantic block also contains a versioned expanded JSON-LD RDF Dataset:
+separate named graphs for asserted premises, entailed closure, newly inferred
+facts, the SHACL validation report, and result metadata. `read!` returns this
+as `:output-dataset` with its canonical RDF `:output-graph-digest`; it replays
+and checks both on every read. V1 blocks remain readable without an output
+dataset. OWL datatype rule facts with a literal subject cannot be RDF triples;
+they remain in the typed result, and the metadata graph counts each omitted
+fact explicitly rather than silently treating the RDF projection as complete.
+The separate semantic-result CID is reusable when Form/JSON-LD and N-Quads/
+JSON-LD spellings produce the same canonical RDF graphs and result. The
+evidence CID retains exact source provenance and one parent link. `read!`
+rehashes both blocks and reruns compilation, entailment and validation;
+`verify-history!` checks the causal chain. With the private local store,
+`mithril.reason-ref-fs` offers verified create/fork/compare-and-swap advance
+under a one-filesystem lock. This is local immutable history and naming,
+**not** distributed ref convergence, crash-durable fsync or a reasoner cache.
+
+```clojure
+(require '[mithril.checkpoint-ipld-fs :as store]
+         '[mithril.reason-ipld :as evidence]
+         '[mithril.reason-ref-fs :as refs])
+(def db (store/open! "/absolute/private/mithril-reason-store"))
+(def get-block #(store/get-block db %))
+(def put-block #(store/put-block! db %1 %2))
+(def head (evidence/put! put-block get-block ontology-source "data.nq" data-source nil []))
+(refs/create! db "main" head)
+(refs/read! db "main") ; => checked CID, typed result, and verification counts
+(select-keys (evidence/read! get-block head) [:output-dataset :output-graph-digest])
+```
+
+Remote immutable blocks are opt-in through `mithril.reason-remote`. It accepts
+the existing `kotobase.blocks/client` transport, checks each fetched CID and
+canonical DAG-CBOR block, enforces block/count/total-byte limits, and replays
+the whole OWL/SHACL history after read-back. `publish!` returns the verified
+typed result and RDF output dataset/digest. `/ipld/` reads are public: pass
+`:public-read-consent? true` only for data approved for public disclosure;
+there is no private-by-default remote publication path here. The caller
+supplies fresh authorization to the block client. Neither immutable blocks
+nor this adapter implement a distributed mutable ref or CAS. A client with a
+network response-size limit is required where an untrusted server could send
+an oversized body, since the adapter's size limit applies after receipt.
+
+```clojure
+(require '[kotobase.blocks :as blocks]
+         '[mithril.reason-remote :as remote])
+(def client (blocks/client {:endpoint "https://kotobase.net"
+                            :authorization mint-fresh-pin-authorization}))
+(def verified (-> (remote/publish!
+                   {:client client :public-read-consent? true}
+                   ontology-source "data.nq" public-data-source nil [])
+                  (.then #(select-keys % [:head :result :output-dataset
+                                          :output-graph-digest]))))
+```
+
 ```sh
 kbb --backend sci bin/mithril.cljk reason <ontology.mith> <data.(nq|nt|jsonld|json)> \
   [--query-type <class IRI>] [--json]
@@ -91,7 +147,7 @@ kbb --backend sci bin/mithril.cljk reason <ontology.mith> <data.(nq|nt|jsonld|js
 ;;              :counts {:subclass-edges :subproperty-edges
 ;;                       :subclass-edges-total :subproperty-edges-total}}
 ;;     :report {:conforms bool :results [{…}]}              ; W3C validation report, below
-;;     :rules [...] :entailed [{:s :p :o}] :inferred [...]
+;;     :rules [...] :asserted [{:s :p :o}] :entailed [{:s :p :o}] :inferred [...]
 ;;     :types [{:s :p :o :inferred?}]
 ;;     :violations [{:focus :constraint :component :severity :path :expected :value :count :shape}]
 ;;     :inactive [{:shape :parameter :reason}]              ; parameters that activated nothing
@@ -1775,6 +1831,54 @@ kbb --backend sci bin/mithril-growth.cljk decide \
 The shipped profiles cover labor liberation, advertiser acquisition, and user
 acquisition. Their action descriptions are decision criteria, not generated
 copy; external execution remains a separately governed effect.
+
+## Twin document profile
+
+`mithril/twin-document` is a display-only profile for synthetic organisation /
+network twins (the Mithril Twin viewer is its consumer). Like the growth and
+Jev decision documents, it has its own pinned context,
+`https://mithril.fund/context/twin/v1` (`resources/context-twin-v1.jsonld`,
+equal to `mithril.twin/context-document`); the v1 context is untouched. Every
+twin term lives in the twin library namespace `https://mithril.fund/lib/twin/v1#`,
+not in `mith:`, so no core term is added or reused.
+
+```clojure
+(mithril/twin-document
+  :id "https://mithril.fund/lib/twin/example/polaris-device"
+  :dataset-kind "synthetic-demo"
+  :entities [(rdf/node :type "Device" :key "dev:1" :layer "node" :zone "net:corp"
+                       :software [(rdf/node :name "PDF viewer" :version "9.1" :eol true
+                                            :vulnerability "high")]
+                       :logs (rdf/node :sources ["edr"] :forward-to "none" :retention-days 7)
+                       :users [(rdf/node :person "p:1" :relation "primary")])]
+  :weights (rdf/node :network-value (rdf/literal "0.6" :datatype "xsd:decimal")))
+```
+
+`mithril.twin/admit` is closed and fail-closed: an unknown key or class at any
+depth, a nested `@id` (twin nodes refer to each other by `:key` literals), a
+`datasetKind` outside the closed `mithril.twin/dataset-kinds` set, a
+`diagram` `lens` or `frame` outside its closed set, an `inference` block that is not
+`vizOnly`/`noRunners`, or any field that would not survive JSON-LD expansion
+and RDF lowering (`rdf-field-loss`) is refused. Decimals use the existing
+`rdf/literal … :datatype "xsd:decimal"` convention; hypothesis `steps` and a
+device's sample `events` are RDF lists. The Form and JSON-LD spellings compile
+to one graph digest. [`examples/twin-polaris-device.mith`](examples/twin-polaris-device.mith)
+is the reference document and [`ontology/twin-v1.mith`](ontology/twin-v1.mith)
+declares the device classes and their SHACL shapes. The profile describes
+data only: no runners, no scanning, no effects, and log events are synthetic
+samples, not telemetry.
+
+Closed value sets (also `sh:in` in the ontology's SHACL shapes):
+
+| Term | Values |
+| --- | --- |
+| `datasetKind` | `synthetic-demo` (generated or fictional sample data), `workshop-export` (an illustrative diagram hand-authored in a workshop and exported from the viewer; not collected from live systems or customer records) |
+| `diagram` `lens` | `layers`, `org`, `network`, `access`, `impersonation`, `shadow` (the lens a viewer restores on open) |
+| `diagram` `frame` | `org`, `network` (frame dimension for the access, impersonation and shadow-IT lenses) |
+
+Labels that imply live or customer data (`live`, `production`, `customer`, …)
+are refused. [`examples/twin-workshop-view.mith`](examples/twin-workshop-view.mith)
+round-trips `workshop-export` with a saved lens and frame.
 
 ## Domain components
 

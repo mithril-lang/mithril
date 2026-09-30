@@ -29,6 +29,7 @@
    'mithril/edit-proposal "EditProposal"
    'mithril/desktop-application "DesktopApplication"
    'mithril/ontology "Ontology"
+   'mithril/twin-document "TwinDocument"
    'mithril/twin-service "TwinService"
    'mithril/component "Component"
    'mithril/assembly "Assembly"
@@ -135,6 +136,29 @@
    :condition "condition"
    :default "default"
    :action "action"
+   ;; Twin document profile (mithril.twin, context twin/v1). Multi-word twin
+   ;; terms only; single-word twin keys lower to their own name.
+   :dataset-kind "datasetKind"
+   :generated-at "generatedAt"
+   :entity-type "entityType"
+   :forward-to "forwardTo"
+   :retention-days "retentionDays"
+   :jump-host "jumpHost"
+   :dual-approval "dualApproval"
+   :blast-radius "blastRadius"
+   :network-value "networkValue"
+   :heat-saturation "heatSaturation"
+   :max-ease "maxEase"
+   :min-retention-days "minRetentionDays"
+   :focus-plane "focusPlane"
+   :show-label "showLabel"
+   :cross-links "crossLinks"
+   :viz-only "vizOnly"
+   :no-runners "noRunners"
+   :observation-count "observationCount"
+   :relative-score "relativeScore"
+   :score-note "scoreNote"
+   :node-ids "nodeIds"
    :rdf/type "@type"
    :rdfs/sub-class-of "subClassOf"
    :rdfs/sub-property-of "subPropertyOf"
@@ -340,6 +364,8 @@
                                 "https://mithril.fund/context/jev-decision/v2"
                                 (= tag 'mithril/bot-checkpoint-semantic)
                                 "https://mithril.fund/context/bot-checkpoint/v1"
+                                (= tag 'mithril/twin-document)
+                                "https://mithril.fund/context/twin/v1"
                                 :else "https://mithril.fund/context/v1")
                   "@type" (get top-level-tags tag))
 

@@ -1,0 +1,144 @@
+(ns mithril.reason-remote-test
+  (:require [cljs.test :refer [async deftest is]]
+            [ipld.core :as ipld]
+            [kotobase.blocks :as blocks]
+            [mithril.reason-ipld :as evidence]
+            [mithril.reason-remote :as remote]
+            [mithril.reason-rdf :as reason-rdf]))
+
+(def fs (js/require "node:fs"))
+(def http (js/require "node:http"))
+
+(defn- source [name]
+  (.readFileSync fs (str "test/fixtures/reason/" name) "utf8"))
+
+(defn- rejected-reason [promise]
+  (-> promise
+      (.then (fn [_] :unexpected-success)
+             (fn [error]
+               (let [data (ex-data error)
+                     cause-data (some-> error ex-cause ex-data)]
+                 (or (:reason data) (:reason cause-data)
+                     (:type cause-data) (:type data)))))))
+
+(deftest publication-is-opt-in-and-noop-storage-cannot-pass
+  (async done
+    (let [ontology (source "dm2-mini.mith")
+          data (source "conforming.nq")
+          client {:get-block (fn [_] (js/Promise.resolve nil))
+                  :put-block! (fn [cid _] (js/Promise.resolve cid))}
+          refused (try
+                    (remote/publish! {:client client} ontology "data.nq" data nil [])
+                    :unexpected-success
+                    (catch :default error (:reason (ex-data error))))]
+      (is (= :public-read-consent-required refused))
+      (is (= :resource-limit
+             (try (remote/publish!
+                   {:client client :public-read-consent? true
+                    :limits {:max-total-bytes 1}}
+                   ontology "data.nq" data nil [])
+                  :unexpected-success
+                  (catch :default error (:reason (ex-data error))))))
+      (-> (rejected-reason
+           (remote/publish! {:client client :public-read-consent? true}
+                            ontology "data.nq" data nil []))
+          (.then (fn [reason]
+                   (is (= :missing-block reason))
+                   (done)))
+          (.catch (fn [error] (is false (str error)) (done)))))))
+
+(deftest remote-reader-refuses-limits-and-cid-valid-false-semantics
+  (async done
+    (let [{:keys [semantic evidence]}
+          (evidence/blocks (source "dm2-mini.mith") "data.nq"
+                           (source "conforming.nq") nil [])
+          false-semantic (ipld/node->block
+                          (assoc (ipld/decode (:bytes semantic))
+                                 "dataGraphDigest" "sha256:false"))
+          false-evidence (ipld/node->block
+                          (assoc (ipld/decode (:bytes evidence))
+                                 "semantic" (ipld/link (:cid false-semantic))))
+          stored {(:cid false-semantic) (:bytes false-semantic)
+                  (:cid false-evidence) (:bytes false-evidence)}
+          client {:get-block (fn [cid] (js/Promise.resolve (get stored cid)))}]
+      (-> (rejected-reason
+           (remote/fetch-history!
+            {:client client :limits {:max-block-bytes 1}}
+            (:cid false-evidence)))
+          (.then
+           (fn [reason]
+             (is (= :resource-limit reason))
+             (rejected-reason
+              (remote/fetch-history! {:client client} (:cid false-evidence)))))
+          (.then
+           (fn [reason]
+             (is (= :semantic-replay-mismatch reason))
+             (done)))
+          (.catch (fn [error] (is false (str error)) (done)))))))
+
+(deftest loopback-http-publication-fetch-and-replay
+  (async done
+    (let [stored (atom {})
+          mode (atom :normal)
+          server (.createServer
+                  http
+                  (fn [request response]
+                    (let [cid (subs (.-url request) (count "/ipld/"))]
+                      (case (.-method request)
+                        "PUT"
+                        (let [chunks (array)]
+                          (.on request "data" #(.push chunks %))
+                          (.on request "end"
+                               (fn []
+                                 (let [bytes (.concat js/Buffer chunks)]
+                                   (if (or (not= "test-only" (get (js->clj (.-headers request))
+                                                                 "authorization"))
+                                           (not (blocks/verify-block cid bytes)))
+                                     (do (.writeHead response 400) (.end response))
+                                     (do (swap! stored assoc cid bytes)
+                                         (.writeHead response 201)
+                                         (.end response)))))))
+                        "GET"
+                        (if-let [bytes (get @stored cid)]
+                          (do (.writeHead response 200
+                                          #js {"content-type" "application/vnd.ipld.raw"})
+                              (.end response (if (= :tamper @mode)
+                                               (.from js/Buffer "changed") bytes)))
+                          (do (.writeHead response 404) (.end response)))
+                        (do (.writeHead response 405) (.end response))))))
+          close! (fn [] (.close server (fn [] (done))))]
+      (.listen server 0 "127.0.0.1"
+               (fn []
+                 (let [port (.-port (.address server))
+                       client (blocks/client
+                               {:endpoint (str "http://127.0.0.1:" port)
+                                :authorization "test-only"})
+                       options {:client client :public-read-consent? true}]
+                   (-> (remote/publish! options (source "dm2-mini.mith")
+                                        "data.nq" (source "conforming.nq") nil [])
+                       (.then
+                        (fn [saved]
+                          (is (= 2 (:blocks saved)))
+                          (is (= :conforms (get-in saved [:result :status])))
+                          (is (= (reason-rdf/graph-digest (:output-dataset saved))
+                                 (:output-graph-digest saved)))
+                          (is (= 2 (count @stored)))
+                          (reset! mode :tamper)
+                          (rejected-reason
+                           (remote/fetch-history! options (:head saved)))))
+                       (.then
+                        (fn [reason]
+                          (is (= :kotobase.blocks/corrupt reason))
+                          (reset! mode :normal)
+                          (let [head (first (keys @stored))]
+                            (swap! stored dissoc head)
+                            (rejected-reason
+                             (remote/fetch-history! options head)))))
+                       (.then
+                        (fn [reason]
+                          (is (= :missing-block reason))
+                          (close!)))
+                       (.catch (fn [error]
+                                 (is false (str error))
+                                 (close!)))))))
+      nil)))

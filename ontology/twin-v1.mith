@@ -1,0 +1,114 @@
+(mithril/ontology
+  :id "https://mithril.fund/lib/twin/v1"
+  :profile
+  ["https://www.w3.org/TR/rdf11-concepts/"
+   "https://www.w3.org/TR/owl2-profiles/#OWL_2_RL"
+   "https://www.w3.org/TR/shacl/"]
+  :graph
+  [(owl/class
+     :id "https://mithril.fund/lib/twin/v1#TwinDocument")
+   (owl/class
+     :id "https://mithril.fund/lib/twin/v1#Entity")
+   (owl/class
+     :id "https://mithril.fund/lib/twin/v1#Device"
+     :rdfs/sub-class-of "https://mithril.fund/lib/twin/v1#Entity")
+   (owl/class
+     :id "https://mithril.fund/lib/twin/v1#Software")
+   (owl/class
+     :id "https://mithril.fund/lib/twin/v1#DeviceLogs")
+   (owl/class
+     :id "https://mithril.fund/lib/twin/v1#LogEvent")
+   (owl/class
+     :id "https://mithril.fund/lib/twin/v1#DeviceUser")
+   (owl/object-property
+     :id "https://mithril.fund/lib/twin/v1#software"
+     :rdfs/domain "https://mithril.fund/lib/twin/v1#Device"
+     :rdfs/range "https://mithril.fund/lib/twin/v1#Software")
+   (owl/object-property
+     :id "https://mithril.fund/lib/twin/v1#logs"
+     :rdfs/domain "https://mithril.fund/lib/twin/v1#Device"
+     :rdfs/range "https://mithril.fund/lib/twin/v1#DeviceLogs")
+   (owl/object-property
+     :id "https://mithril.fund/lib/twin/v1#users"
+     :rdfs/domain "https://mithril.fund/lib/twin/v1#Device"
+     :rdfs/range "https://mithril.fund/lib/twin/v1#DeviceUser")
+   (owl/object-property
+     :id "https://mithril.fund/lib/twin/v1#events"
+     :rdfs/domain "https://mithril.fund/lib/twin/v1#DeviceLogs")
+   (shacl/node-shape
+     :id "https://mithril.fund/lib/twin/v1#SoftwareShape"
+     :sh/target-class "https://mithril.fund/lib/twin/v1#Software"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/lib/twin/v1#name"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+       (shacl/property-shape
+        :sh/path "https://mithril.fund/lib/twin/v1#version"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string" :sh/max-count 1)
+       (shacl/property-shape
+        :sh/path "https://mithril.fund/lib/twin/v1#vendor"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string" :sh/max-count 1)
+       (shacl/property-shape
+        :sh/path "https://mithril.fund/lib/twin/v1#sanctioned"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#boolean" :sh/max-count 1)
+       (shacl/property-shape
+        :sh/path "https://mithril.fund/lib/twin/v1#eol"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#boolean" :sh/max-count 1)
+       (shacl/property-shape
+        :sh/path "https://mithril.fund/lib/twin/v1#vulnerability"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string" :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/lib/twin/v1#DeviceLogsShape"
+     :sh/target-class "https://mithril.fund/lib/twin/v1#DeviceLogs"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/lib/twin/v1#forwardTo"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+       (shacl/property-shape
+        :sh/path "https://mithril.fund/lib/twin/v1#retentionDays"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#integer"
+        :sh/min-count 1 :sh/max-count 1)
+       (shacl/property-shape
+        :sh/path "https://mithril.fund/lib/twin/v1#sources"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string")])
+   (shacl/node-shape
+     :id "https://mithril.fund/lib/twin/v1#DeviceUserShape"
+     :sh/target-class "https://mithril.fund/lib/twin/v1#DeviceUser"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/lib/twin/v1#person"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+       (shacl/property-shape
+        :sh/path "https://mithril.fund/lib/twin/v1#relation"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/lib/twin/v1#TwinDocumentShape"
+     :sh/target-class "https://mithril.fund/lib/twin/v1#TwinDocument"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/lib/twin/v1#datasetKind"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/in [(rdf/literal "synthetic-demo") (rdf/literal "workshop-export")]
+        :sh/min-count 1 :sh/max-count 1)
+       (shacl/property-shape
+        :sh/path "https://mithril.fund/lib/twin/v1#title"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/lib/twin/v1#DiagramShape"
+     :sh/target-class "https://mithril.fund/lib/twin/v1#Diagram"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/lib/twin/v1#lens"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/in [(rdf/literal "layers") (rdf/literal "org") (rdf/literal "network") (rdf/literal "access") (rdf/literal "impersonation") (rdf/literal "shadow")]
+        :sh/max-count 1)
+       (shacl/property-shape
+        :sh/path "https://mithril.fund/lib/twin/v1#frame"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/in [(rdf/literal "org") (rdf/literal "network")]
+        :sh/max-count 1)])])

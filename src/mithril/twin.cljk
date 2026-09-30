@@ -1,0 +1,209 @@
+(ns mithril.twin
+  "Twin document profile: a display-only, synthetic organisation / network
+  twin written as one `mithril/twin-document` form. The v1 profile context is
+  untouched; this context binds every twin term under the twin library
+  namespace (not the core `mith:` namespace) so each field survives JSON-LD
+  expansion and RDF lowering. The profile carries descriptions only: no
+  runners, no scanning, no effects, no credentials."
+  (:require [clojure.string :as str]
+            [json-ld-api.core :as jsonld]
+            [json-ld-api.to-rdf :as to-rdf]
+            [rdf-canon.core :as rdf-canon]
+            [mithril.form :as form]))
+
+(def context-uri "https://mithril.fund/context/twin/v1")
+(def base "https://mithril.fund/lib/twin/v1#")
+(def document-type "TwinDocument")
+(def media-type "application/vnd.mithril.form")
+(def jsonld-media-type "application/ld+json")
+
+(def classes
+  "Node classes a twin node may name in `:type`."
+  ["TwinDocument" "Entity" "Device" "Software" "DeviceLogs" "LogEvent"
+   "DeviceUser" "Boundary" "Role" "Grant" "Actor" "Channel" "Reach" "Edge"
+   "Weights" "Diagram" "Plane" "Placement" "CrossLink" "Inference"
+   "Hypothesis" "Citation" "Attribute"])
+
+(def dataset-kinds
+  "Closed set of `datasetKind` labels a twin document may declare. Every label
+  is display-only and non-live:
+  - `synthetic-demo`: generated or fictional sample data (the default).
+  - `workshop-export`: an illustrative diagram hand-authored in a workshop and
+    exported from the viewer; not collected from live systems or customer
+    records.
+  Anything else (for example `live`, `production`, `customer`) is refused."
+  ["synthetic-demo" "workshop-export"])
+
+(def diagram-lenses
+  "Closed set of `diagram.lens` values: the lens a viewer restores on open."
+  ["layers" "org" "network" "access" "impersonation" "shadow"])
+
+(def diagram-frames
+  "Closed set of `diagram.frame` values: the frame dimension (org boundary or
+  network zone) for the access, impersonation and shadow-IT lenses."
+  ["org" "network"])
+
+(def list-terms
+  "Ordered values: hypothesis steps and a device's sample event timeline."
+  #{"steps" "events"})
+
+(def terms
+  "Every twin property term. Values are literals (strings, integers,
+  booleans, or typed literals such as xsd:decimal); references between twin
+  nodes are the `key` strings, never IRIs."
+  ["key" "label" "note" "title" "datasetKind" "generatedAt" "disclaimer"
+   "citations" "source" "entities" "edges" "boundaries" "roles" "grants"
+   "actors" "channels" "reach" "weights" "diagram" "inference"
+   ;; entity
+   "entityType" "layer" "boundary" "zone" "sanctioned" "criticality"
+   "attrs" "value"
+   ;; device
+   "software" "logs" "users"
+   "name" "version" "vendor" "eol" "vulnerability"
+   "sources" "forwardTo" "retentionDays" "events"
+   "at" "action" "severity" "user"
+   "person" "relation"
+   ;; org / access / impersonation / network
+   "kind" "parent" "holders" "role" "resource" "level" "from" "to"
+   "verification" "weight" "jumpHost"
+   ;; weights
+   "base" "controls" "none" "callback" "mfa" "dualApproval"
+   "open" "conditional" "blocked" "pivot" "host" "blastRadius"
+   "networkValue" "sync" "heatSaturation"
+   "device" "unsanctioned" "maxEase" "low" "medium" "high" "critical"
+   "minRetentionDays"
+   ;; diagram
+   "arrangement" "camera" "mode" "tilt" "yaw" "zoom" "focusPlane"
+   "selection" "planes" "transform" "x" "y" "z" "placements" "entity"
+   "tone" "showLabel" "crossLinks" "lens" "frame"
+   ;; inference
+   "vizOnly" "noRunners" "hypotheses" "summary" "category" "honesty"
+   "observationCount" "relativeScore" "scoreNote" "nodeIds" "steps"])
+
+(def context-document
+  {"@context"
+   (merge {"twin" base
+           "xsd" "http://www.w3.org/2001/XMLSchema#"}
+          (into {} (for [c classes] [c (str base c)]))
+          (into {} (for [t terms]
+                     [t (if (contains? list-terms t)
+                          {"@id" (str base t) "@container" "@list"}
+                          (str base t))])))})
+
+(def ^:private term-set (set terms))
+(def ^:private class-set (set classes))
+(def top-level-keys
+  #{"@context" "@id" "@type" "title" "datasetKind" "generatedAt" "disclaimer"
+    "citations" "entities" "edges" "boundaries" "roles" "grants" "actors"
+    "channels" "reach" "weights" "diagram" "inference"})
+(def ^:private value-object-keys #{"@value" "@type" "@language"})
+
+(defn- refuse! [code detail]
+  (throw (ex-info detail {:mithril/error code :detail detail})))
+
+(defn- check-node! [node path]
+  (cond
+    (vector? node) (doseq [[i x] (map-indexed vector node)] (check-node! x (conj path i)))
+    (map? node)
+    (if (contains? node "@value")
+      (when-not (every? value-object-keys (keys node))
+        (refuse! :mithril.twin/invalid-literal (str "invalid literal at " (pr-str path))))
+      (doseq [[k v] node]
+        (cond
+          (= k "@type")
+          (doseq [t (if (vector? v) v [v])]
+            (when-not (contains? class-set t)
+              (refuse! :mithril.twin/unknown-class
+                       (str "unknown twin class " (pr-str t) " at " (pr-str path)))))
+          (= k "@id")
+          (refuse! :mithril.twin/nested-id
+                   (str "twin nodes are referenced by :key, not :id, at " (pr-str path)))
+          (contains? term-set k) (check-node! v (conj path k))
+          :else (refuse! :mithril.twin/unknown-key
+                         (str "unknown twin key " (pr-str k) " at " (pr-str path))))))
+    :else nil))
+
+(defn- used-terms [node]
+  (cond
+    (vector? node) (into #{} (mapcat used-terms) node)
+    (and (map? node) (not (contains? node "@value")))
+    (into #{} (mapcat (fn [[k v]]
+                        (cond-> (used-terms v)
+                          (and (contains? term-set k)
+                               (not (and (vector? v) (empty? v)))
+                               (some? v))
+                          (conj k))))
+          node)
+    :else #{}))
+
+(defn quads
+  "The twin document's JSON-LD expanded against the pinned twin context and
+  lowered to RDF quads."
+  [document]
+  (to-rdf/to-rdf (jsonld/expand document {:contexts {context-uri context-document}})))
+
+(defn admit
+  "Closed-vocabulary admission of one lowered twin document. Refuses unknown
+  keys and classes, a datasetKind outside `dataset-kinds`, a diagram lens or
+  frame outside its closed set, and any field that would not survive RDF
+  lowering."
+  [document]
+  (when-not (map? document)
+    (refuse! :mithril.twin/not-a-document "twin source must be one document"))
+  (when-not (= context-uri (get document "@context"))
+    (refuse! :mithril.twin/unpinned-context "twin source must use the pinned twin context"))
+  (when-not (= document-type (get document "@type"))
+    (refuse! :mithril.twin/unexpected-type (str "@type must be " document-type)))
+  (when-not (every? top-level-keys (keys document))
+    (refuse! :mithril.twin/unknown-key
+             (str "unknown twin document key " (pr-str (first (remove top-level-keys (keys document)))))))
+  (let [id (get document "@id")]
+    (when-not (and (string? id)
+                   (re-matches #"https://mithril\.fund/[A-Za-z0-9._~:/?#\[\]@!$&'()*+,;=%-]+" id))
+      (refuse! :mithril.twin/invalid-identifier "twin document @id must be a mithril.fund HTTPS IRI")))
+  (when-not (contains? (set dataset-kinds) (get document "datasetKind"))
+    (refuse! :mithril.twin/not-synthetic
+             (str "twin datasetKind must be one of " (str/join ", " dataset-kinds))))
+  (let [diagram (get document "diagram")]
+    (doseq [[term allowed] [["lens" diagram-lenses] ["frame" diagram-frames]]]
+      (when (and (map? diagram) (contains? diagram term)
+                 (not (contains? (set allowed) (get diagram term))))
+        (refuse! :mithril.twin/invalid-view
+                 (str "twin diagram " term " must be one of " (str/join ", " allowed))))))
+  (when-let [inf (get document "inference")]
+    (when-not (and (map? inf) (true? (get inf "vizOnly")) (true? (get inf "noRunners")))
+      (refuse! :mithril.twin/not-display-only "twin inference must be vizOnly and noRunners")))
+  (doseq [[k v] (dissoc document "@context" "@id" "@type")]
+    (check-node! v [k]))
+  (let [qs (quads document)
+        predicates (set (map #(get-in % [:predicate :value]) qs))
+        lost (sort (remove #(contains? predicates (str base %)) (used-terms (dissoc document "@context"))))]
+    (when (seq lost)
+      (refuse! :mithril.twin/rdf-field-loss (str "twin fields lost in RDF lowering: " (str/join ", " lost))))
+    {:document document :quads qs :predicates predicates}))
+
+(defn graph-digest [document]
+  (str "sha256:" (rdf-canon/canonical-hash (:quads (admit document)))))
+
+(defn compile-twin-document [path document]
+  (when-not (or (str/ends-with? path ".mith") (str/ends-with? path ".mithril"))
+    (refuse! :mithril/unsupported-extension "Mithril source must end in .mith or .mithril"))
+  (let [{:keys [quads]} (admit document)]
+    {:format "https://mithril.fund/artifact/twin-v1"
+     :media-type media-type
+     :jsonld-media-type jsonld-media-type
+     :graph-digest (str "sha256:" (rdf-canon/canonical-hash quads))
+     :rdf-dataset document}))
+
+(defn parse-source
+  "Form (`(mithril/twin-document ...)`) or the JSON-LD spelling with the
+  pinned twin context."
+  [text]
+  (if (form/source? text)
+    (form/parse text)
+    #?(:cljs (js->clj (js/JSON.parse text))
+       :clj (refuse! :mithril/json-host-unavailable
+                     "JSON parsing is provided by the kbb/CLJS compiler host"))))
+
+(defn compile-twin-text [path text]
+  (compile-twin-document path (parse-source text)))

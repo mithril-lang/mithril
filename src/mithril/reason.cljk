@@ -405,7 +405,7 @@
            :consistent? bool
            :inconsistencies [{:rule kw :table n :triples [triple]}]
            :schema {:superclasses {...} :superproperties {...} :counts {...}}
-           :entailed [triple] :inferred [triple] :types [triple]
+           :asserted [triple] :entailed [triple] :inferred [triple] :types [triple]
            :report {:conforms bool :results [...]} ; W3C-shaped, mithril.shacl/report
            :violations [...] :inactive [...] :rules [...] :counts {...}}"
   [ontology-artifact data-triples opts]
@@ -451,6 +451,7 @@
        :inconsistencies inconsistencies
        :rules (:rules rl)
        :schema schema
+       :asserted (mapv out-triple (sort-by pr-str asserted))
        :entailed entailed-out
        :inferred (mapv out-triple (sort-by pr-str inferred))
        :types types
@@ -474,6 +475,6 @@
       (if-let [reason* (:mithril.reason/refusal (ex-data e))]
         {:status :refused
          :refusal {:reason reason* :detail (:detail (ex-data e))}
-         :rules rules :entailed [] :inferred [] :types [] :violations []
+         :rules rules :asserted [] :entailed [] :inferred [] :types [] :violations []
          :inconsistencies [] :counts {}}
         (throw e)))))

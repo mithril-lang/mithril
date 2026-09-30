@@ -1,0 +1,97 @@
+(ns mithril.reason-rdf
+  "A versioned RDF Dataset view of one generic OWL/SHACL reason result.
+  Named graphs keep asserted premises, the closure, new entailments, the
+  SHACL report and run metadata separate. The canonical RDF digest, not
+  JSON key order, is the graph identity."
+  (:require [json-ld-api.core :as jsonld]
+            [json-ld-api.to-rdf :as to-rdf]
+            [mithril.shacl :as shacl]
+            [rdf-canon.core :as rdf-canon]))
+
+(def base "https://mithril.fund/ns/reason-output/v1#")
+(def graph-base "https://mithril.fund/graph/reason-output/v1/")
+(def rdf-type (str shacl/rdf "type"))
+(def xsd-boolean (str shacl/xsd "boolean"))
+(def graph-names ["asserted" "entailed" "inferred" "report" "metadata"])
+
+(defn- graph-id [name] (str graph-base name))
+(defn- literal [value datatype] {:literal value :datatype datatype})
+(defn- integer-literal [value]
+  (literal (str value) (str shacl/xsd "integer")))
+(defn- non-rdf-count [triples]
+  (count (filter #(map? (:s %)) triples)))
+(defn- scoped-report-term [value]
+  (if (and (string? value) (.startsWith value "_:"))
+    (str "_:report-" (subs value 2))
+    value))
+
+(defn- report-triples [report]
+  (mapv (fn [{:keys [s p o]}]
+          {:s (scoped-report-term s)
+           :p p
+           :o (scoped-report-term o)})
+        (shacl/report->triples report)))
+
+(defn- metadata-triples [result ontology-digest data-digest query-type]
+  (let [subject (str graph-base "result")]
+    (cond-> [{:s subject :p rdf-type :o (str base "ReasonResult")}
+             {:s subject :p (str base "status")
+              :o (literal (name (:status result)) (str shacl/xsd "string"))}
+             {:s subject :p (str base "ontologyGraphDigest")
+              :o (literal ontology-digest (str shacl/xsd "string"))}
+             {:s subject :p (str base "dataGraphDigest")
+              :o (literal data-digest (str shacl/xsd "string"))}
+             {:s subject :p (str base "entailedNonRdfRuleFacts")
+              :o (integer-literal (non-rdf-count (:entailed result)))}
+             {:s subject :p (str base "inferredNonRdfRuleFacts")
+              :o (integer-literal (non-rdf-count (:inferred result)))}]
+      (boolean? (:consistent? result))
+      (conj {:s subject :p (str base "consistent")
+             :o (literal (str (:consistent? result)) xsd-boolean)})
+      query-type
+      (conj {:s subject :p (str base "queryType")
+             :o (literal query-type (str shacl/xsd "string"))}))))
+
+(defn- object [value]
+  (if (map? value)
+    (cond-> {"@value" (:literal value)}
+      (:language value) (assoc "@language" (:language value))
+      (and (not (:language value))
+           (:datatype value)
+           (not= (:datatype value) (str shacl/xsd "string")))
+      (assoc "@type" (:datatype value)))
+    {"@id" value}))
+
+(defn- graph-document [name triples]
+  {"@id" (graph-id name)
+   "@graph" (->> triples
+                 ;; OWL 2 RL's datatype membership rules can conclude a
+                 ;; literal-subject triple. That rule fact has no RDF Dataset
+                 ;; representation; the typed result retains it verbatim.
+                 (remove #(map? (:s %)))
+                 distinct
+                 (sort-by pr-str)
+                 (group-by :s)
+                 (sort-by (comp pr-str key))
+                 (mapv (fn [[subject statements]]
+                         (reduce (fn [node {:keys [p o]}]
+                                   (update node p (fnil conj []) (object o)))
+                                 {"@id" subject} statements))))})
+
+(defn document
+  "Expanded JSON-LD named-graph view. A refused result has metadata but no
+  entailment or report claims. Blank nodes in the SHACL report are scoped
+  apart from ontology/data blank nodes."
+  [result ontology-digest data-digest query-type]
+  (let [graphs {"asserted" (:asserted result)
+                "entailed" (:entailed result)
+                "inferred" (:inferred result)
+                "report" (when-let [report (:report result)] (report-triples report))
+                "metadata" (metadata-triples result ontology-digest data-digest query-type)}]
+    (mapv (fn [name] (graph-document name (get graphs name))) graph-names)))
+
+(defn quads [doc]
+  (to-rdf/to-rdf (jsonld/expand doc)))
+
+(defn graph-digest [doc]
+  (str "sha256:" (rdf-canon/canonical-hash (quads doc))))

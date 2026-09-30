@@ -129,7 +129,7 @@
     (if (and json? result)
       (println (.stringify js/JSON
                            (clj->js (json-safe (-> result
-                                                   (dissoc :entailed)
+                                                   (dissoc :asserted :entailed)
                                                    (assoc :exit exit)
                                                    (cond-> (:report result)
                                                      (assoc :report-jsonld (shacl/report->jsonld (:report result)))))))

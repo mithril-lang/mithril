@@ -1,0 +1,302 @@
+(ns mithril.reason-ipld-test
+  (:require [cljs.test :refer [deftest is testing]]
+            [ipld.core :as ipld]
+            [mithril.checkpoint-ipld-fs :as local]
+            [mithril.compiler :as compiler]
+            [mithril.reason-ipld :as evidence]
+            [mithril.reason-rdf :as reason-rdf]
+            [mithril.reason-ref-fs :as refs]
+            [mithril.shacl :as shacl]
+            [mithril.state-node :as state-node]
+            [nquads.core :as nquads]
+            [rdf-canon.core :as rdf-canon]))
+
+(def fs (js/require "node:fs"))
+(def os (js/require "node:os"))
+(def path (js/require "node:path"))
+
+(defn- source [name]
+  (.readFileSync fs (str "test/fixtures/reason/" name) "utf8"))
+
+(defn- refusal-reason [f]
+  (try (f) nil
+       (catch :default error (:reason (ex-data error)))))
+
+(defn- failure-data [f]
+  (try (f) nil
+       (catch :default error (ex-data error))))
+
+(defn- with-store [f]
+  (let [directory (.mkdtempSync fs (.join path (.tmpdir os) "mithril-reason-ipld-"))]
+    (try (f (local/open! directory))
+         (finally (.rmSync fs directory #js {:recursive true :force true})))))
+
+(deftest ontology-input-inference-and-shacl-output-replay-from-disk
+  (with-store
+    (fn [store]
+      (let [put #(local/put-block! store %1 %2)
+            get #(local/get-block store %)
+            ontology (source "dm2-mini.mith")
+            conforming (source "conforming.nq")
+            violating (source "violating.nq")
+            first-id (evidence/put! put get ontology "input.nq" conforming nil [])
+            second-id (evidence/put! put get ontology "input.nq" violating nil [first-id])
+            first-run (evidence/read! get first-id)
+            second-run (evidence/read! get second-id)
+            history (evidence/verify-history! get second-id)]
+        (is (= :conforms (get-in first-run [:result :status])))
+        (is (= :violations (get-in second-run [:result :status])))
+        (is (= (reason-rdf/graph-digest (:output-dataset first-run))
+               (:output-graph-digest first-run)))
+        (is (= (reason-rdf/graph-digest (:output-dataset second-run))
+               (:output-graph-digest second-run)))
+        (is (= (set (map #(clojure.core/get % "@id") (:output-dataset first-run)))
+               (set (map #(str reason-rdf/graph-base %) reason-rdf/graph-names))))
+        (is (some #(= (str reason-rdf/graph-base "report") (get-in % [:graph :value]))
+                  (reason-rdf/quads (:output-dataset second-run))))
+        (is (= [first-id] (:parents second-run)))
+        (is (= 1 (count (get-in second-run [:result :violations]))))
+        (is (= "sh:class" (get-in second-run [:result :violations 0 :constraint])))
+        (is (some #(= "https://example.org/dm2#Performer" (:o %))
+                  (get-in first-run [:result :types])))
+        (is (= 2 (:evidence-blocks history)))
+        (is (= 4 (:blocks history)))
+        (is (= (:result second-run) (:result history)))
+        (is (= first-id (evidence/put! put get ontology "same.nt" conforming nil []))
+            "The input filename/suffix alias is not part of evidence identity")
+        (is (= (:semantic-cid first-run)
+               (:semantic-cid (evidence/read! get first-id))))
+        (let [reopened (local/open! (:directory store))]
+          (is (= :violations (get-in (evidence/read! #(local/get-block reopened %)
+                                                    second-id)
+                                     [:result :status]))))))))
+
+(deftest missing-and-tampered-blocks-do-not-become-a-green-proof
+  (with-store
+    (fn [store]
+      (let [put #(local/put-block! store %1 %2)
+            get #(local/get-block store %)
+            id (evidence/put! put get (source "dm2-mini.mith") "data.nq"
+                              (source "conforming.nq") nil [])
+            semantic-id (:semantic-cid (evidence/read! get id))
+            semantic-file (.join path (:directory store) "blocks" semantic-id)]
+        (is (= :invalid-cid (refusal-reason #(evidence/read! get "wrong"))))
+        (is (= :missing-evidence (refusal-reason #(evidence/read! get (ipld/cid
+                                                       (.from js/Buffer "missing"))))))
+        (.writeFileSync fs semantic-file (.from js/Buffer "tampered"))
+        (is (= :ipld/cid-mismatch
+               (:type (failure-data #(evidence/read! get id))))
+            "A changed semantic block must refuse for the CID mismatch")))))
+
+(deftest a-content-addressed-but-false-result-is-replayed-and-refused
+  (with-store
+    (fn [store]
+      (let [put #(local/put-block! store %1 %2)
+            get #(local/get-block store %)
+            ontology (source "dm2-mini.mith")
+            data (source "conforming.nq")
+            {:keys [semantic evidence]} (evidence/blocks ontology "data.nq" data nil [])
+            false-semantic (ipld/node->block
+                            (assoc (ipld/get-node (fn [_] (:bytes semantic))
+                                                  (:cid semantic))
+                                   "dataGraphDigest" "sha256:false"))
+            false-evidence (ipld/node->block
+                            (assoc (ipld/get-node (fn [_] (:bytes evidence))
+                                                  (:cid evidence))
+                                   "semantic" (ipld/link (:cid false-semantic))))]
+        (put (:cid false-semantic) (:bytes false-semantic))
+        (put (:cid false-evidence) (:bytes false-evidence))
+        (is (= :semantic-replay-mismatch
+               (refusal-reason #(evidence/read! get (:cid false-evidence)))))))))
+
+(deftest empty-data-is-recorded-as-refusal-not-conformance
+  (with-store
+    (fn [store]
+      (let [put #(local/put-block! store %1 %2)
+            get #(local/get-block store %)
+            id (evidence/put! put get (source "dm2-mini.mith") "data.nq" "" nil [])
+            saved (evidence/read! get id)]
+        (is (= :refused (get-in saved [:result :status])))
+        (is (pos? (count (reason-rdf/quads (:output-dataset saved)))))
+        (is (not-any? #(= (str reason-rdf/graph-base "report")
+                          (get-in % [:graph :value]))
+                      (reason-rdf/quads (:output-dataset saved))))
+        (is (= :no-data-triples (get-in saved [:result :refusal :reason])))))))
+
+(deftest a-noop-writer-cannot-claim-persistence
+  (is (= :missing-evidence
+         (refusal-reason #(evidence/put! (fn [_ _] nil) (fn [_] nil)
+                                         (source "dm2-mini.mith") "data.nq"
+                                         (source "conforming.nq") nil [])))))
+
+(deftest a-valid-immediate-parent-with-missing-ancestor-is-refused
+  (with-store
+    (fn [store]
+      (let [put #(local/put-block! store %1 %2)
+            get #(local/get-block store %)
+            ontology (source "dm2-mini.mith")
+            data (source "conforming.nq")
+            missing-id (:cid (ipld/node->block {"unwritten" true}))
+            {:keys [semantic evidence]} (evidence/blocks ontology "data.nq"
+                                                         data nil [missing-id])]
+        (put (:cid semantic) (:bytes semantic))
+        (put (:cid evidence) (:bytes evidence))
+        (is (= :missing-evidence
+               (refusal-reason #(evidence/put! put get ontology "data.nq" data nil
+                                                 [(:cid evidence)]))))))))
+
+(deftest owl-inconsistency-remains-a-measured-stored-outcome
+  (with-store
+    (fn [store]
+      (let [put #(local/put-block! store %1 %2)
+            get #(local/get-block store %)
+            data (str "<urn:x:a> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> "
+                      "<https://example.org/dm2#Performer> .\n"
+                      "<urn:x:a> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> "
+                      "<https://example.org/dm2#Location> .\n")
+            id (evidence/put! put get (source "unsupported-axiom.mith")
+                              "data.nq" data nil [])
+            saved (evidence/read! get id)]
+        (is (= :inconsistent (get-in saved [:result :status])))
+        (is (= :cax-dw (get-in saved [:result :inconsistencies 0 :rule])))
+        (is (= 1 (count (get-in saved [:result :inconsistencies]))))
+        (is (= :inconsistent (get-in (evidence/verify-history! get id)
+                                     [:result :status])))))))
+
+(deftest form-and-jsonld-inputs-share-semantic-identity
+  (let [form (source "dm2-mini.mith")
+        jsonld (js/JSON.stringify (clj->js (:rdf-dataset
+                                            (compiler/compile-ontology-text "ontology.mith" form))))
+        nq (str "<urn:x:edr> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> "
+                "<https://example.org/dm2#System> .")
+        data-jsonld (js/JSON.stringify
+                     #js {"@id" "urn:x:edr"
+                          "@type" "https://example.org/dm2#System"})
+        a (evidence/blocks form "input.nq" nq nil [])
+        b (evidence/blocks jsonld "input.jsonld" data-jsonld nil [])]
+    (is (not= (get-in a [:evidence :cid]) (get-in b [:evidence :cid]))
+        "Exact source provenance remains distinct")
+    (is (= (get-in a [:semantic :cid]) (get-in b [:semantic :cid]))
+        "Equivalent RDF and typed results reuse a semantic block")))
+
+(deftest rdf-output-is-roundtrippable-and-literal-rule-facts-are-accounted-for
+  (with-store
+    (fn [store]
+      (let [put #(local/put-block! store %1 %2)
+            get #(local/get-block store %)
+            id (evidence/put! put get (source "dm2-mini.mith") "data.nq"
+                              (source "conforming.nq") nil [])
+            {:keys [result output-dataset output-graph-digest]} (evidence/read! get id)
+            dataset (reason-rdf/quads output-dataset)
+            by-graph (group-by #(get-in % [:graph :value]) dataset)
+            metadata (clojure.core/get by-graph (str reason-rdf/graph-base "metadata"))
+            omitted (count (filter #(map? (:s %)) (:entailed result)))]
+        (is (= (str "sha256:" (rdf-canon/canonical-hash dataset))
+               output-graph-digest))
+        (is (= (rdf-canon/canonical-hash dataset)
+               (rdf-canon/canonical-hash
+                (nquads/parse (nquads/serialize-dataset dataset)))))
+        (is (pos? (count (clojure.core/get by-graph (str reason-rdf/graph-base "asserted")))))
+        (is (pos? (count (clojure.core/get by-graph (str reason-rdf/graph-base "entailed")))))
+        (is (pos? (count (clojure.core/get by-graph (str reason-rdf/graph-base "inferred")))))
+        (is (= (count (:asserted result))
+               (count (clojure.core/get by-graph (str reason-rdf/graph-base "asserted")))))
+        (is (= (- (count (:entailed result)) omitted)
+               (count (clojure.core/get by-graph (str reason-rdf/graph-base "entailed")))))
+        (is (= (count (shacl/report->triples (:report result)))
+               (count (clojure.core/get by-graph (str reason-rdf/graph-base "report")))))
+        (is (= (str omitted)
+               (some #(when (= (str reason-rdf/base "entailedNonRdfRuleFacts")
+                                (get-in % [:predicate :value]))
+                        (get-in % [:object :value])) metadata)))
+        (is (pos? omitted) "OWL datatype rules really exercised the omission accounting")))))
+
+(deftest query-type-metadata-preserves-arbitrary-string-without-invalid-iri
+  (with-store
+    (fn [store]
+      (let [put #(local/put-block! store %1 %2)
+            get #(local/get-block store %)
+            id (evidence/put! put get (source "dm2-mini.mith") "data.nq"
+                              (source "conforming.nq") "not an IRI" [])
+            saved (evidence/read! get id)
+            metadata (filter #(= (str reason-rdf/graph-base "metadata")
+                                 (get-in % [:graph :value]))
+                             (reason-rdf/quads (:output-dataset saved)))]
+        (is (= "not an IRI"
+               (some #(when (= (str reason-rdf/base "queryType")
+                                (get-in % [:predicate :value]))
+                        (get-in % [:object :value])) metadata)))
+        (is (= :conforms (get-in saved [:result :status])))))))
+
+(deftest a-cid-valid-but-false-rdf-output-refuses-on-replay
+  (with-store
+    (fn [store]
+      (let [put #(local/put-block! store %1 %2)
+            get #(local/get-block store %)
+            {:keys [semantic evidence]}
+            (evidence/blocks (source "dm2-mini.mith") "data.nq"
+                             (source "conforming.nq") nil [])
+            original (ipld/get-node (fn [_] (:bytes semantic)) (:cid semantic))
+            false-semantic (ipld/node->block
+                            (assoc original "outputGraphDigest" "sha256:false"))
+            false-evidence (ipld/node->block
+                            (assoc (ipld/get-node (fn [_] (:bytes evidence))
+                                                  (:cid evidence))
+                                   "semantic" (ipld/link (:cid false-semantic))))]
+        (put (:cid false-semantic) (:bytes false-semantic))
+        (put (:cid false-evidence) (:bytes false-evidence))
+        (is (= :semantic-replay-mismatch
+               (refusal-reason #(evidence/read! get (:cid false-evidence)))))))))
+
+(deftest v1-evidence-remains-readable-after-v2-output-addition
+  (with-store
+    (fn [store]
+      (let [put #(local/put-block! store %1 %2)
+            get #(local/get-block store %)
+            {:keys [semantic evidence]}
+            (evidence/blocks (source "dm2-mini.mith") "data.nq"
+                             (source "conforming.nq") nil [])
+            current (ipld/get-node (fn [_] (:bytes semantic)) (:cid semantic))
+            old-result (-> current (clojure.core/get "resultNode") state-node/decode-canonical!
+                           (dissoc :asserted))
+            legacy (ipld/node->block
+                    (-> current
+                        (dissoc "outputDataset" "outputGraphDigest")
+                        (assoc "format" evidence/legacy-semantic-format
+                               "resultNode" (state-node/encode-value old-result))))
+            old-evidence (ipld/node->block
+                          (assoc (ipld/get-node (fn [_] (:bytes evidence))
+                                                (:cid evidence))
+                                 "semantic" (ipld/link (:cid legacy))))]
+        (put (:cid legacy) (:bytes legacy))
+        (put (:cid old-evidence) (:bytes old-evidence))
+        (is (= :conforms (get-in (evidence/read! get (:cid old-evidence))
+                                [:result :status])))
+        (is (nil? (:output-dataset (evidence/read! get (:cid old-evidence)))))))))
+
+(deftest verified-local-refs-fork-and-advance-only-causally
+  (with-store
+    (fn [store]
+      (let [put #(local/put-block! store %1 %2)
+            get #(local/get-block store %)
+            ontology (source "dm2-mini.mith")
+            first-id (evidence/put! put get ontology "data.nq"
+                                    (source "conforming.nq") nil [])
+            unrelated (evidence/put! put get ontology "data.nq"
+                                     (source "violating.nq") nil [])
+            next-id (evidence/put! put get ontology "data.nq"
+                                   (source "violating.nq") nil [first-id])]
+        (is (= first-id (refs/create! store "main" first-id)))
+        (is (= first-id (refs/fork! store "main" "experiment")))
+        (is (= :conforms (get-in (refs/read! store "experiment") [:result :status])))
+        (is (= :noncausal-ref-advance
+               (refusal-reason #(refs/advance! store "main" first-id unrelated))))
+        (is (= first-id (:head (refs/read! store "main"))))
+        (is (= next-id (:head (refs/advance! store "main" first-id next-id))))
+        (is (= :ref-conflict
+               (refusal-reason #(refs/advance! store "main" first-id unrelated))))
+        (is (= :violations (get-in (refs/read! store "main") [:result :status])))
+        (is (= :conforms (get-in (refs/read! store "experiment") [:result :status])))
+        (is (= :ref-exists (refusal-reason #(refs/create! store "main" first-id))))
+        (is (= :invalid-ref-name
+               (refusal-reason #(refs/create! store "../escape" first-id))))))))

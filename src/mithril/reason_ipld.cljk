@@ -1,0 +1,165 @@
+(ns mithril.reason-ipld
+  "Recheckable IPLD evidence for generic Mithril OWL 2 RL + SHACL runs.
+  The semantic result block is independent of source filenames and spelling;
+  the evidence block retains exact input bytes and a causal predecessor. This
+  is immutable local evidence, not distributed ref consensus or publication."
+  (:require [ipld.core :as ipld]
+            [mithril.compiler :as compiler]
+            [mithril.reason :as reason]
+            [mithril.reason-rdf :as reason-rdf]
+            [mithril.state-node :as state-node]
+            [multiformats.core :as multiformats]
+            [rdf-canon.core :as rdf-canon]))
+
+(def legacy-semantic-format "https://mithril.fund/block/reason-result-ipld-v1")
+(def semantic-format "https://mithril.fund/block/reason-result-ipld-v2")
+(def evidence-format "https://mithril.fund/block/reason-evidence-ipld-v1")
+(def legacy-semantic-keys
+  #{"format" "ontologyGraphDigest" "dataGraphDigest" "queryType" "resultNode"})
+(def semantic-keys
+  (into legacy-semantic-keys #{"outputDataset" "outputGraphDigest"}))
+(def evidence-keys
+  #{"format" "ontologySource" "dataSource" "dataFormat" "queryType"
+    "semantic" "parents"})
+
+(defn- refuse! [reason]
+  (throw (ex-info "Mithril reason IPLD evidence refused"
+                  {:mithril/error :mithril.reason-ipld/refused :reason reason})))
+
+(defn- valid-cid? [id]
+  (try (and (string? id)
+            (= multiformats/codec-dag-cbor (ipld/cid-codec id)))
+       (catch #?(:cljs :default :clj Exception) _ false)))
+
+(defn- data-path [format]
+  (case format
+    "nquads" "data.nq"
+    "jsonld" "data.jsonld"
+    (refuse! :invalid-data-format)))
+
+(defn- data-format [path]
+  (case (reason/data-format path)
+    :nquads "nquads"
+    :jsonld "jsonld"
+    (refuse! :invalid-data-format)))
+
+(defn- evaluate [ontology-source data-source format query-type version]
+  (when-not (and (string? ontology-source) (string? data-source)
+                 (or (nil? query-type) (string? query-type)))
+    (refuse! :invalid-input))
+  (let [artifact (compiler/compile-ontology-text "ontology.mith" ontology-source)
+        quads (reason/parse-data (data-path format) data-source)
+        result (reason/reason artifact quads (cond-> {}
+                                               query-type (assoc :query-type query-type)))
+        ontology-digest (:graph-digest artifact)
+        data-digest (str "sha256:" (rdf-canon/canonical-hash quads))
+        legacy? (= version legacy-semantic-format)
+        output (when-not legacy?
+                 (reason-rdf/document result ontology-digest data-digest query-type))]
+    (cond-> {"format" version
+             "ontologyGraphDigest" ontology-digest
+             "dataGraphDigest" data-digest
+             "queryType" query-type
+             "resultNode" (state-node/encode-value
+                           (if legacy? (dissoc result :asserted) result))}
+      output (assoc "outputDataset" output
+                    "outputGraphDigest" (reason-rdf/graph-digest output)))))
+
+(defn blocks
+  "Build semantic and provenance DAG-CBOR blocks. A single predecessor is
+  allowed; branches can share a predecessor without rewriting it."
+  [ontology-source data-path* data-source query-type parents]
+  (when-not (and (vector? parents) (<= (count parents) 1)
+                 (every? valid-cid? parents))
+    (refuse! :invalid-parents))
+  (let [format (data-format data-path*)
+        semantic (ipld/node->block
+                  (evaluate ontology-source data-source format query-type semantic-format))
+        evidence (ipld/node->block
+                  {"format" evidence-format
+                   "ontologySource" ontology-source
+                   "dataSource" data-source
+                   "dataFormat" format
+                   "queryType" query-type
+                   "semantic" (ipld/link (:cid semantic))
+                   "parents" (mapv ipld/link parents)})]
+    {:semantic semantic :evidence evidence}))
+
+(defn read!
+  "Rehash both blocks, compile the saved Mithril input, rerun OWL/SHACL and
+  compare the whole typed result. A valid CID alone is never a valid proof."
+  [get-fn id]
+  (when-not (valid-cid? id) (refuse! :invalid-cid))
+  (let [evidence (ipld/get-node get-fn id)]
+    (when-not evidence (refuse! :missing-evidence))
+    (when-not (and (map? evidence) (= evidence-keys (set (keys evidence)))
+                   (= evidence-format (get evidence "format"))
+                   (string? (get evidence "ontologySource"))
+                   (string? (get evidence "dataSource"))
+                   (contains? #{"nquads" "jsonld"} (get evidence "dataFormat"))
+                   (or (nil? (get evidence "queryType"))
+                       (string? (get evidence "queryType")))
+                   (ipld/link? (get evidence "semantic"))
+                   (vector? (get evidence "parents"))
+                   (<= (count (get evidence "parents")) 1)
+                   (every? ipld/link? (get evidence "parents")))
+      (refuse! :invalid-evidence))
+    (let [semantic-id (ipld/link-cid (get evidence "semantic"))
+          semantic (ipld/get-node get-fn semantic-id)
+          parents (mapv ipld/link-cid (get evidence "parents"))]
+      (when-not semantic (refuse! :missing-semantic-result))
+      (when-not (and (map? semantic)
+                     (contains? #{semantic-format legacy-semantic-format}
+                                (get semantic "format"))
+                     (= (if (= legacy-semantic-format (get semantic "format"))
+                          legacy-semantic-keys semantic-keys)
+                        (set (keys semantic))))
+        (refuse! :invalid-semantic-result))
+      (when-not (= semantic
+                   (evaluate (get evidence "ontologySource")
+                             (get evidence "dataSource")
+                             (get evidence "dataFormat")
+                             (get evidence "queryType")
+                             (get semantic "format")))
+        (refuse! :semantic-replay-mismatch))
+      {:cid id :semantic-cid semantic-id :parents parents
+       :ontology-graph-digest (get semantic "ontologyGraphDigest")
+       :data-graph-digest (get semantic "dataGraphDigest")
+       :output-dataset (get semantic "outputDataset")
+       :output-graph-digest (get semantic "outputGraphDigest")
+       :result (state-node/decode-canonical! (get semantic "resultNode"))})))
+
+(declare verify-history!)
+
+(defn put!
+  "Store both verified blocks after checking the predecessor. `put-fn`
+  must reject a CID/bytes mismatch, as the local Mithril block store does."
+  [put-fn get-fn ontology-source data-path* data-source query-type parents]
+  (when-let [parent (first parents)]
+    (verify-history! get-fn parent))
+  (let [{:keys [semantic evidence]}
+        (blocks ontology-source data-path* data-source query-type parents)]
+    (put-fn (:cid semantic) (:bytes semantic))
+    (put-fn (:cid evidence) (:bytes evidence))
+    (read! get-fn (:cid evidence))
+    (:cid evidence)))
+
+(defn verify-history!
+  "Verify every reachable block and recompute each recorded inference."
+  [get-fn head]
+  (loop [id head seen #{} semantic-ids #{} head-result nil head-output nil]
+    (when (or (contains? seen id) (>= (count seen) 256))
+      (refuse! :invalid-history))
+    (let [saved (read! get-fn id)
+          parent (first (:parents saved))
+          visited (conj seen id)
+          semantic-ids* (conj semantic-ids (:semantic-cid saved))]
+      (if parent
+        (recur parent visited semantic-ids* (or head-result (:result saved))
+               (or head-output (select-keys saved [:output-dataset :output-graph-digest])))
+        {:head head :evidence-blocks (count visited)
+         :semantic-blocks (count semantic-ids*)
+         :blocks (+ (count visited) (count semantic-ids*))
+         :result (or head-result (:result saved))
+         :output-dataset (:output-dataset (or head-output saved))
+         :output-graph-digest (:output-graph-digest (or head-output saved))}))))
