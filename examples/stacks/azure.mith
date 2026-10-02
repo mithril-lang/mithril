@@ -6,7 +6,7 @@
   :principal "sim-reader"
   :allow ["sim-reader"]
   :permission-boundary ["storage:GetBlob" "servicebus:Send" "cosmos:ReadItem"]
-  :quota 2
+  :quota 8
   :consistency "eventual"
   :fault "none"
   :tls "ok"
