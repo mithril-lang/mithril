@@ -135,4 +135,105 @@
       (is (= :mithril.stack/cycle
              (error-code #(stack/admit (-> aws
                                            (assoc-in ["resources" 1 "depends"] ["function"])
-                                           (assoc-in ["resources" 4 "depends"] ["bucket"])))))))))
+                                           (assoc-in ["resources" 4 "depends"] ["bucket"]))))))
+      (is (= :mithril.stack/cycle
+             (error-code #(stack/admit (assoc-in aws ["resources" 1 "depends"] ["bucket"]))))))))
+
+(deftest stack-ledger-keeps-one-plan
+  (let [catalog (catalog)
+        ledger (parse "examples/stacks/aws-ledger.mith")
+        strong (stack/plan catalog ledger)
+        delayed (stack/plan catalog (assoc ledger "consistency" "eventual"))
+        exhausted (stack/plan catalog (assoc ledger "quota" 1))
+        blocked (stack/plan catalog (assoc ledger "fault" "unavailable"))
+        writer (resource strong "writer")
+        reader (resource strong "reader")
+        delayed-reader (resource delayed "reader")
+        second (resource exhausted "reader")
+        failed (resource blocked "writer")
+        scoped (stack/plan catalog
+                           (-> ledger
+                               (assoc-in ["resources" 0 "resource"] "bucket")
+                               (assoc "permission-boundary"
+                                      [{"action" "s3:PutObject" "resource" "other" "condition" "none"}
+                                       {"action" "s3:GetObject" "resource" "*" "condition" "none"}])))
+        conditioned (stack/plan catalog (assoc-in ledger ["resources" 1 "condition"] "same-region"))]
+    (is (false? (:applied strong)))
+    (is (true? (get-in writer [:return "recorded"])))
+    (is (every? #(false? (:applied %)) (:effects writer)))
+    (is (= "stored" (get-in reader [:return "object"])))
+    (is (true? (:visible reader)))
+    (is (= {"com.amazonaws.s3" "stored" "writer" "stored"} (get-in strong [:ledger :objects])))
+    (is (= 0 (get-in strong [:ledger :remaining])))
+    (is (= "hello" (get-in delayed-reader [:return "object"])))
+    (is (false? (:visible delayed-reader)))
+    (is (= 200 (:status (resource exhausted "writer"))))
+    (is (= 0 (get-in (resource exhausted "writer") [:return "remaining"])))
+    (is (= 429 (:status second)))
+    (is (empty? (:effects second)))
+    (is (not (contains? (:return second) "object")))
+    (is (= 503 (:status failed)))
+    (is (= "unavailable" (get-in failed [:return "reason"])))
+    (is (empty? (:effects failed)))
+    (is (= {} (get-in blocked [:ledger :objects])))
+    (is (= 403 (:status (resource scoped "writer"))))
+    (is (= "resource" (get-in (resource scoped "writer") [:return "reason"])))
+    (is (empty? (:effects (resource scoped "writer"))))
+    (is (= 403 (:status (resource conditioned "reader"))))
+    (is (= "condition" (get-in (resource conditioned "reader") [:return "reason"])))
+    (is (false? (:applied scoped)))
+    (is (false? (:applied conditioned)))))
+
+(deftest stack-passes-writes-without-spending-a-refusal
+  (let [catalog (catalog)
+        ledger (parse "examples/stacks/aws-ledger.mith")
+        worker {"name" "worker"
+                "domain" "com.amazonaws.lambda"
+                "operation" "invoke"
+                "action" "lambda:InvokeFunction"
+                "depends" ["writer"]}
+        doc (-> ledger
+                (assoc "quota" 3)
+                (update "permission-boundary" conj "lambda:InvokeFunction")
+                (update "resources" conj worker))
+        strong (stack/plan catalog doc)
+        delayed (stack/plan catalog (assoc doc "consistency" "eventual"))
+        refused (stack/plan catalog (assoc (parse "examples/stacks/aws.mith") "quota" 1 "tls" "refused"))
+        denied (stack/plan catalog (assoc ledger "quota" 1 "allow" []))]
+    (is (= {"writer" "stored"} (:inputs (resource strong "reader"))))
+    (is (= {"writer" "stored"} (:inputs (resource strong "worker"))))
+    (is (true? (get-in (resource strong "worker") [:return "recorded"])))
+    (is (false? (:applied (resource strong "worker"))))
+    (is (false? (:visible (resource delayed "worker"))))
+    (is (not (contains? (resource delayed "worker") :inputs)))
+    (is (= 403 (:status (resource refused "bucket"))))
+    (is (= "tls" (get-in (resource refused "bucket") [:return "reason"])))
+    (is (= 200 (:status (resource refused "queue"))))
+    (is (= 1 (get-in denied [:ledger :remaining])))
+    (is (every? #(= 403 (:status %)) (:resources denied)))))
+
+(deftest stack-checks-the-provider-emulator
+  (let [catalog (catalog)
+        cluster (parse "examples/clusters/cloud-simulation.mith")
+        running (fn [name image] {:name name :image image :status "running"})
+        aws (stack/plan catalog (parse "examples/stacks/aws.mith")
+                        {:cluster cluster
+                         :observation [(running "localstack" "localstack/localstack:3")]})
+        missing (stack/plan catalog (parse "examples/stacks/aws.mith")
+                            {:cluster cluster :observation []})
+        azure (stack/plan catalog (parse "examples/stacks/azure.mith")
+                          {:cluster cluster
+                           :observation [(running "azurite" "mcr.microsoft.com/azure-storage/azurite:3")]})
+        google (stack/plan catalog (parse "examples/stacks/google.mith")
+                           {:cluster cluster :observation []})]
+    (is (false? (:applied aws)))
+    (is (false? (get-in aws [:cluster :applied])))
+    (is (= {:service "localstack" :status "holds" :finding "running"}
+           (select-keys (:cluster aws) [:service :status :finding])))
+    (is (= {:service "localstack" :status "diverged" :finding "missing"}
+           (select-keys (:cluster missing) [:service :status :finding])))
+    (is (= "holds" (get-in azure [:cluster :status])))
+    (is (= "azurite" (get-in azure [:cluster :service])))
+    (is (= {:service nil :status "unobserved" :finding "unobserved"}
+           (select-keys (:cluster google) [:service :status :finding])))
+    (is (every? #(= 200 (:status %)) (:resources google)))))
