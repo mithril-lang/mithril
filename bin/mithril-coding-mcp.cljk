@@ -1,0 +1,29 @@
+#!/usr/bin/env kbb
+(ns mithril.coding-mcp-cli
+  (:require [mithril.coding-mcp :as mcp] [mithril.patch :as patch]))
+(let [[task-file manifest sessions-root hy kind model-dir adapter & extra] *command-line-args*
+      fs (js/require "node:fs") path (js/require "node:path")
+      _ (when-not (and task-file manifest sessions-root hy model-dir adapter
+                       (contains? #{"clef" "mlx-coder"} kind) (empty? extra))
+          (.write (.-stderr js/process) "usage: mithril-coding-mcp task-template.json kernel-manifest sessions-root hy clef|mlx-coder model-dir adapter-root\n")
+          (js/process.exit 2))
+      config {:template (patch/read-task (.readFileSync fs task-file "utf8")) :manifest manifest
+              :sessions-root (.resolve path sessions-root) :hy hy :kind kind :model-dir model-dir :adapter adapter
+              :profile-file (.-MITHRIL_AGENT_PROFILE js/process.env)}
+      cell (mcp/state) readline (js/require "node:readline")
+      input (.createInterface readline #js {:input (.-stdin js/process)})
+      emit! (fn [r] (when r (.write (.-stdout js/process) (str (.stringify js/JSON (clj->js r)) "\n"))))
+      close! (fn [] (.close input) (mcp/close! cell))]
+  (.on js/process "SIGINT" close!)
+  (.on js/process "SIGTERM" close!)
+  (.on input "close" #(mcp/close! cell))
+  (.on (.-stdout js/process) "error" (fn [e] (when (= "EPIPE" (.-code e)) (close!))))
+  (.on input "line"
+    (fn [line]
+      (let [request (try
+                      (when (> (.-length (js/Buffer.from line)) 32768) (throw (js/Error. "input budget")))
+                      (js->clj (.parse js/JSON line) :keywordize-keys true)
+                      (catch :default _ nil))]
+        (if request
+          (-> (mcp/rpc! cell config request) (.then emit!))
+          (emit! (mcp/failure nil -32700 "Parse or input budget error")))))))

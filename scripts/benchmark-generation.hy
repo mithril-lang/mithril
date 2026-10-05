@@ -16,7 +16,8 @@
    "scope" "One known two-file CLJK clamp repair, repeated; not held-out coding accuracy. No CLEF controller used in coder runs."
    "fixture" fixture "runtime" {"machine" (platform.machine) "platform" (platform.platform) "hy" hy "kbb" kbb}
    "source_sha256" (dfor name ["bin/mithril-agent.cljk" "scripts/port-generate-files.hy" "src/mithril/generator.cljk"
-                              "src/mithril/patch.cljk" "src/mithril/parallel.cljk" "ports/generated-agent.mith"]
+                              "src/mithril/patch.cljk" "src/mithril/parallel.cljk" "src/mithril/schedule.cljk"
+                              "src/mithril/generated_runner.cljk" "src/mithril/evaluation.cljk" "ports/generated-agent.mith"]
                         name (.hexdigest (hashlib.sha256 (.read-bytes (/ repo name)))))
    "cost_boundary" "Local API JPY 0; electricity, device amortization, implementation and training cost unmeasured."
    "timing_boundary" "Outer process wall time including startup, loading, generation, validation, verification and publication; excludes initial model download."

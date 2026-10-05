@@ -164,6 +164,36 @@ Legacy clients initialize `2025-06-18` before list/call. Modern requests use
 The native daemon must already be running with its established OS permissions.
 This is a local stdio server; no public listener or cloud service is created.
 
+## Run the Mithril coding MCP worker
+
+```sh
+kbb --backend sci --config ports.edn --classpath src bin/mithril-coding-mcp.cljk \
+  /absolute/task-template.json /absolute/kernel-manifest.json /absolute/sessions \
+  /absolute/hy mlx-coder /absolute/model-snapshot /absolute/mithril-fund/apps/coding
+```
+
+The local stdio worker exposes `mithril_code` with one `goal` argument. The host
+template supplies the repository root, context, immutable inputs, verification
+commands and budgets; callers cannot supply new file capabilities or commands.
+The worker uses the same asynchronous runner as `bin/mithril-agent.cljk` and
+creates a fresh durable session and receipt for each call. Its result includes
+completion, fixed-check results, changed paths and timing/token/cost measurements.
+The full receipt and `.metrics.json` stay in the host's session directory.
+
+Legacy clients initialize `2025-03-26`, `2025-06-18` or `2025-11-25`. Modern
+`2026-07-28` requests carry namespaced protocol and client-capability metadata.
+Only one coding call runs per worker; concurrent calls refuse. A worker accepts
+at most 128 list/call request IDs, each unique. Start a new worker after that
+budget. Addressed cancellation reaches the active generator and checks. EOF or
+termination cancels the owned work and waits for its asynchronous shutdown.
+Set `MITHRIL_AGENT_PROFILE` to select an explicit compatible profile.
+
+The harness fork's optional `mithril/coding.overlay.yml` connects this worker
+through its existing MCP client. Actual Web Loader integration is recorded in
+`docs/evidence/mcp-web-coding-2026-10-05/`; it verifies registration, real model
+generation, concurrent checks and retained changes, not a browser assistant turn
+or complete UI parity.
+
 ## Measured evidence
 
 The free-generation CLI also writes `<output.json>.metrics.json` on completion,
@@ -179,7 +209,7 @@ Generation uses an asynchronous local process with a scrubbed environment and
 bounded output. Cancellation reaches the generator's process group and waits for
 quiescence before deleting its private request directory. Unicode source text is
 decoded across process output chunks. The combined focused suite currently has
-33 tests / 186 assertions; actual generation and cancellation receipts are in
+37 tests / 203 assertions; actual generation and cancellation receipts are in
 `docs/evidence/browser-2026-10-05/async-generation.json*` and
 `docs/evidence/browser-2026-10-05/cancelled-generation.json*`.
 

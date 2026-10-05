@@ -23,7 +23,7 @@
      :success (boolean success?) :verification-passed checked? :retained-source-verified (boolean retained?)
      :accuracy-scope "Task completion with fixed checks; not general coding accuracy. Resume is not a generation trial."
      :timing {:cli-wall-seconds (when (measured? (:wall-ms receipt)) (/ (:wall-ms receipt) 1000))
-              :boundary "CLI task read through receipt creation; excludes initial model download and caller startup."
+              :boundary (or (:timing-boundary receipt) "CLI task read through receipt creation; excludes initial model download and caller startup.")
               :generation-seconds (usage turns :generation_seconds)
               :load-seconds (usage turns :load_seconds)
               :verification-wall-seconds (when (measured? (:wall-ms schedule)) (/ (:wall-ms schedule) 1000))}
