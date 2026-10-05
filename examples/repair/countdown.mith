@@ -1,0 +1,9 @@
+(mithril/repair-search
+  :id "https://mithril.fund/example/repair/countdown"
+  :goal "countdown must return zero for non-negative input; preserve the zero case and all tests"
+  :max-steps 3 :confidence-floor 6000
+  :candidates
+  [(mithril/repair-candidate :id "decrement-only" :symbol "repair.countdown/countdown"
+     :path "countdown.kotoba" :old "(+ n 1)" :new "(- n 1)")
+   (mithril/repair-candidate :id "recursive-decrement" :symbol "repair.countdown/countdown"
+     :path "countdown.kotoba" :old "(+ n 1)" :new "(countdown (- n 1))")])

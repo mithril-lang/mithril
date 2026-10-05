@@ -1,0 +1,30 @@
+(ns test.run-repair-e2e
+  (:require [mithril.repair-search :as search]
+            [mithril.repair-host :as host]))
+(let [[amu output & extra] *command-line-args*
+      _ (when-not (and amu output (empty? extra))
+          (throw (ex-info "usage: run_repair_e2e /absolute/path/to/amu output.edn" {})))
+      text (.readFileSync host/fs "examples/repair/countdown.mith" "utf8")
+      before (.readFileSync host/fs "examples/repair/countdown.kotoba" "utf8")
+      catalog (search/compile-catalog text)
+      workspace (host/scratch! catalog "examples/repair")
+      replay (fn [r]
+               (let [ids (keys (get-in r [:questions "next_action" :criteria])) choice (first ids)]
+                 {:choice choice :confidence 1
+                  :probabilities (into {} (map #(vector % (if (= choice %) 1 0)) ids))}))]
+  (-> (search/search! catalog (host/mechanisms amu workspace replay))
+      (.then (fn [r]
+               (when-not (and (= :verified (:status r))
+                              (= ["decrement-only" "recursive-decrement"] (mapv :candidate (:attempts r)))
+                              (= [false true] (mapv :accepted? (:attempts r)))
+                              (every? #(get-in % [:verification :compiled?]) (:attempts r))
+                              (:compiled? (:initial-observation r))
+                              (not (:passed? (:initial-observation r)))
+                              (= before (.readFileSync host/fs "examples/repair/countdown.kotoba" "utf8")))
+                 (throw (ex-info "actual compiler/test repair did not satisfy acceptance" {})))
+               (.writeFileSync host/fs output
+                 (pr-str (assoc r :policy :deterministic-replay
+                                  :catalog-digest (host/digest text)
+                                  :verifier amu :workspace (:root workspace))) "utf8")
+               (println "E2E passed: failing source -> rejected decrement -> rollback -> verified recursion")))
+      (.catch (fn [e] (println (str e)) (js/process.exit 1)))))

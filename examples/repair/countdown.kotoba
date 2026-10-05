@@ -1,0 +1,8 @@
+(ns repair.countdown
+  (:export [countdown test-zero test-one test-many main]))
+(defn countdown [n :i64] :i64
+  (if (<= n 0) 0 (+ n 1)))
+(defn test-zero [] :i64 (if (= (countdown 0) 0) 1 0))
+(defn test-one [] :i64 (if (= (countdown 1) 0) 1 0))
+(defn test-many [] :i64 (if (= (countdown 4) 0) 1 0))
+(defn main [] :i64 (countdown 4))

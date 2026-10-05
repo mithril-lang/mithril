@@ -1952,3 +1952,11 @@ kbb --backend sci --classpath "$CP" bin/mithril-synthesize.cljk \
 The CLI prints a JSON artifact containing the semantic graph digest and the
 typed OaK transaction. The sibling `.mithril` example must compile to the same
 semantic projection.
+
+## System One coding repair prototype
+
+`mithril/repair-search` declares finite expression-edit candidates for Kotoba
+sources. A Jev-compatible Choice selects an admitted label; Amu native compilation
+and exported tests verify it, with rollback and failed-candidate exclusion before
+retry. The executable replay repairs a countdown function after rejecting an
+insufficient decrement. See [the contract and runnable example](docs/system-one-repair.md).

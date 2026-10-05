@@ -1,0 +1,28 @@
+#!/usr/bin/env kbb
+(ns mithril.repair-cli
+  (:require [mithril.repair-search :as search]
+            [mithril.repair-host :as host]))
+(let [[mode catalog-path source-root amu & extra] *command-line-args*]
+  (when-not (and (contains? #{"replay" "jev"} mode) catalog-path source-root amu (empty? extra))
+    (println "usage: mithril-repair replay|jev catalog.mith source-root /absolute/path/to/amu")
+    (js/process.exit 2))
+  (let [catalog (search/compile-catalog (.readFileSync host/fs catalog-path "utf8"))
+        workspace (host/scratch! catalog source-root)
+        ;; Replay deliberately prefers catalog order. It exercises backtracking;
+        ;; it is not a neural model and makes no performance claim.
+        decide! (if (= mode "jev")
+                  (host/jev! (host/api-key!))
+                  (fn [r]
+                    (let [labels (vec (keys (get-in r [:questions "next_action" :criteria])))
+                          choice (first labels)]
+                      {:choice choice :confidence 1
+                       :probabilities (into {} (map #(vector % (if (= choice %) 1 0)) labels))})))]
+    (-> (search/search! catalog (host/mechanisms amu workspace decide!))
+        (.then (fn [receipt]
+                 (let [receipt (assoc receipt :workspace (:root workspace) :policy mode
+                                     :catalog-digest (host/digest (.readFileSync host/fs catalog-path "utf8")))
+                       file (.join host/path (:root workspace) "receipt.edn")]
+                   (.writeFileSync host/fs file (pr-str receipt) "utf8")
+                   (println (pr-str receipt))
+                   (when-not (= :verified (:status receipt)) (js/process.exit 1)))))
+        (.catch (fn [e] (println (pr-str (search/refusal-data e))) (js/process.exit 1))))))

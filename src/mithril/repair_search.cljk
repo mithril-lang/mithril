@@ -1,0 +1,140 @@
+(ns mithril.repair-search
+  "Finite template repair search. The model selects labels; only host verifier
+  receipts commit transitions. This is a prototype, not a Q9 runtime migration."
+  (:require [clojure.string :as str]
+            [mithril.form :as form]))
+
+(def format-id "https://mithril.fund/repair-search/v1")
+(def model-id "typesafe/jev-1.13")
+(def endpoint "https://openrouter.ai/api/alpha/decisions")
+(defn refuse! [reason]
+  (throw (ex-info "repair search refused" {:mithril/error :mithril.repair/refused
+                                           :reason reason})))
+(defn refusal-data [error]
+  (if (and (not (:mithril/error (ex-data error))) (ex-cause error))
+    (recur (ex-cause error))
+    (ex-data error)))
+(defn relative-file? [s]
+  (and (string? s) (boolean (re-matches #"[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+)*\.kotoba" s))))
+(defn unit? [n] (and (number? n) (js/Number.isFinite n) (<= 0 n 1)))
+
+(defn compile-catalog [text]
+  (let [doc (form/parse text)
+        candidates (get doc "candidates")]
+    (when-not (and (= #{"@context" "@type" "@id" "goal" "candidates" "maxSteps" "confidenceFloor"}
+                      (set (keys doc)))
+                   (= "RepairSearch" (get doc "@type"))
+                   (= "https://mithril.fund/context/v1" (get doc "@context"))
+                   (string? (get doc "@id")) (<= 1 (count (get doc "@id")) 512)
+                   (string? (get doc "goal")) (<= 1 (count (get doc "goal")) 2048)
+                   (integer? (get doc "maxSteps")) (<= 1 (get doc "maxSteps") 100)
+                   (integer? (get doc "confidenceFloor")) (<= 0 (get doc "confidenceFloor") 10000)
+                   (vector? candidates) (<= 1 (count candidates) 100))
+      (refuse! :catalog-shape))
+    (doseq [c candidates]
+      (when-not (and (= #{"@id" "symbol" "path" "old" "new"} (set (keys c)))
+                     (string? (get c "@id"))
+                     (boolean (re-matches #"[a-z][a-z0-9-]{0,63}" (get c "@id")))
+                     (string? (get c "symbol")) (<= 1 (count (get c "symbol")) 256)
+                     (not (str/blank? (get c "symbol")))
+                     (relative-file? (get c "path"))
+                     (every? string? [(get c "old") (get c "new")])
+                     (not (str/blank? (get c "old")))
+                     (not= (get c "old") (get c "new"))
+                     (every? #(<= (count %) 16384) [(get c "old") (get c "new")]))
+        (refuse! :candidate-shape)))
+    (when-not (= (count candidates) (count (set (map #(get % "@id") candidates))))
+      (refuse! :duplicate-candidate))
+    {:format format-id :id (get doc "@id") :goal (get doc "goal")
+     :max-steps (get doc "maxSteps") :confidence-floor (/ (get doc "confidenceFloor") 10000)
+     :candidates (mapv (fn [c] {:id (get c "@id") :symbol (get c "symbol")
+                                :path (get c "path") :old (get c "old") :new (get c "new")}) candidates)}))
+
+(defn replace-expression [source {:keys [old new]}]
+  (let [i (str/index-of source old)]
+    (when (or (nil? i) (str/index-of source old (+ i (count old))))
+      (refuse! :nonunique-precondition))
+    (str (subs source 0 i) new (subs source (+ i (count old))))))
+
+(defn legal-candidates [catalog sources attempted]
+  (vec (filter (fn [c]
+                 (and (not (contains? attempted (:id c)))
+                      (try (replace-expression (get sources (:path c)) c) true
+                           (catch :default _ false))))
+               (:candidates catalog))))
+
+(defn request [catalog candidates observation source-digests attempts]
+  {:model model-id
+   :state (pr-str {:format format-id :goal (:goal catalog)
+                   :program-graph (mapv (fn [c] [(:symbol c) :defined-in (:path c)]) candidates)
+                   :source-digests source-digests
+                   :observation observation
+                   :attempts (mapv #(select-keys % [:candidate :accepted?]) attempts)})
+   :questions {"next_action"
+               {:type "choice" :instructions "Choose the finite expression replacement most likely to fix the failing tests without regression. Failed candidates cannot be retried."
+                :criteria (into {} (map (fn [c] [(:id c) (pr-str c)]) candidates))}}})
+
+(defn admit-choice [catalog candidates answer]
+  (let [labels (set (map :id candidates))
+        {:keys [choice probabilities confidence]} answer]
+    (when-not (and (= #{:choice :probabilities :confidence} (set (keys answer)))
+                   (contains? labels choice) (= labels (set (keys probabilities)))
+                   (every? unit? (vals probabilities)) (unit? confidence)
+                   (< (js/Math.abs (- 1 (reduce + (vals probabilities)))) 0.000001))
+      (refuse! :invalid-distribution))
+    (when (< confidence (:confidence-floor catalog)) (refuse! :low-confidence))
+    (first (filter #(= choice (:id %)) candidates))))
+
+(defn checked-observation [value]
+  (when-not (and (map? value) (= #{:compiled? :passed? :diagnostic} (set (keys value)))
+                 (boolean? (:compiled? value)) (boolean? (:passed? value))
+                 (string? (:diagnostic value)) (<= (count (:diagnostic value)) 4096)
+                 (or (not (:passed? value)) (:compiled? value)))
+    (refuse! :invalid-verifier-receipt))
+  value)
+
+(defn search!
+  "Host seam: read! returns allowed source map; write! accepts that map;
+  verify! produces compiler/test receipt; decide! returns a Promise of a typed
+  answer; digest hashes a source. All unsuccessful edits are rolled back."
+  [catalog {:keys [read! write! verify! decide! digest]}]
+  (let [baseline (read!)
+        expected-paths (set (map :path (:candidates catalog)))
+        _ (when-not (= expected-paths (set (keys baseline))) (refuse! :source-scope))
+        hashes (into {} (map (fn [[p s]] [p (digest s)]) baseline))
+        initial (checked-observation (verify!))]
+    (letfn [(finish [status attempts observation]
+              {:format format-id :status status :source-digests hashes
+               :initial-observation initial
+               :final-source-digests (into {} (map (fn [[p s]] [p (digest s)]) (read!)))
+               :attempts attempts :observation observation})
+            (step [attempted attempts observation]
+              (let [candidates (legal-candidates catalog baseline attempted)]
+                (cond
+                  (:passed? observation) (js/Promise.resolve (finish :verified attempts observation))
+                  (>= (count attempts) (:max-steps catalog))
+                  (js/Promise.resolve (finish :budget-exhausted attempts observation))
+                  (empty? candidates) (js/Promise.resolve (finish :exhausted attempts observation))
+                  :else
+                  (-> (js/Promise.resolve (decide! (request catalog candidates observation hashes attempts)))
+                      (.then
+                       (fn [answer]
+                         (let [candidate (admit-choice catalog candidates answer)]
+                           (when-not (= baseline (read!)) (refuse! :stale-source))
+                           (let [next-sources (update baseline (:path candidate)
+                                                      replace-expression candidate)
+                                 result (try
+                                          (write! next-sources)
+                                          (checked-observation (verify!))
+                                          (catch :default e (write! baseline) (throw e)))
+                                 accepted? (:passed? result)
+                                 row {:candidate (:id candidate) :answer answer
+                                      :provider-audit (meta answer)
+                                      :before hashes
+                                      :after (into {} (map (fn [[p s]] [p (digest s)]) next-sources))
+                                      :verification result :accepted? accepted?}]
+                             (when-not accepted? (write! baseline))
+                             (if accepted?
+                               (finish :verified (conj attempts row) result)
+                               (step (conj attempted (:id candidate)) (conj attempts row) result))))))))))]
+      (step #{} [] initial))))

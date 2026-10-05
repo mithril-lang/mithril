@@ -1,0 +1,102 @@
+(ns mithril.repair-host
+  "Scratch filesystem and Amu process mechanisms for finite repair search."
+  (:require [clojure.string :as str]
+            [mithril.repair-search :as search]))
+(def fs (js/require "node:fs"))
+(def path (js/require "node:path"))
+(def os (js/require "node:os"))
+(def cp (js/require "node:child_process"))
+(def crypto (js/require "node:crypto"))
+(defn digest [s] (str "sha256:" (.digest (.update (.createHash crypto "sha256") s) "hex")))
+
+(defn api-key! []
+  (or (let [key (.-OPENROUTER_API_KEY js/process.env)]
+        (when-not (str/blank? (str key)) key))
+      ;; Same single known item used by mithril-jev. Never enumerate a vault.
+      (try (str/trim (.execFileSync cp "security"
+                         #js ["find-generic-password" "-s" "gftd.openrouter"
+                              "-a" "OPENROUTER_API_KEY" "-w"]
+                         #js {:encoding "utf8" :stdio #js ["ignore" "pipe" "ignore"]}))
+           (catch :default _ nil))))
+
+(defn checked-file [root relative]
+  (when-not (search/relative-file? relative) (search/refuse! :path-denied))
+  (let [root (.realpathSync fs root)
+        file (.resolve path root relative)]
+    (when-not (and (= file (.realpathSync fs file))
+                   (str/starts-with? file (str root (.-sep path)))
+                   (.isFile (.lstatSync fs file)))
+      (search/refuse! :unsafe-path))
+    file))
+
+(defn scratch! [catalog source-root]
+  (let [paths (vec (distinct (map :path (:candidates catalog))))
+        ;; Validate the complete read set before creating or copying anything.
+        sources (into {} (map (fn [p] [p (.readFileSync fs (checked-file source-root p) "utf8")]) paths))
+        _ (when (> (reduce + (map #(.-length (js/Buffer.from % "utf8")) (vals sources))) 131072)
+            (search/refuse! :source-budget))
+        root (.mkdtempSync fs (.join path (.tmpdir os) "mithril-repair-"))]
+    (doseq [[p s] sources]
+      (let [file (.join path root p)]
+        (.mkdirSync fs (.dirname path file) #js {:recursive true})
+        (.writeFileSync fs file s #js {:encoding "utf8" :flag "wx" :mode 384})))
+    {:root root :paths paths}))
+
+(defn process-result [amu root args]
+  (let [r (.spawnSync cp amu (clj->js args)
+                      #js {:cwd root :encoding "utf8" :timeout 60000 :maxBuffer 1048576})]
+    {:ok? (and (nil? (.-error r)) (= 0 (.-status r)))
+     :diagnostic (subs (str (.-stdout r) (.-stderr r)
+                            (when (.-error r) (.-message (.-error r))))
+                       0 (min 4096 (count (str (.-stdout r) (.-stderr r)
+                                              (when (.-error r) (.-message (.-error r)))))))}))
+
+(defn verifier [amu {:keys [root paths]}]
+  (fn []
+    (loop [remaining paths diagnostics []]
+      (if-let [p (first remaining)]
+        (let [input (checked-file root p)
+              compiled (process-result amu root ["compile" input "--jvm-free"
+                                                   "--output" (.join path root (str (digest p) ".kexe"))])]
+          (if-not (:ok? compiled)
+            {:compiled? false :passed? false :diagnostic (:diagnostic compiled)}
+            (let [tested (process-result amu root ["test" input "--jvm-free" "--json"])]
+              (if-not (:ok? tested)
+                {:compiled? true :passed? false :diagnostic (:diagnostic tested)}
+                (recur (rest remaining) (conj diagnostics (:diagnostic tested)))))))
+        {:compiled? true :passed? true
+         :diagnostic (subs (str/join "\n" diagnostics) 0
+                           (min 4096 (count (str/join "\n" diagnostics))))}))))
+
+(defn mechanisms [amu {:keys [root paths] :as workspace} decide!]
+  {:read! #(into {} (map (fn [p] [p (.readFileSync fs (checked-file root p) "utf8")]) paths))
+   :write! (fn [sources]
+             (when-not (= (set paths) (set (keys sources))) (search/refuse! :write-scope))
+             (doseq [[p s] sources] (.writeFileSync fs (checked-file root p) s "utf8")))
+   :verify! (verifier amu workspace) :decide! decide! :digest digest})
+
+(defn jev! [api-key]
+  (when (str/blank? (str api-key)) (search/refuse! :missing-credential))
+  (fn [request]
+    (let [controller (js/AbortController.)
+          timer (js/setTimeout #(.abort controller) 30000)]
+      (-> (js/fetch search/endpoint
+                    #js {:method "POST" :signal (.-signal controller)
+                         :headers #js {"authorization" (str "Bearer " api-key)
+                                       "content-type" "application/json"}
+                         :body (.stringify js/JSON (clj->js request))})
+          (.then (fn [response]
+                   (when-not (.-ok response) (search/refuse! :provider-http-error))
+                   (.json response)))
+          (.then (fn [response]
+                   (let [r (js->clj response :keywordize-keys true)
+                         a (get-in r [:answers :next_action])]
+                     (when-not (and (string? (:id r)) (= search/model-id (:model r))
+                                    (= "choice" (:type a)))
+                       (search/refuse! :provider-model-or-type))
+                     (with-meta
+                       {:choice (:choice a) :confidence (:confidence a)
+                        :probabilities (into {} (map (fn [[k v]] [(name k) v]) (:probabilities a)))}
+                       {:request-id (:id r) :model (:model r) :usage (:usage r)
+                        :state-digest (digest (:state request))}))))
+          (.finally #(js/clearTimeout timer))))))

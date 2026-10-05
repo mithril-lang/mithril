@@ -1,0 +1,111 @@
+(ns mithril.repair-search-test
+  (:require [cljs.test :refer [deftest is async]]
+            [mithril.repair-search :as search]
+            [mithril.repair-host :as host]))
+(def catalog-text (.readFileSync host/fs
+  "examples/repair/countdown.mith" "utf8"))
+(def catalog (search/compile-catalog catalog-text))
+(def baseline {"countdown.kotoba" "(if (<= n 0) 0 (+ n 1))"})
+(def bad {:compiled? true :passed? false :diagnostic "test-many failed"})
+(def good {:compiled? true :passed? true :diagnostic "tests passed"})
+(defn answer [candidates choice]
+  {:choice choice :confidence 0.9
+   :probabilities (into {} (map (fn [c] [(:id c) (if (= choice (:id c)) 1 0)]) candidates))})
+(defn refused? [f] (try (f) false (catch :default _ true)))
+
+(deftest catalog-and-distribution-admission
+  (let [cs (:candidates catalog) a (answer cs "recursive-decrement")]
+    (is (= 2 (count cs)))
+    (is (= "recursive-decrement" (:id (search/admit-choice catalog cs a))))
+    (doseq [invalid [(assoc a :choice "invented") (assoc a :confidence 0.1)
+                     (assoc a :confidence js/NaN)
+                     (assoc a :probabilities {"recursive-decrement" 1})
+                     (assoc a :probabilities {"recursive-decrement" 0.4 "decrement-only" 0.4})
+                     (assoc a :generated_text "patch")]]
+      (is (refused? #(search/admit-choice catalog cs invalid))))
+    (is (refused? #(search/compile-catalog (str catalog-text catalog-text))))
+    (is (refused? #(search/compile-catalog
+                    (.replace catalog-text "countdown.kotoba" "../countdown.kotoba"))))
+    (is (refused? #(search/replace-expression "(+ n 1) (+ n 1)" (first cs))))
+    (is (empty? (search/legal-candidates catalog {"countdown.kotoba" "changed"} #{})))
+    (is (refused? #(search/checked-observation (assoc good :compiled? false))))))
+
+(deftest backtracks-before-trying-the-next-candidate
+  (async done
+    (let [files (atom baseline) writes (atom []) requests (atom [])
+          result (search/search! catalog
+                   {:read! #(deref files) :write! #(do (swap! writes conj %) (reset! files %))
+                    :digest host/digest
+                    :verify! #(if (.includes (get @files "countdown.kotoba") "(countdown (- n 1))") good bad)
+                    :decide! (fn [request]
+                               (swap! requests conj request)
+                               (let [ids (keys (get-in request [:questions "next_action" :criteria]))]
+                                 (answer (mapv #(hash-map :id %) ids) (first ids))))})]
+      (-> result
+          (.then (fn [r]
+                   (is (= :verified (:status r)))
+                   (is (= [false true] (mapv :accepted? (:attempts r))))
+                   (is (= baseline (second @writes)))
+                   (is (= #{"recursive-decrement"}
+                          (set (keys (get-in (second @requests) [:questions "next_action" :criteria])))))
+                   (is (.includes (get @files "countdown.kotoba") "(countdown (- n 1))"))
+                   (done)))
+          (.catch (fn [e] (is false (str e)) (done)))))))
+
+(deftest exhaustion-and-verifier-exception-restore-source
+  (async done
+    (letfn [(run-case [throws?]
+              (let [files (atom baseline) calls (atom 0)]
+                (-> (search/search! catalog
+                      {:read! #(deref files) :write! #(reset! files %) :digest host/digest
+                       :verify! #(if (and throws? (> (swap! calls inc) 1))
+                                   (throw (ex-info "verifier lost" {})) bad)
+                       :decide! (fn [r] (let [ids (keys (get-in r [:questions "next_action" :criteria]))]
+                                          (answer (mapv #(hash-map :id %) ids) (first ids))))})
+                    (.then (fn [r] (is (not throws?)) (is (= :exhausted (:status r)))))
+                    (.catch (fn [_] (is throws?)))
+                    (.then (fn [_] (is (= baseline @files)))))))]
+      (-> (run-case false) (.then #(run-case true)) (.then done)
+          (.catch (fn [e] (is false (str e)) (done)))))))
+
+(deftest stale-source-is-refused-before-writing
+  (async done
+    (let [files (atom baseline) writes (atom 0)]
+      (-> (search/search! catalog
+            {:read! #(deref files) :write! #(swap! writes inc) :digest host/digest :verify! (constantly bad)
+             :decide! (fn [_] (reset! files {"countdown.kotoba" "concurrent edit"})
+                        (answer (:candidates catalog) "recursive-decrement"))})
+          (.then (fn [_] (is false "stale source was accepted")))
+          (.catch (fn [e] (is (= :stale-source (:reason (search/refusal-data e)))) (is (zero? @writes))))
+          (.then done)))))
+
+(deftest budget-and-already-passing-source
+  (async done
+    (let [files (atom baseline) choices (atom 0)
+          mechanisms {:read! #(deref files) :write! #(reset! files %) :digest host/digest
+                      :verify! (constantly bad)
+                      :decide! (fn [_] (swap! choices inc)
+                                 (answer (:candidates catalog) "decrement-only"))}]
+      (-> (search/search! (assoc catalog :max-steps 1) mechanisms)
+          (.then (fn [r]
+                   (is (= :budget-exhausted (:status r)))
+                   (is (= baseline @files))
+                   (is (= 1 @choices))
+                   (search/search! catalog (assoc mechanisms :verify! (constantly good)))))
+          (.then (fn [r] (is (= :verified (:status r))) (is (empty? (:attempts r)))
+                         (is (= 1 @choices)) (done)))
+          (.catch (fn [e] (is false (str e)) (done)))))))
+
+(deftest low-confidence-and-provider-failure-do-not-write
+  (async done
+    (let [writes (atom 0)
+          m {:read! (constantly baseline) :write! #(swap! writes inc)
+             :digest host/digest :verify! (constantly bad)}]
+      (-> (search/search! catalog (assoc m :decide!
+                    (fn [_] (assoc (answer (:candidates catalog) "decrement-only") :confidence 0.1))))
+          (.then (fn [_] (is false "low confidence accepted")))
+          (.catch (fn [e] (is (= :low-confidence (:reason (search/refusal-data e))))))
+          (.then (fn [_] (search/search! catalog
+                           (assoc m :decide! (fn [_] (js/Promise.reject (js/Error. "provider lost")))))))
+          (.then (fn [_] (is false "provider failure accepted")))
+          (.catch (fn [_] (is (zero? @writes)) (done)))))))
