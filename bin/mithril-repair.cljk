@@ -25,4 +25,11 @@
                    (.writeFileSync host/fs file (pr-str receipt) "utf8")
                    (println (pr-str receipt))
                    (when-not (= :verified (:status receipt)) (js/process.exit 1)))))
-        (.catch (fn [e] (println (pr-str (search/refusal-data e))) (js/process.exit 1))))))
+        (.catch (fn [e]
+                  (let [receipt {:format search/format-id :status :refused :policy mode
+                                 :workspace (:root workspace)
+                                 :refusal (search/refusal-data e)}]
+                    (.writeFileSync host/fs (.join host/path (:root workspace) "receipt.edn")
+                                    (pr-str receipt) "utf8")
+                    (println (pr-str receipt)))
+                  (js/process.exit 1))))))

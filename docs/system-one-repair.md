@@ -45,7 +45,8 @@ kbb --backend sci --config repair.edn --classpath src bin/mithril-repair.cljk \
 The live mode uses `OPENROUTER_API_KEY`, or the single known Keychain item
 `gftd.openrouter` / `OPENROUTER_API_KEY` already used by `mithril-jev`. It never
 prints or persists the key. Calling live mode sends the declared edit candidates,
-goal, source digests, compiler/test diagnostics and previous attempt receipts to
+goal, source digests, bounded local source, compiler/test diagnostics and compact
+previous-attempt labels to
 OpenRouter. No source is sent until the live mode is explicitly invoked.
 
 ## Contract and limits
@@ -78,6 +79,11 @@ OpenRouter. No source is sent until the live mode is explicitly invoked.
 - The v1 receipt includes original/final source hashes, each choice/distribution,
   candidate hashes, verification, acceptance and provider metadata when available.
   It is a local EDN audit, not signed/IPLD persistence or a distributed lease.
+- Local source is bounded to 8192 characters per file and 16384 total. Previous
+  diagnostics are not replayed; only attempted labels and acceptance are retained
+  in the next request. Jev's resolved dated artifact must stay in the requested
+  `typesafe/jev-1.13` family. Refused live answers retain their confidence,
+  distribution, request ID, resolved model, usage and state digest.
 
 ## Observed acceptance, 2026-10-05
 
@@ -93,10 +99,35 @@ checkout had unrelated uncommitted changes and was preserved.
    ran on Amu's Node entrypoint with `--jvm-free`.
 4. The original fixture remained byte-for-byte unchanged.
 
-Controller checks: 6 tests / 33 assertions, including rollback, exhaustion,
+Controller checks: 8 tests / 46 assertions, including rollback, exhaustion,
 verifier exceptions, stale source, probability admission, confidence and provider
-failure. Existing Mithril Form regression checks: 4 tests / 13 assertions passed.
+failure, dated-model normalization and context bounds. Existing Mithril Form
+regression checks: 4 tests / 13 assertions passed.
 
-Live Jev execution was blocked by automatic approval review: explicit permission
-was required to send the sample source/state to OpenRouter. No live model result,
-latency/token improvement, Lean proof, or production integration is claimed.
+After explicit user permission, [the live Jev receipt](evidence/repair-jev-2026-10-05.edn)
+resolved to `typesafe/jev-1.13-20260917` and selected `recursive-decrement` with
+probability 0.58 versus 0.42 for `decrement-only`. Confidence was 0.16, below the
+unchanged 0.6 floor. The autonomous loop refused the answer without editing.
+Usage for this recorded call was 1114 input / 41 output tokens and provider-reported
+cost 0.000046788. This is one observation, not a benchmark or a calibration claim.
+
+The [independent proposal verification](evidence/repair-jev-proposal-verification-2026-10-05.edn)
+copied the original fixture to a separate scratch workspace, applied the selected
+catalog template, and verified native compilation plus all three exported tests
+on the KIR, JS and Wasm semantic targets. It then restored the tentative source.
+The receipt explicitly records `:diagnostic-only true`, `:promoted? false` and
+`:autonomous-admission :refused`. Correct repair under these tests does not change
+the model's confidence or bypass the governor.
+
+To repeat that offline qualification without calling a model:
+
+```sh
+kbb --backend sci --config repair.edn --classpath src:test test/verify_jev_proposal.cljk \
+  /absolute/path/to/amu/bin/amu docs/evidence/repair-jev-2026-10-05.edn /tmp/proposal-check.edn
+```
+
+The initial live invocation also exposed an alias-versus-dated-model mismatch in
+this prototype; the adapter now normalizes the existing pinned-family contract
+and tests reject other models, misleading version prefixes and wrong answer types.
+Autonomous acceptance of this live proposal, latency/token improvement, Lean
+proof and production integration remain unqualified.

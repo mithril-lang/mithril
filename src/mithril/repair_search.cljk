@@ -63,11 +63,20 @@
                            (catch :default _ false))))
                (:candidates catalog))))
 
-(defn request [catalog candidates observation source-digests attempts]
+(defn local-context [sources]
+  (loop [entries (sort-by key sources) remaining 16384 result {}]
+    (if-let [[path source] (first entries)]
+      (let [n (min 8192 remaining (count source))]
+        (recur (rest entries) (- remaining n)
+               (assoc result path {:text (subs source 0 n) :truncated? (< n (count source))})))
+      result)))
+
+(defn request [catalog candidates observation source-digests attempts sources]
   {:model model-id
    :state (pr-str {:format format-id :goal (:goal catalog)
                    :program-graph (mapv (fn [c] [(:symbol c) :defined-in (:path c)]) candidates)
                    :source-digests source-digests
+                   :local-source (local-context sources)
                    :observation observation
                    :attempts (mapv #(select-keys % [:candidate :accepted?]) attempts)})
    :questions {"next_action"
@@ -82,7 +91,11 @@
                    (every? unit? (vals probabilities)) (unit? confidence)
                    (< (js/Math.abs (- 1 (reduce + (vals probabilities)))) 0.000001))
       (refuse! :invalid-distribution))
-    (when (< confidence (:confidence-floor catalog)) (refuse! :low-confidence))
+    (when (< confidence (:confidence-floor catalog))
+      (throw (ex-info "Jev confidence is below the catalog floor"
+                {:mithril/error :mithril.repair/refused :reason :low-confidence
+                 :confidence-floor (:confidence-floor catalog)
+                 :answer answer :provider-audit (meta answer)})))
     (first (filter #(= choice (:id %)) candidates))))
 
 (defn checked-observation [value]
@@ -116,7 +129,7 @@
                   (js/Promise.resolve (finish :budget-exhausted attempts observation))
                   (empty? candidates) (js/Promise.resolve (finish :exhausted attempts observation))
                   :else
-                  (-> (js/Promise.resolve (decide! (request catalog candidates observation hashes attempts)))
+                  (-> (js/Promise.resolve (decide! (request catalog candidates observation hashes attempts baseline)))
                       (.then
                        (fn [answer]
                          (let [candidate (admit-choice catalog candidates answer)]

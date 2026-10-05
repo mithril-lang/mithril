@@ -75,6 +75,25 @@
              (doseq [[p s] sources] (.writeFileSync fs (checked-file root p) s "utf8")))
    :verify! (verifier amu workspace) :decide! decide! :digest digest})
 
+(defn normalize-answer [request response]
+  (let [r (js->clj response :keywordize-keys true)
+        a (get-in r [:answers :next_action])]
+    ;; OpenRouter resolves the requested alias to a dated Jev artifact.
+    ;; Match the existing bot adapter's pinned family, not arbitrary fallback.
+    (when-not (and (string? (:id r)) (string? (:model r))
+                   (boolean (re-matches #"typesafe/jev-1\.13(?:-[A-Za-z0-9._-]+)?" (:model r)))
+                   (= "choice" (:type a)))
+      (throw (ex-info "Jev response identity or answer type was refused"
+                {:mithril/error :mithril.repair/refused
+                 :reason :provider-model-or-type
+                 :resolved-model (:model r) :answer-type (:type a)
+                 :response-keys (vec (keys r)) :answer-keys (vec (keys a))})))
+    (with-meta
+      {:choice (:choice a) :confidence (:confidence a)
+       :probabilities (into {} (map (fn [[k v]] [(name k) v]) (:probabilities a)))}
+      {:request-id (:id r) :requested-model (:model request)
+       :model (:model r) :usage (:usage r) :state-digest (digest (:state request))})))
+
 (defn jev! [api-key]
   (when (str/blank? (str api-key)) (search/refuse! :missing-credential))
   (fn [request]
@@ -88,15 +107,5 @@
           (.then (fn [response]
                    (when-not (.-ok response) (search/refuse! :provider-http-error))
                    (.json response)))
-          (.then (fn [response]
-                   (let [r (js->clj response :keywordize-keys true)
-                         a (get-in r [:answers :next_action])]
-                     (when-not (and (string? (:id r)) (= search/model-id (:model r))
-                                    (= "choice" (:type a)))
-                       (search/refuse! :provider-model-or-type))
-                     (with-meta
-                       {:choice (:choice a) :confidence (:confidence a)
-                        :probabilities (into {} (map (fn [[k v]] [(name k) v]) (:probabilities a)))}
-                       {:request-id (:id r) :model (:model r) :usage (:usage r)
-                        :state-digest (digest (:state request))}))))
+          (.then #(normalize-answer request %))
           (.finally #(js/clearTimeout timer))))))

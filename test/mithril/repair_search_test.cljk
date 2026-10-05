@@ -109,3 +109,37 @@
                            (assoc m :decide! (fn [_] (js/Promise.reject (js/Error. "provider lost")))))))
           (.then (fn [_] (is false "provider failure accepted")))
           (.catch (fn [_] (is (zero? @writes)) (done)))))))
+
+(deftest dated-jev-response-retains-pinned-family-and-audit
+  (let [request {:model search/model-id :state "bounded sample"}
+        response {:id "decision-test" :model "typesafe/jev-1.13-20260915"
+                  :answers {:next_action {:type "choice" :choice "recursive-decrement"
+                                          :confidence 0.9
+                                          :probabilities {:recursive-decrement 1 :decrement-only 0}}}
+                  :usage {:input_tokens 12}}
+        a (host/normalize-answer request (clj->js response))]
+    (is (= "recursive-decrement" (:choice a)))
+    (is (= {"recursive-decrement" 1 "decrement-only" 0} (:probabilities a)))
+    (is (= "typesafe/jev-1.13-20260915" (:model (meta a))))
+    (is (= search/model-id (:requested-model (meta a))))
+    (doseq [invalid [(assoc response :model "typesafe/jev-1.130-other")
+                     (assoc response :model "other/model")
+                     (assoc response :id nil)
+                     (assoc-in response [:answers :next_action :type] "score")]]
+      (is (refused? #(host/normalize-answer request (clj->js invalid)))))))
+
+(deftest local-source-context-is-bounded-and-history-is-compact
+  (let [sources {"a.kotoba" (apply str (repeat 10000 "a"))
+                 "b.kotoba" (apply str (repeat 10000 "b"))
+                 "c.kotoba" "remaining"}
+        context (search/local-context sources)
+        r (search/request catalog (:candidates catalog) bad {}
+                          [{:candidate "decrement-only" :accepted? false
+                            :verification {:diagnostic "old full transcript"}}] baseline)
+        state (cljs.reader/read-string (:state r))]
+    (is (= 16384 (reduce + (map #(count (:text %)) (vals context)))))
+    (is (every? #(<= (count (:text %)) 8192) (vals context)))
+    (is (every? :truncated? (vals context)))
+    (is (= [{:candidate "decrement-only" :accepted? false}] (:attempts state)))
+    (is (= (get baseline "countdown.kotoba")
+           (get-in state [:local-source "countdown.kotoba" :text])))))

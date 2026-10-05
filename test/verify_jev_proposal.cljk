@@ -1,0 +1,43 @@
+(ns test.verify-jev-proposal
+  "Diagnostic qualification of a refused Jev proposal. This never changes the
+  autonomous admission verdict or promotes the edit to the source workspace."
+  (:require [cljs.reader :as reader]
+            [mithril.repair-search :as search]
+            [mithril.repair-host :as host]))
+(let [[amu refusal-file output & extra] *command-line-args*
+      _ (when-not (and amu refusal-file output (empty? extra))
+          (throw (ex-info "usage: verify_jev_proposal amu refusal.edn output.edn" {})))
+      refused (reader/read-string (.readFileSync host/fs refusal-file "utf8"))
+      catalog-text (.readFileSync host/fs "examples/repair/countdown.mith" "utf8")
+      catalog (search/compile-catalog catalog-text)
+      choice (get-in refused [:refusal :answer :choice])
+      candidate (first (filter #(= choice (:id %)) (:candidates catalog)))
+      _ (when-not (and (= :refused (:status refused))
+                       (= :low-confidence (get-in refused [:refusal :reason]))
+                       candidate)
+          (throw (ex-info "diagnostic requires a low-confidence catalog proposal" {})))
+      workspace (host/scratch! catalog "examples/repair")
+      m (host/mechanisms amu workspace nil)
+      baseline ((:read! m))
+      initial ((:verify! m))
+      sources (update baseline (:path candidate) search/replace-expression candidate)]
+  (try
+    ((:write! m) sources)
+    (let [result ((:verify! m))
+          receipt {:format "https://mithril.fund/repair-proposal-verification/v1"
+                   :diagnostic-only true :promoted? false :autonomous-admission :refused
+                   :proposal-receipt-digest (host/digest (.readFileSync host/fs refusal-file "utf8"))
+                   :catalog-digest (host/digest catalog-text)
+                   :candidate choice :provider-audit (get-in refused [:refusal :provider-audit])
+                   :initial-observation initial :candidate-verification result
+                   :before (into {} (map (fn [[p s]] [p (host/digest s)]) baseline))
+                   :after (into {} (map (fn [[p s]] [p (host/digest s)]) sources))
+                   :workspace (:root workspace) :verifier amu}]
+      (when-not (and (:compiled? initial) (not (:passed? initial))
+                     (:compiled? result) (:passed? result))
+        (throw (ex-info "Jev proposal failed actual repair acceptance" {})))
+      (.writeFileSync host/fs output (pr-str receipt) "utf8")
+      (println "Jev proposal compiled and passed tests; autonomous admission remains refused"))
+    (finally
+      ;; Diagnostic-only mode never retains the tentative source edit.
+      ((:write! m) baseline))))
