@@ -1,0 +1,66 @@
+#!/usr/bin/env kbb
+(ns mithril.port-agent-cli
+  (:require [mithril.harness :as harness] [mithril.cua-driver :as cua] [mithril.cua-host :as host]
+            [mithril.port-kernel :as kernel] [mithril.port-model :as model]))
+(let [[mode manifest binary hy model-dir adapter output & extra] *command-line-args*
+      fs (js/require "node:fs") path (js/require "node:path")
+      _ (when-not (and (contains? #{"replay" "clef" "clef-coding"} mode) manifest binary hy model-dir adapter output (empty? extra))
+          (println "usage: mithril-port-agent replay|clef|clef-coding kernel-manifest native-driver hy model-dir clef-adapter-root output.json")
+          (js/process.exit 2))
+      profile (harness/compile-profile (.readFileSync fs
+                (or (.-MITHRIL_AGENT_PROFILE js/process.env)
+                    (if (= mode "clef-coding") "ports/coding-agent.mith" "ports/computer-agent.mith")) "utf8"))
+      driver (cua/compile-profile (.readFileSync fs
+               (or (.-MITHRIL_DRIVER_PROFILE js/process.env) "ports/computer-driver.mith") "utf8")
+               (js->clj (.parse js/JSON (.readFileSync fs "resources/ports/cua-contract.json" "utf8"))))
+      cell (atom (cua/state)) budget-ok? (kernel/load! manifest "ports/policy.kotoba")
+      mechanisms {:budget-ok? budget-ok? :invoke! (host/provider binary)}
+      audit (atom []) checkpoint (atom nil)
+      checkpoint! (fn [s]
+                    (reset! checkpoint s)
+                    (.writeFileSync fs (str output ".checkpoint.edn") (pr-str s) #js {:mode 384}))
+      decide! (if (contains? #{"clef" "clef-coding"} mode)
+                (model/clef hy (.resolve path "scripts/port-clef-decide.hy") model-dir adapter audit)
+                (fn [r] (let [labels (keys (get-in r [:questions "next_action" :criteria]))
+                              selected (if (some #{"observe-apps"} labels) "observe-apps" "finish")]
+                          {:choice selected :confidence 1
+                           :probabilities (into {} (map #(vector % (if (= selected %) 1 0)) labels))})))
+      save! (fn [status error]
+              (let [r {:format harness/format-id :policy mode :status status :error error
+                       :state @checkpoint :model-turns @audit :driver-journal (:journal @cell)
+                       :native-provider binary :kernel-manifest manifest}]
+                (.writeFileSync fs output (.stringify js/JSON (clj->js r) nil 2) #js {:mode 384})
+                (println (pr-str {:status status :receipt output :calls (:calls @checkpoint) :steps (:steps @checkpoint)}))))]
+  (-> (harness/run! profile
+        {:budget-ok? budget-ok? :checkpoint! checkpoint! :decide! decide!
+         :execute! (fn [id operation]
+                     (case operation
+                       "coding/verify-repair"
+                       (let [cp (js/require "node:child_process") receipt-file (str output ".repair.json")
+                             r (.spawnSync cp hy #js [(.resolve path "scripts/develop-port-policy.hy")
+                                  "--model-dir" model-dir "--clef-adapter-root" adapter "--output" receipt-file]
+                                 #js {:encoding "utf8" :timeout 90000 :maxBuffer 1048576
+                                      :env #js {:PATH (.-PATH js/process.env)
+                                                :CODING_COMPILER_ROOT (.-CODING_COMPILER_ROOT js/process.env)}})
+                             _ (when (or (.-error r) (not= 0 (.-status r))) (harness/refuse :coding-provider-failed))
+                             repair (js->clj (.parse js/JSON (.readFileSync fs receipt-file "utf8")))
+                             result (get repair "repair")
+                             final-check (get (last (get result "attempts")) "verification")]
+                         (when-not (and (= "verified" (get result "status"))
+                                        (get final-check "compiled") (get final-check "passed")
+                                        (= true (get repair "original_unchanged"))
+                                        (= (get repair "source_sha256") (kernel/digest (.readFileSync fs "ports/policy.kotoba"))))
+                           (harness/refuse :unverified-repair))
+                         {:ok? true :summary "Actual CLEF repaired the zero-budget mutation; compilation and all KIR/JS/Wasm assertions passed."
+                          :output-digest (kernel/digest (.readFileSync fs receipt-file))})
+                       "computer/list-apps"
+                       (-> (cua/call! driver cell id "list_apps" {} mechanisms)
+                         (.then (fn [r]
+                                  (let [data (:structuredContent r) apps (get data "apps")]
+                                    (when-not (and (not (:isError r)) (vector? apps))
+                                      (harness/refuse :unverified-desktop-observation))
+                                    {:ok? true :summary (str "Native driver observed " (count apps) " desktop apps.")
+                                     :output-digest (kernel/digest (js/Buffer.from (.stringify js/JSON (clj->js data))))}))))
+                       (harness/refuse :unbound-operation)))})
+      (.then (fn [s] (save! (name (:phase s)) nil)))
+      (.catch (fn [e] (save! "refused" (cua/error-reason e)) (js/process.exit 1)))))

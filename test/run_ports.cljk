@@ -1,0 +1,5 @@
+(ns test.run-ports
+  (:require [cljs.test :as t] [mithril.ports-test]))
+(defmethod t/report [::t/default :end-run-tests] [m]
+  (when (pos? (+ (:fail m) (:error m))) (js/process.exit 1)))
+(t/run-tests 'mithril.ports-test)

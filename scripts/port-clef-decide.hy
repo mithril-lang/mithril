@@ -1,0 +1,11 @@
+"Pinned offline CLEF decision capability. Not a source generator or executor."
+(import sys json pathlib argparse)
+(setv parser (argparse.ArgumentParser))
+(.add-argument parser "--model-dir" :required True)
+(.add-argument parser "--clef-adapter-root" :required True)
+(setv args (.parse-args parser))
+(sys.path.insert 0 (str (.resolve (pathlib.Path args.clef-adapter-root))))
+(import local_support :as support)
+(setv request (json.load sys.stdin) model (support.load-model args.model-dir)
+      result (support.decide model request))
+(print (json.dumps result))

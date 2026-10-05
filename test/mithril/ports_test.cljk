@@ -1,0 +1,101 @@
+(ns mithril.ports-test
+  (:require [cljs.test :refer [deftest is async]] [mithril.harness :as h]
+            [mithril.cua-driver :as cua] [mithril.port-kernel :as kernel]))
+(def fs (js/require "node:fs"))
+(defn read [p] (.readFileSync fs p "utf8"))
+(def profile (h/compile-profile (read "ports/computer-agent.mith")))
+(def contract (js->clj (.parse js/JSON (read "resources/ports/cua-contract.json"))))
+(def driver (cua/compile-profile (read "ports/computer-driver.mith") contract))
+(def budget-ok? (kernel/load! (.-MITHRIL_POLICY_MANIFEST js/process.env) "ports/policy.kotoba"))
+(defn answer [request choice]
+  {:choice choice :confidence 1 :probabilities
+   (into {} (map #(vector % (if (= choice %) 1 0)) (keys (get-in request [:questions "next_action" :criteria]))))})
+(def receipt {:ok? true :summary "host observation passed" :output-digest (apply str (repeat 64 "a"))})
+(defn refused? [f] (try (f) false (catch :default _ true)))
+(deftest real-kotoba-wasm-budget-gate
+  (is (false? (budget-ok? -1))) (is (false? (budget-ok? 0)))
+  (is (true? (budget-ok? 1))) (is (false? (budget-ok? 1.5))))
+(deftest correlated-tool-results-and-host-completion
+  (let [s (h/initial profile) r (h/request profile s)
+        next (h/propose profile s (answer r "observe-apps") budget-ok?)
+        id (get-in next [:pending :id]) done (h/settle profile next id receipt)]
+    (is (= :executing (:phase next)))
+    (is (refused? #(h/propose profile s (answer r "finish") budget-ok?)))
+    (is (refused? #(h/settle profile next "stale" receipt)))
+    (is (= :done (:phase (h/propose profile done (answer (h/request profile done) "finish") budget-ok?))))
+    (is (refused? #(h/settle profile done id receipt)))
+    (is (= :interrupted (:phase (h/settle profile next id (assoc receipt :ok? false)))))
+    (is (= :interrupted (:phase (h/cancel next))))
+    (is (refused? #(h/propose profile (assoc s :steps 3) (answer r "observe-apps") budget-ok?)))
+    (is (refused? #(h/propose profile s (assoc (answer r "observe-apps") :confidence 0.1) budget-ok?)))))
+(deftest plugin-disposal-and-profile-validation
+  (let [s (h/dispose-plugin profile (h/initial profile) "computer")]
+    (is (empty? (h/available profile s))))
+  (is (refused? #(h/compile-profile (.replace (read "ports/computer-agent.mith") ":requires []" ":requires [\"missing\"]"))))
+  (is (refused? #(h/compile-profile (str (read "ports/computer-agent.mith") "(mithril/agent-harness)")))))
+(deftest upstream-schemas-cover-geometry-and-extra-fields
+  (doseq [t (get contract "tools")] (is (map? (cua/check-schema (get t "input_schema")))))
+  (let [schema (get-in driver [:tools "list_apps" "input_schema"])]
+    (is (cua/valid? schema {})) (is (not (cua/valid? schema {"bypass" true}))))
+  (is (not (cua/valid? {"type" "integer" "minimum" 0} -1)))
+  (is (not (cua/valid? {"oneOf" [{"required" ["x"]} {"required" ["token"]}]} {"x" 1 "token" "t"})))
+  (is (not (cua/valid? {"type" "number"} js/NaN))))
+(deftest mcp-discovery-execution-and-duplicate-refusal
+  (async finish
+    (let [cell (atom (cua/state)) invoked (atom 0)
+          mech {:budget-ok? budget-ok? :invoke! (fn [_ _] (swap! invoked inc) {:content [{:type "text" :text "observed"}]})}
+          rpc #(cua/rpc! driver cell % mech)
+          request {:jsonrpc "2.0" :id 3 :method "tools/call" :params {:name "list_apps" :arguments {}}}]
+      (-> (rpc request)
+          (.then (fn [r] (is (:error r)) (rpc {:jsonrpc "2.0" :id 1 :method "initialize" :params {:protocolVersion "2025-06-18"}})))
+          (.then (fn [r] (is (= "mithril-cua-driver" (get-in r [:result :serverInfo :name])))
+                   (rpc {:jsonrpc "2.0" :id 2 :method "tools/list"})))
+          (.then (fn [r] (is (= 15 (count (get-in r [:result :tools])))) (rpc request)))
+          (.then (fn [r] (is (= "observed" (get-in r [:result :content 0 :text]))) (rpc request)))
+          (.then (fn [r] (is (:error r)) (is (= 1 @invoked))
+                   (rpc {:jsonrpc "2.0" :id 4 :method "tools/call" :params {:name "clipboard_read" :arguments {}}})))
+          (.then (fn [r] (is (:error r)) (is (= 1 @invoked)) (finish)))
+          (.catch (fn [e] (is false (str e)) (finish)))))))
+(deftest bounded-agent-host-loop
+  (async finish
+    (let [history (atom []) calls (atom 0)]
+      (-> (h/run! profile {:budget-ok? budget-ok? :checkpoint! #(swap! history conj %)
+                          :decide! (fn [r] (answer r (if (zero? @calls) "observe-apps" "finish")))
+                          :execute! (fn [_ _] (swap! calls inc) receipt)})
+          (.then (fn [s] (is (= :done (:phase s))) (is (= 1 @calls))
+                   (is (= [:tool/start :tool/end :turn/end] (mapv :event (:journal s))))
+                   (is (= :done (:phase (last @history)))) (finish)))
+          (.catch (fn [e] (is false (str e)) (finish)))))))
+
+(deftest modern-protocol-and-native-uncertainty
+  (async finish
+    (let [cell (atom (cua/state)) calls (atom 0)
+          mech {:budget-ok? budget-ok? :invoke! (fn [_ _] (swap! calls inc) (throw (js/Error. "lost response")))}
+          metadata {:io.modelcontextprotocol/protocolVersion "2026-07-28"
+                    :io.modelcontextprotocol/clientCapabilities {}}
+          rpc #(cua/rpc! driver cell % mech)
+          request {:jsonrpc "2.0" :id 8 :method "tools/call"
+                   :params {:_meta metadata :name "list_apps" :arguments {}}}]
+      (-> (rpc {:jsonrpc "2.0" :id 6 :method "server/discover" :params {:_meta metadata}})
+          (.then (fn [r] (is (= "complete" (get-in r [:result :resultType]))) (rpc request)))
+          (.then (fn [r] (is (:error r)) (is (= 1 @calls))
+                   (is (= :tool/uncertain (:event (last (:journal @cell))))) (rpc request)))
+          (.then (fn [r] (is (= "tool-admission" (get-in r [:error :message]))) (is (= 1 @calls))
+                   (rpc {:jsonrpc "2.0" :id 9 :method "server/discover"
+                         :params {:_meta {:io.modelcontextprotocol/protocolVersion "2026-07-28"}}})))
+          (.then (fn [r] (is (:error r)) (finish)))
+          (.catch (fn [e] (is false (str e)) (finish)))))))
+
+(deftest late-model-error-preserves-committed-tool-result
+  (async finish
+    (let [latest (atom nil) calls (atom 0)]
+      (-> (h/run! profile {:budget-ok? budget-ok? :checkpoint! #(reset! latest %)
+                          :execute! (fn [_ _] (swap! calls inc) receipt)
+                          :decide! (fn [r] (if (zero? @calls) (answer r "observe-apps")
+                                            (throw (js/Error. "model unavailable"))))})
+          (.then (fn [_] (is false "model failure must refuse completion") (finish)))
+          (.catch (fn [_]
+                    (is (= :interrupted (:phase @latest))) (is (nil? (:pending @latest)))
+                    (is (= 1 (count (:results @latest)))) (is (= 1 @calls))
+                    (is (= [:tool/start :tool/end :turn/cancelled] (mapv :event (:journal @latest))))
+                    (finish)))))))

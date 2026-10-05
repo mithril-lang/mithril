@@ -1,0 +1,17 @@
+{:format "https://mithril.fund/port/upstreams/v1"
+ :deepseek {:upstream "https://github.com/deepseek-ai/deepseek-harness"
+            :fork "https://github.com/mithril-lang/deepseek-harness"
+            :revision "5badb15009ae1756c3afe0ae0cef1faafc290ccc"
+            :contracts ["packages/core/agent/src/runtime-types.ts"
+                        "packages/core/agent-loop/src/tool-calls.ts"
+                        "packages/core/agent-loop/src/inbox.ts"]}
+ :cua {:upstream "https://github.com/trycua/cua"
+       :fork "https://github.com/mithril-lang/cua"
+       :revision "a3d55cef2df0fc83589f15ca01c8d31d49a4aac3"
+       :contract "libs/cua-driver/contract/manifest.json"
+       :contract-sha256 "1032e6b97b039a8bbfd6764ec1770c0ea55e03cb6eb2781713293bb38ebb5b0c"
+       :tested-native-version "0.28.2"}
+ :implementation {:surface :mithril/form :host :cljk :dispatch-budget :kotoba/wasm
+                  :model :offline-clef :os-provider :explicit-native-cua-driver}
+ :scope :finite-agent-and-mcp-driver-port
+ :complete-upstream-compatibility false}

@@ -1,0 +1,26 @@
+#!/usr/bin/env kbb
+(ns mithril.port-driver-cli
+  (:require [mithril.cua-driver :as driver] [mithril.cua-host :as host] [mithril.port-kernel :as kernel]))
+(let [[manifest binary & extra] *command-line-args*
+      fs (js/require "node:fs")
+      _ (when (or (not manifest) (not binary) (seq extra))
+          (println "usage: mithril-port-driver kernel-manifest.json /absolute/path/to/cua-driver") (js/process.exit 2))
+      profile (driver/compile-profile (.readFileSync fs
+                (or (.-MITHRIL_DRIVER_PROFILE js/process.env) "ports/computer-driver.mith") "utf8")
+                (js->clj (.parse js/JSON (.readFileSync fs "resources/ports/cua-contract.json" "utf8"))))
+      mechanisms {:budget-ok? (kernel/load! manifest "ports/policy.kotoba") :invoke! (host/provider binary)}
+      cell (atom (driver/state)) queue (atom (js/Promise.resolve nil))
+      readline (js/require "node:readline") input (.createInterface readline #js {:input (.-stdin js/process)})
+      emit! #(when % (.write (.-stdout js/process) (str (.stringify js/JSON (clj->js %)) "\n")))]
+  (.on input "line"
+    (fn [line]
+      (swap! queue
+        (fn [prior]
+          (-> prior
+              (.then (fn [_]
+                       (try
+                         (when (> (.-length (js/Buffer.from line)) (:max-bytes profile)) (throw (js/Error. "input budget")))
+                         (driver/rpc! profile cell (js->clj (.parse js/JSON line) :keywordize-keys true) mechanisms)
+                         (catch :default _ {:jsonrpc "2.0" :id nil :error {:code -32700 :message "Parse or input budget error"}}))))
+              (.then emit!))))))
+  (.on input "close" (fn [] (.then @queue (fn [_] nil)))))

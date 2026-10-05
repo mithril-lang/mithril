@@ -1,0 +1,117 @@
+(ns mithril.harness
+  "Mithril-native finite-action agent/plugin/session port. No Cordis runtime.
+  One call at a time; the host commits correlated receipts, not model claims."
+  (:require [clojure.set :as set] [mithril.form :as form]))
+(def format-id "https://mithril.fund/port/agent-harness/v1")
+(defn refuse [reason] (throw (ex-info "agent harness refused" {:reason reason})))
+(defn label? [s] (and (string? s) (boolean (re-matches #"[a-z][a-z0-9/_-]{0,80}" s))))
+(defn compile-profile [text]
+  (let [d (form/parse text) plugins (get d "plugins")
+        ids (mapv #(get % "@id") plugins)]
+    (when-not (and (= "AgentHarness" (get d "@type"))
+                   (= "https://mithril.fund/context/agent-harness/v1" (get d "@context"))
+                   (= #{"@context" "@type" "@id" "goal" "maxSteps" "max-calls" "confidenceFloor" "plugins" "finish-facts"}
+                      (set (keys d)))
+                   (string? (get d "@id")) (string? (get d "goal")) (<= 1 (count (get d "goal")) 1024)
+                   (integer? (get d "maxSteps")) (<= 1 (get d "maxSteps") 100)
+                   (integer? (get d "max-calls")) (<= 1 (get d "max-calls") 100)
+                   (integer? (get d "confidenceFloor")) (<= 0 (get d "confidenceFloor") 10000)
+                   (vector? plugins) (seq plugins) (= (count ids) (count (set ids)))
+                   (every? label? ids) (vector? (get d "finish-facts")) (seq (get d "finish-facts"))
+                   (every? label? (get d "finish-facts"))) (refuse :profile-shape))
+    (loop [remaining plugins active #{} tools {}]
+      (if-let [p (first remaining)]
+        (let [deps (get p "requires") ts (get p "tools")]
+          (when-not (and (= #{"@id" "requires" "tools"} (set (keys p)))
+                         (vector? deps) (set/subset? (set deps) active)
+                         (vector? ts)) (refuse :plugin-dependency))
+          (let [next-tools (reduce (fn [registry t]
+                                    (let [id (get t "@id")]
+                                      (when-not (and (= #{"@id" "operation" "requires" "provides"} (set (keys t)))
+                                                     (label? id) (not= id "finish") (label? (get t "operation"))
+                                                     (not (contains? registry id))
+                                                     (every? #(and (vector? %) (every? label? %))
+                                                       [(get t "requires") (get t "provides")]))
+                                        (refuse :tool-contract))
+                                      (assoc registry id {:id id :plugin (get p "@id") :operation (get t "operation")
+                                                         :requires (set (get t "requires")) :provides (set (get t "provides"))})))
+                             tools ts)]
+            (recur (rest remaining) (conj active (get p "@id")) next-tools)))
+        {:format format-id :id (get d "@id") :goal (get d "goal")
+         :max-steps (get d "maxSteps") :max-calls (get d "max-calls")
+         :confidence-floor (/ (get d "confidenceFloor") 10000)
+         :finish-facts (set (get d "finish-facts")) :plugins plugins :tools tools}))))
+(defn initial [profile]
+  {:profile-id (:id profile) :phase :ready :steps 0 :calls 0 :facts #{} :pending nil
+   :active (set (map #(get % "@id") (:plugins profile))) :completed #{} :journal [] :results []})
+(defn available [p s]
+  (into {} (filter (fn [[id t]] (and (contains? (:active s) (:plugin t))
+                                    (not (contains? (:completed s) id))
+                                    (set/subset? (:requires t) (:facts s)))) (:tools p))))
+(defn request [p s]
+  {:state {:goal (:goal p) :facts (vec (sort (:facts s))) :tool-results (:results s)}
+   :questions {"next_action" {:type "choice"
+     :instructions "Choose an available operation. Finish only when the observed results establish the goal."
+     :criteria (assoc (into {} (map (fn [[id t]] [id (:operation t)]) (available p s)))
+                      "finish" "Finish only after the required host-verification facts exist.")}}})
+(defn propose [p s answer budget-ok?]
+  (when-not (and (= (:profile-id s) (:id p)) (= :ready (:phase s))
+                 (budget-ok? (- (:max-steps p) (:steps s)))) (refuse :step-budget-or-state))
+  (let [labels (conj (set (keys (available p s))) "finish")
+        {:keys [choice confidence probabilities]} answer
+        unit? #(and (number? %) (js/Number.isFinite %) (<= 0 % 1))]
+    (when-not (and (= #{:choice :confidence :probabilities} (set (keys answer)))
+                   (contains? labels choice) (= labels (set (keys probabilities)))
+                   (unit? confidence) (every? unit? (vals probabilities))
+                   (< (js/Math.abs (- 1 (reduce + (vals probabilities)))) 0.000001)
+                   (= (get probabilities choice) (apply max (vals probabilities)))) (refuse :decision-shape))
+    (when (< (min confidence (get probabilities choice)) (:confidence-floor p)) (refuse :low-confidence))
+    (let [next (update s :steps inc)]
+      (if (= "finish" choice)
+        (do (when-not (set/subset? (:finish-facts p) (:facts s)) (refuse :unverified-finish))
+            (-> next (assoc :phase :done) (update :journal conj {:event :turn/end :step (:steps next)})))
+        (do (when-not (budget-ok? (- (:max-calls p) (:calls s))) (refuse :call-budget))
+            (let [id (str (:id p) "/call/" (:calls s)) t (get (:tools p) choice)]
+              (-> next (update :calls inc) (assoc :phase :executing :pending {:id id :tool t})
+                  (update :journal conj {:event :tool/start :call-id id :label choice}))))))))
+(defn settle [p s call-id receipt]
+  (when-not (and (= (:id p) (:profile-id s)) (= :executing (:phase s))
+                 (= call-id (get-in s [:pending :id]))
+                 (= #{:ok? :summary :output-digest} (set (keys receipt)))
+                 (boolean? (:ok? receipt)) (string? (:summary receipt)) (<= (count (:summary receipt)) 2048)
+                 (boolean (re-matches #"[0-9a-f]{64}" (:output-digest receipt)))) (refuse :stale-or-invalid-result))
+  (let [t (get-in s [:pending :tool]) event {:event :tool/end :call-id call-id :receipt receipt}]
+    (-> s (assoc :phase (if (:ok? receipt) :ready :interrupted) :pending nil)
+        (update :completed conj (:id t))
+        (update :facts into (if (:ok? receipt) (:provides t) #{}))
+        (update :results conj {:call-id call-id :operation (:operation t) :receipt receipt})
+        (update :journal conj event))))
+(defn cancel [s]
+  (-> s (assoc :phase :interrupted) (update :journal conj {:event :turn/cancelled :pending (:pending s)})))
+(defn dispose-plugin [p s id]
+  (when (or (= id (get-in s [:pending :tool :plugin]))
+            (some #(and (contains? (:active s) (get % "@id"))
+                        (contains? (set (get % "requires")) id)) (:plugins p))) (refuse :plugin-in-use))
+  (update s :active disj id))
+(defn run!
+  "Host callbacks are separate explicit capabilities. Models receive no executor."
+  [profile {:keys [decide! execute! checkpoint! budget-ok?]}]
+  (letfn [(perform [next]
+            (let [{:keys [id tool]} (:pending next)]
+              (-> (js/Promise.resolve nil)
+                  (.then (fn [_] (execute! id (:operation tool))))
+                  (.then #(settle profile next id %))
+                  (.catch (fn [e] (checkpoint! (cancel next)) (throw e)))
+                  (.then (fn [settled] (drive settled))))))
+          (drive [s]
+            (checkpoint! s)
+            (if (not= :ready (:phase s)) (js/Promise.resolve s)
+              (-> (js/Promise.resolve nil)
+                  (.then (fn [_] (decide! (request profile s))))
+                  (.catch (fn [e] (checkpoint! (cancel s)) (throw e)))
+                  (.then (fn [answer]
+                           (let [next (try (propose profile s answer budget-ok?)
+                                           (catch :default e (checkpoint! (cancel s)) (throw e)))]
+                             (checkpoint! next)
+                             (if (= :done (:phase next)) next (perform next))))))))]
+    (drive (initial profile))))

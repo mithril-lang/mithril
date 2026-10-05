@@ -1,0 +1,7 @@
+(mithril/agent-harness
+  :id "https://mithril.fund/port/deepseek/coding-v1"
+  :goal "Verify and repair the declared Kotoba task; finish only after the compiler and all tests pass."
+  :max-steps 4 :max-calls 2 :confidence-floor 6000 :finish-facts ["tests-passed"]
+  :plugins [(mithril/plugin :id "compiler" :requires []
+    :tools [(mithril/tool :id "verify-repair" :operation "coding/verify-repair"
+             :requires [] :provides ["tests-passed"])])])

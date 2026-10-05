@@ -1,0 +1,24 @@
+(ns mithril.port-model "Explicit offline finite-choice model mechanism.")
+(def fs (js/require "node:fs"))
+(def cp (js/require "node:child_process"))
+(def path (js/require "node:path"))
+(def os (js/require "node:os"))
+(defn clef [hy helper model-dir adapter-root audit]
+  (fn [request]
+    (let [root (.mkdtempSync fs (.join path (.tmpdir os) "mithril-port-decision-"))
+          input (.join path root "request.json")
+          _ (.writeFileSync fs input (.stringify js/JSON (clj->js request)) #js {:mode 384})
+          fd (.openSync fs input "r")
+          r (try (.spawnSync cp hy #js [helper "--model-dir" model-dir "--clef-adapter-root" adapter-root]
+                            #js {:encoding "utf8" :timeout 90000 :maxBuffer 1048576
+                                 :stdio #js [fd "pipe" "pipe"]
+                                 :env #js {:PATH (.-PATH js/process.env)}})
+                 (finally (.closeSync fs fd) (.rmSync fs root #js {:recursive true :force true})))
+          _ (when (or (.-error r) (not= 0 (.-status r)))
+              (throw (ex-info "offline CLEF failed" {:reason :model-error})))
+          value (js->clj (.parse js/JSON (.-stdout r)))
+          probabilities (get-in value ["questions" "next_action"])
+          choice (first (sort-by #(get probabilities %) > (keys probabilities)))
+          answer {:choice choice :confidence (get probabilities choice) :probabilities probabilities}]
+      (swap! audit conj {:request request :response value :answer answer})
+      answer)))

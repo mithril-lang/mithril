@@ -1960,3 +1960,12 @@ sources. A Jev-compatible Choice selects an admitted label; Amu native compilati
 and exported tests verify it, with rollback and failed-candidate exclusion before
 retry. The executable replay repairs a countdown function after rejecting an
 insufficient decrement. See [the contract and runnable example](docs/system-one-repair.md).
+
+## Mithril agent harness and computer-driver ports
+
+The official DeepSeek Harness and Cua repositories are forked under
+`mithril-lang`. [The executable Mithril port profiles](ports/README.md) drive
+CLJK agent/MCP logic with an actual Kotoba/Wasm dispatch-budget kernel and local
+CLEF decisions. Compiler-verified repair, native desktop observation and input
+into an owned temporary document were measured. OS backends remain explicit
+native Cua mechanisms; complete upstream compatibility is not claimed.

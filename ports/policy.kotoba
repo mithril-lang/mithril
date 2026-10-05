@@ -1,0 +1,8 @@
+(ns mithril.port-policy (:export [f test-negative test-zero test-one test-many main]))
+;; Shared, compiled dispatch-budget decision. No host or OS capability.
+(defn f [n :i64] :i64 (if (> n 0) 1 0))
+(defn test-negative [] :i64 (if (= (f -1) 0) 1 0))
+(defn test-zero [] :i64 (if (= (f 0) 0) 1 0))
+(defn test-one [] :i64 (if (= (f 1) 1) 1 0))
+(defn test-many [] :i64 (if (= (f 100) 1) 1 0))
+(defn main [] :i64 (f 0))
