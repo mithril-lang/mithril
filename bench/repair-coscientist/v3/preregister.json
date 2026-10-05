@@ -35,7 +35,8 @@
     "96 train: six families x constants 2..17; 12 dev: six families x 23,29",
     "Prior v1/v2 distance/ceil-div heldout pairs become training data; none of the fresh v3 target pairs is trained.",
     "Recursive triangular/factorial tasks are excluded from train and dev.",
-    "Gemini omitted after HTTP402; no spending-limit increase."
+    "Gemini omitted after HTTP402; no spending-limit increase.",
+    "Qwen heldout calls omitted after confirmed insufficient credits at max_tokens160; v2 remains the paired Qwen comparison. Jev heldout protocol unchanged."
   ],
   "selection": "dev accuracy/Brier/latency; CLEF checkpoint by dev NLL only; reject unseen-family calibration regression",
   "created-at": "2026-10-05T02:11:38.071Z",

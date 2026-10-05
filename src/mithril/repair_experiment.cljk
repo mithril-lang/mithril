@@ -9,7 +9,8 @@
 (def lanes
   (mapv (fn [lane]
           (if (and (= "typed-v2" (.-MITHRIL_REPAIR_PROTOCOL js/process.env)) (= "chat" (:kind lane)))
-            (cond-> (assoc lane :protocol "typed-v2")
+    (cond-> (assoc lane :protocol "typed-v2")
+              (= "160" (.-MITHRIL_REPAIR_CHAT_MAX_TOKENS js/process.env)) (assoc :max-tokens 160)
               (= "qwen/qwen3-coder-30b-a3b-instruct" (:model lane))
               (assoc :provider {:order ["SiliconFlow"] :allow_fallbacks false})) lane))
         [{:model "typesafe/jev-1.13" :kind "decisions"}
@@ -71,7 +72,7 @@
   (let [request (corpus/request task hypothesis (:candidates task))
         decisions? (= "decisions" (:kind lane))
         body (if decisions? (assoc request :model (:model lane))
-                 (cond-> (chat-request (:model lane) request)
+                 (cond-> (assoc (chat-request (:model lane) request) :max_tokens (or (:max-tokens lane) 700))
                    (= "typed-v2" (:protocol lane))
                    (assoc :response_format (typed-format request)
                           :provider (merge {:require_parameters true} (:provider lane)))))
