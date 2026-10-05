@@ -1,0 +1,96 @@
+(ns mithril.repair-corpus
+  "Synthetic Kotoba repair pilot with disjoint state and family splits. Targets
+  live only in the evaluator; model requests contain specifications and tests."
+  (:require [clojure.string :as str]
+            [mithril.repair-host :as host]))
+
+(def families [:affine :threshold :clamp :parity :distance :ceil-div])
+(defn definition [family c]
+  (case family
+    :affine {:goal (str "Return n plus " c " for every integer n.")
+             :bodies [(str "(+ n " c ")") (str "(- n " c ")") (str "(+ n " (inc c) ")")]
+             :expected #(+ % c) :cases [-7 0 1 9 20]}
+    :threshold {:goal (str "Return 1 exactly when n is at least " c "; otherwise return 0.")
+                :bodies [(str "(if (>= n " c ") 1 0)") (str "(if (> n " c ") 1 0)")
+                         (str "(if (< n " c ") 1 0)")]
+                :expected #(if (>= % c) 1 0) :cases [(- c 1) c (inc c) 0 (+ c 5)]}
+    :clamp {:goal (str "Clamp integer n into the inclusive interval [0," c "].")
+            :bodies [(str "(if (< n 0) 0 (if (> n " c ") " c " n))")
+                     (str "(if (< n 0) 0 (if (> n " c ") " (inc c) " n))")
+                     (str "(if (< n 0) n (if (> n " c ") " c " n))")]
+            :expected #(min c (max 0 %)) :cases [-3 0 1 c (+ c 3)]}
+    :parity {:goal (str "Return " c " when n is even, and 0 when n is odd.")
+             :bodies [(str "(if (= (mod n 2) 0) " c " 0)")
+                      (str "(if (= (mod n 2) 1) " c " 0)") (str "(if (= n 0) " c " 0)")]
+             :expected #(if (zero? (mod % 2)) c 0) :cases [-4 0 1 2 7]}
+    :distance {:goal (str "Return the absolute integer distance between n and " c ".")
+               :bodies [(str "(if (< n " c ") (- " c " n) (- n " c "))")
+                        (str "(- n " c ")") (str "(if (< n " c ") (- " c " n) (+ n " c "))")]
+               :expected #(js/Math.abs (- % c)) :cases [(- c 3) 0 c (inc c) (+ c 7)]}
+    :ceil-div {:goal (str "For non-negative n, return n divided by " c " rounded UP to an integer.")
+               :bodies [(str "(quot (+ n " (dec c) ") " c ")") (str "(quot n " c ")")
+                        (str "(quot (+ n " c ") " c ")")]
+               :expected #(js/Math.ceil (/ % c)) :cases [0 1 c (inc c) (* c 2)]}))
+
+(defn task [family c split]
+  (let [{:keys [goal bodies expected cases]} (definition family c)
+        id (str (name family) "-" c)
+        gold-index (mod (+ c (.indexOf (clj->js (mapv name families)) (name family))) 3)
+        order (vec (concat (range gold-index 3) (range 0 gold-index)))
+        labels ["action-a" "action-b" "action-c"]
+        body-order (mapv #(nth bodies %) order)
+        gold (nth labels (.indexOf (clj->js order) 0))
+        broken "(+ n 999)"
+        source (str "(ns repair.pilot (:export [f "
+                    (str/join " " (map #(str "test-" %) (range (count cases)))) " main]))\n"
+                    "(defn f [n :i64] :i64 " broken ")\n"
+                    (str/join "\n" (map-indexed (fn [i n]
+                      (str "(defn test-" i " [] :i64 (if (= (f " n ") " (expected n) ") 1 0))")) cases))
+                    "\n(defn main [] :i64 (f 0))\n")
+        candidates (mapv (fn [label body] {:id label :symbol "repair.pilot/f"
+                                           :path "program.kotoba" :old broken :new body}) labels body-order)]
+    {:id id :family (name family) :split split :goal goal :source source
+     :cases (mapv #(hash-map :input % :expected (expected %)) cases)
+     :candidates candidates :gold gold :task-digest (host/digest (pr-str [id goal source candidates]))}))
+
+(defn corpus []
+  (vec (concat
+    (for [f (take 4 families) c (range 2 18)] (task f c "train"))
+    (for [f (take 4 families) c [23 29]] (task f c "dev"))
+    (for [f (take 4 families) c [37 41]] (task f c "heldout-state"))
+    (for [f (drop 4 families) c [3 5 7 11]] (task f c "heldout-family")))))
+
+(def hypotheses ["source-choice" "structured-choice" "atomic-noul"])
+(defn request [task hypothesis candidates]
+  (let [state (if (= hypothesis "source-choice")
+                {:goal (:goal task) :source (:source task) :last-result "tests failed"}
+                {:specification (:goal task) :function "f(n: i64) -> i64"
+                 :test-cases (:cases task) :current-source (:source task)
+                 :edit-contract "Replace the body of f only. All listed cases and tests remain unchanged."})
+        questions (if (= hypothesis "atomic-noul")
+                    (into {} (map (fn [c] [(:id c)
+                        {:type "noul"
+                         :instructions (str "Would this replacement satisfy EVERY listed test and the specification? " (:new c))}]) candidates))
+                    {"next_action" {:type "choice"
+                        :instructions "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples."
+                        :criteria (into {} (map (fn [c] [(:id c) (:new c)]) candidates))}})]
+    {:state state :questions questions}))
+
+(defn write-corpus! [root]
+  (.mkdirSync host/fs root #js {:recursive true})
+  (let [tasks (corpus)
+        file (.join host/path root "corpus.json")
+        manifest {:format "mithril.repair-experiment/v1" :seed 20261005
+                  :splits (frequencies (map :split tasks))
+                  :corpus-digest (host/digest (pr-str tasks))
+                  :hypotheses hypotheses :confidence-floor 0.6
+                  :max-proposals 2 :repeat-count 1
+                  :selection "Development first-choice accuracy, then Brier, then model latency. Freeze before held-out calls."
+                  :scope "Synthetic finite-action Kotoba repair; not SWE-bench or unconstrained code generation."
+                  :training {:model "Cloudflare/clef-flash"
+                             :revision "17f0b0ad64efb65d273590632833508766b2aae6"
+                             :backbone :frozen :head :trainable :epochs 12 :learning-rate 0.0001
+                             :gpu "H100" :timeout-seconds 1200}}]
+    (.writeFileSync host/fs file (.stringify js/JSON (clj->js tasks) nil 2) "utf8")
+    (.writeFileSync host/fs (.join host/path root "preregister.edn") (pr-str manifest) "utf8")
+    (println (pr-str manifest))))

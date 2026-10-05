@@ -1,0 +1,7 @@
+#!/usr/bin/env kbb
+(ns mithril.repair-experiment-cli (:require [mithril.repair-experiment :as experiment]))
+(let [[stage & extra] *command-line-args*]
+  (when-not (and (empty? extra) (contains? #{"dev" "select" "heldout"} stage))
+    (throw (ex-info "usage: repair-experiment dev|select|heldout" {})))
+  (if (= stage "select") (experiment/select!)
+    (-> (experiment/run! stage) (.catch (fn [e] (println (str e)) (js/process.exit 1))))))

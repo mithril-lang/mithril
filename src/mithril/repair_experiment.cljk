@@ -1,0 +1,133 @@
+(ns mithril.repair-experiment
+  "Paired, resumable finite-action repair pilot. Only synthetic public tasks
+  leave the workspace. Gold stays outside all provider requests."
+  (:require [cljs.reader :as reader]
+            [clojure.string :as str]
+            [mithril.repair-corpus :as corpus]
+            [mithril.repair-search :as search]
+            [mithril.repair-host :as host]))
+(def lanes [{:model "typesafe/jev-1.13" :kind "decisions"}
+            {:model "qwen/qwen3-coder-30b-a3b-instruct" :kind "chat"}
+            {:model "google/gemini-2.5-flash" :kind "chat"}])
+(def root "bench/repair-coscientist")
+(defn read-json [file] (js->clj (js/JSON.parse (.readFileSync host/fs file "utf8")) :keywordize-keys true))
+(defn tasks [] (read-json (.join host/path root "corpus.json")))
+(defn load-rows []
+  (let [file (.join host/path root "provider-rows.jsonl")]
+    (if (.existsSync host/fs file)
+      (mapv #(js->clj (js/JSON.parse %) :keywordize-keys true)
+            (remove str/blank? (str/split-lines (.readFileSync host/fs file "utf8")))) [])))
+(defn append! [row]
+  (.appendFileSync host/fs (.join host/path root "provider-rows.jsonl")
+                    (str (.stringify js/JSON (clj->js row)) "\n") "utf8"))
+(defn dist-map [m] (into {} (map (fn [[k v]] [(name k) v]) m)))
+(defn normalize [response request hypothesis]
+  (let [answers (:answers response)
+        answer (:next_action answers)]
+    (if (= hypothesis "atomic-noul")
+      (let [scores (into {} (map (fn [[k a]] [(name k) (:noul a)]) answers))
+            _ (when-not (and (= (set (keys scores)) (set (keys (:questions request))))
+                             (every? search/unit? (vals scores))) (search/refuse! :atomic-response))
+            total (reduce + (vals scores))
+            probabilities (into {} (map (fn [[k p]] [k (if (pos? total) (/ p total) (/ 1 (count scores)))]) scores))
+            choice (first (apply max-key second (sort-by first probabilities)))]
+        {:choice choice :probabilities probabilities :confidence (get scores choice)
+         :confidence-semantics "candidate Noul truth-probability; not Jev Choice confidence"
+         :raw-scores scores})
+      (let [a {:choice (:choice answer) :probabilities (dist-map (:probabilities answer))
+               :confidence (:confidence answer)}
+            candidates (mapv #(hash-map :id %) (keys (get-in request [:questions "next_action" :criteria])))]
+        (search/admit-choice {:confidence-floor 0} candidates a)
+        (assoc a :confidence-semantics "provider Choice confidence; self-reported for chat")))))
+
+(defn chat-request [model request]
+  {:model model :temperature 0 :max_tokens 700
+   :response_format {:type "json_object"}
+   :messages [{:role "system"
+               :content (str "You are a bounded Kotoba coding agent. Inspect the state and schema, evaluate the candidate replacements against all tests, and return only a JSON object with an answers object keyed by question ID. For each choice question return {type:'choice', choice:<allowed ID>, confidence:<number 0..1>, probabilities:<object with EVERY allowed ID; probabilities sum to 1>}. For each noul return {type:'noul',noul:<probability 0..1>}. No explanation, no extra keys. Use double quotes in JSON. Do not invent choices. Your confidence is a self-report, not a verified score.")}
+              {:role "user" :content (.stringify js/JSON (clj->js request))}]})
+(defn call! [lane task hypothesis api-key]
+  (let [request (corpus/request task hypothesis (:candidates task))
+        decisions? (= "decisions" (:kind lane))
+        body (if decisions? (assoc request :model (:model lane)) (chat-request (:model lane) request))
+        endpoint (if decisions? search/endpoint "https://openrouter.ai/api/v1/chat/completions")
+        controller (js/AbortController.) timer (js/setTimeout #(.abort controller) 60000)
+        start (.now js/Date)]
+    (-> (js/fetch endpoint #js {:method "POST" :signal (.-signal controller)
+                       :headers #js {"authorization" (str "Bearer " api-key) "content-type" "application/json"}
+                       :body (.stringify js/JSON (clj->js body))})
+        (.then (fn [r]
+                 (when-not (.-ok r)
+                   (throw (ex-info "provider HTTP failure" {:status (.-status r)})))
+                 (.json r)))
+        (.then (fn [raw]
+                 (let [r (js->clj raw :keywordize-keys true)
+                       result (if decisions? r
+                                (js->clj (js/JSON.parse (get-in r [:choices 0 :message :content])) :keywordize-keys true))]
+                   {:id (:id task) :split (:split task) :family (:family task)
+                    :task-digest (:task-digest task) :request-digest (host/digest (.stringify js/JSON (clj->js request)))
+                    :model (:model lane) :resolved-model (:model r) :hypothesis hypothesis
+                    :answer (normalize result request hypothesis)
+                    :provider-request-id (:id r) :usage (:usage r)
+                    :model-ms (- (.now js/Date) start) :status "ok"})))
+        (.catch (fn [e] {:id (:id task) :split (:split task) :family (:family task)
+                        :task-digest (:task-digest task) :model (:model lane) :hypothesis hypothesis
+                        :status "provider-error" :error (str e) :model-ms (- (.now js/Date) start)}))
+        (.finally #(js/clearTimeout timer)))))
+
+(defn row-key [r] [(:id r) (:model r) (:hypothesis r)])
+(defn jobs [stage winner]
+  (vec (if (= stage "dev")
+         (concat (for [t (tasks) :when (= "dev" (:split t)) h corpus/hypotheses]
+                   [(first lanes) t h])
+                 (for [t (tasks) :when (= "dev" (:split t)) lane (rest lanes)]
+                   [lane t "structured-choice"]))
+         (concat
+          (for [t (tasks) :when (str/starts-with? (:split t) "heldout")
+                h (distinct ["source-choice" winner])] [(first lanes) t h])
+          (for [t (tasks) :when (str/starts-with? (:split t) "heldout") lane (rest lanes)]
+            [lane t "structured-choice"])
+          ;; CLEF trains the pre-registered structured interface, so Jev must
+          ;; also use that exact interface for cross-model comparisons.
+          (for [t (tasks) :when (str/starts-with? (:split t) "heldout")]
+            [(first lanes) t "structured-choice"])))) )
+(defn run! [stage]
+  (let [api-key (host/api-key!)
+        _ (when-not (seq api-key) (search/refuse! :missing-credential))
+        winner (when (= stage "heldout") (:winner (read-json (.join host/path root "hypothesis-selection.json"))))
+        completed (set (map row-key (load-rows)))
+        pending (vec (remove (fn [[lane t h]] (contains? completed [(:id t) (:model lane) h]))
+                             (distinct (jobs stage winner))))]
+    (reduce (fn [promise [lane t h]]
+              (.then promise (fn [_]
+                (-> (call! lane t h api-key)
+                    (.then (fn [r] (append! r)
+                             (println (pr-str (select-keys r [:id :model :hypothesis :status]))) r))))))
+            (js/Promise.resolve nil) pending)))
+
+(defn average [xs] (when (seq xs) (/ (reduce + xs) (count xs))))
+(defn score [rows]
+  (let [gold (into {} (map #(vector (:id %) (:gold %)) (tasks)))
+        ok (filter #(= "ok" (:status %)) rows)
+        correct (filter #(= (get gold (:id %)) (get-in % [:answer :choice])) ok)
+        brier (map (fn [r] (reduce + (map (fn [[id p]] (let [d (- p (if (= id (get gold (:id r))) 1 0))] (* d d)))
+                                                       (get-in r [:answer :probabilities])))) ok)]
+    {:n (count rows) :answered (count ok) :correct (count correct)
+     :accuracy (/ (count correct) (max 1 (count rows))) :brier (average brier)
+     :nll (average (map #(- (js/Math.log (max 1e-8 (get-in % [:answer :probabilities (get gold (:id %))] 0)))) ok))
+     :model-ms (average (map :model-ms rows))
+     :input-tokens (reduce + (keep #(get-in % [:usage :input_tokens] (get-in % [:usage :prompt_tokens])) ok))
+     :output-tokens (reduce + (keep #(get-in % [:usage :output_tokens] (get-in % [:usage :completion_tokens])) ok))
+     :provider-cost (reduce + (keep #(get-in % [:usage :cost]) ok))}))
+(defn select! []
+  (let [rows (filter #(and (= "dev" (:split %)) (= search/model-id (:model %))) (load-rows))
+        scored (mapv (fn [[h rs]] (assoc (score rs) :hypothesis h)) (group-by :hypothesis rows))
+        _ (when-not (and (= 24 (count rows)) (every? #(= 8 (:n %)) scored)) (search/refuse! :incomplete-development))
+        winner (:hypothesis (first (sort-by #(vector (- (:accuracy %)) (or (:brier %) 999) (:model-ms %)) scored)))
+        result {:winner winner :selection-data "dev only" :scores scored
+                :frozen-at (.toISOString (js/Date.)) :rows-digest (host/digest (pr-str rows))}]
+    (when (.existsSync host/fs (.join host/path root "hypothesis-selection.json"))
+      (search/refuse! :selection-already-frozen))
+    (.writeFileSync host/fs (.join host/path root "hypothesis-selection.json")
+                       (.stringify js/JSON (clj->js result) nil 2) "utf8")
+    (println (pr-str result))))

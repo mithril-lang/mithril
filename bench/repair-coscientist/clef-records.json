@@ -1,0 +1,4138 @@
+[
+  {
+    "id": "affine-2",
+    "split": "train",
+    "gold": "action-b",
+    "task_digest": "sha256:43bd8aa3099c17cbdfa55d3ef5b976850d0c7f4bd2b6ebe513e0e3b1739ef640",
+    "request": {
+      "state": {
+        "specification": "Return n plus 2 for every integer n.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": -5,
+            "input": -7
+          },
+          {
+            "expected": 2,
+            "input": 0
+          },
+          {
+            "expected": 3,
+            "input": 1
+          },
+          {
+            "expected": 11,
+            "input": 9
+          },
+          {
+            "expected": 22,
+            "input": 20
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -7) -5) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 2) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 3) 1 0))\n(defn test-3 [] :i64 (if (= (f 9) 11) 1 0))\n(defn test-4 [] :i64 (if (= (f 20) 22) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(+ n 3)",
+            "action-b": "(+ n 2)",
+            "action-c": "(- n 2)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "affine-3",
+    "split": "train",
+    "gold": "action-a",
+    "task_digest": "sha256:517e4369106ce9f1bdc84677d14bd13009b00e5cb568afe1a3601816fd7aa7b9",
+    "request": {
+      "state": {
+        "specification": "Return n plus 3 for every integer n.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": -4,
+            "input": -7
+          },
+          {
+            "expected": 3,
+            "input": 0
+          },
+          {
+            "expected": 4,
+            "input": 1
+          },
+          {
+            "expected": 12,
+            "input": 9
+          },
+          {
+            "expected": 23,
+            "input": 20
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -7) -4) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 3) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 4) 1 0))\n(defn test-3 [] :i64 (if (= (f 9) 12) 1 0))\n(defn test-4 [] :i64 (if (= (f 20) 23) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(+ n 3)",
+            "action-b": "(- n 3)",
+            "action-c": "(+ n 4)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "affine-4",
+    "split": "train",
+    "gold": "action-c",
+    "task_digest": "sha256:b9715e96ebfd308304ffbbf25a2918b1c07c08677b8f4ac5d49a861b65c9ed92",
+    "request": {
+      "state": {
+        "specification": "Return n plus 4 for every integer n.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": -3,
+            "input": -7
+          },
+          {
+            "expected": 4,
+            "input": 0
+          },
+          {
+            "expected": 5,
+            "input": 1
+          },
+          {
+            "expected": 13,
+            "input": 9
+          },
+          {
+            "expected": 24,
+            "input": 20
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -7) -3) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 4) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 5) 1 0))\n(defn test-3 [] :i64 (if (= (f 9) 13) 1 0))\n(defn test-4 [] :i64 (if (= (f 20) 24) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(- n 4)",
+            "action-b": "(+ n 5)",
+            "action-c": "(+ n 4)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "affine-5",
+    "split": "train",
+    "gold": "action-b",
+    "task_digest": "sha256:78f88a2c552ac6f9106cfbdb53185249f4fa7d8daa563cc872adff40052c4c1f",
+    "request": {
+      "state": {
+        "specification": "Return n plus 5 for every integer n.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": -2,
+            "input": -7
+          },
+          {
+            "expected": 5,
+            "input": 0
+          },
+          {
+            "expected": 6,
+            "input": 1
+          },
+          {
+            "expected": 14,
+            "input": 9
+          },
+          {
+            "expected": 25,
+            "input": 20
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -7) -2) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 5) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 6) 1 0))\n(defn test-3 [] :i64 (if (= (f 9) 14) 1 0))\n(defn test-4 [] :i64 (if (= (f 20) 25) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(+ n 6)",
+            "action-b": "(+ n 5)",
+            "action-c": "(- n 5)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "affine-6",
+    "split": "train",
+    "gold": "action-a",
+    "task_digest": "sha256:1fe1b156446a5afac11ad6541239ff075e4d90555d871e07da20e93fb7d1c9ff",
+    "request": {
+      "state": {
+        "specification": "Return n plus 6 for every integer n.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": -1,
+            "input": -7
+          },
+          {
+            "expected": 6,
+            "input": 0
+          },
+          {
+            "expected": 7,
+            "input": 1
+          },
+          {
+            "expected": 15,
+            "input": 9
+          },
+          {
+            "expected": 26,
+            "input": 20
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -7) -1) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 6) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 7) 1 0))\n(defn test-3 [] :i64 (if (= (f 9) 15) 1 0))\n(defn test-4 [] :i64 (if (= (f 20) 26) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(+ n 6)",
+            "action-b": "(- n 6)",
+            "action-c": "(+ n 7)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "affine-7",
+    "split": "train",
+    "gold": "action-c",
+    "task_digest": "sha256:f1b84f7866f386df859dbd7cce44d9f1e0c54932f63630224e2781956ba33abd",
+    "request": {
+      "state": {
+        "specification": "Return n plus 7 for every integer n.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 0,
+            "input": -7
+          },
+          {
+            "expected": 7,
+            "input": 0
+          },
+          {
+            "expected": 8,
+            "input": 1
+          },
+          {
+            "expected": 16,
+            "input": 9
+          },
+          {
+            "expected": 27,
+            "input": 20
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -7) 0) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 7) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 8) 1 0))\n(defn test-3 [] :i64 (if (= (f 9) 16) 1 0))\n(defn test-4 [] :i64 (if (= (f 20) 27) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(- n 7)",
+            "action-b": "(+ n 8)",
+            "action-c": "(+ n 7)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "affine-8",
+    "split": "train",
+    "gold": "action-b",
+    "task_digest": "sha256:69cf79d6179016c5c2618ae750ab112d9d55849851ff91053001c7993c3470cf",
+    "request": {
+      "state": {
+        "specification": "Return n plus 8 for every integer n.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 1,
+            "input": -7
+          },
+          {
+            "expected": 8,
+            "input": 0
+          },
+          {
+            "expected": 9,
+            "input": 1
+          },
+          {
+            "expected": 17,
+            "input": 9
+          },
+          {
+            "expected": 28,
+            "input": 20
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -7) 1) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 8) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 9) 1 0))\n(defn test-3 [] :i64 (if (= (f 9) 17) 1 0))\n(defn test-4 [] :i64 (if (= (f 20) 28) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(+ n 9)",
+            "action-b": "(+ n 8)",
+            "action-c": "(- n 8)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "affine-9",
+    "split": "train",
+    "gold": "action-a",
+    "task_digest": "sha256:ec78dc9911b6cad1f6a82b8e812890c9b20a89c5d2f959ba1af5d587ed41e60a",
+    "request": {
+      "state": {
+        "specification": "Return n plus 9 for every integer n.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 2,
+            "input": -7
+          },
+          {
+            "expected": 9,
+            "input": 0
+          },
+          {
+            "expected": 10,
+            "input": 1
+          },
+          {
+            "expected": 18,
+            "input": 9
+          },
+          {
+            "expected": 29,
+            "input": 20
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -7) 2) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 9) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 10) 1 0))\n(defn test-3 [] :i64 (if (= (f 9) 18) 1 0))\n(defn test-4 [] :i64 (if (= (f 20) 29) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(+ n 9)",
+            "action-b": "(- n 9)",
+            "action-c": "(+ n 10)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "affine-10",
+    "split": "train",
+    "gold": "action-c",
+    "task_digest": "sha256:7f5d1ded3cbae2700d21a263c76d225a4e46b5d93134f9ae3841b9a225536f6c",
+    "request": {
+      "state": {
+        "specification": "Return n plus 10 for every integer n.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 3,
+            "input": -7
+          },
+          {
+            "expected": 10,
+            "input": 0
+          },
+          {
+            "expected": 11,
+            "input": 1
+          },
+          {
+            "expected": 19,
+            "input": 9
+          },
+          {
+            "expected": 30,
+            "input": 20
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -7) 3) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 10) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 11) 1 0))\n(defn test-3 [] :i64 (if (= (f 9) 19) 1 0))\n(defn test-4 [] :i64 (if (= (f 20) 30) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(- n 10)",
+            "action-b": "(+ n 11)",
+            "action-c": "(+ n 10)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "affine-11",
+    "split": "train",
+    "gold": "action-b",
+    "task_digest": "sha256:587c196a19e3c682b7ba53f8763fcb257303ca87e708e6cff2c0bc25799c22a8",
+    "request": {
+      "state": {
+        "specification": "Return n plus 11 for every integer n.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 4,
+            "input": -7
+          },
+          {
+            "expected": 11,
+            "input": 0
+          },
+          {
+            "expected": 12,
+            "input": 1
+          },
+          {
+            "expected": 20,
+            "input": 9
+          },
+          {
+            "expected": 31,
+            "input": 20
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -7) 4) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 11) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 12) 1 0))\n(defn test-3 [] :i64 (if (= (f 9) 20) 1 0))\n(defn test-4 [] :i64 (if (= (f 20) 31) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(+ n 12)",
+            "action-b": "(+ n 11)",
+            "action-c": "(- n 11)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "affine-12",
+    "split": "train",
+    "gold": "action-a",
+    "task_digest": "sha256:7b48105a01e0a64aac92390a1d8ab2ccf0e65c81bb4b3f401c815a78dfa9eefe",
+    "request": {
+      "state": {
+        "specification": "Return n plus 12 for every integer n.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 5,
+            "input": -7
+          },
+          {
+            "expected": 12,
+            "input": 0
+          },
+          {
+            "expected": 13,
+            "input": 1
+          },
+          {
+            "expected": 21,
+            "input": 9
+          },
+          {
+            "expected": 32,
+            "input": 20
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -7) 5) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 12) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 13) 1 0))\n(defn test-3 [] :i64 (if (= (f 9) 21) 1 0))\n(defn test-4 [] :i64 (if (= (f 20) 32) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(+ n 12)",
+            "action-b": "(- n 12)",
+            "action-c": "(+ n 13)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "affine-13",
+    "split": "train",
+    "gold": "action-c",
+    "task_digest": "sha256:6b55a9a5e3975829c554bea204e8651571f4381f314722a41461a6c6d98cfc6a",
+    "request": {
+      "state": {
+        "specification": "Return n plus 13 for every integer n.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 6,
+            "input": -7
+          },
+          {
+            "expected": 13,
+            "input": 0
+          },
+          {
+            "expected": 14,
+            "input": 1
+          },
+          {
+            "expected": 22,
+            "input": 9
+          },
+          {
+            "expected": 33,
+            "input": 20
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -7) 6) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 13) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 14) 1 0))\n(defn test-3 [] :i64 (if (= (f 9) 22) 1 0))\n(defn test-4 [] :i64 (if (= (f 20) 33) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(- n 13)",
+            "action-b": "(+ n 14)",
+            "action-c": "(+ n 13)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "affine-14",
+    "split": "train",
+    "gold": "action-b",
+    "task_digest": "sha256:c9cdfc33fd7d08647bf61f91de59f8a8ff90d904e9004f191706c89c892ed5fc",
+    "request": {
+      "state": {
+        "specification": "Return n plus 14 for every integer n.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 7,
+            "input": -7
+          },
+          {
+            "expected": 14,
+            "input": 0
+          },
+          {
+            "expected": 15,
+            "input": 1
+          },
+          {
+            "expected": 23,
+            "input": 9
+          },
+          {
+            "expected": 34,
+            "input": 20
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -7) 7) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 14) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 15) 1 0))\n(defn test-3 [] :i64 (if (= (f 9) 23) 1 0))\n(defn test-4 [] :i64 (if (= (f 20) 34) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(+ n 15)",
+            "action-b": "(+ n 14)",
+            "action-c": "(- n 14)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "affine-15",
+    "split": "train",
+    "gold": "action-a",
+    "task_digest": "sha256:7461e65701567cc2513c96aa5acd25f4c3f7b2a0d8809050cb6b0bb2010c2fd1",
+    "request": {
+      "state": {
+        "specification": "Return n plus 15 for every integer n.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 8,
+            "input": -7
+          },
+          {
+            "expected": 15,
+            "input": 0
+          },
+          {
+            "expected": 16,
+            "input": 1
+          },
+          {
+            "expected": 24,
+            "input": 9
+          },
+          {
+            "expected": 35,
+            "input": 20
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -7) 8) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 15) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 16) 1 0))\n(defn test-3 [] :i64 (if (= (f 9) 24) 1 0))\n(defn test-4 [] :i64 (if (= (f 20) 35) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(+ n 15)",
+            "action-b": "(- n 15)",
+            "action-c": "(+ n 16)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "affine-16",
+    "split": "train",
+    "gold": "action-c",
+    "task_digest": "sha256:32c7a0b1d42822aa74b7ffc2d0930410fdc1872d5ee4d8a7eb291e912cb425cc",
+    "request": {
+      "state": {
+        "specification": "Return n plus 16 for every integer n.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 9,
+            "input": -7
+          },
+          {
+            "expected": 16,
+            "input": 0
+          },
+          {
+            "expected": 17,
+            "input": 1
+          },
+          {
+            "expected": 25,
+            "input": 9
+          },
+          {
+            "expected": 36,
+            "input": 20
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -7) 9) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 16) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 17) 1 0))\n(defn test-3 [] :i64 (if (= (f 9) 25) 1 0))\n(defn test-4 [] :i64 (if (= (f 20) 36) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(- n 16)",
+            "action-b": "(+ n 17)",
+            "action-c": "(+ n 16)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "affine-17",
+    "split": "train",
+    "gold": "action-b",
+    "task_digest": "sha256:2aca9fbb7b00b5f992dae3c9f20b3a609e5046ab5dbd437cc33863181c1330e6",
+    "request": {
+      "state": {
+        "specification": "Return n plus 17 for every integer n.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 10,
+            "input": -7
+          },
+          {
+            "expected": 17,
+            "input": 0
+          },
+          {
+            "expected": 18,
+            "input": 1
+          },
+          {
+            "expected": 26,
+            "input": 9
+          },
+          {
+            "expected": 37,
+            "input": 20
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -7) 10) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 17) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 18) 1 0))\n(defn test-3 [] :i64 (if (= (f 9) 26) 1 0))\n(defn test-4 [] :i64 (if (= (f 20) 37) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(+ n 18)",
+            "action-b": "(+ n 17)",
+            "action-c": "(- n 17)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "threshold-2",
+    "split": "train",
+    "gold": "action-a",
+    "task_digest": "sha256:36cf1c36c41cd3eb6cb2dd4dc61feb2fe312db1c2266f2a339f9b92bb3c4ba32",
+    "request": {
+      "state": {
+        "specification": "Return 1 exactly when n is at least 2; otherwise return 0.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 0,
+            "input": 1
+          },
+          {
+            "expected": 1,
+            "input": 2
+          },
+          {
+            "expected": 1,
+            "input": 3
+          },
+          {
+            "expected": 0,
+            "input": 0
+          },
+          {
+            "expected": 1,
+            "input": 7
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f 1) 0) 1 0))\n(defn test-1 [] :i64 (if (= (f 2) 1) 1 0))\n(defn test-2 [] :i64 (if (= (f 3) 1) 1 0))\n(defn test-3 [] :i64 (if (= (f 0) 0) 1 0))\n(defn test-4 [] :i64 (if (= (f 7) 1) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (>= n 2) 1 0)",
+            "action-b": "(if (> n 2) 1 0)",
+            "action-c": "(if (< n 2) 1 0)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "threshold-3",
+    "split": "train",
+    "gold": "action-c",
+    "task_digest": "sha256:151e43b75d672ed53501ded549efc146e771a1f36833cf186e2ddfa2a657579b",
+    "request": {
+      "state": {
+        "specification": "Return 1 exactly when n is at least 3; otherwise return 0.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 0,
+            "input": 2
+          },
+          {
+            "expected": 1,
+            "input": 3
+          },
+          {
+            "expected": 1,
+            "input": 4
+          },
+          {
+            "expected": 0,
+            "input": 0
+          },
+          {
+            "expected": 1,
+            "input": 8
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f 2) 0) 1 0))\n(defn test-1 [] :i64 (if (= (f 3) 1) 1 0))\n(defn test-2 [] :i64 (if (= (f 4) 1) 1 0))\n(defn test-3 [] :i64 (if (= (f 0) 0) 1 0))\n(defn test-4 [] :i64 (if (= (f 8) 1) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (> n 3) 1 0)",
+            "action-b": "(if (< n 3) 1 0)",
+            "action-c": "(if (>= n 3) 1 0)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "threshold-4",
+    "split": "train",
+    "gold": "action-b",
+    "task_digest": "sha256:83e9d8a75533d5bf62d6ebc817b0b7e98460e5bedcd43fb88f89d84a61687abe",
+    "request": {
+      "state": {
+        "specification": "Return 1 exactly when n is at least 4; otherwise return 0.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 0,
+            "input": 3
+          },
+          {
+            "expected": 1,
+            "input": 4
+          },
+          {
+            "expected": 1,
+            "input": 5
+          },
+          {
+            "expected": 0,
+            "input": 0
+          },
+          {
+            "expected": 1,
+            "input": 9
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f 3) 0) 1 0))\n(defn test-1 [] :i64 (if (= (f 4) 1) 1 0))\n(defn test-2 [] :i64 (if (= (f 5) 1) 1 0))\n(defn test-3 [] :i64 (if (= (f 0) 0) 1 0))\n(defn test-4 [] :i64 (if (= (f 9) 1) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (< n 4) 1 0)",
+            "action-b": "(if (>= n 4) 1 0)",
+            "action-c": "(if (> n 4) 1 0)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "threshold-5",
+    "split": "train",
+    "gold": "action-a",
+    "task_digest": "sha256:7a3a2f9c5fd0ef9d8e9dcdc94f8bdc5dbbae61422669d4b19293963991b63e73",
+    "request": {
+      "state": {
+        "specification": "Return 1 exactly when n is at least 5; otherwise return 0.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 0,
+            "input": 4
+          },
+          {
+            "expected": 1,
+            "input": 5
+          },
+          {
+            "expected": 1,
+            "input": 6
+          },
+          {
+            "expected": 0,
+            "input": 0
+          },
+          {
+            "expected": 1,
+            "input": 10
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f 4) 0) 1 0))\n(defn test-1 [] :i64 (if (= (f 5) 1) 1 0))\n(defn test-2 [] :i64 (if (= (f 6) 1) 1 0))\n(defn test-3 [] :i64 (if (= (f 0) 0) 1 0))\n(defn test-4 [] :i64 (if (= (f 10) 1) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (>= n 5) 1 0)",
+            "action-b": "(if (> n 5) 1 0)",
+            "action-c": "(if (< n 5) 1 0)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "threshold-6",
+    "split": "train",
+    "gold": "action-c",
+    "task_digest": "sha256:f52cfd6d34143ce1cf87098f81c3e189d485a94baf19055a26ce376ff208700b",
+    "request": {
+      "state": {
+        "specification": "Return 1 exactly when n is at least 6; otherwise return 0.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 0,
+            "input": 5
+          },
+          {
+            "expected": 1,
+            "input": 6
+          },
+          {
+            "expected": 1,
+            "input": 7
+          },
+          {
+            "expected": 0,
+            "input": 0
+          },
+          {
+            "expected": 1,
+            "input": 11
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f 5) 0) 1 0))\n(defn test-1 [] :i64 (if (= (f 6) 1) 1 0))\n(defn test-2 [] :i64 (if (= (f 7) 1) 1 0))\n(defn test-3 [] :i64 (if (= (f 0) 0) 1 0))\n(defn test-4 [] :i64 (if (= (f 11) 1) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (> n 6) 1 0)",
+            "action-b": "(if (< n 6) 1 0)",
+            "action-c": "(if (>= n 6) 1 0)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "threshold-7",
+    "split": "train",
+    "gold": "action-b",
+    "task_digest": "sha256:6a94c963c4e67ebff935d449ac7e2b2c6d5b9da32323e8a311ddee4c7a0b043d",
+    "request": {
+      "state": {
+        "specification": "Return 1 exactly when n is at least 7; otherwise return 0.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 0,
+            "input": 6
+          },
+          {
+            "expected": 1,
+            "input": 7
+          },
+          {
+            "expected": 1,
+            "input": 8
+          },
+          {
+            "expected": 0,
+            "input": 0
+          },
+          {
+            "expected": 1,
+            "input": 12
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f 6) 0) 1 0))\n(defn test-1 [] :i64 (if (= (f 7) 1) 1 0))\n(defn test-2 [] :i64 (if (= (f 8) 1) 1 0))\n(defn test-3 [] :i64 (if (= (f 0) 0) 1 0))\n(defn test-4 [] :i64 (if (= (f 12) 1) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (< n 7) 1 0)",
+            "action-b": "(if (>= n 7) 1 0)",
+            "action-c": "(if (> n 7) 1 0)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "threshold-8",
+    "split": "train",
+    "gold": "action-a",
+    "task_digest": "sha256:622c017de38c74845a871eaa7c723242464f8a0f14dc2d7bf78c3d64c5eee993",
+    "request": {
+      "state": {
+        "specification": "Return 1 exactly when n is at least 8; otherwise return 0.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 0,
+            "input": 7
+          },
+          {
+            "expected": 1,
+            "input": 8
+          },
+          {
+            "expected": 1,
+            "input": 9
+          },
+          {
+            "expected": 0,
+            "input": 0
+          },
+          {
+            "expected": 1,
+            "input": 13
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f 7) 0) 1 0))\n(defn test-1 [] :i64 (if (= (f 8) 1) 1 0))\n(defn test-2 [] :i64 (if (= (f 9) 1) 1 0))\n(defn test-3 [] :i64 (if (= (f 0) 0) 1 0))\n(defn test-4 [] :i64 (if (= (f 13) 1) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (>= n 8) 1 0)",
+            "action-b": "(if (> n 8) 1 0)",
+            "action-c": "(if (< n 8) 1 0)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "threshold-9",
+    "split": "train",
+    "gold": "action-c",
+    "task_digest": "sha256:af46f2c25152c46bbda105d7ee691401dc77928df512b52acdeac1e65998150c",
+    "request": {
+      "state": {
+        "specification": "Return 1 exactly when n is at least 9; otherwise return 0.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 0,
+            "input": 8
+          },
+          {
+            "expected": 1,
+            "input": 9
+          },
+          {
+            "expected": 1,
+            "input": 10
+          },
+          {
+            "expected": 0,
+            "input": 0
+          },
+          {
+            "expected": 1,
+            "input": 14
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f 8) 0) 1 0))\n(defn test-1 [] :i64 (if (= (f 9) 1) 1 0))\n(defn test-2 [] :i64 (if (= (f 10) 1) 1 0))\n(defn test-3 [] :i64 (if (= (f 0) 0) 1 0))\n(defn test-4 [] :i64 (if (= (f 14) 1) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (> n 9) 1 0)",
+            "action-b": "(if (< n 9) 1 0)",
+            "action-c": "(if (>= n 9) 1 0)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "threshold-10",
+    "split": "train",
+    "gold": "action-b",
+    "task_digest": "sha256:48b65386b130da5898799fd1fb408b9080b530b7115d1c537bb04f1d6a6c014a",
+    "request": {
+      "state": {
+        "specification": "Return 1 exactly when n is at least 10; otherwise return 0.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 0,
+            "input": 9
+          },
+          {
+            "expected": 1,
+            "input": 10
+          },
+          {
+            "expected": 1,
+            "input": 11
+          },
+          {
+            "expected": 0,
+            "input": 0
+          },
+          {
+            "expected": 1,
+            "input": 15
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f 9) 0) 1 0))\n(defn test-1 [] :i64 (if (= (f 10) 1) 1 0))\n(defn test-2 [] :i64 (if (= (f 11) 1) 1 0))\n(defn test-3 [] :i64 (if (= (f 0) 0) 1 0))\n(defn test-4 [] :i64 (if (= (f 15) 1) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (< n 10) 1 0)",
+            "action-b": "(if (>= n 10) 1 0)",
+            "action-c": "(if (> n 10) 1 0)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "threshold-11",
+    "split": "train",
+    "gold": "action-a",
+    "task_digest": "sha256:e7ca5379cf2687c3190a510321f9cad2f620e96adbb97343a22d1a31209badcb",
+    "request": {
+      "state": {
+        "specification": "Return 1 exactly when n is at least 11; otherwise return 0.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 0,
+            "input": 10
+          },
+          {
+            "expected": 1,
+            "input": 11
+          },
+          {
+            "expected": 1,
+            "input": 12
+          },
+          {
+            "expected": 0,
+            "input": 0
+          },
+          {
+            "expected": 1,
+            "input": 16
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f 10) 0) 1 0))\n(defn test-1 [] :i64 (if (= (f 11) 1) 1 0))\n(defn test-2 [] :i64 (if (= (f 12) 1) 1 0))\n(defn test-3 [] :i64 (if (= (f 0) 0) 1 0))\n(defn test-4 [] :i64 (if (= (f 16) 1) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (>= n 11) 1 0)",
+            "action-b": "(if (> n 11) 1 0)",
+            "action-c": "(if (< n 11) 1 0)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "threshold-12",
+    "split": "train",
+    "gold": "action-c",
+    "task_digest": "sha256:02d5eb32272f8e2f05818a12059d125ba92c2db072f5802171151b144228908a",
+    "request": {
+      "state": {
+        "specification": "Return 1 exactly when n is at least 12; otherwise return 0.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 0,
+            "input": 11
+          },
+          {
+            "expected": 1,
+            "input": 12
+          },
+          {
+            "expected": 1,
+            "input": 13
+          },
+          {
+            "expected": 0,
+            "input": 0
+          },
+          {
+            "expected": 1,
+            "input": 17
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f 11) 0) 1 0))\n(defn test-1 [] :i64 (if (= (f 12) 1) 1 0))\n(defn test-2 [] :i64 (if (= (f 13) 1) 1 0))\n(defn test-3 [] :i64 (if (= (f 0) 0) 1 0))\n(defn test-4 [] :i64 (if (= (f 17) 1) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (> n 12) 1 0)",
+            "action-b": "(if (< n 12) 1 0)",
+            "action-c": "(if (>= n 12) 1 0)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "threshold-13",
+    "split": "train",
+    "gold": "action-b",
+    "task_digest": "sha256:ee8b485d0f85ab33957f4037840aed1b8e158da1ed3d8021bb7fa422030d39b0",
+    "request": {
+      "state": {
+        "specification": "Return 1 exactly when n is at least 13; otherwise return 0.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 0,
+            "input": 12
+          },
+          {
+            "expected": 1,
+            "input": 13
+          },
+          {
+            "expected": 1,
+            "input": 14
+          },
+          {
+            "expected": 0,
+            "input": 0
+          },
+          {
+            "expected": 1,
+            "input": 18
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f 12) 0) 1 0))\n(defn test-1 [] :i64 (if (= (f 13) 1) 1 0))\n(defn test-2 [] :i64 (if (= (f 14) 1) 1 0))\n(defn test-3 [] :i64 (if (= (f 0) 0) 1 0))\n(defn test-4 [] :i64 (if (= (f 18) 1) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (< n 13) 1 0)",
+            "action-b": "(if (>= n 13) 1 0)",
+            "action-c": "(if (> n 13) 1 0)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "threshold-14",
+    "split": "train",
+    "gold": "action-a",
+    "task_digest": "sha256:6eba2aa6b8fc8c3cb43de7511e40f51665ab4ef2209b617480781c2678c3a28b",
+    "request": {
+      "state": {
+        "specification": "Return 1 exactly when n is at least 14; otherwise return 0.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 0,
+            "input": 13
+          },
+          {
+            "expected": 1,
+            "input": 14
+          },
+          {
+            "expected": 1,
+            "input": 15
+          },
+          {
+            "expected": 0,
+            "input": 0
+          },
+          {
+            "expected": 1,
+            "input": 19
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f 13) 0) 1 0))\n(defn test-1 [] :i64 (if (= (f 14) 1) 1 0))\n(defn test-2 [] :i64 (if (= (f 15) 1) 1 0))\n(defn test-3 [] :i64 (if (= (f 0) 0) 1 0))\n(defn test-4 [] :i64 (if (= (f 19) 1) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (>= n 14) 1 0)",
+            "action-b": "(if (> n 14) 1 0)",
+            "action-c": "(if (< n 14) 1 0)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "threshold-15",
+    "split": "train",
+    "gold": "action-c",
+    "task_digest": "sha256:a0fcdc419a339cb8df6b344a5c54c9d557ae7246a3a38b4264abf2fc8fb56d1e",
+    "request": {
+      "state": {
+        "specification": "Return 1 exactly when n is at least 15; otherwise return 0.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 0,
+            "input": 14
+          },
+          {
+            "expected": 1,
+            "input": 15
+          },
+          {
+            "expected": 1,
+            "input": 16
+          },
+          {
+            "expected": 0,
+            "input": 0
+          },
+          {
+            "expected": 1,
+            "input": 20
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f 14) 0) 1 0))\n(defn test-1 [] :i64 (if (= (f 15) 1) 1 0))\n(defn test-2 [] :i64 (if (= (f 16) 1) 1 0))\n(defn test-3 [] :i64 (if (= (f 0) 0) 1 0))\n(defn test-4 [] :i64 (if (= (f 20) 1) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (> n 15) 1 0)",
+            "action-b": "(if (< n 15) 1 0)",
+            "action-c": "(if (>= n 15) 1 0)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "threshold-16",
+    "split": "train",
+    "gold": "action-b",
+    "task_digest": "sha256:7735a6eb09432238346749fb924906d9d112d93587cb622155435b1ae202981d",
+    "request": {
+      "state": {
+        "specification": "Return 1 exactly when n is at least 16; otherwise return 0.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 0,
+            "input": 15
+          },
+          {
+            "expected": 1,
+            "input": 16
+          },
+          {
+            "expected": 1,
+            "input": 17
+          },
+          {
+            "expected": 0,
+            "input": 0
+          },
+          {
+            "expected": 1,
+            "input": 21
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f 15) 0) 1 0))\n(defn test-1 [] :i64 (if (= (f 16) 1) 1 0))\n(defn test-2 [] :i64 (if (= (f 17) 1) 1 0))\n(defn test-3 [] :i64 (if (= (f 0) 0) 1 0))\n(defn test-4 [] :i64 (if (= (f 21) 1) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (< n 16) 1 0)",
+            "action-b": "(if (>= n 16) 1 0)",
+            "action-c": "(if (> n 16) 1 0)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "threshold-17",
+    "split": "train",
+    "gold": "action-a",
+    "task_digest": "sha256:dadb925f8b401831c5e07a97a7b27516deedb11799083069a930d8378a4079a4",
+    "request": {
+      "state": {
+        "specification": "Return 1 exactly when n is at least 17; otherwise return 0.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 0,
+            "input": 16
+          },
+          {
+            "expected": 1,
+            "input": 17
+          },
+          {
+            "expected": 1,
+            "input": 18
+          },
+          {
+            "expected": 0,
+            "input": 0
+          },
+          {
+            "expected": 1,
+            "input": 22
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f 16) 0) 1 0))\n(defn test-1 [] :i64 (if (= (f 17) 1) 1 0))\n(defn test-2 [] :i64 (if (= (f 18) 1) 1 0))\n(defn test-3 [] :i64 (if (= (f 0) 0) 1 0))\n(defn test-4 [] :i64 (if (= (f 22) 1) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (>= n 17) 1 0)",
+            "action-b": "(if (> n 17) 1 0)",
+            "action-c": "(if (< n 17) 1 0)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "clamp-2",
+    "split": "train",
+    "gold": "action-c",
+    "task_digest": "sha256:d1cbff556137b3823de7729e68509434ced1f1955c0acbff78dadbc3b0369300",
+    "request": {
+      "state": {
+        "specification": "Clamp integer n into the inclusive interval [0,2].",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 0,
+            "input": -3
+          },
+          {
+            "expected": 0,
+            "input": 0
+          },
+          {
+            "expected": 1,
+            "input": 1
+          },
+          {
+            "expected": 2,
+            "input": 2
+          },
+          {
+            "expected": 2,
+            "input": 5
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -3) 0) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 0) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 1) 1 0))\n(defn test-3 [] :i64 (if (= (f 2) 2) 1 0))\n(defn test-4 [] :i64 (if (= (f 5) 2) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (< n 0) 0 (if (> n 2) 3 n))",
+            "action-b": "(if (< n 0) n (if (> n 2) 2 n))",
+            "action-c": "(if (< n 0) 0 (if (> n 2) 2 n))"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "clamp-3",
+    "split": "train",
+    "gold": "action-b",
+    "task_digest": "sha256:4e9aeb5236302911e714d00969aeae084a7e6a7b18c911d76b831e788d9f9dd7",
+    "request": {
+      "state": {
+        "specification": "Clamp integer n into the inclusive interval [0,3].",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 0,
+            "input": -3
+          },
+          {
+            "expected": 0,
+            "input": 0
+          },
+          {
+            "expected": 1,
+            "input": 1
+          },
+          {
+            "expected": 3,
+            "input": 3
+          },
+          {
+            "expected": 3,
+            "input": 6
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -3) 0) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 0) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 1) 1 0))\n(defn test-3 [] :i64 (if (= (f 3) 3) 1 0))\n(defn test-4 [] :i64 (if (= (f 6) 3) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (< n 0) n (if (> n 3) 3 n))",
+            "action-b": "(if (< n 0) 0 (if (> n 3) 3 n))",
+            "action-c": "(if (< n 0) 0 (if (> n 3) 4 n))"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "clamp-4",
+    "split": "train",
+    "gold": "action-a",
+    "task_digest": "sha256:cac13f78c1709e8f1cc2034f6099388674f385de5e1cdd28a6c3ff8e96f11d07",
+    "request": {
+      "state": {
+        "specification": "Clamp integer n into the inclusive interval [0,4].",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 0,
+            "input": -3
+          },
+          {
+            "expected": 0,
+            "input": 0
+          },
+          {
+            "expected": 1,
+            "input": 1
+          },
+          {
+            "expected": 4,
+            "input": 4
+          },
+          {
+            "expected": 4,
+            "input": 7
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -3) 0) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 0) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 1) 1 0))\n(defn test-3 [] :i64 (if (= (f 4) 4) 1 0))\n(defn test-4 [] :i64 (if (= (f 7) 4) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (< n 0) 0 (if (> n 4) 4 n))",
+            "action-b": "(if (< n 0) 0 (if (> n 4) 5 n))",
+            "action-c": "(if (< n 0) n (if (> n 4) 4 n))"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "clamp-5",
+    "split": "train",
+    "gold": "action-c",
+    "task_digest": "sha256:6a86dcea27f5df6f2c487deeb30406836dca12b56dbba76131fc2749bd82b8e9",
+    "request": {
+      "state": {
+        "specification": "Clamp integer n into the inclusive interval [0,5].",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 0,
+            "input": -3
+          },
+          {
+            "expected": 0,
+            "input": 0
+          },
+          {
+            "expected": 1,
+            "input": 1
+          },
+          {
+            "expected": 5,
+            "input": 5
+          },
+          {
+            "expected": 5,
+            "input": 8
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -3) 0) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 0) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 1) 1 0))\n(defn test-3 [] :i64 (if (= (f 5) 5) 1 0))\n(defn test-4 [] :i64 (if (= (f 8) 5) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (< n 0) 0 (if (> n 5) 6 n))",
+            "action-b": "(if (< n 0) n (if (> n 5) 5 n))",
+            "action-c": "(if (< n 0) 0 (if (> n 5) 5 n))"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "clamp-6",
+    "split": "train",
+    "gold": "action-b",
+    "task_digest": "sha256:21bf504ea800840fe707eef2ec369b6fc4b711a4d6d4ae2cd687b24dbb81b1e0",
+    "request": {
+      "state": {
+        "specification": "Clamp integer n into the inclusive interval [0,6].",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 0,
+            "input": -3
+          },
+          {
+            "expected": 0,
+            "input": 0
+          },
+          {
+            "expected": 1,
+            "input": 1
+          },
+          {
+            "expected": 6,
+            "input": 6
+          },
+          {
+            "expected": 6,
+            "input": 9
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -3) 0) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 0) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 1) 1 0))\n(defn test-3 [] :i64 (if (= (f 6) 6) 1 0))\n(defn test-4 [] :i64 (if (= (f 9) 6) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (< n 0) n (if (> n 6) 6 n))",
+            "action-b": "(if (< n 0) 0 (if (> n 6) 6 n))",
+            "action-c": "(if (< n 0) 0 (if (> n 6) 7 n))"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "clamp-7",
+    "split": "train",
+    "gold": "action-a",
+    "task_digest": "sha256:37a4478045b790dcbc425877a9118eb2dafd455d636c258d5c93a5011ae64eb8",
+    "request": {
+      "state": {
+        "specification": "Clamp integer n into the inclusive interval [0,7].",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 0,
+            "input": -3
+          },
+          {
+            "expected": 0,
+            "input": 0
+          },
+          {
+            "expected": 1,
+            "input": 1
+          },
+          {
+            "expected": 7,
+            "input": 7
+          },
+          {
+            "expected": 7,
+            "input": 10
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -3) 0) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 0) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 1) 1 0))\n(defn test-3 [] :i64 (if (= (f 7) 7) 1 0))\n(defn test-4 [] :i64 (if (= (f 10) 7) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (< n 0) 0 (if (> n 7) 7 n))",
+            "action-b": "(if (< n 0) 0 (if (> n 7) 8 n))",
+            "action-c": "(if (< n 0) n (if (> n 7) 7 n))"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "clamp-8",
+    "split": "train",
+    "gold": "action-c",
+    "task_digest": "sha256:2355ca289c3cc424fbd6fbe030460f3667e5bf0aef5c5733a83751db24dd35d1",
+    "request": {
+      "state": {
+        "specification": "Clamp integer n into the inclusive interval [0,8].",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 0,
+            "input": -3
+          },
+          {
+            "expected": 0,
+            "input": 0
+          },
+          {
+            "expected": 1,
+            "input": 1
+          },
+          {
+            "expected": 8,
+            "input": 8
+          },
+          {
+            "expected": 8,
+            "input": 11
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -3) 0) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 0) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 1) 1 0))\n(defn test-3 [] :i64 (if (= (f 8) 8) 1 0))\n(defn test-4 [] :i64 (if (= (f 11) 8) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (< n 0) 0 (if (> n 8) 9 n))",
+            "action-b": "(if (< n 0) n (if (> n 8) 8 n))",
+            "action-c": "(if (< n 0) 0 (if (> n 8) 8 n))"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "clamp-9",
+    "split": "train",
+    "gold": "action-b",
+    "task_digest": "sha256:a9ee200e8eca1f9bb310f7d27c32374e8606c08b594f99376c881b5f3f728293",
+    "request": {
+      "state": {
+        "specification": "Clamp integer n into the inclusive interval [0,9].",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 0,
+            "input": -3
+          },
+          {
+            "expected": 0,
+            "input": 0
+          },
+          {
+            "expected": 1,
+            "input": 1
+          },
+          {
+            "expected": 9,
+            "input": 9
+          },
+          {
+            "expected": 9,
+            "input": 12
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -3) 0) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 0) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 1) 1 0))\n(defn test-3 [] :i64 (if (= (f 9) 9) 1 0))\n(defn test-4 [] :i64 (if (= (f 12) 9) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (< n 0) n (if (> n 9) 9 n))",
+            "action-b": "(if (< n 0) 0 (if (> n 9) 9 n))",
+            "action-c": "(if (< n 0) 0 (if (> n 9) 10 n))"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "clamp-10",
+    "split": "train",
+    "gold": "action-a",
+    "task_digest": "sha256:3f49174f65792af152d34f005276b8a3b66513678732a8a31a5cd3ca4c7dcfc3",
+    "request": {
+      "state": {
+        "specification": "Clamp integer n into the inclusive interval [0,10].",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 0,
+            "input": -3
+          },
+          {
+            "expected": 0,
+            "input": 0
+          },
+          {
+            "expected": 1,
+            "input": 1
+          },
+          {
+            "expected": 10,
+            "input": 10
+          },
+          {
+            "expected": 10,
+            "input": 13
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -3) 0) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 0) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 1) 1 0))\n(defn test-3 [] :i64 (if (= (f 10) 10) 1 0))\n(defn test-4 [] :i64 (if (= (f 13) 10) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (< n 0) 0 (if (> n 10) 10 n))",
+            "action-b": "(if (< n 0) 0 (if (> n 10) 11 n))",
+            "action-c": "(if (< n 0) n (if (> n 10) 10 n))"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "clamp-11",
+    "split": "train",
+    "gold": "action-c",
+    "task_digest": "sha256:3515d6195a773cc54e8e963be18293bff898868f5ebfcd54c03d7d5584f347b6",
+    "request": {
+      "state": {
+        "specification": "Clamp integer n into the inclusive interval [0,11].",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 0,
+            "input": -3
+          },
+          {
+            "expected": 0,
+            "input": 0
+          },
+          {
+            "expected": 1,
+            "input": 1
+          },
+          {
+            "expected": 11,
+            "input": 11
+          },
+          {
+            "expected": 11,
+            "input": 14
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -3) 0) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 0) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 1) 1 0))\n(defn test-3 [] :i64 (if (= (f 11) 11) 1 0))\n(defn test-4 [] :i64 (if (= (f 14) 11) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (< n 0) 0 (if (> n 11) 12 n))",
+            "action-b": "(if (< n 0) n (if (> n 11) 11 n))",
+            "action-c": "(if (< n 0) 0 (if (> n 11) 11 n))"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "clamp-12",
+    "split": "train",
+    "gold": "action-b",
+    "task_digest": "sha256:5e8749aefd2ff793e844a140e216dad52bab21e87980e76c7f4e1d8caa956824",
+    "request": {
+      "state": {
+        "specification": "Clamp integer n into the inclusive interval [0,12].",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 0,
+            "input": -3
+          },
+          {
+            "expected": 0,
+            "input": 0
+          },
+          {
+            "expected": 1,
+            "input": 1
+          },
+          {
+            "expected": 12,
+            "input": 12
+          },
+          {
+            "expected": 12,
+            "input": 15
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -3) 0) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 0) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 1) 1 0))\n(defn test-3 [] :i64 (if (= (f 12) 12) 1 0))\n(defn test-4 [] :i64 (if (= (f 15) 12) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (< n 0) n (if (> n 12) 12 n))",
+            "action-b": "(if (< n 0) 0 (if (> n 12) 12 n))",
+            "action-c": "(if (< n 0) 0 (if (> n 12) 13 n))"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "clamp-13",
+    "split": "train",
+    "gold": "action-a",
+    "task_digest": "sha256:f96baf58bdb47f63516ceca36197b734ad8dc96241d037d4b70252bdca9d0be4",
+    "request": {
+      "state": {
+        "specification": "Clamp integer n into the inclusive interval [0,13].",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 0,
+            "input": -3
+          },
+          {
+            "expected": 0,
+            "input": 0
+          },
+          {
+            "expected": 1,
+            "input": 1
+          },
+          {
+            "expected": 13,
+            "input": 13
+          },
+          {
+            "expected": 13,
+            "input": 16
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -3) 0) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 0) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 1) 1 0))\n(defn test-3 [] :i64 (if (= (f 13) 13) 1 0))\n(defn test-4 [] :i64 (if (= (f 16) 13) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (< n 0) 0 (if (> n 13) 13 n))",
+            "action-b": "(if (< n 0) 0 (if (> n 13) 14 n))",
+            "action-c": "(if (< n 0) n (if (> n 13) 13 n))"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "clamp-14",
+    "split": "train",
+    "gold": "action-c",
+    "task_digest": "sha256:76e35f1bfc753318002043aa65812cd4492ac313849b2283ad85fe4dbe113130",
+    "request": {
+      "state": {
+        "specification": "Clamp integer n into the inclusive interval [0,14].",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 0,
+            "input": -3
+          },
+          {
+            "expected": 0,
+            "input": 0
+          },
+          {
+            "expected": 1,
+            "input": 1
+          },
+          {
+            "expected": 14,
+            "input": 14
+          },
+          {
+            "expected": 14,
+            "input": 17
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -3) 0) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 0) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 1) 1 0))\n(defn test-3 [] :i64 (if (= (f 14) 14) 1 0))\n(defn test-4 [] :i64 (if (= (f 17) 14) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (< n 0) 0 (if (> n 14) 15 n))",
+            "action-b": "(if (< n 0) n (if (> n 14) 14 n))",
+            "action-c": "(if (< n 0) 0 (if (> n 14) 14 n))"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "clamp-15",
+    "split": "train",
+    "gold": "action-b",
+    "task_digest": "sha256:b3bc1501cb0c492e1e18f27ba958feea9e7b5496142ab83ab0241ff4acd179a9",
+    "request": {
+      "state": {
+        "specification": "Clamp integer n into the inclusive interval [0,15].",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 0,
+            "input": -3
+          },
+          {
+            "expected": 0,
+            "input": 0
+          },
+          {
+            "expected": 1,
+            "input": 1
+          },
+          {
+            "expected": 15,
+            "input": 15
+          },
+          {
+            "expected": 15,
+            "input": 18
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -3) 0) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 0) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 1) 1 0))\n(defn test-3 [] :i64 (if (= (f 15) 15) 1 0))\n(defn test-4 [] :i64 (if (= (f 18) 15) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (< n 0) n (if (> n 15) 15 n))",
+            "action-b": "(if (< n 0) 0 (if (> n 15) 15 n))",
+            "action-c": "(if (< n 0) 0 (if (> n 15) 16 n))"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "clamp-16",
+    "split": "train",
+    "gold": "action-a",
+    "task_digest": "sha256:7b8e51fc0f7f60e658e94f0fad083af0c4d91f5852127d122f0d96367ef2ac02",
+    "request": {
+      "state": {
+        "specification": "Clamp integer n into the inclusive interval [0,16].",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 0,
+            "input": -3
+          },
+          {
+            "expected": 0,
+            "input": 0
+          },
+          {
+            "expected": 1,
+            "input": 1
+          },
+          {
+            "expected": 16,
+            "input": 16
+          },
+          {
+            "expected": 16,
+            "input": 19
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -3) 0) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 0) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 1) 1 0))\n(defn test-3 [] :i64 (if (= (f 16) 16) 1 0))\n(defn test-4 [] :i64 (if (= (f 19) 16) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (< n 0) 0 (if (> n 16) 16 n))",
+            "action-b": "(if (< n 0) 0 (if (> n 16) 17 n))",
+            "action-c": "(if (< n 0) n (if (> n 16) 16 n))"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "clamp-17",
+    "split": "train",
+    "gold": "action-c",
+    "task_digest": "sha256:e8899ab59d6e789c3009c073f0dd8b7d18b5bf2562265b684d2519c5b6e76408",
+    "request": {
+      "state": {
+        "specification": "Clamp integer n into the inclusive interval [0,17].",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 0,
+            "input": -3
+          },
+          {
+            "expected": 0,
+            "input": 0
+          },
+          {
+            "expected": 1,
+            "input": 1
+          },
+          {
+            "expected": 17,
+            "input": 17
+          },
+          {
+            "expected": 17,
+            "input": 20
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -3) 0) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 0) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 1) 1 0))\n(defn test-3 [] :i64 (if (= (f 17) 17) 1 0))\n(defn test-4 [] :i64 (if (= (f 20) 17) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (< n 0) 0 (if (> n 17) 18 n))",
+            "action-b": "(if (< n 0) n (if (> n 17) 17 n))",
+            "action-c": "(if (< n 0) 0 (if (> n 17) 17 n))"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "parity-2",
+    "split": "train",
+    "gold": "action-b",
+    "task_digest": "sha256:dd9bb21439ea25688c0dd4784637d6301ed395ab65c3e11c40e7f04e5fc57800",
+    "request": {
+      "state": {
+        "specification": "Return 2 when n is even, and 0 when n is odd.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 2,
+            "input": -4
+          },
+          {
+            "expected": 2,
+            "input": 0
+          },
+          {
+            "expected": 0,
+            "input": 1
+          },
+          {
+            "expected": 2,
+            "input": 2
+          },
+          {
+            "expected": 0,
+            "input": 7
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -4) 2) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 2) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 0) 1 0))\n(defn test-3 [] :i64 (if (= (f 2) 2) 1 0))\n(defn test-4 [] :i64 (if (= (f 7) 0) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (= n 0) 2 0)",
+            "action-b": "(if (= (mod n 2) 0) 2 0)",
+            "action-c": "(if (= (mod n 2) 1) 2 0)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "parity-3",
+    "split": "train",
+    "gold": "action-a",
+    "task_digest": "sha256:ecfc3b72a6cfb64050b9d8231ff45096261a7cf3d30a69a5867c1c989d77896f",
+    "request": {
+      "state": {
+        "specification": "Return 3 when n is even, and 0 when n is odd.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 3,
+            "input": -4
+          },
+          {
+            "expected": 3,
+            "input": 0
+          },
+          {
+            "expected": 0,
+            "input": 1
+          },
+          {
+            "expected": 3,
+            "input": 2
+          },
+          {
+            "expected": 0,
+            "input": 7
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -4) 3) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 3) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 0) 1 0))\n(defn test-3 [] :i64 (if (= (f 2) 3) 1 0))\n(defn test-4 [] :i64 (if (= (f 7) 0) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (= (mod n 2) 0) 3 0)",
+            "action-b": "(if (= (mod n 2) 1) 3 0)",
+            "action-c": "(if (= n 0) 3 0)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "parity-4",
+    "split": "train",
+    "gold": "action-c",
+    "task_digest": "sha256:d6fbea9c2c57d2a451a102474ba08da6c7efdfd898baf6f12780269b229355e2",
+    "request": {
+      "state": {
+        "specification": "Return 4 when n is even, and 0 when n is odd.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 4,
+            "input": -4
+          },
+          {
+            "expected": 4,
+            "input": 0
+          },
+          {
+            "expected": 0,
+            "input": 1
+          },
+          {
+            "expected": 4,
+            "input": 2
+          },
+          {
+            "expected": 0,
+            "input": 7
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -4) 4) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 4) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 0) 1 0))\n(defn test-3 [] :i64 (if (= (f 2) 4) 1 0))\n(defn test-4 [] :i64 (if (= (f 7) 0) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (= (mod n 2) 1) 4 0)",
+            "action-b": "(if (= n 0) 4 0)",
+            "action-c": "(if (= (mod n 2) 0) 4 0)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "parity-5",
+    "split": "train",
+    "gold": "action-b",
+    "task_digest": "sha256:65bbdf26565fbe672c5d4e3fd6e30a9bd70f3056bee383637a81a76e9f383720",
+    "request": {
+      "state": {
+        "specification": "Return 5 when n is even, and 0 when n is odd.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 5,
+            "input": -4
+          },
+          {
+            "expected": 5,
+            "input": 0
+          },
+          {
+            "expected": 0,
+            "input": 1
+          },
+          {
+            "expected": 5,
+            "input": 2
+          },
+          {
+            "expected": 0,
+            "input": 7
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -4) 5) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 5) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 0) 1 0))\n(defn test-3 [] :i64 (if (= (f 2) 5) 1 0))\n(defn test-4 [] :i64 (if (= (f 7) 0) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (= n 0) 5 0)",
+            "action-b": "(if (= (mod n 2) 0) 5 0)",
+            "action-c": "(if (= (mod n 2) 1) 5 0)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "parity-6",
+    "split": "train",
+    "gold": "action-a",
+    "task_digest": "sha256:44d22f3756bf9519af9fe9517ab151240c31a62cc295eaf8014f0fd155ec1265",
+    "request": {
+      "state": {
+        "specification": "Return 6 when n is even, and 0 when n is odd.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 6,
+            "input": -4
+          },
+          {
+            "expected": 6,
+            "input": 0
+          },
+          {
+            "expected": 0,
+            "input": 1
+          },
+          {
+            "expected": 6,
+            "input": 2
+          },
+          {
+            "expected": 0,
+            "input": 7
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -4) 6) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 6) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 0) 1 0))\n(defn test-3 [] :i64 (if (= (f 2) 6) 1 0))\n(defn test-4 [] :i64 (if (= (f 7) 0) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (= (mod n 2) 0) 6 0)",
+            "action-b": "(if (= (mod n 2) 1) 6 0)",
+            "action-c": "(if (= n 0) 6 0)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "parity-7",
+    "split": "train",
+    "gold": "action-c",
+    "task_digest": "sha256:2c30ce5c21039cd4a3b1ea438364819a09e2b462ed3dce2e9ed0103306c9b0a9",
+    "request": {
+      "state": {
+        "specification": "Return 7 when n is even, and 0 when n is odd.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 7,
+            "input": -4
+          },
+          {
+            "expected": 7,
+            "input": 0
+          },
+          {
+            "expected": 0,
+            "input": 1
+          },
+          {
+            "expected": 7,
+            "input": 2
+          },
+          {
+            "expected": 0,
+            "input": 7
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -4) 7) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 7) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 0) 1 0))\n(defn test-3 [] :i64 (if (= (f 2) 7) 1 0))\n(defn test-4 [] :i64 (if (= (f 7) 0) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (= (mod n 2) 1) 7 0)",
+            "action-b": "(if (= n 0) 7 0)",
+            "action-c": "(if (= (mod n 2) 0) 7 0)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "parity-8",
+    "split": "train",
+    "gold": "action-b",
+    "task_digest": "sha256:725c11b54ba5470e3adc859477dcd9ba1e2433573c5c57b5a12e8996a178561b",
+    "request": {
+      "state": {
+        "specification": "Return 8 when n is even, and 0 when n is odd.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 8,
+            "input": -4
+          },
+          {
+            "expected": 8,
+            "input": 0
+          },
+          {
+            "expected": 0,
+            "input": 1
+          },
+          {
+            "expected": 8,
+            "input": 2
+          },
+          {
+            "expected": 0,
+            "input": 7
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -4) 8) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 8) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 0) 1 0))\n(defn test-3 [] :i64 (if (= (f 2) 8) 1 0))\n(defn test-4 [] :i64 (if (= (f 7) 0) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (= n 0) 8 0)",
+            "action-b": "(if (= (mod n 2) 0) 8 0)",
+            "action-c": "(if (= (mod n 2) 1) 8 0)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "parity-9",
+    "split": "train",
+    "gold": "action-a",
+    "task_digest": "sha256:cb2a41b247a85434414e3d4d3986d4211ce7a545006102773380d2debf5068c3",
+    "request": {
+      "state": {
+        "specification": "Return 9 when n is even, and 0 when n is odd.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 9,
+            "input": -4
+          },
+          {
+            "expected": 9,
+            "input": 0
+          },
+          {
+            "expected": 0,
+            "input": 1
+          },
+          {
+            "expected": 9,
+            "input": 2
+          },
+          {
+            "expected": 0,
+            "input": 7
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -4) 9) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 9) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 0) 1 0))\n(defn test-3 [] :i64 (if (= (f 2) 9) 1 0))\n(defn test-4 [] :i64 (if (= (f 7) 0) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (= (mod n 2) 0) 9 0)",
+            "action-b": "(if (= (mod n 2) 1) 9 0)",
+            "action-c": "(if (= n 0) 9 0)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "parity-10",
+    "split": "train",
+    "gold": "action-c",
+    "task_digest": "sha256:949d48781d914f29d946721449b3804e7b7897343c5c0f0e203549677ac998fe",
+    "request": {
+      "state": {
+        "specification": "Return 10 when n is even, and 0 when n is odd.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 10,
+            "input": -4
+          },
+          {
+            "expected": 10,
+            "input": 0
+          },
+          {
+            "expected": 0,
+            "input": 1
+          },
+          {
+            "expected": 10,
+            "input": 2
+          },
+          {
+            "expected": 0,
+            "input": 7
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -4) 10) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 10) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 0) 1 0))\n(defn test-3 [] :i64 (if (= (f 2) 10) 1 0))\n(defn test-4 [] :i64 (if (= (f 7) 0) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (= (mod n 2) 1) 10 0)",
+            "action-b": "(if (= n 0) 10 0)",
+            "action-c": "(if (= (mod n 2) 0) 10 0)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "parity-11",
+    "split": "train",
+    "gold": "action-b",
+    "task_digest": "sha256:e2a5103ffeae2625e2478f6878688a6b3ab9df33578a4cff7105a720a39990fc",
+    "request": {
+      "state": {
+        "specification": "Return 11 when n is even, and 0 when n is odd.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 11,
+            "input": -4
+          },
+          {
+            "expected": 11,
+            "input": 0
+          },
+          {
+            "expected": 0,
+            "input": 1
+          },
+          {
+            "expected": 11,
+            "input": 2
+          },
+          {
+            "expected": 0,
+            "input": 7
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -4) 11) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 11) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 0) 1 0))\n(defn test-3 [] :i64 (if (= (f 2) 11) 1 0))\n(defn test-4 [] :i64 (if (= (f 7) 0) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (= n 0) 11 0)",
+            "action-b": "(if (= (mod n 2) 0) 11 0)",
+            "action-c": "(if (= (mod n 2) 1) 11 0)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "parity-12",
+    "split": "train",
+    "gold": "action-a",
+    "task_digest": "sha256:7399c5024e8c0c3da1a0b41f60c3dc201ff144f2ed1bfc1c6c6ae3130e3b3016",
+    "request": {
+      "state": {
+        "specification": "Return 12 when n is even, and 0 when n is odd.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 12,
+            "input": -4
+          },
+          {
+            "expected": 12,
+            "input": 0
+          },
+          {
+            "expected": 0,
+            "input": 1
+          },
+          {
+            "expected": 12,
+            "input": 2
+          },
+          {
+            "expected": 0,
+            "input": 7
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -4) 12) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 12) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 0) 1 0))\n(defn test-3 [] :i64 (if (= (f 2) 12) 1 0))\n(defn test-4 [] :i64 (if (= (f 7) 0) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (= (mod n 2) 0) 12 0)",
+            "action-b": "(if (= (mod n 2) 1) 12 0)",
+            "action-c": "(if (= n 0) 12 0)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "parity-13",
+    "split": "train",
+    "gold": "action-c",
+    "task_digest": "sha256:730971c9488d45059ed2a762c289193ff09342aa7ce0890fb0016a76c6e125f7",
+    "request": {
+      "state": {
+        "specification": "Return 13 when n is even, and 0 when n is odd.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 13,
+            "input": -4
+          },
+          {
+            "expected": 13,
+            "input": 0
+          },
+          {
+            "expected": 0,
+            "input": 1
+          },
+          {
+            "expected": 13,
+            "input": 2
+          },
+          {
+            "expected": 0,
+            "input": 7
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -4) 13) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 13) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 0) 1 0))\n(defn test-3 [] :i64 (if (= (f 2) 13) 1 0))\n(defn test-4 [] :i64 (if (= (f 7) 0) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (= (mod n 2) 1) 13 0)",
+            "action-b": "(if (= n 0) 13 0)",
+            "action-c": "(if (= (mod n 2) 0) 13 0)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "parity-14",
+    "split": "train",
+    "gold": "action-b",
+    "task_digest": "sha256:895fd6edb2e65bf97c4f6fdf205b25ba5f56930f9dacf680b79b4538f5bfd84d",
+    "request": {
+      "state": {
+        "specification": "Return 14 when n is even, and 0 when n is odd.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 14,
+            "input": -4
+          },
+          {
+            "expected": 14,
+            "input": 0
+          },
+          {
+            "expected": 0,
+            "input": 1
+          },
+          {
+            "expected": 14,
+            "input": 2
+          },
+          {
+            "expected": 0,
+            "input": 7
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -4) 14) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 14) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 0) 1 0))\n(defn test-3 [] :i64 (if (= (f 2) 14) 1 0))\n(defn test-4 [] :i64 (if (= (f 7) 0) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (= n 0) 14 0)",
+            "action-b": "(if (= (mod n 2) 0) 14 0)",
+            "action-c": "(if (= (mod n 2) 1) 14 0)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "parity-15",
+    "split": "train",
+    "gold": "action-a",
+    "task_digest": "sha256:c7b801dbb622bc86918dd558f0861f700cb4304fb88dc35abff9d463a5ddff9c",
+    "request": {
+      "state": {
+        "specification": "Return 15 when n is even, and 0 when n is odd.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 15,
+            "input": -4
+          },
+          {
+            "expected": 15,
+            "input": 0
+          },
+          {
+            "expected": 0,
+            "input": 1
+          },
+          {
+            "expected": 15,
+            "input": 2
+          },
+          {
+            "expected": 0,
+            "input": 7
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -4) 15) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 15) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 0) 1 0))\n(defn test-3 [] :i64 (if (= (f 2) 15) 1 0))\n(defn test-4 [] :i64 (if (= (f 7) 0) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (= (mod n 2) 0) 15 0)",
+            "action-b": "(if (= (mod n 2) 1) 15 0)",
+            "action-c": "(if (= n 0) 15 0)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "parity-16",
+    "split": "train",
+    "gold": "action-c",
+    "task_digest": "sha256:db3fd30d79de5e4dd822eec226730faf1292c968434b4aa8e111cf90c7346e60",
+    "request": {
+      "state": {
+        "specification": "Return 16 when n is even, and 0 when n is odd.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 16,
+            "input": -4
+          },
+          {
+            "expected": 16,
+            "input": 0
+          },
+          {
+            "expected": 0,
+            "input": 1
+          },
+          {
+            "expected": 16,
+            "input": 2
+          },
+          {
+            "expected": 0,
+            "input": 7
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -4) 16) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 16) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 0) 1 0))\n(defn test-3 [] :i64 (if (= (f 2) 16) 1 0))\n(defn test-4 [] :i64 (if (= (f 7) 0) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (= (mod n 2) 1) 16 0)",
+            "action-b": "(if (= n 0) 16 0)",
+            "action-c": "(if (= (mod n 2) 0) 16 0)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "parity-17",
+    "split": "train",
+    "gold": "action-b",
+    "task_digest": "sha256:fe4073e0c43e1e5ba255be15cd0904f299f412fef0f8f386bbeeb1e586eb7394",
+    "request": {
+      "state": {
+        "specification": "Return 17 when n is even, and 0 when n is odd.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 17,
+            "input": -4
+          },
+          {
+            "expected": 17,
+            "input": 0
+          },
+          {
+            "expected": 0,
+            "input": 1
+          },
+          {
+            "expected": 17,
+            "input": 2
+          },
+          {
+            "expected": 0,
+            "input": 7
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -4) 17) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 17) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 0) 1 0))\n(defn test-3 [] :i64 (if (= (f 2) 17) 1 0))\n(defn test-4 [] :i64 (if (= (f 7) 0) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (= n 0) 17 0)",
+            "action-b": "(if (= (mod n 2) 0) 17 0)",
+            "action-c": "(if (= (mod n 2) 1) 17 0)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "affine-23",
+    "split": "dev",
+    "gold": "action-b",
+    "task_digest": "sha256:cfb7afc3ef9ba2ab789d619086981c71a932e8d448f7e396331407506f0deb31",
+    "request": {
+      "state": {
+        "specification": "Return n plus 23 for every integer n.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 16,
+            "input": -7
+          },
+          {
+            "expected": 23,
+            "input": 0
+          },
+          {
+            "expected": 24,
+            "input": 1
+          },
+          {
+            "expected": 32,
+            "input": 9
+          },
+          {
+            "expected": 43,
+            "input": 20
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -7) 16) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 23) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 24) 1 0))\n(defn test-3 [] :i64 (if (= (f 9) 32) 1 0))\n(defn test-4 [] :i64 (if (= (f 20) 43) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(+ n 24)",
+            "action-b": "(+ n 23)",
+            "action-c": "(- n 23)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "affine-29",
+    "split": "dev",
+    "gold": "action-b",
+    "task_digest": "sha256:606b0672baea72355695cc9b94619e1c4be66fd856feee09480ecfd06ce4c09a",
+    "request": {
+      "state": {
+        "specification": "Return n plus 29 for every integer n.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 22,
+            "input": -7
+          },
+          {
+            "expected": 29,
+            "input": 0
+          },
+          {
+            "expected": 30,
+            "input": 1
+          },
+          {
+            "expected": 38,
+            "input": 9
+          },
+          {
+            "expected": 49,
+            "input": 20
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -7) 22) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 29) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 30) 1 0))\n(defn test-3 [] :i64 (if (= (f 9) 38) 1 0))\n(defn test-4 [] :i64 (if (= (f 20) 49) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(+ n 30)",
+            "action-b": "(+ n 29)",
+            "action-c": "(- n 29)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "threshold-23",
+    "split": "dev",
+    "gold": "action-a",
+    "task_digest": "sha256:378c23bbba02f31519ce8d6d4b57b186c4ea4c609a5a12dbad9a13dea481ea85",
+    "request": {
+      "state": {
+        "specification": "Return 1 exactly when n is at least 23; otherwise return 0.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 0,
+            "input": 22
+          },
+          {
+            "expected": 1,
+            "input": 23
+          },
+          {
+            "expected": 1,
+            "input": 24
+          },
+          {
+            "expected": 0,
+            "input": 0
+          },
+          {
+            "expected": 1,
+            "input": 28
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f 22) 0) 1 0))\n(defn test-1 [] :i64 (if (= (f 23) 1) 1 0))\n(defn test-2 [] :i64 (if (= (f 24) 1) 1 0))\n(defn test-3 [] :i64 (if (= (f 0) 0) 1 0))\n(defn test-4 [] :i64 (if (= (f 28) 1) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (>= n 23) 1 0)",
+            "action-b": "(if (> n 23) 1 0)",
+            "action-c": "(if (< n 23) 1 0)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "threshold-29",
+    "split": "dev",
+    "gold": "action-a",
+    "task_digest": "sha256:79804767e85b1c916fc2392df11fca5a54af03072a1f6d9d1118a2d83f833eea",
+    "request": {
+      "state": {
+        "specification": "Return 1 exactly when n is at least 29; otherwise return 0.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 0,
+            "input": 28
+          },
+          {
+            "expected": 1,
+            "input": 29
+          },
+          {
+            "expected": 1,
+            "input": 30
+          },
+          {
+            "expected": 0,
+            "input": 0
+          },
+          {
+            "expected": 1,
+            "input": 34
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f 28) 0) 1 0))\n(defn test-1 [] :i64 (if (= (f 29) 1) 1 0))\n(defn test-2 [] :i64 (if (= (f 30) 1) 1 0))\n(defn test-3 [] :i64 (if (= (f 0) 0) 1 0))\n(defn test-4 [] :i64 (if (= (f 34) 1) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (>= n 29) 1 0)",
+            "action-b": "(if (> n 29) 1 0)",
+            "action-c": "(if (< n 29) 1 0)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "clamp-23",
+    "split": "dev",
+    "gold": "action-c",
+    "task_digest": "sha256:40a94c088b61d218e883df53472496b455808de8a101bca3b16f67ff52a92fe7",
+    "request": {
+      "state": {
+        "specification": "Clamp integer n into the inclusive interval [0,23].",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 0,
+            "input": -3
+          },
+          {
+            "expected": 0,
+            "input": 0
+          },
+          {
+            "expected": 1,
+            "input": 1
+          },
+          {
+            "expected": 23,
+            "input": 23
+          },
+          {
+            "expected": 23,
+            "input": 26
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -3) 0) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 0) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 1) 1 0))\n(defn test-3 [] :i64 (if (= (f 23) 23) 1 0))\n(defn test-4 [] :i64 (if (= (f 26) 23) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (< n 0) 0 (if (> n 23) 24 n))",
+            "action-b": "(if (< n 0) n (if (> n 23) 23 n))",
+            "action-c": "(if (< n 0) 0 (if (> n 23) 23 n))"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "clamp-29",
+    "split": "dev",
+    "gold": "action-c",
+    "task_digest": "sha256:1629c9fddb7d5d300fd2a1108be8eb7f59c6a1eaeed3c0ddf13860ae32ca48c4",
+    "request": {
+      "state": {
+        "specification": "Clamp integer n into the inclusive interval [0,29].",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 0,
+            "input": -3
+          },
+          {
+            "expected": 0,
+            "input": 0
+          },
+          {
+            "expected": 1,
+            "input": 1
+          },
+          {
+            "expected": 29,
+            "input": 29
+          },
+          {
+            "expected": 29,
+            "input": 32
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -3) 0) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 0) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 1) 1 0))\n(defn test-3 [] :i64 (if (= (f 29) 29) 1 0))\n(defn test-4 [] :i64 (if (= (f 32) 29) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (< n 0) 0 (if (> n 29) 30 n))",
+            "action-b": "(if (< n 0) n (if (> n 29) 29 n))",
+            "action-c": "(if (< n 0) 0 (if (> n 29) 29 n))"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "parity-23",
+    "split": "dev",
+    "gold": "action-b",
+    "task_digest": "sha256:b194376e1bf8e7e1db68e1fc44849ab66e0c8a53f6c6f9efb9aca7825976e6c2",
+    "request": {
+      "state": {
+        "specification": "Return 23 when n is even, and 0 when n is odd.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 23,
+            "input": -4
+          },
+          {
+            "expected": 23,
+            "input": 0
+          },
+          {
+            "expected": 0,
+            "input": 1
+          },
+          {
+            "expected": 23,
+            "input": 2
+          },
+          {
+            "expected": 0,
+            "input": 7
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -4) 23) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 23) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 0) 1 0))\n(defn test-3 [] :i64 (if (= (f 2) 23) 1 0))\n(defn test-4 [] :i64 (if (= (f 7) 0) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (= n 0) 23 0)",
+            "action-b": "(if (= (mod n 2) 0) 23 0)",
+            "action-c": "(if (= (mod n 2) 1) 23 0)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "parity-29",
+    "split": "dev",
+    "gold": "action-b",
+    "task_digest": "sha256:6def714bd0a8664d4414e00ac5c95b5a7a09831a36639838c47a153c48ffe323",
+    "request": {
+      "state": {
+        "specification": "Return 29 when n is even, and 0 when n is odd.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 29,
+            "input": -4
+          },
+          {
+            "expected": 29,
+            "input": 0
+          },
+          {
+            "expected": 0,
+            "input": 1
+          },
+          {
+            "expected": 29,
+            "input": 2
+          },
+          {
+            "expected": 0,
+            "input": 7
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -4) 29) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 29) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 0) 1 0))\n(defn test-3 [] :i64 (if (= (f 2) 29) 1 0))\n(defn test-4 [] :i64 (if (= (f 7) 0) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (= n 0) 29 0)",
+            "action-b": "(if (= (mod n 2) 0) 29 0)",
+            "action-c": "(if (= (mod n 2) 1) 29 0)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "affine-37",
+    "split": "heldout-state",
+    "gold": "action-c",
+    "task_digest": "sha256:f28834be9489a29913403bcb03c92a1dee36c0c76d4ad272285da6ccfe070f60",
+    "request": {
+      "state": {
+        "specification": "Return n plus 37 for every integer n.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 30,
+            "input": -7
+          },
+          {
+            "expected": 37,
+            "input": 0
+          },
+          {
+            "expected": 38,
+            "input": 1
+          },
+          {
+            "expected": 46,
+            "input": 9
+          },
+          {
+            "expected": 57,
+            "input": 20
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -7) 30) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 37) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 38) 1 0))\n(defn test-3 [] :i64 (if (= (f 9) 46) 1 0))\n(defn test-4 [] :i64 (if (= (f 20) 57) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(- n 37)",
+            "action-b": "(+ n 38)",
+            "action-c": "(+ n 37)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "affine-41",
+    "split": "heldout-state",
+    "gold": "action-b",
+    "task_digest": "sha256:dbf2aab068a42d1ded3df5a634ff347ef3d89a83399755bc61ed435313fef8c6",
+    "request": {
+      "state": {
+        "specification": "Return n plus 41 for every integer n.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 34,
+            "input": -7
+          },
+          {
+            "expected": 41,
+            "input": 0
+          },
+          {
+            "expected": 42,
+            "input": 1
+          },
+          {
+            "expected": 50,
+            "input": 9
+          },
+          {
+            "expected": 61,
+            "input": 20
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -7) 34) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 41) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 42) 1 0))\n(defn test-3 [] :i64 (if (= (f 9) 50) 1 0))\n(defn test-4 [] :i64 (if (= (f 20) 61) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(+ n 42)",
+            "action-b": "(+ n 41)",
+            "action-c": "(- n 41)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "threshold-37",
+    "split": "heldout-state",
+    "gold": "action-b",
+    "task_digest": "sha256:0c6adbe16270769cd808cae9bed3cbcde7265de0e495f03fd5b4ab9f0851331a",
+    "request": {
+      "state": {
+        "specification": "Return 1 exactly when n is at least 37; otherwise return 0.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 0,
+            "input": 36
+          },
+          {
+            "expected": 1,
+            "input": 37
+          },
+          {
+            "expected": 1,
+            "input": 38
+          },
+          {
+            "expected": 0,
+            "input": 0
+          },
+          {
+            "expected": 1,
+            "input": 42
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f 36) 0) 1 0))\n(defn test-1 [] :i64 (if (= (f 37) 1) 1 0))\n(defn test-2 [] :i64 (if (= (f 38) 1) 1 0))\n(defn test-3 [] :i64 (if (= (f 0) 0) 1 0))\n(defn test-4 [] :i64 (if (= (f 42) 1) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (< n 37) 1 0)",
+            "action-b": "(if (>= n 37) 1 0)",
+            "action-c": "(if (> n 37) 1 0)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "threshold-41",
+    "split": "heldout-state",
+    "gold": "action-a",
+    "task_digest": "sha256:93128ce8fd68d0fcc72be8195b2d51dd0fdbe54582c29cdf6b0100b04aee768c",
+    "request": {
+      "state": {
+        "specification": "Return 1 exactly when n is at least 41; otherwise return 0.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 0,
+            "input": 40
+          },
+          {
+            "expected": 1,
+            "input": 41
+          },
+          {
+            "expected": 1,
+            "input": 42
+          },
+          {
+            "expected": 0,
+            "input": 0
+          },
+          {
+            "expected": 1,
+            "input": 46
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f 40) 0) 1 0))\n(defn test-1 [] :i64 (if (= (f 41) 1) 1 0))\n(defn test-2 [] :i64 (if (= (f 42) 1) 1 0))\n(defn test-3 [] :i64 (if (= (f 0) 0) 1 0))\n(defn test-4 [] :i64 (if (= (f 46) 1) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (>= n 41) 1 0)",
+            "action-b": "(if (> n 41) 1 0)",
+            "action-c": "(if (< n 41) 1 0)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "clamp-37",
+    "split": "heldout-state",
+    "gold": "action-a",
+    "task_digest": "sha256:8a4ad50bea8998ee0fec2cf47e9667b6c31308175678332c431b90cb64448588",
+    "request": {
+      "state": {
+        "specification": "Clamp integer n into the inclusive interval [0,37].",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 0,
+            "input": -3
+          },
+          {
+            "expected": 0,
+            "input": 0
+          },
+          {
+            "expected": 1,
+            "input": 1
+          },
+          {
+            "expected": 37,
+            "input": 37
+          },
+          {
+            "expected": 37,
+            "input": 40
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -3) 0) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 0) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 1) 1 0))\n(defn test-3 [] :i64 (if (= (f 37) 37) 1 0))\n(defn test-4 [] :i64 (if (= (f 40) 37) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (< n 0) 0 (if (> n 37) 37 n))",
+            "action-b": "(if (< n 0) 0 (if (> n 37) 38 n))",
+            "action-c": "(if (< n 0) n (if (> n 37) 37 n))"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "clamp-41",
+    "split": "heldout-state",
+    "gold": "action-c",
+    "task_digest": "sha256:3db650ad44c7271d118fec865accbe2f542c1ecf5c625ee9c62a6c828fa1b158",
+    "request": {
+      "state": {
+        "specification": "Clamp integer n into the inclusive interval [0,41].",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 0,
+            "input": -3
+          },
+          {
+            "expected": 0,
+            "input": 0
+          },
+          {
+            "expected": 1,
+            "input": 1
+          },
+          {
+            "expected": 41,
+            "input": 41
+          },
+          {
+            "expected": 41,
+            "input": 44
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -3) 0) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 0) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 1) 1 0))\n(defn test-3 [] :i64 (if (= (f 41) 41) 1 0))\n(defn test-4 [] :i64 (if (= (f 44) 41) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (< n 0) 0 (if (> n 41) 42 n))",
+            "action-b": "(if (< n 0) n (if (> n 41) 41 n))",
+            "action-c": "(if (< n 0) 0 (if (> n 41) 41 n))"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "parity-37",
+    "split": "heldout-state",
+    "gold": "action-c",
+    "task_digest": "sha256:b58a35e2f581025eb351210b02c9805bf2aa8d9b40c84ef9942d10378b7c5414",
+    "request": {
+      "state": {
+        "specification": "Return 37 when n is even, and 0 when n is odd.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 37,
+            "input": -4
+          },
+          {
+            "expected": 37,
+            "input": 0
+          },
+          {
+            "expected": 0,
+            "input": 1
+          },
+          {
+            "expected": 37,
+            "input": 2
+          },
+          {
+            "expected": 0,
+            "input": 7
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -4) 37) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 37) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 0) 1 0))\n(defn test-3 [] :i64 (if (= (f 2) 37) 1 0))\n(defn test-4 [] :i64 (if (= (f 7) 0) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (= (mod n 2) 1) 37 0)",
+            "action-b": "(if (= n 0) 37 0)",
+            "action-c": "(if (= (mod n 2) 0) 37 0)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "parity-41",
+    "split": "heldout-state",
+    "gold": "action-b",
+    "task_digest": "sha256:754561a44f86a30da664c847f0316fb3de35420a4784048414131798afc17f25",
+    "request": {
+      "state": {
+        "specification": "Return 41 when n is even, and 0 when n is odd.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 41,
+            "input": -4
+          },
+          {
+            "expected": 41,
+            "input": 0
+          },
+          {
+            "expected": 0,
+            "input": 1
+          },
+          {
+            "expected": 41,
+            "input": 2
+          },
+          {
+            "expected": 0,
+            "input": 7
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f -4) 41) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 41) 1 0))\n(defn test-2 [] :i64 (if (= (f 1) 0) 1 0))\n(defn test-3 [] :i64 (if (= (f 2) 41) 1 0))\n(defn test-4 [] :i64 (if (= (f 7) 0) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (= n 0) 41 0)",
+            "action-b": "(if (= (mod n 2) 0) 41 0)",
+            "action-c": "(if (= (mod n 2) 1) 41 0)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "distance-3",
+    "split": "heldout-family",
+    "gold": "action-c",
+    "task_digest": "sha256:81900a205aba1a8dca348707fd6bc9fc2971caf4ff8c2cebe5a7d7a965a901fd",
+    "request": {
+      "state": {
+        "specification": "Return the absolute integer distance between n and 3.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 3,
+            "input": 0
+          },
+          {
+            "expected": 3,
+            "input": 0
+          },
+          {
+            "expected": 0,
+            "input": 3
+          },
+          {
+            "expected": 1,
+            "input": 4
+          },
+          {
+            "expected": 7,
+            "input": 10
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f 0) 3) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 3) 1 0))\n(defn test-2 [] :i64 (if (= (f 3) 0) 1 0))\n(defn test-3 [] :i64 (if (= (f 4) 1) 1 0))\n(defn test-4 [] :i64 (if (= (f 10) 7) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(- n 3)",
+            "action-b": "(if (< n 3) (- 3 n) (+ n 3))",
+            "action-c": "(if (< n 3) (- 3 n) (- n 3))"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "distance-5",
+    "split": "heldout-family",
+    "gold": "action-a",
+    "task_digest": "sha256:0fc467cb9b199af7dde911d557934f70db93fc2684c94233dc43e854174036da",
+    "request": {
+      "state": {
+        "specification": "Return the absolute integer distance between n and 5.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 3,
+            "input": 2
+          },
+          {
+            "expected": 5,
+            "input": 0
+          },
+          {
+            "expected": 0,
+            "input": 5
+          },
+          {
+            "expected": 1,
+            "input": 6
+          },
+          {
+            "expected": 7,
+            "input": 12
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f 2) 3) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 5) 1 0))\n(defn test-2 [] :i64 (if (= (f 5) 0) 1 0))\n(defn test-3 [] :i64 (if (= (f 6) 1) 1 0))\n(defn test-4 [] :i64 (if (= (f 12) 7) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (< n 5) (- 5 n) (- n 5))",
+            "action-b": "(- n 5)",
+            "action-c": "(if (< n 5) (- 5 n) (+ n 5))"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "distance-7",
+    "split": "heldout-family",
+    "gold": "action-b",
+    "task_digest": "sha256:678fb25966635e319c512aff0f7ddad29500813b2c83c3dfa509633ff6b48cd9",
+    "request": {
+      "state": {
+        "specification": "Return the absolute integer distance between n and 7.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 3,
+            "input": 4
+          },
+          {
+            "expected": 7,
+            "input": 0
+          },
+          {
+            "expected": 0,
+            "input": 7
+          },
+          {
+            "expected": 1,
+            "input": 8
+          },
+          {
+            "expected": 7,
+            "input": 14
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f 4) 3) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 7) 1 0))\n(defn test-2 [] :i64 (if (= (f 7) 0) 1 0))\n(defn test-3 [] :i64 (if (= (f 8) 1) 1 0))\n(defn test-4 [] :i64 (if (= (f 14) 7) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (< n 7) (- 7 n) (+ n 7))",
+            "action-b": "(if (< n 7) (- 7 n) (- n 7))",
+            "action-c": "(- n 7)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "distance-11",
+    "split": "heldout-family",
+    "gold": "action-a",
+    "task_digest": "sha256:fbf228345151ab5343cbacc679e9dbc81675ec38eddc73ab4b44a8e7b7bbcb67",
+    "request": {
+      "state": {
+        "specification": "Return the absolute integer distance between n and 11.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 3,
+            "input": 8
+          },
+          {
+            "expected": 11,
+            "input": 0
+          },
+          {
+            "expected": 0,
+            "input": 11
+          },
+          {
+            "expected": 1,
+            "input": 12
+          },
+          {
+            "expected": 7,
+            "input": 18
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f 8) 3) 1 0))\n(defn test-1 [] :i64 (if (= (f 0) 11) 1 0))\n(defn test-2 [] :i64 (if (= (f 11) 0) 1 0))\n(defn test-3 [] :i64 (if (= (f 12) 1) 1 0))\n(defn test-4 [] :i64 (if (= (f 18) 7) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(if (< n 11) (- 11 n) (- n 11))",
+            "action-b": "(- n 11)",
+            "action-c": "(if (< n 11) (- 11 n) (+ n 11))"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "ceil-div-3",
+    "split": "heldout-family",
+    "gold": "action-b",
+    "task_digest": "sha256:3df1d27f7f6e2a3e261dc6acb33e3a440997eb97fb5363761cc161204d1fffba",
+    "request": {
+      "state": {
+        "specification": "For non-negative n, return n divided by 3 rounded UP to an integer.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 0,
+            "input": 0
+          },
+          {
+            "expected": 1,
+            "input": 1
+          },
+          {
+            "expected": 1,
+            "input": 3
+          },
+          {
+            "expected": 2,
+            "input": 4
+          },
+          {
+            "expected": 2,
+            "input": 6
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f 0) 0) 1 0))\n(defn test-1 [] :i64 (if (= (f 1) 1) 1 0))\n(defn test-2 [] :i64 (if (= (f 3) 1) 1 0))\n(defn test-3 [] :i64 (if (= (f 4) 2) 1 0))\n(defn test-4 [] :i64 (if (= (f 6) 2) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(quot (+ n 3) 3)",
+            "action-b": "(quot (+ n 2) 3)",
+            "action-c": "(quot n 3)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "ceil-div-5",
+    "split": "heldout-family",
+    "gold": "action-c",
+    "task_digest": "sha256:87087bd900de837ec2759b3c90c4eb9196ceb8428bb98087f90cbdd75f7617d5",
+    "request": {
+      "state": {
+        "specification": "For non-negative n, return n divided by 5 rounded UP to an integer.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 0,
+            "input": 0
+          },
+          {
+            "expected": 1,
+            "input": 1
+          },
+          {
+            "expected": 1,
+            "input": 5
+          },
+          {
+            "expected": 2,
+            "input": 6
+          },
+          {
+            "expected": 2,
+            "input": 10
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f 0) 0) 1 0))\n(defn test-1 [] :i64 (if (= (f 1) 1) 1 0))\n(defn test-2 [] :i64 (if (= (f 5) 1) 1 0))\n(defn test-3 [] :i64 (if (= (f 6) 2) 1 0))\n(defn test-4 [] :i64 (if (= (f 10) 2) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(quot n 5)",
+            "action-b": "(quot (+ n 5) 5)",
+            "action-c": "(quot (+ n 4) 5)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "ceil-div-7",
+    "split": "heldout-family",
+    "gold": "action-a",
+    "task_digest": "sha256:0fb1fd69b4ada3d86104af2b422fde8f91c38597decf0b8ca66d60a23b6cfc82",
+    "request": {
+      "state": {
+        "specification": "For non-negative n, return n divided by 7 rounded UP to an integer.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 0,
+            "input": 0
+          },
+          {
+            "expected": 1,
+            "input": 1
+          },
+          {
+            "expected": 1,
+            "input": 7
+          },
+          {
+            "expected": 2,
+            "input": 8
+          },
+          {
+            "expected": 2,
+            "input": 14
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f 0) 0) 1 0))\n(defn test-1 [] :i64 (if (= (f 1) 1) 1 0))\n(defn test-2 [] :i64 (if (= (f 7) 1) 1 0))\n(defn test-3 [] :i64 (if (= (f 8) 2) 1 0))\n(defn test-4 [] :i64 (if (= (f 14) 2) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(quot (+ n 6) 7)",
+            "action-b": "(quot n 7)",
+            "action-c": "(quot (+ n 7) 7)"
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "ceil-div-11",
+    "split": "heldout-family",
+    "gold": "action-c",
+    "task_digest": "sha256:af25ecd8b3ce294dcf2d9a2864d929eeda15885acecfc40f151c9736dce38927",
+    "request": {
+      "state": {
+        "specification": "For non-negative n, return n divided by 11 rounded UP to an integer.",
+        "function": "f(n: i64) -> i64",
+        "test-cases": [
+          {
+            "expected": 0,
+            "input": 0
+          },
+          {
+            "expected": 1,
+            "input": 1
+          },
+          {
+            "expected": 1,
+            "input": 11
+          },
+          {
+            "expected": 2,
+            "input": 12
+          },
+          {
+            "expected": 2,
+            "input": 22
+          }
+        ],
+        "current-source": "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n(defn f [n :i64] :i64 (+ n 999))\n(defn test-0 [] :i64 (if (= (f 0) 0) 1 0))\n(defn test-1 [] :i64 (if (= (f 1) 1) 1 0))\n(defn test-2 [] :i64 (if (= (f 11) 1) 1 0))\n(defn test-3 [] :i64 (if (= (f 12) 2) 1 0))\n(defn test-4 [] :i64 (if (= (f 22) 2) 1 0))\n(defn main [] :i64 (f 0))\n",
+        "edit-contract": "Replace the body of f only. All listed cases and tests remain unchanged."
+      },
+      "questions": {
+        "next_action": {
+          "type": "choice",
+          "instructions": "Choose the replacement function body that satisfies every test and the specification. Execute the expressions against the examples.",
+          "criteria": {
+            "action-a": "(quot n 11)",
+            "action-b": "(quot (+ n 11) 11)",
+            "action-c": "(quot (+ n 10) 11)"
+          }
+        }
+      }
+    }
+  }
+]
