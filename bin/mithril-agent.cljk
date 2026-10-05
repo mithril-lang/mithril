@@ -1,0 +1,56 @@
+#!/usr/bin/env kbb
+(ns mithril.agent-cli
+  (:require [mithril.harness :as h] [mithril.patch :as patch] [mithril.session :as session]
+            [mithril.generator :as generator] [mithril.evaluation :as evaluation]
+            [mithril.port-kernel :as kernel] [mithril.cua-driver :as cua]))
+(let [[mode task-file manifest directory hy model-dir adapter output & extra] *command-line-args*
+      fs (js/require "node:fs") path (js/require "node:path") started (.now js/performance)
+      _ (when-not (and (contains? #{"generate" "resume" "reconcile"} mode)
+                       task-file manifest directory hy model-dir adapter output (empty? extra))
+          (println "usage: mithril-agent generate|resume|reconcile task.json kernel-manifest session-dir hy model-dir adapter-root output.json")
+          (js/process.exit 2))
+      task (patch/read-task (.readFileSync fs task-file "utf8"))
+      kind (or (.-MITHRIL_GENERATOR_KIND js/process.env) "clef")
+      _ (when-not (contains? #{"clef" "mlx-coder"} kind) (h/refuse :generator-kind))
+      profile (assoc (h/compile-profile (.readFileSync fs "ports/generated-agent.mith" "utf8")) :goal (:goal task))
+      budget (kernel/load! manifest "ports/policy.kotoba")
+      store (session/open! directory profile {:task task :generator-kind kind :generator-model model-dir
+                                             :kernel (kernel/digest (.readFileSync fs manifest))})
+      latest (atom nil) model-audit (atom []) attempts (atom []) controller (js/AbortController.)
+      _ (.on js/process "SIGINT" #(.abort controller))
+      generate! (generator/offline hy (.resolve path "scripts/port-generate-files.hy") model-dir adapter model-audit kind (.-signal controller))
+      checkpoint! (fn [s] (session/save! store s) (reset! latest s))
+      save! (fn [status error]
+              (let [receipt {:format "mithril.generated-coding/v1" :status status :mode mode :error error :generator-kind kind :generator-model model-dir
+                 :wall-ms (- (.now js/performance) started) :state @latest :model-turns @model-audit :attempts @attempts
+                 :cost {:api-currency "JPY" :api-amount 0 :execution "offline-local"
+                        :electricity "unmeasured" :device-amortization "unmeasured"}}
+                    encoded (.stringify js/JSON (clj->js receipt) nil 2)
+                    metrics (assoc (evaluation/summarize receipt)
+                                   :receipt-sha256 (kernel/digest encoded)
+                                   :task-sha256 (kernel/digest (pr-str (session/canonical (dissoc task :root)))))]
+                (session/atomic-write! output encoded)
+                (session/atomic-write! (str output ".metrics.json") (.stringify js/JSON (clj->js metrics) nil 2)))
+              (println (pr-str {:status status :receipt output :wall-ms (- (.now js/performance) started)})))
+      loaded (try (let [s (session/load! store profile budget (not= "generate" mode) (= "reconcile" mode))]
+                    (when (and s (contains? (:facts s) "repository-verified")) (patch/retained! task store))
+                    (reset! latest s) s)
+                  (catch :default e (save! "refused" (cua/error-reason e)) (session/close! store) (js/process.exit 1)))
+      admission (fn [r]
+                  (let [labels (keys (get-in r [:questions "next_action" :criteria]))]
+                    (when-not (= 1 (count labels)) (h/refuse :non-singleton-host-action))
+                    {:choice (first labels) :confidence 1 :probabilities {(first labels) 1}}))
+      start (if (= "reconcile" mode)
+              (let [id (get-in loaded [:pending :id])]
+                (when-not (= "coding/generate-verify" (get-in loaded [:pending :tool :operation])) (h/refuse :no-pending-generated-edit))
+                (-> (patch/reconcile! task store id (.-signal controller))
+                    (.then (fn [r] (let [s (h/settle profile loaded id r)] (checkpoint! s) s)))))
+              (js/Promise.resolve loaded))]
+  (-> start
+      (.then (fn [s]
+               (h/run! profile {:state s :budget-ok? budget :checkpoint! checkpoint! :decide! admission
+                                :execute! (fn [id operation]
+                                            (when-not (= "coding/generate-verify" operation) (h/refuse :unbound-operation))
+                                            (patch/perform! task store id generate! attempts (.-signal controller)))})))
+      (.then (fn [s] (save! (name (:phase s)) nil) (session/close! store)))
+      (.catch (fn [e] (save! "refused" (cua/error-reason e)) (session/close! store) (js/process.exit 1)))))

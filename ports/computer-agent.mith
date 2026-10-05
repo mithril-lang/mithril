@@ -1,5 +1,5 @@
 (mithril/agent-harness
-  :id "https://mithril.fund/port/deepseek/computer-v1"
+  :id "https://mithril.fund/port/agent/computer-v2"
   :goal "Inspect the available desktop applications, then finish after the host confirms the observation."
   :max-steps 3 :max-calls 1 :confidence-floor 6000 :finish-facts ["apps-observed"]
   :plugins [(mithril/plugin :id "computer" :requires []

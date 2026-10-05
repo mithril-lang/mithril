@@ -1,0 +1,4 @@
+(require '[demo.api :as api])
+(assert (= 0 (api/clamp-positive -17)))
+(assert (= 0 (api/clamp-positive 0)))
+(println :lower-bounds-passed)

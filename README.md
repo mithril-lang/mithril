@@ -1963,7 +1963,7 @@ insufficient decrement. See [the contract and runnable example](docs/system-one-
 
 ## Mithril agent harness and computer-driver ports
 
-The official DeepSeek Harness and Cua repositories are forked under
+Mithril Harness and Cua are maintained under
 `mithril-lang`. [The executable Mithril port profiles](ports/README.md) drive
 CLJK agent/MCP logic with an actual Kotoba/Wasm dispatch-budget kernel and local
 CLEF decisions. Compiler-verified repair, native desktop observation and input

@@ -1,0 +1,18 @@
+(ns mithril.ui-inventory
+  (:require [mithril.port-kernel :as k]))
+(let [[source-root output] *command-line-args* fs (js/require "node:fs") path (js/require "node:path")
+      client (.join path source-root "packages/client")
+      modules (->> (js->clj (.readdirSync fs client))
+                   (filter #(.existsSync fs (.join path client % "package.json"))) sort)
+      rows (mapv (fn [id]
+                   (let [package (.join path client id "package.json") readme (.join path client id "README.md")]
+                     {:id id :source-path (str "packages/client/" id)
+                      :package-sha256 (k/digest (.readFileSync fs package))
+                      :readme-sha256 (when (.existsSync fs readme) (k/digest (.readFileSync fs readme)))
+                      :category (if (.startsWith id "ui-") :visible-ui :client-support)
+                      :state :pending :operation-cases [] :browser-evidence nil})) modules)]
+  (.writeFileSync fs output (pr-str {:format :mithril/ui-compatibility-v1
+    :source-revision "5badb15009ae1756c3afe0ae0cef1faafc290ccc" :module-count (count rows)
+    :completion-rule "Every module needs its real visible operations/transport and browser/runtime evidence; roster presence or a placeholder never proves compatibility."
+    :modules rows}))
+  (println (pr-str {:modules (count rows) :output output})))

@@ -1,8 +1,8 @@
 # Mithril agent harness and computer driver ports
 
-These executable Mithril ports derive their agent/plugin/effect boundaries from
-DeepSeek Harness and their computer-tool schemas from Cua Driver. The official
-upstreams were forked into `mithril-lang/deepseek-harness` and `mithril-lang/cua`.
+Mithril Harness provides executable agent/plugin/effect profiles and Cua Driver
+computer-tool schemas. The maintained forks are `mithril-lang/mithril-harness`
+and `mithril-lang/cua`.
 Exact source revisions and license attribution are retained in `upstreams.edn`
 and `resources/ports/*-LICENSE`.
 
@@ -21,7 +21,7 @@ started, granted permissions or upgraded by the Mithril runtime.
 | --- | --- | --- |
 | Agent | Finite typed decisions, step/call budgets, correlated tool results, legal-action masking, host-gated finish, cancellation, checkpoint/journal | Single sequential effect; no free-form model tool arguments |
 | Plugins | Declarative dependency order, unique tool ownership, removal with dependency/in-flight guards | No Cordis loading, HMR or TypeScript plugin ABI |
-| Session | UUID-scoped call IDs, atomic/fsynced checkpoints, exclusive process ownership, profile/task binding, journal reconstruction, explicit restart/resume | No DSH released persistence format, durable inbox, parallel scheduler or UI parity; uncertain native effects cannot be automatically retried |
+| Session | UUID-scoped call IDs, atomic/fsynced checkpoints, exclusive process ownership, profile/task binding, journal reconstruction, explicit restart/resume | No original released persistence format or durable inbox; uncertain native effects cannot be automatically retried |
 | Repository editing | Declared single-file candidate selection, hash-bound verification inputs, isolated verifier, durable intent, verified edit retained in the repository, explicit interrupted-edit reconciliation | Supplied candidates; no unrestricted source generation, multi-file transaction or full OS sandbox for the verifier |
 | Driver | Mithril MCP stdio, legacy initialization, modern discovery/list/call metadata subset, schema validation, explicit tool allowlist, result budgets, one-use call IDs | No complete MCP resource/skill/HTTP surface; call IDs cannot be retried within a run |
 | Native | Explicit `cua-driver call` provider; macOS observation and owned-window input verified | Other OS platforms and screen capture are not qualified by this run |
@@ -52,7 +52,7 @@ MITHRIL_POLICY_MANIFEST=/private/tmp/mithril-port-policy/manifest.json \
 
 The builder compiles the full exported policy to `wasm32-browser` and runs
 four assertions on KIR, JS and Wasm. The host checks both source and Wasm hashes
-before instantiating it. The current 16 focused tests / 111 assertions cover the real
+before instantiating it. The original port tests cover the real
 Wasm budget gate, profile admission, plugin disposal, stale/duplicate results,
 unverified finish, cancellation, MCP metadata, schema boundaries, uncertain
 native failures and retention of committed tool results after model failure.
@@ -65,7 +65,7 @@ Run from the Mithril checkout. Replace these paths with the explicit local
 model, Hy runtime and adapter locations prepared above:
 
 ```sh
-export MITHRIL_AGENT_PROFILE=/path/to/deepseek-harness/mithril/computer-agent.mith
+export MITHRIL_AGENT_PROFILE=/path/to/mithril-harness/mithril/computer-agent.mith
 export MITHRIL_DRIVER_PROFILE=/path/to/cua/mithril/driver.mith
 kbb --backend sci --config ports.edn --classpath src bin/mithril-port-agent.cljk \
   clef /private/tmp/mithril-port-policy/manifest.json /absolute/path/to/cua-driver \
@@ -165,6 +165,27 @@ The native daemon must already be running with its established OS permissions.
 This is a local stdio server; no public listener or cloud service is created.
 
 ## Measured evidence
+
+The free-generation CLI also writes `<output.json>.metrics.json` on completion,
+interruption or refusal after session setup. It records CLI time, attempt count,
+provider failures, measured and partial token usage, fixed-check results, retained
+source confirmation and parallel check concurrency. Receipt and normalized task
+hashes bind each measurement to its evidence. A resumed session is marked `resume`
+and must not be pooled with new generation trials. Missing usage and total local
+cost remain null. Errors before session setup have no receipt and must be counted
+by the caller as startup failures.
+
+Generation uses an asynchronous local process with a scrubbed environment and
+bounded output. Cancellation reaches the generator's process group and waits for
+quiescence before deleting its private request directory. Unicode source text is
+decoded across process output chunks. The combined focused suite currently has
+33 tests / 186 assertions; actual generation and cancellation receipts are in
+`docs/evidence/browser-2026-10-05/async-generation.json*` and
+`docs/evidence/browser-2026-10-05/cancelled-generation.json*`.
+
+`docs/evidence/mithril-generation-evaluation-2026-10-05.md` contains the paired
+local model comparison. Per-run measurements supplement the raw receipts;
+they do not turn a small known fixture into a general coding benchmark.
 
 `docs/evidence/mithril-ports-2026-10-05.md` distinguishes actual CLEF decisions,
 compiler/test results, native MCP observation and owned-TextEdit input from the

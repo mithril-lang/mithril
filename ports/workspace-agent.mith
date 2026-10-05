@@ -1,5 +1,5 @@
 (mithril/agent-harness
-  :id "https://mithril.fund/port/deepseek/workspace-v1"
+  :id "https://mithril.fund/port/agent/workspace-v2"
   :goal "Edit the explicitly declared repository file, verify the chosen patch, retain the verified edit, and finish only with the host receipt."
   :max-steps 6 :max-calls 2 :confidence-floor 6000 :finish-facts ["repository-verified"]
   :plugins [(mithril/plugin :id "workspace" :requires []

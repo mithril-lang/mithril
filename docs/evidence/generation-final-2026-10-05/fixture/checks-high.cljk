@@ -1,0 +1,6 @@
+(require '[demo.api :as api] '[demo.math :as math])
+(assert (= 5 (api/clamp-positive 5)))
+(assert (= 10 (api/clamp-positive 18)))
+(assert (= 3 (math/clamp -5 3 9)))
+(assert (= 9 (math/clamp 19 3 9)))
+(println :upper-and-custom-bounds-passed)

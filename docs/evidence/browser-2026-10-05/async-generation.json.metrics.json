@@ -1,0 +1,60 @@
+{
+  "format": "mithril.coding-measurement/v1",
+  "clef-controller-used": false,
+  "retained-source-verified": true,
+  "max-concurrent-checks": 2,
+  "provider-failures": 0,
+  "attempts": 1,
+  "provider-calls": 1,
+  "task-sha256": "f1626a069e36acc8384e2d780743a9ba2e5f39ffd0b383ad3e458c4cdb205871",
+  "mode": "generate",
+  "model-directory": "/private/tmp/mithril-coder-7b-local",
+  "output-tokens": {
+    "total": 101,
+    "known-subtotal": 101,
+    "measured-calls": 1,
+    "calls": 1
+  },
+  "training-performed": false,
+  "input-tokens": {
+    "total": 840,
+    "known-subtotal": 840,
+    "measured-calls": 1,
+    "calls": 1
+  },
+  "accuracy-scope": "Task completion with fixed checks; not general coding accuracy. Resume is not a generation trial.",
+  "success": true,
+  "status": "done",
+  "verification-passed": true,
+  "timing": {
+    "cli-wall-seconds": 11.639374541999999,
+    "boundary": "CLI task read through receipt creation; excludes initial model download and caller startup.",
+    "generation-seconds": {
+      "total": 4.517665249994025,
+      "known-subtotal": 4.517665249994025,
+      "measured-calls": 1,
+      "calls": 1
+    },
+    "load-seconds": {
+      "total": 1.533378291002009,
+      "known-subtotal": 1.533378291002009,
+      "measured-calls": 1,
+      "calls": 1
+    },
+    "verification-wall-seconds": 0.1940760420000006
+  },
+  "receipt-sha256": "6fc6ae2d090ddc2f447eb89c5afe19a1ca9963f77554fe300256626859fcf2f8",
+  "model-kind": "mlx-coder",
+  "cost": {
+    "api-currency": "JPY",
+    "api-amount": 0,
+    "api-amount-per-success": 0,
+    "electricity": null,
+    "device-amortization": null,
+    "human-development": null,
+    "total-cost": null,
+    "training": null
+  },
+  "passed-checks": 2,
+  "verification-checks": 2
+}
