@@ -77,11 +77,12 @@ are outside the timed coding episodes and are not free total development cost.
 - Existing native computer CLI: one real `list_apps` observation reached `done`;
   explicit resume remained at one call/two steps with an empty fresh driver
   journal, so no duplicate native call was made. App names are not in evidence.
-- Final focused suite: 15 tests / 108 assertions, zero failures/errors. Covers
+- Final focused suite: 16 tests / 111 assertions, zero failures/errors. Covers
   old port behavior plus ownership, binding/hash tampering, journal reconstruction,
   saved-result resume, pending-effect refusal, literal verified file publication,
   failed-candidate preservation, symlinks/traversal, verification-input drift,
-  changed retained files, explicit reconciliation and host-singleton provenance.
+  changed retained files, explicit reconciliation, nested verification-input
+  paths, literal replacements and host-singleton provenance.
 
 Raw final/pilot/environment receipts, verification diagnostics, intents, resume
 and reconciliation results are retained under `workspace-2026-10-05/`.

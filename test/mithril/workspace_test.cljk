@@ -98,3 +98,15 @@
         (.writeFileSync fs (:file store) (pr-str (assoc e :state "{}")))
         (is (ports/refused? #(session/load! store p ports/budget-ok? true))))
       (finally (session/close! store) (cleanup root)))))
+(deftest nested-verification-input-paths-and-literal-replacement
+  (let [root (temp) task (fixture root)]
+    (try
+      (.mkdirSync fs (.join path root "checks"))
+      (.copyFileSync fs (.join path root "verify.cjs") (.join path root "checks/verify.cjs"))
+      (let [nested (assoc task :inputs {"checks/verify.cjs" (get-in task [:inputs "verify.cjs"])}
+                         :verifier (assoc (:verifier task) :argv ["checks/verify.cjs"]))
+            decoded (w/read-task (.stringify js/JSON (clj->js nested)))]
+        (is (= #{"checks/verify.cjs"} (set (keys (:inputs decoded)))))
+        (is (:passed (w/verify! decoded "budget > zero"))))
+      (is (= "budget $& zero" (w/candidate-source (assoc task :candidates ["$&"]) "budget >= zero" 0)))
+      (finally (cleanup root)))))

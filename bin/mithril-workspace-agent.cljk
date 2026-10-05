@@ -9,9 +9,7 @@
                       task-file manifest directory hy model-dir adapter output (empty? extra))
           (println "usage: mithril-workspace-agent clef|replay|resume|reconcile task.json kernel-manifest session-dir hy model-dir adapter-root output.json")
           (js/process.exit 2))
-      raw (js->clj (.parse js/JSON (.readFileSync fs task-file "utf8")) :keywordize-keys true)
-      ;; Input path keys remain strings, independent of JSON keywordization.
-      task (workspace/compile-task (assoc raw :inputs (into {} (map (fn [[k v]] [(name k) v]) (:inputs raw)))))
+      task (workspace/read-task (.readFileSync fs task-file "utf8"))
       profile (assoc (h/compile-profile (.readFileSync fs
                        (or (.-MITHRIL_AGENT_PROFILE js/process.env) "ports/workspace-agent.mith") "utf8")) :goal (:goal task))
       budget (kernel/load! manifest "ports/policy.kotoba")

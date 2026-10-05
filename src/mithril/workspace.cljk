@@ -42,6 +42,10 @@
       (when-not (= sha (kernel/digest (.readFileSync fs (source! root p)))) (h/refuse :workspace-input-drift)))
     (assoc task :root root)))
 (defn task-digest [task] (session/binding-digest {} task))
+(defn read-task [text]
+  (let [raw (.parse js/JSON text)]
+    ;; Preserve slash-containing input paths; keyword/name would discard the directory namespace.
+    (compile-task (assoc (js->clj raw :keywordize-keys true) :inputs (js->clj (.-inputs raw))))))
 (defn candidate-source [task before index]
   (when-not (and (integer? index) (<= 0 index) (< index (count (:candidates task)))
                  (= (:before-sha256 task) (kernel/digest (js/Buffer.from before)))

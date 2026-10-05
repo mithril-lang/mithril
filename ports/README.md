@@ -52,11 +52,12 @@ MITHRIL_POLICY_MANIFEST=/private/tmp/mithril-port-policy/manifest.json \
 
 The builder compiles the full exported policy to `wasm32-browser` and runs
 four assertions on KIR, JS and Wasm. The host checks both source and Wasm hashes
-before instantiating it. Eight focused tests / 74 assertions cover the real
+before instantiating it. The current 16 focused tests / 111 assertions cover the real
 Wasm budget gate, profile admission, plugin disposal, stale/duplicate results,
 unverified finish, cancellation, MCP metadata, schema boundaries, uncertain
 native failures and retention of committed tool results after model failure.
-Existing Form tests (4 / 13) and repair tests (11 / 587) also passed.
+They also cover durable resume/reconciliation and verified repository edits.
+Previously recorded Form tests (4 / 13) and repair tests (11 / 587) passed.
 
 ## Run the agent with local CLEF
 
