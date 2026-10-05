@@ -131,3 +131,7 @@ this prototype; the adapter now normalizes the existing pinned-family contract
 and tests reject other models, misleading version prefixes and wrong answer types.
 Autonomous acceptance of this live proposal, latency/token improvement, Lean
 proof and production integration remain unqualified.
+
+For the subsequent paired coding-controller experiment, actual CLEF head
+training, failed hypotheses, and execution evidence, see
+[the co-scientist experiment report](repair-coscientist-2026-10-05.md).

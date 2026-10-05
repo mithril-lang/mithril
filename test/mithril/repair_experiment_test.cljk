@@ -1,5 +1,5 @@
 (ns mithril.repair-experiment-test
-  (:require [cljs.test :refer [deftest is]]
+  (:require [cljs.test :refer [deftest is async]]
             [clojure.set :as set]
             [mithril.repair-corpus :as c]
             [mithril.repair-experiment :as e]
@@ -27,3 +27,16 @@
     (is (= 2 (count (q/proposal-order row))))
     (is (nil? (q/proposal-order {:status "invalid-output"})))
     (is (thrown? js/Error (e/normalize {:answers {:next_action {:choice gold :confidence 1 :probabilities {gold 0.5}}}} request "structured-choice")))))
+(deftest credit-boundary-stops-the-batch
+  (async done
+    (let [calls (atom []) recorded (atom [])]
+      (-> (e/run-pending! ["first" "never-send"]
+                         (fn [job] (swap! calls conj job)
+                           (js/Promise.resolve {:id job :http-status 402 :status "provider-error"}))
+                         #(swap! recorded conj %))
+          (.then (fn [_] (is false "batch must refuse after credit failure") (done)))
+          (.catch (fn [_]
+                    (is (= ["first"] @calls))
+                    (is (= 1 (count @recorded)))
+                    (is (= 402 (:http-status (first @recorded))))
+                    (done)))))))

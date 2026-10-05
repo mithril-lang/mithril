@@ -1,0 +1,773 @@
+{
+  "generated-at": "2026-10-05T02:28:04.174Z",
+  "format": "mithril.repair-results/v1",
+  "latency-semantics": "Provider milliseconds include request round trip. CLEF cached-backbone plus head measurements are local GPU measurements, not comparable end-to-end latency. Native timing cache retains uncached receipts; it is not measured agent wall-clock latency.",
+  "cost-semantics": "API cost is provider-reported, USD. Missing usage/cost is null; CLEF GPU/build/download costs are not included.",
+  "corpus-sha256": "sha256:d1955bcd0cfeaa8fb32ca63dd00c5689f5b3dab60f0d50f26e0730c75a891c04",
+  "confidence-semantics": "Jev confidence, chat self-report, and CLEF max option probability differ. Brier/NLL/ECE use option distributions, not cross-provider confidence.",
+  "training-file-sha256": "sha256:0242071de5fc40ccd9e94ec23eca387edc72f29f8745993cfca8f08bf3fb8ef2",
+  "provider-file-sha256": "sha256:e7875f4fd27ffb0736137f2db4701c01a070e41b805f4ca2195fe211c32ed3c8",
+  "scope": "Finite catalog choices for synthetic Kotoba functions. No arbitrary patch generation, repository tasks, tool-feedback model call, or unseen domain qualification.",
+  "statistics": "One repeat, small correlated synthetic families. Wilson intervals are descriptive; no general superiority or causal Jev weight improvement claim.",
+  "provider-rows": 96,
+  "scores": [
+    {
+      "brier": 6.803560818282007e-14,
+      "conditional-choice-accuracy": 1,
+      "accuracy": 1,
+      "n": 12,
+      "output-tokens": null,
+      "model-ms": 141.51413116667064,
+      "provider-cost": null,
+      "input-tokens": null,
+      "split": "dev",
+      "answered": 12,
+      "nll": 5.960466609168286e-8,
+      "hypothesis": "structured-choice",
+      "usage-known": 0,
+      "ece-10": 5.960464477539063e-8,
+      "accuracy-wilson-95": [
+        0.7575059933447592,
+        1
+      ],
+      "statuses": {
+        "ok": 12
+      },
+      "correct": 12,
+      "model": "Cloudflare/clef-flash/adapted"
+    },
+    {
+      "brier": 0.027695158723753565,
+      "conditional-choice-accuracy": 1,
+      "accuracy": 1,
+      "n": 12,
+      "output-tokens": null,
+      "model-ms": 141.52913583333532,
+      "provider-cost": null,
+      "input-tokens": null,
+      "split": "dev",
+      "answered": 12,
+      "nll": 0.10867601436262415,
+      "hypothesis": "structured-choice",
+      "usage-known": 0,
+      "ece-10": 0.09891380866368611,
+      "accuracy-wilson-95": [
+        0.7575059933447592,
+        1
+      ],
+      "statuses": {
+        "ok": 12
+      },
+      "correct": 12,
+      "model": "Cloudflare/clef-flash/baseline"
+    },
+    {
+      "brier": null,
+      "conditional-choice-accuracy": null,
+      "accuracy": 0,
+      "n": 12,
+      "output-tokens": null,
+      "model-ms": 289.25,
+      "provider-cost": null,
+      "input-tokens": null,
+      "split": "dev",
+      "answered": 0,
+      "nll": null,
+      "hypothesis": "structured-choice",
+      "usage-known": 0,
+      "ece-10": null,
+      "accuracy-wilson-95": [
+        2.7755575615628914e-17,
+        0.24249400665524085
+      ],
+      "statuses": {
+        "provider-error": 12
+      },
+      "correct": 0,
+      "model": "qwen/qwen3-coder-30b-a3b-instruct"
+    },
+    {
+      "brier": 0.05387159502242788,
+      "conditional-choice-accuracy": 1,
+      "accuracy": 1,
+      "n": 12,
+      "output-tokens": 660,
+      "model-ms": 381.1666666666667,
+      "provider-cost": 0.00035599199999999996,
+      "input-tokens": 8476,
+      "split": "dev",
+      "answered": 12,
+      "nll": 0.15083197947201135,
+      "hypothesis": "atomic-noul",
+      "usage-known": 12,
+      "ece-10": 0.13073867992255578,
+      "accuracy-wilson-95": [
+        0.7575059933447592,
+        1
+      ],
+      "statuses": {
+        "ok": 12
+      },
+      "correct": 12,
+      "model": "typesafe/jev-1.13"
+    },
+    {
+      "brier": 0.02008333333333333,
+      "conditional-choice-accuracy": 1,
+      "accuracy": 1,
+      "n": 12,
+      "output-tokens": 516,
+      "model-ms": 439.25,
+      "provider-cost": 0.00030483600000000006,
+      "input-tokens": 7258,
+      "split": "dev",
+      "answered": 12,
+      "nll": 0.04936433011038018,
+      "hypothesis": "source-choice",
+      "usage-known": 12,
+      "ece-10": 0.043333333333333245,
+      "accuracy-wilson-95": [
+        0.7575059933447592,
+        1
+      ],
+      "statuses": {
+        "ok": 12
+      },
+      "correct": 12,
+      "model": "typesafe/jev-1.13"
+    },
+    {
+      "brier": 0.0005333333333333339,
+      "conditional-choice-accuracy": 1,
+      "accuracy": 1,
+      "n": 12,
+      "output-tokens": 516,
+      "model-ms": 394.6666666666667,
+      "provider-cost": 0.00036464399999999996,
+      "input-tokens": 8682,
+      "split": "dev",
+      "answered": 12,
+      "nll": 0.006803665753375861,
+      "hypothesis": "structured-choice",
+      "usage-known": 12,
+      "ece-10": 0.0066666666666664876,
+      "accuracy-wilson-95": [
+        0.7575059933447592,
+        1
+      ],
+      "statuses": {
+        "ok": 12
+      },
+      "correct": 12,
+      "model": "typesafe/jev-1.13"
+    },
+    {
+      "execution": {
+        "n": 8,
+        "valid-fixtures": 8,
+        "first-pass": 7,
+        "within-two-pass": 8,
+        "floor-covered": 7,
+        "first-pass-and-floor": 7,
+        "mean-attempts": 1.125,
+        "mean-uncached-equivalent-attempt-tool-ms": 7727.25
+      },
+      "brier": 0.13821021062249197,
+      "conditional-choice-accuracy": 0.875,
+      "accuracy": 0.875,
+      "n": 8,
+      "output-tokens": null,
+      "model-ms": 158.46330274999866,
+      "provider-cost": null,
+      "input-tokens": null,
+      "split": "heldout-family",
+      "answered": 8,
+      "nll": 0.3000077469502771,
+      "hypothesis": "structured-choice",
+      "usage-known": 0,
+      "ece-10": 0.21015970408916473,
+      "accuracy-wilson-95": [
+        0.5291118177871464,
+        0.9775825085499433
+      ],
+      "statuses": {
+        "ok": 8
+      },
+      "correct": 7,
+      "model": "Cloudflare/clef-flash/adapted"
+    },
+    {
+      "execution": {
+        "n": 8,
+        "valid-fixtures": 8,
+        "first-pass": 7,
+        "within-two-pass": 8,
+        "floor-covered": 6,
+        "first-pass-and-floor": 6,
+        "mean-attempts": 1.125,
+        "mean-uncached-equivalent-attempt-tool-ms": 7727.25
+      },
+      "brier": 0.15355106195792462,
+      "conditional-choice-accuracy": 0.875,
+      "accuracy": 0.875,
+      "n": 8,
+      "output-tokens": null,
+      "model-ms": 186.47746737500094,
+      "provider-cost": null,
+      "input-tokens": null,
+      "split": "heldout-family",
+      "answered": 8,
+      "nll": 0.3137123935392126,
+      "hypothesis": "structured-choice",
+      "usage-known": 0,
+      "ece-10": 0.1355908438563347,
+      "accuracy-wilson-95": [
+        0.5291118177871464,
+        0.9775825085499433
+      ],
+      "statuses": {
+        "ok": 8
+      },
+      "correct": 7,
+      "model": "Cloudflare/clef-flash/baseline"
+    },
+    {
+      "execution": {
+        "n": 8,
+        "valid-fixtures": 8,
+        "first-pass": 0,
+        "within-two-pass": 0,
+        "floor-covered": 0,
+        "first-pass-and-floor": 0,
+        "mean-attempts": 0,
+        "mean-uncached-equivalent-attempt-tool-ms": 0
+      },
+      "brier": null,
+      "conditional-choice-accuracy": null,
+      "accuracy": 0,
+      "n": 8,
+      "output-tokens": null,
+      "model-ms": 35.375,
+      "provider-cost": null,
+      "input-tokens": null,
+      "split": "heldout-family",
+      "answered": 0,
+      "nll": null,
+      "hypothesis": "source-choice",
+      "usage-known": 0,
+      "ece-10": null,
+      "accuracy-wilson-95": [
+        0,
+        0.32440756488388023
+      ],
+      "statuses": {
+        "provider-error": 8
+      },
+      "correct": 0,
+      "model": "typesafe/jev-1.13"
+    },
+    {
+      "execution": {
+        "n": 8,
+        "valid-fixtures": 8,
+        "first-pass": 0,
+        "within-two-pass": 0,
+        "floor-covered": 0,
+        "first-pass-and-floor": 0,
+        "mean-attempts": 0,
+        "mean-uncached-equivalent-attempt-tool-ms": 0
+      },
+      "brier": null,
+      "conditional-choice-accuracy": null,
+      "accuracy": 0,
+      "n": 8,
+      "output-tokens": null,
+      "model-ms": 57.625,
+      "provider-cost": null,
+      "input-tokens": null,
+      "split": "heldout-family",
+      "answered": 0,
+      "nll": null,
+      "hypothesis": "structured-choice",
+      "usage-known": 0,
+      "ece-10": null,
+      "accuracy-wilson-95": [
+        0,
+        0.32440756488388023
+      ],
+      "statuses": {
+        "provider-error": 8
+      },
+      "correct": 0,
+      "model": "typesafe/jev-1.13"
+    },
+    {
+      "execution": {
+        "n": 16,
+        "valid-fixtures": 16,
+        "first-pass": 16,
+        "within-two-pass": 16,
+        "floor-covered": 16,
+        "first-pass-and-floor": 16,
+        "mean-attempts": 1,
+        "mean-uncached-equivalent-attempt-tool-ms": 6747.0625
+      },
+      "brier": 1.0300159107551751e-16,
+      "conditional-choice-accuracy": 1,
+      "accuracy": 1,
+      "n": 16,
+      "output-tokens": null,
+      "model-ms": 141.55553306249934,
+      "provider-cost": null,
+      "input-tokens": null,
+      "split": "heldout-state",
+      "answered": 16,
+      "nll": 0,
+      "hypothesis": "structured-choice",
+      "usage-known": 0,
+      "ece-10": 0,
+      "accuracy-wilson-95": [
+        0.8063923194655637,
+        1.0000000000000002
+      ],
+      "statuses": {
+        "ok": 16
+      },
+      "correct": 16,
+      "model": "Cloudflare/clef-flash/adapted"
+    },
+    {
+      "execution": {
+        "n": 16,
+        "valid-fixtures": 16,
+        "first-pass": 15,
+        "within-two-pass": 16,
+        "floor-covered": 14,
+        "first-pass-and-floor": 14,
+        "mean-attempts": 1.0625,
+        "mean-uncached-equivalent-attempt-tool-ms": 7178.25
+      },
+      "brier": 0.0807151101576477,
+      "conditional-choice-accuracy": 0.9375,
+      "accuracy": 0.9375,
+      "n": 16,
+      "output-tokens": null,
+      "model-ms": 141.54606012500005,
+      "provider-cost": null,
+      "input-tokens": null,
+      "split": "heldout-state",
+      "answered": 16,
+      "nll": 0.17092765974254256,
+      "hypothesis": "structured-choice",
+      "usage-known": 0,
+      "ece-10": 0.06701971963047978,
+      "accuracy-wilson-95": [
+        0.7167126242970107,
+        0.9888806552353576
+      ],
+      "statuses": {
+        "ok": 16
+      },
+      "correct": 15,
+      "model": "Cloudflare/clef-flash/baseline"
+    },
+    {
+      "execution": {
+        "n": 16,
+        "valid-fixtures": 16,
+        "first-pass": 0,
+        "within-two-pass": 0,
+        "floor-covered": 0,
+        "first-pass-and-floor": 0,
+        "mean-attempts": 0,
+        "mean-uncached-equivalent-attempt-tool-ms": 0
+      },
+      "brier": null,
+      "conditional-choice-accuracy": null,
+      "accuracy": 0,
+      "n": 16,
+      "output-tokens": null,
+      "model-ms": 49.0625,
+      "provider-cost": null,
+      "input-tokens": null,
+      "split": "heldout-state",
+      "answered": 0,
+      "nll": null,
+      "hypothesis": "source-choice",
+      "usage-known": 0,
+      "ece-10": null,
+      "accuracy-wilson-95": [
+        0,
+        0.1936076805344365
+      ],
+      "statuses": {
+        "provider-error": 16
+      },
+      "correct": 0,
+      "model": "typesafe/jev-1.13"
+    },
+    {
+      "execution": {
+        "n": 16,
+        "valid-fixtures": 16,
+        "first-pass": 0,
+        "within-two-pass": 0,
+        "floor-covered": 0,
+        "first-pass-and-floor": 0,
+        "mean-attempts": 0,
+        "mean-uncached-equivalent-attempt-tool-ms": 0
+      },
+      "brier": null,
+      "conditional-choice-accuracy": null,
+      "accuracy": 0,
+      "n": 16,
+      "output-tokens": null,
+      "model-ms": 30.0625,
+      "provider-cost": null,
+      "input-tokens": null,
+      "split": "heldout-state",
+      "answered": 0,
+      "nll": null,
+      "hypothesis": "structured-choice",
+      "usage-known": 0,
+      "ece-10": null,
+      "accuracy-wilson-95": [
+        0,
+        0.1936076805344365
+      ],
+      "statuses": {
+        "provider-error": 16
+      },
+      "correct": 0,
+      "model": "typesafe/jev-1.13"
+    },
+    {
+      "brier": 7.162533054784946e-11,
+      "conditional-choice-accuracy": 1,
+      "accuracy": 1,
+      "n": 96,
+      "output-tokens": null,
+      "model-ms": 164.95048373958323,
+      "provider-cost": null,
+      "input-tokens": null,
+      "split": "train",
+      "answered": 96,
+      "nll": 0.0000015671246362441494,
+      "hypothesis": "structured-choice",
+      "usage-known": 0,
+      "ece-10": 0.0000015671054521826377,
+      "accuracy-wilson-95": [
+        0.9615244121423243,
+        1
+      ],
+      "statuses": {
+        "ok": 96
+      },
+      "correct": 96,
+      "model": "Cloudflare/clef-flash/adapted"
+    },
+    {
+      "brier": 0.10390458633309879,
+      "conditional-choice-accuracy": 0.8958333333333334,
+      "accuracy": 0.8958333333333334,
+      "n": 96,
+      "output-tokens": null,
+      "model-ms": 191.8883537291666,
+      "provider-cost": null,
+      "input-tokens": null,
+      "split": "train",
+      "answered": 96,
+      "nll": 0.19954366510676402,
+      "hypothesis": "structured-choice",
+      "usage-known": 0,
+      "ece-10": 0.10350421071052551,
+      "accuracy-wilson-95": [
+        0.8187783586967837,
+        0.9424284675825568
+      ],
+      "statuses": {
+        "ok": 96
+      },
+      "correct": 86,
+      "model": "Cloudflare/clef-flash/baseline"
+    }
+  ],
+  "fresh-target-scores": [
+    {
+      "lane": [
+        "typesafe/jev-1.13",
+        "source-choice"
+      ],
+      "score": {
+        "brier": null,
+        "conditional-choice-accuracy": null,
+        "accuracy": 0,
+        "n": 8,
+        "output-tokens": null,
+        "model-ms": 27.875,
+        "provider-cost": null,
+        "input-tokens": null,
+        "answered": 0,
+        "nll": null,
+        "usage-known": 0,
+        "ece-10": null,
+        "statuses": {
+          "provider-error": 8
+        },
+        "correct": 0
+      }
+    },
+    {
+      "lane": [
+        "typesafe/jev-1.13",
+        "structured-choice"
+      ],
+      "score": {
+        "brier": null,
+        "conditional-choice-accuracy": null,
+        "accuracy": 0,
+        "n": 8,
+        "output-tokens": null,
+        "model-ms": 29.625,
+        "provider-cost": null,
+        "input-tokens": null,
+        "answered": 0,
+        "nll": null,
+        "usage-known": 0,
+        "ece-10": null,
+        "statuses": {
+          "provider-error": 8
+        },
+        "correct": 0
+      }
+    },
+    {
+      "lane": [
+        "Cloudflare/clef-flash/baseline",
+        "structured-choice"
+      ],
+      "score": {
+        "brier": 0.15884717638737075,
+        "conditional-choice-accuracy": 0.875,
+        "accuracy": 0.875,
+        "n": 8,
+        "output-tokens": null,
+        "model-ms": 141.66838575000008,
+        "provider-cost": null,
+        "input-tokens": null,
+        "answered": 8,
+        "nll": 0.3024205166845288,
+        "usage-known": 0,
+        "ece-10": 0.09549315273761748,
+        "statuses": {
+          "ok": 8
+        },
+        "correct": 7
+      }
+    },
+    {
+      "lane": [
+        "Cloudflare/clef-flash/adapted",
+        "structured-choice"
+      ],
+      "score": {
+        "brier": 1.9006232251020545e-16,
+        "conditional-choice-accuracy": 1,
+        "accuracy": 1,
+        "n": 8,
+        "output-tokens": null,
+        "model-ms": 141.6835097499991,
+        "provider-cost": null,
+        "input-tokens": null,
+        "answered": 8,
+        "nll": 0,
+        "usage-known": 0,
+        "ece-10": 0,
+        "statuses": {
+          "ok": 8
+        },
+        "correct": 8
+      }
+    }
+  ],
+  "selection": {
+    "winner": "structured-choice",
+    "selection-data": "dev only",
+    "scores": [
+      {
+        "brier": 0.02008333333333333,
+        "accuracy": 1,
+        "n": 12,
+        "output-tokens": 516,
+        "model-ms": 439.25,
+        "provider-cost": 0.00030483600000000006,
+        "input-tokens": 7258,
+        "answered": 12,
+        "nll": 0.04936433011038018,
+        "hypothesis": "source-choice",
+        "usage-known": 12,
+        "ece-10": 0.043333333333333245,
+        "statuses": {
+          "ok": 12
+        },
+        "correct": 12
+      },
+      {
+        "brier": 0.0005333333333333339,
+        "accuracy": 1,
+        "n": 12,
+        "output-tokens": 516,
+        "model-ms": 394.6666666666667,
+        "provider-cost": 0.00036464399999999996,
+        "input-tokens": 8682,
+        "answered": 12,
+        "nll": 0.006803665753375861,
+        "hypothesis": "structured-choice",
+        "usage-known": 12,
+        "ece-10": 0.0066666666666664876,
+        "statuses": {
+          "ok": 12
+        },
+        "correct": 12
+      },
+      {
+        "brier": 0.05387159502242788,
+        "accuracy": 1,
+        "n": 12,
+        "output-tokens": 660,
+        "model-ms": 381.1666666666667,
+        "provider-cost": 0.00035599199999999996,
+        "input-tokens": 8476,
+        "answered": 12,
+        "nll": 0.15083197947201135,
+        "hypothesis": "atomic-noul",
+        "usage-known": 12,
+        "ece-10": 0.13073867992255578,
+        "statuses": {
+          "ok": 12
+        },
+        "correct": 12
+      }
+    ],
+    "frozen-at": "2026-10-05T02:20:34.091Z",
+    "rows-digest": "sha256:b0c7e8b72f0a93253a9c9652bcd43de71a25c78f2031fde075f1032ea68eb003"
+  },
+  "checkpoint-qualification": {
+    "head-hash-matches": true,
+    "full-forward": true,
+    "training-feature-cache-used": false,
+    "load-seconds": 33.069256863999996,
+    "stages": {
+      "baseline": {
+        "n": 24,
+        "choice-agreement": 24,
+        "warm-full-forward-ms": 348.0574467083339
+      },
+      "adapted": {
+        "n": 24,
+        "choice-agreement": 24,
+        "warm-full-forward-ms": 183.28848249999947
+      }
+    }
+  },
+  "native-rows": 96,
+  "corpus-file": "bench/repair-coscientist/v3/corpus.json",
+  "prior-family-regression-scores": [
+    {
+      "lane": [
+        "typesafe/jev-1.13",
+        "source-choice"
+      ],
+      "score": {
+        "brier": null,
+        "conditional-choice-accuracy": null,
+        "accuracy": 0,
+        "n": 8,
+        "output-tokens": null,
+        "model-ms": 70.25,
+        "provider-cost": null,
+        "input-tokens": null,
+        "answered": 0,
+        "nll": null,
+        "usage-known": 0,
+        "ece-10": null,
+        "statuses": {
+          "provider-error": 8
+        },
+        "correct": 0
+      }
+    },
+    {
+      "lane": [
+        "typesafe/jev-1.13",
+        "structured-choice"
+      ],
+      "score": {
+        "brier": null,
+        "conditional-choice-accuracy": null,
+        "accuracy": 0,
+        "n": 8,
+        "output-tokens": null,
+        "model-ms": 30.5,
+        "provider-cost": null,
+        "input-tokens": null,
+        "answered": 0,
+        "nll": null,
+        "usage-known": 0,
+        "ece-10": null,
+        "statuses": {
+          "provider-error": 8
+        },
+        "correct": 0
+      }
+    },
+    {
+      "lane": [
+        "Cloudflare/clef-flash/baseline",
+        "structured-choice"
+      ],
+      "score": {
+        "brier": 0.002583043927924615,
+        "conditional-choice-accuracy": 1,
+        "accuracy": 1,
+        "n": 8,
+        "output-tokens": null,
+        "model-ms": 141.42373450000002,
+        "provider-cost": null,
+        "input-tokens": null,
+        "answered": 8,
+        "nll": 0.03943480280055631,
+        "usage-known": 0,
+        "ece-10": 0.03854628652334213,
+        "statuses": {
+          "ok": 8
+        },
+        "correct": 8
+      }
+    },
+    {
+      "lane": [
+        "Cloudflare/clef-flash/adapted",
+        "structured-choice"
+      ],
+      "score": {
+        "brier": 1.5940859640829567e-17,
+        "conditional-choice-accuracy": 1,
+        "accuracy": 1,
+        "n": 8,
+        "output-tokens": null,
+        "model-ms": 141.4275563749996,
+        "provider-cost": null,
+        "input-tokens": null,
+        "answered": 8,
+        "nll": 0,
+        "usage-known": 0,
+        "ece-10": 0,
+        "statuses": {
+          "ok": 8
+        },
+        "correct": 8
+      }
+    }
+  ]
+}

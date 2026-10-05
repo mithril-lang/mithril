@@ -17,6 +17,15 @@
     "tool-ms": 7422,
     "cache-hit": false
   },
+  "sha256:602dd57471cd41acc030b311931bfd63c0875cb4bb0d6b7dcef636bf05d496b4": {
+    "compiled?": true,
+    "passed?": false,
+    "diagnostic": "{:format :kotoba.test-report/v1, :ok false, :test-kir-sha256 \"e0e043fa9d59160c714ae1a326bc8ddb11cfd2bd50b5a807b5230c78064af71f\", :tests [test-0 test-1 test-2 test-3 test-4], :targets [:jvm-kir :js :wasm], :results {:jvm-kir [{:test test-0, :ok false} {:test test-1, :ok false} {:test test-2, :ok false} {:test test-3, :ok false} {:test test-4, :ok false}], :js [{:test \"test-0\", :ok false} {:test \"test-1\", :ok false} {:test \"test-2\", :ok false} {:test \"test-3\", :ok false} {:test \"test-4\", :ok false}], :wasm [{:test \"test-0\", :ok false} {:test \"test-1\", :ok false} {:test \"test-2\", :ok false} {:test \"test-3\", :ok false} {:test \"test-4\", :ok false}]}, :failed [{:test test-0, :ok false, :target :jvm-kir} {:test test-1, :ok false, :target :jvm-kir} {:test test-2, :ok false, :target :jvm-kir} {:test test-3, :ok false, :target :jvm-kir} {:test test-4, :ok false, :target :jvm-kir} {:test \"test-0\", :ok false, :target :js} {:test \"test-1\", :ok false, :target :js} {:test \"test-2\", :ok false, :target :js} {:test \"test-3\", :ok false, :target :js} {:test \"test-4\", :ok false, :target :js} {:test \"test-0\", :ok false, :target :wasm} {:test \"test-1\", :ok false, :target :wasm} {:test \"test-2\", :ok false, :target :wasm} {:test \"test-3\", :ok false, :target :wasm} {:test \"test-4\", :ok false, :target :wasm}]}\n",
+    "source-digest": "sha256:ee5fa480efd3321e509f8fb9d10a09a02a2c0787744e4a7092c0bd9fefb0021e",
+    "compiler-sha": "ac99fd3c40180fd5cbd3865cb0868b52d8b9ff6a",
+    "tool-ms": 6533,
+    "cache-hit": false
+  },
   "sha256:b978cf51a2ff200f876b0874d6acfdebdfdf68af3bc84a84ebeeb1b375e1c5c4": {
     "compiled?": true,
     "passed?": false,
@@ -53,6 +62,51 @@
     "tool-ms": 6811,
     "cache-hit": false
   },
+  "sha256:86643161eb0802e0b95e65ee2a340e6d9d41374a5e271048d67778395e963a1c": {
+    "compiled?": true,
+    "passed?": true,
+    "diagnostic": "{:format :kotoba.test-report/v1, :ok true, :test-kir-sha256 \"3c8fbb4eaca33b85c3a540eb40ebeb4632dfe783f64772cfd90400f6a1e33855\", :tests [test-0 test-1 test-2 test-3 test-4], :targets [:jvm-kir :js :wasm], :results {:jvm-kir [{:test test-0, :ok true} {:test test-1, :ok true} {:test test-2, :ok true} {:test test-3, :ok true} {:test test-4, :ok true}], :js [{:test \"test-0\", :ok true} {:test \"test-1\", :ok true} {:test \"test-2\", :ok true} {:test \"test-3\", :ok true} {:test \"test-4\", :ok true}], :wasm [{:test \"test-0\", :ok true} {:test \"test-1\", :ok true} {:test \"test-2\", :ok true} {:test \"test-3\", :ok true} {:test \"test-4\", :ok true}]}, :failed []}\n",
+    "source-digest": "sha256:e6a4d82586163d42db2d5952f8f15a1fa30ea0d12a144a71c2562c41dcf3aaea",
+    "compiler-sha": "ac99fd3c40180fd5cbd3865cb0868b52d8b9ff6a",
+    "tool-ms": 6494,
+    "cache-hit": false
+  },
+  "sha256:1789e03f04b3a362567f22112fd8358c1408301cc69eb445bd278cbe6d2d8c4f": {
+    "compiled?": true,
+    "passed?": true,
+    "diagnostic": "{:format :kotoba.test-report/v1, :ok true, :test-kir-sha256 \"4da8d4cf425a6450c06ddfc153adcce1c4eec8c601ed3b00a99c79169191feee\", :tests [test-0 test-1 test-2 test-3 test-4], :targets [:jvm-kir :js :wasm], :results {:jvm-kir [{:test test-0, :ok true} {:test test-1, :ok true} {:test test-2, :ok true} {:test test-3, :ok true} {:test test-4, :ok true}], :js [{:test \"test-0\", :ok true} {:test \"test-1\", :ok true} {:test \"test-2\", :ok true} {:test \"test-3\", :ok true} {:test \"test-4\", :ok true}], :wasm [{:test \"test-0\", :ok true} {:test \"test-1\", :ok true} {:test \"test-2\", :ok true} {:test \"test-3\", :ok true} {:test \"test-4\", :ok true}]}, :failed []}\n",
+    "source-digest": "sha256:bbdf24b92f3aaaf90e7e3ae3650cd65d3e8e780ebf4e26fb0fe3db0e9892ffdd",
+    "compiler-sha": "ac99fd3c40180fd5cbd3865cb0868b52d8b9ff6a",
+    "tool-ms": 6997,
+    "cache-hit": false
+  },
+  "sha256:07d470e0bb080d3550fb3f6c9badf1d49629a05432cd97cfe4eeaa774abc552c": {
+    "compiled?": true,
+    "passed?": true,
+    "diagnostic": "{:format :kotoba.test-report/v1, :ok true, :test-kir-sha256 \"fc8962046f64d9dda73ddbfd5a29423d28d7fca4de504f10e55ad7de480bcee5\", :tests [test-0 test-1 test-2 test-3 test-4], :targets [:jvm-kir :js :wasm], :results {:jvm-kir [{:test test-0, :ok true} {:test test-1, :ok true} {:test test-2, :ok true} {:test test-3, :ok true} {:test test-4, :ok true}], :js [{:test \"test-0\", :ok true} {:test \"test-1\", :ok true} {:test \"test-2\", :ok true} {:test \"test-3\", :ok true} {:test \"test-4\", :ok true}], :wasm [{:test \"test-0\", :ok true} {:test \"test-1\", :ok true} {:test \"test-2\", :ok true} {:test \"test-3\", :ok true} {:test \"test-4\", :ok true}]}, :failed []}\n",
+    "source-digest": "sha256:966c8aec400b454619cded488482248cd5297ee58650347c3030a4dfc90b1f1a",
+    "compiler-sha": "ac99fd3c40180fd5cbd3865cb0868b52d8b9ff6a",
+    "tool-ms": 6822,
+    "cache-hit": false
+  },
+  "sha256:037d2c3210947cfb7c9e097e3e338b449fe93b8e8acf45fc59b811a73c7dc2f1": {
+    "compiled?": true,
+    "passed?": false,
+    "diagnostic": "{:format :kotoba.test-report/v1, :ok false, :test-kir-sha256 \"3cc51ca6a7a748baff6a2f155358e171db77613f5d8c2f8c51cf55cf93409e09\", :tests [test-0 test-1 test-2 test-3 test-4], :targets [:jvm-kir :js :wasm], :results {:jvm-kir [{:test test-0, :ok true} {:test test-1, :ok true} {:test test-2, :ok false} {:test test-3, :ok false} {:test test-4, :ok false}], :js [{:test \"test-0\", :ok true} {:test \"test-1\", :ok true} {:test \"test-2\", :ok false} {:test \"test-3\", :ok false} {:test \"test-4\", :ok false}], :wasm [{:test \"test-0\", :ok true} {:test \"test-1\", :ok true} {:test \"test-2\", :ok false} {:test \"test-3\", :ok false} {:test \"test-4\", :ok false}]}, :failed [{:test test-2, :ok false, :target :jvm-kir} {:test test-3, :ok false, :target :jvm-kir} {:test test-4, :ok false, :target :jvm-kir} {:test \"test-2\", :ok false, :target :js} {:test \"test-3\", :ok false, :target :js} {:test \"test-4\", :ok false, :target :js} {:test \"test-2\", :ok false, :target :wasm} {:test \"test-3\", :ok false, :target :wasm} {:test \"test-4\", :ok false, :target :wasm}]}\n",
+    "source-digest": "sha256:ee8eaf72859c1cdfd85dd3e379dbabfde1a6b03d081b402995f7a004987022b6",
+    "compiler-sha": "ac99fd3c40180fd5cbd3865cb0868b52d8b9ff6a",
+    "tool-ms": 6667,
+    "cache-hit": false
+  },
+  "sha256:77cd5ad0f6ef4618eda9d5b053e07a81771b9068b5300fe11c831e5f06a1f99b": {
+    "compiled?": true,
+    "passed?": false,
+    "diagnostic": "{:format :kotoba.test-report/v1, :ok false, :test-kir-sha256 \"cb0e36df58f611a9adea04c8203ded396198b5c74bfd5f808ebe10636443feeb\", :tests [test-0 test-1 test-2 test-3 test-4], :targets [:jvm-kir :js :wasm], :results {:jvm-kir [{:test test-0, :ok true} {:test test-1, :ok false} {:test test-2, :ok false} {:test test-3, :ok false} {:test test-4, :ok false}], :js [{:test \"test-0\", :ok true} {:test \"test-1\", :ok false} {:test \"test-2\", :ok false} {:test \"test-3\", :ok false} {:test \"test-4\", :ok false}], :wasm [{:test \"test-0\", :ok true} {:test \"test-1\", :ok false} {:test \"test-2\", :ok false} {:test \"test-3\", :ok false} {:test \"test-4\", :ok false}]}, :failed [{:test test-1, :ok false, :target :jvm-kir} {:test test-2, :ok false, :target :jvm-kir} {:test test-3, :ok false, :target :jvm-kir} {:test test-4, :ok false, :target :jvm-kir} {:test \"test-1\", :ok false, :target :js} {:test \"test-2\", :ok false, :target :js} {:test \"test-3\", :ok false, :target :js} {:test \"test-4\", :ok false, :target :js} {:test \"test-1\", :ok false, :target :wasm} {:test \"test-2\", :ok false, :target :wasm} {:test \"test-3\", :ok false, :target :wasm} {:test \"test-4\", :ok false, :target :wasm}]}\n",
+    "source-digest": "sha256:28a4df355c478fd6b9f058adce973a8768c5281b8f3922b44234b25285fc5be7",
+    "compiler-sha": "ac99fd3c40180fd5cbd3865cb0868b52d8b9ff6a",
+    "tool-ms": 6605,
+    "cache-hit": false
+  },
   "sha256:68c7677bb263d72ac376233142ea539955bd42df2dc188db93d86e1b65382a84": {
     "compiled?": true,
     "passed?": true,
@@ -62,6 +116,24 @@
     "tool-ms": 6720,
     "cache-hit": false
   },
+  "sha256:dce4d365d78e679550bcced8c62a64beaf2c177d406bc7616656f42dcd0bb5e6": {
+    "compiled?": true,
+    "passed?": true,
+    "diagnostic": "{:format :kotoba.test-report/v1, :ok true, :test-kir-sha256 \"e101dc68ec241442565cf84d3ac9ed6888494bf6e7da57a0eb63d4cbf7243176\", :tests [test-0 test-1 test-2 test-3 test-4], :targets [:jvm-kir :js :wasm], :results {:jvm-kir [{:test test-0, :ok true} {:test test-1, :ok true} {:test test-2, :ok true} {:test test-3, :ok true} {:test test-4, :ok true}], :js [{:test \"test-0\", :ok true} {:test \"test-1\", :ok true} {:test \"test-2\", :ok true} {:test \"test-3\", :ok true} {:test \"test-4\", :ok true}], :wasm [{:test \"test-0\", :ok true} {:test \"test-1\", :ok true} {:test \"test-2\", :ok true} {:test \"test-3\", :ok true} {:test \"test-4\", :ok true}]}, :failed []}\n",
+    "source-digest": "sha256:99c9f3771c10f062b923435a0e6fb55e52e81b94b629c04f9f6c9f08d6fa6d1f",
+    "compiler-sha": "ac99fd3c40180fd5cbd3865cb0868b52d8b9ff6a",
+    "tool-ms": 6738,
+    "cache-hit": false
+  },
+  "sha256:9a22626ca0950dcd4fb7167535da0e8ea98bf769a0513a83ac518caaa8f7ec41": {
+    "compiled?": true,
+    "passed?": true,
+    "diagnostic": "{:format :kotoba.test-report/v1, :ok true, :test-kir-sha256 \"a42b2a208c9d89f00ccf9ef37112b7ad9670525aea5acb70e8af32890fb1f7e5\", :tests [test-0 test-1 test-2 test-3 test-4], :targets [:jvm-kir :js :wasm], :results {:jvm-kir [{:test test-0, :ok true} {:test test-1, :ok true} {:test test-2, :ok true} {:test test-3, :ok true} {:test test-4, :ok true}], :js [{:test \"test-0\", :ok true} {:test \"test-1\", :ok true} {:test \"test-2\", :ok true} {:test \"test-3\", :ok true} {:test \"test-4\", :ok true}], :wasm [{:test \"test-0\", :ok true} {:test \"test-1\", :ok true} {:test \"test-2\", :ok true} {:test \"test-3\", :ok true} {:test \"test-4\", :ok true}]}, :failed []}\n",
+    "source-digest": "sha256:e592ff624a872abc47433e0c638d34a32b95e9431b3592279c96619aa7363d9c",
+    "compiler-sha": "ac99fd3c40180fd5cbd3865cb0868b52d8b9ff6a",
+    "tool-ms": 6469,
+    "cache-hit": false
+  },
   "sha256:9f48a6003dd4dccfe760e24643297839d1e57340c5b2b332948210b33f286599": {
     "compiled?": true,
     "passed?": false,
@@ -69,6 +141,15 @@
     "source-digest": "sha256:f427e11d7644b264a69f4638e78fbdc0f237d108c7c3c95e6f02753235385864",
     "compiler-sha": "ac99fd3c40180fd5cbd3865cb0868b52d8b9ff6a",
     "tool-ms": 6619,
+    "cache-hit": false
+  },
+  "sha256:5b53ac8ad9bcb5d7704871a5ef09035e716afe841968dcf40cdedf079de5bf64": {
+    "compiled?": true,
+    "passed?": true,
+    "diagnostic": "{:format :kotoba.test-report/v1, :ok true, :test-kir-sha256 \"636a8dce471fbb51fd71520f3c7dffce34ab7c3dfff2cbad39796730862c6254\", :tests [test-0 test-1 test-2 test-3 test-4], :targets [:jvm-kir :js :wasm], :results {:jvm-kir [{:test test-0, :ok true} {:test test-1, :ok true} {:test test-2, :ok true} {:test test-3, :ok true} {:test test-4, :ok true}], :js [{:test \"test-0\", :ok true} {:test \"test-1\", :ok true} {:test \"test-2\", :ok true} {:test \"test-3\", :ok true} {:test \"test-4\", :ok true}], :wasm [{:test \"test-0\", :ok true} {:test \"test-1\", :ok true} {:test \"test-2\", :ok true} {:test \"test-3\", :ok true} {:test \"test-4\", :ok true}]}, :failed []}\n",
+    "source-digest": "sha256:81e17e5aa5a0bc6f1647e0d8fdb9e508c32be6276c01d3e05fcbf1c722c38555",
+    "compiler-sha": "ac99fd3c40180fd5cbd3865cb0868b52d8b9ff6a",
+    "tool-ms": 6977,
     "cache-hit": false
   },
   "sha256:3d1dc21141df91ffc0de705118985d6d80908ff194f8de1b02f47a84801c018d": {
@@ -98,6 +179,33 @@
     "tool-ms": 6841,
     "cache-hit": false
   },
+  "sha256:92e75f904eab3982022c368401ab92192b8544f85440ccc869cd0d5da995d292": {
+    "compiled?": true,
+    "passed?": false,
+    "diagnostic": "{:format :kotoba.test-report/v1, :ok false, :test-kir-sha256 \"f9b9037f7d9f5d3e3a466b662747f50887efe67c4df475558d48d22ac5702ae9\", :tests [test-0 test-1 test-2 test-3 test-4], :targets [:jvm-kir :js :wasm], :results {:jvm-kir [{:test test-0, :ok false} {:test test-1, :ok false} {:test test-2, :ok false} {:test test-3, :ok false} {:test test-4, :ok false}], :js [{:test \"test-0\", :ok false} {:test \"test-1\", :ok false} {:test \"test-2\", :ok false} {:test \"test-3\", :ok false} {:test \"test-4\", :ok false}], :wasm [{:test \"test-0\", :ok false} {:test \"test-1\", :ok false} {:test \"test-2\", :ok false} {:test \"test-3\", :ok false} {:test \"test-4\", :ok false}]}, :failed [{:test test-0, :ok false, :target :jvm-kir} {:test test-1, :ok false, :target :jvm-kir} {:test test-2, :ok false, :target :jvm-kir} {:test test-3, :ok false, :target :jvm-kir} {:test test-4, :ok false, :target :jvm-kir} {:test \"test-0\", :ok false, :target :js} {:test \"test-1\", :ok false, :target :js} {:test \"test-2\", :ok false, :target :js} {:test \"test-3\", :ok false, :target :js} {:test \"test-4\", :ok false, :target :js} {:test \"test-0\", :ok false, :target :wasm} {:test \"test-1\", :ok false, :target :wasm} {:test \"test-2\", :ok false, :target :wasm} {:test \"test-3\", :ok false, :target :wasm} {:test \"test-4\", :ok false, :target :wasm}]}\n",
+    "source-digest": "sha256:08e12b65112ae199d8944f0d9ff76cdcf45e2bbb2d1f1909cbc137ad5c3d3565",
+    "compiler-sha": "ac99fd3c40180fd5cbd3865cb0868b52d8b9ff6a",
+    "tool-ms": 6431,
+    "cache-hit": false
+  },
+  "sha256:4852f9f3dce0aecee7015c49b4488128c07afd6147cbf611fe7b40ebb071e733": {
+    "compiled?": true,
+    "passed?": true,
+    "diagnostic": "{:format :kotoba.test-report/v1, :ok true, :test-kir-sha256 \"b3e70bb8fffa4b21335a62c144e600f8776fbe0e9b84c99ffc114af9b47c3d77\", :tests [test-0 test-1 test-2 test-3 test-4], :targets [:jvm-kir :js :wasm], :results {:jvm-kir [{:test test-0, :ok true} {:test test-1, :ok true} {:test test-2, :ok true} {:test test-3, :ok true} {:test test-4, :ok true}], :js [{:test \"test-0\", :ok true} {:test \"test-1\", :ok true} {:test \"test-2\", :ok true} {:test \"test-3\", :ok true} {:test \"test-4\", :ok true}], :wasm [{:test \"test-0\", :ok true} {:test \"test-1\", :ok true} {:test \"test-2\", :ok true} {:test \"test-3\", :ok true} {:test \"test-4\", :ok true}]}, :failed []}\n",
+    "source-digest": "sha256:cfb98750f992916caa5da4db9e313f9316ba385d1a01ef5580435f239aa9c13c",
+    "compiler-sha": "ac99fd3c40180fd5cbd3865cb0868b52d8b9ff6a",
+    "tool-ms": 6933,
+    "cache-hit": false
+  },
+  "sha256:38e3b46ad2963b6374670b6c1df73733b8b79703dd0dd34ad02b291fab7aff9e": {
+    "compiled?": true,
+    "passed?": false,
+    "diagnostic": "{:format :kotoba.test-report/v1, :ok false, :test-kir-sha256 \"069f4f4fe17441588a81428e26e041e1bcb969a1459aed0b80e132768e5feaca\", :tests [test-0 test-1 test-2 test-3 test-4], :targets [:jvm-kir :js :wasm], :results {:jvm-kir [{:test test-0, :ok true} {:test test-1, :ok false} {:test test-2, :ok false} {:test test-3, :ok false} {:test test-4, :ok false}], :js [{:test \"test-0\", :ok true} {:test \"test-1\", :ok false} {:test \"test-2\", :ok false} {:test \"test-3\", :ok false} {:test \"test-4\", :ok false}], :wasm [{:test \"test-0\", :ok true} {:test \"test-1\", :ok false} {:test \"test-2\", :ok false} {:test \"test-3\", :ok false} {:test \"test-4\", :ok false}]}, :failed [{:test test-1, :ok false, :target :jvm-kir} {:test test-2, :ok false, :target :jvm-kir} {:test test-3, :ok false, :target :jvm-kir} {:test test-4, :ok false, :target :jvm-kir} {:test \"test-1\", :ok false, :target :js} {:test \"test-2\", :ok false, :target :js} {:test \"test-3\", :ok false, :target :js} {:test \"test-4\", :ok false, :target :js} {:test \"test-1\", :ok false, :target :wasm} {:test \"test-2\", :ok false, :target :wasm} {:test \"test-3\", :ok false, :target :wasm} {:test \"test-4\", :ok false, :target :wasm}]}\n",
+    "source-digest": "sha256:0c2833d651dd0ef68b8c39e7569cdffbe93a15dbc745e2b350575a1eb4975388",
+    "compiler-sha": "ac99fd3c40180fd5cbd3865cb0868b52d8b9ff6a",
+    "tool-ms": 6723,
+    "cache-hit": false
+  },
   "sha256:66eda9affc748c4fe9b6460c6688cc04a3d4d1cf994055ec8bdd31e8cbc7cce2": {
     "compiled?": true,
     "passed?": true,
@@ -107,6 +215,15 @@
     "tool-ms": 6630,
     "cache-hit": false
   },
+  "sha256:b8b271fd6ca53c837a596a0f151c81e73d0f3aaaac6f80f3f6db2be9dd5b0486": {
+    "compiled?": true,
+    "passed?": true,
+    "diagnostic": "{:format :kotoba.test-report/v1, :ok true, :test-kir-sha256 \"ebf01f7afef845373ee0e37c9f25fc4fea27ecd1ce955ba7c2408404a6db56b5\", :tests [test-0 test-1 test-2 test-3 test-4], :targets [:jvm-kir :js :wasm], :results {:jvm-kir [{:test test-0, :ok true} {:test test-1, :ok true} {:test test-2, :ok true} {:test test-3, :ok true} {:test test-4, :ok true}], :js [{:test \"test-0\", :ok true} {:test \"test-1\", :ok true} {:test \"test-2\", :ok true} {:test \"test-3\", :ok true} {:test \"test-4\", :ok true}], :wasm [{:test \"test-0\", :ok true} {:test \"test-1\", :ok true} {:test \"test-2\", :ok true} {:test \"test-3\", :ok true} {:test \"test-4\", :ok true}]}, :failed []}\n",
+    "source-digest": "sha256:01775996e316cda1e0dd5bdfbeb52cb4dc4167593992ec6eeba0fe3229fefab0",
+    "compiler-sha": "ac99fd3c40180fd5cbd3865cb0868b52d8b9ff6a",
+    "tool-ms": 6831,
+    "cache-hit": false
+  },
   "sha256:6606f9be1cbde152c7ad054ad0a7383cde9f5152cfd5ea838aece831c74e3cd2": {
     "compiled?": true,
     "passed?": false,
@@ -114,6 +231,24 @@
     "source-digest": "sha256:465879676361efa5134ff882a5ff83b9568020858374a1eed1e38fdafaf99b1b",
     "compiler-sha": "ac99fd3c40180fd5cbd3865cb0868b52d8b9ff6a",
     "tool-ms": 6979,
+    "cache-hit": false
+  },
+  "sha256:46bc4b343a44413565880a818e1d7fe9965d6529d3f4981a6758dfae186ab834": {
+    "compiled?": true,
+    "passed?": true,
+    "diagnostic": "{:format :kotoba.test-report/v1, :ok true, :test-kir-sha256 \"a9e4cd0f6c4c6277598fdd6bfe8fb38c1bcacb88a5ca3a2113c16ae2fc81a547\", :tests [test-0 test-1 test-2 test-3 test-4], :targets [:jvm-kir :js :wasm], :results {:jvm-kir [{:test test-0, :ok true} {:test test-1, :ok true} {:test test-2, :ok true} {:test test-3, :ok true} {:test test-4, :ok true}], :js [{:test \"test-0\", :ok true} {:test \"test-1\", :ok true} {:test \"test-2\", :ok true} {:test \"test-3\", :ok true} {:test \"test-4\", :ok true}], :wasm [{:test \"test-0\", :ok true} {:test \"test-1\", :ok true} {:test \"test-2\", :ok true} {:test \"test-3\", :ok true} {:test \"test-4\", :ok true}]}, :failed []}\n",
+    "source-digest": "sha256:8a90d4ef499283fa44286d1603717e01e5ce86c60044e2952561948986249853",
+    "compiler-sha": "ac99fd3c40180fd5cbd3865cb0868b52d8b9ff6a",
+    "tool-ms": 6415,
+    "cache-hit": false
+  },
+  "sha256:5ce0925bc704eecfc22931068706f7da13f9d570ac56e086fb0c334839660415": {
+    "compiled?": true,
+    "passed?": true,
+    "diagnostic": "{:format :kotoba.test-report/v1, :ok true, :test-kir-sha256 \"da6ce2f06b63332bec7329bb5079643244ec5f506420be76f8c97d46ddb80840\", :tests [test-0 test-1 test-2 test-3 test-4], :targets [:jvm-kir :js :wasm], :results {:jvm-kir [{:test test-0, :ok true} {:test test-1, :ok true} {:test test-2, :ok true} {:test test-3, :ok true} {:test test-4, :ok true}], :js [{:test \"test-0\", :ok true} {:test \"test-1\", :ok true} {:test \"test-2\", :ok true} {:test \"test-3\", :ok true} {:test \"test-4\", :ok true}], :wasm [{:test \"test-0\", :ok true} {:test \"test-1\", :ok true} {:test \"test-2\", :ok true} {:test \"test-3\", :ok true} {:test \"test-4\", :ok true}]}, :failed []}\n",
+    "source-digest": "sha256:764602778d0e83bbc87506ea8c678ad5eeab818d760f9fbd03e80f5193decf1d",
+    "compiler-sha": "ac99fd3c40180fd5cbd3865cb0868b52d8b9ff6a",
+    "tool-ms": 6838,
     "cache-hit": false
   },
   "sha256:f54da3642fdb546ae1c23e94d019aed8d8b136a6dd4d79ac98c36653522f2ef6": {
@@ -152,6 +287,24 @@
     "tool-ms": 6821,
     "cache-hit": false
   },
+  "sha256:849d8144034ffd4704e9b0a442f516a9f367feffcd1c6f38f7d1fec8dc531e10": {
+    "compiled?": true,
+    "passed?": false,
+    "diagnostic": "{:format :kotoba.test-report/v1, :ok false, :test-kir-sha256 \"2946cca458a7b0c310a978855e42d0b8c41367458b42fb8a2c23dc61ff7a20db\", :tests [test-0 test-1 test-2 test-3 test-4], :targets [:jvm-kir :js :wasm], :results {:jvm-kir [{:test test-0, :ok true} {:test test-1, :ok true} {:test test-2, :ok false} {:test test-3, :ok false} {:test test-4, :ok false}], :js [{:test \"test-0\", :ok true} {:test \"test-1\", :ok true} {:test \"test-2\", :ok false} {:test \"test-3\", :ok false} {:test \"test-4\", :ok false}], :wasm [{:test \"test-0\", :ok true} {:test \"test-1\", :ok true} {:test \"test-2\", :ok false} {:test \"test-3\", :ok false} {:test \"test-4\", :ok false}]}, :failed [{:test test-2, :ok false, :target :jvm-kir} {:test test-3, :ok false, :target :jvm-kir} {:test test-4, :ok false, :target :jvm-kir} {:test \"test-2\", :ok false, :target :js} {:test \"test-3\", :ok false, :target :js} {:test \"test-4\", :ok false, :target :js} {:test \"test-2\", :ok false, :target :wasm} {:test \"test-3\", :ok false, :target :wasm} {:test \"test-4\", :ok false, :target :wasm}]}\n",
+    "source-digest": "sha256:0af33332a856e3926c72c026bef6c52517af718e6a004098913e3221163b3737",
+    "compiler-sha": "ac99fd3c40180fd5cbd3865cb0868b52d8b9ff6a",
+    "tool-ms": 6899,
+    "cache-hit": false
+  },
+  "sha256:2e74f55eda7dde8263a3dcf4f4ba3d33dca21da51d695979b1e4f35a84edb05b": {
+    "compiled?": true,
+    "passed?": false,
+    "diagnostic": "{:format :kotoba.test-report/v1, :ok false, :test-kir-sha256 \"f3ab85ce8ada545fbb0516fdd79224a14fa5df9acd7c4957bf8913037b1435a4\", :tests [test-0 test-1 test-2 test-3 test-4], :targets [:jvm-kir :js :wasm], :results {:jvm-kir [{:test test-0, :ok true} {:test test-1, :ok false} {:test test-2, :ok false} {:test test-3, :ok false} {:test test-4, :ok false}], :js [{:test \"test-0\", :ok true} {:test \"test-1\", :ok false} {:test \"test-2\", :ok false} {:test \"test-3\", :ok false} {:test \"test-4\", :ok false}], :wasm [{:test \"test-0\", :ok true} {:test \"test-1\", :ok false} {:test \"test-2\", :ok false} {:test \"test-3\", :ok false} {:test \"test-4\", :ok false}]}, :failed [{:test test-1, :ok false, :target :jvm-kir} {:test test-2, :ok false, :target :jvm-kir} {:test test-3, :ok false, :target :jvm-kir} {:test test-4, :ok false, :target :jvm-kir} {:test \"test-1\", :ok false, :target :js} {:test \"test-2\", :ok false, :target :js} {:test \"test-3\", :ok false, :target :js} {:test \"test-4\", :ok false, :target :js} {:test \"test-1\", :ok false, :target :wasm} {:test \"test-2\", :ok false, :target :wasm} {:test \"test-3\", :ok false, :target :wasm} {:test \"test-4\", :ok false, :target :wasm}]}\n",
+    "source-digest": "sha256:60fa063e7c25aab6195094f40504e6ee103e4ef870a02c33455587ef563faf2e",
+    "compiler-sha": "ac99fd3c40180fd5cbd3865cb0868b52d8b9ff6a",
+    "tool-ms": 6387,
+    "cache-hit": false
+  },
   "sha256:79e178fd4b5f7c5fcd24dac95fc0303513c8ee0ad3e870e94985056db4ac2f7c": {
     "compiled?": false,
     "passed?": false,
@@ -159,6 +312,60 @@
     "source-digest": "sha256:de5729c204fac7bb2f64bae2ad825d29823bc6d949fdf0fa5031d93404ea7d1c",
     "compiler-sha": "ac99fd3c40180fd5cbd3865cb0868b52d8b9ff6a",
     "tool-ms": 2781,
+    "cache-hit": false
+  },
+  "sha256:01d323e88f97e70bbefdf90c8d9c21388a31ccfff84aae9b891310696ba6af65": {
+    "compiled?": true,
+    "passed?": false,
+    "diagnostic": "{:format :kotoba.test-report/v1, :ok false, :test-kir-sha256 \"d384841ab118bf72b58394d875746ddfe463f1d2c3d1d3554a71d4699d31e430\", :tests [test-0 test-1 test-2 test-3 test-4], :targets [:jvm-kir :js :wasm], :results {:jvm-kir [{:test test-0, :ok true} {:test test-1, :ok false} {:test test-2, :ok false} {:test test-3, :ok false} {:test test-4, :ok false}], :js [{:test \"test-0\", :ok true} {:test \"test-1\", :ok false} {:test \"test-2\", :ok false} {:test \"test-3\", :ok false} {:test \"test-4\", :ok false}], :wasm [{:test \"test-0\", :ok true} {:test \"test-1\", :ok false} {:test \"test-2\", :ok false} {:test \"test-3\", :ok false} {:test \"test-4\", :ok false}]}, :failed [{:test test-1, :ok false, :target :jvm-kir} {:test test-2, :ok false, :target :jvm-kir} {:test test-3, :ok false, :target :jvm-kir} {:test test-4, :ok false, :target :jvm-kir} {:test \"test-1\", :ok false, :target :js} {:test \"test-2\", :ok false, :target :js} {:test \"test-3\", :ok false, :target :js} {:test \"test-4\", :ok false, :target :js} {:test \"test-1\", :ok false, :target :wasm} {:test \"test-2\", :ok false, :target :wasm} {:test \"test-3\", :ok false, :target :wasm} {:test \"test-4\", :ok false, :target :wasm}]}\n",
+    "source-digest": "sha256:733660cebf20420094880ef2c98eead1364bc4e3816f760a732fe8f6c59cbce7",
+    "compiler-sha": "ac99fd3c40180fd5cbd3865cb0868b52d8b9ff6a",
+    "tool-ms": 6499,
+    "cache-hit": false
+  },
+  "sha256:674039f250ac88714fb06c1e6e14698e62afefbef331664d935ec922dbcb7106": {
+    "compiled?": true,
+    "passed?": false,
+    "diagnostic": "{:format :kotoba.test-report/v1, :ok false, :test-kir-sha256 \"a76288f3aff3aa9b8571e93e1d52c2b1df49f07043c9a40d8420124841385df5\", :tests [test-0 test-1 test-2 test-3 test-4], :targets [:jvm-kir :js :wasm], :results {:jvm-kir [{:test test-0, :ok false} {:test test-1, :ok false} {:test test-2, :ok false} {:test test-3, :ok false} {:test test-4, :ok false}], :js [{:test \"test-0\", :ok false} {:test \"test-1\", :ok false} {:test \"test-2\", :ok false} {:test \"test-3\", :ok false} {:test \"test-4\", :ok false}], :wasm [{:test \"test-0\", :ok false} {:test \"test-1\", :ok false} {:test \"test-2\", :ok false} {:test \"test-3\", :ok false} {:test \"test-4\", :ok false}]}, :failed [{:test test-0, :ok false, :target :jvm-kir} {:test test-1, :ok false, :target :jvm-kir} {:test test-2, :ok false, :target :jvm-kir} {:test test-3, :ok false, :target :jvm-kir} {:test test-4, :ok false, :target :jvm-kir} {:test \"test-0\", :ok false, :target :js} {:test \"test-1\", :ok false, :target :js} {:test \"test-2\", :ok false, :target :js} {:test \"test-3\", :ok false, :target :js} {:test \"test-4\", :ok false, :target :js} {:test \"test-0\", :ok false, :target :wasm} {:test \"test-1\", :ok false, :target :wasm} {:test \"test-2\", :ok false, :target :wasm} {:test \"test-3\", :ok false, :target :wasm} {:test \"test-4\", :ok false, :target :wasm}]}\n",
+    "source-digest": "sha256:f2836e24ee725ec45b0026869a438c43638f88767f1bc59f0bba0dc51846756c",
+    "compiler-sha": "ac99fd3c40180fd5cbd3865cb0868b52d8b9ff6a",
+    "tool-ms": 6664,
+    "cache-hit": false
+  },
+  "sha256:137e5382e3295bc7d36d844c7e2d94d264a3682eb18889d5f2cd28d6e0df0c42": {
+    "compiled?": true,
+    "passed?": true,
+    "diagnostic": "{:format :kotoba.test-report/v1, :ok true, :test-kir-sha256 \"d361bbb3e081e6fd6821806d5f6a9e9f89d3bf83e7b6e92315ef3c4de8a2b42e\", :tests [test-0 test-1 test-2 test-3 test-4], :targets [:jvm-kir :js :wasm], :results {:jvm-kir [{:test test-0, :ok true} {:test test-1, :ok true} {:test test-2, :ok true} {:test test-3, :ok true} {:test test-4, :ok true}], :js [{:test \"test-0\", :ok true} {:test \"test-1\", :ok true} {:test \"test-2\", :ok true} {:test \"test-3\", :ok true} {:test \"test-4\", :ok true}], :wasm [{:test \"test-0\", :ok true} {:test \"test-1\", :ok true} {:test \"test-2\", :ok true} {:test \"test-3\", :ok true} {:test \"test-4\", :ok true}]}, :failed []}\n",
+    "source-digest": "sha256:4c70eaf2e2209d2416b98734f4081e9d5305c3e527af28da2ae3b7c9e54dde95",
+    "compiler-sha": "ac99fd3c40180fd5cbd3865cb0868b52d8b9ff6a",
+    "tool-ms": 6602,
+    "cache-hit": false
+  },
+  "sha256:adb4faed7a985c22405849e0e0f476f69e3040f3bf411460ef7f875455d5e49c": {
+    "compiled?": true,
+    "passed?": true,
+    "diagnostic": "{:format :kotoba.test-report/v1, :ok true, :test-kir-sha256 \"e1111c0296766a65ec5dc8cbe1afcc06f2f7dec23d3a3a08cf03991c3cf6cd58\", :tests [test-0 test-1 test-2 test-3 test-4], :targets [:jvm-kir :js :wasm], :results {:jvm-kir [{:test test-0, :ok true} {:test test-1, :ok true} {:test test-2, :ok true} {:test test-3, :ok true} {:test test-4, :ok true}], :js [{:test \"test-0\", :ok true} {:test \"test-1\", :ok true} {:test \"test-2\", :ok true} {:test \"test-3\", :ok true} {:test \"test-4\", :ok true}], :wasm [{:test \"test-0\", :ok true} {:test \"test-1\", :ok true} {:test \"test-2\", :ok true} {:test \"test-3\", :ok true} {:test \"test-4\", :ok true}]}, :failed []}\n",
+    "source-digest": "sha256:882c074db231768fb4941e5e33132d670c17f86c4ab16a2cb426cf93494b3d44",
+    "compiler-sha": "ac99fd3c40180fd5cbd3865cb0868b52d8b9ff6a",
+    "tool-ms": 6566,
+    "cache-hit": false
+  },
+  "sha256:0c9d438790b2850e06371148aa94dbff555510e0f14bf25294d5cbbef630e689": {
+    "compiled?": true,
+    "passed?": true,
+    "diagnostic": "{:format :kotoba.test-report/v1, :ok true, :test-kir-sha256 \"02c86bc75aa99b26846255b9202c093bacbabe4c13967e554f1b772945dae693\", :tests [test-0 test-1 test-2 test-3 test-4], :targets [:jvm-kir :js :wasm], :results {:jvm-kir [{:test test-0, :ok true} {:test test-1, :ok true} {:test test-2, :ok true} {:test test-3, :ok true} {:test test-4, :ok true}], :js [{:test \"test-0\", :ok true} {:test \"test-1\", :ok true} {:test \"test-2\", :ok true} {:test \"test-3\", :ok true} {:test \"test-4\", :ok true}], :wasm [{:test \"test-0\", :ok true} {:test \"test-1\", :ok true} {:test \"test-2\", :ok true} {:test \"test-3\", :ok true} {:test \"test-4\", :ok true}]}, :failed []}\n",
+    "source-digest": "sha256:d1d2b2cd538d1d8f4f0019781b5de96c455c09d5a7da0abac2c594829b4a45cf",
+    "compiler-sha": "ac99fd3c40180fd5cbd3865cb0868b52d8b9ff6a",
+    "tool-ms": 7397,
+    "cache-hit": false
+  },
+  "sha256:bc01eebd4149eac1c0bc44a9886ed7959df36aa4dca8de510a8a40311a680649": {
+    "compiled?": true,
+    "passed?": false,
+    "diagnostic": "{:format :kotoba.test-report/v1, :ok false, :test-kir-sha256 \"d9283fda9ac1f58426dc2b2d807e85c91394c03f67cd445994accba4bdffdca0\", :tests [test-0 test-1 test-2 test-3 test-4], :targets [:jvm-kir :js :wasm], :results {:jvm-kir [{:test test-0, :ok true} {:test test-1, :ok false} {:test test-2, :ok false} {:test test-3, :ok false} {:test test-4, :ok false}], :js [{:test \"test-0\", :ok true} {:test \"test-1\", :ok false} {:test \"test-2\", :ok false} {:test \"test-3\", :ok false} {:test \"test-4\", :ok false}], :wasm [{:test \"test-0\", :ok true} {:test \"test-1\", :ok false} {:test \"test-2\", :ok false} {:test \"test-3\", :ok false} {:test \"test-4\", :ok false}]}, :failed [{:test test-1, :ok false, :target :jvm-kir} {:test test-2, :ok false, :target :jvm-kir} {:test test-3, :ok false, :target :jvm-kir} {:test test-4, :ok false, :target :jvm-kir} {:test \"test-1\", :ok false, :target :js} {:test \"test-2\", :ok false, :target :js} {:test \"test-3\", :ok false, :target :js} {:test \"test-4\", :ok false, :target :js} {:test \"test-1\", :ok false, :target :wasm} {:test \"test-2\", :ok false, :target :wasm} {:test \"test-3\", :ok false, :target :wasm} {:test \"test-4\", :ok false, :target :wasm}]}\n",
+    "source-digest": "sha256:c43fb405d1f7510699f48644a6f9f0f3bcc8464492a659b38403bd59772d7a43",
+    "compiler-sha": "ac99fd3c40180fd5cbd3865cb0868b52d8b9ff6a",
+    "tool-ms": 6606,
     "cache-hit": false
   },
   "sha256:aa5804adb182c7f061f5dc579c0cdb830d6e08dd90acd5a2d367395c919b10a8": {
@@ -215,6 +422,24 @@
     "tool-ms": 6671,
     "cache-hit": false
   },
+  "sha256:0d0d1cfe0e458af6566ef0282758aa93f6d4c17c0f61ff6fc8425b3a459c6c30": {
+    "compiled?": true,
+    "passed?": false,
+    "diagnostic": "{:format :kotoba.test-report/v1, :ok false, :test-kir-sha256 \"9489f409b2c8fe129beb0b325d6e38a0f9467da520af3f8040f96c1f0933e073\", :tests [test-0 test-1 test-2 test-3 test-4], :targets [:jvm-kir :js :wasm], :results {:jvm-kir [{:test test-0, :ok false} {:test test-1, :ok false} {:test test-2, :ok false} {:test test-3, :ok false} {:test test-4, :ok false}], :js [{:test \"test-0\", :ok false} {:test \"test-1\", :ok false} {:test \"test-2\", :ok false} {:test \"test-3\", :ok false} {:test \"test-4\", :ok false}], :wasm [{:test \"test-0\", :ok false} {:test \"test-1\", :ok false} {:test \"test-2\", :ok false} {:test \"test-3\", :ok false} {:test \"test-4\", :ok false}]}, :failed [{:test test-0, :ok false, :target :jvm-kir} {:test test-1, :ok false, :target :jvm-kir} {:test test-2, :ok false, :target :jvm-kir} {:test test-3, :ok false, :target :jvm-kir} {:test test-4, :ok false, :target :jvm-kir} {:test \"test-0\", :ok false, :target :js} {:test \"test-1\", :ok false, :target :js} {:test \"test-2\", :ok false, :target :js} {:test \"test-3\", :ok false, :target :js} {:test \"test-4\", :ok false, :target :js} {:test \"test-0\", :ok false, :target :wasm} {:test \"test-1\", :ok false, :target :wasm} {:test \"test-2\", :ok false, :target :wasm} {:test \"test-3\", :ok false, :target :wasm} {:test \"test-4\", :ok false, :target :wasm}]}\n",
+    "source-digest": "sha256:c7f43da7afb806bd2eb5a955b5bb3dbde02781c7674536ec3085e7abec31912b",
+    "compiler-sha": "ac99fd3c40180fd5cbd3865cb0868b52d8b9ff6a",
+    "tool-ms": 6757,
+    "cache-hit": false
+  },
+  "sha256:fd41b38d8ed753f1fc2d83e215229c5e9821085819a6d7f01843fcf369b0b27b": {
+    "compiled?": true,
+    "passed?": false,
+    "diagnostic": "{:format :kotoba.test-report/v1, :ok false, :test-kir-sha256 \"09cd8c877f13bfedbd7aa8d3f746ec758dd1f9b2d16d16868ab11aafb94bb0a2\", :tests [test-0 test-1 test-2 test-3 test-4], :targets [:jvm-kir :js :wasm], :results {:jvm-kir [{:test test-0, :ok true} {:test test-1, :ok false} {:test test-2, :ok false} {:test test-3, :ok false} {:test test-4, :ok false}], :js [{:test \"test-0\", :ok true} {:test \"test-1\", :ok false} {:test \"test-2\", :ok false} {:test \"test-3\", :ok false} {:test \"test-4\", :ok false}], :wasm [{:test \"test-0\", :ok true} {:test \"test-1\", :ok false} {:test \"test-2\", :ok false} {:test \"test-3\", :ok false} {:test \"test-4\", :ok false}]}, :failed [{:test test-1, :ok false, :target :jvm-kir} {:test test-2, :ok false, :target :jvm-kir} {:test test-3, :ok false, :target :jvm-kir} {:test test-4, :ok false, :target :jvm-kir} {:test \"test-1\", :ok false, :target :js} {:test \"test-2\", :ok false, :target :js} {:test \"test-3\", :ok false, :target :js} {:test \"test-4\", :ok false, :target :js} {:test \"test-1\", :ok false, :target :wasm} {:test \"test-2\", :ok false, :target :wasm} {:test \"test-3\", :ok false, :target :wasm} {:test \"test-4\", :ok false, :target :wasm}]}\n",
+    "source-digest": "sha256:3c590de60a6a2bacf91f6aea2a9ac860bd3615f683f8c8092cc66e2da2be65e2",
+    "compiler-sha": "ac99fd3c40180fd5cbd3865cb0868b52d8b9ff6a",
+    "tool-ms": 6437,
+    "cache-hit": false
+  },
   "sha256:736e83f09f06b074edef80dbd6cb8050b6da2cb25e3e1747853c5b1b6ab55441": {
     "compiled?": true,
     "passed?": false,
@@ -269,6 +494,15 @@
     "tool-ms": 7182,
     "cache-hit": false
   },
+  "sha256:25e2dc8a64c04a5916b1fdb088c8c18fc6ffad4435650ac2a2e22f734023ffe4": {
+    "compiled?": true,
+    "passed?": false,
+    "diagnostic": "{:format :kotoba.test-report/v1, :ok false, :test-kir-sha256 \"ce4fe371b65908ec500f35ff5d5536c84f25673a4e2f2a290b03cb26fa25ddfc\", :tests [test-0 test-1 test-2 test-3 test-4], :targets [:jvm-kir :js :wasm], :results {:jvm-kir [{:test test-0, :ok true} {:test test-1, :ok false} {:test test-2, :ok false} {:test test-3, :ok false} {:test test-4, :ok false}], :js [{:test \"test-0\", :ok true} {:test \"test-1\", :ok false} {:test \"test-2\", :ok false} {:test \"test-3\", :ok false} {:test \"test-4\", :ok false}], :wasm [{:test \"test-0\", :ok true} {:test \"test-1\", :ok false} {:test \"test-2\", :ok false} {:test \"test-3\", :ok false} {:test \"test-4\", :ok false}]}, :failed [{:test test-1, :ok false, :target :jvm-kir} {:test test-2, :ok false, :target :jvm-kir} {:test test-3, :ok false, :target :jvm-kir} {:test test-4, :ok false, :target :jvm-kir} {:test \"test-1\", :ok false, :target :js} {:test \"test-2\", :ok false, :target :js} {:test \"test-3\", :ok false, :target :js} {:test \"test-4\", :ok false, :target :js} {:test \"test-1\", :ok false, :target :wasm} {:test \"test-2\", :ok false, :target :wasm} {:test \"test-3\", :ok false, :target :wasm} {:test \"test-4\", :ok false, :target :wasm}]}\n",
+    "source-digest": "sha256:feb98e7b398fdd0a977ee60067f59b36fe2e9db784908598601e4fcc3f950fb5",
+    "compiler-sha": "ac99fd3c40180fd5cbd3865cb0868b52d8b9ff6a",
+    "tool-ms": 6586,
+    "cache-hit": false
+  },
   "sha256:9649774c4d218b4d45ed561f52b5e127dd1ead9799c64caf380ceb2543337be1": {
     "compiled?": true,
     "passed?": false,
@@ -276,6 +510,33 @@
     "source-digest": "sha256:8b08b3e6d14c16f5a08a1f873628a9869992aca5830ac5b548e15c78e99330d5",
     "compiler-sha": "ac99fd3c40180fd5cbd3865cb0868b52d8b9ff6a",
     "tool-ms": 6905,
+    "cache-hit": false
+  },
+  "sha256:711ca3fb495e30270fabb5b4d639977fcc271a005fec4ba3d684b5f89dba5258": {
+    "compiled?": true,
+    "passed?": false,
+    "diagnostic": "{:format :kotoba.test-report/v1, :ok false, :test-kir-sha256 \"c866e170cdaad50c7799d0f4c9f536d06ee35521236fa879510ffa37d4188e3c\", :tests [test-0 test-1 test-2 test-3 test-4], :targets [:jvm-kir :js :wasm], :results {:jvm-kir [{:test test-0, :ok false} {:test test-1, :ok false} {:test test-2, :ok false} {:test test-3, :ok false} {:test test-4, :ok false}], :js [{:test \"test-0\", :ok false} {:test \"test-1\", :ok false} {:test \"test-2\", :ok false} {:test \"test-3\", :ok false} {:test \"test-4\", :ok false}], :wasm [{:test \"test-0\", :ok false} {:test \"test-1\", :ok false} {:test \"test-2\", :ok false} {:test \"test-3\", :ok false} {:test \"test-4\", :ok false}]}, :failed [{:test test-0, :ok false, :target :jvm-kir} {:test test-1, :ok false, :target :jvm-kir} {:test test-2, :ok false, :target :jvm-kir} {:test test-3, :ok false, :target :jvm-kir} {:test test-4, :ok false, :target :jvm-kir} {:test \"test-0\", :ok false, :target :js} {:test \"test-1\", :ok false, :target :js} {:test \"test-2\", :ok false, :target :js} {:test \"test-3\", :ok false, :target :js} {:test \"test-4\", :ok false, :target :js} {:test \"test-0\", :ok false, :target :wasm} {:test \"test-1\", :ok false, :target :wasm} {:test \"test-2\", :ok false, :target :wasm} {:test \"test-3\", :ok false, :target :wasm} {:test \"test-4\", :ok false, :target :wasm}]}\n",
+    "source-digest": "sha256:3817e92287534b8c31beaa0863747a446da1ed76e3a5fa76ace4026a542e1c48",
+    "compiler-sha": "ac99fd3c40180fd5cbd3865cb0868b52d8b9ff6a",
+    "tool-ms": 6708,
+    "cache-hit": false
+  },
+  "sha256:3e298aad8469e9a45973535aaec78684980a64d6de1628516e3b3536fa56a439": {
+    "compiled?": true,
+    "passed?": true,
+    "diagnostic": "{:format :kotoba.test-report/v1, :ok true, :test-kir-sha256 \"8e53838331ab9d13009ebd4220141a18ab061bebedaac6e2db845f5e0726fd87\", :tests [test-0 test-1 test-2 test-3 test-4], :targets [:jvm-kir :js :wasm], :results {:jvm-kir [{:test test-0, :ok true} {:test test-1, :ok true} {:test test-2, :ok true} {:test test-3, :ok true} {:test test-4, :ok true}], :js [{:test \"test-0\", :ok true} {:test \"test-1\", :ok true} {:test \"test-2\", :ok true} {:test \"test-3\", :ok true} {:test \"test-4\", :ok true}], :wasm [{:test \"test-0\", :ok true} {:test \"test-1\", :ok true} {:test \"test-2\", :ok true} {:test \"test-3\", :ok true} {:test \"test-4\", :ok true}]}, :failed []}\n",
+    "source-digest": "sha256:ba73de20a39326e2b66b92b04b4bcfcafcfa1cb05cdbf206079c59739f3b3f1c",
+    "compiler-sha": "ac99fd3c40180fd5cbd3865cb0868b52d8b9ff6a",
+    "tool-ms": 7290,
+    "cache-hit": false
+  },
+  "sha256:334e493b2a4ef753b2bd1367d8340058d874eee1c987cab32cc82ad02b647057": {
+    "compiled?": true,
+    "passed?": false,
+    "diagnostic": "{:format :kotoba.test-report/v1, :ok false, :test-kir-sha256 \"c5d31a58fc1e0f1739a06929dc0a146f291fb7a1cc1901dc985963eff1406700\", :tests [test-0 test-1 test-2 test-3 test-4], :targets [:jvm-kir :js :wasm], :results {:jvm-kir [{:test test-0, :ok false} {:test test-1, :ok false} {:test test-2, :ok false} {:test test-3, :ok false} {:test test-4, :ok false}], :js [{:test \"test-0\", :ok false} {:test \"test-1\", :ok false} {:test \"test-2\", :ok false} {:test \"test-3\", :ok false} {:test \"test-4\", :ok false}], :wasm [{:test \"test-0\", :ok false} {:test \"test-1\", :ok false} {:test \"test-2\", :ok false} {:test \"test-3\", :ok false} {:test \"test-4\", :ok false}]}, :failed [{:test test-0, :ok false, :target :jvm-kir} {:test test-1, :ok false, :target :jvm-kir} {:test test-2, :ok false, :target :jvm-kir} {:test test-3, :ok false, :target :jvm-kir} {:test test-4, :ok false, :target :jvm-kir} {:test \"test-0\", :ok false, :target :js} {:test \"test-1\", :ok false, :target :js} {:test \"test-2\", :ok false, :target :js} {:test \"test-3\", :ok false, :target :js} {:test \"test-4\", :ok false, :target :js} {:test \"test-0\", :ok false, :target :wasm} {:test \"test-1\", :ok false, :target :wasm} {:test \"test-2\", :ok false, :target :wasm} {:test \"test-3\", :ok false, :target :wasm} {:test \"test-4\", :ok false, :target :wasm}]}\n",
+    "source-digest": "sha256:d793dee57bc45f1c72ec50eebfdc61b514b163365f5748bbcf9eb6647e39c618",
+    "compiler-sha": "ac99fd3c40180fd5cbd3865cb0868b52d8b9ff6a",
+    "tool-ms": 6915,
     "cache-hit": false
   },
   "sha256:40328ac2dd294911b41ae303fb2f136b6e48182c72a259d76f7fe815a7727da1": {
@@ -287,6 +548,15 @@
     "tool-ms": 6848,
     "cache-hit": false
   },
+  "sha256:e635498d6cdd5f80aeef0e97e4d36aa7000d96c115466ee61c764e6a89e1df6c": {
+    "compiled?": true,
+    "passed?": false,
+    "diagnostic": "{:format :kotoba.test-report/v1, :ok false, :test-kir-sha256 \"73b89745def350d793e95ae88cc52996dd6990558eb1944a682bbd683b920ce4\", :tests [test-0 test-1 test-2 test-3 test-4], :targets [:jvm-kir :js :wasm], :results {:jvm-kir [{:test test-0, :ok false} {:test test-1, :ok false} {:test test-2, :ok false} {:test test-3, :ok false} {:test test-4, :ok false}], :js [{:test \"test-0\", :ok false} {:test \"test-1\", :ok false} {:test \"test-2\", :ok false} {:test \"test-3\", :ok false} {:test \"test-4\", :ok false}], :wasm [{:test \"test-0\", :ok false} {:test \"test-1\", :ok false} {:test \"test-2\", :ok false} {:test \"test-3\", :ok false} {:test \"test-4\", :ok false}]}, :failed [{:test test-0, :ok false, :target :jvm-kir} {:test test-1, :ok false, :target :jvm-kir} {:test test-2, :ok false, :target :jvm-kir} {:test test-3, :ok false, :target :jvm-kir} {:test test-4, :ok false, :target :jvm-kir} {:test \"test-0\", :ok false, :target :js} {:test \"test-1\", :ok false, :target :js} {:test \"test-2\", :ok false, :target :js} {:test \"test-3\", :ok false, :target :js} {:test \"test-4\", :ok false, :target :js} {:test \"test-0\", :ok false, :target :wasm} {:test \"test-1\", :ok false, :target :wasm} {:test \"test-2\", :ok false, :target :wasm} {:test \"test-3\", :ok false, :target :wasm} {:test \"test-4\", :ok false, :target :wasm}]}\n",
+    "source-digest": "sha256:f0fbd147885d2830797d113d0be7ddefd0efc48eecc76adffb8c117e15562b99",
+    "compiler-sha": "ac99fd3c40180fd5cbd3865cb0868b52d8b9ff6a",
+    "tool-ms": 7044,
+    "cache-hit": false
+  },
   "sha256:a165f31d1409eed2de6b78221587be33005a64c77a7d97aa93ff4e1d5ecceffe": {
     "compiled?": true,
     "passed?": false,
@@ -294,6 +564,24 @@
     "source-digest": "sha256:fd3ab8e0c336cccfb2f1ec50e9c7137897d0e790e422f64d976dc4b3d2cf1c81",
     "compiler-sha": "ac99fd3c40180fd5cbd3865cb0868b52d8b9ff6a",
     "tool-ms": 6630,
+    "cache-hit": false
+  },
+  "sha256:26211b62800b204e2ad1f673e653de77dc945128c0ac25316294bb543d00db81": {
+    "compiled?": true,
+    "passed?": false,
+    "diagnostic": "{:format :kotoba.test-report/v1, :ok false, :test-kir-sha256 \"3395c0e904c9a3facdeef9012235cdfc6f5cf4e5c2ef00742982c702353e0d8c\", :tests [test-0 test-1 test-2 test-3 test-4], :targets [:jvm-kir :js :wasm], :results {:jvm-kir [{:test test-0, :ok true} {:test test-1, :ok false} {:test test-2, :ok false} {:test test-3, :ok false} {:test test-4, :ok false}], :js [{:test \"test-0\", :ok true} {:test \"test-1\", :ok false} {:test \"test-2\", :ok false} {:test \"test-3\", :ok false} {:test \"test-4\", :ok false}], :wasm [{:test \"test-0\", :ok true} {:test \"test-1\", :ok false} {:test \"test-2\", :ok false} {:test \"test-3\", :ok false} {:test \"test-4\", :ok false}]}, :failed [{:test test-1, :ok false, :target :jvm-kir} {:test test-2, :ok false, :target :jvm-kir} {:test test-3, :ok false, :target :jvm-kir} {:test test-4, :ok false, :target :jvm-kir} {:test \"test-1\", :ok false, :target :js} {:test \"test-2\", :ok false, :target :js} {:test \"test-3\", :ok false, :target :js} {:test \"test-4\", :ok false, :target :js} {:test \"test-1\", :ok false, :target :wasm} {:test \"test-2\", :ok false, :target :wasm} {:test \"test-3\", :ok false, :target :wasm} {:test \"test-4\", :ok false, :target :wasm}]}\n",
+    "source-digest": "sha256:e6fd218e35e8c023b3523a2d8c599a8b65b2312e72b3bf6f6461d7820ccbb9d7",
+    "compiler-sha": "ac99fd3c40180fd5cbd3865cb0868b52d8b9ff6a",
+    "tool-ms": 6662,
+    "cache-hit": false
+  },
+  "sha256:5bfaf050a7b8ecc59a07ee1b8f1bc978a62e8601e0d25dc823067358a47db185": {
+    "compiled?": true,
+    "passed?": true,
+    "diagnostic": "{:format :kotoba.test-report/v1, :ok true, :test-kir-sha256 \"e5116ec80f98ab45a535e688ff2be9cfc2fd5f0c3c6bea31ab18b26654cb25b8\", :tests [test-0 test-1 test-2 test-3 test-4], :targets [:jvm-kir :js :wasm], :results {:jvm-kir [{:test test-0, :ok true} {:test test-1, :ok true} {:test test-2, :ok true} {:test test-3, :ok true} {:test test-4, :ok true}], :js [{:test \"test-0\", :ok true} {:test \"test-1\", :ok true} {:test \"test-2\", :ok true} {:test \"test-3\", :ok true} {:test \"test-4\", :ok true}], :wasm [{:test \"test-0\", :ok true} {:test \"test-1\", :ok true} {:test \"test-2\", :ok true} {:test \"test-3\", :ok true} {:test \"test-4\", :ok true}]}, :failed []}\n",
+    "source-digest": "sha256:916a1ac31a706c53359e53a76552c9d9084e053d77bb190b2c1f37e5c1001934",
+    "compiler-sha": "ac99fd3c40180fd5cbd3865cb0868b52d8b9ff6a",
+    "tool-ms": 6599,
     "cache-hit": false
   },
   "sha256:e041f650df88549977d61f60893fb7e3eb14a55ab0907d0545eedf0a4b0c8bf1": {
@@ -323,6 +611,15 @@
     "tool-ms": 6670,
     "cache-hit": false
   },
+  "sha256:793dd4b8fdd5bc6b568c717249b50c767ac41eb6f7693b813da5cfa48c16f989": {
+    "compiled?": true,
+    "passed?": true,
+    "diagnostic": "{:format :kotoba.test-report/v1, :ok true, :test-kir-sha256 \"bf71d7505e24419454a0d03be34b9289f68777e70d06336a2c4f52b54fb159df\", :tests [test-0 test-1 test-2 test-3 test-4], :targets [:jvm-kir :js :wasm], :results {:jvm-kir [{:test test-0, :ok true} {:test test-1, :ok true} {:test test-2, :ok true} {:test test-3, :ok true} {:test test-4, :ok true}], :js [{:test \"test-0\", :ok true} {:test \"test-1\", :ok true} {:test \"test-2\", :ok true} {:test \"test-3\", :ok true} {:test \"test-4\", :ok true}], :wasm [{:test \"test-0\", :ok true} {:test \"test-1\", :ok true} {:test \"test-2\", :ok true} {:test \"test-3\", :ok true} {:test \"test-4\", :ok true}]}, :failed []}\n",
+    "source-digest": "sha256:06a5ddf9b11d3b2fec577be4fe0f461cfef949aff5405a16b1377b928ed96ec7",
+    "compiler-sha": "ac99fd3c40180fd5cbd3865cb0868b52d8b9ff6a",
+    "tool-ms": 7315,
+    "cache-hit": false
+  },
   "sha256:8506c83150a22e99cb4b285e84e950f2ca4e2108907c2917d6a65acc3b2b3414": {
     "compiled?": true,
     "passed?": false,
@@ -330,6 +627,15 @@
     "source-digest": "sha256:b70daa6335c7634483060ce8355554717e23cb2f1ff48827e83af002d51b6907",
     "compiler-sha": "ac99fd3c40180fd5cbd3865cb0868b52d8b9ff6a",
     "tool-ms": 6811,
+    "cache-hit": false
+  },
+  "sha256:15e69a72f9a79d600041eb8c7c5ca35c46b4beeab6c6594ebdbb57b194066781": {
+    "compiled?": true,
+    "passed?": false,
+    "diagnostic": "{:format :kotoba.test-report/v1, :ok false, :test-kir-sha256 \"9c99e40be2069347c1b00d5a232e1d9c929081cc3a8c9e5bc3dbac9698ecea68\", :tests [test-0 test-1 test-2 test-3 test-4], :targets [:jvm-kir :js :wasm], :results {:jvm-kir [{:test test-0, :ok false} {:test test-1, :ok false} {:test test-2, :ok false} {:test test-3, :ok false} {:test test-4, :ok false}], :js [{:test \"test-0\", :ok false} {:test \"test-1\", :ok false} {:test \"test-2\", :ok false} {:test \"test-3\", :ok false} {:test \"test-4\", :ok false}], :wasm [{:test \"test-0\", :ok false} {:test \"test-1\", :ok false} {:test \"test-2\", :ok false} {:test \"test-3\", :ok false} {:test \"test-4\", :ok false}]}, :failed [{:test test-0, :ok false, :target :jvm-kir} {:test test-1, :ok false, :target :jvm-kir} {:test test-2, :ok false, :target :jvm-kir} {:test test-3, :ok false, :target :jvm-kir} {:test test-4, :ok false, :target :jvm-kir} {:test \"test-0\", :ok false, :target :js} {:test \"test-1\", :ok false, :target :js} {:test \"test-2\", :ok false, :target :js} {:test \"test-3\", :ok false, :target :js} {:test \"test-4\", :ok false, :target :js} {:test \"test-0\", :ok false, :target :wasm} {:test \"test-1\", :ok false, :target :wasm} {:test \"test-2\", :ok false, :target :wasm} {:test \"test-3\", :ok false, :target :wasm} {:test \"test-4\", :ok false, :target :wasm}]}\n",
+    "source-digest": "sha256:7f578aba119f179e86292fafc6b6178147893b41d9262bf4841bd44046b38e5a",
+    "compiler-sha": "ac99fd3c40180fd5cbd3865cb0868b52d8b9ff6a",
+    "tool-ms": 6677,
     "cache-hit": false
   },
   "sha256:970cf5c18cc563669f11dc458a6517f44512dc4d90db4a8a8a92edcd2d16ac4c": {

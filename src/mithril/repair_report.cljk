@@ -16,6 +16,19 @@
    :first-pass-and-floor (count (filter #(and (:first-pass? %) (:floor-coverage? %)) rows))
    :mean-attempts (e/average (map #(count (:attempts %)) rows))
    :mean-uncached-equivalent-attempt-tool-ms (e/average (map #(reduce + (map :tool-ms (:attempts %))) rows))})
+(defn checkpoint-qualification []
+  (let [file (.join h/path e/root "clef-checkpoint-inference.json")]
+    (when (.existsSync h/fs file)
+      (let [inference (e/read-json file) training (e/read-json (.join h/path e/root "clef-training-report.json"))]
+        {:head-hash-matches (= (:head_sha256 inference) (:head_sha256 training))
+         :full-forward true :training-feature-cache-used false
+         :load-seconds (:load_seconds inference)
+         :stages (into {} (for [stage [:baseline :adapted]
+                               :let [choices (into {} (map #(vector (:id %) (:choice %)) (get training stage)))
+                                     rows (get-in inference [:predictions stage])]]
+                            [stage {:n (count rows)
+                                    :choice-agreement (count (filter #(= (get choices (:id %)) (:choice %)) rows))
+                                    :warm-full-forward-ms (* 1000 (e/average (map :forward_seconds rows)))}]))}))))
 (defn run! []
   (let [provider (e/load-rows) clef (q/clef-rows)
         native (e/read-json (.join h/path e/root "native-rows.json"))
@@ -36,6 +49,17 @@
                 :latency-semantics "Provider milliseconds include request round trip. CLEF cached-backbone plus head measurements are local GPU measurements, not comparable end-to-end latency. Native timing cache retains uncached receipts; it is not measured agent wall-clock latency."
                 :cost-semantics "API cost is provider-reported, USD. Missing usage/cost is null; CLEF GPU/build/download costs are not included."
                 :statistics "One repeat, small correlated synthetic families. Wilson intervals are descriptive; no general superiority or causal Jev weight improvement claim."
+                :checkpoint-qualification (checkpoint-qualification)
+                :fresh-target-scores
+                (mapv (fn [[key rows]] {:lane key :score (e/score rows)})
+                      (group-by (juxt :model :hypothesis)
+                                (filter #(and (= "heldout-state" (:split %))
+                                              (re-matches #"(?:distance|ceil-div)-(?:19|27|38|46)" (:id %))) all)))
+                :prior-family-regression-scores
+                (mapv (fn [[key rows]] {:lane key :score (e/score rows)})
+                      (group-by (juxt :model :hypothesis)
+                                (filter #(and (= "heldout-state" (:split %))
+                                              (re-matches #"(?:affine|threshold|clamp|parity)-(?:37|41)" (:id %))) all)))
                 :scores scores
                 :native-rows (count native)
                 :provider-rows (count provider)

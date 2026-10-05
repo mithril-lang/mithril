@@ -127,6 +127,16 @@
           ;; also use that exact interface for cross-model comparisons.
           (for [t (tasks) :when (str/starts-with? (:split t) "heldout")]
             [(first lanes) t "structured-choice"])))) )
+(defn run-pending! [pending decide! record!]
+  (reduce (fn [promise job]
+            (.then promise (fn [_]
+              (-> (decide! job)
+                  (.then (fn [r]
+                    (record! r)
+                    (when (= 402 (:http-status r))
+                      (throw (ex-info "Provider credit boundary: stop this batch; no top-up performed"
+                                      {:reason :provider-credit-boundary :id (:id r)}))) r))))))
+          (js/Promise.resolve nil) pending))
 (defn run! [stage]
   (let [api-key (host/api-key!)
         _ (when-not (seq api-key) (search/refuse! :missing-credential))
@@ -134,12 +144,8 @@
         completed (set (map row-key (load-rows)))
         pending (vec (remove (fn [[lane t h]] (contains? completed [(:id t) (:model lane) h]))
                              (distinct (jobs stage winner))))]
-    (reduce (fn [promise [lane t h]]
-              (.then promise (fn [_]
-                (-> (call! lane t h api-key)
-                    (.then (fn [r] (append! r)
-                             (println (pr-str (select-keys r [:id :model :hypothesis :status]))) r))))))
-            (js/Promise.resolve nil) pending)))
+    (run-pending! pending (fn [[lane t h]] (call! lane t h api-key))
+                  (fn [r] (append! r) (println (pr-str (select-keys r [:id :model :hypothesis :status])))))))
 
 (defn average [xs] (when (seq xs) (/ (reduce + xs) (count xs))))
 (defn calibration [rows gold]
@@ -158,6 +164,7 @@
                                                        (get-in r [:answer :probabilities])))) ok)]
     {:n (count rows) :answered (count ok) :correct (count correct)
      :accuracy (/ (count correct) (max 1 (count rows))) :brier (average brier)
+     :conditional-choice-accuracy (when (seq ok) (/ (count correct) (count ok)))
      :ece-10 (calibration ok gold) :statuses (frequencies (map :status rows))
      :nll (average (map #(- (js/Math.log (max 1e-8 (get-in % [:answer :probabilities (get gold (:id %))] 0)))) ok))
      :model-ms (average (map :model-ms rows))
