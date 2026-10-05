@@ -1,0 +1,40 @@
+{
+  "parallelism": 2,
+  "max-attempts": 1,
+  "goal": "Implement clamp(x, low, high) in src/demo/math.cljk and expose clamp-positive(x) from src/demo/api.cljk using bounds 0 and 10. Use CLJK (ClojureScript) namespaces and defn functions. Handle below, within and above the bounds. Return complete source files; do not edit the locked checks.",
+  "max-bytes": 65536,
+  "verifiers": [
+    {
+      "executable": "/opt/homebrew/Cellar/node/26.0.0/bin/node",
+      "argv": [
+        "/Users/junkawasaki/github/kotoba-lang/org-babashka-nbb/lib/nbb_main.js",
+        "--classpath",
+        "src",
+        "checks-low.cljk"
+      ],
+      "id": "checks-low",
+      "timeout-ms": 10000
+    },
+    {
+      "executable": "/opt/homebrew/Cellar/node/26.0.0/bin/node",
+      "argv": [
+        "/Users/junkawasaki/github/kotoba-lang/org-babashka-nbb/lib/nbb_main.js",
+        "--classpath",
+        "src",
+        "checks-high.cljk"
+      ],
+      "id": "checks-high",
+      "timeout-ms": 10000
+    }
+  ],
+  "inputs": {
+    "checks-low.cljk": "efe21582c542f12debb7747ed6da9983b4ab9166903e75c31fe738e100469f0d",
+    "checks-high.cljk": "67d9f3ab67e50de31f2deab0ce766be1794ad56641f707ddc470a065ff0c3405"
+  },
+  "root": "/Users/junkawasaki/github/mithril-lang/mithril/docs/evidence/generation-final-2026-10-05/fixture",
+  "context": [
+    "src/demo/math.cljk",
+    "src/demo/api.cljk"
+  ],
+  "max-files": 8
+}

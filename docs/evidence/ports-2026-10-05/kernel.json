@@ -1,0 +1,19 @@
+{
+  "source-sha256": "1d36bc758e4a76a52c6eb632cc8f2e8d73acf2186a88cfa7f0bc5e548fcbb8d3",
+  "wasm": "/private/tmp/mithril-port-policy/policy.wasm",
+  "wasm-sha256": "6ff478e3665dee74475e00cab57a0b71688f2d926731309e2fc7b87427c091d4",
+  "checks": [
+    {
+      "entry": "wasm_cli",
+      "exit": 0,
+      "stdout": "{:ok true, :target :wasm32-browser-kotoba-v1, :output \"/private/tmp/mithril-port-policy/policy.wasm\", :provenance-output \"/private/tmp/mithril-port-policy/policy.wasm.provenance.edn\", :publication-output \"/private/tmp/mithril-port-policy/policy.wasm.publication.edn\", :definitions-recompiled 6, :kotoba.compile/inputs :single-file}\n",
+      "stderr": ""
+    },
+    {
+      "entry": "test_cli",
+      "exit": 0,
+      "stdout": "{:format :kotoba.test-report/v1, :ok true, :test-kir-sha256 \"acdfeae96453800620d0c193ccc02d8e207528ee2675978d79edce504f9c15aa\", :tests [test-negative test-zero test-one test-many], :targets [:jvm-kir :js :wasm], :results {:jvm-kir [{:test test-negative, :ok true} {:test test-zero, :ok true} {:test test-one, :ok true} {:test test-many, :ok true}], :js [{:test \"test-negative\", :ok true} {:test \"test-zero\", :ok true} {:test \"test-one\", :ok true} {:test \"test-many\", :ok true}], :wasm [{:test \"test-negative\", :ok true} {:test \"test-zero\", :ok true} {:test \"test-one\", :ok true} {:test \"test-many\", :ok true}]}, :failed []}\n",
+      "stderr": ""
+    }
+  ]
+}

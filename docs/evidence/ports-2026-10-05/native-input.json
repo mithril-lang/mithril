@@ -1,0 +1,54 @@
+{
+  "status": "verified",
+  "target": {
+    "kind": "window",
+    "pid": 59078,
+    "window_id": 12563
+  },
+  "marker": "Mithril CUA port typed this marker.",
+  "saved": true,
+  "windowClosed": true,
+  "trace": [
+    {
+      "name": "list_apps",
+      "success": true
+    },
+    {
+      "name": "list_windows",
+      "success": true
+    },
+    {
+      "name": "start_session",
+      "success": true
+    },
+    {
+      "name": "get_window_state",
+      "success": true
+    },
+    {
+      "name": "type_text",
+      "success": true
+    },
+    {
+      "name": "get_window_state",
+      "success": true
+    },
+    {
+      "name": "hotkey",
+      "success": true
+    },
+    {
+      "name": "hotkey",
+      "success": true
+    },
+    {
+      "name": "end_session",
+      "success": true
+    }
+  ],
+  "scope": "owned temporary TextEdit document; macOS input only",
+  "postCloseVerification": {
+    "method": "list_windows",
+    "ownedWindowAbsent": true
+  }
+}

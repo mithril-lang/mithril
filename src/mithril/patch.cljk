@@ -1,0 +1,228 @@
+(ns mithril.patch
+  "Generated multi-file changes with pinned verification, bounded concurrency and recoverable publication."
+  (:require [cljs.reader :as reader] [clojure.string :as str] [mithril.harness :as h]
+            [mithril.workspace :as w] [mithril.session :as s] [mithril.port-kernel :as k]
+            [mithril.parallel :as parallel] [mithril.schedule :as schedule]))
+(def fs (js/require "node:fs"))
+(def path (js/require "node:path"))
+(defn safe-path? [p]
+  (and (w/relative? p)
+       (not-any? #(or (contains? #{".git" "node_modules" ".mithril" ".ssh" ".aws"} %)
+                     (str/starts-with? % ".env") (= ".mithril-agent.lock" %)) (str/split p #"/"))))
+(defn target! [root p]
+  (when-not (safe-path? p) (h/refuse :patch-path))
+  (loop [base root parts (seq (str/split p #"/"))]
+    (let [file (.join path base (first parts)) exists? (.existsSync fs file)]
+      ;; lstat also detects dangling symlinks that existsSync hides.
+      (let [st (try (.lstatSync fs file) (catch :default e (if (= "ENOENT" (.-code e)) nil (throw e))))]
+        (when (and st (.isSymbolicLink st)) (h/refuse :patch-symlink))
+        (when (and st (next parts) (not (.isDirectory st))) (h/refuse :patch-parent))
+        (when (and st (not (next parts)) (not (.isFile st))) (h/refuse :patch-file)))
+      (if (next parts) (recur file (next parts)) file))))
+(defn read-file [root p]
+  (let [file (target! root p)]
+    (when (.existsSync fs file)
+      (when (> (.-size (.statSync fs file)) 262144) (h/refuse :patch-file-budget))
+      (.readFileSync fs file "utf8"))))
+(defn digest [text] (when (some? text) (k/digest (js/Buffer.from text))))
+(defn compile-task [task]
+  (let [{:keys [root goal context inputs verifiers max-files max-bytes max-attempts parallelism]} task]
+    (when-not (and (= #{:root :goal :context :inputs :verifiers :max-files :max-bytes :max-attempts :parallelism} (set (keys task)))
+                   (string? root) (.isAbsolute path root) (string? goal) (<= 1 (count goal) 4096)
+                   (vector? context) (<= 1 (count context) 64) (= (count context) (count (set context)))
+                   (every? safe-path? context) (map? inputs) (<= (count inputs) 32)
+                   (not-any? (set context) (keys inputs))
+                   (every? (fn [[p hash]] (and (safe-path? p) (string? hash) (re-matches #"[a-f0-9]{64}" hash))) inputs)
+                   (vector? verifiers) (<= 1 (count verifiers) 16)
+                   (every? (fn [v] (and (= #{:id :executable :argv :timeout-ms} (set (keys v))) (h/label? (:id v))
+                                        (string? (:executable v)) (.isAbsolute path (:executable v))
+                                        (vector? (:argv v)) (<= 1 (count (:argv v)) 32)
+                                        (every? #(and (string? %) (<= (count %) 4096)) (:argv v))
+                                        (integer? (:timeout-ms v)) (<= 1 (:timeout-ms v) 90000))) verifiers)
+                   (= (count verifiers) (count (set (map :id verifiers))))
+                   (integer? max-files) (<= 1 max-files 32) (integer? max-bytes) (<= 1 max-bytes 1048576)
+                   (integer? max-attempts) (<= 1 max-attempts 5) (integer? parallelism) (<= 1 parallelism 16))
+      (h/refuse :patch-task))
+    (let [task (assoc task :root (.realpathSync fs root))]
+      (doseq [p context] (when-not (some? (read-file (:root task) p)) (h/refuse :patch-context-missing)))
+      (doseq [[p hash] inputs]
+        (when-not (= hash (digest (read-file (:root task) p))) (h/refuse :patch-input-drift))) task)))
+(defn read-task [text]
+  (let [raw (.parse js/JSON text)]
+    (compile-task (assoc (js->clj raw :keywordize-keys true) :inputs (js->clj (.-inputs raw))))))
+(defn snapshot [task]
+  (let [files (into {} (map #(vector % (read-file (:root task) %)) (:context task)))
+        locked (into {} (map (fn [[p hash]]
+                              (let [text (read-file (:root task) p)]
+                                (when-not (= hash (digest text)) (h/refuse :patch-input-drift)) [p text])) (:inputs task)))]
+    (when (> (reduce + (map #(.-length (js/Buffer.from %)) (vals (merge files locked)))) 1048576)
+      (h/refuse :patch-context-budget))
+    {:files files :locked locked}))
+(defn admit [task baseline edits]
+  (when-not (and (vector? edits) (<= 1 (count edits) (:max-files task))
+                 (= (count edits) (count (set (map :path edits))))
+                 (every? #(and (= #{:path :content} (set (keys %))) (safe-path? (:path %))
+                                (or (nil? (:content %)) (string? (:content %)))
+                                (not (contains? (:inputs task) (:path %)))) edits))
+    (h/refuse :patch-proposal))
+  (when (> (reduce + (map #(.-length (js/Buffer.from (or (:content %) ""))) edits)) (:max-bytes task))
+    (h/refuse :patch-output-budget))
+  (mapv (fn [{:keys [path content]}]
+          (let [current (read-file (:root task) path) observed (get-in baseline [:files path])]
+            (when (and (some? current) (not (contains? (:files baseline) path))) (h/refuse :patch-unobserved-file))
+            (when-not (= current observed) (h/refuse :patch-source-drift))
+            (when (= observed content) (h/refuse :patch-no-change))
+            {:path path :before observed :after content :before-sha256 (digest observed) :after-sha256 (digest content)}))
+        (sort-by :path edits)))
+(defn staged-files [baseline changes]
+  (reduce (fn [files {:keys [path after]}] (if (nil? after) (dissoc files path) (assoc files path after)))
+          (merge (:files baseline) (:locked baseline)) changes))
+(defn verify! [task files signal]
+  (let [root (.mkdtempSync fs (.join path (.tmpdir (js/require "node:os")) "mithril-patch-checks-"))
+        jobs (mapv (fn [v]
+                     {:id (:id v) :depends-on [] :resources [] :accept? (fn [r] (:passed r))
+                      :run (fn [signal]
+                       (let [stage (.join path root (:id v))]
+                         (.mkdirSync fs stage #js {:mode 448})
+                         (doseq [[p text] files]
+                           (let [file (.join path stage p)]
+                             (.mkdirSync fs (.dirname path file) #js {:recursive true})
+                             (.writeFileSync fs file text #js {:mode 384})))
+                         (-> (parallel/process! (assoc v :cwd stage :output-bytes 1048576) signal)
+                             (.then (fn [r]
+                                      (let [unchanged? (every? (fn [[p text]] (= text (read-file stage p))) files)]
+                                        (assoc r :id (:id v) :source-unchanged? unchanged?
+                                                 :passed (and unchanged? (parallel/successful? r)))))))))}) (:verifiers task))]
+    (-> (schedule/run! jobs (:parallelism task) signal)
+        (.then (fn [{:keys [results journal max-running wall-ms]}]
+                 (.rmSync fs root #js {:recursive true :force true})
+                 {:passed (every? #(and (= :fulfilled (:status %)) (get-in % [:value :passed])) results)
+                  :results results :schedule {:journal journal :max-running max-running :wall-ms wall-ms}}))
+        (.catch (fn [e] (.rmSync fs root #js {:recursive true :force true}) (throw e))))))
+(defn assert-baseline! [task baseline]
+  (doseq [[p text] (merge (:files baseline) (:locked baseline))]
+    (when-not (= (digest text) (digest (read-file (:root task) p))) (h/refuse :patch-source-drift))))
+(defn set-file! [root p text]
+  (let [target (target! root p)]
+    (if (nil? text) (do (.unlinkSync fs target)
+                        (let [fd (.openSync fs (.dirname path target) "r")]
+                          (try (.fsyncSync fs fd) (finally (.closeSync fs fd)))))
+      (do (.mkdirSync fs (.dirname path target) #js {:recursive true}) (s/atomic-write! target text)))))
+(defn intent-path [store] (.join path (:directory store) "patch-intent.edn"))
+(defn save-intent! [store intent] (s/owned! store) (s/atomic-write! (intent-path store) (pr-str intent)))
+(defn with-repository! [task store f]
+  (let [file (.join path (:root task) ".mithril-agent.lock")
+        fd (try (.openSync fs file "wx" 384) (catch :default _ (h/refuse :repository-owned-or-stale-lock)))
+        close! (fn []
+                 (let [owner (reader/read-string (.readFileSync fs file "utf8"))]
+                   (when-not (= (:token store) (:token owner)) (h/refuse :repository-ownership))
+                   (.unlinkSync fs file)))]
+    (try (.writeFileSync fs fd (pr-str {:pid (.-pid js/process) :token (:token store)}) "utf8") (.fsyncSync fs fd)
+         (finally (.closeSync fs fd)))
+    (let [value (try (f) (catch :default e (close!) (throw e)))]
+      (if (and value (fn? (.-then value)))
+        (.finally (js/Promise.resolve value) close!)
+        (do (close!) value)))))
+(defn rollback! [task changes]
+  ;; Check the whole change before rolling back; external writes are never overwritten.
+  (doseq [{:keys [path before-sha256 after-sha256]} changes]
+    (when-not (contains? #{before-sha256 after-sha256} (digest (read-file (:root task) path))) (h/refuse :patch-rollback-drift)))
+  (doseq [{:keys [path before after-sha256]} (reverse changes)]
+    (when (= after-sha256 (digest (read-file (:root task) path))) (set-file! (:root task) path before))))
+(defn result [ok? text proof]
+  {:ok? ok? :summary text :output-digest (k/digest (js/Buffer.from (pr-str proof)))})
+(defn publish-owned! [task store call-id baseline changes verification]
+  (let [intent {:format :mithril/patch-v1 :task (s/binding-digest {} task) :call-id call-id
+                :baseline baseline :changes changes :verification verification :phase :prepared}]
+    (save-intent! store intent)
+    (assert-baseline! task baseline)
+    (try
+      (doseq [{:keys [path before-sha256 after]} changes]
+        (when-not (= before-sha256 (digest (read-file (:root task) path))) (h/refuse :patch-source-drift))
+        (set-file! (:root task) path after))
+      (save-intent! store (assoc intent :phase :published))
+      (result true "Generated multi-file changes verified and retained." verification)
+      (catch :default e
+        (rollback! task changes) (save-intent! store (assoc intent :phase :rolled-back)) (throw e)))))
+(defn publish! [task store call-id baseline changes verification]
+  (with-repository! task store #(publish-owned! task store call-id baseline changes verification)))
+(defn perform! [task store call-id generate! audit signal]
+  (s/owned! store)
+  (when (.existsSync fs (intent-path store)) (h/refuse :existing-patch-intent))
+  (let [baseline (snapshot task)]
+    (letfn [(attempt [n diagnostics]
+              (when (and signal (.-aborted signal)) (h/refuse :patch-cancelled))
+              (let [request {:goal (:goal task) :files (:files baseline) :locked-inputs (vec (keys (:locked baseline)))
+                             :max-files (:max-files task) :max-bytes (:max-bytes task) :diagnostics diagnostics}
+                    generated (-> (js/Promise.resolve nil)
+                                  (.then (fn [_] (generate! request)))
+                                  (.then (fn [edits] {:edits edits}))
+                                  (.catch (fn [e] {:error (str e)})))]
+                (-> generated
+                    (.then (fn [proposed]
+                (let [admitted (try (if (:error proposed) proposed {:changes (admit task baseline (:edits proposed))})
+                                  (catch :default e {:error (str e)}))]
+                (if (:error admitted)
+                  (do (swap! audit conj {:attempt n :request request :error (:error admitted)})
+                      (if (< n (:max-attempts task)) (attempt (inc n) (:error admitted))
+                        (js/Promise.resolve (result false "Generated patch failed admission; repository unchanged." admitted))))
+                  (-> (verify! task (staged-files baseline (:changes admitted)) signal)
+                      (.then (fn [verification]
+                               (swap! audit conj {:attempt n :request request :edits (:edits proposed) :verification verification})
+                               (if (:passed verification)
+                                 (do (when (and signal (.-aborted signal)) (h/refuse :patch-cancelled))
+                                     (publish! task store call-id baseline (:changes admitted) verification))
+                                 (if (< n (:max-attempts task)) (attempt (inc n) verification)
+                                   (result false "Generated changes failed verification; repository unchanged." verification)))))))))))))]
+      (attempt 1 nil))))
+(defn load-intent! [task store]
+  (s/owned! store)
+  (let [file (intent-path store)
+        _ (when (> (.-size (.statSync fs file)) 8388608) (h/refuse :patch-intent-budget))
+        intent (reader/read-string (.readFileSync fs file "utf8"))
+        baseline (:baseline intent) changes (:changes intent)]
+    (when-not (and (= :mithril/patch-v1 (:format intent)) (= (s/binding-digest {} task) (:task intent))
+                   (contains? #{:prepared :published :rolled-back} (:phase intent))
+                   (= #{:files :locked} (set (keys baseline)))
+                   (= (set (:context task)) (set (keys (:files baseline))))
+                   (= (set (keys (:inputs task))) (set (keys (:locked baseline))))
+                   (every? string? (vals (:files baseline)))
+                   (every? (fn [[p text]] (and (string? text) (= (get (:inputs task) p) (digest text)))) (:locked baseline))
+                   (vector? changes) (<= 1 (count changes) (:max-files task))
+                   (= (count changes) (count (set (map :path changes))))
+                   (every? (fn [{:keys [path before after before-sha256 after-sha256] :as change}]
+                             (and (= #{:path :before :after :before-sha256 :after-sha256} (set (keys change)))
+                                  (safe-path? path) (not (contains? (:inputs task) path))
+                                  (or (nil? before) (string? before)) (or (nil? after) (string? after))
+                                  (= before (get-in baseline [:files path]))
+                                  (= before-sha256 (digest before)) (= after-sha256 (digest after))
+                                  (not= before-sha256 after-sha256))) changes))
+      (h/refuse :patch-intent-binding))
+    intent))
+(defn assert-retained! [task intent]
+  (doseq [[p text] (staged-files (:baseline intent) (:changes intent))]
+    (when-not (= (digest text) (digest (read-file (:root task) p))) (h/refuse :patch-source-drift)))
+  (doseq [{:keys [path after-sha256]} (:changes intent)]
+    (when-not (= after-sha256 (digest (read-file (:root task) path))) (h/refuse :patch-source-drift))))
+(defn reconcile-owned! [task store call-id signal]
+  (s/owned! store)
+  (let [intent (load-intent! task store) changes (:changes intent)
+        states (mapv (fn [{:keys [path before-sha256 after-sha256]}]
+                       (let [hash (digest (read-file (:root task) path))]
+                         (cond (= hash after-sha256) :after (= hash before-sha256) :before :else :drift))) changes)]
+    (when-not (and (= :mithril/patch-v1 (:format intent)) (= (s/binding-digest {} task) (:task intent))
+                   (= call-id (:call-id intent)) (vector? changes) (seq changes)
+                   (every? #(contains? #{:before :after} %) states)) (h/refuse :patch-recovery-drift))
+    (if (every? #{:after} states)
+      (do (assert-retained! task intent)
+        (-> (verify! task (staged-files (:baseline intent) changes) signal)
+          (.then (fn [verification]
+                   (when-not (:passed verification) (h/refuse :patch-recovery-verification))
+                   (assert-retained! task intent)
+                   (result true "Retained generated patch reverified without republishing." verification)))))
+      (do (rollback! task changes) (save-intent! store (assoc intent :phase :rolled-back))
+          (js/Promise.resolve (result false "Interrupted partial patch rolled back; no automatic republication." states))))))
+(defn reconcile! [task store call-id signal]
+  (with-repository! task store #(reconcile-owned! task store call-id signal)))
+(defn retained! [task store]
+  (assert-retained! task (load-intent! task store)))

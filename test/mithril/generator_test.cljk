@@ -1,0 +1,58 @@
+(ns mithril.generator-test
+  (:require [cljs.test :refer [deftest is async]] [mithril.generator :as generator]))
+(defn fixture []
+  (let [fs (js/require "node:fs") path (js/require "node:path")
+        root (.mkdtempSync fs (.join path (.tmpdir (js/require "node:os")) "mithril-generator-test-"))]
+    {:fs fs :root root :helper (.join path root "provider.cjs")}))
+(deftest source-paths-survive-audit-serialization
+  (async done
+    (let [{:keys [fs root helper]} (fixture) audit (atom [])
+          request {:files {"src/demo/math.cljk" "math-source" "src/demo/api.cljk" "api-source"}}]
+      (.writeFileSync fs helper
+        "const fs=require('node:fs');const r=JSON.parse(fs.readFileSync(0,'utf8'));console.log(JSON.stringify({finish_reason:'stop',phases:[{prompt:r}],text:JSON.stringify({edits:[{path:'src/demo/math.cljk',content:'new-source'}]})}));")
+      (-> ((generator/offline (.-execPath js/process) helper root root audit "mlx-coder") request)
+          (.then (fn [edits]
+                   (is (= [{:path "src/demo/math.cljk" :content "new-source"}] edits))
+                   (let [saved (.parse js/JSON (.stringify js/JSON (clj->js @audit)))
+                         files (.-files (.-prompt (aget (.-phases (.-response (aget saved 0))) 0)))]
+                     (is (= "math-source" (aget files "src/demo/math.cljk")))
+                     (is (= "api-source" (aget files "src/demo/api.cljk")))
+                     (is (nil? (aget files "src"))))))
+          (.catch (fn [e] (is false (str e))))
+          (.finally (fn [] (.rmSync fs root #js {:recursive true :force true}) (done)))))))
+(deftest provider-failures-preserve-diagnostics-without-invented-token-counts
+  (async done
+    (let [{:keys [fs root helper]} (fixture) audit (atom [])]
+      (.writeFileSync fs helper "console.error('fixture-provider-error');process.exit(3);")
+      (-> ((generator/offline (.-execPath js/process) helper root root audit "clef") {:goal "fixture"})
+          (.then (fn [_] (is false "Provider failure must reject")))
+          (.catch (fn [_]
+                    (is (= 3 (:provider-exit (first @audit))))
+                    (is (= "fixture-provider-error\n" (:stderr (first @audit))))
+                    (is (nil? (:response (first @audit))))
+                    (is (pos? (:wall-ms (first @audit))))))
+          (.finally (fn [] (.rmSync fs root #js {:recursive true :force true}) (done)))))))
+(deftest cancelling-generation-stops-the-owned-process-before-cleanup
+  (async done
+    (let [{:keys [fs root helper]} (fixture) audit (atom []) controller (js/AbortController.)
+          started (.now js/performance) timer (atom nil)]
+      (.writeFileSync fs helper "console.error('ready');setInterval(()=>{},1000);")
+      (reset! timer (js/setTimeout #(.abort controller) 100))
+      (-> ((generator/offline (.-execPath js/process) helper root root audit "mlx-coder" (.-signal controller)) {:goal "fixture"})
+          (.then (fn [_] (is false "Cancelled generation must reject")))
+          (.catch (fn [_]
+                    (is (true? (:cancelled? (first @audit))))
+                    (is (true? (:quiescent? (first @audit))))
+                    (is (< (- (.now js/performance) started) 6000))
+                    (is (nil? (:response (first @audit))))))
+          (.finally (fn [] (js/clearTimeout @timer) (.rmSync fs root #js {:recursive true :force true}) (done)))))))
+
+(deftest generated-unicode-survives-a-process-chunk-split
+  (async done
+    (let [{:keys [fs root helper]} (fixture) audit (atom [])]
+      (.writeFileSync fs helper
+        "const b=Buffer.from(JSON.stringify({finish_reason:'stop',text:JSON.stringify({edits:[{path:'src/demo.cljk',content:'字'}]})}));const i=b.indexOf(Buffer.from('字'));process.stdout.write(b.subarray(0,i+1));setTimeout(()=>process.stdout.write(b.subarray(i+1)),30);")
+      (-> ((generator/offline (.-execPath js/process) helper root root audit "mlx-coder") {:goal "fixture"})
+          (.then (fn [edits] (is (= "字" (:content (first edits))))))
+          (.catch (fn [e] (is false (str e))))
+          (.finally (fn [] (.rmSync fs root #js {:recursive true :force true}) (done)))))))

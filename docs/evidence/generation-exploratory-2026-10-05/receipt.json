@@ -1,0 +1,198 @@
+{
+  "format": "mithril.generated-coding/v1",
+  "attempts": [
+    {
+      "attempt": 1,
+      "request": {
+        "goal": "Implement clamp(x, low, high) in src/demo/math.cljk and expose clamp-positive(x) from src/demo/api.cljk using bounds 0 and 10. Use CLJK (ClojureScript) namespaces and defn functions. Handle below, within and above the bounds. Return complete source files; do not edit the locked checks.",
+        "files": {
+          "src/demo/math.cljk": "(ns demo.math)\n(defn clamp [x low high] x)\n",
+          "src/demo/api.cljk": "(ns demo.api (:require [demo.math :as math]))\n(defn clamp-positive [x] x)\n"
+        },
+        "locked-inputs": [
+          "checks-low.cljk",
+          "checks-high.cljk"
+        ],
+        "max-files": 8,
+        "max-bytes": 65536,
+        "diagnostics": null
+      },
+      "error": "#error {:message \"agent harness refused\", :data {:reason :generation-json}}"
+    },
+    {
+      "attempt": 2,
+      "request": {
+        "goal": "Implement clamp(x, low, high) in src/demo/math.cljk and expose clamp-positive(x) from src/demo/api.cljk using bounds 0 and 10. Use CLJK (ClojureScript) namespaces and defn functions. Handle below, within and above the bounds. Return complete source files; do not edit the locked checks.",
+        "files": {
+          "src/demo/math.cljk": "(ns demo.math)\n(defn clamp [x low high] x)\n",
+          "src/demo/api.cljk": "(ns demo.api (:require [demo.math :as math]))\n(defn clamp-positive [x] x)\n"
+        },
+        "locked-inputs": [
+          "checks-low.cljk",
+          "checks-high.cljk"
+        ],
+        "max-files": 8,
+        "max-bytes": 65536,
+        "diagnostics": "#error {:message \"agent harness refused\", :data {:reason :generation-json}}"
+      },
+      "error": "#error {:message \"agent harness refused\", :data {:reason :generation-json}}"
+    },
+    {
+      "attempt": 3,
+      "request": {
+        "goal": "Implement clamp(x, low, high) in src/demo/math.cljk and expose clamp-positive(x) from src/demo/api.cljk using bounds 0 and 10. Use CLJK (ClojureScript) namespaces and defn functions. Handle below, within and above the bounds. Return complete source files; do not edit the locked checks.",
+        "files": {
+          "src/demo/math.cljk": "(ns demo.math)\n(defn clamp [x low high] x)\n",
+          "src/demo/api.cljk": "(ns demo.api (:require [demo.math :as math]))\n(defn clamp-positive [x] x)\n"
+        },
+        "locked-inputs": [
+          "checks-low.cljk",
+          "checks-high.cljk"
+        ],
+        "max-files": 8,
+        "max-bytes": 65536,
+        "diagnostics": "#error {:message \"agent harness refused\", :data {:reason :generation-json}}"
+      },
+      "error": "#error {:message \"agent harness refused\", :data {:reason :generation-json}}"
+    }
+  ],
+  "mode": "generate",
+  "state": {
+    "session-id": "4316c7b1-d28c-44d0-866e-bda1c745afa6",
+    "pending": null,
+    "completed": [
+      "generate-verify"
+    ],
+    "steps": 1,
+    "phase": "interrupted",
+    "journal": [
+      {
+        "event": "start",
+        "call-id": "https://mithril.fund/port/agent/generated-v1/session/4316c7b1-d28c-44d0-866e-bda1c745afa6/call/0",
+        "label": "generate-verify"
+      },
+      {
+        "event": "end",
+        "call-id": "https://mithril.fund/port/agent/generated-v1/session/4316c7b1-d28c-44d0-866e-bda1c745afa6/call/0",
+        "receipt": {
+          "ok?": false,
+          "summary": "Generated patch failed admission; repository unchanged.",
+          "output-digest": "50ca418f99ae2b7c4d0924417f7b9731b07d2cfd89b93ae770a83e2601844b0d"
+        }
+      }
+    ],
+    "active": [
+      "workspace"
+    ],
+    "profile-id": "https://mithril.fund/port/agent/generated-v1",
+    "calls": 1,
+    "facts": [],
+    "results": [
+      {
+        "call-id": "https://mithril.fund/port/agent/generated-v1/session/4316c7b1-d28c-44d0-866e-bda1c745afa6/call/0",
+        "operation": "coding/generate-verify",
+        "receipt": {
+          "ok?": false,
+          "summary": "Generated patch failed admission; repository unchanged.",
+          "output-digest": "50ca418f99ae2b7c4d0924417f7b9731b07d2cfd89b93ae770a83e2601844b0d"
+        }
+      }
+    ]
+  },
+  "model-turns": [
+    {
+      "request": {
+        "goal": "Implement clamp(x, low, high) in src/demo/math.cljk and expose clamp-positive(x) from src/demo/api.cljk using bounds 0 and 10. Use CLJK (ClojureScript) namespaces and defn functions. Handle below, within and above the bounds. Return complete source files; do not edit the locked checks.",
+        "files": {
+          "src/demo/math.cljk": "(ns demo.math)\n(defn clamp [x low high] x)\n",
+          "src/demo/api.cljk": "(ns demo.api (:require [demo.math :as math]))\n(defn clamp-positive [x] x)\n"
+        },
+        "locked-inputs": [
+          "checks-low.cljk",
+          "checks-high.cljk"
+        ],
+        "max-files": 8,
+        "max-bytes": 65536,
+        "diagnostics": null
+      },
+      "response": {
+        "finish_reason": "stop",
+        "mechanism": "clef-backbone-autoregressive",
+        "input_tokens": 323,
+        "generation_seconds": 3.681171042029746,
+        "load_seconds": 4.330071999982465,
+        "generation_tokens_per_second": 54.2802418757444,
+        "peak_memory_gb": 6.28369738,
+        "output_tokens": 85,
+        "text": "{\"src/demo/math.cljk\": \"(ns demo.math)\\n(defn clamp [x low high] (if (x < low) low (if (> x high) high x)))\\n\", \"src/demo/api.cljk\": (ns demo.api (:require [demo.math :as math])\\n(defn clamp-positive [x] (math/clamp x 0 10))\\n}"
+      },
+      "wall-ms": 13486.617792000001
+    },
+    {
+      "request": {
+        "goal": "Implement clamp(x, low, high) in src/demo/math.cljk and expose clamp-positive(x) from src/demo/api.cljk using bounds 0 and 10. Use CLJK (ClojureScript) namespaces and defn functions. Handle below, within and above the bounds. Return complete source files; do not edit the locked checks.",
+        "files": {
+          "src/demo/math.cljk": "(ns demo.math)\n(defn clamp [x low high] x)\n",
+          "src/demo/api.cljk": "(ns demo.api (:require [demo.math :as math]))\n(defn clamp-positive [x] x)\n"
+        },
+        "locked-inputs": [
+          "checks-low.cljk",
+          "checks-high.cljk"
+        ],
+        "max-files": 8,
+        "max-bytes": 65536,
+        "diagnostics": "#error {:message \"agent harness refused\", :data {:reason :generation-json}}"
+      },
+      "response": {
+        "finish_reason": "stop",
+        "mechanism": "clef-backbone-autoregressive",
+        "input_tokens": 339,
+        "generation_seconds": 4.546131415991113,
+        "load_seconds": 4.070501500042155,
+        "generation_tokens_per_second": 45.39211044908155,
+        "peak_memory_gb": 6.22699232,
+        "output_tokens": 103,
+        "text": "{\"edits\":\n{\"path\":src/demo/math.cljk\", \"content\": \"(ns demo.math)\\n(defn clamp [x low high] (if (x < low) low (if (x > high) high x))\\n\",\n{\"path\":src/demo/api.cljk\", \"content\": (ns demo.api (:require [demo.math :as math])\\n(defn clamp-positive [x] (math/clamp x 0 10))\\n\"}]"
+      },
+      "wall-ms": 12191.463541999998
+    },
+    {
+      "request": {
+        "goal": "Implement clamp(x, low, high) in src/demo/math.cljk and expose clamp-positive(x) from src/demo/api.cljk using bounds 0 and 10. Use CLJK (ClojureScript) namespaces and defn functions. Handle below, within and above the bounds. Return complete source files; do not edit the locked checks.",
+        "files": {
+          "src/demo/math.cljk": "(ns demo.math)\n(defn clamp [x low high] x)\n",
+          "src/demo/api.cljk": "(ns demo.api (:require [demo.math :as math]))\n(defn clamp-positive [x] x)\n"
+        },
+        "locked-inputs": [
+          "checks-low.cljk",
+          "checks-high.cljk"
+        ],
+        "max-files": 8,
+        "max-bytes": 65536,
+        "diagnostics": "#error {:message \"agent harness refused\", :data {:reason :generation-json}}"
+      },
+      "response": {
+        "finish_reason": "stop",
+        "mechanism": "clef-backbone-autoregressive",
+        "input_tokens": 339,
+        "generation_seconds": 4.95955737499753,
+        "load_seconds": 4.932318167004269,
+        "generation_tokens_per_second": 37.22091373074169,
+        "peak_memory_gb": 6.226975936,
+        "output_tokens": 103,
+        "text": "{\"edits\":\n{\"path\":src/demo/math.cljk\", \"content\": \"(ns demo.math)\\n(defn clamp [x low high] (if (x < low) low (if (x > high) high x))\\n\",\n{\"path\":src/demo/api.cljk\", \"content\": (ns demo.api (:require [demo.math :as math])\\n(defn clamp-positive [x] (math/clamp x 0 10))\\n\"}]"
+      },
+      "wall-ms": 13549.095082999997
+    }
+  ],
+  "status": "interrupted",
+  "wall-ms": 39328.566333,
+  "error": null,
+  "cost": {
+    "api-currency": "JPY",
+    "api-amount": 0,
+    "execution": "offline-local",
+    "electricity": "unmeasured",
+    "device-amortization": "unmeasured"
+  }
+}

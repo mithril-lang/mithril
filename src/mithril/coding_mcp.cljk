@@ -1,0 +1,93 @@
+(ns mithril.coding-mcp
+  "Local MCP consumer of the shared Mithril runner; task capabilities come from the host template."
+  (:require [mithril.generated-runner :as runner] [mithril.patch :as patch] [mithril.harness :as h]))
+(def tool
+  {:name "mithril_code"
+   :description "Generate, test and retain source changes for the requested task in the configured local repository. Verification commands and file access come from the host configuration."
+   :inputSchema {:type "object" :properties {:goal {:type "string" :minLength 1 :maxLength 16384
+                                                  :description "Task text, at most 16384 UTF-8 bytes."}}
+                 :required ["goal"] :additionalProperties false}})
+(defn response [id result] {:jsonrpc "2.0" :id id :result result})
+(defn failure [id code message] {:jsonrpc "2.0" :id id :error {:code code :message message}})
+(defn state [] (atom {:initialized? false :closed? false :active nil :requests #{}}))
+(defn cancel! [cell request-id]
+  (when-let [{:keys [id controller]} (:active @cell)]
+    (when (or (nil? request-id) (= id request-id)) (.abort controller))))
+(defn close! [cell]
+  (swap! cell assoc :closed? true)
+  (cancel! cell nil)
+  (or (get-in @cell [:active :done]) (js/Promise.resolve nil)))
+(defn task-with-goal [template goal]
+  (when-not (and (string? goal) (not= "" (.trim goal)) (<= (.-length (js/Buffer.from goal)) 16384))
+    (h/refuse :coding-goal-budget))
+  (patch/read-task (.stringify js/JSON (clj->js (assoc template :goal goal)))))
+(defn run-call! [cell config id params]
+  (when (or (:closed? @cell) (:active @cell)) (h/refuse :coding-busy-or-closed))
+  (when-not (and (= "mithril_code" (:name params))
+                 (= #{:goal} (set (keys (:arguments params))))) (h/refuse :coding-tool-arguments))
+  (let [task (task-with-goal (:template config) (get-in params [:arguments :goal]))
+        fs (js/require "node:fs") path (js/require "node:path")
+        _ (.mkdirSync fs (:sessions-root config) #js {:recursive true :mode 448})
+        directory (.mkdtempSync fs (.join path (:sessions-root config) "run-"))
+        output (.join path directory "receipt.json") controller (js/AbortController.)]
+    (swap! cell assoc :active {:id id :controller controller})
+    (let [done
+          (-> (runner/run! (assoc (dissoc config :template :sessions-root) :task task :directory directory
+                                 :output output :mode "generate" :signal (.-signal controller)))
+              (.then (fn [{:keys [receipt metrics]}]
+                       (let [value {:status (:status receipt) :success (:success metrics)
+                                    :receipt-id (.basename path directory) :receipt-sha256 (:receipt-sha256 metrics)
+                                    :changed-files (if (:success metrics)
+                                                     (mapv :path (:edits (last (:attempts receipt)))) [])
+                                    :attempts (:attempts metrics) :provider-failures (:provider-failures metrics)
+                                    :timing (:timing metrics) :input-tokens (:input-tokens metrics)
+                                    :output-tokens (:output-tokens metrics) :cost (:cost metrics)
+                                    :verification-passed (:verification-passed metrics)
+                                    :max-concurrent-checks (:max-concurrent-checks metrics)
+                                    :cancelled (boolean (some :cancelled? (:model-turns receipt)))
+                                    :error (:error receipt)}]
+                         {:content [{:type "text" :text (.stringify js/JSON (clj->js value))}]
+                          :structuredContent value :isError (not (:success metrics))})))
+              (.finally (fn [] (swap! cell assoc :active nil))))]
+      (swap! cell assoc-in [:active :done] done)
+      done)))
+(defn rpc! [cell config request]
+  (let [version (get-in request [:params :_meta :io.modelcontextprotocol/protocolVersion])
+        modern? (= "2026-07-28" version)
+        reply (fn [id value] (response id (cond-> value modern? (assoc :resultType "complete"))))]
+  (-> (js/Promise.resolve nil)
+      (.then (fn [_]
+               (when-not (and (map? request) (= "2.0" (:jsonrpc request)) (string? (:method request)))
+                 (h/refuse :coding-rpc-envelope))
+               (when-not (and (or (nil? version) modern?)
+                              (or (not modern?) (map? (get-in request [:params :_meta :io.modelcontextprotocol/clientCapabilities]))))
+                 (h/refuse :coding-protocol-metadata))
+               (let [{:keys [id method params]} request]
+                 (case method
+                   "notifications/cancelled" (do (when (some? (:requestId params)) (cancel! cell (:requestId params))) nil)
+                   "notifications/initialized" nil
+                   "ping" (reply id {})
+                   "server/discover"
+                   (if modern?
+                     (reply id {:protocolVersion version :capabilities {:tools {}}
+                                :serverInfo {:name "mithril-coding" :version "0.1.0"}})
+                     (failure id -32601 "Modern discovery requires protocol metadata"))
+                   "initialize"
+                   (do
+                     (when (or (:closed? @cell) (:initialized? @cell)) (h/refuse :coding-initialized))
+                     (when-not (contains? #{"2025-03-26" "2025-06-18" "2025-11-25"} (:protocolVersion params))
+                       (h/refuse :coding-protocol-version))
+                     (swap! cell assoc :initialized? true)
+                     (reply id {:protocolVersion (:protocolVersion params) :capabilities {:tools {}}
+                                   :serverInfo {:name "mithril-coding" :version "0.1.0"}}))
+                   (do
+                     (when-not (and (or modern? (:initialized? @cell)) (not (:closed? @cell))) (h/refuse :coding-not-initialized))
+                     (when-not (and (or (string? id) (and (number? id) (js/Number.isSafeInteger id)))
+                                    (not (contains? (:requests @cell) id)) (< (count (:requests @cell)) 128))
+                       (h/refuse :coding-request-budget))
+                     (swap! cell update :requests conj id)
+                     (case method
+                       "tools/list" (reply id {:tools [tool]})
+                       "tools/call" (-> (run-call! cell config id params) (.then #(reply id %)))
+                       (failure id -32601 "Method not found")))))))
+      (.catch (fn [e] (when (contains? request :id) (failure (:id request) -32602 (str e))))))))

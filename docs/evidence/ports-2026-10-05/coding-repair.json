@@ -1,0 +1,51 @@
+{
+  "format": "mithril.port-development/v1",
+  "experiment": "explicit zero-budget mutation; not novel autonomous source generation",
+  "source": "/Users/junkawasaki/github/mithril-lang/mithril/ports/policy.kotoba",
+  "source_sha256": "1d36bc758e4a76a52c6eb632cc8f2e8d73acf2186a88cfa7f0bc5e548fcbb8d3",
+  "decision": {
+    "questions": {
+      "next_action": {
+        "action-a": 0.9674448370933533,
+        "action-b": 0.015203423798084259,
+        "action-c": 0.01735171489417553
+      }
+    },
+    "input_tokens": 480,
+    "inference_seconds": 1.5661533750244416
+  },
+  "repair": {
+    "input_sha256": "46dae0949a29e2fa53fecdd92290ece21f8631d6b6983c4c0d55cd373ce51365",
+    "format": "mithril.verified-coding/v1",
+    "native_executed": false,
+    "attempts": [
+      {
+        "candidate": "action-a",
+        "verification": {
+          "compiled": true,
+          "passed": true,
+          "diagnostic": "{:format :kotoba.test-report/v1, :ok true, :test-kir-sha256 \"acdfeae96453800620d0c193ccc02d8e207528ee2675978d79edce504f9c15aa\", :tests [test-negative test-zero test-one test-many], :targets [:jvm-kir :js :wasm], :results {:jvm-kir [{:test test-negative, :ok true} {:test test-zero, :ok true} {:test test-one, :ok true} {:test test-many, :ok true}], :js [{:test \"test-negative\", :ok true} {:test \"test-zero\", :ok true} {:test \"test-one\", :ok true} {:test \"test-many\", :ok true}], :wasm [{:test \"test-negative\", :ok true} {:test \"test-zero\", :ok true} {:test \"test-one\", :ok true} {:test \"test-many\", :ok true}]}, :failed []}\n"
+        }
+      }
+    ],
+    "source": "(ns coding.program (:export [f test-negative test-zero test-one test-many main]))\n;; Shared, compiled dispatch-budget decision. No host or OS capability.\n(defn f [n :i64] :i64 (if (> n 0) 1 0))\n(defn test-negative [] :i64 (if (= (f -1) 0) 1 0))\n(defn test-zero [] :i64 (if (= (f 0) 0) 1 0))\n(defn test-one [] :i64 (if (= (f 1) 1) 1 0))\n(defn test-many [] :i64 (if (= (f 100) 1) 1 0))\n(defn main [] :i64 (f 0))\n",
+    "status": "verified",
+    "compiler": "amu/ac99fd3c40180fd5cbd3865cb0868b52d8b9ff6a",
+    "initial": {
+      "compiled": true,
+      "passed": false,
+      "diagnostic": "{:format :kotoba.test-report/v1, :ok false, :test-kir-sha256 \"de9794ba3fb8cdabb17f87d148f1eb072e3066c9000fdf82f66a0b42c52c0747\", :tests [test-negative test-zero test-one test-many], :targets [:jvm-kir :js :wasm], :results {:jvm-kir [{:test test-negative, :ok true} {:test test-zero, :ok false} {:test test-one, :ok true} {:test test-many, :ok true}], :js [{:test \"test-negative\", :ok true} {:test \"test-zero\", :ok false} {:test \"test-one\", :ok true} {:test \"test-many\", :ok true}], :wasm [{:test \"test-negative\", :ok true} {:test \"test-zero\", :ok false} {:test \"test-one\", :ok true} {:test \"test-many\", :ok true}]}, :failed [{:test test-zero, :ok false, :target :jvm-kir} {:test \"test-zero\", :ok false, :target :js} {:test \"test-zero\", :ok false, :target :wasm}]}\n"
+    },
+    "output_sha256": "b9fa0d5a155ec2efc0be0a13616b673d567ea79a527fd20091af0dcd708d60ab",
+    "decision": {
+      "probabilities": {
+        "action-a": 0.9674448370933533,
+        "action-b": 0.015203423798084259,
+        "action-c": 0.01735171489417553
+      },
+      "confidence": 0.9674448370933533
+    }
+  },
+  "scratch": "/tmp/mithril-port-development-ezrxmxos",
+  "original_unchanged": true
+}

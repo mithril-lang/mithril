@@ -1,0 +1,316 @@
+{
+  "format": "mithril.generated-coding/v1",
+  "attempts": [
+    {
+      "attempt": 1,
+      "request": {
+        "goal": "Implement clamp(x, low, high) in src/demo/math.cljk and expose clamp-positive(x) from src/demo/api.cljk using bounds 0 and 10. Use CLJK (ClojureScript) namespaces and defn functions. Handle below, within and above the bounds. Return complete source files; do not edit the locked checks.",
+        "files": {
+          "src/demo/math.cljk": "(ns demo.math)\n(defn clamp [x low high] x)\n",
+          "src/demo/api.cljk": "(ns demo.api (:require [demo.math :as math]))\n(defn clamp-positive [x] x)\n"
+        },
+        "locked-inputs": [
+          "checks-low.cljk",
+          "checks-high.cljk"
+        ],
+        "max-files": 8,
+        "max-bytes": 65536,
+        "diagnostics": null
+      },
+      "error": "#error {:message \"agent harness refused\", :data {:reason :generation-provider-failed}}"
+    },
+    {
+      "attempt": 2,
+      "request": {
+        "goal": "Implement clamp(x, low, high) in src/demo/math.cljk and expose clamp-positive(x) from src/demo/api.cljk using bounds 0 and 10. Use CLJK (ClojureScript) namespaces and defn functions. Handle below, within and above the bounds. Return complete source files; do not edit the locked checks.",
+        "files": {
+          "src/demo/math.cljk": "(ns demo.math)\n(defn clamp [x low high] x)\n",
+          "src/demo/api.cljk": "(ns demo.api (:require [demo.math :as math]))\n(defn clamp-positive [x] x)\n"
+        },
+        "locked-inputs": [
+          "checks-low.cljk",
+          "checks-high.cljk"
+        ],
+        "max-files": 8,
+        "max-bytes": 65536,
+        "diagnostics": "#error {:message \"agent harness refused\", :data {:reason :generation-provider-failed}}"
+      },
+      "edits": [
+        {
+          "path": "src/demo/math.cljk",
+          "content": "math.cljk: (defn clamp [x low high] (if (< x low) low (if (> x high) high x))\napi.cljk: (defn clamp-positive [x] (math/clamp x 0 10)"
+        },
+        {
+          "path": "src/demo/api.cljk",
+          "content": "math.cljk:(defn clamp [x low high] (if (< x low) low (if (> x high) high x))\napi.cljk:(defn clamp-positive [x] (math/clamp x 0 10)}"
+        }
+      ],
+      "verification": {
+        "passed": false,
+        "results": [
+          {
+            "status": "fulfilled",
+            "value": {
+              "exit-code": 1,
+              "passed": false,
+              "output-limit?": false,
+              "started-ms": 34286.761,
+              "timed-out?": false,
+              "id": "checks-low",
+              "wall-ms": 203.2512080000015,
+              "ended-ms": 34490.004791,
+              "source-unchanged?": true,
+              "stderr": "----- Error --------------------------------------\nMessage:  Invalid symbol: math.cljk:\nLocation: /private/var/folders/h_/bx1m0lv90qxb1sdrx5tqn8b80000gn/T/mithril-patch-checks-G7n1Qe/checks-low/src/demo/api.cljk:1:11\nPhase:    parse\n\n----- Context ------------------------------------\n1: math.cljk:(defn clamp [x low high] (if (< x low) low (if (> x high) high x))\n             ^--- Invalid symbol: math.cljk:\n2: api.cljk:(defn clamp-positive [x] (math/clamp x 0 10)}\nfile:///Users/junkawasaki/github/kotoba-lang/org-babashka-nbb/lib/nbb_main.js:13\n$APP.$G),$APP.a0);return g.B?g.B():g.call(null)}):null).then(function(g){$APP.k($APP.k(d)?g!=null:d)&&$APP.cz.o($APP.y([g],0));return g}).catch(function(g){$APP.Bla(g,b);$APP.k($APP.dz.h(b))&&console.error(g);throw Error($APP.Hk(g));})})):console.error(\"Usage: \"+$APP.I.h(\"nbb\")+\" \\x3cscript\\x3e or nbb -e \\x3cexpr\\x3e.\")})();\n                                                                                                                                                                                                                       ^\n\nError: Invalid symbol: math.cljk:\n    at file:///Users/junkawasaki/github/kotoba-lang/org-babashka-nbb/lib/nbb_main.js:13:216\n\nNode.js v26.0.0\n",
+              "signal": null,
+              "cancelled?": false,
+              "stdout": "",
+              "quiescent?": true
+            }
+          },
+          {
+            "status": "fulfilled",
+            "value": {
+              "exit-code": 1,
+              "passed": false,
+              "output-limit?": false,
+              "started-ms": 34290.154,
+              "timed-out?": false,
+              "id": "checks-high",
+              "wall-ms": 201.00341599999956,
+              "ended-ms": 34491.156083,
+              "source-unchanged?": true,
+              "stderr": "----- Error --------------------------------------\nMessage:  Invalid symbol: math.cljk:\nLocation: /private/var/folders/h_/bx1m0lv90qxb1sdrx5tqn8b80000gn/T/mithril-patch-checks-G7n1Qe/checks-high/src/demo/api.cljk:1:11\nPhase:    parse\n\n----- Context ------------------------------------\n1: math.cljk:(defn clamp [x low high] (if (< x low) low (if (> x high) high x))\n             ^--- Invalid symbol: math.cljk:\n2: api.cljk:(defn clamp-positive [x] (math/clamp x 0 10)}\nfile:///Users/junkawasaki/github/kotoba-lang/org-babashka-nbb/lib/nbb_main.js:13\n$APP.$G),$APP.a0);return g.B?g.B():g.call(null)}):null).then(function(g){$APP.k($APP.k(d)?g!=null:d)&&$APP.cz.o($APP.y([g],0));return g}).catch(function(g){$APP.Bla(g,b);$APP.k($APP.dz.h(b))&&console.error(g);throw Error($APP.Hk(g));})})):console.error(\"Usage: \"+$APP.I.h(\"nbb\")+\" \\x3cscript\\x3e or nbb -e \\x3cexpr\\x3e.\")})();\n                                                                                                                                                                                                                       ^\n\nError: Invalid symbol: math.cljk:\n    at file:///Users/junkawasaki/github/kotoba-lang/org-babashka-nbb/lib/nbb_main.js:13:216\n\nNode.js v26.0.0\n",
+              "signal": null,
+              "cancelled?": false,
+              "stdout": "",
+              "quiescent?": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "attempt": 3,
+      "request": {
+        "goal": "Implement clamp(x, low, high) in src/demo/math.cljk and expose clamp-positive(x) from src/demo/api.cljk using bounds 0 and 10. Use CLJK (ClojureScript) namespaces and defn functions. Handle below, within and above the bounds. Return complete source files; do not edit the locked checks.",
+        "files": {
+          "src/demo/math.cljk": "(ns demo.math)\n(defn clamp [x low high] x)\n",
+          "src/demo/api.cljk": "(ns demo.api (:require [demo.math :as math]))\n(defn clamp-positive [x] x)\n"
+        },
+        "locked-inputs": [
+          "checks-low.cljk",
+          "checks-high.cljk"
+        ],
+        "max-files": 8,
+        "max-bytes": 65536,
+        "diagnostics": {
+          "passed": false,
+          "results": [
+            {
+              "status": "fulfilled",
+              "value": {
+                "exit-code": 1,
+                "passed": false,
+                "output-limit?": false,
+                "started-ms": 34286.761,
+                "timed-out?": false,
+                "id": "checks-low",
+                "wall-ms": 203.2512080000015,
+                "ended-ms": 34490.004791,
+                "source-unchanged?": true,
+                "stderr": "----- Error --------------------------------------\nMessage:  Invalid symbol: math.cljk:\nLocation: /private/var/folders/h_/bx1m0lv90qxb1sdrx5tqn8b80000gn/T/mithril-patch-checks-G7n1Qe/checks-low/src/demo/api.cljk:1:11\nPhase:    parse\n\n----- Context ------------------------------------\n1: math.cljk:(defn clamp [x low high] (if (< x low) low (if (> x high) high x))\n             ^--- Invalid symbol: math.cljk:\n2: api.cljk:(defn clamp-positive [x] (math/clamp x 0 10)}\nfile:///Users/junkawasaki/github/kotoba-lang/org-babashka-nbb/lib/nbb_main.js:13\n$APP.$G),$APP.a0);return g.B?g.B():g.call(null)}):null).then(function(g){$APP.k($APP.k(d)?g!=null:d)&&$APP.cz.o($APP.y([g],0));return g}).catch(function(g){$APP.Bla(g,b);$APP.k($APP.dz.h(b))&&console.error(g);throw Error($APP.Hk(g));})})):console.error(\"Usage: \"+$APP.I.h(\"nbb\")+\" \\x3cscript\\x3e or nbb -e \\x3cexpr\\x3e.\")})();\n                                                                                                                                                                                                                       ^\n\nError: Invalid symbol: math.cljk:\n    at file:///Users/junkawasaki/github/kotoba-lang/org-babashka-nbb/lib/nbb_main.js:13:216\n\nNode.js v26.0.0\n",
+                "signal": null,
+                "cancelled?": false,
+                "stdout": "",
+                "quiescent?": true
+              }
+            },
+            {
+              "status": "fulfilled",
+              "value": {
+                "exit-code": 1,
+                "passed": false,
+                "output-limit?": false,
+                "started-ms": 34290.154,
+                "timed-out?": false,
+                "id": "checks-high",
+                "wall-ms": 201.00341599999956,
+                "ended-ms": 34491.156083,
+                "source-unchanged?": true,
+                "stderr": "----- Error --------------------------------------\nMessage:  Invalid symbol: math.cljk:\nLocation: /private/var/folders/h_/bx1m0lv90qxb1sdrx5tqn8b80000gn/T/mithril-patch-checks-G7n1Qe/checks-high/src/demo/api.cljk:1:11\nPhase:    parse\n\n----- Context ------------------------------------\n1: math.cljk:(defn clamp [x low high] (if (< x low) low (if (> x high) high x))\n             ^--- Invalid symbol: math.cljk:\n2: api.cljk:(defn clamp-positive [x] (math/clamp x 0 10)}\nfile:///Users/junkawasaki/github/kotoba-lang/org-babashka-nbb/lib/nbb_main.js:13\n$APP.$G),$APP.a0);return g.B?g.B():g.call(null)}):null).then(function(g){$APP.k($APP.k(d)?g!=null:d)&&$APP.cz.o($APP.y([g],0));return g}).catch(function(g){$APP.Bla(g,b);$APP.k($APP.dz.h(b))&&console.error(g);throw Error($APP.Hk(g));})})):console.error(\"Usage: \"+$APP.I.h(\"nbb\")+\" \\x3cscript\\x3e or nbb -e \\x3cexpr\\x3e.\")})();\n                                                                                                                                                                                                                       ^\n\nError: Invalid symbol: math.cljk:\n    at file:///Users/junkawasaki/github/kotoba-lang/org-babashka-nbb/lib/nbb_main.js:13:216\n\nNode.js v26.0.0\n",
+                "signal": null,
+                "cancelled?": false,
+                "stdout": "",
+                "quiescent?": true
+              }
+            }
+          ]
+        }
+      },
+      "error": "#error {:message \"agent harness refused\", :data {:reason :generation-provider-failed}}"
+    }
+  ],
+  "mode": "generate",
+  "state": {
+    "session-id": "44607438-9725-4b8c-8f4a-b1d609451d56",
+    "pending": null,
+    "completed": [
+      "generate-verify"
+    ],
+    "steps": 1,
+    "phase": "interrupted",
+    "journal": [
+      {
+        "event": "start",
+        "call-id": "https://mithril.fund/port/agent/generated-v1/session/44607438-9725-4b8c-8f4a-b1d609451d56/call/0",
+        "label": "generate-verify"
+      },
+      {
+        "event": "end",
+        "call-id": "https://mithril.fund/port/agent/generated-v1/session/44607438-9725-4b8c-8f4a-b1d609451d56/call/0",
+        "receipt": {
+          "ok?": false,
+          "summary": "Generated patch failed admission; repository unchanged.",
+          "output-digest": "78724fdacc62d0394c805d0a54da813a3dbd40b40c1da6f1d809b08e686e43a4"
+        }
+      }
+    ],
+    "active": [
+      "workspace"
+    ],
+    "profile-id": "https://mithril.fund/port/agent/generated-v1",
+    "calls": 1,
+    "facts": [],
+    "results": [
+      {
+        "call-id": "https://mithril.fund/port/agent/generated-v1/session/44607438-9725-4b8c-8f4a-b1d609451d56/call/0",
+        "operation": "coding/generate-verify",
+        "receipt": {
+          "ok?": false,
+          "summary": "Generated patch failed admission; repository unchanged.",
+          "output-digest": "78724fdacc62d0394c805d0a54da813a3dbd40b40c1da6f1d809b08e686e43a4"
+        }
+      }
+    ]
+  },
+  "model-turns": [
+    {
+      "request": {
+        "goal": "Implement clamp(x, low, high) in src/demo/math.cljk and expose clamp-positive(x) from src/demo/api.cljk using bounds 0 and 10. Use CLJK (ClojureScript) namespaces and defn functions. Handle below, within and above the bounds. Return complete source files; do not edit the locked checks.",
+        "files": {
+          "src/demo/math.cljk": "(ns demo.math)\n(defn clamp [x low high] x)\n",
+          "src/demo/api.cljk": "(ns demo.api (:require [demo.math :as math]))\n(defn clamp-positive [x] x)\n"
+        },
+        "locked-inputs": [
+          "checks-low.cljk",
+          "checks-high.cljk"
+        ],
+        "max-files": 8,
+        "max-bytes": 65536,
+        "diagnostics": "#error {:message \"agent harness refused\", :data {:reason :generation-provider-failed}}"
+      },
+      "response": {
+        "finish_reason": "json-complete",
+        "mechanism": "clef-backbone-autoregressive-file-plan",
+        "input_tokens": 921,
+        "generation_seconds": 8.585916082956828,
+        "phases": [
+          {
+            "prompt": {
+              "goal": "Implement clamp(x, low, high) in src/demo/math.cljk and expose clamp-positive(x) from src/demo/api.cljk using bounds 0 and 10. Use CLJK (ClojureScript) namespaces and defn functions. Handle below, within and above the bounds. Return complete source files; do not edit the locked checks.",
+              "files": {
+                "src": "(ns demo.api (:require [demo.math :as math]))\n(defn clamp-positive [x] x)\n"
+              },
+              "locked-inputs": [
+                "checks-low.cljk",
+                "checks-high.cljk"
+              ],
+              "max-files": 8,
+              "max-bytes": 65536,
+              "diagnostics": "#error {:message \"agent harness refused\", :data {:reason :generation-provider-failed}}"
+            },
+            "output": {
+              "paths": [
+                "src/demo/math.cljk",
+                "src/demo/api.cljk"
+              ]
+            },
+            "input_tokens": 256,
+            "output_tokens": 20,
+            "generation_seconds": 1.92147791699972,
+            "peak_memory_gb": 6.14937506
+          },
+          {
+            "prompt": {
+              "task": "Implement clamp(x, low, high) in src/demo/math.cljk and expose clamp-positive(x) from src/demo/api.cljk using bounds 0 and 10. Use CLJK (ClojureScript) namespaces and defn functions. Handle below, within and above the bounds. Return complete source files; do not edit the locked checks.",
+              "destination": "src/demo/math.cljk",
+              "repository-files": {
+                "src": "(ns demo.api (:require [demo.math :as math]))\n(defn clamp-positive [x] x)\n"
+              },
+              "already-generated": [
+                {
+                  "path": "src/demo/math.cljk",
+                  "content": "math.cljk: (defn clamp [x low high] (if (< x low) low (if (> x high) high x))\napi.cljk: (defn clamp-positive [x] (math/clamp x 0 10)"
+                },
+                {
+                  "path": "src/demo/api.cljk",
+                  "content": "math.cljk:(defn clamp [x low high] (if (< x low) low (if (> x high) high x))\napi.cljk:(defn clamp-positive [x] (math/clamp x 0 10)}"
+                }
+              ],
+              "diagnostics": "#error {:message \"agent harness refused\", :data {:reason :generation-provider-failed}}"
+            },
+            "output": {
+              "content": "math.cljk: (defn clamp [x low high] (if (< x low) low (if (> x high) high x))\napi.cljk: (defn clamp-positive [x] (math/clamp x 0 10)"
+            },
+            "input_tokens": 298,
+            "output_tokens": 62,
+            "generation_seconds": 2.822992958012037,
+            "peak_memory_gb": 6.232284388
+          },
+          {
+            "prompt": {
+              "task": "Implement clamp(x, low, high) in src/demo/math.cljk and expose clamp-positive(x) from src/demo/api.cljk using bounds 0 and 10. Use CLJK (ClojureScript) namespaces and defn functions. Handle below, within and above the bounds. Return complete source files; do not edit the locked checks.",
+              "destination": "src/demo/api.cljk",
+              "repository-files": {
+                "src": "(ns demo.api (:require [demo.math :as math]))\n(defn clamp-positive [x] x)\n"
+              },
+              "already-generated": [
+                {
+                  "path": "src/demo/math.cljk",
+                  "content": "math.cljk: (defn clamp [x low high] (if (< x low) low (if (> x high) high x))\napi.cljk: (defn clamp-positive [x] (math/clamp x 0 10)"
+                },
+                {
+                  "path": "src/demo/api.cljk",
+                  "content": "math.cljk:(defn clamp [x low high] (if (< x low) low (if (> x high) high x))\napi.cljk:(defn clamp-positive [x] (math/clamp x 0 10)}"
+                }
+              ],
+              "diagnostics": "#error {:message \"agent harness refused\", :data {:reason :generation-provider-failed}}"
+            },
+            "output": {
+              "content": "math.cljk:(defn clamp [x low high] (if (< x low) low (if (> x high) high x))\napi.cljk:(defn clamp-positive [x] (math/clamp x 0 10)}"
+            },
+            "input_tokens": 367,
+            "output_tokens": 60,
+            "generation_seconds": 3.841445207945071,
+            "peak_memory_gb": 6.25890837
+          }
+        ],
+        "load_seconds": 1.8163906250265427,
+        "peak_memory_gb": 6.25890837,
+        "output_tokens": 142,
+        "text": "{\"edits\": [{\"path\": \"src/demo/math.cljk\", \"content\": \"math.cljk: (defn clamp [x low high] (if (< x low) low (if (> x high) high x))\\napi.cljk: (defn clamp-positive [x] (math/clamp x 0 10)\"}, {\"path\": \"src/demo/api.cljk\", \"content\": \"math.cljk:(defn clamp [x low high] (if (< x low) low (if (> x high) high x))\\napi.cljk:(defn clamp-positive [x] (math/clamp x 0 10)}\"}]}"
+      },
+      "wall-ms": 17611.929042
+    }
+  ],
+  "status": "interrupted",
+  "wall-ms": 71767.819666,
+  "error": null,
+  "cost": {
+    "api-currency": "JPY",
+    "api-amount": 0,
+    "execution": "offline-local",
+    "electricity": "unmeasured",
+    "device-amortization": "unmeasured"
+  }
+}

@@ -1,0 +1,14 @@
+(ns mithril.port-kernel "Native Kotoba policy compiled to Wasm; never a JS fallback.")
+(def fs (js/require "node:fs"))
+(def crypto (js/require "node:crypto"))
+(defn digest [bytes] (.digest (.update (.createHash crypto "sha256") bytes) "hex"))
+(defn load! [manifest-path source-path]
+  (let [m (js->clj (.parse js/JSON (.readFileSync fs manifest-path "utf8")) :keywordize-keys true)
+        bytes (.readFileSync fs (:wasm m))]
+    (when-not (and (= (:source-sha256 m) (digest (.readFileSync fs source-path)))
+                   (= (:wasm-sha256 m) (digest bytes)))
+      (throw (ex-info "compiled policy does not match source/artifact" {:reason :kernel-drift})))
+    (let [instance (js/WebAssembly.Instance. (js/WebAssembly.Module. bytes) #js {})
+          f (.-f (.-exports instance))]
+      (when-not (fn? f) (throw (ex-info "policy export absent" {:reason :kernel-export})))
+      (fn [n] (and (js/Number.isSafeInteger n) (= (js/BigInt 1) (f (js/BigInt n))))))))

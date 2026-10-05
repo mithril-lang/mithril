@@ -1,0 +1,60 @@
+(ns mithril.session
+  "Local durable checkpoints. Exclusive ownership, atomic replacement, explicit uncertain-effect boundary."
+  (:require [cljs.reader :as reader] [mithril.harness :as harness] [mithril.port-kernel :as kernel]))
+(def fs (js/require "node:fs"))
+(def path (js/require "node:path"))
+(defn canonical [x]
+  (cond (map? x) (into (sorted-map-by #(compare (pr-str %1) (pr-str %2)))
+                       (map (fn [[k v]] [k (canonical v)]) x))
+        (set? x) (vec (sort-by pr-str (map canonical x)))
+        (sequential? x) (mapv canonical x)
+        :else x))
+(defn binding-digest [profile binding]
+  (kernel/digest (js/Buffer.from (pr-str (canonical {:profile profile :binding binding})))))
+(defn atomic-write! [file text]
+  (let [tmp (str file "." (.randomUUID (js/require "node:crypto")) ".tmp")
+        fd (.openSync fs tmp "wx" (if (.existsSync fs file) (bit-and 511 (.-mode (.statSync fs file))) 384))]
+    (try
+      (.writeFileSync fs fd text "utf8") (.fsyncSync fs fd) (.closeSync fs fd)
+      (.renameSync fs tmp file)
+      (let [dir (.openSync fs (.dirname path file) "r")]
+        (try (.fsyncSync fs dir) (finally (.closeSync fs dir))))
+      (catch :default e
+        (try (.closeSync fs fd) (catch :default _ nil))
+        (try (.unlinkSync fs tmp) (catch :default _ nil)) (throw e)))))
+(defn open! [directory profile binding]
+  (.mkdirSync fs directory #js {:recursive true :mode 448})
+  (let [directory (.realpathSync fs directory) lock (.join path directory "owner.lock")
+        token (.randomUUID (js/require "node:crypto"))
+        fd (try (.openSync fs lock "wx" 384)
+                (catch :default _ (harness/refuse :session-owned-or-stale-lock)))]
+    (try (.writeFileSync fs fd (pr-str {:pid (.-pid js/process) :token token}) "utf8") (.fsyncSync fs fd)
+         (finally (.closeSync fs fd)))
+    {:directory directory :lock lock :token token :file (.join path directory "checkpoint.edn")
+     :binding (binding-digest profile binding)}))
+(defn owned! [store]
+  (when-not (= (:token store) (:token (reader/read-string (.readFileSync fs (:lock store) "utf8"))))
+    (harness/refuse :session-ownership)))
+(defn close! [store] (owned! store) (.unlinkSync fs (:lock store)))
+(defn save! [store state]
+  (owned! store)
+  (let [payload (pr-str state)]
+    (atomic-write! (:file store)
+      (pr-str {:format "mithril.session/v1" :binding (:binding store) :state payload
+               :sha256 (kernel/digest (js/Buffer.from payload))}))))
+(defn load!
+  ([store profile budget-ok? resume?] (load! store profile budget-ok? resume? false))
+  ([store profile budget-ok? resume? reconcile?]
+  (owned! store)
+  (let [exists? (.existsSync fs (:file store))]
+    (when (and exists? (not resume?)) (harness/refuse :existing-session-requires-resume))
+    (when (and resume? (not exists?)) (harness/refuse :missing-session))
+    (when exists?
+      (when (> (.-size (.statSync fs (:file store))) 1048576) (harness/refuse :checkpoint-size))
+      (let [e (reader/read-string (.readFileSync fs (:file store) "utf8"))]
+        (when-not (and (= #{:format :binding :state :sha256} (set (keys e)))
+                       (= "mithril.session/v1" (:format e)) (= (:binding store) (:binding e))
+                       (string? (:state e)) (= (:sha256 e) (kernel/digest (js/Buffer.from (:state e)))))
+          (harness/refuse :checkpoint-binding-or-digest))
+        (let [state (harness/validate-state profile (reader/read-string (:state e)) budget-ok?)]
+          (when-not (and reconcile? (:pending state)) (harness/resume state)) state))))))

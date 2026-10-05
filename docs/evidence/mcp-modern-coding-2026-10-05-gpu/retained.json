@@ -1,0 +1,4 @@
+{
+  "src/demo/math.cljk": "(ns demo.math)\n(defn clamp [x low high]\n  (cond\n    (< x low) low\n    (> x high) high\n    :else x))\n",
+  "src/demo/api.cljk": "(ns demo.api (:require [demo.math :as math]))\n(defn clamp-positive [x] (math/clamp x 0 10))\n"
+}

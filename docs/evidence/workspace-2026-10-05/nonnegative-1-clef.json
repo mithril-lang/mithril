@@ -1,0 +1,174 @@
+{
+  "format": "mithril.workspace-run/v1",
+  "task-sha256": "55cfa85b7e6787b51ae18a67f910e812baea5add1f3c7518a518caf36344019c",
+  "mode": "clef",
+  "state": {
+    "session-id": "1c3683ef-f053-4363-b44c-04d21f5b3d6e",
+    "pending": null,
+    "completed": [
+      "edit-verify"
+    ],
+    "steps": 2,
+    "phase": "done",
+    "journal": [
+      {
+        "event": "start",
+        "call-id": "https://mithril.fund/port/deepseek/workspace-v1/session/1c3683ef-f053-4363-b44c-04d21f5b3d6e/call/0",
+        "label": "edit-verify"
+      },
+      {
+        "event": "end",
+        "call-id": "https://mithril.fund/port/deepseek/workspace-v1/session/1c3683ef-f053-4363-b44c-04d21f5b3d6e/call/0",
+        "receipt": {
+          "ok?": true,
+          "summary": "Declared repository edit verified and retained.",
+          "output-digest": "ca7f343cf3c9479ec3f81e6ecd09d967b44bedcd64a417bc8bb8d60caadaaa96"
+        }
+      },
+      {
+        "event": "end",
+        "step": 2
+      }
+    ],
+    "active": [
+      "workspace"
+    ],
+    "profile-id": "https://mithril.fund/port/deepseek/workspace-v1",
+    "calls": 1,
+    "facts": [
+      "repository-verified"
+    ],
+    "results": [
+      {
+        "call-id": "https://mithril.fund/port/deepseek/workspace-v1/session/1c3683ef-f053-4363-b44c-04d21f5b3d6e/call/0",
+        "operation": "coding/edit-verify",
+        "receipt": {
+          "ok?": true,
+          "summary": "Declared repository edit verified and retained.",
+          "output-digest": "ca7f343cf3c9479ec3f81e6ecd09d967b44bedcd64a417bc8bb8d60caadaaa96"
+        }
+      }
+    ]
+  },
+  "model-turns": [
+    {
+      "request": {
+        "state": {
+          "goal": "Return 1 exactly when n is nonnegative; zero is accepted and negative inputs return 0.",
+          "facts": [],
+          "tool-results": []
+        },
+        "questions": {
+          "next_action": {
+            "type": "choice",
+            "instructions": "Choose an available operation. Finish only when the observed results establish the goal.",
+            "criteria": {
+              "edit-verify": "coding/edit-verify"
+            }
+          }
+        }
+      },
+      "answer": {
+        "choice": "edit-verify",
+        "confidence": 1,
+        "probabilities": {
+          "edit-verify": 1
+        }
+      },
+      "mechanism": "host-singleton",
+      "wall-ms": 0
+    },
+    {
+      "request": {
+        "state": {
+          "goal": "Return 1 exactly when n is nonnegative; zero is accepted and negative inputs return 0.",
+          "source": "(ns coding.program (:export [f test-minus test-zero test-one test-many main]))\n(defn f [n :i64] :i64 (if (> n 0) 1 0))\n(defn test-minus [] :i64 (if (= (f -1) 0) 1 0))\n(defn test-zero [] :i64 (if (= (f 0) 1) 1 0))\n(defn test-one [] :i64 (if (= (f 1) 1) 1 0))\n(defn test-many [] :i64 (if (= (f 7) 1) 1 0))\n(defn main [] :i64 (f 0))\n",
+          "replace": "(if (> n 0) 1 0)"
+        },
+        "questions": {
+          "next_action": {
+            "type": "choice",
+            "instructions": "Select the patch that meets the stated task and tests.",
+            "criteria": {
+              "patch-0": "(if (<= n 0) 1 0)",
+              "patch-1": "(if (= n 0) 1 0)",
+              "patch-2": "(if (>= n 0) 1 0)"
+            }
+          }
+        }
+      },
+      "response": {
+        "questions": {
+          "next_action": {
+            "patch-0": 0.013047313317656517,
+            "patch-1": 0.012414301745593548,
+            "patch-2": 0.9745383858680725
+          }
+        },
+        "input_tokens": 396,
+        "inference_seconds": 1.2870583329931833,
+        "load_seconds": 3.255005875020288
+      },
+      "answer": {
+        "choice": "patch-2",
+        "confidence": 0.9745383858680725,
+        "probabilities": {
+          "patch-0": 0.013047313317656517,
+          "patch-1": 0.012414301745593548,
+          "patch-2": 0.9745383858680725
+        }
+      },
+      "mechanism": "offline-clef",
+      "wall-ms": 8460.754792
+    },
+    {
+      "request": {
+        "state": {
+          "goal": "Return 1 exactly when n is nonnegative; zero is accepted and negative inputs return 0.",
+          "facts": [
+            "repository-verified"
+          ],
+          "tool-results": [
+            {
+              "call-id": "https://mithril.fund/port/deepseek/workspace-v1/session/1c3683ef-f053-4363-b44c-04d21f5b3d6e/call/0",
+              "operation": "coding/edit-verify",
+              "receipt": {
+                "ok?": true,
+                "summary": "Declared repository edit verified and retained.",
+                "output-digest": "ca7f343cf3c9479ec3f81e6ecd09d967b44bedcd64a417bc8bb8d60caadaaa96"
+              }
+            }
+          ]
+        },
+        "questions": {
+          "next_action": {
+            "type": "choice",
+            "instructions": "Choose an available operation. Finish only when the observed results establish the goal.",
+            "criteria": {
+              "finish": "Finish after the required host-verification facts exist."
+            }
+          }
+        }
+      },
+      "answer": {
+        "choice": "finish",
+        "confidence": 1,
+        "probabilities": {
+          "finish": 1
+        }
+      },
+      "mechanism": "host-singleton",
+      "wall-ms": 0
+    }
+  ],
+  "status": "done",
+  "wall-ms": 22602.404583,
+  "error": null,
+  "cost": {
+    "api-currency": "JPY",
+    "api-amount": 0,
+    "execution": "offline-local",
+    "electricity": "unmeasured",
+    "device-amortization": "unmeasured"
+  }
+}
