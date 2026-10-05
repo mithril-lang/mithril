@@ -1,0 +1,5 @@
+(ns run-v3 (:require [mithril.repair-experiment :as e]))
+(let [[stage] *command-line-args*]
+  (if (= stage "select") (e/select!)
+    (with-redefs [e/lanes (vec (remove #(= "google/gemini-2.5-flash" (:model %)) e/lanes))]
+      (-> (e/run! stage) (.catch (fn [err] (println (str err)) (js/process.exit 1)))))))

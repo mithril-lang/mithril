@@ -1,0 +1,47 @@
+(ns mithril.repair-report
+  (:require [clojure.string :as str]
+            [mithril.repair-experiment :as e]
+            [mithril.repair-qualification :as q]
+            [mithril.repair-host :as h]))
+(defn wilson [correct n]
+  (when (pos? n)
+    (let [z 1.959963984540054 z2 (* z z) p (/ correct n) denominator (+ 1 (/ z2 n))
+          centre (/ (+ p (/ z2 (* 2 n))) denominator)
+          half (/ (* z (js/Math.sqrt (+ (/ (* p (- 1 p)) n) (/ z2 (* 4 n n))))) denominator)]
+      [(- centre half) (+ centre half)])))
+(defn native-score [rows]
+  {:n (count rows) :valid-fixtures (count (filter :fixture-valid? rows))
+   :first-pass (count (filter :first-pass? rows)) :within-two-pass (count (filter :within-two-pass? rows))
+   :floor-covered (count (filter :floor-coverage? rows))
+   :first-pass-and-floor (count (filter #(and (:first-pass? %) (:floor-coverage? %)) rows))
+   :mean-attempts (e/average (map #(count (:attempts %)) rows))
+   :mean-uncached-equivalent-attempt-tool-ms (e/average (map #(reduce + (map :tool-ms (:attempts %))) rows))})
+(defn run! []
+  (let [provider (e/load-rows) clef (q/clef-rows)
+        native (e/read-json (.join h/path e/root "native-rows.json"))
+        all (concat provider clef)
+        groups (group-by (juxt :split :model :hypothesis) all)
+        scores (mapv (fn [[key rows]]
+                       (let [[split model hypothesis] key score (e/score rows)
+                             ns (filter #(= key ((juxt :split :model :hypothesis) %)) native)]
+                         (merge {:split split :model model :hypothesis hypothesis
+                                 :accuracy-wilson-95 (wilson (:correct score) (:n score))}
+                                score (when (seq ns) {:execution (native-score ns)})))) (sort-by (comp pr-str key) groups))
+        report {:format "mithril.repair-results/v1" :generated-at (.toISOString (js/Date.))
+                :corpus-file (.join h/path e/root "corpus.json")
+                :corpus-sha256 (h/digest (.readFileSync h/fs (.join h/path e/root "corpus.json") "utf8"))
+                :selection (e/read-json (.join h/path e/root "hypothesis-selection.json"))
+                :scope "Finite catalog choices for synthetic Kotoba functions. No arbitrary patch generation, repository tasks, tool-feedback model call, or unseen domain qualification."
+                :confidence-semantics "Jev confidence, chat self-report, and CLEF max option probability differ. Brier/NLL/ECE use option distributions, not cross-provider confidence."
+                :latency-semantics "Provider milliseconds include request round trip. CLEF cached-backbone plus head measurements are local GPU measurements, not comparable end-to-end latency. Native timing cache retains uncached receipts; it is not measured agent wall-clock latency."
+                :cost-semantics "API cost is provider-reported, USD. Missing usage/cost is null; CLEF GPU/build/download costs are not included."
+                :statistics "One repeat, small correlated synthetic families. Wilson intervals are descriptive; no general superiority or causal Jev weight improvement claim."
+                :scores scores
+                :native-rows (count native)
+                :provider-rows (count provider)
+                :provider-file-sha256 (h/digest (.readFileSync h/fs (.join h/path e/root "provider-rows.jsonl") "utf8"))
+                :training-file-sha256 (h/digest (.readFileSync h/fs (.join h/path e/root "clef-training-report.json") "utf8"))}]
+    (q/write-json! (.join h/path e/root "summary.json") report)
+    (doseq [s scores :when (str/starts-with? (:split s) "heldout")]
+      (println (select-keys s [:split :model :hypothesis :correct :n :brier :nll :ece-10 :model-ms :execution])))
+    (println "saved summary" e/root)))

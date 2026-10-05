@@ -1,0 +1,71 @@
+(ns prepare-v3
+  (:require [clojure.string :as str] [mithril.repair-corpus :as c]
+            [mithril.repair-experiment :as e] [mithril.repair-host :as h]
+            [mithril.repair-search :as s] [mithril.repair-qualification :as q]))
+(def root "bench/repair-coscientist/v3")
+(defn lower-task [t]
+  (let [cs (mapv #(update % :new str/replace "(mod n 2)" "(- n (* (quot n 2) 2))") (:candidates t))]
+    (assoc t :candidates cs :task-digest (h/digest (pr-str [(:id t) (:goal t) (:source t) cs])))))
+(defn recursive-task [family constant]
+  (let [triangular? (= family "triangular")
+        goal (if triangular? (str "For non-negative integer n, return " constant " plus the sum 1+2+...+n.")
+                             (str "For non-negative integer n, return " constant " times n factorial; 0 factorial is 1."))
+        bodies (if triangular? ["(+ n (f (- n 1)))" "(+ n (f (- n 2)))" "(+ n (- n 1))"]
+                               ["(* n (f (- n 1)))" "(* n (f (- n 2)))" "(* n (- n 1))"])
+        rotation (mod (+ constant (if triangular? 6 7)) 3)
+        order (vec (concat (range rotation 3) (range rotation))) labels ["action-a" "action-b" "action-c"]
+        gold (nth labels (.indexOf (clj->js order) 0))
+        expected (if triangular? #(+ constant (/ (* % (inc %)) 2))
+                                 #(* constant (reduce * 1 (range 1 (inc %)))))
+        cases [0 1 2 4 6] old "(+ n 999)"
+        source (str "(ns repair.pilot (:export [f test-0 test-1 test-2 test-3 test-4 main]))\n"
+                    "(defn f [n :i64] :i64 (if (<= n 0) " constant " " old "))\n"
+                    (str/join "\n" (map-indexed (fn [i n] (str "(defn test-" i " [] :i64 (if (= (f " n ") " (expected n) ") 1 0))")) cases))
+                    "\n(defn main [] :i64 (f 0))\n")
+        cs (mapv (fn [id idx] {:id id :symbol "repair.pilot/f" :path "program.kotoba" :old old :new (nth bodies idx)}) labels order)
+        id (str family "-" constant)]
+    {:id id :family family :split "heldout-family" :goal goal :source source :candidates cs :gold gold
+     :cases (mapv #(hash-map :input % :expected (expected %)) cases)
+     :task-digest (h/digest (pr-str [id goal source cs]))}))
+(def tasks
+  (vec (concat (for [f c/families n (range 2 18)] (lower-task (c/task f n "train")))
+               (for [f c/families n [23 29]] (lower-task (c/task f n "dev")))
+               (for [f (take 4 c/families) n [37 41]] (lower-task (c/task f n "heldout-state")))
+               (for [f (drop 4 c/families) n [19 27 38 46]] (lower-task (c/task f n "heldout-state")))
+               (for [f ["triangular" "factorial"] n [3 5 7 11]] (recursive-task f n)))))
+(.mkdirSync h/fs root #js {:recursive true})
+(q/write-json! (str root "/corpus.json") tasks)
+(q/write-json! (str root "/clef-records.json")
+  (mapv (fn [t] {:id (:id t) :split (:split t) :gold (:gold t) :task_digest (:task-digest t)
+                 :request (c/request t "structured-choice" (:candidates t))}) tasks))
+(q/write-json! (str root "/preregister.json")
+  {:format "mithril.repair-experiment/v3" :created-at (.toISOString (js/Date.)) :parent "../v2/preregister.json"
+   :seed 20261005 :splits (frequencies (map :split tasks)) :corpus-digest (h/digest (pr-str tasks))
+   :hypothesis "Admit distance and ceil-div families into train only; improve fresh heldout states without losing prior known-family accuracy."
+   :fresh-target-constants [19 27 38 46] :unknown-families ["triangular" "factorial"]
+   :changes ["96 train: six families x constants 2..17; 12 dev: six families x 23,29"
+             "Prior v1/v2 distance/ceil-div heldout pairs become training data; none of the fresh v3 target pairs is trained."
+             "Recursive triangular/factorial tasks are excluded from train and dev."
+             "Gemini omitted after HTTP402; no spending-limit increase."]
+   :interpretation "Exploratory family-admission study. Distance/ceil-div are now known families; do not call them zero-shot. Prior known-state tests are regression checks. Fresh recursion is unknown family, not a new domain."
+   :confidence-floor 0.6 :max-proposals 2 :repeat-count 1
+   :selection "dev accuracy/Brier/latency; CLEF checkpoint by dev NLL only; reject unseen-family calibration regression"
+   :training {:model "Cloudflare/clef-flash" :revision "17f0b0ad64efb65d273590632833508766b2aae6"
+              :backbone-frozen true :epochs 12 :learning-rate 0.0001 :seed 20261005}})
+(.copyFileSync h/fs "bench/repair-coscientist/v2/native-cache.json" (str root "/native-cache.json"))
+(let [cache (atom (into {} (map (fn [[k v]] [(name k) v]) (e/read-json (str root "/native-cache.json")))))
+      amu "/Users/junkawasaki/github/wt/amu-system-one-verifier/bin/amu"
+      scratch (.mkdtempSync h/fs (.join h/path (.tmpdir h/os) "mithril-preflight-v3-"))
+      workspace {:root scratch :paths ["program.kotoba"]}]
+  (try
+    (let [receipts (mapv (fn [t]
+                   (let [original (q/verify-source! amu workspace (:source t) cache)
+                         gold-candidate (first (filter #(= (:gold t) (:id %)) (:candidates t)))
+                         gold (q/verify-source! amu workspace (s/replace-expression (:source t) gold-candidate) cache)]
+                     (when-not (and (:compiled? original) (not (:passed? original)) (:passed? gold))
+                       (throw (ex-info "fixture preflight failed" {:id (:id t)})))
+                     {:id (:id t) :original original :gold gold}))
+                 (filter #(str/starts-with? (:split %) "heldout") tasks))]
+      (q/write-json! (str root "/fixture-preflight.json") receipts)
+      (println "preflight" (count receipts) "passed"))
+    (finally (.rmSync h/fs scratch #js {:recursive true :force true}))))

@@ -82,9 +82,11 @@
                        :headers #js {"authorization" (str "Bearer " api-key) "content-type" "application/json"}
                        :body (.stringify js/JSON (clj->js body))})
         (.then (fn [r]
-                 (when-not (.-ok r)
-                   (throw (ex-info "provider HTTP failure" {:status (.-status r)})))
-                 (.json r)))
+                 (if (.-ok r) (.json r)
+                   (-> (.json r)
+                       (.then (fn [body]
+                         (throw (ex-info "provider HTTP failure"
+                           {:status (.-status r) :provider-message (get-in (js->clj body :keywordize-keys true) [:error :message])}))))))))
         (.then (fn [raw]
                  (let [r (js->clj raw :keywordize-keys true)
                        _ (reset! received r)
@@ -102,6 +104,7 @@
                         :status (if @received "invalid-output" "provider-error")
                         :error (or (:reason (search/refusal-data e)) (.-message e) "request failed")
                         :http-status (:status (search/refusal-data e))
+                        :provider-message (:provider-message (search/refusal-data e))
                         :provider-request-id (:id @received) :resolved-model (:model @received)
                         :usage (:usage @received) :provider-response @received
                         :model-ms (- (.now js/Date) start)}))
@@ -163,8 +166,11 @@
      :provider-cost (when (seq usage) (reduce + (keep #(get-in % [:usage :cost]) rows)))}))
 (defn select! []
   (let [rows (filter #(and (= "dev" (:split %)) (= search/model-id (:model %))) (load-rows))
+        dev-count (count (filter #(= "dev" (:split %)) (tasks)))
         scored (mapv (fn [[h rs]] (assoc (score rs) :hypothesis h)) (group-by :hypothesis rows))
-        _ (when-not (and (= 24 (count rows)) (every? #(= 8 (:n %)) scored)) (search/refuse! :incomplete-development))
+        _ (when-not (and (= (* dev-count (count corpus/hypotheses)) (count rows))
+                         (= (set corpus/hypotheses) (set (map :hypothesis scored)))
+                         (every? #(= dev-count (:n %)) scored)) (search/refuse! :incomplete-development))
         winner (:hypothesis (first (sort-by #(vector (- (:accuracy %)) (or (:brier %) 999) (:model-ms %)) scored)))
         result {:winner winner :selection-data "dev only" :scores scored
                 :frozen-at (.toISOString (js/Date.)) :rows-digest (host/digest (pr-str rows))}]

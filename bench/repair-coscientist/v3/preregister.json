@@ -1,0 +1,43 @@
+{
+  "format": "mithril.repair-experiment/v3",
+  "splits": {
+    "train": 96,
+    "dev": 12,
+    "heldout-state": 16,
+    "heldout-family": 8
+  },
+  "parent": "../v2/preregister.json",
+  "interpretation": "Exploratory family-admission study. Distance/ceil-div are now known families; do not call them zero-shot. Prior known-state tests are regression checks. Fresh recursion is unknown family, not a new domain.",
+  "unknown-families": [
+    "triangular",
+    "factorial"
+  ],
+  "fresh-target-constants": [
+    19,
+    27,
+    38,
+    46
+  ],
+  "seed": 20261005,
+  "max-proposals": 2,
+  "training": {
+    "model": "Cloudflare/clef-flash",
+    "revision": "17f0b0ad64efb65d273590632833508766b2aae6",
+    "backbone-frozen": true,
+    "epochs": 12,
+    "learning-rate": 0.0001,
+    "seed": 20261005
+  },
+  "hypothesis": "Admit distance and ceil-div families into train only; improve fresh heldout states without losing prior known-family accuracy.",
+  "confidence-floor": 0.6,
+  "corpus-digest": "sha256:22678c9c020295a1440a197a4cac8bf40ca82fe73158ea359cca0915a04afb4a",
+  "changes": [
+    "96 train: six families x constants 2..17; 12 dev: six families x 23,29",
+    "Prior v1/v2 distance/ceil-div heldout pairs become training data; none of the fresh v3 target pairs is trained.",
+    "Recursive triangular/factorial tasks are excluded from train and dev.",
+    "Gemini omitted after HTTP402; no spending-limit increase."
+  ],
+  "selection": "dev accuracy/Brier/latency; CLEF checkpoint by dev NLL only; reject unseen-family calibration regression",
+  "created-at": "2026-10-05T02:11:38.071Z",
+  "repeat-count": 1
+}
