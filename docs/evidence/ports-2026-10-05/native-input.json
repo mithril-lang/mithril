@@ -46,5 +46,9 @@
       "success": true
     }
   ],
-  "scope": "owned temporary TextEdit document; macOS input only"
+  "scope": "owned temporary TextEdit document; macOS input only",
+  "postCloseVerification": {
+    "method": "list_windows",
+    "ownedWindowAbsent": true
+  }
 }
