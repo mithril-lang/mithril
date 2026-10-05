@@ -1,0 +1,48 @@
+{
+  "task-digest": "sha256:3df1d27f7f6e2a3e261dc6acb33e3a440997eb97fb5363761cc161204d1fffba",
+  "family": "ceil-div",
+  "excluded-from-primary": true,
+  "model-ms": 1340,
+  "resolved-model": "google/gemini-2.5-flash",
+  "split": "heldout-family",
+  "usage": {
+    "prompt_tokens": 512,
+    "completion_tokens": 48,
+    "total_tokens": 560,
+    "cost": 0.0002736,
+    "is_byok": false,
+    "prompt_tokens_details": {
+      "cached_tokens": 0,
+      "cache_write_tokens": 0,
+      "audio_tokens": 0,
+      "video_tokens": 0
+    },
+    "cost_details": {
+      "upstream_inference_cost": 0.0002736,
+      "upstream_inference_prompt_cost": 0.0001536,
+      "upstream_inference_completions_cost": 0.00012
+    },
+    "completion_tokens_details": {
+      "reasoning_tokens": 0,
+      "image_tokens": 0,
+      "audio_tokens": 0
+    }
+  },
+  "status": "ok",
+  "id": "ceil-div-3",
+  "answer": {
+    "choice": "action-b",
+    "probabilities": {
+      "action-a": 0,
+      "action-b": 1,
+      "action-c": 0
+    },
+    "confidence": 1,
+    "confidence-semantics": "provider Choice confidence; self-reported for chat"
+  },
+  "hypothesis": "structured-choice",
+  "provider-request-id": "gen-1791165621-IJ9AtUgWgROrDdl7Bf21",
+  "attempt": 2,
+  "request-digest": "sha256:800f7cce5f6d30f4dc5de7e870196f8891c8590d84f9e99c29736a72b836dc86",
+  "model": "google/gemini-2.5-flash"
+}

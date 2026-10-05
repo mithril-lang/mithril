@@ -1,0 +1,29 @@
+(ns mithril.repair-experiment-test
+  (:require [cljs.test :refer [deftest is]]
+            [clojure.set :as set]
+            [mithril.repair-corpus :as c]
+            [mithril.repair-experiment :as e]
+            [mithril.repair-qualification :as q]))
+(deftest split-and-request-boundary
+  (let [tasks (c/corpus)]
+    (is (= {"train" 64 "dev" 8 "heldout-state" 8 "heldout-family" 8} (frequencies (map :split tasks))))
+    (is (= 88 (count (set (map :id tasks)))))
+    (is (empty? (set/intersection
+                 (set (map :family (filter #(= "train" (:split %)) tasks)))
+                 (set (map :family (filter #(= "heldout-family" (:split %)) tasks))))))
+    (doseq [task tasks h c/hypotheses]
+      (let [r (c/request task h (:candidates task))]
+        (is (= #{:state :questions} (set (keys r))))
+        (is (not (contains? (:state r) :gold)))))))
+(deftest probability-and-order
+  (let [task (first (c/corpus)) request (c/request task "structured-choice" (:candidates task))
+        gold (:gold task) dist (into {} (map #(vector (:id %) (if (= gold (:id %)) 1 0)) (:candidates task)))
+        a (e/normalize {:answers {:next_action {:choice gold :confidence 1 :probabilities dist}}} request "structured-choice")
+        row {:id (:id task) :status "ok" :answer a :model-ms 4}]
+    (is (= 1 (:accuracy (e/score [row]))))
+    (is (= 0 (:brier (e/score [row]))))
+    (is (= 0 (:nll (e/score [row]))))
+    (is (= gold (first (q/proposal-order row))))
+    (is (= 2 (count (q/proposal-order row))))
+    (is (nil? (q/proposal-order {:status "invalid-output"})))
+    (is (thrown? js/Error (e/normalize {:answers {:next_action {:choice gold :confidence 1 :probabilities {gold 0.5}}}} request "structured-choice")))))

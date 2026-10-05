@@ -1,0 +1,100 @@
+(ns mithril.repair-qualification
+  "Execute frozen model proposals against the real Kotoba compiler and tests.
+  Ranked retry is diagnostic only: it does not relax production admission."
+  (:require [clojure.string :as str]
+            [mithril.repair-corpus :as corpus]
+            [mithril.repair-search :as search]
+            [mithril.repair-experiment :as experiment]
+            [mithril.repair-host :as host]))
+(def compiler-sha "ac99fd3c40180fd5cbd3865cb0868b52d8b9ff6a")
+(defn write-json! [file data]
+  (.writeFileSync host/fs file (.stringify js/JSON (clj->js data) nil 2) "utf8"))
+(defn cache-key [source] (host/digest (str compiler-sha "\n" source)))
+(defn verify-source! [amu workspace source cache]
+  (let [key (cache-key source)]
+    (if-let [receipt (get @cache key)]
+      (assoc receipt :cache-hit true)
+      (let [file (.join host/path (:root workspace) "program.kotoba")
+            start (.now js/Date)]
+        (.writeFileSync host/fs file source "utf8")
+        (let [result (assoc ((host/verifier amu workspace))
+                            :source-digest (host/digest source) :compiler-sha compiler-sha
+                            :tool-ms (- (.now js/Date) start) :cache-hit false)]
+          (swap! cache assoc key result)
+          (write-json! (.join host/path experiment/root "native-cache.json") @cache)
+          result)))))
+(defn proposal-order [row]
+  (when (= "ok" (:status row))
+    (let [choice (get-in row [:answer :choice])]
+      (vec (take 2 (cons choice (map first (sort-by (fn [[id p]] [(- p) id])
+                                                   (dissoc (get-in row [:answer :probabilities]) choice)))))))))
+(defn clef-rows []
+  (let [file (.join host/path experiment/root "clef-training-report.json")]
+    (if (.existsSync host/fs file)
+      (let [report (experiment/read-json file)]
+        (vec (for [stage [:baseline :adapted] r (get report stage)]
+               {:id (:id r) :split (:split r) :task-digest (:task_digest r)
+                :model (str "Cloudflare/clef-flash/" (name stage)) :hypothesis "structured-choice"
+                :status "ok" :model-ms (* 1000 (+ (:backbone_seconds r) (:head_seconds r)))
+                :answer {:choice (:choice r) :confidence (:confidence r)
+                         :confidence-semantics "CLEF maximum option probability; not Jev confidence"
+                         :probabilities (experiment/dist-map (:probabilities r))}}))) [])))
+(defn wrapper-adapter-rows []
+  ;; Post-hoc interface diagnostic only. It changes no choice, probability,
+  ;; confidence or candidate, and cannot replace the pre-registered score.
+  (let [tasks (into {} (map #(vector (:id %) %) (experiment/tasks)))]
+    (vec (for [row (experiment/load-rows)
+               :when (and (= "qwen/qwen3-coder-30b-a3b-instruct" (:model row))
+                          (str/starts-with? (:split row) "heldout"))]
+      (if (= "ok" (:status row))
+        (assoc row :model (str (:model row) "/wrapper-adapter") :secondary-only true)
+        (try
+          (let [raw (js->clj (js/JSON.parse (get-in row [:provider-response :choices 0 :message :content])) :keywordize-keys true)
+                _ (when-not (= #{:next_action} (set (keys raw))) (search/refuse! :wrapper-shape))
+                task (get tasks (:id row))
+                answer (experiment/normalize {:answers raw} (corpus/request task "structured-choice" (:candidates task)) "structured-choice")]
+            (assoc row :model (str (:model row) "/wrapper-adapter") :secondary-only true
+                       :original-status (:status row) :status "ok" :answer answer))
+          (catch :default _ (assoc row :model (str (:model row) "/wrapper-adapter") :secondary-only true))))))))
+(defn run! [amu]
+  (let [actual (str/trim (.execFileSync host/cp "git" (clj->js ["-C" (.dirname host/path (.dirname host/path amu)) "rev-parse" "HEAD"]) #js {:encoding "utf8"}))
+        _ (when-not (= actual compiler-sha) (search/refuse! :compiler-pin-mismatch))
+        cache-file (.join host/path experiment/root "native-cache.json")
+        cache (atom (if (.existsSync host/fs cache-file)
+                      (into {} (map (fn [[k v]] [(name k) v]) (experiment/read-json cache-file))) {}))
+        scratch (.mkdtempSync host/fs (.join host/path (.tmpdir host/os) "mithril-native-pilot-"))
+        workspace {:root scratch :paths ["program.kotoba"]}
+        tasks (filter #(str/starts-with? (:split %) "heldout") (experiment/tasks))
+        rows (concat (experiment/load-rows) (clef-rows) (wrapper-adapter-rows))
+        receipts (atom [])]
+    (try
+      (doseq [task tasks]
+        (let [original (:source task)
+              original-check (verify-source! amu workspace original cache)
+              gold-candidate (first (filter #(= (:gold task) (:id %)) (:candidates task)))
+              gold-check (verify-source! amu workspace (search/replace-expression original gold-candidate) cache)
+              valid? (and (:compiled? original-check) (not (:passed? original-check)) (:passed? gold-check))]
+          (doseq [row (filter #(= (:id task) (:id %)) rows)]
+            (when-not (= (:task-digest task) (:task-digest row)) (search/refuse! :task-digest-mismatch))
+            (let [attempts (if valid?
+                             (loop [ids (proposal-order row) acc []]
+                               (if-let [id (first ids)]
+                                 (let [candidate (first (filter #(= id (:id %)) (:candidates task)))
+                                       result (assoc (verify-source! amu workspace (search/replace-expression original candidate) cache) :candidate id)
+                                       acc (conj acc result)]
+                                   ;; Restore after every attempt, including diagnostic successes.
+                                   (.writeFileSync host/fs (.join host/path scratch "program.kotoba") original "utf8")
+                                   (if (:passed? result) acc (recur (rest ids) acc))) acc)) [])
+                  receipt (merge (select-keys row [:id :split :model :hypothesis :status :model-ms])
+                                 {:diagnostic-only true :promoted? false :fixture-valid? valid?
+                                  :original original-check :gold gold-check :attempts attempts
+                                  :first-pass? (boolean (:passed? (first attempts)))
+                                  :within-two-pass? (boolean (some :passed? attempts))
+                                  :confidence (get-in row [:answer :confidence])
+                                  :confidence-semantics (get-in row [:answer :confidence-semantics])
+                                  :floor-coverage? (boolean (and (= "ok" (:status row)) (>= (get-in row [:answer :confidence] 0) 0.6)))})]
+              (swap! receipts conj receipt)
+              (write-json! (.join host/path experiment/root "native-rows.json") @receipts)))
+          (println (:id task) "fixture" valid?)))
+      (finally (.rmSync host/fs scratch #js {:recursive true :force true})))
+    (println "native rows" (count @receipts))))

@@ -1,0 +1,43 @@
+(ns prepare-v2
+  (:require [clojure.string :as str] [mithril.repair-corpus :as c]
+            [mithril.repair-experiment :as e] [mithril.repair-host :as h]
+            [mithril.repair-search :as s] [mithril.repair-qualification :as q]))
+(def root "bench/repair-coscientist/v2")
+(.mkdirSync h/fs root #js {:recursive true})
+(def tasks (mapv (fn [task]
+  (if (= "parity" (:family task))
+    (let [candidates (mapv #(update % :new str/replace "(mod n 2)" "(- n (* (quot n 2) 2))") (:candidates task))]
+      (assoc task :candidates candidates
+             :task-digest (h/digest (pr-str [(:id task) (:goal task) (:source task) candidates])))) task)) (c/corpus)))
+(q/write-json! (str root "/corpus.json") tasks)
+(q/write-json! (str root "/clef-records.json")
+  (mapv (fn [t] {:id (:id t) :split (:split t) :gold (:gold t) :task_digest (:task-digest t)
+                 :request (c/request t "structured-choice" (:candidates t))}) tasks))
+(q/write-json! (str root "/preregister.json")
+  {:format "mithril.repair-experiment/v2" :created-at (.toISOString (js/Date.))
+   :parent "../preregister.edn" :seed 20261005 :splits (frequencies (map :split tasks))
+   :corpus-digest (h/digest (pr-str tasks)) :confidence-floor 0.6 :max-proposals 2 :repeat-count 1
+   :changes ["Replace unsupported mod in catalog with native quot/arithmetic; gold unchanged."
+             "Chat json_schema strict; Qwen fixed to schema-supporting SiliconFlow; no fallback."]
+   :interpretation "Exploratory replication after observing v1; heldout results cannot be called an untouched confirmatory experiment."
+   :selection "dev accuracy, then Brier, then latency; CLEF checkpoint by dev NLL only"
+   :training {:model "Cloudflare/clef-flash" :revision "17f0b0ad64efb65d273590632833508766b2aae6"
+              :backbone-frozen true :epochs 12 :learning-rate 0.0001 :seed 20261005}
+   :provider-config e/lanes})
+(.copyFileSync h/fs "bench/repair-coscientist/native-cache.json" (str root "/native-cache.json"))
+(let [cache (atom (into {} (map (fn [[k v]] [(name k) v]) (e/read-json (str root "/native-cache.json")))))
+      amu "/Users/junkawasaki/github/wt/amu-system-one-verifier/bin/amu"
+      scratch (.mkdtempSync h/fs (.join h/path (.tmpdir h/os) "mithril-preflight-"))
+      workspace {:root scratch :paths ["program.kotoba"]}]
+  (try
+    (let [receipts (mapv (fn [t]
+                   (let [original (q/verify-source! amu workspace (:source t) cache)
+                         gold-candidate (first (filter #(= (:gold t) (:id %)) (:candidates t)))
+                         gold (q/verify-source! amu workspace (s/replace-expression (:source t) gold-candidate) cache)]
+                     (when-not (and (:compiled? original) (not (:passed? original)) (:passed? gold))
+                       (throw (ex-info "fixture preflight failed" {:id (:id t)})))
+                     {:id (:id t) :original original :gold gold}))
+                 (filter #(str/starts-with? (:split %) "heldout") tasks))]
+      (q/write-json! (str root "/fixture-preflight.json") receipts)
+      (println "preflight" (count receipts) "passed"))
+    (finally (.rmSync h/fs scratch #js {:recursive true :force true}))))

@@ -6,7 +6,7 @@ held-out splits are excluded from optimization and checkpoint selection."
       app (modal.App "mithril-clef-repair-pilot")
       volume (modal.Volume.from-name "mithril-clef-repair-pilot" :create-if-missing True)
       image (.pip-install (modal.Image.debian-slim :python-version "3.12")
-                "torch==2.11.0" "transformers==5.10.2" "accelerate" "safetensors" "huggingface_hub" "pillow" "hy==1.3.1"))
+                "torch==2.11.0" "torchvision" "transformers==5.10.2" "accelerate" "safetensors" "huggingface_hub" "pillow" "hy==1.3.1"))
 (setv image (.env image {"HF_HOME" "/cache/hf" "TOKENIZERS_PARALLELISM" "false"}))
 
 (defn [(app.function :image image :gpu "H100" :timeout 1200 :volumes {"/cache" volume})]
@@ -57,7 +57,7 @@ held-out splits are excluded from optimization and checkpoint selection."
               probabilities (.tolist (.cpu (.softmax (.float logits) -1))))
         (torch.cuda.synchronize)
         (setv row (get item "row")
-              ids (.option-ids (get (.questions (get item "encoded")) 0))
+              ids (getattr (get (getattr (get item "encoded") "questions") 0) "option_ids")
               dist (dict (zip ids probabilities))
               choice (max dist :key dist.__getitem__))
         (.append result {"id" (get row "id") "split" (get row "split")
@@ -87,7 +87,7 @@ held-out splits are excluded from optimization and checkpoint selection."
     (for [item train-items]
       (.zero-grad optimizer :set-to-none True)
       (setv logits (logits-for item)
-            ids (.option-ids (get (.questions (get item "encoded")) 0))
+            ids (getattr (get (getattr (get item "encoded") "questions") 0) "option_ids")
             gold-index (.index ids (get (get item "row") "gold"))
             target (torch.tensor [gold-index] :device "cuda" :dtype torch.long)
             loss (F.cross-entropy (.unsqueeze (.float logits) 0) target))
@@ -121,9 +121,50 @@ held-out splits are excluded from optimization and checkpoint selection."
   (.commit volume)
   report)
 
+(defn [(app.function :image image :gpu "H100" :timeout 600 :volumes {"/cache" volume})]
+      infer-remote [records head-path expected-sha]
+  "Reload the saved head and run full fresh backbone forwards. No labels read."
+  (import torch huggingface_hub [snapshot_download] safetensors.torch [load_file])
+  (setv started (time.perf-counter)
+        digest (.hexdigest (hashlib.sha256 (.read-bytes (pathlib.Path head-path)))))
+  (when (!= digest expected-sha) (raise (ValueError "checkpoint digest mismatch")))
+  (setv release (snapshot_download "Cloudflare/clef-flash" :revision revision))
+  (sys.path.insert 0 release)
+  (import joint_schema_model :as clef)
+  (setv [model processor] (clef.load-release-model release :device "cuda" :attn-implementation "sdpa"))
+  (.float model.head)
+  (setv load-seconds (- (time.perf-counter) started) predictions {})
+  (for [stage ["baseline" "adapted"]]
+    (when (= stage "adapted") (.load-state-dict model.head (load_file head-path :device "cuda")))
+    (.eval model)
+    (setv outputs [])
+    (with [(torch.no-grad)]
+      (for [row records]
+        (torch.cuda.synchronize)
+        (setv start (time.perf-counter)
+              encoded (clef.encode-record processor.tokenizer (get row "request") :processor processor :max-length 2048)
+              batch (clef.collate-records [encoded] processor.tokenizer.pad-token-id (torch.device "cuda")))
+        (with [(torch.autocast "cuda" :dtype torch.bfloat16)]
+          (setv logits (get (get (model batch) 0) 0)))
+        (setv probabilities (.tolist (.cpu (.softmax (.float logits) -1)))
+              ids (getattr (get (getattr encoded "questions") 0) "option_ids")
+              dist (dict (zip ids probabilities)) choice (max dist :key dist.__getitem__))
+        (torch.cuda.synchronize)
+        (.append outputs {"id" (get row "id") "split" (get row "split")
+                         "task_digest" (get row "task_digest") "choice" choice
+                         "confidence" (get dist choice) "probabilities" dist
+                         "forward_seconds" (- (time.perf-counter) start)})))
+    (setv (get predictions stage) outputs))
+  {"format" "mithril.clef-checkpoint-inference/v1" "revision" revision
+   "head_sha256" digest "load_seconds" load-seconds "gpu" (torch.cuda.get-device-name 0)
+   "wall_seconds" (- (time.perf-counter) started) "predictions" predictions})
+
 (when (= __name__ "__main__")
   (setv records (json.loads (.read-text (pathlib.Path (get sys.argv 1)))))
   (with [(app.run)]
-    (setv result (.remote train-remote records)))
+    (setv result (if (and (> (len sys.argv) 3) (= (get sys.argv 3) "--infer"))
+                  (.remote infer-remote (lfor r records :if (.startswith (get r "split") "heldout") r)
+                           (get sys.argv 4) (get sys.argv 5))
+                  (.remote train-remote records))))
   (.write-text (pathlib.Path (get sys.argv 2)) (json.dumps result :indent 2))
   (print "saved" (get sys.argv 2) :flush True))

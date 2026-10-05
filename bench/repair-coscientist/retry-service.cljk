@@ -1,0 +1,7 @@
+(ns retry-service (:require [mithril.repair-experiment :as e] [mithril.repair-host :as h]))
+(-> (e/call! (last e/lanes) (first (filter #(= "ceil-div-3" (:id %)) (e/tasks)))
+             "structured-choice" (h/api-key!))
+    (.then (fn [r]
+      (.writeFileSync h/fs "bench/repair-coscientist/gemini-service-retry.json"
+                     (.stringify js/JSON (clj->js (assoc r :attempt 2 :excluded-from-primary true)) nil 2) "utf8")
+      (println (select-keys r [:status :error :http-status])))))

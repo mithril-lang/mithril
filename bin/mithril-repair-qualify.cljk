@@ -1,0 +1,4 @@
+(ns mithril.repair-qualify-cli (:require [mithril.repair-qualification :as q]))
+(let [[amu & extra] *command-line-args*]
+  (when (or (nil? amu) (seq extra)) (throw (ex-info "usage: repair-qualify /absolute/path/to/amu" {})))
+  (q/run! amu))
