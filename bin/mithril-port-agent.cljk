@@ -1,7 +1,7 @@
 #!/usr/bin/env kbb
 (ns mithril.port-agent-cli
   (:require [mithril.harness :as harness] [mithril.cua-driver :as cua] [mithril.cua-host :as host]
-            [mithril.port-kernel :as kernel] [mithril.port-model :as model]))
+            [mithril.port-kernel :as kernel] [mithril.port-model :as model] [mithril.session :as session]))
 (let [[mode manifest binary hy model-dir adapter output & extra] *command-line-args*
       fs (js/require "node:fs") path (js/require "node:path")
       _ (when-not (and (contains? #{"replay" "clef" "clef-coding"} mode) manifest binary hy model-dir adapter output (empty? extra))
@@ -16,9 +16,14 @@
       cell (atom (cua/state)) budget-ok? (kernel/load! manifest "ports/policy.kotoba")
       mechanisms {:budget-ok? budget-ok? :invoke! (host/provider binary)}
       audit (atom []) checkpoint (atom nil)
+      store (session/open! (or (.-MITHRIL_SESSION_DIR js/process.env) (str output ".session"))
+                           profile {:policy mode :driver driver :binary binary :model-dir model-dir
+                                    :kernel (kernel/digest (.readFileSync fs manifest))})
+      loaded (try (session/load! store profile budget-ok? (= "1" (.-MITHRIL_RESUME js/process.env)))
+                  (catch :default e (session/close! store) (throw e)))
       checkpoint! (fn [s]
                     (reset! checkpoint s)
-                    (.writeFileSync fs (str output ".checkpoint.edn") (pr-str s) #js {:mode 384}))
+                    (session/save! store s))
       decide! (if (contains? #{"clef" "clef-coding"} mode)
                 (model/clef hy (.resolve path "scripts/port-clef-decide.hy") model-dir adapter audit)
                 (fn [r] (let [labels (keys (get-in r [:questions "next_action" :criteria]))
@@ -32,7 +37,7 @@
                 (.writeFileSync fs output (.stringify js/JSON (clj->js r) nil 2) #js {:mode 384})
                 (println (pr-str {:status status :receipt output :calls (:calls @checkpoint) :steps (:steps @checkpoint)}))))]
   (-> (harness/run! profile
-        {:budget-ok? budget-ok? :checkpoint! checkpoint! :decide! decide!
+        {:state loaded :budget-ok? budget-ok? :checkpoint! checkpoint! :decide! decide!
          :execute! (fn [id operation]
                      (case operation
                        "coding/verify-repair"
@@ -62,5 +67,5 @@
                                     {:ok? true :summary (str "Native driver observed " (count apps) " desktop apps.")
                                      :output-digest (kernel/digest (js/Buffer.from (.stringify js/JSON (clj->js data))))}))))
                        (harness/refuse :unbound-operation)))})
-      (.then (fn [s] (save! (name (:phase s)) nil)))
-      (.catch (fn [e] (save! "refused" (cua/error-reason e)) (js/process.exit 1)))))
+      (.then (fn [s] (save! (name (:phase s)) nil) (session/close! store)))
+      (.catch (fn [e] (save! "refused" (cua/error-reason e)) (session/close! store) (js/process.exit 1)))))

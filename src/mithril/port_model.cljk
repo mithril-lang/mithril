@@ -5,10 +5,15 @@
 (def os (js/require "node:os"))
 (defn clef [hy helper model-dir adapter-root audit]
   (fn [request]
-    (let [root (.mkdtempSync fs (.join path (.tmpdir os) "mithril-port-decision-"))
+    (let [labels (keys (get-in request [:questions "next_action" :criteria]))]
+      (if (= 1 (count labels))
+        (let [choice (first labels) answer {:choice choice :confidence 1 :probabilities {choice 1}}]
+          (swap! audit conj {:request request :answer answer :mechanism "host-singleton" :wall-ms 0}) answer)
+        (let [root (.mkdtempSync fs (.join path (.tmpdir os) "mithril-port-decision-"))
           input (.join path root "request.json")
           _ (.writeFileSync fs input (.stringify js/JSON (clj->js request)) #js {:mode 384})
           fd (.openSync fs input "r")
+          started (.now js/performance)
           r (try (.spawnSync cp hy #js [helper "--model-dir" model-dir "--clef-adapter-root" adapter-root]
                             #js {:encoding "utf8" :timeout 90000 :maxBuffer 1048576
                                  :stdio #js [fd "pipe" "pipe"]
@@ -20,5 +25,6 @@
           probabilities (get-in value ["questions" "next_action"])
           choice (first (sort-by #(get probabilities %) > (keys probabilities)))
           answer {:choice choice :confidence (get probabilities choice) :probabilities probabilities}]
-      (swap! audit conj {:request request :response value :answer answer})
-      answer)))
+      (swap! audit conj {:request request :response value :answer answer
+                        :mechanism "offline-clef" :wall-ms (- (.now js/performance) started)})
+      answer)))))

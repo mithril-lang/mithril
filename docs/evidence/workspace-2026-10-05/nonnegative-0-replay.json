@@ -1,0 +1,64 @@
+{
+  "format": "mithril.workspace-run/v1",
+  "task-sha256": "6b39772db0b5f39cea09c7f03156111df4c9d6e0c8c2bf3b0b1c92ad99e90f3b",
+  "mode": "replay",
+  "state": {
+    "session-id": "f98b678e-8191-4b17-a1af-f48af88de576",
+    "pending": null,
+    "completed": [
+      "edit-verify"
+    ],
+    "steps": 2,
+    "phase": "done",
+    "journal": [
+      {
+        "event": "start",
+        "call-id": "https://mithril.fund/port/deepseek/workspace-v1/session/f98b678e-8191-4b17-a1af-f48af88de576/call/0",
+        "label": "edit-verify"
+      },
+      {
+        "event": "end",
+        "call-id": "https://mithril.fund/port/deepseek/workspace-v1/session/f98b678e-8191-4b17-a1af-f48af88de576/call/0",
+        "receipt": {
+          "ok?": true,
+          "summary": "Declared repository edit verified and retained.",
+          "output-digest": "fb9e00ce43e5aeee9697129109fc365be9351022a4ac53a6b294fc85f6048f0f"
+        }
+      },
+      {
+        "event": "end",
+        "step": 2
+      }
+    ],
+    "active": [
+      "workspace"
+    ],
+    "profile-id": "https://mithril.fund/port/deepseek/workspace-v1",
+    "calls": 1,
+    "facts": [
+      "repository-verified"
+    ],
+    "results": [
+      {
+        "call-id": "https://mithril.fund/port/deepseek/workspace-v1/session/f98b678e-8191-4b17-a1af-f48af88de576/call/0",
+        "operation": "coding/edit-verify",
+        "receipt": {
+          "ok?": true,
+          "summary": "Declared repository edit verified and retained.",
+          "output-digest": "fb9e00ce43e5aeee9697129109fc365be9351022a4ac53a6b294fc85f6048f0f"
+        }
+      }
+    ]
+  },
+  "model-turns": [],
+  "status": "done",
+  "wall-ms": 13604.376457999999,
+  "error": null,
+  "cost": {
+    "api-currency": "JPY",
+    "api-amount": 0,
+    "execution": "offline-local",
+    "electricity": "unmeasured",
+    "device-amortization": "unmeasured"
+  }
+}

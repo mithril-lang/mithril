@@ -1,5 +1,10 @@
 # Mithril agent / Cua driver port qualification — 2026-10-05
 
+This is the preserved v1 measurement record. The follow-up repository-edit,
+durable-resume and performance work is recorded in
+`mithril-workspace-evaluation-2026-10-05.md`; remaining-scope statements below
+describe v1 rather than overriding the later qualification.
+
 Forked the official upstreams into
 `https://github.com/mithril-lang/deepseek-harness` and
 `https://github.com/mithril-lang/cua`, and cloned them locally. Exact upstream

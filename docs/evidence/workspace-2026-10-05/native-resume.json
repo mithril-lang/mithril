@@ -1,0 +1,58 @@
+{
+  "kernel-manifest": "/private/tmp/mithril-port-policy/manifest.json",
+  "format": "https://mithril.fund/port/agent-harness/v1",
+  "state": {
+    "session-id": "9f7ce1b7-1722-43ce-baee-44964255e109",
+    "pending": null,
+    "completed": [
+      "observe-apps"
+    ],
+    "steps": 2,
+    "phase": "done",
+    "journal": [
+      {
+        "event": "start",
+        "call-id": "https://mithril.fund/port/deepseek/computer-v1/session/9f7ce1b7-1722-43ce-baee-44964255e109/call/0",
+        "label": "observe-apps"
+      },
+      {
+        "event": "end",
+        "call-id": "https://mithril.fund/port/deepseek/computer-v1/session/9f7ce1b7-1722-43ce-baee-44964255e109/call/0",
+        "receipt": {
+          "ok?": true,
+          "summary": "Native driver observed 113 desktop apps.",
+          "output-digest": "b16de673753c34108f36433b70fbe3773f10795824703a5949badd81142d0ee1"
+        }
+      },
+      {
+        "event": "end",
+        "step": 2
+      }
+    ],
+    "active": [
+      "computer"
+    ],
+    "profile-id": "https://mithril.fund/port/deepseek/computer-v1",
+    "calls": 1,
+    "facts": [
+      "apps-observed"
+    ],
+    "results": [
+      {
+        "call-id": "https://mithril.fund/port/deepseek/computer-v1/session/9f7ce1b7-1722-43ce-baee-44964255e109/call/0",
+        "operation": "computer/list-apps",
+        "receipt": {
+          "ok?": true,
+          "summary": "Native driver observed 113 desktop apps.",
+          "output-digest": "b16de673753c34108f36433b70fbe3773f10795824703a5949badd81142d0ee1"
+        }
+      }
+    ]
+  },
+  "model-turns": [],
+  "policy": "replay",
+  "status": "done",
+  "error": null,
+  "driver-journal": [],
+  "native-provider": "/Users/junkawasaki/.local/bin/cua-driver"
+}

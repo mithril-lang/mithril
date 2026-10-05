@@ -8,4 +8,5 @@
 (import local_support :as support)
 (setv request (json.load sys.stdin) model (support.load-model args.model-dir)
       result (support.decide model request))
+(setv (get result "load_seconds") (get model "load_seconds"))
 (print (json.dumps result))

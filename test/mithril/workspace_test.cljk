@@ -1,0 +1,100 @@
+(ns mithril.workspace-test
+  (:require [cljs.test :refer [deftest is async]] [cljs.reader :as reader]
+            [mithril.harness :as h] [mithril.session :as session]
+            [mithril.workspace :as w] [mithril.port-kernel :as kernel]
+            [mithril.port-model :as model]
+            [mithril.ports-test :as ports]))
+(def fs (js/require "node:fs"))
+(def path (js/require "node:path"))
+(defn temp [] (.mkdtempSync fs (.join path (.tmpdir (js/require "node:os")) "mithril-workspace-test-")))
+(defn cleanup [p] (.rmSync fs p #js {:recursive true :force true}))
+(defn sha [s] (kernel/digest (js/Buffer.from s)))
+(deftest singleton-host-admission-is-not-a-model-forward
+  (let [audit (atom []) decide (model/clef "/missing/hy" "/missing/helper" "/missing/model" "/missing/adapter" audit)
+        answer (decide (h/request ports/profile (h/initial ports/profile)))]
+    (is (= "observe-apps" (:choice answer)))
+    (is (= "host-singleton" (:mechanism (first @audit))))
+    (is (nil? (:response (first @audit))))))
+(deftest model-receives-only-legally-admissible-actions
+  (let [p ports/profile s (h/initial p)
+        r (h/request p s) next (h/propose p s (ports/answer r "observe-apps") ports/budget-ok?)
+        settled (h/settle p next (get-in next [:pending :id]) ports/receipt)]
+    (is (= #{"observe-apps"} (set (keys (get-in r [:questions "next_action" :criteria])))))
+    (is (= #{"finish"} (set (keys (get-in (h/request p settled) [:questions "next_action" :criteria])))))))
+(defn fixture [root]
+  (.writeFileSync fs (.join path root "program.txt") "budget >= zero")
+  (.writeFileSync fs (.join path root "verify.cjs")
+    "const fs=require('node:fs'); process.exit(fs.readFileSync('program.txt','utf8')==='budget > zero'?0:1);")
+  (w/compile-task {:root root :file "program.txt" :goal "Require strictly positive budget."
+     :before-sha256 (sha "budget >= zero") :old ">=" :candidates [">" "<"]
+     :inputs {"verify.cjs" (kernel/digest (.readFileSync fs (.join path root "verify.cjs")))}
+     :verifier {:executable (.-execPath js/process) :argv ["verify.cjs"] :timeout-ms 1000}}))
+(deftest durable-restart-and-unknown-effect-boundary
+  (let [root (temp) p ports/profile s (h/initial p) store (session/open! root p {})
+        next (h/propose p s (ports/answer (h/request p s) "observe-apps") ports/budget-ok?)
+        ready (h/settle p next (get-in next [:pending :id]) ports/receipt)]
+    (try
+      (session/save! store ready)
+      (is (ports/refused? #(session/open! root p {})))
+      (is (ports/refused? #(session/load! store p ports/budget-ok? false)))
+      (is (= ready (session/load! store p ports/budget-ok? true)))
+      (is (ports/refused? #(h/validate-state p (assoc ready :facts #{"invented"}) ports/budget-ok?)))
+      (is (ports/refused? #(h/validate-state p (assoc ready :calls 0) ports/budget-ok?)))
+      (session/save! store next)
+      (is (ports/refused? #(session/load! store p ports/budget-ok? true)))
+      (is (= next (session/load! store p ports/budget-ok? true true)))
+      (session/close! store)
+      (let [changed (session/open! root (assoc p :max-calls 5) {})]
+        (try (is (ports/refused? #(session/load! changed (assoc p :max-calls 5) ports/budget-ok? true)))
+             (finally (session/close! changed))))
+      (finally (cleanup root)))))
+(deftest resume-retains-committed-result-without-reexecuting
+  (async finish
+    (let [p ports/profile s (h/initial p)
+          next (h/propose p s (ports/answer (h/request p s) "observe-apps") ports/budget-ok?)
+          interrupted (h/cancel (h/settle p next (get-in next [:pending :id]) ports/receipt))
+          effects (atom 0) latest (atom nil)]
+      (-> (h/run! p {:state interrupted :budget-ok? ports/budget-ok? :checkpoint! #(reset! latest %)
+                     :decide! #(ports/answer % "finish") :execute! (fn [& _] (swap! effects inc) ports/receipt)})
+          (.then (fn [s] (is (= :done (:phase s))) (is (zero? @effects))
+                   (is (= 1 (:calls s))) (is (= 2 (:steps s)))
+                   (is (= s (h/validate-state p s ports/budget-ok?))) (finish)))
+          (.catch (fn [e] (is false (str e)) (finish)))))))
+(deftest verified-repository-edit-and-explicit-reconciliation
+  (let [root (temp) state-root (temp) task (fixture root)
+        store (session/open! state-root ports/profile {:task task})]
+    (try
+      (let [result (w/perform! task store "owned-call" #(ports/answer % "patch-0"))]
+        (is (:ok? result))
+        (is (= "budget > zero" (.readFileSync fs (.join path root "program.txt") "utf8")))
+        (is (:ok? (w/reconcile! task store "owned-call")))
+        (is (nil? (w/retained-edit! task store)))
+        (is (ports/refused? #(w/reconcile! task store "different-call")))
+        (is (ports/refused? (fn [] (w/perform! task store "repeat" #(ports/answer % "patch-0")))))
+        (.writeFileSync fs (.join path root "program.txt") "budget >= zero")
+        (is (false? (:ok? (w/reconcile! task store "owned-call"))))
+        (.writeFileSync fs (.join path root "program.txt") "external edit")
+        (is (ports/refused? #(w/retained-edit! task store)))
+        (is (ports/refused? #(w/reconcile! task store "owned-call"))))
+      (finally (session/close! store) (cleanup root) (cleanup state-root)))))
+(deftest failed-choice-path-confinement-and-input-drift
+  (let [root (temp) state-root (temp) task (fixture root)
+        store (session/open! state-root ports/profile {:task task})]
+    (try
+      (is (false? (:ok? (w/perform! task store "failed-call" #(ports/answer % "patch-1")))))
+      (is (= "budget >= zero" (.readFileSync fs (.join path root "program.txt") "utf8")))
+      (is (not (.existsSync fs (.join path state-root "edit-intent.edn"))))
+      (is (ports/refused? #(w/compile-task (assoc task :file "../other"))))
+      (.symlinkSync fs (.join path root "program.txt") (.join path root "alias.txt"))
+      (is (ports/refused? #(w/compile-task (assoc task :file "alias.txt"))))
+      (.writeFileSync fs (.join path root "verify.cjs") "process.exit(0)")
+      (is (ports/refused? (fn [] (w/perform! task store "drift" #(ports/answer % "patch-0")))))
+      (finally (session/close! store) (cleanup root) (cleanup state-root)))))
+(deftest checkpoint-digest-tampering-refuses
+  (let [root (temp) p ports/profile store (session/open! root p {})]
+    (try
+      (session/save! store (h/initial p))
+      (let [e (reader/read-string (.readFileSync fs (:file store) "utf8"))]
+        (.writeFileSync fs (:file store) (pr-str (assoc e :state "{}")))
+        (is (ports/refused? #(session/load! store p ports/budget-ok? true))))
+      (finally (session/close! store) (cleanup root)))))

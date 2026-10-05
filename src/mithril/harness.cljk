@@ -41,9 +41,11 @@
          :max-steps (get d "maxSteps") :max-calls (get d "max-calls")
          :confidence-floor (/ (get d "confidenceFloor") 10000)
          :finish-facts (set (get d "finish-facts")) :plugins plugins :tools tools}))))
-(defn initial [profile]
-  {:profile-id (:id profile) :phase :ready :steps 0 :calls 0 :facts #{} :pending nil
-   :active (set (map #(get % "@id") (:plugins profile))) :completed #{} :journal [] :results []})
+(defn initial
+  ([profile] (initial profile (.randomUUID (js/require "node:crypto"))))
+  ([profile session-id]
+   {:profile-id (:id profile) :session-id session-id :phase :ready :steps 0 :calls 0 :facts #{} :pending nil
+    :active (set (map #(get % "@id") (:plugins profile))) :completed #{} :journal [] :results []}))
 (defn available [p s]
   (into {} (filter (fn [[id t]] (and (contains? (:active s) (:plugin t))
                                     (not (contains? (:completed s) id))
@@ -52,12 +54,13 @@
   {:state {:goal (:goal p) :facts (vec (sort (:facts s))) :tool-results (:results s)}
    :questions {"next_action" {:type "choice"
      :instructions "Choose an available operation. Finish only when the observed results establish the goal."
-     :criteria (assoc (into {} (map (fn [[id t]] [id (:operation t)]) (available p s)))
-                      "finish" "Finish only after the required host-verification facts exist.")}}})
+     :criteria (cond-> (into {} (map (fn [[id t]] [id (:operation t)]) (available p s)))
+                 (set/subset? (:finish-facts p) (:facts s))
+                 (assoc "finish" "Finish after the required host-verification facts exist."))}}})
 (defn propose [p s answer budget-ok?]
   (when-not (and (= (:profile-id s) (:id p)) (= :ready (:phase s))
                  (budget-ok? (- (:max-steps p) (:steps s)))) (refuse :step-budget-or-state))
-  (let [labels (conj (set (keys (available p s))) "finish")
+  (let [labels (set (keys (get-in (request p s) [:questions "next_action" :criteria])))
         {:keys [choice confidence probabilities]} answer
         unit? #(and (number? %) (js/Number.isFinite %) (<= 0 % 1))]
     (when-not (and (= #{:choice :confidence :probabilities} (set (keys answer)))
@@ -71,7 +74,7 @@
         (do (when-not (set/subset? (:finish-facts p) (:facts s)) (refuse :unverified-finish))
             (-> next (assoc :phase :done) (update :journal conj {:event :turn/end :step (:steps next)})))
         (do (when-not (budget-ok? (- (:max-calls p) (:calls s))) (refuse :call-budget))
-            (let [id (str (:id p) "/call/" (:calls s)) t (get (:tools p) choice)]
+            (let [id (str (:id p) "/session/" (:session-id s) "/call/" (:calls s)) t (get (:tools p) choice)]
               (-> next (update :calls inc) (assoc :phase :executing :pending {:id id :tool t})
                   (update :journal conj {:event :tool/start :call-id id :label choice}))))))))
 (defn settle [p s call-id receipt]
@@ -92,10 +95,37 @@
   (when (or (= id (get-in s [:pending :tool :plugin]))
             (some #(and (contains? (:active s) (get % "@id"))
                         (contains? (set (get % "requires")) id)) (:plugins p))) (refuse :plugin-in-use))
-  (update s :active disj id))
+  (-> s (update :active disj id) (update :journal conj {:event :plugin/disposed :plugin id})))
+(defn resume [s]
+  (when (or (:pending s) (not (contains? #{:ready :done :interrupted} (:phase s))))
+    (refuse :uncertain-pending-effect))
+  (if (= :interrupted (:phase s))
+    (-> s (assoc :phase :ready) (update :journal conj {:event :turn/resumed})) s))
+(defn validate-state
+  "Rebuild every transition from the journal; stored facts/counters are never trusted directly."
+  [p s budget-ok?]
+  (when-not (and (map? s) (string? (:session-id s))
+                 (re-matches #"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}" (:session-id s))
+                 (vector? (:journal s)) (<= (count (:journal s)) 1000)) (refuse :checkpoint-shape))
+  (let [decision (fn [state choice]
+                   {:choice choice :confidence 1 :probabilities
+                    (into {} (map #(vector % (if (= choice %) 1 0))
+                                  (keys (get-in (request p state) [:questions "next_action" :criteria]))))})
+        restored (reduce (fn [state event]
+                           (let [next (case (:event event)
+                                        :tool/start (propose p state (decision state (:label event)) budget-ok?)
+                                        :tool/end (settle p state (:call-id event) (:receipt event))
+                                        :turn/end (propose p state (decision state "finish") budget-ok?)
+                                        :turn/cancelled (cancel state)
+                                        :turn/resumed (resume state)
+                                        :plugin/disposed (dispose-plugin p state (:plugin event))
+                                        (refuse :checkpoint-event))]
+                             (when-not (= event (last (:journal next))) (refuse :checkpoint-transition)) next))
+                         (initial p (:session-id s)) (:journal s))]
+    (when-not (= restored s) (refuse :checkpoint-state)) restored))
 (defn run!
   "Host callbacks are separate explicit capabilities. Models receive no executor."
-  [profile {:keys [decide! execute! checkpoint! budget-ok?]}]
+  [profile {:keys [decide! execute! checkpoint! budget-ok? state]}]
   (letfn [(perform [next]
             (let [{:keys [id tool]} (:pending next)]
               (-> (js/Promise.resolve nil)
@@ -114,4 +144,4 @@
                                            (catch :default e (checkpoint! (cancel s)) (throw e)))]
                              (checkpoint! next)
                              (if (= :done (:phase next)) next (perform next))))))))]
-    (drive (initial profile))))
+    (drive (if state (resume (validate-state profile state budget-ok?)) (initial profile)))))

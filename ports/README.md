@@ -19,9 +19,10 @@ started, granted permissions or upgraded by the Mithril runtime.
 
 | Area | Implemented | Compatibility boundary |
 | --- | --- | --- |
-| Agent | Finite typed decisions, step/call budgets, correlated tool results, host-gated finish, cancellation, checkpoint/journal | Single sequential effect; no free-form model tool arguments |
+| Agent | Finite typed decisions, step/call budgets, correlated tool results, legal-action masking, host-gated finish, cancellation, checkpoint/journal | Single sequential effect; no free-form model tool arguments |
 | Plugins | Declarative dependency order, unique tool ownership, removal with dependency/in-flight guards | No Cordis loading, HMR or TypeScript plugin ABI |
-| Session | Per-run correlated IDs and checkpoints; committed results survive later model failure | No DSH released persistence format, durable inbox, restart/resume, parallel scheduler or UI parity |
+| Session | UUID-scoped call IDs, atomic/fsynced checkpoints, exclusive process ownership, profile/task binding, journal reconstruction, explicit restart/resume | No DSH released persistence format, durable inbox, parallel scheduler or UI parity; uncertain native effects cannot be automatically retried |
+| Repository editing | Declared single-file candidate selection, hash-bound verification inputs, isolated verifier, durable intent, verified edit retained in the repository, explicit interrupted-edit reconciliation | Supplied candidates; no unrestricted source generation, multi-file transaction or full OS sandbox for the verifier |
 | Driver | Mithril MCP stdio, legacy initialization, modern discovery/list/call metadata subset, schema validation, explicit tool allowlist, result budgets, one-use call IDs | No complete MCP resource/skill/HTTP surface; call IDs cannot be retried within a run |
 | Native | Explicit `cua-driver call` provider; macOS observation and owned-window input verified | Other OS platforms and screen capture are not qualified by this run |
 
@@ -72,7 +73,9 @@ kbb --backend sci --config ports.edn --classpath src bin/mithril-port-agent.cljk
 ```
 
 `replay` is an explicitly deterministic mechanism check, not a model run.
-`clef` performs real offline forwards. Computer mode only lists apps and records
+`clef` performs real offline forwards when multiple legal choices exist. A single
+legal choice is admitted by the host, recorded as `host-singleton`, and does not
+load the model. This is never counted as model accuracy. Computer mode only lists apps and records
 their count and output hash; its receipt does not retain app names or screenshots.
 
 For the executable coding-development experiment, set `MITHRIL_AGENT_PROFILE`
@@ -85,6 +88,67 @@ The source checkout remains unchanged. This is a seeded mutation experiment,
 not autonomous design of the port, arbitrary source generation or a benchmark.
 All broader implementation in this change was written by the coding assistant;
 CLEF supplies the measured decisions and bounded repair.
+
+## Edit a declared repository task and resume
+
+`bin/mithril-workspace-agent.cljk` accepts a JSON task with exactly `root`,
+`file`, `goal`, `before-sha256`, `old`, `candidates`, `inputs` and `verifier`.
+`root` is an absolute repository path; `file` and hash-bound `inputs` are regular
+relative paths with no traversal or symlinks. `old` must occur exactly once.
+The host accepts one of 1–8 supplied replacement strings at confidence >= 0.6.
+The caller declares the verifier's absolute executable, fixed `argv` and
+`timeout-ms`. Model output cannot change commands, paths or verification inputs.
+The verifier runs in temporary staging with only the declared source/inputs.
+This isolates generated artifacts, but is not an OS security sandbox: the
+declared verifier capability is trusted.
+
+```sh
+kbb --backend sci --config ports.edn --classpath src bin/mithril-workspace-agent.cljk \
+  clef task.json /private/tmp/mithril-port-policy/manifest.json /private/tmp/task-session \
+  /absolute/path/to/hy /absolute/path/to/clef-snapshot \
+  /absolute/path/to/mithril-fund/apps/coding /private/tmp/task-result.json
+```
+
+The original task must fail verification first. The selected patch is tested in
+staging; only a passing patch is atomically retained in the actual repository.
+The source hash is checked again immediately before publication. This is a
+single-file operation, not a compare-and-swap against arbitrary external writers.
+Use an isolated checkout and preserve other work.
+
+Run the same command with `resume` to restore the same bound task and session.
+Committed results do not execute again; a changed retained file refuses resume.
+If a pending repository edit has a durable intent, use `reconcile` to inspect the
+actual file and rerun verification, without reselecting or republishing the patch.
+An unpublished intent yields a failed receipt, not an automatic retry. A pending
+native OS effect is refused on resume, because input may already have occurred.
+
+The existing port-agent CLI uses `output.json.session` by default, or
+`MITHRIL_SESSION_DIR`. Set `MITHRIL_RESUME=1` for explicit reuse. Existing state
+is never implicitly overwritten. A process crash can leave `owner.lock`; first
+confirm its recorded PID has ended before manually removing that stale lock.
+Live ownership, profile drift, digest drift and invented facts/counters refuse
+restoration. Checksums detect corruption; they do not authenticate against an
+actor who can rewrite the entire session directory.
+
+## Record speed, accuracy and cost
+
+`scripts/benchmark-workspace.hy` builds isolated Git repositories and rotates
+three patch candidates across three Kotoba boundary tasks. It runs the real
+workspace CLI, retains edits only after native compilation and KIR/JS/Wasm
+tests, and writes per-run receipts, `runs.json` and `summary.json`.
+
+```sh
+hy scripts/benchmark-workspace.hy --compiler-root /absolute/compiler \
+  --model-dir /absolute/clef-snapshot --adapter-root /absolute/mithril-fund/apps/coding \
+  --kernel-manifest /private/tmp/mithril-port-policy/manifest.json \
+  --output-dir /private/tmp/new-workspace-evaluation --repeats 3
+```
+
+It records end-to-end wall time, actual model load/inference/wall time, input
+tokens, exact-patch success and API cost. `replay` always picks the first candidate
+and is a mechanism reference, not another LLM. Local API cost is zero; electricity,
+device amortization and human implementation cost are unmeasured. Three repeated
+small supplied-candidate tasks do not establish general coding accuracy.
 
 ## Run the Mithril MCP driver
 

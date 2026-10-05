@@ -1,0 +1,51 @@
+#!/usr/bin/env kbb
+(ns mithril.workspace-cli
+  (:require [mithril.harness :as h] [mithril.workspace :as workspace]
+            [mithril.session :as session] [mithril.port-model :as model]
+            [mithril.port-kernel :as kernel] [mithril.cua-driver :as cua]))
+(let [[mode task-file manifest directory hy model-dir adapter output & extra] *command-line-args*
+      fs (js/require "node:fs") path (js/require "node:path") start (.now js/performance)
+      _ (when-not (and (contains? #{"clef" "replay" "resume" "reconcile"} mode)
+                      task-file manifest directory hy model-dir adapter output (empty? extra))
+          (println "usage: mithril-workspace-agent clef|replay|resume|reconcile task.json kernel-manifest session-dir hy model-dir adapter-root output.json")
+          (js/process.exit 2))
+      raw (js->clj (.parse js/JSON (.readFileSync fs task-file "utf8")) :keywordize-keys true)
+      ;; Input path keys remain strings, independent of JSON keywordization.
+      task (workspace/compile-task (assoc raw :inputs (into {} (map (fn [[k v]] [(name k) v]) (:inputs raw)))))
+      profile (assoc (h/compile-profile (.readFileSync fs
+                       (or (.-MITHRIL_AGENT_PROFILE js/process.env) "ports/workspace-agent.mith") "utf8")) :goal (:goal task))
+      budget (kernel/load! manifest "ports/policy.kotoba")
+      audit (atom []) latest (atom nil)
+      decide (if (= "replay" mode)
+               (fn [r] (let [labels (keys (get-in r [:questions "next_action" :criteria]))
+                             choice (or (some #{"edit-verify" "patch-0"} labels) "finish")]
+                         {:choice choice :confidence 1 :probabilities
+                          (into {} (map #(vector % (if (= choice %) 1 0)) labels))}))
+               (model/clef hy (.resolve path "scripts/port-clef-decide.hy") model-dir adapter audit))
+      store (session/open! directory profile {:task task :kernel (kernel/digest (.readFileSync fs manifest))})
+      checkpoint! (fn [s] (session/save! store s) (reset! latest s))
+      save! (fn [status error]
+              (session/atomic-write! output (.stringify js/JSON (clj->js
+                {:format "mithril.workspace-run/v1" :mode mode :status status :error error
+                 :wall-ms (- (.now js/performance) start) :state @latest :model-turns @audit
+                 :task-sha256 (workspace/task-digest task)
+                 :cost {:api-currency "JPY" :api-amount 0 :execution "offline-local"
+                        :electricity "unmeasured" :device-amortization "unmeasured"}}) nil 2))
+              (println (pr-str {:status status :receipt output :wall-ms (- (.now js/performance) start)})))
+      loaded (try
+               (let [s (session/load! store profile budget (contains? #{"resume" "reconcile"} mode) (= "reconcile" mode))]
+                 (reset! latest s)
+                 (when (and s (contains? (:facts s) "repository-verified")) (workspace/retained-edit! task store))
+                 (if (= "reconcile" mode)
+                   (do (when-not (= "coding/edit-verify" (get-in s [:pending :tool :operation])) (h/refuse :no-pending-edit))
+                       (let [id (get-in s [:pending :id]) restored (h/settle profile s id (workspace/reconcile! task store id))]
+                         (checkpoint! restored) restored)) s))
+               (catch :default e
+                 (save! "refused" (cua/error-reason e))
+                 (session/close! store) (js/process.exit 1)))]
+  (-> (h/run! profile {:state loaded :budget-ok? budget :checkpoint! checkpoint! :decide! decide
+                      :execute! (fn [id operation]
+                                  (when-not (= operation "coding/edit-verify") (h/refuse :unbound-operation))
+                                  (workspace/perform! task store id decide))})
+      (.then (fn [s] (save! (name (:phase s)) nil) (session/close! store)))
+      (.catch (fn [e] (save! "refused" (cua/error-reason e)) (session/close! store) (js/process.exit 1)))))
