@@ -1,0 +1,5 @@
+(ns todo.summary (:require [clojure.string] [todo.interaction]))
+(declare remaining)
+
+(defn remaining [states] (count (filterv todo.interaction/toggle states)))
+(def marker :kept)

@@ -1,0 +1,140 @@
+{
+  "format": "mithril/browser-block-program-v1",
+  "functions": [
+    {
+      "id": "toggle",
+      "namespace": "todo.interaction",
+      "path": "src/todo/interaction.cljk",
+      "stage": "interaction",
+      "name": "toggle",
+      "arg": {
+        "name": "done",
+        "type": "bool"
+      },
+      "returns": "bool"
+    },
+    {
+      "id": "remaining",
+      "namespace": "todo.summary",
+      "path": "src/todo/summary.cljk",
+      "stage": "summary",
+      "name": "remaining",
+      "arg": {
+        "name": "states",
+        "type": [
+          "vector",
+          "bool"
+        ]
+      },
+      "returns": "int"
+    }
+  ],
+  "bodies": {
+    "toggle": {
+      "id": "if-:bool",
+      "out": "bool",
+      "in": [
+        "bool",
+        "bool",
+        "bool"
+      ],
+      "emit": "if",
+      "kind": "operation",
+      "function": "toggle",
+      "children": [
+        {
+          "id": "argument",
+          "kind": "argument",
+          "type": "bool",
+          "argument-index": 0,
+          "description": "Use parameter done.",
+          "function": "toggle",
+          "children": []
+        },
+        {
+          "id": "literal-false",
+          "kind": "literal",
+          "type": "bool",
+          "literal": "false",
+          "value": false,
+          "function": "toggle",
+          "children": []
+        },
+        {
+          "id": "literal-true",
+          "kind": "literal",
+          "type": "bool",
+          "literal": "true",
+          "value": true,
+          "function": "toggle",
+          "children": []
+        }
+      ]
+    },
+    "remaining": {
+      "id": "count-vector-bool",
+      "out": "int",
+      "in": [
+        [
+          "vector",
+          "bool"
+        ]
+      ],
+      "emit": "count",
+      "description": "Count every element, including duplicates; an empty vector has count zero.",
+      "kind": "operation",
+      "function": "remaining",
+      "children": [
+        {
+          "id": "filter-vector-bool",
+          "out": [
+            "vector",
+            "bool"
+          ],
+          "in": [
+            [
+              "function",
+              "bool",
+              "bool"
+            ],
+            [
+              "vector",
+              "bool"
+            ]
+          ],
+          "emit": "filterv",
+          "description": "Keep elements where the first child predicate is true, preserving order and duplicates; return a vector.",
+          "kind": "operation",
+          "function": "remaining",
+          "children": [
+            {
+              "id": "reference-toggle",
+              "kind": "reference",
+              "type": [
+                "function",
+                "bool",
+                "bool"
+              ],
+              "function-ref": "toggle",
+              "function": "remaining",
+              "children": []
+            },
+            {
+              "id": "argument",
+              "kind": "argument",
+              "type": [
+                "vector",
+                "bool"
+              ],
+              "argument-index": 0,
+              "description": "Use parameter states.",
+              "function": "remaining",
+              "children": []
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "receipt_sha256": "96d9d4e3f2f07756bb6e902e761c49a635b69e0240da211d6214490062144698"
+}

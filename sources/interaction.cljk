@@ -1,0 +1,5 @@
+(ns todo.interaction (:require [clojure.string]))
+(declare toggle)
+
+(defn toggle [done] (if done false true))
+(def marker :kept)
