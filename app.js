@@ -1,18 +1,90 @@
 import { createCore } from './core.js';
-const storageKey = 'mithril-todo-pages-v1';
-const sample = () => [
- {id:'sample-1',title:'今日やりたいことを書き出す',status:'pending'},
- {id:'sample-2',title:'小さな一歩から始める',status:'in_progress'},
- {id:'sample-3',title:'できたことを振り返る',status:'completed'}
-];
-let tasks = sample(), filter = 'all', core, module;
-try { const stored = JSON.parse(localStorage.getItem(storageKey)); if(Array.isArray(stored)&&stored.every(x=>typeof x.id==='string'&&typeof x.title==='string'&&['pending','in_progress','completed'].includes(x.status))) tasks=stored; } catch { /* Unavailable or invalid browser storage uses the sample. */ }
-const q = s => document.querySelector(s);
-const statusCode = {pending:1,in_progress:2,completed:3};
-function guest(name,...args){const f=new WebAssembly.Instance(module).exports[name];if(typeof f!=='function')throw new Error('Missing Mithril policy');return Number(f(...args.map(BigInt)));}
-function diff(previous,current){const old=new Map(previous.map(x=>[x.id,x])),currentIds=new Set(current.map(x=>x.id)),ranks=new Map();let rank=0;for(const x of previous){rank=guest('todo-rank',rank,Number(currentIds.has(x.id)));ranks.set(x.id,rank-1);}rank=0;const counts={added:0,updated:0,moved:0,removed:0};for(const x of current){const before=old.get(x.id);old.delete(x.id);const value=guest('todo-change',Number(before!==undefined),before?statusCode[before.status]:0,statusCode[x.status],ranks.get(x.id)??-1,rank);rank=guest('todo-rank',rank,Number(before!==undefined));if(value===1)counts.added++;if(value===2)counts.updated++;if(value===3)counts.moved++;}counts.removed=old.size;return Object.entries(counts).filter(([,n])=>n).map(([key,n])=>`${({added:'追加',updated:'状態変更',moved:'並べ替え',removed:'削除'})[key]} ${n}件`).join(' · ')||'変更なし';}
-function render(){if(!core||!module)return;const remaining=core.remaining(tasks.map(x=>x.status==='completed')),done=tasks.length-remaining;q('#all-count').textContent=tasks.length;q('#active-count').textContent=remaining;q('#done-count').textContent=done;q('#progress-text').textContent=`${done} / ${tasks.length} 完了 · 残り ${remaining}件`;q('#progress').style.width=`${tasks.length?done/tasks.length*100:0}%`;q('#list-heading').textContent=({all:'すべてのタスク',active:'未完了のタスク',done:'完了したタスク'})[filter];document.querySelectorAll('[data-filter]').forEach(b=>{b.classList.toggle('active',b.dataset.filter===filter);b.setAttribute('aria-pressed',String(b.dataset.filter===filter));});const visible=tasks.filter(x=>filter==='all'||(filter==='done')===(x.status==='completed'));q('#tasks').replaceChildren();q('#empty').hidden=visible.length>0;for(const x of visible){const row=document.createElement('li');row.className=`task ${x.status}`;row.dataset.id=x.id;const checkbox=document.createElement('button');checkbox.className='check';checkbox.setAttribute('role','checkbox');checkbox.setAttribute('aria-checked',String(x.status==='completed'));checkbox.setAttribute('aria-label',`${x.title}の完了を切り替える`);checkbox.textContent=x.status==='completed'?'✓':'';checkbox.onclick=()=>change(()=>{x.status=core.toggle(x.status==='completed')?'completed':'pending';});const title=document.createElement('span');title.className='task-title';title.textContent=x.title;const status=document.createElement('span');status.className='status-pill';status.textContent=({pending:'未着手',in_progress:'進行中',completed:'完了'})[x.status];const actions=document.createElement('div');actions.className='row-actions';if(x.status==='pending'){const start=document.createElement('button');start.textContent='開始';start.setAttribute('aria-label',`${x.title}を開始`);start.onclick=()=>change(()=>{x.status='in_progress';});actions.append(start);}for(const [offset,text]of[[-1,'↑'],[1,'↓']]){const b=document.createElement('button');b.textContent=text;b.setAttribute('aria-label',`${x.title}を${offset===-1?'上':'下'}へ`);const index=tasks.indexOf(x);b.disabled=index+offset<0||index+offset>=tasks.length;b.onclick=()=>change(()=>{[tasks[index],tasks[index+offset]]=[tasks[index+offset],tasks[index]];});actions.append(b);}const remove=document.createElement('button');remove.textContent='×';remove.setAttribute('aria-label',`${x.title}を削除`);remove.onclick=()=>change(()=>{tasks=tasks.filter(t=>t.id!==x.id);});actions.append(remove);row.append(checkbox,title,status,actions);q('#tasks').append(row);}}
-function change(mutator){if(!core||!module)return;const previous=tasks.map(x=>({...x}));mutator();let saved=true;try{localStorage.setItem(storageKey,JSON.stringify(tasks));}catch{saved=false;}render();q('#feedback').textContent=`Mithril判定: ${diff(previous,tasks)}${saved?'':' · このブラウザーでは保存できません'}`;}
-q('#add-form').onsubmit=e=>{e.preventDefault();const title=q('#task-input').value.trim();if(!title)return;change(()=>tasks.push({id:crypto.randomUUID(),title,status:'pending'}));q('#task-input').value='';q('#task-input').focus();};document.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{filter=b.dataset.filter;render();});q('#reset').onclick=()=>change(()=>{tasks=sample();filter='all';});
-async function boot(){const [logic,metrics,bytes]=await Promise.all([fetch('./logic.json').then(r=>r.json()),fetch('./metrics.json').then(r=>r.json()),fetch('./policy.wasm').then(r=>r.arrayBuffer())]);core=createCore(logic);module=new WebAssembly.Module(bytes);const expected=metrics.policy.wasm_sha256;const digest=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),x=>x.toString(16).padStart(2,'0')).join('');if(digest!==expected)throw new Error('Mithril artifact digest mismatch');render();q('#feedback').textContent='Jev組立ロジックとMithril判定で実行中';q('#jev-time').textContent=`${metrics.jev.runner_seconds.toFixed(2)} 秒`;q('#jev-decisions').textContent=`${metrics.jev.decisions}判断 · ${metrics.jev.attempts}試行 · 2ファイル`;q('#jev-cost').textContent=`$${metrics.jev.api_cost_usd.toFixed(6)}`;q('#jev-tokens').textContent=`入力 ${metrics.jev.input_tokens.toLocaleString()} / 出力 ${metrics.jev.output_tokens.toLocaleString()} tokens`;q('#dev-time').textContent=metrics.development.wall_seconds===null?'計測中':`${Math.floor(metrics.development.wall_seconds/60)}分 ${Math.round(metrics.development.wall_seconds%60)}秒`;q('#checks-summary').textContent='生成したロジックは完了切替と511通りの状態一覧を検査。画面の追加・切替・削除・並べ替え・再読み込みもブラウザーで検証しています。';q('#build-id').textContent=metrics.build_id;window.mithrilTodoReady=true;}
-boot().catch(error=>{q('#feedback').textContent='読み込みに失敗しました。再読み込みしてください。';q('#add-form button').disabled=true;console.error(error);});
+const storageKey = 'todos-mithril';
+const q = selector => document.querySelector(selector);
+let tasks = [], core, editing = null;
+const rows = new Map();
+try {
+ const stored = JSON.parse(localStorage.getItem(storageKey));
+ if (Array.isArray(stored) && stored.every(x => typeof x.id === 'string' && typeof x.title === 'string' && typeof x.completed === 'boolean')) tasks = stored;
+ else {
+  const legacy = JSON.parse(localStorage.getItem('mithril-todo-pages-v1'));
+  if (Array.isArray(legacy) && legacy.every(x => typeof x.id === 'string' && typeof x.title === 'string' && ['pending','in_progress','completed'].includes(x.status))) tasks = legacy.map(x => ({id:x.id,title:x.title,completed:x.status === 'completed'}));
+ }
+} catch { /* Invalid or inaccessible storage does not prevent local use. */ }
+function route() { return ['#/active','#/completed'].includes(location.hash) ? location.hash : '#/'; }
+function save() {
+ try { localStorage.setItem(storageKey, JSON.stringify(tasks)); }
+ catch { q('#feedback').textContent = 'Storage unavailable; changes are only in memory.'; }
+ render();
+}
+function render() {
+ if (!core) return;
+ const remaining = core.remaining(tasks.map(x => x.completed));
+ q('#main').hidden = q('#footer').hidden = tasks.length === 0;
+ q('#toggle-all').checked = tasks.length > 0 && remaining === 0;
+ q('.clear-completed').hidden = remaining === tasks.length;
+ const strong = document.createElement('strong'); strong.textContent = remaining;
+ q('.todo-count').replaceChildren(strong, document.createTextNode(` ${remaining === 1 ? 'item' : 'items'} left`));
+ const filter = route();
+ document.querySelectorAll('.filters a').forEach(a => a.classList.toggle('selected', a.getAttribute('href') === filter));
+ const visible = tasks.filter(x => filter === '#/' || (filter === '#/completed' ? x.completed : !x.completed));
+ const list = q('.todo-list');
+ for (const id of rows.keys()) if (!tasks.some(x => x.id === id)) { rows.get(id).remove(); rows.delete(id); }
+ const visibleIds = new Set(visible.map(x => x.id));
+ for (const child of [...list.children]) if (!visibleIds.has(child.dataset.id)) child.remove();
+ for (const task of visible) {
+  let li = rows.get(task.id);
+  if (!li) {
+  li = document.createElement('li'); li.dataset.id = task.id;
+  const view = document.createElement('div'); view.className = 'view';
+  const toggle = document.createElement('input'); toggle.type = 'checkbox'; toggle.className = 'toggle'; toggle.checked = task.completed; toggle.setAttribute('aria-label', `Complete ${task.title}`);
+  toggle.onchange = () => { task.completed = core.toggle(task.completed); save(); };
+  const label = document.createElement('label'); label.textContent = task.title;
+  const destroy = document.createElement('button'); destroy.className = 'destroy'; destroy.setAttribute('aria-label', `Delete ${task.title}`);
+  destroy.onclick = () => { tasks = tasks.filter(x => x.id !== task.id); save(); };
+  view.append(toggle, label, destroy); li.append(view);
+  const edit = document.createElement('input'); edit.className = 'edit'; edit.setAttribute('aria-label', `Edit ${task.title}`); li.append(edit);
+  label.ondblclick = () => {
+   editing = task.id; li.classList.add('editing'); edit.value = task.title; edit.focus(); edit.setSelectionRange(edit.value.length, edit.value.length);
+  };
+  const finish = cancelled => {
+   if (editing !== task.id) return;
+   editing = null;
+   if (!cancelled) { const value = edit.value.trim(); if (value) task.title = value; else tasks = tasks.filter(x => x.id !== task.id); }
+   save();
+  };
+  edit.onblur = () => finish(false);
+  edit.onkeydown = event => { if (event.key === 'Enter' || event.key === 'Escape') { event.preventDefault(); finish(event.key === 'Escape'); } };
+  rows.set(task.id, li);
+  }
+  li.classList.toggle('completed', task.completed); li.classList.toggle('editing', editing === task.id);
+  li.querySelector('.toggle').checked = task.completed;
+  li.querySelector('.toggle').setAttribute('aria-label', `Complete ${task.title}`);
+  li.querySelector('label').textContent = task.title;
+  li.querySelector('.destroy').setAttribute('aria-label', `Delete ${task.title}`);
+  li.querySelector('.edit').setAttribute('aria-label', `Edit ${task.title}`);
+  if (list.children[visible.indexOf(task)] !== li) list.insertBefore(li, list.children[visible.indexOf(task)] || null);
+ }
+}
+q('.new-todo').onkeydown = event => {
+ if (event.key !== 'Enter' || !core || event.isComposing) return;
+ const title = event.target.value.trim(); if (!title) return;
+ tasks.push({id:crypto.randomUUID(),title,completed:false}); event.target.value = ''; save();
+};
+q('#toggle-all').onchange = event => { tasks.forEach(x => { x.completed = event.target.checked; }); save(); };
+q('.clear-completed').onclick = () => { tasks = tasks.filter(x => !x.completed); save(); };
+window.addEventListener('hashchange', () => { editing = null; render(); });
+async function boot() {
+ const [logic, metrics, bytes] = await Promise.all([fetch('./logic.json').then(r => r.json()), fetch('./metrics.json').then(r => r.json()), fetch('./policy.wasm').then(r => r.arrayBuffer())]);
+ const digest = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), x => x.toString(16).padStart(2,'0')).join('');
+ if (digest !== metrics.policy.wasm_sha256) throw Error('Mithril artifact digest mismatch');
+ new WebAssembly.Module(bytes); core = createCore(logic); render();
+ q('#feedback').textContent = 'Verified Jev toggle/count · 511 completion-state vectors';
+ q('#jev-time').textContent = `${metrics.jev.runner_seconds.toFixed(2)} seconds`;
+ q('#jev-decisions').textContent = `${metrics.jev.decisions} decisions`;
+ q('#jev-cost').textContent = metrics.jev.api_cost_usd === null ? 'Cost unmeasured' : `$${metrics.jev.api_cost_usd.toFixed(6)}`;
+ q('#jev-tokens').textContent = `${metrics.jev.input_tokens} input / ${metrics.jev.output_tokens} output tokens`;
+ q('#build-id').textContent = metrics.build_id;
+ window.mithrilTodoReady = true;
+}
+boot().catch(error => { q('#feedback').textContent = 'Unable to load verified logic. Reload to retry.'; q('.new-todo').disabled = true; console.error(error); });
