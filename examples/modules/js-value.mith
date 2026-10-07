@@ -1,0 +1,9 @@
+(mithril/module :name "host.values" :exports ["keep"]
+  :functions [(mithril/function :name "keep"
+                :params [(rdf/node :name "value" :datatype "js-value")]
+                :returns "js-value"
+                :body (mithril/call :name "helper"
+                        :args [(mithril/local :name "value")]))
+              (mithril/function :name "helper"
+                :params [(rdf/node :name "value" :datatype "js-value")]
+                :returns "js-value" :body (mithril/local :name "value"))])

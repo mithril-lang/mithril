@@ -48,3 +48,20 @@
 (deftest text-entry-checks-inert-form-and-does-not-execute
   (let [result (lower/lower-text "(mithril/module :name \"text\" :exports [\"main\"] :functions [(mithril/function :name \"main\" :params [] :returns \"bool\" :body (mithril/call :name \"not\" :args [(mithril/literal :datatype \"bool\" :value false)]))])")]
     (is (= "(ns mithril.generated.text (:export [__mithril_f0]))\n(defn __mithril_f0 [] :bool (not false))\n" (:source result)))))
+
+(def opaque-module-text
+  "(mithril/module :name \"host.values\" :exports [\"keep\"]
+     :functions [(mithril/function :name \"keep\"
+                   :params [(rdf/node :name \"value\" :datatype \"js-value\")]
+                   :returns \"js-value\"
+                   :body (mithril/call :name \"helper\" :args [(mithril/local :name \"value\")]))
+                 (mithril/function :name \"helper\"
+                   :params [(rdf/node :name \"value\" :datatype \"js-value\")]
+                   :returns \"js-value\" :body (mithril/local :name \"value\"))])")
+(deftest opaque-host-types-reach-amu-without-erasure-or-synthesized-literals
+  (let [result (lower/lower-text opaque-module-text)]
+    (is (= [{:name "keep" :symbol "__mithril_f0"}] (:exports result)))
+    (is (= (str "(ns mithril.generated.host.values (:export [__mithril_f0]))\n"
+                "(defn __mithril_f0 [__mithril_p0 :js-value] :js-value (__mithril_f1 __mithril_p0))\n"
+                "(defn __mithril_f1 [__mithril_p0 :js-value] :js-value __mithril_p0)\n") (:source result)))
+    (is (= result (lower/lower-text opaque-module-text)))))

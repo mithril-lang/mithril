@@ -62,7 +62,7 @@
            [(document [(function "main" [{"name" "x" "datatype" "i64"}
                                           {"name" "x" "datatype" "bool"}] "i64" (local "x"))] [])
             :mithril.module/duplicate-parameter]
-           [(document [(function "main" [] "js-value" (literal "i64" 1))] []) :mithril.module/unsupported-type]
+           [(document [(function "main" [] "unknown" (literal "i64" 1))] []) :mithril.module/unsupported-type]
            [(assoc (document [] []) "host/eval" "private") :mithril.module/invalid-shape]]]
     (is (= expected (code doc)))))
 
@@ -157,3 +157,37 @@
     (is (= 128 (count (:functions (module/check-document (document functions []))))))
     (is (= :mithril.module/budget
            (code (document (assoc-in functions [127 "body"] (call "add" [(literal "i64" 0) (literal "i64" 1)])) []))))))
+
+(deftest opaque-js-signatures-preserve-local-and-forward-call-types
+  (let [params [{"name" "value" "datatype" "js-value"}]
+        checked (module/check-document
+                  (document [(function "keep" params "js-value" (call "helper" [(local "value")]))
+                             (function "helper" params "js-value" (local "value"))] ["keep"]))]
+    (is (= ["keep"] (:exports checked)))
+    (is (= {"keep" ["helper"] "helper" []} (:call-graph checked)))
+    (is (= [:js-value :js-value] (mapv :returns (:functions checked))))
+    (is (= [[:js-value] [:js-value]]
+           (mapv #(mapv :type (:params %)) (:functions checked))))
+    (is (= :js-value (get-in checked [:functions 0 :body :type])))))
+
+(deftest opaque-js-is-not-an-encoded-literal-or-a-scalar-intrinsic
+  (doseq [value [nil false 1 "host" {} []]]
+    (is (= :mithril.module/invalid-literal
+           (code (document [(function "constant" [] "js-value" (literal "js-value" value))] [])))))
+  (let [params [{"name" "value" "datatype" "js-value"}]]
+    (doseq [[body returns] [[(local "value") "i64"]
+                            [(literal "i64" 1) "js-value"]
+                            [(call "add" [(local "value") (literal "i64" 1)]) "i64"]
+                            [(call "not" [(local "value")]) "bool"]
+                            [(call "eq" [(local "value") (local "value")]) "bool"]
+                            [(call "eq" [(local "value") (literal "i64" 1)]) "bool"]]]
+      (is (= :mithril.module/type-mismatch
+             (code (document [(function "keep" params returns body)] [])))))))
+
+(deftest declared-eq-with-opaque-types-still-shadows-the-scalar-intrinsic
+  (let [params [{"name" "value" "datatype" "js-value"}]
+        checked (module/check-document
+                  (document [(function "eq" params "js-value" (local "value"))
+                             (function "keep" params "js-value" (call "eq" [(local "value")]))] ["keep"]))]
+    (is (= :call (get-in checked [:functions 1 :body :op])))
+    (is (= :js-value (get-in checked [:functions 1 :body :type])))))
