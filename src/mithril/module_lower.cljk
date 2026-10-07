@@ -33,48 +33,92 @@
     :bool (str value)
     :string (pr-str value)))
 
-(defn- expression-source [expr function-indexes parameter-indexes binding-counter]
+(defn- expression-source [expr function-indexes parameter-indexes binding-counter contract-indexes]
   (case (:op expr)
     :literal (literal-source (:type expr) (:value expr))
     :local (get parameter-indexes (:name expr))
     :intrinsic (str "(" (intrinsic-symbol (:name expr))
                     (if (seq (:args expr))
-                      (str " " (str/join " " (map #(expression-source % function-indexes parameter-indexes binding-counter) (:args expr))))
+                      (str " " (str/join " " (map #(expression-source % function-indexes parameter-indexes binding-counter contract-indexes) (:args expr))))
                       "")
                     ")")
     :call (str "(" (export-symbol (get function-indexes (:name expr)))
                (if (seq (:args expr))
-                 (str " " (str/join " " (map #(expression-source % function-indexes parameter-indexes binding-counter) (:args expr))))
+                 (str " " (str/join " " (map #(expression-source % function-indexes parameter-indexes binding-counter contract-indexes) (:args expr))))
                  "")
                ")")
+    :lambda (let [params (:params expr)
+                  symbols (mapv (fn [_] (str "__mithril_a" (swap! binding-counter inc))) params)
+                  env (into parameter-indexes (map vector (map :name params) symbols))]
+              (str "(__mithril_contract" (get contract-indexes (:type expr))
+                   " (fn [" (str/join " " symbols) "] "
+                   (expression-source (:body expr) function-indexes env binding-counter contract-indexes) "))"))
+    :function-ref (str "(__mithril_contract" (get contract-indexes (:type expr))
+                       " (fn-ref " (export-symbol (get function-indexes (:name expr))) "))")
+    :invoke (str "(__mithril_invoke" (get contract-indexes (:function-type expr)) " "
+                 (expression-source (:function expr) function-indexes parameter-indexes binding-counter contract-indexes)
+                 (apply str (map #(str " " (expression-source % function-indexes parameter-indexes binding-counter contract-indexes)) (:args expr))) ")")
     :let (loop [remaining (:bindings expr) env parameter-indexes parts []]
            (if-let [binding (first remaining)]
-             (let [value (expression-source (:value binding) function-indexes env binding-counter)
+             (let [value (expression-source (:value binding) function-indexes env binding-counter contract-indexes)
                    name (str "__mithril_l" (swap! binding-counter inc))]
                (recur (next remaining) (assoc env (:name binding) name)
                       (conj parts (str name " " value))))
              (str "(let [" (str/join " " parts) "] "
-                  (expression-source (:body expr) function-indexes env binding-counter) ")")))
-    :sequence (str "(do " (str/join " " (map #(expression-source % function-indexes parameter-indexes binding-counter)
+                  (expression-source (:body expr) function-indexes env binding-counter contract-indexes) ")")))
+    :sequence (str "(do " (str/join " " (map #(expression-source % function-indexes parameter-indexes binding-counter contract-indexes)
                                              (:expressions expr))) ")")
-    :if (str "(if " (expression-source (:condition expr) function-indexes parameter-indexes binding-counter)
-            " " (expression-source (:then expr) function-indexes parameter-indexes binding-counter)
-            " " (expression-source (:else expr) function-indexes parameter-indexes binding-counter) ")")))
+    :if (str "(if " (expression-source (:condition expr) function-indexes parameter-indexes binding-counter contract-indexes)
+            " " (expression-source (:then expr) function-indexes parameter-indexes binding-counter contract-indexes)
+            " " (expression-source (:else expr) function-indexes parameter-indexes binding-counter contract-indexes) ")")))
 
-(defn- function-source [declaration index function-indexes]
+(defn- function-source [declaration index function-indexes contract-indexes]
   (let [params (mapv (fn [param i] (str (parameter-symbol i) " " (str (:type param)))) (:params declaration) (range (count (:params declaration))))
-        body (expression-source (:body declaration) function-indexes (zipmap (mapv :name (:params declaration)) (mapv parameter-symbol (range (count (:params declaration))))) (atom 0))]
+        body (expression-source (:body declaration) function-indexes (zipmap (mapv :name (:params declaration)) (mapv parameter-symbol (range (count (:params declaration))))) (atom 0) contract-indexes)]
     (str "(defn " (export-symbol index) " [" (str/join " " params) "] " (str (:returns declaration)) " " body ")\n")))
 
 (defn- export-target [checked public-name]
   (get (:export-targets checked) public-name public-name))
 
+(defn- contract-uses [expr]
+  ;; Visit source children explicitly: helper numbering cannot depend on map
+  ;; iteration order. Only new callable nodes create contextual ABI helpers.
+  (let [own (case (:op expr)
+              (:lambda :function-ref) [[:construct (:type expr)]]
+              :invoke [[:invoke (:function-type expr)]]
+              [])
+        children (case (:op expr)
+                   (:call :intrinsic) (:args expr)
+                   :lambda [(:body expr)]
+                   :invoke (into [(:function expr)] (:args expr))
+                   :let (conj (mapv :value (:bindings expr)) (:body expr))
+                   :sequence (:expressions expr)
+                   :if [(:condition expr) (:then expr) (:else expr)]
+                   [])]
+    (into own (mapcat contract-uses children))))
+
+(defn- contract-source [[kind type] index]
+  (let [[params returns] (second type)]
+    (case kind
+      :construct (str "(defn __mithril_contract" index " [__mithril_value " type "] " type " __mithril_value)\n")
+      :invoke (let [symbols (mapv parameter-symbol (range (count params)))]
+                (str "(defn __mithril_invoke" index " [__mithril_callable " type
+                     (apply str (map (fn [name type] (str " " name " " type)) symbols params))
+                     "] " returns " (__mithril_callable"
+                     (apply str (map #(str " " %) symbols)) "))\n")))))
+
 (defn- source [checked]
   (let [names (mapv :name (:functions checked))
         indexes (zipmap names (range (count names)))
+        uses (vec (distinct (mapcat #(contract-uses (:body %)) (:functions checked))))
+        contracts (zipmap (vec (distinct (map second uses))) (range))
         export-symbols (vec (distinct (map (fn [export] (export-symbol (get indexes (export-target checked export)))) (:exports checked))))]
+    (when (> (+ (count names) (count uses)) 128)
+      (throw (ex-info "Callable ABI helpers exceed module function budget"
+                      {:mithril/error :mithril.module/budget})))
     (str "(ns " (amu-namespace (:name checked)) " (:export [" (str/join " " export-symbols) "]))\n"
-         (apply str (mapv (fn [declaration i] (function-source declaration i indexes)) (:functions checked) (range (count (:functions checked))))))))
+         (apply str (mapv (fn [declaration i] (function-source declaration i indexes contracts)) (:functions checked) (range (count (:functions checked)))))
+         (apply str (map (fn [[_ type :as use]] (contract-source use (get contracts type))) uses)))))
 
 (defn- result [checked]
   {:format :mithril.module/amu-source-v1
@@ -112,6 +156,12 @@
   ;; declaration as well, refusing cycles and future vocabulary explicitly.
   (let [functions (into {} (map (juxt :name identity) (:functions checked)))
         memo (atom {})]
+    ;; Guest closure words need the separate host-callable bridge. They must
+    ;; not escape through the existing scalar, acyclic pure JS facade.
+    (doseq [declaration (:functions checked)
+            type (cons (:returns declaration) (map :type (:params declaration)))]
+      (when (vector? type)
+        (library-fail! :mithril.module/library-vocabulary "Guest callable types require a host-callable profile")))
     (letfn [(sum-fuel [a b] (library-integer! (+ a b)))
             (sequence-budget [expressions]
               (reduce (fn [[fuel frames] expression]
