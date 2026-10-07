@@ -22,8 +22,16 @@ Exact fields are required. Budgets limit depth to 64, total expressions to
 bounds source characters and structural nesting before Form lowering.
 Signed i64 values become exact canonical decimal strings; unsafe host
 Numbers and noncanonical/out-of-range strings are rejected. This checker
-does not execute modules. Amu lowering, the full JS value/identity ABI,
-module linking and whole-Harness API/plugin compatibility remain work to do.
+does not execute modules. `mithril.module-lower/lower-document` and
+`lower-text` recheck inputs and produce deterministic Amu library source with
+explicit types, separate function/parameter alpha renaming, exact i64 tokens,
+escaped string literals and requested export metadata. Finite pinned Amu
+bootstrap checks compile and execute nonempty libraries with forward calls,
+intrinsic shadowing and scalar results. The lowerer also emits an empty
+namespace, but the current Amu subset requires at least one function and
+refuses that library. Empty-library compilation, the full JS value/identity
+ABI, module linking and whole-Harness API/plugin compatibility remain work
+to do. This bootstrap evidence is not selfhosting or whole-Harness parity.
 
 Mithril is not a prose-to-code generator. A source document names a goal,
 ontology identity and finite typed choices. The compiler expands it to an RDF

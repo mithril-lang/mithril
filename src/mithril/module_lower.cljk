@@ -1,0 +1,70 @@
+(ns mithril.module-lower
+  "Lower checked Mithril modules to deterministic Amu Kotoba source."
+  (:require [mithril.module :as module]
+            [clojure.string :as str]))
+
+(defn- amu-namespace [name]
+  (str "mithril.generated." name))
+
+(defn- export-symbol [index]
+  (str "__mithril_f" index))
+
+(defn- parameter-symbol [index]
+  (str "__mithril_p" index))
+
+(defn- intrinsic-symbol [name]
+  (case name
+    "add" "+"
+    "sub" "-"
+    "mul" "*"
+    "eq" "="
+    "not" "not"))
+
+(defn- literal-source [type value]
+  (case type
+    :i64 (str value)
+    :bool (str value)
+    :string (pr-str value)))
+
+(defn- expression-source [expr function-indexes parameter-indexes]
+  (case (:op expr)
+    :literal (literal-source (:type expr) (:value expr))
+    :local (parameter-symbol (get parameter-indexes (:name expr)))
+    :intrinsic (str "(" (intrinsic-symbol (:name expr))
+                    (if (seq (:args expr))
+                      (str " " (str/join " " (map #(expression-source % function-indexes parameter-indexes) (:args expr))))
+                      "")
+                    ")")
+    :call (str "(" (export-symbol (get function-indexes (:name expr)))
+               (if (seq (:args expr))
+                 (str " " (str/join " " (map #(expression-source % function-indexes parameter-indexes) (:args expr))))
+                 "")
+               ")")))
+
+(defn- function-source [declaration index function-indexes]
+  (let [params (mapv (fn [param i] (str (parameter-symbol i) " " (str (:type param)))) (:params declaration) (range (count (:params declaration))))
+        body (expression-source (:body declaration) function-indexes (zipmap (mapv :name (:params declaration)) (range (count (:params declaration)))))]
+    (str "(defn " (export-symbol index) " [" (str/join " " params) "] " (str (:returns declaration)) " " body ")\n")))
+
+(defn- source [checked]
+  (let [names (mapv :name (:functions checked))
+        indexes (zipmap names (range (count names)))
+        export-symbols (mapv (fn [export] (export-symbol (get indexes export))) (:exports checked))]
+    (str "(ns " (amu-namespace (:name checked)) " (:export [" (str/join " " export-symbols) "]))\n"
+         (apply str (mapv (fn [declaration i] (function-source declaration i indexes)) (:functions checked) (range (count (:functions checked))))))))
+
+(defn- result [checked]
+  {:format :mithril.module/amu-source-v1
+   :name (:name checked)
+   :source (source checked)
+   :exports (mapv (fn [export] {:name export :symbol (export-symbol (get (zipmap (mapv :name (:functions checked)) (range (count (:functions checked)))) export))}) (:exports checked))})
+
+(defn lower-document
+  "Lower a checked Mithril module document to Amu Kotoba source."
+  [doc]
+  (result (module/check-document doc)))
+
+(defn lower-text
+  "Lower a Mithril module text to Amu Kotoba source."
+  [text]
+  (result (module/check-text text)))
