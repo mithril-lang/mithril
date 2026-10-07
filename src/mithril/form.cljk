@@ -35,7 +35,8 @@
    'mithril/assembly "Assembly"
    'mithril/stack "Stack"
    'mithril/twin-run "TwinRun"
-   'mithril/cluster "Cluster"})
+   'mithril/cluster "Cluster"
+   'mithril/module "Module"})
 
 (def ^:private nested-tags
   #{'mithril/choice 'mithril/export 'mithril/import 'mithril/route
@@ -58,7 +59,11 @@
    'bpmn/end-event "bpmn:EndEvent"
    'bpmn/exclusive-gateway "bpmn:ExclusiveGateway"
    'bpmn/service-task "bpmn:ServiceTask"
-   'bpmn/sequence-flow "bpmn:SequenceFlow"})
+   'bpmn/sequence-flow "bpmn:SequenceFlow"
+   'mithril/function "Function"
+   'mithril/call "Call"
+   'mithril/local "Local"
+   'mithril/literal "Literal"})
 
 (def ^:private key-names
   {:id "@id"
@@ -366,6 +371,8 @@
                                 "https://mithril.fund/context/bot-checkpoint/v1"
                                 (= tag 'mithril/twin-document)
                                 "https://mithril.fund/context/twin/v1"
+                                (= tag 'mithril/module)
+                                "https://mithril.fund/context/module/v1"
                                 :else "https://mithril.fund/context/v1")
                   "@type" (get top-level-tags tag))
 
