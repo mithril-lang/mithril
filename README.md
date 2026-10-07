@@ -12,7 +12,7 @@ migration flag. Both lower to one pinned JSON-LD projection and therefore one
 canonical RDF Dataset identity.
 
 The Form reader admits `mithril/module` with a module-specific context and
-inert Function/Call/Local/Literal nodes. `mithril.module/check-document` and
+inert Function/Call/Local/Literal/If nodes. `mithril.module/check-document` and
 `check-text` validate signatures, explicit i64/bool/string and opaque js-value types, exports,
 forward and recursive calls, and return deterministic checked IR. Function
 and parameter identifiers use ASCII letters/underscores followed by letters,
@@ -44,6 +44,20 @@ Unknown types, incorrect arities and opaque-to-scalar conversions still
 refuse. A declared function may shadow these intrinsic names. These checked
 source/lowering contracts need qualified compiler/runtime evidence before
 they establish executable behavior or package compatibility.
+`mithril/if` requires exactly `:condition`, `:then`, and `:else`. The condition
+must be `bool` and the two branches must have the same checked type, including
+opaque `js-value`. Both branches are validated and contribute to the shared
+expression budget and call graph. Lowering emits an Amu `if`; execution
+selects one branch. `examples/modules/conditional.mith` demonstrates a nullish
+fallback preserving raw host identity and an unselected recursive branch.
+A public System One proposal implemented the three source changes in one
+attempt without source repairs. An offline pinned verifier ran the unchanged
+35 tests / 212 assertions on both baseline and candidate; four additional
+conditional tests pass 25 assertions. The normal explicit-target JVM-free
+Amu pipeline compiled JS and JS-browser outputs. Each output passed 63 raw
+value/fallback identity comparisons and skipped the recursive branch when
+unselected; selecting it trapped on fuel. JS-browser output was executed on
+Node, so this is not browser-host or whole-package qualification.
 Target qualification belongs to Amu: only restricted JS profiles admit this
 host ABI. This does not grant property access, callbacks or ambient authority;
 retained host graphs have embedder-owned lifetime/resource costs. Full JS

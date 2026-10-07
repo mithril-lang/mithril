@@ -63,7 +63,8 @@
    'mithril/function "Function"
    'mithril/call "Call"
    'mithril/local "Local"
-   'mithril/literal "Literal"})
+   'mithril/literal "Literal"
+   'mithril/if "If"})
 
 (def ^:private key-names
   {:id "@id"
@@ -139,6 +140,8 @@
    :source "source"
    :target "target"
    :condition "condition"
+   :then "then"
+   :else "else"
    :default "default"
    :action "action"
    ;; Twin document profile (mithril.twin, context twin/v1). Multi-word twin
