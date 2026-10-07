@@ -11,13 +11,19 @@ accepts the existing JSON-LD 1.1 spelling (`application/ld+json`) without a
 migration flag. Both lower to one pinned JSON-LD projection and therefore one
 canonical RDF Dataset identity.
 
-The Form reader also admits `mithril/module` with a module-specific context
-and typed `mithril/function`, `mithril/call`, `mithril/local` and
-`mithril/literal` nodes. This is inert source admission for the executable
-module frontend. Module name/type resolution, semantic checking and Amu
-lowering remain subsequent work; an admitted module is not an executable
-artifact. Existing application and ontology compilation keep their current
-contexts and behavior.
+The Form reader admits `mithril/module` with a module-specific context and
+inert Function/Call/Local/Literal nodes. `mithril.module/check-document` and
+`check-text` validate signatures, explicit i64/bool/string types, exports,
+forward and recursive calls, and return deterministic checked IR. Function
+and parameter identifiers use ASCII letters/underscores followed by letters,
+digits/underscores; module names may join those identifiers with dots.
+Exact fields are required. Budgets limit depth to 64, total expressions to
+4096, functions/exports to 128, and parameters to 64. The text entry also
+bounds source characters and structural nesting before Form lowering.
+Signed i64 values become exact canonical decimal strings; unsafe host
+Numbers and noncanonical/out-of-range strings are rejected. This checker
+does not execute modules. Amu lowering, the full JS value/identity ABI,
+module linking and whole-Harness API/plugin compatibility remain work to do.
 
 Mithril is not a prose-to-code generator. A source document names a goal,
 ontology identity and finite typed choices. The compiler expands it to an RDF
