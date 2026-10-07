@@ -2012,3 +2012,19 @@ kbb --backend sci --classpath "$CP" bin/mithril-synthesize.cljk \
 The CLI prints a JSON artifact containing the semantic graph digest and the
 typed OaK transaction. The sibling `.mithril` example must compile to the same
 semantic projection.
+
+## JavaScript type and array intrinsics
+
+Module calls `js_typeof(js-value) -> string`, `js_array(js-value) -> bool`,
+and `js_bool_value(bool) -> js-value` lower to `js-typeof`, `js-array?`,
+and `js-bool-value`. Declared functions continue to shadow these intrinsic
+names. Boolean injection accepts a typed bool only. Opaque JS literals
+remain refused. `examples/modules/js-branding.mith` expresses the CosmoKit
+`isPlainObject` predicate while returning its original falsy argument.
+
+System One generated the two intrinsic-table changes in one proposal, with
+zero source repairs. In the approved offline image, unchanged source checks
+passed 39 tests / 237 assertions for both baseline and candidate; independent
+new typing, arity and shadowing tests passed 3 tests / 36 assertions. These
+are source and lowering checks, not whole-Harness API/plugin equivalence or
+a claim of deployment. Consumer compiler pins must qualify separately.

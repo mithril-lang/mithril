@@ -1,0 +1,41 @@
+(ns mithril.branding-test
+  (:require [cljs.test :refer [deftest is]]
+            [clojure.string :as str]
+            [mithril.module :as module]
+            [mithril.module-lower :as lower]
+            [mithril.module-test :as f]))
+
+(def operations [["js_typeof" "js-typeof" "js-value" "string"]
+                 ["js_array" "js-array?" "js-value" "bool"]
+                 ["js_bool_value" "js-bool-value" "bool" "js-value"]])
+(defn document [name input result args]
+  (f/document [(f/function "observe" [{"name" "v" "datatype" input}]
+                             result (f/call name args))] ["observe"]))
+
+(deftest branding-signatures-and-lowering-stay-explicit
+  (doseq [[name target input result] operations]
+    (let [doc (document name input result [(f/local "v")])
+          checked (module/check-document doc)]
+      (is (= :intrinsic (get-in checked [:functions 0 :body :op])))
+      (is (= (keyword result) (get-in checked [:functions 0 :body :type])))
+      (is (= [(keyword input)] (mapv :type (get-in checked [:functions 0 :params]))))
+      (is (str/includes? (:source (lower/lower-document doc))
+                         (str "(" target " __mithril_p0)"))))))
+
+(deftest branding-types-and-arities-fail-closed
+  (doseq [[name _ input result] operations]
+    (doseq [args [[] [(f/local "v") (f/local "v")]]]
+      (is (= :mithril.module/arity (f/code (document name input result args)))))
+    (doseq [wrong (remove #{input} ["i64" "bool" "string" "js-value"])]
+      (is (= :mithril.module/type-mismatch
+             (f/code (document name wrong result [(f/local "v")])))))
+    (is (= :mithril.module/type-mismatch
+           (f/code (document name input "i64" [(f/local "v")]))))))
+
+(deftest declared-branding-names-shadow-intrinsics
+  (doseq [[name] operations]
+    (let [doc (f/document [(f/function name [{"name" "v" "datatype" "string"}] "string" (f/local "v"))
+                           (f/function "observe" [{"name" "v" "datatype" "string"}] "string"
+                                       (f/call name [(f/local "v")]))] ["observe"])]
+      (is (= :call (get-in (module/check-document doc) [:functions 1 :body :op])))
+      (is (str/includes? (:source (lower/lower-document doc)) "(__mithril_f0 __mithril_p0)")))))
