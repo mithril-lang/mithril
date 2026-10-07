@@ -135,6 +135,27 @@
             (when declared? (swap! calls conj identifier))
             {:op (if declared? :call :intrinsic) :name identifier
              :type (:returns signature) :args checked})))
+    "Let"
+    (do (shape! expr ["@type" "bindings" "body"])
+        (let [bindings (get expr "bindings")]
+          (vector! bindings max-nodes)
+          (loop [remaining (seq bindings) env locals checked []]
+            (if-let [binding (first remaining)]
+              (do (shape! binding ["name" "value"])
+                  (let [identifier (name! (get binding "name") false)
+                        value (check-expression (get binding "value") signatures env (inc depth) nodes calls)]
+                    (recur (next remaining) (assoc env identifier (:type value))
+                           (conj checked {:name identifier :value value :type (:type value)}))))
+              (let [body (check-expression (get expr "body") signatures env (inc depth) nodes calls)]
+                {:op :let :bindings checked :body body :type (:type body)})))))
+    "Sequence"
+    (do (shape! expr ["@type" "expressions"])
+        (let [expressions (get expr "expressions")]
+          (vector! expressions max-nodes)
+          (when (empty? expressions)
+            (fail! :mithril.module/invalid-shape "Module sequence requires a result expression"))
+          (let [checked (mapv #(check-expression % signatures locals (inc depth) nodes calls) expressions)]
+            {:op :sequence :expressions checked :type (:type (peek checked))})))
     "If"
     (do (shape! expr ["@type" "condition" "then" "else"])
         (let [checked-condition (check-expression (get expr "condition") signatures locals (inc depth) nodes calls)

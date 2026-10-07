@@ -33,27 +33,37 @@
     :bool (str value)
     :string (pr-str value)))
 
-(defn- expression-source [expr function-indexes parameter-indexes]
+(defn- expression-source [expr function-indexes parameter-indexes binding-counter]
   (case (:op expr)
     :literal (literal-source (:type expr) (:value expr))
-    :local (parameter-symbol (get parameter-indexes (:name expr)))
+    :local (get parameter-indexes (:name expr))
     :intrinsic (str "(" (intrinsic-symbol (:name expr))
                     (if (seq (:args expr))
-                      (str " " (str/join " " (map #(expression-source % function-indexes parameter-indexes) (:args expr))))
+                      (str " " (str/join " " (map #(expression-source % function-indexes parameter-indexes binding-counter) (:args expr))))
                       "")
                     ")")
     :call (str "(" (export-symbol (get function-indexes (:name expr)))
                (if (seq (:args expr))
-                 (str " " (str/join " " (map #(expression-source % function-indexes parameter-indexes) (:args expr))))
+                 (str " " (str/join " " (map #(expression-source % function-indexes parameter-indexes binding-counter) (:args expr))))
                  "")
                ")")
-    :if (str "(if " (expression-source (:condition expr) function-indexes parameter-indexes)
-            " " (expression-source (:then expr) function-indexes parameter-indexes)
-            " " (expression-source (:else expr) function-indexes parameter-indexes) ")")))
+    :let (loop [remaining (:bindings expr) env parameter-indexes parts []]
+           (if-let [binding (first remaining)]
+             (let [value (expression-source (:value binding) function-indexes env binding-counter)
+                   name (str "__mithril_l" (swap! binding-counter inc))]
+               (recur (next remaining) (assoc env (:name binding) name)
+                      (conj parts (str name " " value))))
+             (str "(let [" (str/join " " parts) "] "
+                  (expression-source (:body expr) function-indexes env binding-counter) ")")))
+    :sequence (str "(do " (str/join " " (map #(expression-source % function-indexes parameter-indexes binding-counter)
+                                             (:expressions expr))) ")")
+    :if (str "(if " (expression-source (:condition expr) function-indexes parameter-indexes binding-counter)
+            " " (expression-source (:then expr) function-indexes parameter-indexes binding-counter)
+            " " (expression-source (:else expr) function-indexes parameter-indexes binding-counter) ")")))
 
 (defn- function-source [declaration index function-indexes]
   (let [params (mapv (fn [param i] (str (parameter-symbol i) " " (str (:type param)))) (:params declaration) (range (count (:params declaration))))
-        body (expression-source (:body declaration) function-indexes (zipmap (mapv :name (:params declaration)) (range (count (:params declaration)))))]
+        body (expression-source (:body declaration) function-indexes (zipmap (mapv :name (:params declaration)) (mapv parameter-symbol (range (count (:params declaration))))) (atom 0))]
     (str "(defn " (export-symbol index) " [" (str/join " " params) "] " (str (:returns declaration)) " " body ")\n")))
 
 (defn- export-target [checked public-name]
@@ -121,6 +131,8 @@
                 :call (let [[args-fuel args-frames] (sequence-budget (:args expression))
                             [callee-fuel callee-frames] (function-budget (:name expression))]
                         [(sum-fuel args-fuel callee-fuel) (max args-frames callee-frames)])
+                :let (sequence-budget (conj (mapv :value (:bindings expression)) (:body expression)))
+                :sequence (sequence-budget (:expressions expression))
                 :if (let [[condition-fuel condition-frames] (expression-budget (:condition expression))
                           [then-fuel then-frames] (expression-budget (:then expression))
                           [else-fuel else-frames] (expression-budget (:else expression))]

@@ -1,0 +1,8 @@
+(mithril/module :name "example.bindings" :exports ["keep"]
+ :functions [(mithril/function :name "keep"
+  :params [(rdf/node :name "value" :datatype "js-value")] :returns "js-value"
+  :body (mithril/let
+   :bindings [(rdf/node :name "alias" :value (mithril/local :name "value"))]
+   :body (mithril/sequence :expressions
+    [(mithril/call :name "js_truthy" :args [(mithril/local :name "alias")])
+     (mithril/local :name "alias")])) )])

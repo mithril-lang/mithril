@@ -12,7 +12,7 @@ migration flag. Both lower to one pinned JSON-LD projection and therefore one
 canonical RDF Dataset identity.
 
 The Form reader admits `mithril/module` with a module-specific context and
-inert Function/Call/Local/Literal/If nodes. `mithril.module/check-document` and
+inert Function/Call/Local/Literal/If/Let/Sequence nodes. `mithril.module/check-document` and
 `check-text` validate signatures, explicit i64/bool/string and opaque js-value types, exports,
 forward and recursive calls, and return deterministic checked IR. Function
 and parameter identifiers use ASCII letters/underscores followed by letters,
@@ -2115,3 +2115,25 @@ JS and JS-browser artifacts in Node; three non-JS targets refuse opaque JS
 values. See `test/qualification/export-aliases/README.md` for the evidence scope.
 The example does not implement CosmoKit's `mapValues`, callbacks, object access,
 stateful libraries or whole-Harness API/plugin equivalence.
+
+## Sequential bindings and expressions
+
+`mithril/let` accepts `:bindings` (a vector of inert `rdf/node` values with
+`:name` and `:value`) and `:body`. Initializers run in order and see earlier
+bindings; a new name becomes visible after its initializer. Rebinding shadows
+that name in the body without changing the type of earlier aliases. Initializer
+and body types are inferred and checked; bindings do not escape their scope.
+The lowerer gives each binding a deterministic private symbol, including names
+such as `let` that would otherwise conflict with Kotoba syntax.
+
+`mithril/sequence :expressions [...]` evaluates every expression in order and
+returns the final value. It requires at least one expression. Both nodes use
+the existing shared expression depth/node budgets. They lower to ordinary Amu
+`let`/`do`, retaining unused initializers and non-final expressions, including
+exceptions raised by native JS observations.
+
+`examples/modules/bindings.mith` demonstrates opaque aliases and sequencing.
+The acyclic pure public-library profile charges every initializer and sequence
+call in its per-call fuel/frame calculation; unused calls still participate in
+cycle refusal. This vocabulary adds no host callback/property authority, guest
+closure AST, aggregate construction or async/module linking.
