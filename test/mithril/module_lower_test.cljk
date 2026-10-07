@@ -1,0 +1,50 @@
+(ns mithril.module-lower-test
+  (:require [cljs.test :refer [deftest is]]
+            [clojure.string :as str]
+            [mithril.module-lower :as lower]))
+(defn literal [type value] {"@type" "Literal" "datatype" type "value" value})
+(defn local [name] {"@type" "Local" "name" name})
+(defn call [name args] {"@type" "Call" "name" name "args" args})
+(defn function [name params returns body]
+  {"@type" "Function" "name" name "params" params "returns" returns "body" body})
+(defn document [functions exports]
+  {"@context" "https://mithril.fund/context/module/v1" "@type" "Module"
+   "name" "example.module" "functions" functions "exports" exports})
+(deftest deterministic-explicit-export-and-alpha-renaming
+  (let [doc (document [(function "main" [] "i64" (call "id" [(literal "i64" "9223372036854775807")]))
+                      (function "id" [{"name" "ns" "datatype" "i64"}] "i64" (local "ns"))] ["id" "main"])
+        result (lower/lower-document doc)]
+    (is (= :mithril.module/amu-source-v1 (:format result)))
+    (is (= "example.module" (:name result)))
+    (is (= [{:name "id" :symbol "__mithril_f1"} {:name "main" :symbol "__mithril_f0"}] (:exports result)))
+    (is (= (str "(ns mithril.generated.example.module (:export [__mithril_f1 __mithril_f0]))\n"
+                "(defn __mithril_f0 [] :i64 (__mithril_f1 9223372036854775807))\n"
+                "(defn __mithril_f1 [__mithril_p0 :i64] :i64 __mithril_p0)\n") (:source result)))
+    (is (= result (lower/lower-document doc)))))
+(deftest declared-functions-shadow-intrinsics-after-lowering
+  (let [result (lower/lower-document
+                 (document [(function "not" [] "bool" (literal "bool" true))
+                            (function "main" [] "bool" (call "not" []))] ["main"]))]
+    (is (str/includes? (:source result) "(defn __mithril_f1 [] :bool (__mithril_f0))"))
+    (is (= [{:name "main" :symbol "__mithril_f1"}] (:exports result)))))
+(deftest typed-intrinsics-literals-and-string-escaping
+  (let [value "日本語\"\\n(not executable)"
+        result (lower/lower-document
+                 (document [(function "same" [] "bool" (call "eq" [(literal "string" value) (literal "string" value)]))
+                            (function "sum" [] "i64" (call "add" [(literal "i64" 1) (literal "i64" 2)]))
+                            (function "difference" [] "i64" (call "sub" [(literal "i64" 3) (literal "i64" 1)]))
+                            (function "product" [] "i64" (call "mul" [(literal "i64" 2) (literal "i64" 3)]))
+                            (function "invert" [] "bool" (call "not" [(literal "bool" false)]))] []))]
+    (is (str/includes? (:source result) (str "(= " (pr-str value) " " (pr-str value) ")")))
+    (doseq [body ["(+ 1 2)" "(- 3 1)" "(* 2 3)" "(not false)"]]
+      (is (str/includes? (:source result) body)))))
+(deftest checked-input-is-required
+  (doseq [doc [(assoc (document [] []) "name" "source);bad")
+               (document [(function "main" [] "bool" (literal "i64" 1))] [])]]
+    (is (some? (try (lower/lower-document doc) nil
+                   (catch :default e (:mithril/error (ex-data e)))))))
+  (is (= "(ns mithril.generated.example.module (:export []))\n"
+         (:source (lower/lower-document (document [] []))))))
+(deftest text-entry-checks-inert-form-and-does-not-execute
+  (let [result (lower/lower-text "(mithril/module :name \"text\" :exports [\"main\"] :functions [(mithril/function :name \"main\" :params [] :returns \"bool\" :body (mithril/call :name \"not\" :args [(mithril/literal :datatype \"bool\" :value false)]))])")]
+    (is (= "(ns mithril.generated.text (:export [__mithril_f0]))\n(defn __mithril_f0 [] :bool (not false))\n" (:source result)))))
