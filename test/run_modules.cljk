@@ -1,0 +1,18 @@
+(ns test.run-modules
+  (:require [cljs.test :as t]
+            [mithril.module-test]
+            [mithril.module-lower-test]
+            [mithril.form-test]
+            [mithril.compiler-test]
+            [mithril.conditional-test]
+            [mithril.branding-test]
+            [mithril.undefined-test]
+            [mithril.library-test]
+            [mithril.module-bindings-test]))
+(defmethod t/report [::t/default :end-run-tests] [m]
+  (when (or (not= 59 (:test m)) (not= 326 (:pass m))
+            (pos? (+ (:fail m) (:error m))))
+    (js/process.exit 1)))
+(t/run-tests 'mithril.module-test 'mithril.module-lower-test 'mithril.form-test
+             'mithril.compiler-test 'mithril.conditional-test 'mithril.branding-test
+             'mithril.undefined-test 'mithril.library-test 'mithril.module-bindings-test)
