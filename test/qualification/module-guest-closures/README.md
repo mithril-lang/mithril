@@ -16,3 +16,6 @@ The pure public facade refuses guest callable signatures/closure vocabulary.
 No escaping host callback bridge, unbounded lifetime, native selfhost, actual
 browser execution, package replacement or full harness API/plugin parity is
 claimed. System One made no model attempt; source is operator-authored.
+
+Frozen export-alias controls separately pass 7/25. The frozen legacy string-IR
+control script also exits zero; it is not counted as part of the registered suite.
