@@ -1,5 +1,5 @@
 {
-  "stage": "candidate source and normal Amu branch qualification; publication pending",
+  "stage": "candidate source; published Amu normal JS route qualified; Mithril publication pending",
   "base": "7d855a41180702b7e00c5fb60e0da945bed3eed4",
   "dependency_image": "sha256:4b95fd6683bb82364f70e799b4507e61d3834f86068da9ee8f05cdabe0195772",
   "test_source_mounts": "read-only candidate src/test; fixed image dependencies; offline Node bootstrap",
@@ -24,7 +24,7 @@
   "lowered_source_sha256": "b652f2ab88c70214cc83d3934035c35c29cc9fea9023003dd0b06fcf6e09fe31",
   "normal_amu_candidate_head": "47103eca2541e5cb41e2f27e62389b0229dbfc1e",
   "normal_amu_dependency_pr": 1250,
-  "normal_amu_publication": "pending",
+  "normal_amu_publication": "a0604488aad554ae9f2c4a8a3942ddd188288a6f",
   "normal_amu_runtime": {
     "js": {
       "stage": "normal Amu --target js --jvm-free; published Sema/Osaho/Script",
@@ -84,5 +84,14 @@
     "failures": 0,
     "errors": 0
   },
-  "legacy_string_ir_controls": "frozen qualification/legacy.cljk exits0; separate from registered suite"
+  "legacy_string_ir_controls": "frozen qualification/legacy.cljk exits0; separate from registered suite",
+  "published_amu_recompile": {
+    "target": "js",
+    "jvm_free": true,
+    "artifact_sha256": "a6781c7fba90304bff9889942167fd15cdbb708d68a605007dc8d742d8f4586e",
+    "byte_identical_to_runtime_qualified_candidate": true,
+    "jvm_marker": false,
+    "published_and_tested_amu_tree": "966e3926fa3c8e6e084bc459be7f929fe4d9a5b5"
+  },
+  "repository_actions": "Pages workflow exists; no source test workflow or PR test checks"
 }
