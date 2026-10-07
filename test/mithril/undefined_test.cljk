@@ -1,0 +1,23 @@
+(ns mithril.undefined-test
+  (:require [cljs.test :refer [deftest is]] [clojure.string :as str]
+            [mithril.module :as module] [mithril.module-lower :as lower]
+            [mithril.module-test :as f]))
+(defn noop-doc [result args]
+  (f/document [(f/function "noop" [] result (f/call "js_undefined" args))] ["noop"]))
+(deftest undefined-has-an-explicit-zero-arity-opaque-signature
+  (let [doc (noop-doc "js-value" []) body (get-in (module/check-document doc) [:functions 0 :body])]
+    (is (= :intrinsic (:op body)))
+    (is (= :js-value (:type body)))
+    (is (= [] (:args body)))
+    (is (str/includes? (:source (lower/lower-document doc))
+                      "(defn __mithril_f0 [] :js-value (js-undefined))"))))
+(deftest undefined-refuses-arity-before-unknown-locals-and-scalar-results
+  (doseq [args [[(f/local "unbound")] [(f/local "unbound") (f/local "unbound")]]]
+    (is (= :mithril.module/arity (f/code (noop-doc "js-value" args)))))
+  (doseq [type ["i64" "bool" "string"]]
+    (is (= :mithril.module/type-mismatch (f/code (noop-doc type []))))))
+(deftest declared-function-shadows-zero-arity-undefined-intrinsic
+  (let [doc (f/document [(f/function "js_undefined" [] "string" (f/literal "string" "declared"))
+                         (f/function "observe" [] "string" (f/call "js_undefined" []))] ["observe"])]
+    (is (= :call (get-in (module/check-document doc) [:functions 1 :body :op])))
+    (is (str/includes? (:source (lower/lower-document doc)) "(__mithril_f0)"))))

@@ -2028,3 +2028,21 @@ passed 39 tests / 237 assertions for both baseline and candidate; independent
 new typing, arity and shadowing tests passed 3 tests / 36 assertions. These
 are source and lowering checks, not whole-Harness API/plugin equivalence or
 a claim of deployment. Consumer compiler pins must qualify separately.
+
+## Explicit JavaScript undefined source
+
+Module call `js_undefined()` returns `js-value` and lowers to the zero-arity
+`js-undefined` operation. It admits no opaque literals. Existing declared
+functions can shadow the intrinsic, and extra arguments are refused before
+unknown-local checking. `examples/modules/noop.mith` authors CosmoKit noop
+as a zero-argument function returning raw JS undefined. Compiler consumers
+and the public module facade must qualify separately.
+
+The public System One case generated one proposal in 28.98 seconds with
+15,223 prompt / 1,289 completion tokens and model repair budget zero. The
+original proposal omitted one closing parenthesis and failed parsing while
+the baseline passed 42 tests / 273 assertions. An operator inserted that
+one character; paired baseline/candidate checks then passed 42 / 273 each,
+and combined independent checks passed 45 tests / 284 assertions in a pinned
+offline image. This is model-assisted source with one operator repair, not
+a model-only success or whole-Harness API/plugin equivalence.
