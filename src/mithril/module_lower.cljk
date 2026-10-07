@@ -42,7 +42,10 @@
                (if (seq (:args expr))
                  (str " " (str/join " " (map #(expression-source % function-indexes parameter-indexes) (:args expr))))
                  "")
-               ")")))
+               ")")
+    :if (str "(if " (expression-source (:condition expr) function-indexes parameter-indexes)
+            " " (expression-source (:then expr) function-indexes parameter-indexes)
+            " " (expression-source (:else expr) function-indexes parameter-indexes) ")")))
 
 (defn- function-source [declaration index function-indexes]
   (let [params (mapv (fn [param i] (str (parameter-symbol i) " " (str (:type param)))) (:params declaration) (range (count (:params declaration))))

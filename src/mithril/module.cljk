@@ -131,6 +131,17 @@
             (when declared? (swap! calls conj identifier))
             {:op (if declared? :call :intrinsic) :name identifier
              :type (:returns signature) :args checked})))
+    "If"
+    (do (shape! expr ["@type" "condition" "then" "else"])
+        (let [checked-condition (check-expression (get expr "condition") signatures locals (inc depth) nodes calls)
+              checked-then (check-expression (get expr "then") signatures locals (inc depth) nodes calls)
+              checked-else (check-expression (get expr "else") signatures locals (inc depth) nodes calls)]
+          (when-not (= :bool (:type checked-condition))
+            (fail! :mithril.module/type-mismatch "Module if condition type mismatch"))
+          (when-not (= (:type checked-then) (:type checked-else))
+            (fail! :mithril.module/type-mismatch "Module if branch type mismatch"))
+          {:op :if :type (:type checked-then) :condition checked-condition
+           :then checked-then :else checked-else}))
     (fail! :mithril.module/invalid-shape "Unknown module expression type")))
 
 (defn check-document
