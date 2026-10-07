@@ -1,0 +1,159 @@
+(ns mithril.module-test
+  (:require [cljs.test :refer [deftest is]]
+            [mithril.module :as module]))
+
+(defn literal [type value] {"@type" "Literal" "datatype" type "value" value})
+(defn local [name] {"@type" "Local" "name" name})
+(defn call [name args] {"@type" "Call" "name" name "args" args})
+(defn function [name params returns body]
+  {"@type" "Function" "name" name "params" params "returns" returns "body" body})
+(defn document [functions exports]
+  {"@context" "https://mithril.fund/context/module/v1" "@type" "Module"
+   "name" "example" "functions" functions "exports" exports})
+(defn code [doc]
+  (try (module/check-document doc) nil
+    (catch :default e (:mithril/error (ex-data e)))))
+(def id-function
+  (function "id" [{"name" "x" "datatype" "i64"}] "i64" (local "x")))
+
+(deftest checked-module-binds-signatures-and-call-graph
+  (let [checked (module/check-document
+                  (document [(function "main" [] "i64" (call "id" [(literal "i64" 7)]))
+                             id-function] ["main"]))
+        main (first (:functions checked))]
+    (is (= :mithril.module/checked-v1 (:format checked)))
+    (is (= "example" (:name checked)))
+    (is (= ["main"] (:exports checked)))
+    (is (= {"main" ["id"] "id" []} (:call-graph checked)))
+    (is (= :i64 (:returns main)))
+    (is (= {:op :call :name "id" :type :i64
+            :args [{:op :literal :type :i64 :value "7"}]} (:body main)))
+    (is (= [{:name "x" :type :i64}] (:params (second (:functions checked)))))))
+
+(deftest recursion-and-user-shadowing-use-declared-signatures
+  (let [doc (document [(function "left" [] "i64" (call "right" []))
+                      (function "right" [] "i64" (call "left" []))] ["left"])
+        checked (module/check-document doc)]
+    (is (= {"left" ["right"] "right" ["left"]} (:call-graph checked))))
+  (let [doc (document [(function "add" [] "bool" (literal "bool" true))
+                      (function "main" [] "bool" (call "add" []))] ["main"])]
+    (is (= :call (get-in (module/check-document doc) [:functions 1 :body :op])))))
+
+(deftest primitive-literals-and-intrinsics-have-explicit-types
+  (doseq [[type value checked] [["i64" "-9223372036854775808" "-9223372036854775808"]
+                              ["i64" "9223372036854775807" "9223372036854775807"]
+                              ["bool" false false] ["string" "日本語" "日本語"]]]
+    (let [result (module/check-document (document [(function "main" [] type (literal type value))] ["main"]))]
+      (is (= checked (get-in result [:functions 0 :body :value])))))
+  (let [result (module/check-document
+                 (document [(function "main" [] "bool"
+                              (call "eq" [(call "add" [(literal "i64" 1) (literal "i64" 2)])
+                                          (literal "i64" 3)]))] ["main"]))]
+    (is (= :intrinsic (get-in result [:functions 0 :body :op])))
+    (is (= :bool (get-in result [:functions 0 :body :type])))
+    (is (= {"main" []} (:call-graph result)))))
+
+(deftest names-exports-and-types-fail-closed
+  (doseq [[doc expected]
+          [[(document [id-function id-function] ["id"]) :mithril.module/duplicate-function]
+           [(document [id-function] ["missing"]) :mithril.module/unknown-export]
+           [(document [id-function] ["id" "id"]) :mithril.module/duplicate-export]
+           [(document [(function "bad/name" [] "i64" (literal "i64" 1))] []) :mithril.module/invalid-name]
+           [(document [(function "main" [{"name" "x" "datatype" "i64"}
+                                          {"name" "x" "datatype" "bool"}] "i64" (local "x"))] [])
+            :mithril.module/duplicate-parameter]
+           [(document [(function "main" [] "js-value" (literal "i64" 1))] []) :mithril.module/unsupported-type]
+           [(assoc (document [] []) "host/eval" "private") :mithril.module/invalid-shape]]]
+    (is (= expected (code doc)))))
+
+(deftest expression-types-and-i64-boundaries-fail-closed
+  (doseq [[body returns expected]
+          [[(local "missing") "i64" :mithril.module/unknown-local]
+           [(call "missing" []) "i64" :mithril.module/unknown-call]
+           [(call "add" [(literal "i64" 1)]) "i64" :mithril.module/arity]
+           [(call "add" [(literal "bool" true) (literal "i64" 1)]) "i64" :mithril.module/type-mismatch]
+           [(literal "i64" 1) "bool" :mithril.module/type-mismatch]
+           [(literal "i64" "9223372036854775808") "i64" :mithril.module/invalid-literal]
+           [(literal "i64" "-9223372036854775809") "i64" :mithril.module/invalid-literal]
+           [(literal "i64" 9007199254740992) "i64" :mithril.module/invalid-literal]
+           [(literal "i64" 1.5) "i64" :mithril.module/invalid-literal]
+           [(literal "bool" 1) "bool" :mithril.module/invalid-literal]
+           [(literal "string" nil) "string" :mithril.module/invalid-literal]
+           [(assoc (literal "i64" 1) "source" "evil") "i64" :mithril.module/invalid-shape]]]
+    (is (= expected (code (document [(function "main" [] returns body)] ["main"]))))))
+
+(deftest form-entrypoint-is-inert-and-checks-module-shape
+  (let [checked (module/check-text "(mithril/module :name \"example\" :exports [\"main\"] :functions [(mithril/function :name \"main\" :params [] :returns \"i64\" :body (mithril/literal :datatype \"i64\" :value 1))])")]
+    (is (= "1" (get-in checked [:functions 0 :body :value]))))
+  (is (= :mithril.module/invalid-shape (code (assoc (document [] []) "@context" "untrusted"))))
+  (is (= :mithril.module/invalid-shape (code {"@type" "Program"}))))
+
+(deftest bounded-source-depth-refuses-before-runtime-recursion
+  (let [body (reduce (fn [node _] (call "not" [node])) (literal "bool" true) (range 66))]
+    (is (= :mithril.module/budget (code (document [(function "main" [] "bool" body)] ["main"]))))))
+
+(def main (function "main" [] "i64" (literal "i64" 1)))
+
+(deftest strict-shapes-and-canonical-literals
+  (doseq [doc [(dissoc (document [main] []) "exports")
+               (assoc (document [] []) "functions" {})
+               (assoc (document [] []) "exports" {})
+               (document [(dissoc main "body")] [])
+               (document [(assoc main "host" "eval")] [])
+               (document [(function "main" [{"name" "x" "datatype" "i64" "extra" true}] "i64" (literal "i64" 1))] [])
+               (document [(function "main" [] "i64" (call "add" {}))] [])]]
+    (is (= :mithril.module/invalid-shape (code doc))))
+  (doseq [value ["01" "-0" "+1" " 1" "1.0" "1e2" ""]]
+    (is (= :mithril.module/invalid-literal
+           (code (document [(function "main" [] "i64" (literal "i64" value))] [])))))
+  (is (= "0" (get-in (module/check-document (document [(function "main" [] "i64" (literal "i64" 0))] [])) [:functions 0 :body :value]))))
+(deftest adjacency-is-sorted-distinct-and-order-is-preserved
+  (let [doc (document [(function "main" [] "i64"
+                        (call "add" [(call "z" []) (call "add" [(call "a" []) (call "z" [])])]))
+                      (function "z" [] "i64" (literal "i64" 1))
+                      (function "a" [] "i64" (literal "i64" 2))] ["z" "main"])
+        result (module/check-document doc)]
+    (is (= ["main" "z" "a"] (mapv :name (:functions result))))
+    (is (= ["z" "main"] (:exports result)))
+    (is (= ["a" "z"] (get-in result [:call-graph "main"])))
+    (is (= #{:name :params :returns :body} (set (keys (first (:functions result))))))))
+(deftest all-collection-and-total-expression-budgets-are-enforced
+  (let [functions (mapv (fn [n] (function (str "f" n) [] "i64" (literal "i64" 1))) (range 129))]
+    (is (= :mithril.module/budget (code (document functions [])))))
+  (is (= :mithril.module/budget (code (document [main] (vec (repeat 129 "main"))))))
+  (let [params (mapv (fn [n] (hash-map "name" (str "p" n) "datatype" "i64")) (range 65))]
+    (is (= :mithril.module/budget (code (document [(function "main" params "i64" (literal "i64" 1))] [])))))
+  (let [body (reduce (fn [node _] (call "add" [node (literal "i64" 1)])) (literal "i64" 0) (range 31))
+        functions (mapv (fn [n] (function (str "f" n) [] "i64" body)) (range 66))]
+    (is (= :mithril.module/budget (code (document functions []))))))
+
+(deftest identifiers-intrinsic-types-and-source-reader-boundaries
+  (is (= "example.module" (:name (module/check-document (assoc (document [main] ["main"]) "name" "example.module")))))
+  (doseq [name ["" "9invalid" "example..module" "example/module"]]
+    (is (= :mithril.module/invalid-name (code (assoc (document [main] []) "name" name)))))
+  (is (= :mithril.module/type-mismatch
+         (code (document [(function "main" [] "bool" (call "eq" [(literal "i64" 1) (literal "bool" true)]))] []))))
+  (doseq [op ["sub" "mul"]]
+    (is (= :i64 (get-in (module/check-document (document [(function "main" [] "i64" (call op [(literal "i64" 2) (literal "i64" 1)]))] [])) [:functions 0 :body :type]))))
+  (is (= :bool (get-in (module/check-document (document [(function "main" [] "bool" (call "eq" [(literal "string" "a") (literal "string" "b")]))] [])) [:functions 0 :body :type])))
+  (let [literal "(not code)\";still literal"
+        source (str "(mithril/module :name \"example\" :exports [\"main\"] :functions [(mithril/function :name \"main\" :params [] :returns \"string\" :body (mithril/literal :datatype \"string\" :value " (pr-str literal) "))])")
+        result (module/check-text (str "; ignored ((( [ {\n" source))]
+    (is (= literal (get-in result [:functions 0 :body :value]))))
+  (is (= :mithril.module/budget
+         (try (module/check-text (apply str (repeat 1000 "("))) nil
+              (catch :default e (:mithril/error (ex-data e)))))))
+
+(deftest exact-expression-budget-boundaries-remain-usable
+  (let [at-limit (reduce (fn [node _] (call "not" [node])) (literal "bool" true) (range 63))
+        over-limit (call "not" [at-limit])]
+    (is (= :bool (get-in (module/check-document (document [(function "main" [] "bool" at-limit)] [])) [:functions 0 :body :type])))
+    (is (= :mithril.module/budget (code (document [(function "main" [] "bool" over-limit)] [])))))
+  (let [body (reduce (fn [node _] (call "add" [node (literal "i64" 1)])) (literal "i64" 0) (range 31))
+        functions (vec (concat
+                         (map (fn [n] (function (str "deep" n) [] "i64" body)) (range 64))
+                         (map (fn [n] (function (str "leaf" n) [] "i64" (literal "i64" 0))) (range 64))))]
+    ;; 64 * 63 + 64 = 4096 logical expression nodes, exactly 128 functions.
+    (is (= 128 (count (:functions (module/check-document (document functions []))))))
+    (is (= :mithril.module/budget
+           (code (document (assoc-in functions [127 "body"] (call "add" [(literal "i64" 0) (literal "i64" 1)])) []))))))
