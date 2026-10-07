@@ -2081,3 +2081,37 @@ and 2,000 calls per function. JS-browser artifacts are also executed in Node;
 this does not qualify a browser host, literal function source equality,
 whole CosmoKit or whole-Harness API/plugin equivalence. These are Node/nbb
 bootstrap results, not selfhost evidence or a model-only success.
+
+
+## Module export aliases
+
+Exports accept existing declaration names and explicit aliases:
+
+```clojure
+:exports ["keep" (mithril/export :name "alsoKeep" :function "keep")]
+```
+
+`examples/modules/export-aliases.mith` is a pure identity-function example.
+Alias records have exactly `name` and `function`; both identifiers must be
+valid, public names must be unique, and targets must be declared functions.
+Aliases affect only the public exports, so private calls still resolve to the
+actual declaration, including when a public alias has a private function's name.
+
+For alias documents, checked IR normalizes `:exports` to public names and adds
+`:export-targets` for all exports. String-only documents retain the old checked
+IR and lowering bytes. Amu namespace exports deduplicate private targets in
+first-occurrence order. The public JavaScript facade reuses one wrapper per
+declaration, with its canonical name and arity; aliases share function identity,
+prototype and constructor. Budget analysis follows declarations. All existing
+pure-library guards and restricted artifact budgets remain in force.
+
+This change is operator-authored. The public System One request returned
+`temporarily_unavailable` without a proposal or inference receipt, so no model
+completion or performance result is attributed to it. A separately corrected
+operator-owned test fixture was frozen before qualification. Paired existing
+53 tests / 309 assertions and seven new tests / 25 assertions pass in offline
+containers. Normal explicit JVM-free Amu compilation and ESM execution qualify
+JS and JS-browser artifacts in Node; three non-JS targets refuse opaque JS
+values. See `test/qualification/export-aliases/README.md` for the evidence scope.
+The example does not implement CosmoKit's `mapValues`, callbacks, object access,
+stateful libraries or whole-Harness API/plugin equivalence.

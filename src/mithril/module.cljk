@@ -148,6 +148,13 @@
            :then checked-then :else checked-else}))
     (fail! :mithril.module/invalid-shape "Unknown module expression type")))
 
+(defn- check-export [export]
+  (if (map? export)
+    (do (shape! export ["name" "function"])
+        {:name (name! (get export "name") false)
+         :target (name! (get export "function") false)})
+    (let [name (name! export false)] {:name name :target name})))
+
 (defn check-document
   "Validate all signatures, then bounded bodies, and return deterministic typed IR."
   [doc]
@@ -163,13 +170,14 @@
     (let [declarations (mapv signature! functions)
           names (mapv :name declarations)]
       (unique! names :mithril.module/duplicate-function)
-      (doseq [export exports] (name! export false))
-      (unique! exports :mithril.module/duplicate-export)
+      (let [checked-exports (mapv check-export exports)
+            public-names (mapv :name checked-exports)]
+        (unique! public-names :mithril.module/duplicate-export)
       (let [signatures (zipmap names declarations)
             nodes (atom 0)
             graph (atom {})]
-        (doseq [export exports]
-          (when-not (contains? signatures export)
+        (doseq [export checked-exports]
+          (when-not (contains? signatures (:target export))
             (fail! :mithril.module/unknown-export "Unknown module export")))
         (let [checked (mapv
                         (fn [function declaration]
@@ -180,8 +188,10 @@
                               (fail! :mithril.module/type-mismatch "Module return type mismatch"))
                             (swap! graph assoc (:name declaration) (vec (sort @calls)))
                             (assoc declaration :body body))) functions declarations)]
-          {:format :mithril.module/checked-v1 :name module-name :exports exports
-           :functions checked :call-graph @graph})))))
+          (cond-> {:format :mithril.module/checked-v1 :name module-name :exports public-names
+                   :functions checked :call-graph @graph}
+            (some map? exports)
+            (assoc :export-targets (into {} (map (juxt :name :target) checked-exports))))))))))
 
 (defn- source-budget! [text]
   (when-not (string? text)
