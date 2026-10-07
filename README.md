@@ -1912,8 +1912,15 @@ The cloud simulation assembly composes Mithril's identity, authz, quota,
 consistency, fault and TLS components with the AWS, Azure, Google, WireMock
 and Pact domains. A stack is one provider: `aws` resources stay under
 `com.amazonaws.`, `azure` under `com.microsoft.azure.`, and `google` under
-`com.google.cloud.`. `plan` runs each resource in depends order and keeps
-`applied` false.
+`com.google.cloud.`. `plan` keeps one ledger for the whole stack: a write is
+visible to a later read on the same domain when consistency is `strong`, and
+stays delayed when it is `eventual`. Quota counts down across resources. A refused call does not spend a unit.
+A resource sees the objects written by the resources it depends on when
+consistency is `strong`.
+`applied` stays false. Passing a cluster document and an observation checks
+`localstack` for AWS and `azurite` for Azure; the check does not start a
+container. Google has no emulator in that cluster, so the finding is
+`unobserved`.
 
 ```sh
 kbb --backend sci --classpath src bin/mithril-components.cljk \

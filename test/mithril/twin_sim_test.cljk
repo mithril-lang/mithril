@@ -37,7 +37,7 @@
     (is (= {"object" "echo" "method" "POST" "path" "/v1/echo" "body" "{\"n\":1}"}
            (:return echo)))
     (is (= "hypothesis" (get-in graph [:return "honesty"])))
-    (is (= 0 (get-in graph [:return "observation-count"])))
+    (is (= 0 (get-in graph [:return "observationCount"])))
     (is (= 404 (get-in missing [:response :status])))
     (is (= {"object" "error" "status" 404} (:return missing)))))
 

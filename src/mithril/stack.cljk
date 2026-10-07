@@ -1,10 +1,13 @@
 (ns mithril.stack
   "Provider stacks for the AWS, Azure, and Google simulation.
 
-  A stack names resources of one provider. `plan` runs each resource through
-  the sealed twin steps and returns the computed responses. Nothing is
-  applied: there is no cloud API, account, or credential."
+  A stack names resources of one provider. `plan` runs them in depends order
+  against one ledger: writes are visible to later reads on the same domain
+  when consistency is strong, and quota counts down across the stack. A
+  cluster observation can be compared with localstack or azurite. Nothing is
+  applied: there is no cloud API, account, credential, or container start."
   (:require [clojure.string :as str]
+            [mithril.cluster :as cluster]
             [mithril.twin-sim :as twin]))
 
 (def context-uri "https://mithril.fund/context/v1")
@@ -14,11 +17,17 @@
    "azure" "com.microsoft.azure."
    "google" "com.google.cloud."})
 
+(def emulator-services
+  {"aws" "localstack"
+   "azure" "azurite"})
+
 (def ^:private stack-keys
   #{"@context" "@type" "@id" "boundary" "provider" "name" "principal" "allow"
     "permission-boundary" "quota" "consistency" "fault" "tls" "object" "contract"
     "resources"})
-(def ^:private resource-keys #{"name" "domain" "operation" "action" "depends"})
+(def ^:private required-resource-keys #{"name" "domain" "operation" "action" "depends"})
+(def ^:private optional-resource-keys #{"object" "resource" "condition"})
+(def ^:private conditions #{"none" "same-region"})
 
 (defn- fail! [code detail]
   (throw (ex-info detail {:mithril/error code :detail detail})))
@@ -38,12 +47,36 @@
        (every? #(and (string? %) (re-matches pattern %)) value)
        (= (count value) (count (set value)))))
 
+(defn- catalog-name? [value]
+  (boolean (and (string? value) (re-matches #"\*|[-A-Za-z0-9._:/]{1,64}" value))))
+
 (defn- local-name [symbol]
   (last (str/split symbol #"/")))
 
+(defn- admit-grant [entry]
+  (cond
+    (and (string? entry) (re-matches #"[A-Za-z0-9:*-]{1,64}" entry))
+    {"action" entry "resource" "*" "condition" "none"}
+
+    (and (map? entry)
+         (= #{"action" "resource" "condition"} (set (keys entry)))
+         (and (string? (get entry "action"))
+              (re-matches #"[A-Za-z0-9:*-]{1,64}" (get entry "action")))
+         (catalog-name? (get entry "resource"))
+         (contains? conditions (get entry "condition")))
+    entry
+
+    :else
+    (fail! :mithril.stack/invalid-resource
+           "permission-boundary entries are actions, or action/resource/condition grants")))
+
 (defn- admit-resource [provider resource names]
-  (when-not (and (map? resource) (= resource-keys (set (keys resource))))
-    (fail! :mithril.stack/unknown-key "resource contains an unknown or missing key"))
+  (let [present (set (keys resource))
+        allowed (into required-resource-keys optional-resource-keys)]
+    (when-not (and (map? resource)
+                   (every? present required-resource-keys)
+                   (every? allowed present))
+      (fail! :mithril.stack/unknown-key "resource contains an unknown or missing key")))
   (let [name (get resource "name")
         domain (get resource "domain")
         operation (get resource "operation")
@@ -65,6 +98,14 @@
       (fail! :mithril.stack/cycle (str "resource depends on itself: " name)))
     (when-let [missing (first (remove names depends))]
       (fail! :mithril.stack/unknown-resource (str "depends names an unknown resource: " missing)))
+    (when (and (contains? resource "object")
+               (not (and (string? (get resource "object"))
+                         (<= (count (get resource "object")) 256))))
+      (fail! :mithril.stack/invalid-resource "resource object must be a string of at most 256 characters"))
+    (when (and (contains? resource "resource") (not (catalog-name? (get resource "resource"))))
+      (fail! :mithril.stack/invalid-resource "resource scope must be * or a catalog name"))
+    (when (and (contains? resource "condition") (not (contains? conditions (get resource "condition"))))
+      (fail! :mithril.stack/invalid-resource "condition must be none or same-region"))
     resource))
 
 (defn- order-resources [resources]
@@ -104,33 +145,55 @@
       (fail! :mithril.stack/invalid-resource "principal must match [a-z][a-z0-9-]{0,63}"))
     (when-not (string-list? (get doc "allow") #"[a-z][a-z0-9-]{0,63}" 32)
       (fail! :mithril.stack/invalid-resource "allow must be unique principals"))
-    (when-not (string-list? (get doc "permission-boundary") #"[A-Za-z0-9:*-]{1,64}" 32)
-      (fail! :mithril.stack/invalid-resource "permission-boundary must be unique actions"))
-    (when-not (and (integer? (get doc "quota")) (<= 0 (get doc "quota") 1000000))
-      (fail! :mithril.stack/invalid-resource "quota must be an integer from 0 through 1000000"))
-    (when-not (contains? #{"strong" "eventual"} (get doc "consistency"))
-      (fail! :mithril.stack/invalid-resource "consistency must be strong or eventual"))
-    (when-not (contains? #{"none" "unavailable" "timeout"} (get doc "fault"))
-      (fail! :mithril.stack/invalid-resource "fault must be none, unavailable, or timeout"))
-    (when-not (contains? #{"ok" "refused"} (get doc "tls"))
-      (fail! :mithril.stack/invalid-resource "tls must be ok or refused"))
-    (when-not (contains? #{"unchecked" "holds" "violated"} (get doc "contract"))
-      (fail! :mithril.stack/invalid-resource "contract must be unchecked, holds, or violated"))
-    (when-not (and (string? (get doc "object")) (<= (count (get doc "object")) 256))
-      (fail! :mithril.stack/invalid-resource "object must be a string of at most 256 characters"))
-    (let [resources (get doc "resources")]
-      (when-not (and (vector? resources) (seq resources))
-        (fail! :mithril.stack/invalid-resource "a stack has at least one resource"))
-      (let [names (map #(get % "name") resources)]
-        (when-not (and (every? name? names) (= (count names) (count (set names))))
-          (fail! :mithril.stack/invalid-resource "resource names must be unique"))
-        (let [admitted (mapv #(admit-resource provider % (set names)) resources)]
-          (assoc doc "resources" (order-resources admitted)))))))
+    (let [grants (get doc "permission-boundary")]
+      (when-not (and (vector? grants) (seq grants) (<= (count grants) 32))
+        (fail! :mithril.stack/invalid-resource "permission-boundary must be 1 through 32 grants"))
+      (let [admitted (mapv admit-grant grants)
+            identities (map (fn [grant] [(get grant "action") (get grant "resource") (get grant "condition")])
+                            admitted)]
+        (when-not (= (count identities) (count (set identities)))
+          (fail! :mithril.stack/invalid-resource "permission-boundary grants must be unique"))
+        (when-not (and (integer? (get doc "quota")) (<= 0 (get doc "quota") 1000000))
+          (fail! :mithril.stack/invalid-resource "quota must be an integer from 0 through 1000000"))
+        (when-not (contains? #{"strong" "eventual"} (get doc "consistency"))
+          (fail! :mithril.stack/invalid-resource "consistency must be strong or eventual"))
+        (when-not (contains? #{"none" "unavailable" "timeout"} (get doc "fault"))
+          (fail! :mithril.stack/invalid-resource "fault must be none, unavailable, or timeout"))
+        (when-not (contains? #{"ok" "refused"} (get doc "tls"))
+          (fail! :mithril.stack/invalid-resource "tls must be ok or refused"))
+        (when-not (contains? #{"unchecked" "holds" "violated"} (get doc "contract"))
+          (fail! :mithril.stack/invalid-resource "contract must be unchecked, holds, or violated"))
+        (when-not (and (string? (get doc "object")) (<= (count (get doc "object")) 256))
+          (fail! :mithril.stack/invalid-resource "object must be a string of at most 256 characters"))
+        (let [resources (get doc "resources")]
+          (when-not (and (vector? resources) (seq resources))
+            (fail! :mithril.stack/invalid-resource "a stack has at least one resource"))
+          (let [names (map #(get % "name") resources)]
+            (when-not (and (every? name? names) (= (count names) (count (set names))))
+              (fail! :mithril.stack/invalid-resource "resource names must be unique"))
+            (let [admitted-resources (mapv #(admit-resource provider % (set names)) resources)]
+              (assoc doc
+                     "permission-boundary" admitted
+                     "resources" (order-resources admitted-resources)))))))))
 
 (defn- exports-operation? [component operation]
   (boolean (some #(= operation (local-name (:symbol %))) (:exports component))))
 
-(defn- run-of [doc resource]
+(defn- boundary-reason [resource grants]
+  (let [action (get resource "action")
+        resource-name (get resource "resource" "*")
+        condition (get resource "condition" "none")
+        same-action (filterv #(= action (get % "action")) grants)
+        same-resource (filterv #(or (= "*" (get % "resource"))
+                                    (= resource-name (get % "resource")))
+                               same-action)]
+    (cond
+      (empty? same-action) "boundary"
+      (empty? same-resource) "resource"
+      (empty? (filterv #(= condition (get % "condition")) same-resource)) "condition"
+      :else nil)))
+
+(defn- run-of [doc resource quota object]
   {"@context" context-uri
    "@type" "TwinRun"
    "@id" (str (get doc "@id") "/" (get resource "name"))
@@ -140,39 +203,118 @@
    "principal" (get doc "principal")
    "action" (get resource "action")
    "allow" (get doc "allow")
-   "permission-boundary" (get doc "permission-boundary")
-   "quota" (get doc "quota")
+   "permission-boundary" (vec (distinct (map #(get % "action") (get doc "permission-boundary"))))
+   "quota" quota
    "consistency" (get doc "consistency")
    "fault" (get doc "fault")
    "tls" (get doc "tls")
-   "object" (get doc "object")
+   "object" object
    "contract" (get doc "contract")})
 
+(defn- denied [resource reason]
+  {:name (get resource "name")
+   :domain (get resource "domain")
+   :operation (get resource "operation")
+   :depends (vec (get resource "depends"))
+   :status 403
+   :applied false
+   :effects []
+   :return {"applied" false
+            "domain" (get resource "domain")
+            "operation" (get resource "operation")
+            "decision" "deny"
+            "status" 403
+            "reason" reason}})
+
+(defn- cluster-check [provider cluster-doc observation]
+  (let [admitted (cluster/admit cluster-doc)
+        service-name (get emulator-services provider)]
+    (if (nil? service-name)
+      {:applied false :service nil :status "unobserved" :finding "unobserved"}
+      (let [service (first (filter #(= service-name (get % "name")) (get admitted "services")))]
+        (when-not service
+          (fail! :mithril.stack/cluster (str "cluster has no " service-name " service")))
+        (let [checked (cluster/verify (assoc admitted "services" [service]) observation)
+              row (first (:services checked))]
+          {:applied false
+           :service service-name
+           :status (:status checked)
+           :finding (:finding row)})))))
+
+(defn- walk [catalog doc]
+  (loop [pending (get doc "resources")
+         remaining (get doc "quota")
+         objects {}
+         rows []]
+    (if (empty? pending)
+      {:rows rows :remaining remaining :objects objects}
+      (let [resource (first pending)
+            operation (get resource "operation")
+            domain (get resource "domain")
+            reason (boundary-reason resource (get doc "permission-boundary"))]
+        (if reason
+          (recur (rest pending) remaining objects (conj rows (denied resource reason)))
+          (let [authored (get resource "object" (get doc "object"))
+                written (get objects domain)
+                read? (contains? twin/reads operation)
+                strong? (= "strong" (get doc "consistency"))
+                chosen (if (and read? strong? written) written authored)
+                result (twin/execute catalog (run-of doc resource remaining chosen))
+                status (get-in result [:response :status])
+                return (:return result)
+                next-remaining (if (contains? return "remaining") (get return "remaining") remaining)
+                next-objects (if (and (contains? twin/writes operation) (= 200 status))
+                               (assoc objects
+                                      domain authored
+                                      (get resource "name") authored)
+                               objects)
+                seen (into {} (keep (fn [dependency]
+                                      (when-let [value (get objects dependency)]
+                                        [dependency value]))
+                                    (get resource "depends")))
+                visible (cond
+                          (and read? (= 200 status) written) strong?
+                          (and (= 200 status) (seq seen)) strong?
+                          :else nil)
+                row (cond-> {:name (get resource "name")
+                             :domain domain
+                             :operation operation
+                             :depends (vec (get resource "depends"))
+                             :status status
+                             :applied false
+                             :effects (:effects result)
+                             :return return}
+                      (some? visible) (assoc :visible visible)
+                      (and strong? (= 200 status) (seq seen)) (assoc :inputs seen))]
+            (recur (rest pending) next-remaining next-objects (conj rows row))))))))
+
 (defn plan
-  "Compute every resource in dependency order. `:applied` stays false."
-  [catalog doc]
-  (let [doc (admit doc)]
-    (doseq [resource (get doc "resources")]
-      (let [domain (get resource "domain")
-            component (get catalog domain)]
-        (when-not component
-          (fail! :mithril.stack/unknown-component (str "no component for " domain)))
-        (when-not (exports-operation? component (get resource "operation"))
-          (fail! :mithril.stack/unknown-operation
-                 (str domain " does not export " (get resource "operation"))))))
-    (let [resources (mapv (fn [resource]
-                            (let [result (twin/execute catalog (run-of doc resource))]
-                              {:name (get resource "name")
-                               :domain (get resource "domain")
-                               :operation (get resource "operation")
-                               :depends (vec (get resource "depends"))
-                               :status (get-in result [:response :status])
-                               :applied false
-                               :effects (:effects result)
-                               :return (:return result)}))
-                          (get doc "resources"))]
-      {:boundary "simulation"
-       :applied false
-       :provider (get doc "provider")
-       :name (get doc "name")
-       :resources resources})))
+  "Compute every resource in dependency order against one ledger.
+  `:applied` stays false. `observed` is `{:cluster doc :observation [...]}`
+  when the plan should compare localstack or azurite. Nothing is started."
+  ([catalog doc] (plan catalog doc nil))
+  ([catalog doc observed]
+   (let [doc (admit doc)]
+     (doseq [resource (get doc "resources")]
+       (let [domain (get resource "domain")
+             component (get catalog domain)]
+         (when-not component
+           (fail! :mithril.stack/unknown-component (str "no component for " domain)))
+         (when-not (exports-operation? component (get resource "operation"))
+           (fail! :mithril.stack/unknown-operation
+                  (str domain " does not export " (get resource "operation"))))))
+     (when (and observed
+                (not (and (map? observed)
+                          (contains? observed :cluster)
+                          (contains? observed :observation))))
+       (fail! :mithril.stack/cluster "plan observation needs a cluster document and an observation"))
+     (let [{:keys [rows remaining objects]} (walk catalog doc)
+           checked (when observed
+                     (cluster-check (get doc "provider") (:cluster observed) (:observation observed)))]
+       (cond-> {:boundary "simulation"
+                :applied false
+                :provider (get doc "provider")
+                :name (get doc "name")
+                :ledger {:objects objects :remaining remaining}
+                :resources rows}
+         checked (assoc :cluster checked))))))
