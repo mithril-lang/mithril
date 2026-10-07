@@ -36,6 +36,14 @@ may still shadow intrinsic names with their own checked signatures.
 `examples/modules/js-value.mith` uses the existing inert `rdf/node` spelling
 for parameters and lowers a forward call with explicit `:js-value` types.
 The caller applies the lowerer's original/generated export-name table.
+Module calls `js_nullish`, `js_truthy`, and `js_strict_equal` consume
+explicit opaque arguments and return `bool`; lowering names the corresponding
+Amu JS operations. `examples/modules/js-predicates.mith` implements
+`isNullable` and `isNonNullable` plus truthiness and strict identity helpers.
+Unknown types, incorrect arities and opaque-to-scalar conversions still
+refuse. A declared function may shadow these intrinsic names. These checked
+source/lowering contracts need qualified compiler/runtime evidence before
+they establish executable behavior or package compatibility.
 Target qualification belongs to Amu: only restricted JS profiles admit this
 host ABI. This does not grant property access, callbacks or ambient authority;
 retained host graphs have embedder-owned lifetime/resource costs. Full JS

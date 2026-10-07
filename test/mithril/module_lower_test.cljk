@@ -65,3 +65,19 @@
                 "(defn __mithril_f0 [__mithril_p0 :js-value] :js-value (__mithril_f1 __mithril_p0))\n"
                 "(defn __mithril_f1 [__mithril_p0 :js-value] :js-value __mithril_p0)\n") (:source result)))
     (is (= result (lower/lower-text opaque-module-text)))))
+
+(deftest opaque-js-predicates-lower-to-explicit-native-operations
+  (doseq [[name op args] [["js_nullish" "js-nullish?" "__mithril_p0"]
+                         ["js_truthy" "js-truthy?" "__mithril_p0"]
+                         ["js_strict_equal" "js-strict-equal?" "__mithril_p0 __mithril_p0"]]]
+    (let [text (str "(mithril/module :name \"host.observe\" :exports [\"observe\"] "
+                    ":functions [(mithril/function :name \"observe\" "
+                    ":params [(rdf/node :name \"v\" :datatype \"js-value\")] :returns \"bool\" "
+                    ":body (mithril/call :name \"" name "\" :args ["
+                    "(mithril/local :name \"v\")"
+                    (when (= name "js_strict_equal") " (mithril/local :name \"v\")") "]))])")
+          result (lower/lower-text text)]
+      (is (= (str "(ns mithril.generated.host.observe (:export [__mithril_f0]))\n"
+                  "(defn __mithril_f0 [__mithril_p0 :js-value] :bool (" op " " args "))\n")
+             (:source result)))
+      (is (= [{:name "observe" :symbol "__mithril_f0"}] (:exports result))))))

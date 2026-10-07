@@ -191,3 +191,30 @@
                              (function "keep" params "js-value" (call "eq" [(local "value")]))] ["keep"]))]
     (is (= :call (get-in checked [:functions 1 :body :op])))
     (is (= :js-value (get-in checked [:functions 1 :body :type])))))
+
+(deftest opaque-js-predicates-have-closed-signatures
+  (let [params [{"name" "value" "datatype" "js-value"}]]
+    (doseq [[name args] [["js_nullish" [(local "value")]]
+                         ["js_truthy" [(local "value")]]
+                         ["js_strict_equal" [(local "value") (local "value")]]]]
+      (let [checked (module/check-document
+                     (document [(function "observe" params "bool" (call name args))] ["observe"]))]
+        (is (= :bool (get-in checked [:functions 0 :body :type])))
+        (is (= :intrinsic (get-in checked [:functions 0 :body :op]))))
+      (is (= :mithril.module/type-mismatch
+             (code (document [(function "observe" params "js-value" (call name args))] []))))
+      (is (= :mithril.module/type-mismatch
+             (code (document [(function "observe" [{"name" "value" "datatype" "i64"}]
+                                        "bool" (call name args))] [])))))
+    (doseq [[name args] [["js_nullish" []] ["js_truthy" [(local "value") (local "value")]]
+                         ["js_strict_equal" [(local "value")]]]]
+      (is (= :mithril.module/arity
+             (code (document [(function "observe" params "bool" (call name args))] [])))))))
+
+(deftest declared-opaque-predicate-name-still-shadows-the-intrinsic
+  (let [params [{"name" "value" "datatype" "js-value"}]
+        checked (module/check-document
+                  (document [(function "js_nullish" params "js-value" (local "value"))
+                             (function "keep" params "js-value" (call "js_nullish" [(local "value")]))] ["keep"]))]
+    (is (= :call (get-in checked [:functions 1 :body :op])))
+    (is (= :js-value (get-in checked [:functions 1 :body :type])))))
