@@ -78,3 +78,107 @@
   "Lower a Mithril module text to Amu Kotoba source."
   [text]
   (result (module/check-text text)))
+
+(defn- library-fail! [code detail]
+  (throw (ex-info detail {:mithril/error code :detail detail})))
+
+(defn- library-specifier! [specifier]
+  (when-not (and (string? specifier)
+                 (re-matches #"\./[A-Za-z0-9_-]+\.mjs" specifier))
+    (library-fail! :mithril.module/library-specifier "Expected a local artifact basename"))
+  specifier)
+
+(defn- library-integer! [value]
+  (when-not (and (js/Number.isSafeInteger value) (<= 0 value))
+    (library-fail! :mithril.module/library-budget "Expanded call budget exceeds exact integer range"))
+  value)
+
+(defn- library-budgets [checked]
+  ;; This vocabulary constructs no aggregate and exposes no state. Fuel counts
+  ;; entries; arguments finish before their callee enters. Analyze every private
+  ;; declaration as well, refusing cycles and future vocabulary explicitly.
+  (let [functions (into {} (map (juxt :name identity) (:functions checked)))
+        memo (atom {})]
+    (letfn [(sum-fuel [a b] (library-integer! (+ a b)))
+            (sequence-budget [expressions]
+              (reduce (fn [[fuel frames] expression]
+                        (let [[next-fuel next-frames] (expression-budget expression)]
+                          [(sum-fuel fuel next-fuel) (max frames next-frames)]))
+                      [0 0] expressions))
+            (expression-budget [expression]
+              (case (:op expression)
+                :literal [0 0]
+                :local [0 0]
+                :intrinsic (if (contains? #{"add" "sub" "mul" "eq" "not"
+                                           "js_nullish" "js_truthy" "js_strict_equal"
+                                           "js_typeof" "js_array" "js_bool_value" "js_undefined"}
+                                         (:name expression))
+                             (sequence-budget (:args expression))
+                             (library-fail! :mithril.module/library-vocabulary "Unsupported public library intrinsic"))
+                :call (let [[args-fuel args-frames] (sequence-budget (:args expression))
+                            [callee-fuel callee-frames] (function-budget (:name expression))]
+                        [(sum-fuel args-fuel callee-fuel) (max args-frames callee-frames)])
+                :if (let [[condition-fuel condition-frames] (expression-budget (:condition expression))
+                          [then-fuel then-frames] (expression-budget (:then expression))
+                          [else-fuel else-frames] (expression-budget (:else expression))]
+                      [(sum-fuel condition-fuel (max then-fuel else-fuel))
+                       (max condition-frames then-frames else-frames)])
+                (library-fail! :mithril.module/library-vocabulary "Unsupported public library expression")))
+            (function-budget [name]
+              (let [cached (get @memo name)]
+                (cond
+                  (= :visiting cached)
+                  (library-fail! :mithril.module/library-cycle "Public library call graph contains a cycle")
+                  cached cached
+                  :else
+                  (do (swap! memo assoc name :visiting)
+                      (let [[fuel frames] (expression-budget (:body (get functions name)))
+                            budgets [(sum-fuel 1 fuel) (sum-fuel 1 frames)]]
+                        (swap! memo assoc name budgets)
+                        budgets)))))]
+      (doseq [declaration (:functions checked)] (function-budget (:name declaration)))
+      (let [[fuel frames] (reduce (fn [[fuel frames] name]
+                                   (let [[next-fuel next-frames] (function-budget name)]
+                                     [(max fuel next-fuel) (max frames next-frames)]))
+                                 [1 1] (:exports checked))]
+        {:fuel fuel :frames frames}))))
+
+(defn- library-source [checked specifier budgets]
+  (let [functions (into {} (map (juxt :name identity) (:functions checked)))
+        mappings (:exports (result checked))
+        wrapper-name (fn [index] (str "__mithril_public_" index))]
+    (str "import { instantiateKotoba as __mithril_instantiate } from "
+         (js/JSON.stringify specifier) ";\n"
+         (apply str
+                (map-indexed
+                  (fn [index {:keys [name symbol]}]
+                    (let [params (mapv parameter-symbol (range (count (:params (get functions name)))))
+                          wrapper (wrapper-name index)]
+                      (str "function " wrapper "(" (str/join "," params) ") {\n"
+                           "const __mithril_exports = __mithril_instantiate({}, {fuel:"
+                           (:fuel budgets) ",frames:" (:frames budgets) "});\n"
+                           "return __mithril_exports[" (js/JSON.stringify symbol) "](" (str/join "," params) ");\n}\n"
+                           "Object.defineProperty(" wrapper ",\"name\",{value:" (js/JSON.stringify name) "});\n"
+                           "export { " wrapper " as " (js/JSON.stringify name) " };\n")))
+                  mappings)))))
+
+(defn- library-result [checked specifier]
+  (let [budgets (library-budgets checked)]
+    {:format :mithril.module/js-library-facade-v1
+     :name (:name checked)
+     :exports (:exports (result checked))
+     :budgets budgets
+     :source (library-source checked specifier budgets)}))
+
+(defn js-library-document
+  "Emit a public facade for a checked acyclic pure module and a local Amu artifact.
+  Each invocation gets its statically derived budget; restricted lowering is unchanged."
+  [doc artifact-specifier]
+  (library-specifier! artifact-specifier)
+  (library-result (module/check-document doc) artifact-specifier))
+
+(defn js-library-text
+  "Validate inert Mithril Form text and emit its acyclic pure library facade."
+  [text artifact-specifier]
+  (library-specifier! artifact-specifier)
+  (library-result (module/check-text text) artifact-specifier))

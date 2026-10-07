@@ -2046,3 +2046,38 @@ one character; paired baseline/candidate checks then passed 42 / 273 each,
 and combined independent checks passed 45 tests / 284 assertions in a pinned
 offline image. This is model-assisted source with one operator repair, not
 a model-only success or whole-Harness API/plugin equivalence.
+
+## Public JavaScript facade for pure modules
+
+`mithril.module-lower/js-library-document` and `js-library-text` emit a
+separate ESM facade for an actual Amu artifact. Pass an ASCII local basename
+such as `./artifact.mjs`; network, parent and nested paths are refused. The
+result contains `:source`, `:exports` and the derived `:budgets`. Write the
+facade next to that artifact. `examples/modules/js-library.mith` authors
+`noop`, `isNullable`, `isNonNullable` and `isPlainObject` together in Mithril.
+
+The facade emits ordinary function declarations, preserves public names,
+parameter counts and construction, and delegates to the compiled exports.
+For the current pure scalar/opaque-JS vocabulary, each public invocation has
+its own instance and statically computed fuel/depth. Argument evaluation is
+sequential before the callee; lazy branches use their maximum cost. All call
+graph cycles and exact-integer budget overflow are refused. Intrinsic and
+expression admission is explicit. Restricted lowering and default artifact
+budgets stay unchanged. Recursion, state, capabilities, callbacks and future
+aggregate vocabulary need a subsequent library profile.
+
+System One generated one proposal in 62.38 seconds with 15,188 prompt / 3,128
+completion tokens and repair budget zero. Paired existing checks passed
+45 tests / 284 assertions each, but the new contracts failed with ten failures
+and seven errors because the generated public APIs were unbound. Static review
+also found incorrect artifact delegation. An operator repaired the library
+implementation, with the original proposal and outcomes retained separately.
+The repaired candidate passes eight independent tests / 25 assertions and
+paired unchanged 45 / 284 checks. Actual facade/Amu ESM execution in a pinned
+offline Node image matches the four CosmoKit functions for names, length,
+prototype descriptors, 16 constructor cases, 280 value/call comparisons, two
+revoked-Proxy errors, zero property reads, eight Array.isArray replacements
+and 2,000 calls per function. JS-browser artifacts are also executed in Node;
+this does not qualify a browser host, literal function source equality,
+whole CosmoKit or whole-Harness API/plugin equivalence. These are Node/nbb
+bootstrap results, not selfhost evidence or a model-only success.
