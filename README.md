@@ -12,7 +12,8 @@ migration flag. Both lower to one pinned JSON-LD projection and therefore one
 canonical RDF Dataset identity.
 
 The Form reader admits `mithril/module` with a module-specific context and
-inert Function/Call/Local/Literal/If/Let/Sequence nodes. `mithril.module/check-document` and
+inert Function/Call/Local/Literal/If/Let/Sequence and guest
+Lambda/Invoke/FunctionRef nodes. `mithril.module/check-document` and
 `check-text` validate signatures, explicit i64/bool/string and opaque js-value types, exports,
 forward and recursive calls, and return deterministic checked IR. Function
 and parameter identifiers use ASCII letters/underscores followed by letters,
@@ -2137,3 +2138,21 @@ The acyclic pure public-library profile charges every initializer and sequence
 call in its per-call fuel/frame calculation; unused calls still participate in
 cycle refusal. This vocabulary adds no host callback/property authority, guest
 closure AST, aggregate construction or async/module linking.
+
+## Guest callable contracts
+
+A `FunctionType` descriptor carries exact `params` and `returns` fields. It
+lowers to a logical Kotoba `[:fn [params result]]` contract, including bounded
+nested callable parameters/results. `Lambda` names typed parameters, a return
+type and a body; `FunctionRef` names a declared function; `Invoke` names a
+callable expression and arguments. Lexical bindings retain callable contracts,
+and generated helper declarations are deterministic and count toward the
+128-declaration limit. Raw host functions and callable literal values are
+refused. Existing depth/node/arity limits and linear-resource refusals remain.
+
+The guest closure fixture in `examples/module-guest-closures.mith` includes
+captures, callable arguments, named references and a callable returning another
+callable. The pure public-JS facade refuses callable signatures and guest closure
+vocabulary until an explicit host bridge exists. These guest closures do not
+provide escaping JavaScript callbacks or complete harness API/plugin parity.
+Qualification receipts are under `test/qualification/module-guest-closures`.

@@ -1,0 +1,81 @@
+{
+  "stage": "candidate source and normal Amu branch qualification; publication pending",
+  "base": "7d855a41180702b7e00c5fb60e0da945bed3eed4",
+  "dependency_image": "sha256:4b95fd6683bb82364f70e799b4507e61d3834f86068da9ee8f05cdabe0195772",
+  "test_source_mounts": "read-only candidate src/test; fixed image dependencies; offline Node bootstrap",
+  "registered_maintained": {
+    "tests": 65,
+    "assertions": 351,
+    "failures": 0,
+    "errors": 0
+  },
+  "same_fixture_on_baseline": {
+    "tests": 65,
+    "assertions": 342,
+    "failures": 6,
+    "errors": 3
+  },
+  "new_feature": {
+    "tests": 6,
+    "assertions": 25
+  },
+  "lowered_example_exports": 8,
+  "fresh_example_source_identical_to_normal_compiled_fixture": true,
+  "lowered_source_sha256": "b652f2ab88c70214cc83d3934035c35c29cc9fea9023003dd0b06fcf6e09fe31",
+  "normal_amu_candidate_head": "47103eca2541e5cb41e2f27e62389b0229dbfc1e",
+  "normal_amu_dependency_pr": 1250,
+  "normal_amu_publication": "pending",
+  "normal_amu_runtime": {
+    "js": {
+      "stage": "normal Amu --target js --jvm-free; published Sema/Osaho/Script",
+      "node": "v24.21.0",
+      "comparisons": 112,
+      "freshInstanceCalls": 2000,
+      "proxyReads": 0,
+      "allocationTrapAfterCalls": 1024,
+      "normalAmuQualified": true
+    },
+    "js-browser": {
+      "stage": "normal Amu --target js-browser --jvm-free; published Sema/Osaho/Script",
+      "node": "v24.21.0",
+      "comparisons": 112,
+      "freshInstanceCalls": 2000,
+      "proxyReads": 0,
+      "allocationTrapAfterCalls": 1024,
+      "normalAmuQualified": true
+    }
+  },
+  "non_js_target_refusals": [
+    {
+      "target": "cljs",
+      "exit": 65,
+      "artifact": false,
+      "jvm_marker": false
+    },
+    {
+      "target": "wasm32-browser",
+      "exit": 65,
+      "artifact": false,
+      "jvm_marker": false
+    },
+    {
+      "target": "x86_64",
+      "exit": 65,
+      "artifact": false,
+      "jvm_marker": false
+    }
+  ],
+  "source_sha256": {
+    "src/mithril/form.cljk": "06876b079a3fb479c801dced02797968abe8053795f21f994ab035813cec68a0",
+    "src/mithril/module.cljk": "a0fc8982d721ac8bd58203a2dfcb0a721d2986f0e132d5d5e92463b7cc2e2008",
+    "src/mithril/module_lower.cljk": "f44bf421c68d7ae1cf345ac3dd29009f32000a9d5c8502c11fc127e8c7b75f56",
+    "test/mithril/module_guest_closure_test.cljk": "cc3b594fb0f63f9273688f381750e471eb2f670d50b678a6cac16cfad4310f0e",
+    "test/run_modules.cljk": "6e162287fd7f4af124e17e747404a9fe8f88ebb1899c27071ae42d0232ad24c6",
+    "examples/module-guest-closures.mith": "a74e07a8afb49c5a539d2e0e057722e5d2d0bb771ecf93fa7a18b1b9ef53e199"
+  },
+  "system_one_model_attempt": false,
+  "authorship": "operator",
+  "full_harness_parity": false,
+  "host_callback_bridge": false,
+  "native_selfhost": false
+}
