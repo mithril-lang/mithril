@@ -1,0 +1,61 @@
+(ns mithril.library-test
+  (:require [cljs.test :refer [deftest is]]
+            [mithril.module-lower :as lower]
+            [mithril.module-lower-test :as f]))
+(defn failure [doc specifier]
+  (try (lower/js-library-document doc specifier) nil
+       (catch :default e (:mithril/error (ex-data e)))))
+(defn identity-function [name]
+  (f/function name [{"name" "v" "datatype" "js-value"}] "js-value" (f/local "v")))
+(deftest public-contract-and-default-lowering-stability
+  (let [doc (f/document [(identity-function "keep")] ["keep"])
+        before (lower/lower-document doc)
+        result (lower/js-library-document doc "./artifact.mjs")]
+    (is (= :mithril.module/js-library-facade-v1 (:format result)))
+    (is (= "example.module" (:name result)))
+    (is (= (:exports before) (:exports result)))
+    (is (= {:fuel 1 :frames 1} (:budgets result)))
+    (is (= before (lower/lower-document doc)))
+    (is (= result (lower/js-library-document doc "./artifact.mjs")))))
+(deftest arguments-are-evaluated-before-the-callee-within-one-call-budget
+  (let [doc (f/document [(identity-function "keep")
+                        (f/function "twice" [{"name" "v" "datatype" "js-value"}] "js-value"
+                          (f/call "keep" [(f/call "keep" [(f/local "v")])]))] ["twice"])]
+    (is (= {:fuel 3 :frames 2} (:budgets (lower/js-library-document doc "./artifact.mjs"))))))
+(deftest lazy-branches-use-maximum-rather-than-sum
+  (let [condition (f/function "condition" [] "bool" (f/literal "bool" true))
+        branch (f/function "branch" [] "js-value" (f/call "js_undefined" []))
+        main (f/function "choose" [] "js-value"
+               {"@type" "If" "condition" (f/call "condition" [])
+                "then" (f/call "branch" []) "else" (f/call "branch" [])})]
+    (is (= {:fuel 3 :frames 2}
+           (:budgets (lower/js-library-document (f/document [condition branch main] ["choose"]) "./artifact.mjs"))))))
+(deftest cyclic-library-refusal-preserves-restricted-recursive-lowering
+  (let [doc (f/document [(f/function "loop" [] "bool" (f/call "loop" []))] ["loop"])]
+    (is (= :mithril.module/library-cycle (failure doc "./artifact.mjs")))
+    (is (= :mithril.module/amu-source-v1 (:format (lower/lower-document doc))))))
+(deftest expanded-call-budget-overflow-is-controlled
+  (let [functions (mapv (fn [i]
+                         (f/function (str "f" i) [] "i64"
+                           (if (zero? i) (f/literal "i64" 0)
+                             (f/call "add" [(f/call (str "f" (dec i)) [])
+                                            (f/call (str "f" (dec i)) [])])))) (range 55))]
+    (is (= :mithril.module/library-budget
+           (failure (f/document functions ["f54"]) "./artifact.mjs")))))
+(deftest artifact-specifier-refuses-network-and-source-injection
+  (doseq [specifier [nil "artifact.mjs" "../artifact.mjs" "https://example.com/a.mjs"
+                     "./x.mjs?query" "./x.mjs\n" "./x';evil.mjs" "./nested/x.mjs"]]
+    (is (= :mithril.module/library-specifier (failure (f/document [] []) specifier))))
+  (is (= {:fuel 1 :frames 1}
+         (:budgets (lower/js-library-document (f/document [] []) "./artifact-1.mjs")))))
+(deftest reserved-public-names-and-noop-use-the-same-checked-contract
+  (let [doc (f/document [(f/function "default" [] "js-value" (f/call "js_undefined" []))
+                        (identity-function "class")] ["class" "default"])
+        result (lower/js-library-document doc "./artifact.mjs")]
+    (is (= [{:name "class" :symbol "__mithril_f1"} {:name "default" :symbol "__mithril_f0"}] (:exports result)))
+    (is (= {:fuel 1 :frames 1} (:budgets result)))
+    (is (string? (:source result)))))
+(deftest inert-form-text-entry-reuses-validation
+  (let [text "(mithril/module :name \"public.noop\" :exports [\"noop\"] :functions [(mithril/function :name \"noop\" :params [] :returns \"js-value\" :body (mithril/call :name \"js_undefined\" :args []))])"]
+    (is (= "public.noop" (:name (lower/js-library-text text "./artifact.mjs"))))
+    (is (= {:fuel 1 :frames 1} (:budgets (lower/js-library-text text "./artifact.mjs"))))))
