@@ -13,7 +13,10 @@
    "sub" {:params [:i64 :i64] :returns :i64}
    "mul" {:params [:i64 :i64] :returns :i64}
    "eq" {:params [:scalar :scalar] :returns :bool}
-   "not" {:params [:bool] :returns :bool}})
+   "not" {:params [:bool] :returns :bool}
+   "js_nullish" {:params [:js-value] :returns :bool}
+   "js_truthy" {:params [:js-value] :returns :bool}
+   "js_strict_equal" {:params [:js-value :js-value] :returns :bool}})
 
 (defn- fail! [code detail]
   (throw (ex-info detail {:mithril/error code :detail detail})))

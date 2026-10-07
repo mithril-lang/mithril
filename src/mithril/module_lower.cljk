@@ -18,7 +18,10 @@
     "sub" "-"
     "mul" "*"
     "eq" "="
-    "not" "not"))
+    "not" "not"
+    "js_nullish" "js-nullish?"
+    "js_truthy" "js-truthy?"
+    "js_strict_equal" "js-strict-equal?"))
 
 (defn- literal-source [type value]
   (case type
