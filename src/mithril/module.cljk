@@ -37,7 +37,7 @@
   value)
 
 (defn- type! [value]
-  (or (get {"i64" :i64 "bool" :bool "string" :string} value)
+  (or (get {"i64" :i64 "bool" :bool "string" :string "js-value" :js-value} value)
       (fail! :mithril.module/unsupported-type "Unsupported module type")))
 
 (defn- unique! [values code]
@@ -67,7 +67,15 @@
     :bool (if (boolean? value) value
             (fail! :mithril.module/invalid-literal "Expected a boolean literal"))
     :string (if (string? value) value
-              (fail! :mithril.module/invalid-literal "Expected a string literal"))))
+              (fail! :mithril.module/invalid-literal "Expected a string literal"))
+    :js-value (fail! :mithril.module/invalid-literal
+                    "Opaque host values cannot be module literals")))
+
+(defn- compatible-args? [identifier declared? expected actual]
+  (if (and (not declared?) (= identifier "eq"))
+    (and (apply = actual)
+         (contains? #{:i64 :bool :string} (first actual)))
+    (= expected actual)))
 
 (defn- signature! [function]
   (shape! function ["@type" "name" "params" "returns" "body"])
@@ -115,9 +123,7 @@
           (let [checked (mapv (fn [arg] (check-expression arg signatures locals (inc depth) nodes calls)) args)
                 actual (mapv :type checked)
                 expected (if declared? (mapv :type (:params signature)) (:params signature))]
-            (when-not (if (and (not declared?) (= identifier "eq"))
-                        (apply = actual)
-                        (= expected actual))
+            (when-not (compatible-args? identifier declared? expected actual)
               (fail! :mithril.module/type-mismatch "Module call type mismatch"))
             (when declared? (swap! calls conj identifier))
             {:op (if declared? :call :intrinsic) :name identifier

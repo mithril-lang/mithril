@@ -13,7 +13,7 @@ canonical RDF Dataset identity.
 
 The Form reader admits `mithril/module` with a module-specific context and
 inert Function/Call/Local/Literal nodes. `mithril.module/check-document` and
-`check-text` validate signatures, explicit i64/bool/string types, exports,
+`check-text` validate signatures, explicit i64/bool/string and opaque js-value types, exports,
 forward and recursive calls, and return deterministic checked IR. Function
 and parameter identifiers use ASCII letters/underscores followed by letters,
 digits/underscores; module names may join those identifiers with dots.
@@ -27,11 +27,20 @@ does not execute modules. `mithril.module-lower/lower-document` and
 explicit types, separate function/parameter alpha renaming, exact i64 tokens,
 escaped string literals and requested export metadata. Finite pinned Amu
 bootstrap checks compile and execute nonempty libraries with forward calls,
-intrinsic shadowing and scalar results. The lowerer also emits an empty
-namespace, but the current Amu subset requires at least one function and
-refuses that library. Empty-library compilation, the full JS value/identity
-ABI, module linking and whole-Harness API/plugin compatibility remain work
-to do. This bootstrap evidence is not selfhosting or whole-Harness parity.
+intrinsic shadowing and scalar results. Qualified Amu restricted-JS profiles
+also compile the lowerer's explicit empty namespace as an empty library.
+The `js-value` signature type passes opaque host values through locals and
+declared calls without converting them to encoded module literals. Scalar
+intrinsics, including the built-in `eq`, refuse this type; declared functions
+may still shadow intrinsic names with their own checked signatures.
+`examples/modules/js-value.mith` uses the existing inert `rdf/node` spelling
+for parameters and lowers a forward call with explicit `:js-value` types.
+The caller applies the lowerer's original/generated export-name table.
+Target qualification belongs to Amu: only restricted JS profiles admit this
+host ABI. This does not grant property access, callbacks or ambient authority;
+retained host graphs have embedder-owned lifetime/resource costs. Full JS
+operations, module linking and whole-Harness API/plugin compatibility remain
+work to do. This bootstrap evidence is not selfhosting or whole-Harness parity.
 
 Mithril is not a prose-to-code generator. A source document names a goal,
 ontology identity and finite typed choices. The compiler expands it to an RDF
