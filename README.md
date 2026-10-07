@@ -11,6 +11,14 @@ accepts the existing JSON-LD 1.1 spelling (`application/ld+json`) without a
 migration flag. Both lower to one pinned JSON-LD projection and therefore one
 canonical RDF Dataset identity.
 
+The Form reader also admits `mithril/module` with a module-specific context
+and typed `mithril/function`, `mithril/call`, `mithril/local` and
+`mithril/literal` nodes. This is inert source admission for the executable
+module frontend. Module name/type resolution, semantic checking and Amu
+lowering remain subsequent work; an admitted module is not an executable
+artifact. Existing application and ontology compilation keep their current
+contexts and behavior.
+
 Mithril is not a prose-to-code generator. A source document names a goal,
 ontology identity and finite typed choices. The compiler expands it to an RDF
 Dataset, canonicalizes that dataset, validates the closed Mithril vocabulary,
