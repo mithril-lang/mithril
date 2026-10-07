@@ -8,6 +8,7 @@
             [mithril.branding-test]
             [mithril.undefined-test]
             [mithril.library-test]
+            [mithril.export-alias-test]
             [mithril.graph-test]
             [mithril.growth-test]
             [mithril.growth-trace-test]
@@ -48,7 +49,7 @@
             [mithril.stack-test]
             [mithril.desktop-test]))
 
-(let [result (t/run-tests 'mithril.compiler-test 'mithril.form-test 'mithril.module-test 'mithril.module-lower-test 'mithril.conditional-test 'mithril.branding-test 'mithril.undefined-test 'mithril.library-test 'mithril.graph-test 'mithril.growth-test 'mithril.growth-trace-test 'mithril.growth-semantic-test 'mithril.twin-test 'mithril.app-test 'mithril.bot-test 'mithril.checkpoint-test 'mithril.checkpoint-ipld-test 'mithril.checkpoint-ipld-fs-test 'mithril.checkpoint-ipq-test 'mithril.state-node-test 'mithril.state-rdf-test 'mithril.domain-rdf-test 'mithril.state-ontology-test 'mithril.ipld-session-test 'mithril.checkpoint-ipld-cli-test 'mithril.hermes-test 'mithril.typed-proposer-test 'mithril.efficiency-test 'mithril.agent-loop-bench-test 'mithril.hermes-cli-integration-test 'mithril.hermes-cli-options-test 'mithril.hermes-fleet-test 'mithril.hermes-scheduler-test 'mithril.scheduler-ipld-test 'mithril.kanban-worker-test 'mithril.openrouter-jev-test 'mithril.decision-proof-test 'mithril.reason-test 'mithril.reason-ipld-test 'mithril.reason-remote-test 'mithril.shacl-test 'mithril.shacl-w3c-test 'mithril.twin-sim-test 'mithril.components-test 'mithril.cluster-test 'mithril.stack-test)]
+(let [result (t/run-tests 'mithril.compiler-test 'mithril.form-test 'mithril.module-test 'mithril.module-lower-test 'mithril.conditional-test 'mithril.branding-test 'mithril.undefined-test 'mithril.library-test 'mithril.export-alias-test 'mithril.graph-test 'mithril.growth-test 'mithril.growth-trace-test 'mithril.growth-semantic-test 'mithril.twin-test 'mithril.app-test 'mithril.bot-test 'mithril.checkpoint-test 'mithril.checkpoint-ipld-test 'mithril.checkpoint-ipld-fs-test 'mithril.checkpoint-ipq-test 'mithril.state-node-test 'mithril.state-rdf-test 'mithril.domain-rdf-test 'mithril.state-ontology-test 'mithril.ipld-session-test 'mithril.checkpoint-ipld-cli-test 'mithril.hermes-test 'mithril.typed-proposer-test 'mithril.efficiency-test 'mithril.agent-loop-bench-test 'mithril.hermes-cli-integration-test 'mithril.hermes-cli-options-test 'mithril.hermes-fleet-test 'mithril.hermes-scheduler-test 'mithril.scheduler-ipld-test 'mithril.kanban-worker-test 'mithril.openrouter-jev-test 'mithril.decision-proof-test 'mithril.reason-test 'mithril.reason-ipld-test 'mithril.reason-remote-test 'mithril.shacl-test 'mithril.shacl-w3c-test 'mithril.twin-sim-test 'mithril.components-test 'mithril.cluster-test 'mithril.stack-test)]
   (let [desktop-result (t/run-tests 'mithril.desktop-test)
         failures (+ (:fail result) (:error result) (:fail desktop-result) (:error desktop-result))]
   (when (pos? failures)

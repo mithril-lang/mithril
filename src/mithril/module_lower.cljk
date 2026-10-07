@@ -56,10 +56,13 @@
         body (expression-source (:body declaration) function-indexes (zipmap (mapv :name (:params declaration)) (range (count (:params declaration)))))]
     (str "(defn " (export-symbol index) " [" (str/join " " params) "] " (str (:returns declaration)) " " body ")\n")))
 
+(defn- export-target [checked public-name]
+  (get (:export-targets checked) public-name public-name))
+
 (defn- source [checked]
   (let [names (mapv :name (:functions checked))
         indexes (zipmap names (range (count names)))
-        export-symbols (mapv (fn [export] (export-symbol (get indexes export))) (:exports checked))]
+        export-symbols (vec (distinct (map (fn [export] (export-symbol (get indexes (export-target checked export)))) (:exports checked))))]
     (str "(ns " (amu-namespace (:name checked)) " (:export [" (str/join " " export-symbols) "]))\n"
          (apply str (mapv (fn [declaration i] (function-source declaration i indexes)) (:functions checked) (range (count (:functions checked))))))))
 
@@ -67,7 +70,7 @@
   {:format :mithril.module/amu-source-v1
    :name (:name checked)
    :source (source checked)
-   :exports (mapv (fn [export] {:name export :symbol (export-symbol (get (zipmap (mapv :name (:functions checked)) (range (count (:functions checked)))) export))}) (:exports checked))})
+   :exports (mapv (fn [export] {:name export :symbol (export-symbol (get (zipmap (mapv :name (:functions checked)) (range (count (:functions checked)))) (export-target checked export)))}) (:exports checked))})
 
 (defn lower-document
   "Lower a checked Mithril module document to Amu Kotoba source."
@@ -138,7 +141,7 @@
                         budgets)))))]
       (doseq [declaration (:functions checked)] (function-budget (:name declaration)))
       (let [[fuel frames] (reduce (fn [[fuel frames] name]
-                                   (let [[next-fuel next-frames] (function-budget name)]
+                                   (let [[next-fuel next-frames] (function-budget (export-target checked name))]
                                      [(max fuel next-fuel) (max frames next-frames)]))
                                  [1 1] (:exports checked))]
         {:fuel fuel :frames frames}))))
@@ -146,21 +149,25 @@
 (defn- library-source [checked specifier budgets]
   (let [functions (into {} (map (juxt :name identity) (:functions checked)))
         mappings (:exports (result checked))
-        wrapper-name (fn [index] (str "__mithril_public_" index))]
+        symbols (vec (distinct (map :symbol mappings)))
+        wrapper-indexes (zipmap symbols (range (count symbols)))
+        wrapper-name (fn [symbol] (str "__mithril_public_" (get wrapper-indexes symbol)))
+        {:keys [parts]} (reduce
+                         (fn [{:keys [seen parts]} {:keys [name symbol]}]
+                           (let [canonical (export-target checked name)
+                                 params (mapv parameter-symbol (range (count (:params (get functions canonical)))))
+                                 wrapper (wrapper-name symbol)
+                                 definition (when-not (contains? seen symbol)
+                                              (str "function " wrapper "(" (str/join "," params) ") {\n"
+                                                   "const __mithril_exports = __mithril_instantiate({}, {fuel:"
+                                                   (:fuel budgets) ",frames:" (:frames budgets) "});\n"
+                                                   "return __mithril_exports[" (js/JSON.stringify symbol) "](" (str/join "," params) ");\n}\n"
+                                                   "Object.defineProperty(" wrapper ",\"name\",{value:" (js/JSON.stringify canonical) "});\n"))]
+                             {:seen (conj seen symbol)
+                              :parts (conj parts (str definition "export { " wrapper " as " (js/JSON.stringify name) " };\n"))}))
+                         {:seen #{} :parts []} mappings)]
     (str "import { instantiateKotoba as __mithril_instantiate } from "
-         (js/JSON.stringify specifier) ";\n"
-         (apply str
-                (map-indexed
-                  (fn [index {:keys [name symbol]}]
-                    (let [params (mapv parameter-symbol (range (count (:params (get functions name)))))
-                          wrapper (wrapper-name index)]
-                      (str "function " wrapper "(" (str/join "," params) ") {\n"
-                           "const __mithril_exports = __mithril_instantiate({}, {fuel:"
-                           (:fuel budgets) ",frames:" (:frames budgets) "});\n"
-                           "return __mithril_exports[" (js/JSON.stringify symbol) "](" (str/join "," params) ");\n}\n"
-                           "Object.defineProperty(" wrapper ",\"name\",{value:" (js/JSON.stringify name) "});\n"
-                           "export { " wrapper " as " (js/JSON.stringify name) " };\n")))
-                  mappings)))))
+         (js/JSON.stringify specifier) ";\n" (apply str parts))))
 
 (defn- library-result [checked specifier]
   (let [budgets (library-budgets checked)]
