@@ -16,7 +16,10 @@
    "not" {:params [:bool] :returns :bool}
    "js_nullish" {:params [:js-value] :returns :bool}
    "js_truthy" {:params [:js-value] :returns :bool}
-   "js_strict_equal" {:params [:js-value :js-value] :returns :bool}})
+   "js_strict_equal" {:params [:js-value :js-value] :returns :bool}
+   "js_typeof" {:params [:js-value] :returns :string}
+   "js_array" {:params [:js-value] :returns :bool}
+   "js_bool_value" {:params [:bool] :returns :js-value}})
 
 (defn- fail! [code detail]
   (throw (ex-info detail {:mithril/error code :detail detail})))

@@ -1,0 +1,26 @@
+(mithril/module :name "cosmokit.predicates"
+  :exports ["isNullable" "isNonNullable" "isPlainObject"]
+  :functions
+  [(mithril/function :name "isNullable"
+     :params [(rdf/node :name "value" :datatype "js-value")]
+     :returns "bool"
+     :body (mithril/call :name "js_nullish" :args [(mithril/local :name "value")]))
+   (mithril/function :name "isNonNullable"
+     :params [(rdf/node :name "value" :datatype "js-value")]
+     :returns "bool"
+     :body (mithril/call :name "not"
+             :args [(mithril/call :name "isNullable" :args [(mithril/local :name "value")])]))
+   (mithril/function :name "isPlainObject"
+     :params [(rdf/node :name "value" :datatype "js-value")]
+     :returns "js-value"
+     :body (mithril/if
+             :condition (mithril/call :name "js_truthy" :args [(mithril/local :name "value")])
+             :then (mithril/call :name "js_bool_value"
+                     :args [(mithril/if
+                              :condition (mithril/call :name "eq"
+                                           :args [(mithril/call :name "js_typeof" :args [(mithril/local :name "value")])
+                                                  (mithril/literal :datatype "string" :value "object")])
+                              :then (mithril/call :name "not"
+                                      :args [(mithril/call :name "js_array" :args [(mithril/local :name "value")])])
+                              :else (mithril/literal :datatype "bool" :value false))])
+             :else (mithril/local :name "value")))])
