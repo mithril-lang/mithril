@@ -1,0 +1,47 @@
+{
+  "format": "mithril.native-cordis-logger-qualification/v1",
+  "qualified_at": "2026-10-08T12:50:20.591756+00:00",
+  "base_main": "83db2d9362adb6f3c7f1fed5b199368f195ba765",
+  "implementation": "operator",
+  "new_model_requests": 0,
+  "model_metrics": null,
+  "source_tests": 36,
+  "source_assertions": 146,
+  "logger_runtime_groups": 64,
+  "source_control_transfer_groups": 6,
+  "source_control_refusals": 18,
+  "actual_cli_targets": [
+    "js",
+    "js-browser"
+  ],
+  "source_hashes": {
+    "src/mithril/native_js.cljk": "eb966809a99c6f0fd811aaf5868705945a8d014949d1566d2c0c5cdecd3b7f30",
+    "src/mithril/form.cljk": "61c30d7a8ddfb0abe1dc639440ef884a95ebf4e5761a96d3fb63c8b032fcfe41",
+    "examples/native-js-cordis-logger.mith": "2c7bed68edf58813ccf9184b078fbd26fc8ae48d860b1386e1196e1444260450",
+    "test/mithril/native_logger_test.cljk": "0b274e670d12374eee9218596b3ebc9fc91b7e5b6140e02a3cedfb44ca18c746",
+    "test/fixtures/native-control-transfer-contract.mjs": "8121f5175f438ad9c11867e1e9ee9ce55fc2b32add0219263ee20e3fa9422fab",
+    "test/fixtures/native-logger-contract.mjs": "2ba86f502d037faeb49edd8697915bf7e03bf1d11cb1d3340ad59418b4c3ee78",
+    "test/fixtures/cordis-logger/original.ts": "05cb6be3e4cf8d078185b5d10c87e536c7d2b2b3ad43c270a0dbafaa28f41fef",
+    "test/fixtures/cordis-logger/original.mjs": "b58f8113f52778f4d801b678b003489558968284a8daf94a9dbb72bb98656f73",
+    "test/fixtures/cordis-logger/oracle.mjs": "b98b17d4bb0b617ab2a4a176037bf2a8c5cd1cd10b72834cdf434491cfa5b666"
+  },
+  "runtime_exports": [
+    "defaultFormatters",
+    "Logger",
+    "c16",
+    "c256",
+    "LoggerService"
+  ],
+  "LoggerLevel_runtime_export": false,
+  "candidate_dependencies": "actual CLI compiled complete CosmoKit and complete utils",
+  "runtime_profile": "standalone explicit-grant factory",
+  "reference_pipeline": "original program target emit with25diagnostics; not original project typecheck/build/bundle success",
+  "clock_adapter": "entire original utils+logger same isolated strict VM realm; Date/WeakRef/Error explicit controls, native Object/Function intrinsics remain in same realm",
+  "retained_package_runtime_groups_per_target": 15,
+  "retained_type_consumers_per_target": {
+    "positive": 10,
+    "negative": 12,
+    "skipLibCheck": false
+  },
+  "scope": "Complete original logger runtime source, finite Node/VM evidence. Cordis types/named ESM/cycle init/SCC/Session/Harness/browser/native/Q9 pending."
+}

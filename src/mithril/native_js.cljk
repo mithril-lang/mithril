@@ -79,6 +79,16 @@
 (defn- context? [context flag]
   (if (map? context) (true? (get context flag))
       (and (true? context) (contains? #{:function :this :new-target} flag))))
+(defn- value-context [context]
+  (if (map? context) (assoc context :statement false) context))
+(defn- body-context [context statements? return?]
+  (if statements?
+    (assoc (if (map? context) context
+               (if (true? context) {:function true :this true :new-target true} {}))
+           :statement true :source-return return? :loop false)
+    (value-context context)))
+(defn- loop-context [context]
+  (if (context? context :statement) (assoc context :loop true) (value-context context)))
 (declare expression!)
 (defn- class-signature! [member imports functions locals depth nodes context]
   (let [params (get member "params") names (params! params) rest-name (get member "rest")]
@@ -92,7 +102,7 @@
                             (fn [i p] (when (contains? p "default")
                                         [i (expression! (get p "default") imports functions env (inc depth) nodes context)])) params))]
       (cond-> {:params names :rest rest-name
-               :body (expression! (get member "body") imports functions env (inc depth) nodes context)}
+               :body (expression! (get member "body") imports functions env (inc depth) nodes (body-context context (get member "statements") true))}
         (seq defaults) (assoc :defaults defaults)
         (contains? member "statements") (assoc :statements (get member "statements"))))))
 (defn- class-items! [items imports functions locals depth nodes context]
@@ -102,13 +112,14 @@
                        (and (map? item) (= #{"value"} (set (keys item)))) :value
                        (and (map? item) (= #{"spread"} (set (keys item)))) :spread
                        :else (fail! :mithril.native-js/shape "Super call item requires value or spread"))]
-            {:kind kind :value (expression! (get item (name kind)) imports functions locals (inc depth) nodes context)})) items))
+            {:kind kind :value (expression! (get item (name kind)) imports functions locals (inc depth) nodes (value-context context))})) items))
 
 (defn- expression! [expr imports functions locals depth nodes args-length]
   (when (or (> depth 64) (> (swap! nodes inc) 4096))
     (fail! :mithril.native-js/budget "Native JS expression budget exceeded"))
   (when-not (map? expr) (fail! :mithril.native-js/shape "Expected a native expression"))
-  (let [check #(expression! % imports functions locals (inc depth) nodes args-length)
+  (let [check #(expression! % imports functions locals (inc depth) nodes (value-context args-length))
+        body-check #(expression! % imports functions locals (inc depth) nodes args-length)
         args! (fn [args]
                 (vector! args 64)
                 (mapv check args))]
@@ -215,7 +226,7 @@
       "HostUnary"
       (do (shape! expr ["@type" "operator" "value"])
           (let [operator (get expr "operator")]
-            (when-not (contains? #{"!" "typeof" "+" "~"} operator)
+            (when-not (contains? #{"!" "typeof" "+" "-" "~"} operator)
               (fail! :mithril.native-js/operator "Unsupported native unary operator"))
             {:op :unary :operator operator :value (check (get expr "value"))}))
       "HostBinary"
@@ -289,13 +300,13 @@
               (fail! :mithril.native-js/duplicate "Loop binding must be fresh"))
             {:op :for-of :binding binding :iterable (check (get expr "iterable"))
              :body (expression! (get expr "body") imports functions (assoc locals binding false)
-                                (inc depth) nodes args-length)
-             :result (check (get expr "result"))}))
+                                (inc depth) nodes (loop-context args-length))
+             :result (body-check (get expr "result"))}))
       "HostWhile"
       (do (shape! expr ["@type" "condition" "body" "result"])
           {:op :while :condition (check (get expr "condition"))
-           :body (check (get expr "body"))
-           :result (check (get expr "result"))})
+           :body (expression! (get expr "body") imports functions locals (inc depth) nodes (loop-context args-length))
+           :result (body-check (get expr "result"))})
       "HostToString"
       (do (shape! expr ["@type" "value"])
           {:op :to-string :value (check (get expr "value"))})
@@ -315,11 +326,11 @@
                   env (into locals (zipmap names (repeat false)))
                   patterns (mapv (fn [pattern p]
                                    (if (and (map? p) (contains? p "default"))
-                                     (assoc pattern :default (expression! (get p "default") imports functions env (inc depth) nodes args-length))
+                                     (assoc pattern :default (expression! (get p "default") imports functions env (inc depth) nodes (value-context args-length)))
                                      pattern)) patterns params)]
               (unique! names)
               (cond-> {:op :lambda :params patterns
-                        :body (expression! (get expr "body") imports functions env (inc depth) nodes args-length)}
+                        :body (expression! (get expr "body") imports functions env (inc depth) nodes (body-context args-length (get expr "statements") true))}
                 (contains? expr "rest") (assoc :rest rest-name)
                 (contains? expr "statements") (assoc :statements (get expr "statements"))))))
       "NativeFunction"
@@ -339,7 +350,7 @@
                                         (when (contains? p "default")
                                           [i (expression! (get p "default") imports functions body-env (inc depth) nodes true)])) params))]
               (cond-> {:op :native-function :name name :params names :rest rest-name
-                       :body (expression! (get expr "body") imports functions body-env (inc depth) nodes true)}
+                       :body (expression! (get expr "body") imports functions body-env (inc depth) nodes (body-context true (get expr "statements") true))}
                 (seq defaults) (assoc :defaults defaults)
                 (contains? expr "async") (assoc :async (get expr "async"))
                 (contains? expr "generator") (assoc :generator (get expr "generator"))
@@ -355,7 +366,7 @@
                   method-context {:function true :this true :new-target true :super-property true}
                   field-context {:this true :new-target true :super-property true}
                   constructor-context (assoc method-context :super-call (some? heritage))
-                  base (when (some? heritage) (expression! heritage imports functions self-env (inc depth) nodes args-length))
+                  base (when (some? heritage) (expression! heritage imports functions self-env (inc depth) nodes (value-context args-length)))
                   constructor (when (some? ctor)
                                 (optional-flag! ctor ["params" "rest" "body"] "statements")
                                 (class-signature! ctor imports functions self-env (inc depth) nodes constructor-context))
@@ -363,10 +374,10 @@
                   (mapv (fn [m]
                           (if (= "static-block" (get m "kind"))
                             (do (shape! m ["kind" "body"])
-                                {:kind :static-block :body (expression! (get m "body") imports functions self-env (inc depth) nodes field-context)})
+                                {:kind :static-block :body (expression! (get m "body") imports functions self-env (inc depth) nodes (body-context field-context true false))})
                             (do
                           (when-not (boolean? (get m "static")) (fail! :mithril.native-js/shape "Class static flag must be boolean"))
-                              (let [kind (get m "kind") key (expression! (get m "key") imports functions self-env (inc depth) nodes args-length)]
+                              (let [kind (get m "kind") key (expression! (get m "key") imports functions self-env (inc depth) nodes (value-context args-length))]
                                 (if (= kind "field")
                                   (do (shape! m ["kind" "key" "static" "value"])
                                       {:kind :field :key key :static (get m "static")
@@ -389,7 +400,7 @@
                 (do (optional-flags! binding ["name" "value"] ["mutable" "recursive"])
                     (let [name (name! (get binding "name"))
                           init-env (if (true? (get binding "recursive")) (assoc env name (true? (get binding "mutable"))) env)
-                          value (expression! (get binding "value") imports functions init-env (inc depth) nodes args-length)
+                          value (expression! (get binding "value") imports functions init-env (inc depth) nodes (value-context args-length))
                           checked-binding (cond-> {:name name :value value}
                                             (contains? binding "mutable") (assoc :mutable (get binding "mutable"))
                                             (contains? binding "recursive") (assoc :recursive (get binding "recursive")))]
@@ -403,18 +414,33 @@
             (when-not (true? (get locals name))
               (fail! :mithril.native-js/local "LocalSet requires an explicitly mutable local"))
             {:op :local-set :name name :value (check (get expr "value"))}))
+      "HostReturn"
+      (do (shape! expr ["@type" "value"])
+          (when-not (and (context? args-length :statement) (context? args-length :source-return))
+            (fail! :mithril.native-js/scope "Return requires a source function statement position"))
+          {:op :return :value (check (get expr "value"))})
+      "HostContinue"
+      (do (shape! expr ["@type"])
+          (when-not (and (context? args-length :statement) (context? args-length :loop))
+            (fail! :mithril.native-js/scope "Continue requires a source loop statement position"))
+          {:op :continue})
+      "HostBreak"
+      (do (shape! expr ["@type"])
+          (when-not (and (context? args-length :statement) (context? args-length :loop))
+            (fail! :mithril.native-js/scope "Break requires a source loop statement position"))
+          {:op :break})
       "HostThrow"
       (do (shape! expr ["@type" "value"])
           {:op :throw :value (check (get expr "value"))})
       "HostTryCatch"
       (do (shape! expr ["@type" "body" "binding" "handler"])
           (let [binding (name! (get expr "binding"))]
-            {:op :try-catch :binding binding :body (check (get expr "body"))
+            {:op :try-catch :binding binding :body (body-check (get expr "body"))
              :handler (expression! (get expr "handler") imports functions (assoc locals binding false)
                                    (inc depth) nodes args-length)}))
       "HostTryFinally"
       (do (shape! expr ["@type" "body" "finally"])
-          {:op :try-finally :body (check (get expr "body")) :finally (check (get expr "finally"))})
+          {:op :try-finally :body (body-check (get expr "body")) :finally (body-check (get expr "finally"))})
       "LocalFunction"
       (do (shape! expr ["@type" "name" "params" "body" "result"])
           (let [name (name! (get expr "name")) params (get expr "params")]
@@ -428,17 +454,17 @@
                   body-env (into self-env (zipmap params (repeat false)))]
               {:op :local-function :name name :params params
                :body (expression! (get expr "body") imports functions body-env (inc depth) nodes true)
-               :result (expression! (get expr "result") imports functions self-env (inc depth) nodes args-length)})))
+               :result (expression! (get expr "result") imports functions self-env (inc depth) nodes (value-context args-length))})))
       "Sequence"
       (do (shape! expr ["@type" "expressions"])
           (let [expressions (get expr "expressions")]
             (vector! expressions 4096)
             (when (empty? expressions) (fail! :mithril.native-js/shape "Sequence requires a result"))
-            {:op :sequence :expressions (mapv check expressions)}))
+            {:op :sequence :expressions (mapv body-check expressions)}))
       "If"
       (do (shape! expr ["@type" "condition" "then" "else"])
           {:op :if :condition (check (get expr "condition"))
-           :then (check (get expr "then")) :else (check (get expr "else"))})
+           :then (body-check (get expr "then")) :else (body-check (get expr "else"))})
       (fail! :mithril.native-js/expression "Unsupported native JS expression"))))
 
 (defn check-document
@@ -498,7 +524,7 @@
                                                (when (contains? p "default")
                                                  [i (expression! (get p "default") (set imports) targets env 1 nodes true)]))
                                              (get f "params")))]
-                      (cond-> (assoc d :body (expression! (get f "body") (set imports) targets env 1 nodes true))
+                      (cond-> (assoc d :body (expression! (get f "body") (set imports) targets env 1 nodes (body-context true (get f "statements") true)))
                         (seq defaults) (assoc :defaults defaults)))) functions declarations)
             public (mapv (fn [e]
                            (let [e (if (string? e) {"name" e "function" e} e)]
@@ -701,6 +727,9 @@
            (body (last (:expressions expr)) env result?))
       :if (str "if(" (emit (:condition expr)) "){" (body (:then expr) env result?)
                "}else{" (body (:else expr) env result?) "}")
+      :return (str "return " (emit (:value expr)) ";")
+      :continue "continue;"
+      :break "break;"
       :throw (str "throw " (emit (:value expr)) ";")
       :try-catch
       (let [symbol (fresh counter prefix)]
