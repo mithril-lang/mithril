@@ -1,0 +1,162 @@
+(ns mithril.native-js-test
+  (:require [cljs.test :refer [deftest is]]
+            [mithril.native-js :as native]
+            [mithril.module :as guest]
+            [mithril.module-lower :as lower]
+            ["node:fs" :as fs] ["node:os" :as os]
+            ["node:path" :as path] ["node:child_process" :as child]))
+(defn literal [v] {"@type" "Literal" "datatype" "js-value" "value" v})
+(defn local [n] {"@type" "Local" "name" n})
+(defn import-node [n] {"@type" "HostImport" "name" n})
+(defn invoke [f args] {"@type" "HostInvoke" "function" f "args" args})
+(defn method [o k args] {"@type" "HostMethod" "object" o "key" k "args" args})
+(defn get-node [o k] {"@type" "HostGet" "object" o "key" k})
+(defn lambda [params body] {"@type" "NativeLambda" "params" params "body" body})
+(defn array-node [items] {"@type" "HostArray" "items" items})
+(defn function [n params body]
+  {"@type" "Function" "name" n "params" (mapv #(hash-map "name" % "datatype" "js-value") params)
+   "returns" "js-value" "body" body})
+(defn document [imports functions exports]
+  {"@context" "https://mithril.fund/context/native-js-module/v1" "@type" "NativeJsModule"
+   "name" "native.tests" "imports" imports "functions" functions "exports" exports})
+(defn refusal [doc]
+  (try (native/compile-document doc) nil (catch :default e (:mithril/error (ex-data e)))))
+(defn probe [doc text]
+  (let [dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-native-js-"))
+        file (path/join dir "module.mjs")]
+    (try
+      (fs/writeFileSync file (:source (native/compile-document doc)))
+      (let [result (child/spawnSync js/process.execPath #js ["--input-type=module" "-e" text file]
+                                   #js {:encoding "utf8" :timeout 30000})]
+        (is (= 0 (.-status result)) (.-stderr result)))
+      (finally (fs/rmSync dir #js {:recursive true :force true})))))
+
+(deftest native-source-is-deterministic-and-isolated-from-restricted-guest-context
+  (let [text (fs/readFileSync "examples/native-js-map-values.mith" "utf8")
+        result (native/compile-text text)]
+    (is (= :mithril.native-js/artifact-v1 (:format result)))
+    (is (= ["Object"] (:required-imports result)))
+    (is (= ["mapValues" "valueMap"] (:exports result)))
+    (is (= result (native/compile-text text)))
+    (is (some? (try (guest/check-text text) nil (catch :default e (:mithril/error (ex-data e))))))
+    (is (some? (try (lower/lower-text text) nil (catch :default e (:mithril/error (ex-data e))))))))
+
+(deftest undeclared-imports-unknown-calls-locals-and-malformed-fields-are-refused
+  (let [f (function "keep" ["v"] (local "v"))
+        doc (document [] [f] ["keep"])]
+    (doseq [bad [(assoc doc "extra" 1)
+                 (assoc doc "@context" "https://mithril.fund/context/module/v1")
+                 (assoc doc "imports" ["Object" "Object"])
+                 (assoc doc "exports" ["missing"])
+                 (assoc doc "functions" [f f])
+                 (assoc doc "exports" ["keep" "keep"])
+                 (assoc-in doc ["functions" 0 "body"] (import-node "Object"))
+                 (assoc-in doc ["functions" 0 "body"] (local "missing"))
+                 (assoc-in doc ["functions" 0 "body"] {"@type" "Call" "name" "missing" "args" []})
+                 (assoc-in doc ["functions" 0 "body"] (assoc (literal "safe") "script" "escape"))
+                 (assoc-in doc ["functions" 0 "body"] (literal {}))
+                 (assoc-in doc ["functions" 0 "params"] [{"name" "v" "datatype" "i64"}])
+                 (assoc-in doc ["functions" 0 "name"] "class")
+                 (assoc-in doc ["functions" 0 "body"] (lambda ["x" {"array" ["x"]}] (local "x")))
+                 (assoc-in doc ["functions" 0 "body"] (lambda [{"array" ["x"] "rest" "other"}] (local "x")))]]
+      (is (some? (refusal bad))))))
+
+(deftest source-budgets-refuse-before-host-emission
+  (is (= :mithril.native-js/budget
+         (refusal (document [] [(function "f" [] (reduce (fn [x _] (array-node [x])) (literal nil) (range 65)))] ["f"]))))
+  (is (= :mithril.native-js/budget
+         (refusal (document [] [(function "f" [] (array-node (vec (repeat 4096 (literal nil)))))] ["f"]))))
+  (is (= :mithril.module/budget
+         (try (native/compile-text (apply str (repeat 262145 " "))) nil
+              (catch :default e (:mithril/error (ex-data e)))))))
+
+(deftest native-callbacks-retain-opaque-captures-without-a-guest-word-arena
+  (probe (document []
+            [(function "factory" ["v"] (lambda ["x"] (array-node [(local "v") (local "x")])))
+             (function "relay" ["f" "v"] (invoke (local "f") [(local "v")]))]
+            ["factory" "relay"])
+"import assert from 'node:assert/strict';
+const m=await import(process.argv[1]);const api=m.instantiateMithrilNative({});
+let reads=0;const value=new Proxy({}, {get(){reads++;throw Error('opaque get');},getPrototypeOf(){reads++;throw Error('opaque prototype');}});
+const cb=api.factory(value);assert.equal(cb.name,'');assert.equal(cb.length,1);
+assert.equal(Object.hasOwn(cb,'prototype'),false);assert.throws(()=>Reflect.construct(cb,[]),TypeError);
+for(let i=0;i<100000;i++){const r=cb(i);assert.equal(r[0],value);assert.equal(r[1],i);}
+const deferred=await Promise.resolve().then(()=>cb(7));assert.equal(deferred[0],value);assert.equal(deferred[1],7);
+for(const boom of [value,undefined,null,Symbol('throw'),NaN,new RangeError('Maximum call stack size exceeded')]){
+ let caught=false;try{api.relay(()=>{throw boom;},value);}catch(e){caught=true;assert.ok(Object.is(e,boom));}assert.ok(caught);
+}
+assert.equal(reads,0);assert.deepEqual(api.relay(()=>api.relay(cb,9),value),[value,9]);
+assert.deepEqual(api.factory(11)(),[11,undefined]);assert.deepEqual(cb(3,4),[value,3]);
+const promise=Promise.resolve(12);assert.equal(api.factory(promise)(0)[0],promise);"))
+
+(deftest value-invocations-and-method-invocations-have-distinct-native-receivers
+  (probe (document []
+            [(function "asMethod" ["o" "k" "v"] (method (local "o") (local "k") [(local "v")]))
+             (function "asValue" ["o" "k" "v"] (invoke (get-node (local "o") (local "k")) [(local "v")]))]
+            ["asMethod" "asValue"])
+"import assert from 'node:assert/strict';const api=(await import(process.argv[1])).instantiateMithrilNative({});
+const order=[];const f=function(v){assert.equal(arguments.length,1);order.push(this===o?'method':'value');assert.ok(this===o||this===undefined);return v;};
+f.call=()=>{throw Error('call property must not be used');};
+const o={get f(){order.push('get');return f;}};const k={[Symbol.toPrimitive](){order.push('key');return 'f';}};
+assert.equal(api.asMethod(o,k,7),7);assert.equal(api.asValue(o,k,8),8);
+assert.deepEqual(order,['key','get','method','key','get','value']);"))
+
+(deftest live-imports-and-export-aliases-retain-native-function-metadata
+  (probe (document ["Object"]
+            [(function "fetch" ["v"] (method (import-node "Object") (literal "fetch") [(local "v")]))]
+            ["fetch" {"name" "alias" "function" "fetch"}])
+"import assert from 'node:assert/strict';const m=await import(process.argv[1]);
+let reads=0;let current={fetch(v){assert.equal(this,current);return v;}};
+const api=m.instantiateMithrilNative({get Object(){reads++;return current;}});assert.equal(reads,0);
+assert.equal(api.fetch,api.alias);assert.equal(api.fetch.name,'fetch');assert.equal(api.fetch.length,1);
+assert.equal(api.fetch(7),7);current={fetch(v){assert.equal(this,current);return v+1;}};
+assert.equal(api.fetch(7),8);assert.equal(reads,2);
+for(const grants of [null,undefined,0,{}, {Object:current,extra:1},{Object:current,[Symbol('extra')]:1}])assert.throws(()=>m.instantiateMithrilNative(grants),/host-grant-mismatch/);
+const inherited=Object.create({Object:current});assert.throws(()=>m.instantiateMithrilNative(inherited),/host-grant-mismatch/);"))
+
+(deftest literals-bindings-and-identifiers-cannot-inject-source-or-collide
+  (let [payload "\";throw Error('injected'); //\n\u2028\u2029"
+        body {"@type" "Let" "bindings" [{"name" "v" "value" (literal payload)}]
+              "body" {"@type" "If" "condition" (literal true) "then" (local "v") "else" (literal nil)}}]
+    (probe (document [] [(function "__mithril_native_v1" ["arguments"] body)
+                         (function "make" [] (literal nil))]
+                         ["__mithril_native_v1" {"name" "__proto__" "function" "make"}])
+      (str "import assert from 'node:assert/strict';const api=(await import(process.argv[1])).instantiateMithrilNative({});"
+           "assert.equal(api.__mithril_native_v1()," (js/JSON.stringify payload) ");"
+           "assert.equal(api.__mithril_native_v1.name,'__mithril_native_v1');"
+           "assert.ok(Object.hasOwn(api,'__proto__'));assert.equal(api.__proto__(),null);"
+           "assert.equal(Object.getPrototypeOf(api),Object.prototype);"))))
+
+(deftest actual-cosmokit-baseline-and-native-source-use-the-same-24-case-verifier
+  (let [dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-map-values-"))
+        file (path/join dir "candidate.mjs")]
+    (try
+      (fs/writeFileSync file (:source (native/compile-text (fs/readFileSync "examples/native-js-map-values.mith" "utf8"))))
+      (let [result (child/spawnSync js/process.execPath
+                    #js ["test/fixtures/native-js-map-values-contract.mjs" file]
+                    #js {:encoding "utf8" :timeout 30000})]
+        (is (= 0 (.-status result)) (.-stderr result)))
+      (finally (fs/rmSync dir #js {:recursive true :force true})))))
+
+(deftest explicit-native-js-cli-targets-emit-and-unsupported-targets-refuse
+  (let [dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-native-cli-"))
+        config (path/join dir "offline.edn")
+        engine (aget (.-argv js/process) 1)
+        output (path/join dir "library.mjs")
+        run (fn [args] (child/spawnSync js/process.execPath
+                        (clj->js (concat [engine "--config" config "--classpath" "src" "bin/mithril-native-js.cljk"] args))
+                        #js {:encoding "utf8" :timeout 30000}))]
+    (try
+      (fs/writeFileSync config "{:paths []}")
+      (doseq [target ["js" "js-browser"]]
+        (let [result (run ["examples/native-js-map-values.mith" "--target" target "--output" output])]
+          (is (= 0 (.-status result)) (.-stderr result))
+          (is (= (:source (native/compile-text (fs/readFileSync "examples/native-js-map-values.mith" "utf8")))
+                 (fs/readFileSync output "utf8")))
+          (fs/unlinkSync output)))
+      (doseq [target ["cljs" "wasm32-browser" "x86_64"]]
+        (let [result (run ["examples/native-js-map-values.mith" "--target" target "--output" output])]
+          (is (= 65 (.-status result)))
+          (is (false? (fs/existsSync output)))))
+      (is (= 64 (.-status (run ["examples/native-js-map-values.mith" "--output" output]))))
+      (finally (fs/rmSync dir #js {:recursive true :force true})))))

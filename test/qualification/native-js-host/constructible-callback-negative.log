@@ -1,0 +1,21 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+true !== false
+
+    at Object.map (file:///Users/junkawasaki/github/mithril-lang/mithril-harness-language/test/fixtures/native-js-map-values-contract.mjs:52:89)
+    at Object.mapValues (file:///Users/junkawasaki/github/mithril-lang/mithril-harness-evaluation-2026-10-07/native-js-host/map-values-constructible-mutant.mjs:6:221)
+    at verify (file:///Users/junkawasaki/github/mithril-lang/mithril-harness-language/test/fixtures/native-js-map-values-contract.mjs:53:24)
+    at file:///Users/junkawasaki/github/mithril-lang/mithril-harness-language/test/fixtures/native-js-map-values-contract.mjs:85:74 {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: true,
+  expected: false,
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v26.7.0

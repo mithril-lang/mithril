@@ -1,0 +1,23 @@
+(ns mithril.native-js-cli
+  "Emit only explicitly targeted native JS host modules; unsupported targets refuse."
+  (:require [mithril.native-js :as native] ["node:fs" :as fs]))
+(let [[source target-flag target output-flag output & extra] *command-line-args*]
+  (when-not (and source (= "--target" target-flag) target
+                 (= "--output" output-flag) output (empty? extra))
+    (js/console.error "usage: mithril-native-js <source.mith> --target js|js-browser --output <file.mjs>")
+    (js/process.exit 64))
+  (when-not (contains? #{"js" "js-browser"} target)
+    (js/console.error "REFUSE\tnative-js-target\tNative JS host modules require target js or js-browser")
+    (js/process.exit 65))
+  (try
+    ;; Complete admission precedes the first output write.
+    (let [result (native/compile-text (fs/readFileSync source "utf8"))]
+      (fs/writeFileSync output (:source result))
+      (println (js/JSON.stringify
+                 (clj->js {:format "mithril.native-js/artifact-v1" :target target
+                           :module (:module result) :required-imports (:required-imports result)
+                           :exports (:exports result) :output output}))))
+    (catch :default e
+      (js/console.error (str "REFUSE\t" (or (some-> e ex-data :mithril/error name) "compile-error")
+                            "\t" (.-message e)))
+      (js/process.exit 65))))

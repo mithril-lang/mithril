@@ -1,0 +1,30 @@
+(mithril/native-js-module
+ :name "cosmokit.map_values"
+ :imports ["Object"]
+ :exports ["mapValues" (rdf/node :name "valueMap" :function "mapValues")]
+ :functions
+ [(mithril/function
+   :name "mapValues"
+   :params [(rdf/node :name "object" :datatype "js-value")
+            (rdf/node :name "transform" :datatype "js-value")]
+   :returns "js-value"
+   :body
+   (mithril/host-method
+    :object (mithril/host-import :name "Object")
+    :key (mithril/literal :datatype "js-value" :value "fromEntries")
+    :args
+    [(mithril/host-method
+      :object (mithril/host-method
+               :object (mithril/host-import :name "Object")
+               :key (mithril/literal :datatype "js-value" :value "entries")
+               :args [(mithril/local :name "object")])
+      :key (mithril/literal :datatype "js-value" :value "map")
+      :args
+      [(mithril/native-lambda
+        :params [(rdf/node :array ["key" "value"])]
+        :body (mithril/host-array
+               :items [(mithril/local :name "key")
+                       (mithril/host-invoke
+                        :function (mithril/local :name "transform")
+                        :args [(mithril/local :name "value")
+                               (mithril/local :name "key")])]))])]))])

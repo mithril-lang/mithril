@@ -2156,3 +2156,40 @@ callable. The pure public-JS facade refuses callable signatures and guest closur
 vocabulary until an explicit host bridge exists. These guest closures do not
 provide escaping JavaScript callbacks or complete harness API/plugin parity.
 Qualification receipts are under `test/qualification/module-guest-closures`.
+
+## Native JS host modules
+
+`mithril/native-js-module` is a separate, explicitly granted native JS interop
+context. `mithril.native-js/check-text` validates inert source and
+`compile-text` emits native JS function/arrow bodies. HostImport, HostGet,
+HostInvoke, HostMethod, HostArray and NativeLambda preserve native JS values,
+receivers, call evaluation order, array-pattern iterator close and lexical
+lifetime. Function parameters/results use `js-value`; native primitive literals
+use that type too. This trusted host profile has native prototype/constructor
+authority and native GC/stack/resource behavior, rather than guest fuel/word
+encoding. The existing restricted `mithril/module` path stays separate.
+
+A host installs exactly the declared named grants with
+`artifact.instantiateMithrilNative(grants)`. Import reads are live: use a provider
+getter when a host binding can change. Public function aliases share identity;
+native arrows are anonymous, nonconstructible and retain their source arity.
+Array binding patterns appear only on NativeLambda parameters. Source budgets
+limit expressions to 4,096, depth to 64 and functions/exports/imports to 128.
+The backend checks source syntax/data and does not inspect opaque runtime values.
+
+Compile explicitly with the pinned nbb bootstrap engine:
+
+```sh
+node <nbb-cli.js> --classpath src bin/mithril-native-js.cljk \
+  examples/native-js-map-values.mith --target js --output map-values.mjs
+```
+
+The example actually implements CosmoKit mapValues/valueMap in Mithril; host
+imports expose primitive Object operations rather than the original TS function.
+The unchanged 24-case verifier passes on both baseline and generated candidate.
+The registered module suite passes 74 tests / 391 assertions in frozen offline
+Node 24.21.0. See [qualification](test/qualification/native-js-host/README.md).
+js-browser emits the same source and has Node-only execution evidence. Unsupported
+non-JS targets refuse before writing an artifact. This is a native JS bootstrap
+backend; full package migration, normal Amu/native Kotoba Q9 qualification,
+browser execution and complete harness API/plugin parity remain open.
