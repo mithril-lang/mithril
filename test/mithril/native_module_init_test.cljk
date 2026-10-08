@@ -1,0 +1,4 @@
+(ns mithril.native-module-init-test
+ (:require [cljs.test :refer [deftest is]] [mithril.native-module-init-primitives :as p]))
+(deftest native-module-initializer-function-availability-and-tdz
+ (is (nil? (p/verify))))

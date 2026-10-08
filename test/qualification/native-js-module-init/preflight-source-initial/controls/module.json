@@ -1,0 +1,290 @@
+{
+  "@type": "NativeJsModule",
+  "name": "module_init",
+  "imports": [
+    "observe",
+    "after"
+  ],
+  "bindings": [
+    {
+      "name": "namespace",
+      "value": {
+        "@type": "HostObject",
+        "entries": []
+      }
+    },
+    {
+      "name": "early",
+      "value": {
+        "@type": "HostInvoke",
+        "function": {
+          "@type": "HostImport",
+          "name": "observe"
+        },
+        "args": [
+          {
+            "@type": "HostArray",
+            "items": [
+              {
+                "@type": "FunctionRef",
+                "name": "read"
+              },
+              {
+                "@type": "FunctionRef",
+                "name": "later"
+              },
+              {
+                "@type": "FunctionRef",
+                "name": "cross"
+              },
+              {
+                "@type": "FunctionRef",
+                "name": "defaults"
+              },
+              {
+                "@type": "FunctionRef",
+                "name": "mutate"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "seed",
+      "value": {
+        "@type": "Literal",
+        "datatype": "js-value",
+        "value": 10
+      },
+      "mutable": true
+    },
+    {
+      "name": "registration",
+      "value": {
+        "@type": "Sequence",
+        "expressions": [
+          {
+            "@type": "HostSet",
+            "object": {
+              "@type": "Local",
+              "name": "namespace"
+            },
+            "key": {
+              "@type": "Literal",
+              "datatype": "js-value",
+              "value": "read"
+            },
+            "value": {
+              "@type": "FunctionRef",
+              "name": "read"
+            }
+          },
+          {
+            "@type": "HostSet",
+            "object": {
+              "@type": "Local",
+              "name": "namespace"
+            },
+            "key": {
+              "@type": "Literal",
+              "datatype": "js-value",
+              "value": "later"
+            },
+            "value": {
+              "@type": "FunctionRef",
+              "name": "later"
+            }
+          },
+          {
+            "@type": "HostSet",
+            "object": {
+              "@type": "Local",
+              "name": "namespace"
+            },
+            "key": {
+              "@type": "Literal",
+              "datatype": "js-value",
+              "value": "cross"
+            },
+            "value": {
+              "@type": "FunctionRef",
+              "name": "cross"
+            }
+          },
+          {
+            "@type": "HostSet",
+            "object": {
+              "@type": "Local",
+              "name": "namespace"
+            },
+            "key": {
+              "@type": "Literal",
+              "datatype": "js-value",
+              "value": "defaults"
+            },
+            "value": {
+              "@type": "FunctionRef",
+              "name": "defaults"
+            }
+          },
+          {
+            "@type": "HostSet",
+            "object": {
+              "@type": "Local",
+              "name": "namespace"
+            },
+            "key": {
+              "@type": "Literal",
+              "datatype": "js-value",
+              "value": "mutate"
+            },
+            "value": {
+              "@type": "FunctionRef",
+              "name": "mutate"
+            }
+          },
+          {
+            "@type": "HostUndefined"
+          }
+        ]
+      }
+    },
+    {
+      "name": "value",
+      "value": {
+        "@type": "Call",
+        "name": "cross",
+        "args": []
+      }
+    },
+    {
+      "name": "late",
+      "value": {
+        "@type": "Literal",
+        "datatype": "js-value",
+        "value": 20
+      }
+    },
+    {
+      "name": "done",
+      "value": {
+        "@type": "HostInvoke",
+        "function": {
+          "@type": "HostImport",
+          "name": "after"
+        },
+        "args": [
+          {
+            "@type": "Local",
+            "name": "namespace"
+          }
+        ]
+      }
+    }
+  ],
+  "functions": [
+    {
+      "@type": "Function",
+      "name": "read",
+      "params": [],
+      "returns": "js-value",
+      "body": {
+        "@type": "Local",
+        "name": "seed"
+      }
+    },
+    {
+      "@type": "Function",
+      "name": "later",
+      "params": [],
+      "returns": "js-value",
+      "body": {
+        "@type": "Local",
+        "name": "late"
+      }
+    },
+    {
+      "@type": "Function",
+      "name": "cross",
+      "params": [],
+      "returns": "js-value",
+      "body": {
+        "@type": "HostBinary",
+        "operator": "+",
+        "left": {
+          "@type": "Call",
+          "name": "read",
+          "args": []
+        },
+        "right": {
+          "@type": "Literal",
+          "datatype": "js-value",
+          "value": 2
+        }
+      }
+    },
+    {
+      "@type": "Function",
+      "name": "defaults",
+      "params": [
+        {
+          "name": "value",
+          "datatype": "js-value",
+          "default": {
+            "@type": "Local",
+            "name": "seed"
+          }
+        }
+      ],
+      "returns": "js-value",
+      "body": {
+        "@type": "Local",
+        "name": "value"
+      }
+    },
+    {
+      "@type": "Function",
+      "name": "mutate",
+      "params": [
+        {
+          "name": "value",
+          "datatype": "js-value"
+        }
+      ],
+      "returns": "js-value",
+      "body": {
+        "@type": "Sequence",
+        "expressions": [
+          {
+            "@type": "LocalSet",
+            "name": "seed",
+            "value": {
+              "@type": "Local",
+              "name": "value"
+            }
+          },
+          {
+            "@type": "HostUndefined"
+          }
+        ]
+      }
+    }
+  ],
+  "exports": [
+    {
+      "name": "namespace",
+      "value": {
+        "@type": "Local",
+        "name": "namespace"
+      }
+    },
+    {
+      "name": "value",
+      "value": {
+        "@type": "Local",
+        "name": "value"
+      }
+    }
+  ]
+}
