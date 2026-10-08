@@ -1,0 +1,38 @@
+(mithril/native-js-declaration-program
+ :name "cordis"
+ :runtime-source "native-js-cordis-esm.mith"
+ :modules [(rdf/node
+   :name "cordis.context"
+   :source "native-js-cordis-context-complete-types.mith")
+  (rdf/node
+   :name "cordis.events"
+   :source "native-js-cordis-events-complete-types.mith")
+  (rdf/node
+   :name "cordis.fiber"
+   :source "native-js-cordis-fiber-complete-types.mith")
+  (rdf/node
+   :name "cordis.logger"
+   :source "native-js-cordis-logger-complete-types.mith")
+  (rdf/node
+   :name "cordis.reflect"
+   :source "native-js-cordis-reflect-complete-types.mith")
+  (rdf/node
+   :name "cordis.registry"
+   :source "native-js-cordis-registry-complete-types.mith")
+  (rdf/node
+   :name "cordis.service"
+   :source "native-js-cordis-service-complete-types.mith")
+  (rdf/node
+   :name "cordis.utils"
+   :source "native-js-cordis-utils-complete-types.mith")
+  (rdf/node
+   :name "cordis.index"
+   :source "native-js-cordis-index-complete-types.mith")
+  (rdf/node
+   :name "cosmokit"
+   :source "native-js-cosmokit-complete-types.mith")
+  (rdf/node
+   :name "standard.schema"
+   :source "native-js-standard-schema-complete-types.mith")]
+ :externals []
+ :entry "cordis.index")

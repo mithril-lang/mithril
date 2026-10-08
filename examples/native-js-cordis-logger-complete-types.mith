@@ -1,0 +1,830 @@
+(mithril/native-js-declaration-module
+ :name "cordis.logger"
+ :runtime "cordis.logger"
+ :ambient-types [(rdf/node
+   :name "Pick"
+   :min 2
+   :max 2)
+  (rdf/node
+   :name "Omit"
+   :min 2
+   :max 2)
+  (rdf/node
+   :name "Promise"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "PromiseLike"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "Parameters"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "ThisType"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "NoInfer"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "ReturnType"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "Record"
+   :min 2
+   :max 2)
+  (rdf/node
+   :name "Partial"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "Map"
+   :min 2
+   :max 2)
+  (rdf/node
+   :name "WeakRef"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "Error"
+   :min 0
+   :max 0)
+  (rdf/node
+   :name "TypeError"
+   :min 0
+   :max 0)
+  (rdf/node
+   :name "Function"
+   :min 0
+   :max 0)
+  (rdf/node
+   :name "globalThis.Function"
+   :min 0
+   :max 0)
+  (rdf/node
+   :name "ClassDecoratorContext"
+   :min 0
+   :max 1)
+  (rdf/node
+   :name "ClassMethodDecoratorContext"
+   :min 0
+   :max 2)
+  (rdf/node
+   :name "WeakKey"
+   :min 0
+   :max 0)
+  (rdf/node
+   :name "MapIterator"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "TypedPropertyDescriptor"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "ProxyHandler"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "Iterable"
+   :min 1
+   :max 3)
+  (rdf/node
+   :name "AsyncIterable"
+   :min 1
+   :max 3)]
+ :ambient-values ["Symbol.iterator"
+  "Symbol.hasInstance"
+  "Error"
+  "TypeError"]
+ :imports [(rdf/node
+   :module "cordis.context"
+   :type-only false
+   :names [(rdf/node
+     :import "Context"
+     :local "Context")])
+  (rdf/node
+   :module "cordis.fiber"
+   :type-only false
+   :names [(rdf/node
+     :import "Fiber"
+     :local "Fiber")])
+  (rdf/node
+   :module "cordis.utils"
+   :type-only false
+   :names [(rdf/node
+     :import "symbols"
+     :local "symbols")])]
+ :reexports []
+ :declarations [(rdf/node
+   :kind "alias"
+   :name "LoggerType"
+   :exported true
+   :type-params []
+   :datatype (rdf/node
+    :op "union"
+    :items [(rdf/node
+      :op "literal"
+      :value "error")
+     (rdf/node
+      :op "literal"
+      :value "info")
+     (rdf/node
+      :op "literal"
+      :value "warn")
+     (rdf/node
+      :op "literal"
+      :value "debug")]))
+  (rdf/node
+   :kind "alias"
+   :name "LoggerMethod"
+   :exported true
+   :type-params []
+   :datatype (rdf/node
+    :op "function"
+    :abstract false
+    :type-params []
+    :params [(rdf/node
+      :name "format"
+      :optional false
+      :rest false
+      :datatype (rdf/node
+       :op "keyword"
+       :name "any"))
+     (rdf/node
+      :name "param"
+      :optional false
+      :rest true
+      :datatype (rdf/node
+       :op "array"
+       :item (rdf/node
+        :op "keyword"
+        :name "any")))]
+    :returns (rdf/node
+     :op "keyword"
+     :name "void")))
+  (rdf/node
+   :kind "alias"
+   :name "Formatter"
+   :exported true
+   :type-params []
+   :datatype (rdf/node
+    :op "function"
+    :abstract false
+    :type-params []
+    :params [(rdf/node
+      :name "value"
+      :optional false
+      :rest false
+      :datatype (rdf/node
+       :op "keyword"
+       :name "any"))
+     (rdf/node
+      :name "exporter"
+      :optional false
+      :rest false
+      :datatype (rdf/node
+       :op "name"
+       :name "Exporter"
+       :args []))
+     (rdf/node
+      :name "message"
+      :optional false
+      :rest false
+      :datatype (rdf/node
+       :op "name"
+       :name "Message"
+       :args []))]
+    :returns (rdf/node
+     :op "keyword"
+     :name "any")))
+  (rdf/node
+   :kind "const-enum"
+   :name "LoggerLevel"
+   :exported true
+   :members [(rdf/node
+     :name "ERROR"
+     :value 0)
+    (rdf/node
+     :name "INFO"
+     :value 1)
+    (rdf/node
+     :name "WARN"
+     :value 2)
+    (rdf/node
+     :name "DEBUG"
+     :value 3)])
+  (rdf/node
+   :kind "interface"
+   :name "Message"
+   :exported true
+   :type-params []
+   :extends []
+   :members [(rdf/node
+     :kind "property"
+     :name "sn"
+     :optional false
+     :readonly false
+     :datatype (rdf/node
+      :op "keyword"
+      :name "number"))
+    (rdf/node
+     :kind "property"
+     :name "ts"
+     :optional false
+     :readonly false
+     :datatype (rdf/node
+      :op "keyword"
+      :name "number"))
+    (rdf/node
+     :kind "property"
+     :name "name"
+     :optional false
+     :readonly false
+     :datatype (rdf/node
+      :op "keyword"
+      :name "string"))
+    (rdf/node
+     :kind "property"
+     :name "type"
+     :optional false
+     :readonly false
+     :datatype (rdf/node
+      :op "name"
+      :name "LoggerType"
+      :args []))
+    (rdf/node
+     :kind "property"
+     :name "level"
+     :optional false
+     :readonly false
+     :datatype (rdf/node
+      :op "keyword"
+      :name "number"))
+    (rdf/node
+     :kind "property"
+     :name "args"
+     :optional false
+     :readonly false
+     :datatype (rdf/node
+      :op "array"
+      :item (rdf/node
+       :op "keyword"
+       :name "any")))
+    (rdf/node
+     :kind "property"
+     :name "fiber"
+     :optional true
+     :readonly false
+     :datatype (rdf/node
+      :op "name"
+      :name "WeakRef"
+      :args [(rdf/node
+        :op "name"
+        :name "Fiber"
+        :args [])]))])
+  (rdf/node
+   :kind "interface"
+   :name "Exporter"
+   :exported true
+   :type-params []
+   :extends []
+   :members [(rdf/node
+     :kind "property"
+     :name "colors"
+     :optional true
+     :readonly false
+     :datatype (rdf/node
+      :op "union"
+      :items [(rdf/node
+        :op "keyword"
+        :name "number")
+       (rdf/node
+        :op "literal"
+        :value false)]))
+    (rdf/node
+     :kind "property"
+     :name "maxLength"
+     :optional true
+     :readonly false
+     :datatype (rdf/node
+      :op "keyword"
+      :name "number"))
+    (rdf/node
+     :kind "property"
+     :name "levels"
+     :optional true
+     :readonly false
+     :datatype (rdf/node
+      :op "name"
+      :name "Record"
+      :args [(rdf/node
+        :op "keyword"
+        :name "string")
+       (rdf/node
+        :op "keyword"
+        :name "number")]))
+    (rdf/node
+     :kind "property"
+     :name "formatters"
+     :optional true
+     :readonly false
+     :datatype (rdf/node
+      :op "name"
+      :name "Record"
+      :args [(rdf/node
+        :op "keyword"
+        :name "string")
+       (rdf/node
+        :op "name"
+        :name "Formatter"
+        :args [])]))
+    (rdf/node
+     :kind "method"
+     :name "export"
+     :optional false
+     :type-params []
+     :params [(rdf/node
+       :name "message"
+       :optional false
+       :rest false
+       :datatype (rdf/node
+        :op "name"
+        :name "Message"
+        :args []))]
+     :returns (rdf/node
+      :op "keyword"
+      :name "void"))])
+  (rdf/node
+   :kind "const"
+   :name "defaultFormatters"
+   :exported true
+   :datatype (rdf/node
+    :op "name"
+    :name "Record"
+    :args [(rdf/node
+      :op "keyword"
+      :name "string")
+     (rdf/node
+      :op "name"
+      :name "Formatter"
+      :args [])]))
+  (rdf/node
+   :kind "interface"
+   :name "LoggerOptions"
+   :exported true
+   :type-params []
+   :extends []
+   :members [(rdf/node
+     :kind "property"
+     :name "name"
+     :optional false
+     :readonly false
+     :datatype (rdf/node
+      :op "keyword"
+      :name "string"))
+    (rdf/node
+     :kind "property"
+     :name "meta"
+     :optional true
+     :readonly false
+     :datatype (rdf/node
+      :op "name"
+      :name "Partial"
+      :args [(rdf/node
+        :op "name"
+        :name "Message"
+        :args [])]))
+    (rdf/node
+     :kind "property"
+     :name "level"
+     :optional true
+     :readonly false
+     :datatype (rdf/node
+      :op "keyword"
+      :name "number"))])
+  (rdf/node
+   :kind "interface"
+   :name "Logger"
+   :exported true
+   :type-params []
+   :extends [(rdf/node
+     :op "name"
+     :name "LoggerOptions"
+     :args [])]
+   :members [])
+  (rdf/node
+   :kind "interface"
+   :name "Logger"
+   :exported true
+   :type-params []
+   :extends [(rdf/node
+     :op "name"
+     :name "Record"
+     :args [(rdf/node
+       :op "name"
+       :name "LoggerType"
+       :args [])
+      (rdf/node
+       :op "name"
+       :name "LoggerMethod"
+       :args [])])]
+   :members [])
+  (rdf/node
+   :kind "class"
+   :name "Logger"
+   :exported true
+   :abstract false
+   :type-params []
+   :extends nil
+   :implements []
+   :members [(rdf/node
+     :kind "opaque"
+     :key (rdf/node
+      :kind "name"
+      :name "service")
+     :visibility "private"
+     :static false)
+    (rdf/node
+     :kind "method"
+     :key (rdf/node
+      :kind "name"
+      :name "color")
+     :visibility "public"
+     :static true
+     :abstract false
+     :optional false
+     :type-params []
+     :params [(rdf/node
+       :name "exporter"
+       :optional false
+       :rest false
+       :datatype (rdf/node
+        :op "name"
+        :name "Exporter"
+        :args []))
+      (rdf/node
+       :name "code"
+       :optional false
+       :rest false
+       :datatype (rdf/node
+        :op "keyword"
+        :name "number"))
+      (rdf/node
+       :name "value"
+       :optional false
+       :rest false
+       :datatype (rdf/node
+        :op "keyword"
+        :name "any"))
+      (rdf/node
+       :name "decoration"
+       :optional true
+       :rest false
+       :datatype (rdf/node
+        :op "keyword"
+        :name "string"))]
+     :returns (rdf/node
+      :op "keyword"
+      :name "string"))
+    (rdf/node
+     :kind "method"
+     :key (rdf/node
+      :kind "name"
+      :name "code")
+     :visibility "public"
+     :static true
+     :abstract false
+     :optional false
+     :type-params []
+     :params [(rdf/node
+       :name "name"
+       :optional false
+       :rest false
+       :datatype (rdf/node
+        :op "keyword"
+        :name "string"))
+      (rdf/node
+       :name "level"
+       :optional true
+       :rest false
+       :datatype (rdf/node
+        :op "union"
+        :items [(rdf/node
+          :op "literal"
+          :value false)
+         (rdf/node
+          :op "keyword"
+          :name "number")]))]
+     :returns (rdf/node
+      :op "keyword"
+      :name "number"))
+    (rdf/node
+     :kind "method"
+     :key (rdf/node
+      :kind "name"
+      :name "format")
+     :visibility "public"
+     :static true
+     :abstract false
+     :optional false
+     :type-params []
+     :params [(rdf/node
+       :name "exporter"
+       :optional false
+       :rest false
+       :datatype (rdf/node
+        :op "name"
+        :name "Exporter"
+        :args []))
+      (rdf/node
+       :name "message"
+       :optional false
+       :rest false
+       :datatype (rdf/node
+        :op "name"
+        :name "Message"
+        :args []))]
+     :returns (rdf/node
+      :op "keyword"
+      :name "string"))
+    (rdf/node
+     :kind "constructor"
+     :visibility "public"
+     :params [(rdf/node
+       :name "options"
+       :optional false
+       :rest false
+       :datatype (rdf/node
+        :op "name"
+        :name "LoggerOptions"
+        :args []))
+      (rdf/node
+       :name "service"
+       :optional false
+       :rest false
+       :datatype (rdf/node
+        :op "name"
+        :name "LoggerService"
+        :args []))])
+    (rdf/node
+     :kind "opaque"
+     :key (rdf/node
+      :kind "name"
+      :name "_method")
+     :visibility "private"
+     :static false)])
+  (rdf/node
+   :kind "const"
+   :name "c16"
+   :exported true
+   :datatype (rdf/node
+    :op "array"
+    :item (rdf/node
+     :op "keyword"
+     :name "number")))
+  (rdf/node
+   :kind "const"
+   :name "c256"
+   :exported true
+   :datatype (rdf/node
+    :op "array"
+    :item (rdf/node
+     :op "keyword"
+     :name "number")))
+  (rdf/node
+   :kind "namespace"
+   :name "LoggerService"
+   :exported true
+   :declarations [(rdf/node
+     :kind "interface"
+     :name "Intercept"
+     :exported true
+     :type-params []
+     :extends []
+     :members [(rdf/node
+       :kind "property"
+       :name "name"
+       :optional true
+       :readonly false
+       :datatype (rdf/node
+        :op "keyword"
+        :name "string"))
+      (rdf/node
+       :kind "property"
+       :name "level"
+       :optional true
+       :readonly false
+       :datatype (rdf/node
+        :op "keyword"
+        :name "number"))])])
+  (rdf/node
+   :kind "interface"
+   :name "LoggerService"
+   :exported true
+   :type-params []
+   :extends [(rdf/node
+     :op "name"
+     :name "Record"
+     :args [(rdf/node
+       :op "name"
+       :name "LoggerType"
+       :args [])
+      (rdf/node
+       :op "name"
+       :name "LoggerMethod"
+       :args [])])]
+   :members [(rdf/node
+     :kind "call"
+     :type-params []
+     :params [(rdf/node
+       :name "name"
+       :optional true
+       :rest false
+       :datatype (rdf/node
+        :op "keyword"
+        :name "string"))]
+     :returns (rdf/node
+      :op "name"
+      :name "Logger"
+      :args []))])
+  (rdf/node
+   :kind "class"
+   :name "LoggerService"
+   :exported true
+   :abstract false
+   :type-params []
+   :extends nil
+   :implements []
+   :members [(rdf/node
+     :kind "property"
+     :key (rdf/node
+      :kind "name"
+      :name "bufferSize")
+     :visibility "public"
+     :static false
+     :readonly false
+     :optional false
+     :datatype (rdf/node
+      :op "keyword"
+      :name "number"))
+    (rdf/node
+     :kind "property"
+     :key (rdf/node
+      :kind "name"
+      :name "buffer")
+     :visibility "public"
+     :static false
+     :readonly false
+     :optional false
+     :datatype (rdf/node
+      :op "array"
+      :item (rdf/node
+       :op "name"
+       :name "Message"
+       :args [])))
+    (rdf/node
+     :kind "property"
+     :key (rdf/node
+      :kind "name"
+      :name "ctx")
+     :visibility "public"
+     :static false
+     :readonly false
+     :optional false
+     :datatype (rdf/node
+      :op "name"
+      :name "Context"
+      :args []))
+    (rdf/node
+     :kind "property"
+     :key (rdf/node
+      :kind "name"
+      :name "_snMessage")
+     :visibility "public"
+     :static false
+     :readonly false
+     :optional false
+     :datatype (rdf/node
+      :op "keyword"
+      :name "number"))
+    (rdf/node
+     :kind "property"
+     :key (rdf/node
+      :kind "name"
+      :name "_snExporter")
+     :visibility "public"
+     :static false
+     :readonly false
+     :optional false
+     :datatype (rdf/node
+      :op "keyword"
+      :name "number"))
+    (rdf/node
+     :kind "property"
+     :key (rdf/node
+      :kind "name"
+      :name "exporters")
+     :visibility "public"
+     :static false
+     :readonly false
+     :optional false
+     :datatype (rdf/node
+      :op "name"
+      :name "Map"
+      :args [(rdf/node
+        :op "keyword"
+        :name "number")
+       (rdf/node
+        :op "name"
+        :name "Exporter"
+        :args [])]))
+    (rdf/node
+     :kind "constructor"
+     :visibility "public"
+     :params [(rdf/node
+       :name "ctx"
+       :optional false
+       :rest false
+       :datatype (rdf/node
+        :op "name"
+        :name "Context"
+        :args []))])
+    (rdf/node
+     :kind "method"
+     :key (rdf/node
+      :kind "name"
+      :name "exporter")
+     :visibility "public"
+     :static false
+     :abstract false
+     :optional false
+     :type-params []
+     :params [(rdf/node
+       :name "exporter"
+       :optional false
+       :rest false
+       :datatype (rdf/node
+        :op "name"
+        :name "Exporter"
+        :args []))]
+     :returns (rdf/node
+      :op "import-type"
+      :module "cordis.fiber"
+      :name "Disposable"
+      :args [(rdf/node
+        :op "name"
+        :name "Promise"
+        :args [(rdf/node
+          :op "keyword"
+          :name "void")])]
+      :query false))
+    (rdf/node
+     :kind "opaque"
+     :key (rdf/node
+      :kind "name"
+      :name "_resolveConfig")
+     :visibility "private"
+     :static false)
+    (rdf/node
+     :kind "method"
+     :key (rdf/node
+      :kind "computed"
+      :name "symbols.invoke")
+     :visibility "public"
+     :static false
+     :abstract false
+     :optional false
+     :type-params []
+     :params [(rdf/node
+       :name "name"
+       :optional true
+       :rest false
+       :datatype (rdf/node
+        :op "keyword"
+        :name "string"))]
+     :returns (rdf/node
+      :op "name"
+      :name "Logger"
+      :args []))])]
+ :augmentations [(rdf/node
+   :module "cordis.context"
+   :declarations [(rdf/node
+     :kind "interface"
+     :name "Intercept"
+     :exported true
+     :type-params []
+     :extends []
+     :members [(rdf/node
+       :kind "property"
+       :name "logger"
+       :optional false
+       :readonly false
+       :datatype (rdf/node
+        :op "name"
+        :name "LoggerService.Intercept"
+        :args []))])])])

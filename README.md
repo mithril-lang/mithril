@@ -2337,3 +2337,13 @@ has5 types,4 TypeScript value bindings and1 genuine Context runtime value.
 See [erased enum qualification](test/qualification/native-erased-enums/README.md).
 The complete independent Cordis graph and full Harness parity remain pending;
 operator authored with no new System One inference or measured gain.
+
+The complete independent Cordis declaration graph now uses all9 original modules
+plus checked Mithril CosmoKit/Standard Schema dependencies with no external type
+adapters. Both Node-executed CLI targets pass62 original-paired strict consumer
+groups, complete module/import/augmentation structures, candidate-only strict
+closure and genuine runtime binding checks. The exact public surface is50names,
+35types,28TypeScript values(two erased enums) and26actual runtime values.
+See [qualification](test/qualification/native-cordis-complete-types/README.md).
+Full Harness/profile/Session and actual browser/native/Q9 remain later gates;
+operator authored with zero new System One inference or measured gain.

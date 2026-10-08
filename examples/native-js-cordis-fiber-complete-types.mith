@@ -1,0 +1,1078 @@
+(mithril/native-js-declaration-module
+ :name "cordis.fiber"
+ :runtime "cordis.fiber"
+ :ambient-types [(rdf/node
+   :name "Pick"
+   :min 2
+   :max 2)
+  (rdf/node
+   :name "Omit"
+   :min 2
+   :max 2)
+  (rdf/node
+   :name "Promise"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "PromiseLike"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "Parameters"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "ThisType"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "NoInfer"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "ReturnType"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "Record"
+   :min 2
+   :max 2)
+  (rdf/node
+   :name "Partial"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "Map"
+   :min 2
+   :max 2)
+  (rdf/node
+   :name "WeakRef"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "Error"
+   :min 0
+   :max 0)
+  (rdf/node
+   :name "TypeError"
+   :min 0
+   :max 0)
+  (rdf/node
+   :name "Function"
+   :min 0
+   :max 0)
+  (rdf/node
+   :name "globalThis.Function"
+   :min 0
+   :max 0)
+  (rdf/node
+   :name "ClassDecoratorContext"
+   :min 0
+   :max 1)
+  (rdf/node
+   :name "ClassMethodDecoratorContext"
+   :min 0
+   :max 2)
+  (rdf/node
+   :name "WeakKey"
+   :min 0
+   :max 0)
+  (rdf/node
+   :name "MapIterator"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "TypedPropertyDescriptor"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "ProxyHandler"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "Iterable"
+   :min 1
+   :max 3)
+  (rdf/node
+   :name "AsyncIterable"
+   :min 1
+   :max 3)]
+ :ambient-values ["Symbol.iterator"
+  "Symbol.hasInstance"
+  "Error"
+  "TypeError"]
+ :imports [(rdf/node
+   :module "cosmokit"
+   :type-only true
+   :names [(rdf/node
+     :import "Awaitable"
+     :local "Awaitable")
+    (rdf/node
+     :import "Dict"
+     :local "Dict")])
+  (rdf/node
+   :module "cordis.context"
+   :type-only false
+   :names [(rdf/node
+     :import "Context"
+     :local "Context")])
+  (rdf/node
+   :module "cordis.registry"
+   :type-only true
+   :names [(rdf/node
+     :import "Plugin"
+     :local "Plugin")])
+  (rdf/node
+   :module "cordis.utils"
+   :type-only false
+   :names [(rdf/node
+     :import "DisposableList"
+     :local "DisposableList")])
+  (rdf/node
+   :module "cordis.reflect"
+   :type-only true
+   :names [(rdf/node
+     :import "Impl"
+     :local "Impl")])
+  (rdf/node
+   :module "standard.schema"
+   :type-only true
+   :names [(rdf/node
+     :import "StandardSchemaV1"
+     :local "StandardSchemaV1")])]
+ :reexports []
+ :declarations [(rdf/node
+   :kind "class"
+   :name "ValidationError"
+   :exported true
+   :abstract false
+   :type-params []
+   :extends (rdf/node
+    :op "name"
+    :name "TypeError"
+    :args [])
+   :implements []
+   :members [(rdf/node
+     :kind "property"
+     :key (rdf/node
+      :kind "name"
+      :name "name")
+     :visibility "public"
+     :static false
+     :readonly false
+     :optional false
+     :datatype (rdf/node
+      :op "keyword"
+      :name "string"))
+    (rdf/node
+     :kind "constructor"
+     :visibility "public"
+     :params [(rdf/node
+       :name "issues"
+       :optional false
+       :rest false
+       :datatype (rdf/node
+        :op "readonly"
+        :datatype (rdf/node
+         :op "array"
+         :item (rdf/node
+          :op "name"
+          :name "StandardSchemaV1.Issue"
+          :args []))))])])
+  (rdf/node
+   :kind "function"
+   :name "resolveConfig"
+   :exported true
+   :type-params []
+   :params [(rdf/node
+     :name "runtime"
+     :optional false
+     :rest false
+     :datatype (rdf/node
+      :op "name"
+      :name "Plugin.Runtime"
+      :args []))
+    (rdf/node
+     :name "config"
+     :optional false
+     :rest false
+     :datatype (rdf/node
+      :op "keyword"
+      :name "any"))]
+   :returns (rdf/node
+    :op "keyword"
+    :name "any"))
+  (rdf/node
+   :kind "interface"
+   :name "AsyncDisposable"
+   :exported false
+   :type-params [(rdf/node
+     :name "T"
+     :constraint (rdf/node
+      :op "name"
+      :name "Awaitable"
+      :args [(rdf/node
+        :op "keyword"
+        :name "void")])
+     :default (rdf/node
+      :op "name"
+      :name "Awaitable"
+      :args [(rdf/node
+        :op "keyword"
+        :name "void")]))]
+   :extends [(rdf/node
+     :op "name"
+     :name "PromiseLike"
+     :args [(rdf/node
+       :op "function"
+       :abstract false
+       :type-params []
+       :params []
+       :returns (rdf/node
+        :op "name"
+        :name "T"
+        :args []))])]
+   :members [(rdf/node
+     :kind "call"
+     :type-params []
+     :params []
+     :returns (rdf/node
+      :op "name"
+      :name "T"
+      :args []))])
+  (rdf/node
+   :kind "alias"
+   :name "Disposable"
+   :exported true
+   :type-params [(rdf/node
+     :name "T"
+     :constraint nil
+     :default (rdf/node
+      :op "keyword"
+      :name "any"))]
+   :datatype (rdf/node
+    :op "function"
+    :abstract false
+    :type-params []
+    :params []
+    :returns (rdf/node
+     :op "name"
+     :name "T"
+     :args [])))
+  (rdf/node
+   :kind "alias"
+   :name "Effect"
+   :exported true
+   :type-params [(rdf/node
+     :name "T"
+     :constraint nil
+     :default (rdf/node
+      :op "keyword"
+      :name "any"))]
+   :datatype (rdf/node
+    :op "union"
+    :items [(rdf/node
+      :op "name"
+      :name "SyncEffect"
+      :args [(rdf/node
+        :op "name"
+        :name "T"
+        :args [])])
+     (rdf/node
+      :op "name"
+      :name "AsyncEffect"
+      :args [(rdf/node
+        :op "name"
+        :name "T"
+        :args [])])]))
+  (rdf/node
+   :kind "alias"
+   :name "SyncEffect"
+   :exported false
+   :type-params [(rdf/node
+     :name "T"
+     :constraint nil
+     :default (rdf/node
+      :op "keyword"
+      :name "any"))]
+   :datatype (rdf/node
+    :op "union"
+    :items [(rdf/node
+      :op "name"
+      :name "Disposable"
+      :args [(rdf/node
+        :op "name"
+        :name "T"
+        :args [])])
+     (rdf/node
+      :op "name"
+      :name "Iterable"
+      :args [(rdf/node
+        :op "name"
+        :name "Disposable"
+        :args [(rdf/node
+          :op "name"
+          :name "T"
+          :args [])])
+       (rdf/node
+        :op "keyword"
+        :name "void")
+       (rdf/node
+        :op "keyword"
+        :name "void")])]))
+  (rdf/node
+   :kind "alias"
+   :name "AsyncEffect"
+   :exported false
+   :type-params [(rdf/node
+     :name "T"
+     :constraint nil
+     :default (rdf/node
+      :op "keyword"
+      :name "any"))]
+   :datatype (rdf/node
+    :op "union"
+    :items [(rdf/node
+      :op "name"
+      :name "Promise"
+      :args [(rdf/node
+        :op "name"
+        :name "Disposable"
+        :args [(rdf/node
+          :op "name"
+          :name "T"
+          :args [])])])
+     (rdf/node
+      :op "name"
+      :name "AsyncIterable"
+      :args [(rdf/node
+        :op "name"
+        :name "Disposable"
+        :args [(rdf/node
+          :op "name"
+          :name "T"
+          :args [])])
+       (rdf/node
+        :op "keyword"
+        :name "void")
+       (rdf/node
+        :op "keyword"
+        :name "void")])]))
+  (rdf/node
+   :kind "interface"
+   :name "EffectMeta"
+   :exported true
+   :type-params []
+   :extends []
+   :members [(rdf/node
+     :kind "property"
+     :name "label"
+     :optional false
+     :readonly false
+     :datatype (rdf/node
+      :op "keyword"
+      :name "string"))
+    (rdf/node
+     :kind "property"
+     :name "children"
+     :optional false
+     :readonly false
+     :datatype (rdf/node
+      :op "array"
+      :item (rdf/node
+       :op "name"
+       :name "EffectMeta"
+       :args [])))])
+  (rdf/node
+   :kind "const-enum"
+   :name "FiberState"
+   :exported true
+   :members [(rdf/node
+     :name "PENDING"
+     :value 0)
+    (rdf/node
+     :name "LOADING"
+     :value 1)
+    (rdf/node
+     :name "ACTIVE"
+     :value 2)
+    (rdf/node
+     :name "FAILED"
+     :value 3)
+    (rdf/node
+     :name "DISPOSED"
+     :value 4)
+    (rdf/node
+     :name "UNLOADING"
+     :value 5)])
+  (rdf/node
+   :kind "class"
+   :name "CordisError"
+   :exported true
+   :abstract false
+   :type-params []
+   :extends (rdf/node
+    :op "name"
+    :name "Error"
+    :args [])
+   :implements []
+   :members [(rdf/node
+     :kind "property"
+     :key (rdf/node
+      :kind "name"
+      :name "code")
+     :visibility "public"
+     :static false
+     :readonly false
+     :optional false
+     :datatype (rdf/node
+      :op "name"
+      :name "CordisError.Code"
+      :args []))
+    (rdf/node
+     :kind "constructor"
+     :visibility "public"
+     :params [(rdf/node
+       :name "code"
+       :optional false
+       :rest false
+       :datatype (rdf/node
+        :op "name"
+        :name "CordisError.Code"
+        :args []))
+      (rdf/node
+       :name "message"
+       :optional true
+       :rest false
+       :datatype (rdf/node
+        :op "keyword"
+        :name "string"))])])
+  (rdf/node
+   :kind "namespace"
+   :name "CordisError"
+   :exported true
+   :declarations [(rdf/node
+     :kind "alias"
+     :name "Code"
+     :exported true
+     :type-params []
+     :datatype (rdf/node
+      :op "keyof"
+      :datatype (rdf/node
+       :op "typeof"
+       :name "Code")))
+    (rdf/node
+     :kind "const"
+     :name "Code"
+     :exported true
+     :datatype (rdf/node
+      :op "object"
+      :members [(rdf/node
+        :kind "property"
+        :name "INACTIVE_EFFECT"
+        :optional false
+        :readonly true
+        :datatype (rdf/node
+         :op "literal"
+         :value "cannot create effect on inactive context"))]))])
+  (rdf/node
+   :kind "class"
+   :name "Fiber"
+   :exported true
+   :abstract false
+   :type-params []
+   :extends nil
+   :implements []
+   :members [(rdf/node
+     :kind "property"
+     :key (rdf/node
+      :kind "name"
+      :name "parent")
+     :visibility "public"
+     :static false
+     :readonly false
+     :optional false
+     :datatype (rdf/node
+      :op "name"
+      :name "Context"
+      :args []))
+    (rdf/node
+     :kind "property"
+     :key (rdf/node
+      :kind "name"
+      :name "inject")
+     :visibility "public"
+     :static false
+     :readonly false
+     :optional false
+     :datatype (rdf/node
+      :op "name"
+      :name "Dict"
+      :args [(rdf/node
+        :op "keyword"
+        :name "any")]))
+    (rdf/node
+     :kind "property"
+     :key (rdf/node
+      :kind "name"
+      :name "runtime")
+     :visibility "public"
+     :static false
+     :readonly false
+     :optional false
+     :datatype (rdf/node
+      :op "union"
+      :items [(rdf/node
+        :op "name"
+        :name "Plugin.Runtime"
+        :args [])
+       (rdf/node
+        :op "literal"
+        :value nil)]))
+    (rdf/node
+     :kind "property"
+     :key (rdf/node
+      :kind "name"
+      :name "uid")
+     :visibility "public"
+     :static false
+     :readonly false
+     :optional false
+     :datatype (rdf/node
+      :op "union"
+      :items [(rdf/node
+        :op "keyword"
+        :name "number")
+       (rdf/node
+        :op "literal"
+        :value nil)]))
+    (rdf/node
+     :kind "property"
+     :key (rdf/node
+      :kind "name"
+      :name "ctx")
+     :visibility "public"
+     :static false
+     :readonly true
+     :optional false
+     :datatype (rdf/node
+      :op "name"
+      :name "Context"
+      :args []))
+    (rdf/node
+     :kind "property"
+     :key (rdf/node
+      :kind "name"
+      :name "config")
+     :visibility "public"
+     :static false
+     :readonly false
+     :optional false
+     :datatype (rdf/node
+      :op "keyword"
+      :name "any"))
+    (rdf/node
+     :kind "property"
+     :key (rdf/node
+      :kind "name"
+      :name "_config")
+     :visibility "public"
+     :static false
+     :readonly false
+     :optional false
+     :datatype (rdf/node
+      :op "keyword"
+      :name "any"))
+    (rdf/node
+     :kind "property"
+     :key (rdf/node
+      :kind "name"
+      :name "state")
+     :visibility "public"
+     :static false
+     :readonly false
+     :optional false
+     :datatype (rdf/node
+      :op "name"
+      :name "FiberState"
+      :args []))
+    (rdf/node
+     :kind "property"
+     :key (rdf/node
+      :kind "name"
+      :name "dispose")
+     :visibility "public"
+     :static false
+     :readonly true
+     :optional false
+     :datatype (rdf/node
+      :op "function"
+      :abstract false
+      :type-params []
+      :params []
+      :returns (rdf/node
+       :op "name"
+       :name "Promise"
+       :args [(rdf/node
+         :op "keyword"
+         :name "void")])))
+    (rdf/node
+     :kind "property"
+     :key (rdf/node
+      :kind "name"
+      :name "store")
+     :visibility "public"
+     :static false
+     :readonly false
+     :optional false
+     :datatype (rdf/node
+      :op "union"
+      :items [(rdf/node
+        :op "name"
+        :name "Dict"
+        :args [(rdf/node
+          :op "name"
+          :name "Impl"
+          :args [])])
+       (rdf/node
+        :op "keyword"
+        :name "undefined")]))
+    (rdf/node
+     :kind "property"
+     :key (rdf/node
+      :kind "name"
+      :name "inertia")
+     :visibility "public"
+     :static false
+     :readonly false
+     :optional false
+     :datatype (rdf/node
+      :op "union"
+      :items [(rdf/node
+        :op "name"
+        :name "Promise"
+        :args [(rdf/node
+          :op "keyword"
+          :name "void")])
+       (rdf/node
+        :op "keyword"
+        :name "undefined")]))
+    (rdf/node
+     :kind "property"
+     :key (rdf/node
+      :kind "name"
+      :name "_hooks")
+     :visibility "public"
+     :static false
+     :readonly true
+     :optional false
+     :datatype (rdf/node
+      :op "name"
+      :name "Dict"
+      :args [(rdf/node
+        :op "name"
+        :name "DisposableList"
+        :args [(rdf/node
+          :op "name"
+          :name "Function"
+          :args [])])]))
+    (rdf/node
+     :kind "property"
+     :key (rdf/node
+      :kind "name"
+      :name "_disposables")
+     :visibility "public"
+     :static false
+     :readonly true
+     :optional false
+     :datatype (rdf/node
+      :op "name"
+      :name "DisposableList"
+      :args [(rdf/node
+        :op "name"
+        :name "Disposable"
+        :args [(rdf/node
+          :op "keyword"
+          :name "any")])]))
+    (rdf/node
+     :kind "property"
+     :key (rdf/node
+      :kind "name"
+      :name "context")
+     :visibility "protected"
+     :static false
+     :readonly false
+     :optional false
+     :datatype (rdf/node
+      :op "name"
+      :name "Context"
+      :args []))
+    (rdf/node
+     :kind "opaque"
+     :key (rdf/node
+      :kind "name"
+      :name "_error")
+     :visibility "private"
+     :static false)
+    (rdf/node
+     :kind "opaque"
+     :key (rdf/node
+      :kind "name"
+      :name "_runner")
+     :visibility "private"
+     :static false)
+    (rdf/node
+     :kind "opaque"
+     :key (rdf/node
+      :kind "name"
+      :name "_store")
+     :visibility "private"
+     :static false)
+    (rdf/node
+     :kind "constructor"
+     :visibility "public"
+     :params [(rdf/node
+       :name "parent"
+       :optional false
+       :rest false
+       :datatype (rdf/node
+        :op "name"
+        :name "Context"
+        :args []))
+      (rdf/node
+       :name "config"
+       :optional false
+       :rest false
+       :datatype (rdf/node
+        :op "keyword"
+        :name "any"))
+      (rdf/node
+       :name "inject"
+       :optional false
+       :rest false
+       :datatype (rdf/node
+        :op "name"
+        :name "Dict"
+        :args [(rdf/node
+          :op "keyword"
+          :name "any")]))
+      (rdf/node
+       :name "runtime"
+       :optional false
+       :rest false
+       :datatype (rdf/node
+        :op "union"
+        :items [(rdf/node
+          :op "name"
+          :name "Plugin.Runtime"
+          :args [])
+         (rdf/node
+          :op "literal"
+          :value nil)]))
+      (rdf/node
+       :name "getOuterStack"
+       :optional false
+       :rest false
+       :datatype (rdf/node
+        :op "function"
+        :abstract false
+        :type-params []
+        :params []
+        :returns (rdf/node
+         :op "array"
+         :item (rdf/node
+          :op "keyword"
+          :name "string"))))])
+    (rdf/node
+     :kind "getter"
+     :key (rdf/node
+      :kind "name"
+      :name "name")
+     :visibility "public"
+     :static false
+     :datatype (rdf/node
+      :op "keyword"
+      :name "string"))
+    (rdf/node
+     :kind "method"
+     :key (rdf/node
+      :kind "name"
+      :name "assertActive")
+     :visibility "public"
+     :static false
+     :abstract false
+     :optional false
+     :type-params []
+     :params []
+     :returns (rdf/node
+      :op "keyword"
+      :name "void"))
+    (rdf/node
+     :kind "opaque"
+     :key (rdf/node
+      :kind "name"
+      :name "_execute")
+     :visibility "private"
+     :static false)
+    (rdf/node
+     :kind "method"
+     :key (rdf/node
+      :kind "name"
+      :name "effect")
+     :visibility "public"
+     :static false
+     :abstract false
+     :optional false
+     :type-params []
+     :params [(rdf/node
+       :name "execute"
+       :optional false
+       :rest false
+       :datatype (rdf/node
+        :op "function"
+        :abstract false
+        :type-params []
+        :params []
+        :returns (rdf/node
+         :op "name"
+         :name "SyncEffect"
+         :args [])))
+      (rdf/node
+       :name "label"
+       :optional true
+       :rest false
+       :datatype (rdf/node
+        :op "keyword"
+        :name "string"))]
+     :returns (rdf/node
+      :op "name"
+      :name "Disposable"
+      :args [(rdf/node
+        :op "name"
+        :name "Promise"
+        :args [(rdf/node
+          :op "keyword"
+          :name "void")])]))
+    (rdf/node
+     :kind "method"
+     :key (rdf/node
+      :kind "name"
+      :name "effect")
+     :visibility "public"
+     :static false
+     :abstract false
+     :optional false
+     :type-params []
+     :params [(rdf/node
+       :name "execute"
+       :optional false
+       :rest false
+       :datatype (rdf/node
+        :op "function"
+        :abstract false
+        :type-params []
+        :params []
+        :returns (rdf/node
+         :op "name"
+         :name "Effect"
+         :args [])))
+      (rdf/node
+       :name "label"
+       :optional true
+       :rest false
+       :datatype (rdf/node
+        :op "keyword"
+        :name "string"))]
+     :returns (rdf/node
+      :op "name"
+      :name "AsyncDisposable"
+      :args [(rdf/node
+        :op "name"
+        :name "Promise"
+        :args [(rdf/node
+          :op "keyword"
+          :name "void")])]))
+    (rdf/node
+     :kind "method"
+     :key (rdf/node
+      :kind "name"
+      :name "getEffects")
+     :visibility "public"
+     :static false
+     :abstract false
+     :optional false
+     :type-params []
+     :params []
+     :returns (rdf/node
+      :op "array"
+      :item (rdf/node
+       :op "name"
+       :name "EffectMeta"
+       :args [])))
+    (rdf/node
+     :kind "opaque"
+     :key (rdf/node
+      :kind "name"
+      :name "_getState")
+     :visibility "private"
+     :static false)
+    (rdf/node
+     :kind "opaque"
+     :key (rdf/node
+      :kind "name"
+      :name "_updateState")
+     :visibility "private"
+     :static false)
+    (rdf/node
+     :kind "method"
+     :key (rdf/node
+      :kind "name"
+      :name "_checkImpl")
+     :visibility "public"
+     :static false
+     :abstract false
+     :optional false
+     :type-params []
+     :params [(rdf/node
+       :name "name"
+       :optional false
+       :rest false
+       :datatype (rdf/node
+        :op "keyword"
+        :name "string"))]
+     :returns (rdf/node
+      :op "union"
+      :items [(rdf/node
+        :op "keyword"
+        :name "boolean")
+       (rdf/node
+        :op "keyword"
+        :name "undefined")]))
+    (rdf/node
+     :kind "method"
+     :key (rdf/node
+      :kind "name"
+      :name "_refresh")
+     :visibility "public"
+     :static false
+     :abstract false
+     :optional false
+     :type-params []
+     :params []
+     :returns (rdf/node
+      :op "keyword"
+      :name "void"))
+    (rdf/node
+     :kind "opaque"
+     :key (rdf/node
+      :kind "name"
+      :name "_setEpoch")
+     :visibility "private"
+     :static false)
+    (rdf/node
+     :kind "opaque"
+     :key (rdf/node
+      :kind "name"
+      :name "_resolveConfig")
+     :visibility "private"
+     :static false)
+    (rdf/node
+     :kind "opaque"
+     :key (rdf/node
+      :kind "name"
+      :name "_reload")
+     :visibility "private"
+     :static false)
+    (rdf/node
+     :kind "opaque"
+     :key (rdf/node
+      :kind "name"
+      :name "_unload")
+     :visibility "private"
+     :static false)
+    (rdf/node
+     :kind "method"
+     :key (rdf/node
+      :kind "name"
+      :name "await")
+     :visibility "public"
+     :static false
+     :abstract false
+     :optional false
+     :type-params []
+     :params []
+     :returns (rdf/node
+      :op "name"
+      :name "Promise"
+      :args [(rdf/node
+        :op "this")]))
+    (rdf/node
+     :kind "method"
+     :key (rdf/node
+      :kind "name"
+      :name "restart")
+     :visibility "public"
+     :static false
+     :abstract false
+     :optional false
+     :type-params []
+     :params []
+     :returns (rdf/node
+      :op "name"
+      :name "Promise"
+      :args [(rdf/node
+        :op "keyword"
+        :name "void")]))
+    (rdf/node
+     :kind "method"
+     :key (rdf/node
+      :kind "name"
+      :name "update")
+     :visibility "public"
+     :static false
+     :abstract false
+     :optional false
+     :type-params []
+     :params [(rdf/node
+       :name "config"
+       :optional false
+       :rest false
+       :datatype (rdf/node
+        :op "keyword"
+        :name "any"))
+      (rdf/node
+       :name "noSave"
+       :optional true
+       :rest false
+       :datatype (rdf/node
+        :op "keyword"
+        :name "boolean"))]
+     :returns (rdf/node
+      :op "keyword"
+      :name "void"))])]
+ :augmentations [(rdf/node
+   :module "cordis.context"
+   :declarations [(rdf/node
+     :kind "interface"
+     :name "Context"
+     :exported true
+     :type-params []
+     :extends [(rdf/node
+       :op "name"
+       :name "Pick"
+       :args [(rdf/node
+         :op "name"
+         :name "Fiber"
+         :args [])
+        (rdf/node
+         :op "literal"
+         :value "effect")])]
+     :members [(rdf/node
+       :kind "property"
+       :name "fiber"
+       :optional false
+       :readonly false
+       :datatype (rdf/node
+        :op "name"
+        :name "Fiber"
+        :args []))])])])
