@@ -1,0 +1,52 @@
+{
+  "format": "mithril.system-one-types-blocks-evaluation/v1",
+  "source_main": "0ffdfd4ae4a26196d74b16dd77d49e2da345ae4e",
+  "receipt": {
+    "format": "mithril.code-refactor-inference/v1",
+    "provider": "mithril",
+    "endpoint": "https://api.mithril.fund/v1/chat/completions",
+    "model": "qwen/qwen3.8-27b",
+    "completion_id": "chatcmpl-10787b41-ec2f-4c7f-98e6-4849b465c1da",
+    "request_id": "chat:10787b41-ec2f-4c7f-98e6-4849b465c1da",
+    "input_sha256": "f2918c5e167b442be2323bed32254b0df3548b42abba75cc3cefa2972d21164b",
+    "usage": {
+      "prompt_tokens": 25461,
+      "completion_tokens": 1209
+    },
+    "wall_seconds": 34.62,
+    "attempts": 1,
+    "api_cost_usd": null,
+    "verification_scope": "Edit scope and source preconditions only; compilation and behavior have not been checked."
+  },
+  "model_repair_budget": 0,
+  "raw_unassisted_acceptance": false,
+  "raw_failure": "parse error: unmatched delimiter at native_js.cljk 294:57",
+  "operator_source_repairs": [
+    "move export checking after bindings/functions; exact mutually exclusive export alternatives; existing shared node budget",
+    "emit native template interpolation rather than literal template text"
+  ],
+  "operator_form_prerequisite_before_inference": [
+    "mithril/host-while",
+    "mithril/host-to-string"
+  ],
+  "editable_paths": [
+    "src/mithril/native_js.cljk"
+  ],
+  "operator_same_fixed_plan_verified": true,
+  "native_final_suite": {
+    "tests": 19,
+    "assertions": 83
+  },
+  "registered_final_suite": {
+    "tests": 84,
+    "assertions": 434
+  },
+  "runtime_groups": 18,
+  "whole_types_runtime_qualified": false,
+  "remaining": [
+    "whole Binary/clone/deepEqual port linked to Mithril misc/volatile",
+    "string/time/index/package linking",
+    "Schemastery/Cordis/Include/Loader SCC",
+    "full Harness API/plugin/Session parity and native targets"
+  ]
+}
