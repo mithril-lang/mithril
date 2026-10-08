@@ -165,6 +165,14 @@
             (when-not (contains? functions name)
               (fail! :mithril.native-js/function "Unknown native function"))
             {:op :function-ref :name name}))
+      "FunctionSet"
+      (do (shape! expr ["@type" "name" "value"])
+          (let [name (name! (get expr "name"))]
+            (when-not (true? (get functions name))
+              (fail! :mithril.native-js/function "FunctionSet requires an explicitly mutable module function"))
+            (when (contains? locals name)
+              (fail! :mithril.native-js/scope "FunctionSet target is shadowed by a local or native self binding"))
+            {:op :function-set :name name :value (check (get expr "value"))}))
       "Call"
       (do (shape! expr ["@type" "name" "args"])
           (let [name (name! (get expr "name")) args (args! (get expr "args"))]
@@ -561,7 +569,7 @@
     (vector! imports 128) (vector! functions 128) (vector! exports 128)
     (doseq [import imports] (name! import)) (unique! imports)
     (let [declarations (mapv (fn [f]
-                              (optional-flag! f ["@type" "name" "params" "returns" "body"] "statements")
+                              (optional-flags! f ["@type" "name" "params" "returns" "body"] ["statements" "mutable"])
                               (when-not (and (= "Function" (get f "@type"))
                                             (= "js-value" (get f "returns")))
                                 (fail! :mithril.native-js/type "Expected a js-value native function"))
@@ -569,10 +577,11 @@
                                 (when (contains? reserved name)
                                   (fail! :mithril.native-js/name "Reserved native JS function name"))
                                 (cond-> {:name name :params (params! (get f "params"))}
-                                  (contains? f "statements") (assoc :statements (get f "statements"))))) functions)
+                                  (contains? f "statements") (assoc :statements (get f "statements"))
+                                  (contains? f "mutable") (assoc :mutable (get f "mutable"))))) functions)
           names (mapv :name declarations)
           _ (unique! names)
-          targets (set names)
+          targets (into {} (map #(vector (:name %) (true? (:mutable %))) declarations))
           nodes (atom 0)]
       (let [bindings (if (contains? doc "bindings") (get doc "bindings") [])
             _ (vector! bindings 128)
@@ -580,7 +589,7 @@
                                   (optional-flag! b ["name" "value"] "mutable")
                                   (name! (get b "name"))) bindings)
             _ (unique! binding-names)
-            _ (when (some (into (set imports) targets) binding-names)
+            _ (when (some (into (set imports) (keys targets)) binding-names)
                 (fail! :mithril.native-js/duplicate "Module bindings must be disjoint from imports/functions"))
             lexical-env (if (get doc "lexical_bindings")
                           (into {} (map #(vector (get % "name") (true? (get % "mutable"))) bindings)) {})
@@ -656,6 +665,7 @@
       :local (get env (:name expr))
       :import (get imports (:name expr))
       :function-ref (get functions (:name expr))
+      :function-set (str "(" (get functions (:name expr)) "=" (emit (:value expr)) ")")
       :call (str (get functions (:name expr)) "(" (args (:args expr)) ")")
       :optional-get (str "(" (emit (:object expr)) ")?.[" (emit (:key expr)) "]")
       :get (str "(" (emit (:object expr)) ")[" (emit (:key expr)) "]")
@@ -867,7 +877,7 @@
                               (recur (next todo) (assoc env (:name b) symbol)
                                      (conj statements (str (if (:mutable b) "let " "const ") symbol "=" value ";\n"))))
                             {:env env :source (apply str statements)}))
-        initialize-functions-first? (some #(#{:function-ref :call} (:op %))
+        initialize-functions-first? (some #(#{:function-ref :function-set :call} (:op %))
                                           (tree-seq coll? seq (:bindings checked)))
         function-source (apply str
                       (map (fn [f]
@@ -878,7 +888,7 @@
                                                     (if (contains? (:defaults f) i)
                                                       (str symbol "=" (emit-expression (get (:defaults f) i) imports functions env counter prefix true))
                                                       symbol)) params)]
-                               (str "const " (get functions (:name f)) "=function " (:name f) "(" (str/join "," param-source) "){"
+                               (str (if (:mutable f) "let " "const ") (get functions (:name f)) "=function " (:name f) "(" (str/join "," param-source) "){"
                                     (if (:statements f)
                                       (emit-body (:body f) imports functions env counter prefix true true)
                                       (str "return " (emit-expression (:body f) imports functions env counter prefix true) ";")) "};\n"))) (:functions checked)))
@@ -945,7 +955,7 @@
                             shadows (cond-> shadows (some? self) (conj self))]
                         (when (and (contains? shadows (:name x))
                                    (or (and (= :import (:op x)) (some #(= (:name x) (get % "import")) links))
-                                       (contains? #{:function-ref :call} (:op x))))
+                                       (contains? #{:function-ref :function-set :call} (:op x))))
                           (fail! :mithril.native-js/scope "Native ESM self binding shadows an explicit module reference"))
                         (doseq [v (vals x)] (walk v shadows)))
                       (coll? x) (doseq [v x] (walk v shadows))))]
