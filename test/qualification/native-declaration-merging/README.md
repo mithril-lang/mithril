@@ -10,7 +10,8 @@ same parameter names and compatible constraints/defaults. Extra merged parameter
 require defaults; each source declaration keeps its own generic environment.
 
 Repeated namespace blocks share exported symbols and keep private symbols in
-separate lexical scopes. Nested blocks see their own ancestors. Qualified public
+separate lexical scopes identified by source position, including identical
+block contents. Nested blocks see their own ancestors. Qualified public
 names resolve the public binding even when a private same-name binding shadows
 it locally. Class static queries and inheritance reconstruct the defining block,
 so a different block cannot lend private/protected identity or redirect a base.

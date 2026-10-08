@@ -150,13 +150,14 @@
     (assoc (reduce (fn [r space] (update r space merge (get private space))) r [:types :values :namespaces])
            :public root :context-id id)) root)))
 (defn- definition-view [registry metadata] (block-view registry (:context metadata)))
-(defn- block-overlay [registry scope d] (block-view registry [(:context-id registry) scope d]))
+(defn- block-overlay [registry scope index] (block-view registry [(:context-id registry) scope index]))
 (defn- register!
  ([decls prefix registry depth] (register! decls prefix registry depth (repeat (count decls) nil)))
- ([decls prefix registry depth contexts]
+ ([decls prefix registry depth contexts] (register! decls prefix registry depth contexts (range (count decls))))
+ ([decls prefix registry depth contexts positions]
  (when (> depth 8) (fail! :mithril.native-declarations/budget "Namespace depth budget"))
  (vector! decls 256)
- (doseq [[name entries] (group-by #(get (first %) "name") (map vector decls contexts))]
+ (doseq [[name entries] (group-by #(get (first %) "name") (map vector decls contexts positions))]
   (let [ds (mapv first entries) {:keys [kinds klass types namespaces params]} (group-info! ds) n (str prefix name)
         type-entry (or (first (filter #(= "class" (get (first %) "kind")) entries)) (first (filter #(contains? #{"interface" "alias"} (get (first %) "kind")) entries)))
         class-context (second (first (filter #(= "class" (get (first %) "kind")) entries)))
@@ -182,14 +183,14 @@
    (when (seq namespaces)
     (add! registry :namespaces n {:value? (boolean (some namespace-value? namespaces)) :scope prefix :exported (get (first namespaces) "exported")})
     (let [child-prefix (str n ".") blocks (filter #(= "namespace" (get (first %) "kind")) entries)
-          public (vec (mapcat (fn [[d c]] (let [id [c prefix d]] (map #(vector % id) (filter (fn [d] (get d "exported")) (get d "declarations"))))) blocks))]
-     (register! (mapv first public) child-prefix registry (inc depth) (mapv second public))
-     (doseq [[d c] blocks]
-      (let [id [c prefix d] children (get d "declarations") private (filterv #(not (get % "exported")) children)
+          public (vec (mapcat (fn [[d c index]] (let [id [c prefix index]] (keep-indexed (fn [i child] (when (get child "exported") [child id i])) (get d "declarations")))) blocks))]
+     (register! (mapv first public) child-prefix registry (inc depth) (mapv second public) (mapv #(nth % 2) public))
+     (doseq [[d c index] blocks]
+      (let [id [c prefix index] children (get d "declarations") private (vec (keep-indexed (fn [i child] (when-not (get child "exported") [child i])) children))
             local (atom {:types {} :values {} :namespaces {} :blocks {}})]
        (vector! children 256)
        (doseq [[_ group] (group-by #(get % "name") children)] (group-info! group))
-       (register! private child-prefix local (inc depth) (repeat (count private) id))
+       (register! (mapv first private) child-prefix local (inc depth) (repeat (count private) id) (mapv second private))
        (swap! local (fn [r] (reduce (fn [r space] (update r space #(into {} (map (fn [[k v]] [k (assoc v :lexical true)]) %)))) r [:types :values :namespaces])))
        (swap! registry update :blocks merge (:blocks @local))
        (swap! registry assoc-in [:blocks id] (dissoc @local :blocks))))))
@@ -422,7 +423,7 @@
              (when (> (+ depth height) 64) (fail! :mithril.native-declarations/budget "Heritage depth budget")) height)))]
    (doseq [[name t] (:types registry) :when (seq (:heritage t))] (visit [name t] #{} 0)))))
 (defn- check-declarations! [decls env values budget registry scope depth]
- (doseq [d decls]
+ (doseq [[index d] (map-indexed vector decls)]
   (charge! budget depth)
   (let [kind (get d "kind")]
    (case kind
@@ -436,7 +437,7 @@
                    (check-type! base e values :normal (inc depth) budget registry scope nil))
                   (check-members! (get d "members") (with-meta e {:this? true}) values :normal depth budget registry scope))
     "class" (check-class! d env values depth budget registry scope)
-    "namespace" (let [r (block-overlay registry scope d)] (class-inheritance! r) (interface-inheritance! r)
+    "namespace" (let [r (block-overlay registry scope index)] (class-inheritance! r) (interface-inheritance! r)
                   (check-declarations! (get d "declarations") env values budget r (str scope (get d "name") ".") (inc depth)))
     "export-alias" (do (identifier! (get d "target")) (when-not (or (contains? (:values registry) (get d "target")) (contains? (:types registry) (get d "target"))) (fail! :mithril.native-declarations/export "Unknown alias target")))))))
 (defn- namespace-value? [d]

@@ -39,7 +39,9 @@
 (def base-a (nsdecl "HeritageViews" [(klass "Base" [token]) (publish (assoc (klass "Derived" [(assoc token "key" {"kind" "name" "name" "copy"} "visibility" "public" "datatype" {"op" "typeof" "name" "Base.token"})]) "extends" (ref "Base")))]))
 (def base-b (nsdecl "HeritageViews" [(klass "Base" [token]) (publish (assoc (klass "Child" [(assoc token "key" {"kind" "name" "name" "copy"} "visibility" "public" "datatype" {"op" "typeof" "name" "Derived.copy"})]) "extends" (ref "Derived")))]))
 (def controls
- [generic-iface generic-extension
+ [(nsdecl "IdenticalPrivateBlocks" [(klass "Hidden" [brand])])
+  (nsdecl "IdenticalPrivateBlocks" [(klass "Hidden" [brand])])
+  generic-iface generic-extension
   (publish (alias "GenericMergeType" (ref "GenericMerge")))
   (publish (assoc (alias "GenericMergeArgs" {"op" "name" "name" "GenericMerge" "args" [(ref "T") (ref "U")]}) "type-params" [(gp "T" nil) (gp "U" nil)]))
   (iface "Identical" [(prop "x" (kw "string"))]) (iface "Identical" [(prop "x" (kw "string"))]) (publish (alias "IdenticalType" (ref "Identical")))
