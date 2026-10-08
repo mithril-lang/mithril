@@ -22,6 +22,11 @@
   (shape! value (if (contains? value flag) (conj (vec required) flag) required))
   (when (and (contains? value flag) (not (boolean? (get value flag))))
     (fail! :mithril.native-js/shape "Optional native declaration flags must be boolean")))
+(defn- optional-flags! [value required flags]
+  (shape! value (into (vec required) (filter #(contains? value %) flags)))
+  (doseq [flag flags :when (contains? value flag)]
+    (when-not (boolean? (get value flag))
+      (fail! :mithril.native-js/shape "Optional native function flags must be boolean"))))
 (defn- vector! [value bound]
   (when-not (vector? value) (fail! :mithril.native-js/shape "Expected a vector"))
   (when (> (count value) bound)
@@ -304,7 +309,7 @@
                :body (expression! (get expr "body") imports functions
                                   (into locals (zipmap names (repeat false))) (inc depth) nodes args-length)})))
       "NativeFunction"
-      (do (shape! expr ["@type" "name" "params" "rest" "body"])
+      (do (optional-flags! expr ["@type" "name" "params" "rest" "body"] ["async" "generator"])
           (let [name (get expr "name") params (get expr "params") rest-name (get expr "rest")]
             (doseq [n [name rest-name] :when (some? n)]
               (name! n)
@@ -321,7 +326,9 @@
                                           [i (expression! (get p "default") imports functions body-env (inc depth) nodes true)])) params))]
               (cond-> {:op :native-function :name name :params names :rest rest-name
                        :body (expression! (get expr "body") imports functions body-env (inc depth) nodes true)}
-                (seq defaults) (assoc :defaults defaults)))))
+                (seq defaults) (assoc :defaults defaults)
+                (contains? expr "async") (assoc :async (get expr "async"))
+                (contains? expr "generator") (assoc :generator (get expr "generator"))))))
       "NativeClass"
       (do (shape! expr ["@type" "name" "extends" "constructor" "members"])
           (let [name (get expr "name") heritage (get expr "extends") ctor (get expr "constructor") members (get expr "members")]
@@ -585,7 +592,8 @@
                                (str symbol "=" (emit-expression (get (:defaults expr) i) imports functions body-env counter prefix true))
                                symbol)) params)
             param-source (cond-> (vec param-source) rest-symbol (conj (str "..." rest-symbol)))
-            source (str "function" (when (some? (:name expr)) (str " " (:name expr)))
+            source (str (when (:async expr) "async ") "function" (when (:generator expr) "*")
+                        (when (some? (:name expr)) (str " " (:name expr)))
                         "(" (str/join "," param-source) "){return "
                         (emit-expression (:body expr) imports functions body-env counter prefix true) ";}")]
         ;; Suppress incidental helper-variable name inference. Explicit computed

@@ -1,0 +1,41 @@
+(mithril/native-js-module
+ :name "cordis.isConstructor"
+ :imports ["Function"]
+ :bindings
+ [(rdf/node
+   :name "GeneratorFunction"
+   :value (mithril/host-get
+           :object (mithril/native-function :name nil :params [] :rest nil
+                    :generator true :body (mithril/host-undefined))
+           :key (mithril/literal :datatype "js-value" :value "constructor")))
+  (rdf/node
+   :name "AsyncGeneratorFunction"
+   :value (mithril/host-get
+           :object (mithril/native-function :name nil :params [] :rest nil
+                    :async true :generator true :body (mithril/host-undefined))
+           :key (mithril/literal :datatype "js-value" :value "constructor")))]
+ :functions
+ [(mithril/function
+   :name "isConstructor"
+   :params [(rdf/node :name "func" :datatype "js-value")]
+   :returns "js-value"
+   :body (mithril/if
+          :condition (mithril/host-get :object (mithril/local :name "func")
+                       :key (mithril/literal :datatype "js-value" :value "prototype"))
+          :then (mithril/if
+                 :condition (mithril/host-binary :operator "instanceof"
+                              :left (mithril/local :name "func")
+                              :right (mithril/local :name "GeneratorFunction"))
+                 :then (mithril/literal :datatype "js-value" :value false)
+                 :else (mithril/if
+                        :condition (mithril/host-logical :operator "&&"
+                                     :left (mithril/host-binary :operator "!=="
+                                             :left (mithril/local :name "AsyncGeneratorFunction")
+                                             :right (mithril/host-import :name "Function"))
+                                     :right (mithril/host-binary :operator "instanceof"
+                                              :left (mithril/local :name "func")
+                                              :right (mithril/local :name "AsyncGeneratorFunction")))
+                        :then (mithril/literal :datatype "js-value" :value false)
+                        :else (mithril/literal :datatype "js-value" :value true)))
+          :else (mithril/literal :datatype "js-value" :value false)))]
+ :exports ["isConstructor"])
