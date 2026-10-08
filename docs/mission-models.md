@@ -30,7 +30,7 @@ are rejected rather than silently interpreted as generic tasks.
 
 The table describes the pure language module. Native XML, DIS Link 16 simulation
 transport and real HLA RTI services are implemented separately in the sibling
-[`fund.mithril.interop` repository](https://github.com/mithril-lang/fund.mithril.interop), with the
+[`fund.mithril.lib.interop` repository](https://github.com/mithril-lang/fund.mithril.lib.interop), with the
 `mithril.mission-native` host adapter. Its support does not change the pure core's
 `metadata-only` wire catalog entries. XML projections still pass typed model
 admission. Native byte custody, pinned XSD validation and guarded edits are
@@ -178,4 +178,4 @@ Native adapters require an identified schema/version, permitted access,
 conformance fixtures, loss reporting and source-specific semantic validation.
 They must be reported separately from this normalized integration.
 
-Published plugins use reverse-DNS repository and plugin IDs. See the [plugin installation contract](https://github.com/mithril-lang/fund.mithril.interop/blob/main/docs/plugins.md) for independently installable XML, Link16, HLA, C2SIM and MSDL adapters. The generic and profile-specific projection operations all undergo typed admission in this bridge.
+Published plugins use reverse-DNS repository and plugin IDs. See the [plugin installation contract](https://github.com/mithril-lang/fund.mithril.lib.interop/blob/main/docs/plugins.md) for independently installable XML, Link16, HLA, C2SIM and MSDL adapters. The generic and profile-specific projection operations all undergo typed admission in this bridge.
