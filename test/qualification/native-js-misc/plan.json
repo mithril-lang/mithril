@@ -1,0 +1,33 @@
+{
+  "image": "sha256:cb146775a9f7f7721cf256cbabf573b57d6dc5d78fba440212cfffad4cb848b3",
+  "seed_directory": "/opt/mithril-refactor-base",
+  "timeout_seconds": 180,
+  "checks": [
+    {
+      "id": "retained-source-74-391",
+      "argv": [
+        "node",
+        "/opt/native-controls/run-check.mjs",
+        "test/run_modules.cljk"
+      ]
+    },
+    {
+      "id": "native-primitive-contract",
+      "variant": "candidate",
+      "argv": [
+        "node",
+        "/opt/native-controls/run-check.mjs",
+        "/opt/native-controls/primitive-control.cljk"
+      ]
+    },
+    {
+      "id": "complete-misc-runtime",
+      "variant": "candidate",
+      "argv": [
+        "node",
+        "/opt/native-controls/run-check.mjs",
+        "/opt/native-controls/compile-misc.cljk"
+      ]
+    }
+  ]
+}

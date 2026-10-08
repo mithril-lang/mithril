@@ -1,7 +1,7 @@
 (ns test.run-native-js
-  (:require [cljs.test :as t] [mithril.native-js-test]))
+  (:require [cljs.test :as t] [mithril.native-js-test] [mithril.native-misc-test]))
 (defmethod t/report [::t/default :end-run-tests] [m]
-  (when (or (not= 9 (:test m)) (not= 40 (:pass m))
+  (when (or (not= 11 (:test m)) (not= 48 (:pass m))
             (pos? (+ (:fail m) (:error m))))
     (js/process.exit 1)))
-(t/run-tests 'mithril.native-js-test)
+(t/run-tests 'mithril.native-js-test 'mithril.native-misc-test)

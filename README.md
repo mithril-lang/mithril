@@ -2193,3 +2193,10 @@ js-browser emits the same source and has Node-only execution evidence. Unsupport
 non-JS targets refuse before writing an artifact. This is a native JS bootstrap
 backend; full package migration, normal Amu/native Kotoba Q9 qualification,
 browser execution and complete harness API/plugin parity remain open.
+
+The native JS host example `examples/native-js-misc.mith` implements the ten
+runtime exports of CosmoKit `misc.ts`, including native object copy/iteration,
+property descriptors, filter callbacks and the shared `mapValues` alias. See
+[test contracts and System One evaluation](test/qualification/native-js-misc/README.md).
+This is one file's runtime port; public TypeScript declarations and complete
+CosmoKit/Harness migration remain separate work.

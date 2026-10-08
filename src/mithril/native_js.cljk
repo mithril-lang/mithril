@@ -100,6 +100,52 @@
       (do (shape! expr ["@type" "object" "key" "args"])
           {:op :method :object (check (get expr "object")) :key (check (get expr "key"))
            :args (args! (get expr "args"))})
+      "HostUndefined"
+      (do (shape! expr ["@type"]) {:op :undefined})
+      "HostUnary"
+      (do (shape! expr ["@type" "operator" "value"])
+          (let [operator (get expr "operator")]
+            (when-not (contains? #{"!" "typeof"} operator)
+              (fail! :mithril.native-js/operator "Unsupported native unary operator"))
+            {:op :unary :operator operator :value (check (get expr "value"))}))
+      "HostBinary"
+      (do (shape! expr ["@type" "operator" "left" "right"])
+          (let [operator (get expr "operator")]
+            (when-not (contains? #{"===" "!=="} operator)
+              (fail! :mithril.native-js/operator "Unsupported native binary operator"))
+            {:op :binary :operator operator :left (check (get expr "left"))
+             :right (check (get expr "right"))}))
+      "HostLogical"
+      (do (shape! expr ["@type" "operator" "left" "right"])
+          (let [operator (get expr "operator")]
+            (when-not (contains? #{"&&" "||" "??"} operator)
+              (fail! :mithril.native-js/operator "Unsupported native logical operator"))
+            {:op :logical :operator operator :left (check (get expr "left"))
+             :right (check (get expr "right"))}))
+      "HostObject"
+      (do (shape! expr ["@type" "entries"])
+          (let [entries (get expr "entries")]
+            (vector! entries 4096)
+            {:op :object :entries (mapv (fn [entry]
+                                         (shape! entry ["key" "value"])
+                                         {:key (check (get entry "key"))
+                                          :value (check (get entry "value"))}) entries)}))
+      "HostSpread"
+      (do (shape! expr ["@type" "value"])
+          {:op :spread :value (check (get expr "value"))})
+      "HostSet"
+      (do (shape! expr ["@type" "object" "key" "value"])
+          {:op :set :object (check (get expr "object")) :key (check (get expr "key"))
+           :value (check (get expr "value"))})
+      "HostForOf"
+      (do (shape! expr ["@type" "iterable" "binding" "body" "result"])
+          (let [binding (name! (get expr "binding"))]
+            (when (contains? locals binding)
+              (fail! :mithril.native-js/duplicate "Loop binding must be fresh"))
+            {:op :for-of :binding binding :iterable (check (get expr "iterable"))
+             :body (expression! (get expr "body") imports functions (conj locals binding)
+                                (inc depth) nodes)
+             :result (check (get expr "result"))}))
       "HostArray"
       (do (shape! expr ["@type" "items"])
           (let [items (get expr "items")]
@@ -196,6 +242,21 @@
       ;; an accidental receiver (e.g. when the callee is a HostGet).
       :invoke (str "(0," (emit (:function expr)) ")(" (args (:args expr)) ")")
       :method (str "(" (emit (:object expr)) ")[" (emit (:key expr)) "](" (args (:args expr)) ")")
+      :undefined "(void 0)"
+      :unary (str "(" (:operator expr) " " (emit (:value expr)) ")")
+      :binary (str "(" (emit (:left expr)) (:operator expr) (emit (:right expr)) ")")
+      :logical (str "(" (emit (:left expr)) (:operator expr) (emit (:right expr)) ")")
+      ;; Computed properties avoid the special object-literal __proto__ setter.
+      :object (str "({" (str/join "," (map #(str "[" (emit (:key %)) "]:" (emit (:value %)))
+                                          (:entries expr))) "})")
+      :spread (str "({..." (emit (:value expr)) "})")
+      :set (str "((" (emit (:object expr)) ")[" (emit (:key expr)) "]=" (emit (:value expr)) ")")
+      :for-of (let [symbol (fresh counter prefix)
+                    body-env (assoc env (:binding expr) symbol)]
+                ;; Native for-of supplies IteratorClose and lexical iteration scope.
+                (str "(()=>{for(const " symbol " of " (emit (:iterable expr)) "){"
+                     (emit-expression (:body expr) imports functions body-env counter prefix)
+                     ";}return " (emit (:result expr)) ";})()"))
       :array (str "[" (args (:items expr)) "]")
       :lambda (let [patterns (:params expr)
                     names (vec (mapcat :names patterns))
