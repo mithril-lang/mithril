@@ -281,6 +281,12 @@
               (fail! :mithril.native-js/operator "Unsupported native logical operator"))
             {:op :logical :operator operator :left (check (get expr "left"))
              :right (check (get expr "right"))}))
+      "HostLogicalAssign"
+      (do (shape! expr ["@type" "object" "key" "value" "operator"])
+          (when-not (contains? #{"??=" "&&=" "||="} (get expr "operator"))
+            (fail! :mithril.native-js/operator "Unsupported native property logical assignment"))
+          {:op :logical-assign :object (check (get expr "object")) :key (check (get expr "key"))
+           :value (check (get expr "value")) :operator (get expr "operator")})
       "HostObject"
       (do (shape! expr ["@type" "entries"])
           (let [entries (get expr "entries")]
@@ -661,6 +667,7 @@
                      (str " " (:operator expr) " ") (:operator expr))
                    (emit (:right expr)) ")")
       :logical (str "(" (emit (:left expr)) (:operator expr) (emit (:right expr)) ")")
+      :logical-assign (str "((" (emit (:object expr)) ")[" (emit (:key expr)) "]" (:operator expr) (emit (:value expr)) ")")
       ;; Computed properties avoid the special object-literal __proto__ setter.
       :object (str "({" (str/join "," (map (fn [entry]
                                              (let [key (emit (:key entry))]
