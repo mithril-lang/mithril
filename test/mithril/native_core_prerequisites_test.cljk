@@ -1,0 +1,77 @@
+(ns mithril.native-core-prerequisites-test
+  (:require [cljs.test :refer [deftest is]] [mithril.native-js :as native] [mithril.form :as form]
+            [mithril.native-class-test :as c]
+            ["node:fs" :as fs] ["node:os" :as os] ["node:path" :as path] ["node:child_process" :as child]))
+(defn invoke-items [type items] {"@type" type "function" (c/lit nil) "items" items})
+(defn loopx [body condition result] {"@type" "HostDoWhile" "body" body "condition" condition "result" result})
+(defn awaitx [v] {"@type" "HostAwait" "value" v})
+(defn yieldx [v] {"@type" "HostYield" "value" v})
+(defn statements [v] (assoc (c/normal v) "statements" true))
+(defn asyncx [v] (assoc (statements v) "async" true))
+(defn genx [v] (assoc (statements v) "generator" true))
+(def continuex {"@type" "HostContinue"})
+(def breakx {"@type" "HostBreak"})
+(defn returnx [v] {"@type" "HostReturn" "value" v})
+(defn admitted? [v] (try (native/check-document (c/document v [])) true (catch :default _ false)))
+(deftest core-native-call-loop-admission
+  (let [literal "(mithril/literal :datatype \"js-value\" :value nil)"
+        a (awaitx c/undef) y (yieldx c/undef)
+        loop (loopx c/undef (c/lit false) c/undef)
+        optional {"@type" "HostOptionalInvoke" "function" (c/lit nil) "args" []}
+        bad (vec (concat
+                   (for [type ["HostInvokeItems" "HostOptionalInvokeItems"]
+                         items [[{}] [{"value" c/undef "spread" c/undef}] [{"value" c/undef "source" "raw"}]
+                                [{"source" "raw JS"}] [{"spread" (c/local "missing")}] [{"value" (c/local "missing")}]
+                                [{"spread" (returnx c/undef)}] (vec (repeat 65 {"value" c/undef})) nil]]
+                     (invoke-items type items))
+                   [(assoc optional "source" "raw") (dissoc optional "args") (assoc optional "args" nil)
+                    (assoc optional "args" (vec (repeat 65 c/undef))) (assoc optional "function" (c/local "missing"))
+                    (assoc optional "args" [(returnx c/undef)]) (assoc optional "function" (returnx c/undef))
+                    (assoc loop "source" "raw JS") (dissoc loop "condition")
+                    (loopx continuex (c/lit false) c/undef) (c/normal (loopx continuex (c/lit false) c/undef))
+                    (statements (loopx c/undef continuex c/undef))
+                    (statements (loopx c/undef (returnx c/undef) c/undef))
+                    (statements (loopx c/undef (c/lit false) breakx))
+                    (statements (loopx (c/arrow continuex) (c/lit false) c/undef))
+                    (statements (loopx (statements breakx) (c/lit false) c/undef))
+                    (asyncx (c/arr (loopx a (c/lit false) c/undef)))
+                    (asyncx (c/arr (loopx c/undef a c/undef)))
+                    (genx (c/arr (loopx c/undef (c/lit false) y)))
+                    (statements (loopx a (c/lit false) c/undef))
+                    (asyncx (loopx y (c/lit false) c/undef))
+                    (genx (loopx c/undef a c/undef))
+                    (assoc (genx (c/arr (loopx (yieldx a) a a))) "async" true)
+                    (assoc (c/normal (assoc optional "args" [a])) "async" true "params" [(assoc (c/param "x") "default" (assoc optional "args" [a]))])
+                    {"@type" "HostUnary" "operator" "void" "value" (returnx c/undef)}
+                    {"@type" "HostUnary" "operator" "void" "value" (c/local "missing")}]))
+        good [(invoke-items "HostInvokeItems" []) (invoke-items "HostOptionalInvokeItems" [{"spread" (c/arr)}])
+              optional {"@type" "HostUnary" "operator" "void" "value" (c/lit 1)}
+              (statements (loopx continuex (c/lit false) c/undef))
+              (statements (loopx breakx (c/lit true) c/undef))
+              (statements (loopx (returnx (c/lit 1)) (c/lit false) c/undef))
+              (asyncx (loopx a a a)) (genx (loopx y y y))
+              (assoc (genx (loopx (yieldx a) a a)) "async" true)
+              (asyncx (invoke-items "HostOptionalInvokeItems" [{"value" a} {"spread" a}]))
+              (genx (invoke-items "HostInvokeItems" [{"value" y} {"spread" y}]))
+              (asyncx {"@type" "HostUnary" "operator" "void" "value" a})
+              (genx {"@type" "HostUnary" "operator" "void" "value" y})]]
+    (is (and (= (form/parse (str "(mithril/host-invoke-items :function " literal " :items [])")) (invoke-items "HostInvokeItems" []))
+             (= (form/parse (str "(mithril/host-optional-invoke-items :function " literal " :items [])")) (invoke-items "HostOptionalInvokeItems" []))
+             (= (form/parse (str "(mithril/host-optional-invoke :function " literal " :args [])")) optional)
+             (= (form/parse "(mithril/host-do-while :body (mithril/host-undefined) :condition (mithril/literal :datatype \"js-value\" :value false) :result (mithril/host-undefined))") loop)))
+    (is (every? (complement admitted?) bad))
+    (is (every? admitted? good))))
+(deftest genuine-native-core-prerequisites-cli
+  (let [text (fs/readFileSync "examples/native-js-core-prerequisites.mith" "utf8") checked (native/check-text text)
+        dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-core-prerequisites-"))]
+    (is (= (native/compile-text text) (native/compile-document (form/parse text))))
+    (is (= ["callSpread" "optional" "optionalSpread" "optionalPropertyValue" "doLoop" "expressionLoop" "finallyLoop" "returnLoop" "outerClose" "voidCall" "asyncLoop" "asyncGeneratorLoop" "generatorLoop" "asyncOptionalSpread" "yieldOptionalSpread" "runDisposable" "FiberNameFixture"] (mapv :name (:exports checked))))
+    (try
+      (let [engine (.-MITHRIL_NATIVE_ENGINE js/process.env) config (path/join dir "offline.edn")]
+        (fs/writeFileSync config "{:paths [\"src\"]}\n")
+        (doseq [target ["js" "js-browser"]]
+          (let [r (child/spawnSync js/process.execPath (clj->js [engine "--config" config "-cp" "src" "bin/mithril-native-js.cljk" "examples/native-js-core-prerequisites.mith" "--target" target "--output" (path/join dir (str target ".mjs"))]) #js {:encoding "utf8" :timeout 30000})]
+            (when-not (= 0 (.-status r)) (throw (js/Error. (str (.-stdout r) (.-stderr r))))))))
+      (let [r (child/spawnSync js/process.execPath (clj->js ["test/fixtures/native-core-prerequisites-contract.mjs" dir]) #js {:encoding "utf8" :timeout 30000})]
+        (is (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r)))
+      (finally (fs/rmSync dir #js {:recursive true :force true})))))

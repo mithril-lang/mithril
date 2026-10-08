@@ -134,7 +134,7 @@
   ;; helper. Direct source statement bodies keep their own coroutine context.
   (let [args-length (if (or (= "LocalFunction" (get expr "@type"))
                            (and (not (context? args-length :statement))
-                                (contains? #{"Let" "HostWhile" "HostForOf" "HostThrow" "HostTryCatch" "HostTryFinally"} (get expr "@type"))))
+                                (contains? #{"Let" "HostWhile" "HostDoWhile" "HostForOf" "HostThrow" "HostTryCatch" "HostTryFinally"} (get expr "@type"))))
                       (suspension-context args-length false false) args-length)
         check #(expression! % imports functions locals (inc depth) nodes (value-context args-length))
         body-check #(expression! % imports functions locals (inc depth) nodes args-length)
@@ -182,6 +182,19 @@
       "HostInvoke"
       (do (shape! expr ["@type" "function" "args"])
           {:op :invoke :function (check (get expr "function")) :args (args! (get expr "args"))})
+      "HostOptionalInvoke"
+      (do (shape! expr ["@type" "function" "args"])
+          {:op :optional-invoke :function (check (get expr "function")) :args (args! (get expr "args"))})
+      "HostInvokeItems"
+      (do (shape! expr ["@type" "function" "items"])
+          (vector! (get expr "items") 64)
+          {:op :invoke-items :function (check (get expr "function"))
+           :items (class-items! (get expr "items") imports functions locals depth nodes args-length)})
+      "HostOptionalInvokeItems"
+      (do (shape! expr ["@type" "function" "items"])
+          (vector! (get expr "items") 64)
+          {:op :optional-invoke-items :function (check (get expr "function"))
+           :items (class-items! (get expr "items") imports functions locals depth nodes args-length)})
       "HostMethod"
       (do (shape! expr ["@type" "object" "key" "args"])
           {:op :method :object (check (get expr "object")) :key (check (get expr "key"))
@@ -244,7 +257,7 @@
       "HostUnary"
       (do (shape! expr ["@type" "operator" "value"])
           (let [operator (get expr "operator")]
-            (when-not (contains? #{"!" "typeof" "+" "-" "~"} operator)
+            (when-not (contains? #{"!" "typeof" "+" "-" "~" "void"} operator)
               (fail! :mithril.native-js/operator "Unsupported native unary operator"))
             {:op :unary :operator operator :value (check (get expr "value"))}))
       "HostBinary"
@@ -348,6 +361,11 @@
       "HostWhile"
       (do (shape! expr ["@type" "condition" "body" "result"])
           {:op :while :condition (check (get expr "condition"))
+           :body (expression! (get expr "body") imports functions locals (inc depth) nodes (loop-context args-length))
+           :result (body-check (get expr "result"))})
+      "HostDoWhile"
+      (do (shape! expr ["@type" "condition" "body" "result"])
+          {:op :do-while :condition (check (get expr "condition"))
            :body (expression! (get expr "body") imports functions locals (inc depth) nodes (loop-context args-length))
            :result (body-check (get expr "result"))})
       "HostToString"
@@ -644,6 +662,9 @@
       ;; The comma expression makes a value call, never a Reference call with
       ;; an accidental receiver (e.g. when the callee is a HostGet).
       :invoke (str "(0," (emit (:function expr)) ")(" (args (:args expr)) ")")
+      :optional-invoke (str "(0," (emit (:function expr)) ")?.(" (args (:args expr)) ")")
+      :invoke-items (str "(0," (emit (:function expr)) ")(" (str/join "," (map #(str (when (= :spread (:kind %)) "...") (emit (:value %))) (:items expr))) ")")
+      :optional-invoke-items (str "(0," (emit (:function expr)) ")?.(" (str/join "," (map #(str (when (= :spread (:kind %)) "...") (emit (:value %))) (:items expr))) ")")
       :method (str "(" (emit (:object expr)) ")[" (emit (:key expr)) "](" (args (:args expr)) ")")
       :regexp (str "(/" (:source expr) "/" (:flags expr) ")")
       :method-items (str "(" (emit (:object expr)) ")[" (emit (:key expr)) "]("
@@ -690,6 +711,7 @@
                      ";}return " (emit (:result expr)) ";})()"))
       :while (str "(()=>{while(" (emit (:condition expr)) "){"
                (emit (:body expr)) ";}return " (emit (:result expr)) ";})()")
+      :do-while (str "(()=>{do{" (emit (:body expr)) ";}while(" (emit (:condition expr)) ");return " (emit (:result expr)) ";})()")
       :to-string (str "`${" (emit (:value expr)) "}`")
       :array (str "[" (args (:items expr)) "]")
       :construct (str "new (" (emit (:constructor expr)) ")(" (args (:args expr)) ")")
@@ -817,6 +839,8 @@
                         (body (:finally expr) env false) "}")
       :while (str "while(" (emit (:condition expr)) "){" (body (:body expr) env false) "}"
                   (body (:result expr) env result?))
+      :do-while (str "do{" (body (:body expr) env false) "}while(" (emit (:condition expr)) ");"
+                     (body (:result expr) env result?))
       :for-of
       (let [binding (emit-loop-binding (:binding expr) env counter prefix)]
         (str "for(const " (:source binding) " of " (emit (:iterable expr)) "){"

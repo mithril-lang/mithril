@@ -1,0 +1,40 @@
+{
+  "format": "mithril.native-core-prerequisites-qualification/v1",
+  "source_tests": 48,
+  "source_assertions": 180,
+  "runtime_groups_per_target": 32,
+  "runtime_groups_total": 64,
+  "scope_refusals": 44,
+  "control_exports": 17,
+  "actual_cli_targets": [
+    "js",
+    "js-browser"
+  ],
+  "execution_host": "Node",
+  "reference_source": "Pinned complete fiber program emit; getter/disposal body controls with explicit owner/map adapters, not whole core SCC",
+  "retained": {
+    "esm_graph_groups": 18,
+    "package_exports": 40,
+    "package_groups_per_target": 15,
+    "frozen_leaf_artifacts": 7,
+    "type_nodes": 446,
+    "strict_positive_groups_per_target": 10,
+    "strict_negative_groups_per_target": 12,
+    "type_profile": "existing package only"
+  },
+  "system_one": {
+    "new_inferences": 0,
+    "repairs": 0,
+    "model_code_adoption": false
+  },
+  "source_sha256": {
+    "src/mithril/native_js.cljk": "5c1f8a449ec79d8755b0deff281742c1cecf0da5e0353e522c3baad88f1dbdfe",
+    "src/mithril/form.cljk": "8556ced5494b93e6a17ff6f20be3348d117b4731b7b7f3c3e2b2fffb2e598a75",
+    "examples/native-js-core-prerequisites.mith": "f23acb5d84daf57faa09e0000a039afdac54a7aee5a2f4bad76441a570d448b0",
+    "test/mithril/native_core_prerequisites_test.cljk": "1f708148881948db5f99a003105b247fb6774a5aa0fe76868f05b140bf80a171",
+    "test/fixtures/native-core-prerequisites-contract.mjs": "42e9ca332948fba39441bde02686fd5b1f090e354abef17c036958bca635e079",
+    "test/fixtures/core-prerequisites/reference.mjs": "3e60527ae016eec9ef3ca96d30badc78b07815fbf9f7b049717f903588844c56",
+    "test/fixtures/core-prerequisites/provenance.json": "826690da53e8d915dda928ada048a92f67dccdbf0e0a18de52733af0b9e3cddd"
+  },
+  "scope": "Syntax prerequisites only. Actual core SCC class/function namespace binding, initialization/lifecycle, public types, multi-file declarations, full Harness parity and org destination remain pending."
+}
