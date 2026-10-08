@@ -25,3 +25,7 @@ jobs:
         run: node scripts/test-native-js.mjs --engine .test-engine/cli.js
       - name: Check package linking, original ESM runtime oracle and both actual CLI targets
         run: node scripts/test-native-package.mjs --engine .test-engine/cli.js
+      - name: Install pinned declaration oracle tools without build scripts
+        run: npm install --prefix .type-tools --ignore-scripts --no-audit --no-fund --package-lock=false --no-save typescript@6.0.3 @types/node@26.6.3 undici-types@8.9.0
+      - name: Check Mithril type AST and original strict consumer contracts
+        run: node scripts/test-native-declarations.mjs --engine .test-engine/cli.js --typescript .type-tools/node_modules/typescript/lib/typescript.js --type-roots .type-tools/node_modules/@types

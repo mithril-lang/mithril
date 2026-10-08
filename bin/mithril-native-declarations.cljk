@@ -1,0 +1,26 @@
+(ns mithril.native-declarations-cli
+ (:require [mithril.native-declarations :as declarations] [mithril.native-package :as package]
+           [mithril.native-declaration-emit :as emit] ["node:fs" :as fs] ["node:path" :as path]))
+(defn read-local [directory name]
+ (let [file (path/join directory name) stat (fs/lstatSync file)]
+  (when-not (and (.isFile stat) (not (.isSymbolicLink stat)) (<= (.-size stat) 1048576))
+   (throw (ex-info "Expected bounded regular Mithril source" {:mithril/error :mithril.native-declarations/source})))
+  (fs/readFileSync file "utf8")))
+(let [[source flag target out-flag output & extra] *command-line-args*]
+ (when-not (and source (= flag "--target") (= out-flag "--output") output (empty? extra))
+  (js/console.error "usage: mithril-native-declarations <declarations.mith> --target js|js-browser --output <library.d.mts>")
+  (js/process.exit 64))
+ (when-not (contains? #{"js" "js-browser"} target)
+  (js/console.error "REFUSE\tnative-declarations-target\tNative declarations require target js or js-browser")
+  (js/process.exit 65))
+ (try
+  (let [text (fs/readFileSync source "utf8") name (declarations/runtime-basename text)
+        directory (path/dirname (path/resolve source)) runtime-text (read-local directory name)
+        names (package/source-basenames runtime-text)
+        sources (into {} (map #(vector % (read-local directory %)) names))
+        checked-runtime (package/check-text runtime-text sources) result (emit/compile-text text checked-runtime)]
+   (fs/writeFileSync output (:source result))
+   (println (js/JSON.stringify (clj->js (assoc (dissoc result :source) :target target :output output)))))
+  (catch :default e
+   (js/console.error (str "REFUSE\t" (or (some-> e ex-data :mithril/error name) "compile-error") "\t" (.-message e)))
+   (js/process.exit 65))))

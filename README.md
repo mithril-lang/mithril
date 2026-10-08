@@ -2261,4 +2261,11 @@ independent qualification.
 
 `examples/native-js-cosmokit.mith` links the six checked CosmoKit runtime modules and emits an ESM library with the original 40 public names. Compile with `bin/mithril-native-package.cljk <package.mith> --target js|js-browser --output <library.mjs>`, using the pinned offline source engine. `mithril.native-package` also exposes checked explicit-grant factories. Package links are acyclic, host imports are exact, and source files are regular local `.mith` basenames.
 
-The [package qualification](test/qualification/native-js-package/README.md) covers original runtime behavior, initialization/identity, both actual CLI targets, and refusal guards. Public checked type declarations, cyclic packages, actual browser execution and full Harness parity remain pending.
+The [package qualification](test/qualification/native-js-package/README.md) covers original runtime behavior, initialization/identity, both actual CLI targets, and refusal guards. Checked public type declarations are covered by the [declaration qualification](test/qualification/native-js-declarations/README.md). Cyclic packages, actual browser execution and full Harness parity remain pending.
+
+
+### Checked native declaration libraries
+
+`examples/native-js-cosmokit-declarations.mith` expresses the complete CosmoKit public declaration shapes as inert Mithril AST. `bin/mithril-native-declarations.cljk <declarations.mith> --target js|js-browser --output <library.d.mts>` checks names, scope, generic arity/defaults, budgets and the matching checked runtime package before emitting declarations. Pair the output basename with the package .mjs. The compiler emits admitted data and has no TypeScript parser dependency.
+
+The [declaration qualification](test/qualification/native-js-declarations/README.md) covers 49 public names across value/type spaces, both actual CLI targets, strict positive/negative consumer comparisons and a generic namespace/infer control. The operator implementation passed isolated controls before inference. Its new System One experiment remains unstarted because public browser access was refused; no model quality result is claimed. Browser/Q9/cyclic-linking/full Harness parity remain open.
