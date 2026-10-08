@@ -5,7 +5,7 @@
 
 (def fs (js/require "node:fs"))
 (def root (or (.-MITHRIL_INTEROP_ROOT js/process.env) (.resolve (js/require "node:path") "../mithril-interop")))
-(def xml-root (or (.-MITHRIL_XML_ROOT js/process.env) (.resolve (js/require "node:path") "../fund.mithril.xml")))
+(def xml-root (or (.-MITHRIL_XML_ROOT js/process.env) (.resolve (js/require "node:path") "../fund.mithril.lib.xml")))
 (def python (.-MITHRIL_INTEROP_PYTHON js/process.env))
 (def config {:python python :adapter-root root})
 (defn read-json [path] (js->clj (.parse js/JSON (.readFileSync fs (str xml-root "/" path) "utf8"))))
@@ -48,8 +48,8 @@
 
 (deftest specification-plugins-are-discovered
   (let [result (native/invoke! config {"operation" "plugins"})]
-    (is (= #{"fund.mithril.xml" "fund.mithril.siso.link16" "fund.mithril.ieee.hla"
-             "fund.mithril.siso.c2sim" "fund.mithril.siso.msdl"}
+    (is (= #{"fund.mithril.lib.xml" "fund.mithril.lib.siso.link16" "fund.mithril.lib.ieee.hla"
+             "fund.mithril.lib.siso.c2sim" "fund.mithril.lib.siso.msdl"}
            (set (map #(get % "id") (get result "plugins")))))))
 
 (deftest specification-profile-projections-also-pass-typed-admission
