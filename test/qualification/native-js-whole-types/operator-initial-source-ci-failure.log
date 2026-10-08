@@ -1,0 +1,46 @@
+
+Testing mithril.native-js-test
+
+Testing mithril.native-misc-test
+Native primitive runtime: strict comparison/raw logical values/spread/assignment/for-of checked.
+11 primitive admissions, 9 refusals, all 8 Form tags checked.
+
+Testing mithril.native-array-test
+Native array primitives: 20 runtime contract groups passed.
+4 admissions / 13 malformed refusals / 2 budget refusals / 3 Form tags passed.
+
+Testing mithril.native-volatile-test
+Named-function/generated-binding collision regression passed.
+Native volatile prerequisites: 15 runtime contract groups passed.
+7 admissions / 15 malformed refusals / 2 budget refusals / 4 Form tags passed.
+
+Testing mithril.native-types-test
+Native type prerequisites: 16 runtime contract groups passed.
+6 admissions / 6 malformed or scope refusals / 2 budget refusals / 1 Form tag passed.
+Native arguments Let scope: 3 runtime boundary groups passed.
+4 additional scope refusals and normal/default/LocalFunction Let capture groups passed.
+
+Testing mithril.native-blocks-test
+Native export/loop/string prerequisites: 18 runtime contract groups passed.
+3 admissions / 12 malformed or scope refusals / 3 budget refusals / 2 Form tags passed.
+
+Testing mithril.native-types-module-test
+
+ERROR in (whole-types-runtime-with-real-mithril-misc-and-volatile) (todo:)
+Uncaught exception, not in assertion.
+expected: nil
+  actual: #error {:message "Unexpected or missing native JS module fields", :data {:type :sci/error, :line 17, :column 3, :message "Unexpected or missing native JS module fields", :sci.impl/callstack #object[cljs.core.Volatile {:val (#sci.impl.utils.StackFrame{:line 6, :column 79, :end-line nil, :end-column nil, :ns #object[at mithril.native-types-module-test], :file "/workspace/test/mithril/native_types_module_test.cljk", :f-meta {:arglists ([text]), :line 455, :column 1, :ns #object[at mithril.native-js], :name compile-text, :file "/workspace/src/mithril/native_js.cljk"}, :special false} #sci.impl.utils.StackFrame{:line 455, :column 41, :end-line nil, :end-column nil, :ns #object[at mithril.native-js], :file "/workspace/src/mithril/native_js.cljk", :f-meta {:arglists ([text]), :line 327, :column 1, :ns #object[at mithril.native-js], :name check-text, :file "/workspace/src/mithril/native_js.cljk"}, :special false} #sci.impl.utils.StackFrame{:line 329, :column 3, :end-line nil, :end-column nil, :ns #object[at mithril.native-js], :file "/workspace/src/mithril/native_js.cljk", :f-meta {:arglists ([doc]), :doc "Check a separate native JS context; imports are an explicit host capability list.", :line 257, :column 1, :ns #object[at mithril.native-js], :name check-document, :file "/workspace/src/mithril/native_js.cljk"}, :special false} #sci.impl.utils.StackFrame{:line 303, :column 13, :end-line nil, :end-column nil, :ns #object[at mithril.native-js], :file "/workspace/src/mithril/native_js.cljk", :f-meta {:name mapv, :doc "Returns a vector consisting of the result of applying f to the\n  set of first items of each coll, followed by applying f to the set\n  of second items in each coll, until any one of the colls is\n  exhausted.  Any remaining items in other colls are ignored. Function\n  f should accept number-of-colls arguments.", :arglists ([f coll] [f c1 c2] [f c1 c2 c3] [f c1 c2 c3 & colls]), :file "cljs/core.cljs", :line 5450, :column 7, :ns #object[at clojure.core], :sci/built-in true}, :special false} #sci.impl.utils.StackFrame{:line 310, :column 46, :end-line nil, :end-column nil, :ns #object[at mithril.native-js], :file "/workspace/src/mithril/native_js.cljk", :f-meta {:private true, :arglists ([expr imports functions locals depth nodes args-length]), :line 57, :column 1, :ns #object[at mithril.native-js], :name expression!, :file "/workspace/src/mithril/native_js.cljk"}, :special false} #sci.impl.utils.StackFrame{:line 254, :column 18, :end-line nil, :end-column nil, :ns #object[at mithril.native-js], :file "/workspace/src/mithril/native_js.cljk", :f-meta {:sci.impl/op :resolve-sym, :sci.impl/idx 8}, :special false} #sci.impl.utils.StackFrame{:line 61, :column 16, :end-line nil, :end-column nil, :ns #object[at mithril.native-js], :file "/workspace/src/mithril/native_js.cljk", :f-meta {:name expression!, :ns #object[at mithril.native-js], :file "/workspace/src/mithril/native_js.cljk"}, :special false} #sci.impl.utils.StackFrame{:line 202, :column 22, :end-line nil, :end-column nil, :ns #object[at mithril.native-js], :file "/workspace/src/mithril/native_js.cljk", :f-meta {:name expression!, :ns #object[at mithril.native-js], :file "/workspace/src/mithril/native_js.cljk"}, :special false} #sci.impl.utils.StackFrame{:line 90, :column 11, :end-line nil, :end-column nil, :ns #object[at mithril.native-js], :file "/workspace/src/mithril/native_js.cljk", :f-meta {:private true, :arglists ([value fields]), :line 18, :column 1, :ns #object[at mithril.native-js], :name shape!, :file "/workspace/src/mithril/native_js.cljk"}, :special false} #sci.impl.utils.StackFrame{:line 20, :column 5, :end-line nil, :end-column nil, :ns #object[at mithril.native-js], :file "/workspace/src/mithril/native_js.cljk", :f-meta {:private true, :arglists ([code detail]), :line 16, :column 1, :ns #object[at mithril.native-js], :name fail!, :file "/workspace/src/mithril/native_js.cljk"}, :special false} #sci.impl.utils.StackFrame{:line 17, :column 3, :end-line nil, :end-column nil, :ns #object[at mithril.native-js], :file "/workspace/src/mithril/native_js.cljk", :f-meta nil, :special true})}], :file "/workspace/src/mithril/native_js.cljk"}, :cause #error {:message "Unexpected or missing native JS module fields", :data {:mithril/error :mithril.native-js/shape, :detail "Unexpected or missing native JS module fields"}}}
+
+Ran 20 tests containing 84 assertions.
+0 failures, 1 errors.
+file:///workspace/scripts/test-native-js.mjs:21
+  if(result.error||result.status!==0)throw result.error||Error(`Native JS source suite exited ${result.status}`);
+                                                         ^
+
+Error: Native JS source suite exited 1
+    at file:///workspace/scripts/test-native-js.mjs:21:58
+    at ModuleJob.run (node:internal/modules/esm/module_job:561:25)
+    at async node:internal/modules/esm/loader:647:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+
+Node.js v24.21.0

@@ -1,0 +1,36 @@
+{
+  "image": "sha256:5a04c59ca989f94614d13386e42056ae1894611a6429bfa627608113f0d41297",
+  "seed_directory": "/opt/mithril-refactor-base",
+  "timeout_seconds": 240,
+  "checks": [
+    {
+      "id": "retained-source-84-434",
+      "argv": [
+        "node",
+        "/opt/whole-types-controls/run-check.mjs",
+        "test/run_modules.cljk"
+      ]
+    },
+    {
+      "id": "whole-types-source-reference-100",
+      "argv": [
+        "node",
+        "--experimental-vm-modules",
+        "/opt/whole-types-corrected/types-contract.mjs",
+        "baseline",
+        "/opt/whole-types-corrected/types-baseline.mjs",
+        "/opt/whole-types-corrected/misc-baseline.mjs",
+        "/opt/whole-types-corrected/volatile-baseline.mjs"
+      ]
+    },
+    {
+      "id": "whole-types-native-cli-runtime",
+      "variant": "candidate",
+      "argv": [
+        "node",
+        "/opt/whole-types-controls/run-check.mjs",
+        "/opt/whole-types-corrected/compile-types.cljk"
+      ]
+    }
+  ]
+}
