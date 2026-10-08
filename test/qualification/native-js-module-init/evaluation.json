@@ -1,0 +1,50 @@
+{
+  "format": "mithril.system-one-module-init-evaluation/v1",
+  "benchmark_feasibility_qualified_before_inference": true,
+  "input_sha256": "79511fc4b86484a743ee7d7926e21edb8fbe64639dea3994202ed45c7611cdff",
+  "model_attempts": 1,
+  "model_repairs": 0,
+  "model_source_admitted": false,
+  "model_runtime_executed": false,
+  "model_end_to_end_completed": false,
+  "model_failure": {
+    "format": "mithril.code-refactor-failure/v1",
+    "input_sha256": "79511fc4b86484a743ee7d7926e21edb8fbe64639dea3994202ed45c7611cdff",
+    "model": "qwen/qwen3.8-27b",
+    "rejection_reason": "incomplete_refactor_stream",
+    "completion_id": null,
+    "usage": null,
+    "attempts": 1,
+    "wall_seconds": 170.001,
+    "api_cost_usd": null,
+    "verified": false
+  },
+  "operator_source_qualified_before_inference": true,
+  "operator_source_changed_after_inference": false,
+  "operator_final_original_plan_verified": true,
+  "retained_suite": {
+    "tests": 90,
+    "assertions": 458,
+    "policy_overlay": "one declared FunctionRef refusal replaced with undeclared target before inference"
+  },
+  "native_source_suite": {
+    "tests": 26,
+    "assertions": 108,
+    "failures": 0,
+    "errors": 0
+  },
+  "full_source_suite": {
+    "tests": 91,
+    "assertions": 459,
+    "failures": 0,
+    "errors": 0
+  },
+  "runtime_groups": 12,
+  "admissions": 3,
+  "malformed_scope_refusals": 7,
+  "budget_refusals": 2,
+  "old_artifacts_unchanged": 6,
+  "whole_time_runtime_qualified": false,
+  "actual_browser_verified": false,
+  "full_harness_equivalence_verified": false
+}

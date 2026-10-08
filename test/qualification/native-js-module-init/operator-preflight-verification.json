@@ -1,0 +1,126 @@
+{
+  "format": "mithril.code-refactor-verification/v1",
+  "verified": true,
+  "verification_scope": "Declared checks on selected baseline and candidate snapshots only; not whole-repository or universal API equivalence.",
+  "input_sha256": "79511fc4b86484a743ee7d7926e21edb8fbe64639dea3994202ed45c7611cdff",
+  "proposal_sha256": "6fd9c28dc66e86bbe10dc37ee375e1c2fe928940e25b3251683136a3975f8dd8",
+  "candidate_sha256": "318921049acce3005969dae7f4cd67561efd37f2f0c856e612afd0519909660e",
+  "image": "sha256:48a1bfb775291bbf84fe229f91a1cf6ac65a8006013c34b0e6318ec5353ac10a",
+  "plan": {
+    "image": "sha256:48a1bfb775291bbf84fe229f91a1cf6ac65a8006013c34b0e6318ec5353ac10a",
+    "seed_directory": "/opt/mithril-refactor-base",
+    "timeout_seconds": 300,
+    "checks": [
+      {
+        "id": "retained-source-90-458",
+        "argv": [
+          "node",
+          "/opt/init-controls/run-check.mjs",
+          "test/run_modules.cljk"
+        ]
+      },
+      {
+        "id": "native-init-reference12",
+        "argv": [
+          "node",
+          "--experimental-vm-modules",
+          "/opt/init-controls/contract.mjs",
+          "baseline",
+          "/opt/init-controls/reference.mjs",
+          "/opt/init-controls/cases.json",
+          "/opt/init-controls/expected.json"
+        ]
+      },
+      {
+        "id": "native-init-candidate12",
+        "variant": "candidate",
+        "argv": [
+          "node",
+          "/opt/init-controls/run-check.mjs",
+          "/opt/init-controls/compile.cljk"
+        ]
+      }
+    ]
+  },
+  "checks": [
+    {
+      "variant": "baseline",
+      "id": "retained-source-90-458",
+      "argv": [
+        "node",
+        "/opt/init-controls/run-check.mjs",
+        "test/run_modules.cljk"
+      ],
+      "wall_seconds": 10.030839959000001,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "\nTesting mithril.module-test\n\nTesting mithril.module-lower-test\n\nTesting mithril.form-test\n\nTesting mithril.compiler-test\n\nTesting mithril.conditional-test\n\nTesting mithril.branding-test\n\nTesting mithril.undefined-test\n\nTesting mithril.library-test\n\nTesting mithril.module-bindings-test\n\nTesting mithril.module-guest-closure-test\n\nTesting mithril.native-js-test\n\nTesting mithril.native-misc-test\nNative primitive runtime: strict comparison/raw logical values/spread/assignment/for-of checked.\n11 primitive admissions, 9 refusals, all 8 Form tags checked.\n\nTesting mithril.native-array-test\nNative array primitives: 20 runtime contract groups passed.\n4 admissions / 13 malformed refusals / 2 budget refusals / 3 Form tags passed.\n\nTesting mithril.native-volatile-test\nNamed-function/generated-binding collision regression passed.\nNative volatile prerequisites: 15 runtime contract groups passed.\n7 admissions / 15 malformed refusals / 2 budget refusals / 4 Form tags passed.\n\nTesting mithril.native-types-test\nNative type prerequisites: 16 runtime contract groups passed.\n6 admissions / 6 malformed or scope refusals / 2 budget refusals / 1 Form tag passed.\nNative arguments Let scope: 3 runtime boundary groups passed.\n4 additional scope refusals and normal/default/LocalFunction Let capture groups passed.\n\nTesting mithril.native-blocks-test\nNative export/loop/string prerequisites: 18 runtime contract groups passed.\n3 admissions / 12 malformed or scope refusals / 3 budget refusals / 2 Form tags passed.\n\nTesting mithril.native-spreads-test\nNative ordered object spreads:18 runtime groups passed.\n3 admissions / 5 malformed refusals / 2 shared budget refusals / 1 Form tag passed.\n\nTesting mithril.native-types-module-test\n\nTesting mithril.native-string-time-test\nString/time native prerequisites:23 runtime groups passed.\n8 admissions / 18 malformed refusals / 4 budget refusals / 2 Form tags; 5 artifact hashes unchanged.\n\nTesting mithril.native-string-module-test\n\nRan 90 tests containing 458 assertions.\n0 failures, 0 errors.\nJVM launcher marker absent; workspace source classpath.\n"
+    },
+    {
+      "variant": "baseline",
+      "id": "native-init-reference12",
+      "argv": [
+        "node",
+        "--experimental-vm-modules",
+        "/opt/init-controls/contract.mjs",
+        "baseline",
+        "/opt/init-controls/reference.mjs",
+        "/opt/init-controls/cases.json",
+        "/opt/init-controls/expected.json"
+      ],
+      "wall_seconds": 0.42744887500000006,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "(node:1) ExperimentalWarning: VM Modules is an experimental feature and might change at any time\n(Use `node --trace-warnings ...` to show where the warning was created)\nNative module init baseline:12 reference-derived runtime groups passed.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "retained-source-90-458",
+      "argv": [
+        "node",
+        "/opt/init-controls/run-check.mjs",
+        "test/run_modules.cljk"
+      ],
+      "wall_seconds": 10.123934417000001,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "\nTesting mithril.module-test\n\nTesting mithril.module-lower-test\n\nTesting mithril.form-test\n\nTesting mithril.compiler-test\n\nTesting mithril.conditional-test\n\nTesting mithril.branding-test\n\nTesting mithril.undefined-test\n\nTesting mithril.library-test\n\nTesting mithril.module-bindings-test\n\nTesting mithril.module-guest-closure-test\n\nTesting mithril.native-js-test\n\nTesting mithril.native-misc-test\nNative primitive runtime: strict comparison/raw logical values/spread/assignment/for-of checked.\n11 primitive admissions, 9 refusals, all 8 Form tags checked.\n\nTesting mithril.native-array-test\nNative array primitives: 20 runtime contract groups passed.\n4 admissions / 13 malformed refusals / 2 budget refusals / 3 Form tags passed.\n\nTesting mithril.native-volatile-test\nNamed-function/generated-binding collision regression passed.\nNative volatile prerequisites: 15 runtime contract groups passed.\n7 admissions / 15 malformed refusals / 2 budget refusals / 4 Form tags passed.\n\nTesting mithril.native-types-test\nNative type prerequisites: 16 runtime contract groups passed.\n6 admissions / 6 malformed or scope refusals / 2 budget refusals / 1 Form tag passed.\nNative arguments Let scope: 3 runtime boundary groups passed.\n4 additional scope refusals and normal/default/LocalFunction Let capture groups passed.\n\nTesting mithril.native-blocks-test\nNative export/loop/string prerequisites: 18 runtime contract groups passed.\n3 admissions / 12 malformed or scope refusals / 3 budget refusals / 2 Form tags passed.\n\nTesting mithril.native-spreads-test\nNative ordered object spreads:18 runtime groups passed.\n3 admissions / 5 malformed refusals / 2 shared budget refusals / 1 Form tag passed.\n\nTesting mithril.native-types-module-test\n\nTesting mithril.native-string-time-test\nString/time native prerequisites:23 runtime groups passed.\n8 admissions / 18 malformed refusals / 4 budget refusals / 2 Form tags; 5 artifact hashes unchanged.\n\nTesting mithril.native-string-module-test\n\nRan 90 tests containing 458 assertions.\n0 failures, 0 errors.\nJVM launcher marker absent; workspace source classpath.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "native-init-reference12",
+      "argv": [
+        "node",
+        "--experimental-vm-modules",
+        "/opt/init-controls/contract.mjs",
+        "baseline",
+        "/opt/init-controls/reference.mjs",
+        "/opt/init-controls/cases.json",
+        "/opt/init-controls/expected.json"
+      ],
+      "wall_seconds": 0.40382341699999963,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "(node:1) ExperimentalWarning: VM Modules is an experimental feature and might change at any time\n(Use `node --trace-warnings ...` to show where the warning was created)\nNative module init baseline:12 reference-derived runtime groups passed.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "native-init-candidate12",
+      "argv": [
+        "node",
+        "/opt/init-controls/run-check.mjs",
+        "/opt/init-controls/compile.cljk"
+      ],
+      "wall_seconds": 1.254153624999999,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "Nested init reference closure passed.\n(node:33) ExperimentalWarning: VM Modules is an experimental feature and might change at any time\n(Use `node --trace-warnings ...` to show where the warning was created)\nNative module init candidate:12 reference-derived runtime groups passed.\n3 admissions, 7 malformed/scope refusals, 2 budget refusals, six old hashes unchanged.\nJVM launcher marker absent; workspace source classpath.\n"
+    }
+  ],
+  "wall_seconds": 22.412324082999998
+}
