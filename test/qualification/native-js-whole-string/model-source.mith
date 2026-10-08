@@ -1,0 +1,259 @@
+(mithril/native-js-module
+  :name "cosmokit.string"
+  :imports ["String" "JSON"]
+  :functions
+  [
+    (mithril/function
+     :name "capitalize"
+     :params [(rdf/node :name "source" :datatype "js-value")]
+     :returns "js-value"
+     :body
+     (mithril/sequence
+      :expressions
+      [
+        (mithril/host-method
+         :object (mithril/host-method :object (mithril/local :name "source") :key "charAt" :args [(mithril/literal :datatype "js-value" :value 0)])
+         :key "toUpperCase"
+         :args [])
+        (mithril/host-method :object (mithril/local :name "source") :key "slice" :args [(mithril/literal :datatype "js-value" :value 1)])
+      ]))
+    (mithril/function
+     :name "uncapitalize"
+     :params [(rdf/node :name "source" :datatype "js-value")]
+     :returns "js-value"
+     :body
+     (mithril/sequence
+      :expressions
+      [
+        (mithril/host-method
+         :object (mithril/host-method :object (mithril/local :name "source") :key "charAt" :args [(mithril/literal :datatype "js-value" :value 0)])
+         :key "toLowerCase"
+         :args [])
+        (mithril/host-method :object (mithril/local :name "source") :key "slice" :args [(mithril/literal :datatype "js-value" :value 1)])
+      ]))
+    (mithril/function
+     :name "camelCase"
+     :params [(rdf/node :name "source" :datatype "js-value")]
+     :returns "js-value"
+     :body
+     (mithril/host-method
+      :object (mithril/local :name "source")
+      :key "replace"
+      :args
+      [
+        (mithril/host-regexp :pattern "[_-][a-z]" :flags "g")
+        (mithril/native-lambda
+         :params ["str"]
+         :body
+         (mithril/host-method
+          :object (mithril/host-method :object (mithril/local :name "str") :key "slice" :args [(mithril/literal :datatype "js-value" :value 1)])
+          :key "toUpperCase"
+          :args []))
+      ]))
+    (mithril/function
+     :name "paramCase"
+     :params [(rdf/node :name "source" :datatype "js-value")]
+     :returns "js-value"
+     :body
+     (mithril/call
+      :name "tokenize"
+      :args
+      [
+        (mithril/local :name "source")
+        (mithril/host-array :items [(mithril/literal :datatype "js-value" :value 45) (mithril/literal :datatype "js-value" :value 95)])
+        (mithril/literal :datatype "js-value" :value 45)
+      ]))
+    (mithril/function
+     :name "snakeCase"
+     :params [(rdf/node :name "source" :datatype "js-value")]
+     :returns "js-value"
+     :body
+     (mithril/call
+      :name "tokenize"
+      :args
+      [
+        (mithril/local :name "source")
+        (mithril/host-array :items [(mithril/literal :datatype "js-value" :value 45) (mithril/literal :datatype "js-value" :value 95)])
+        (mithril/literal :datatype "js-value" :value 95)
+      ]))
+    (mithril/function
+     :name "tokenize"
+     :params [(rdf/node :name "source" :datatype "js-value") (rdf/node :name "delimiters" :datatype "js-value") (rdf/node :name "delimiter" :datatype "js-value")]
+     :returns "js-value"
+     :body
+     (mithril/let
+      :bindings
+      [
+        (rdf/node :name "output" :value (mithril/host-array :items []) :mutable true)
+        (rdf/node :name "state" :value (mithril/literal :datatype "js-value" :value 0) :mutable true)
+        (rdf/node :name "i" :value (mithril/literal :datatype "js-value" :value 0) :mutable true)
+      ]
+      :body
+      (mithril/host-while
+       :condition (mithril/host-binary :operator "<" :left (mithril/local :name "i") :right (mithril/host-get :object (mithril/local :name "source") :key "length"))
+       :body
+       (mithril/let
+        :bindings
+        [
+          (rdf/node :name "code" :value (mithril/host-method :object (mithril/local :name "source") :key "charCodeAt" :args [(mithril/local :name "i")]))
+        ]
+        :body
+        (mithril/if
+         :condition (mithril/host-binary :operator ">=" :left (mithril/host-binary :operator "+" :left (mithril/local :name "code") :right (mithril/literal :datatype "js-value" :value 0)) :right (mithril/literal :datatype "js-value" :value 65))
+         :then
+         (mithril/if
+          :condition (mithril/host-binary :operator "<=" :left (mithril/local :name "code") :right (mithril/literal :datatype "js-value" :value 90))
+          :then
+          (mithril/sequence
+           :expressions
+           [
+             (mithril/if
+              :condition (mithril/host-binary :operator "===" :left (mithril/local :name "state") :right (mithril/literal :datatype "js-value" :value 1))
+              :then
+              (mithril/let
+               :bindings
+               [
+                 (rdf/node :name "next" :value (mithril/host-method :object (mithril/local :name "source") :key "charCodeAt" :args [(mithril/host-binary :operator "+" :left (mithril/local :name "i") :right (mithril/literal :datatype "js-value" :value 1))]))
+               ]
+               :body
+               (mithril/sequence
+                :expressions
+                [
+                  (mithril/if
+                   :condition (mithril/host-binary :operator ">=" :left (mithril/host-binary :operator "+" :left (mithril/local :name "next") :right (mithril/literal :datatype "js-value" :value 0)) :right (mithril/literal :datatype "js-value" :value 97))
+                   :then
+                   (mithril/sequence
+                    :expressions
+                    [
+                      (mithril/if
+                       :condition (mithril/host-binary :operator "<=" :left (mithril/local :name "next") :right (mithril/literal :datatype "js-value" :value 122))
+                       :then
+                       (mithril/host-method :object (mithril/local :name "output") :key "push" :args [(mithril/local :name "delimiter")])
+                       :else (mithril/host-undefined))
+                      (mithril/host-method :object (mithril/local :name "output") :key "push" :args [(mithril/host-binary :operator "+" :left (mithril/local :name "code") :right (mithril/literal :datatype "js-value" :value 32))])
+                    ]) :else (mithril/host-undefined))
+                ]))
+              :else
+              (mithril/sequence
+               :expressions
+               [
+                 (mithril/if
+                  :condition (mithril/host-binary :operator "!==" :left (mithril/local :name "state") :right (mithril/literal :datatype "js-value" :value 0))
+                  :then
+                  (mithril/host-method :object (mithril/local :name "output") :key "push" :args [(mithril/local :name "delimiter")])
+                  :else (mithril/host-undefined))
+                 (mithril/host-method :object (mithril/local :name "output") :key "push" :args [(mithril/host-binary :operator "+" :left (mithril/local :name "code") :right (mithril/literal :datatype "js-value" :value 32))])
+               ]))
+             (mithril/local-set :name "state" :value (mithril/literal :datatype "js-value" :value 1))
+           ]) :else (mithril/host-undefined))
+          :else
+          (mithril/if
+           :condition (mithril/host-binary :operator ">=" :left (mithril/host-binary :operator "+" :left (mithril/local :name "code") :right (mithril/literal :datatype "js-value" :value 0)) :right (mithril/literal :datatype "js-value" :value 97))
+           :then
+           (mithril/if
+            :condition (mithril/host-binary :operator "<=" :left (mithril/local :name "code") :right (mithril/literal :datatype "js-value" :value 122))
+            :then
+            (mithril/sequence
+             :expressions
+             [
+               (mithril/host-method :object (mithril/local :name "output") :key "push" :args [(mithril/local :name "code")])
+               (mithril/local-set :name "state" :value (mithril/literal :datatype "js-value" :value 2))
+             ]) :else (mithril/host-undefined))
+           :else
+           (mithril/if
+            :condition (mithril/host-method :object (mithril/local :name "delimiters") :key "includes" :args [(mithril/local :name "code")])
+            :then
+            (mithril/sequence
+             :expressions
+             [
+               (mithril/if
+                :condition (mithril/host-binary :operator "!==" :left (mithril/local :name "state") :right (mithril/literal :datatype "js-value" :value 0))
+                :then
+                (mithril/host-method :object (mithril/local :name "output") :key "push" :args [(mithril/local :name "delimiter")])
+                :else (mithril/host-undefined))
+               (mithril/local-set :name "state" :value (mithril/literal :datatype "js-value" :value 0))
+             ]) :else
+            (mithril/host-method :object (mithril/local :name "output") :key "push" :args [(mithril/local :name "code")]))))
+       :result (mithril/local-set :name "i" :value (mithril/host-binary :operator "+" :left (mithril/local :name "i") :right (mithril/literal :datatype "js-value" :value 1))))
+      (mithril/host-method-items
+       :object (mithril/host-import :name "String")
+       :key "fromCharCode"
+       :items [(rdf/node :spread (mithril/local :name "output"))])))
+    (mithril/function
+     :name "formatProperty"
+     :params [(rdf/node :name "key" :datatype "js-value")]
+     :returns "js-value"
+     :body
+     (mithril/if
+      :condition (mithril/host-binary :operator "!==" :left (mithril/host-unary :operator "typeof" :value (mithril/local :name "key")) :right (mithril/literal :datatype "js-value" :value "string"))
+      :then
+      (mithril/host-binary
+       :operator "+"
+       :left (mithril/literal :datatype "js-value" :value "[")
+       :right
+       (mithril/host-binary
+        :operator "+"
+        :left (mithril/host-to-string :value (mithril/host-method :object (mithril/local :name "key") :key "toString" :args []))
+        :right (mithril/literal :datatype "js-value" :value "]")))
+      :else
+      (mithril/if
+       :condition (mithril/host-method :object (mithril/host-regexp :pattern "^[a-z_$][\\w$]*$" :flags "i") :key "test" :args [(mithril/local :name "key")])
+       :then
+       (mithril/host-binary :operator "+" :left (mithril/literal :datatype "js-value" :value ".") :right (mithril/local :name "key"))
+       :else
+       (mithril/host-binary
+        :operator "+"
+        :left (mithril/literal :datatype "js-value" :value "[")
+        :right
+        (mithril/host-binary
+         :operator "+"
+         :left (mithril/host-method :object (mithril/host-import :name "JSON") :key "stringify" :args [(mithril/local :name "key")])
+         :right (mithril/literal :datatype "js-value" :value "]")))))
+    (mithril/function
+     :name "trimSlash"
+     :params [(rdf/node :name "source" :datatype "js-value")]
+     :returns "js-value"
+     :body
+     (mithril/host-method
+      :object (mithril/local :name "source")
+      :key "replace"
+      :args
+      [
+        (mithril/host-regexp :pattern "/\/$" :flags "")
+        (mithril/literal :datatype "js-value" :value "")
+      ]))
+    (mithril/function
+     :name "sanitize"
+     :params [(rdf/node :name "source" :datatype "js-value")]
+     :returns "js-value"
+     :body
+     (mithril/let
+      :bindings
+      [
+        (rdf/node :name "source" :value (mithril/local :name "source") :mutable true)
+      ]
+      :body
+      (mithril/sequence
+       :expressions
+       [
+         (mithril/if
+          :condition (mithril/host-unary :operator "!" :value (mithril/host-method :object (mithril/local :name "source") :key "startsWith" :args [(mithril/literal :datatype "js-value" :value "/")]))
+          :then
+          (mithril/local-set :name "source" :value (mithril/host-binary :operator "+" :left (mithril/literal :datatype "js-value" :value "/") :right (mithril/local :name "source")))
+          :else (mithril/host-undefined))
+         (mithril/call :name "trimSlash" :args [(mithril/local :name "source")])
+       ]))
+  ]
+  :exports
+  [
+    "capitalize"
+    "uncapitalize"
+    "camelCase"
+    "paramCase"
+    "snakeCase"
+    (rdf/node :name "camelize" :function "camelCase")
+    (rdf/node :name "hyphenate" :function "paramCase")
+    "formatProperty"
+    "trimSlash"
+    "sanitize"
+  ])

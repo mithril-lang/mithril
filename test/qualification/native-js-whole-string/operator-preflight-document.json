@@ -1,0 +1,1109 @@
+{
+  "@type": "NativeJsModule",
+  "name": "cosmokit.string",
+  "imports": [
+    "String",
+    "JSON"
+  ],
+  "functions": [
+    {
+      "@type": "Function",
+      "name": "capitalize",
+      "params": [
+        {
+          "name": "source",
+          "datatype": "js-value"
+        }
+      ],
+      "returns": "js-value",
+      "body": {
+        "@type": "HostBinary",
+        "operator": "+",
+        "left": {
+          "@type": "HostMethod",
+          "object": {
+            "@type": "HostMethod",
+            "object": {
+              "@type": "Local",
+              "name": "source"
+            },
+            "key": {
+              "@type": "Literal",
+              "datatype": "js-value",
+              "value": "charAt"
+            },
+            "args": [
+              {
+                "@type": "Literal",
+                "datatype": "js-value",
+                "value": 0
+              }
+            ]
+          },
+          "key": {
+            "@type": "Literal",
+            "datatype": "js-value",
+            "value": "toUpperCase"
+          },
+          "args": []
+        },
+        "right": {
+          "@type": "HostMethod",
+          "object": {
+            "@type": "Local",
+            "name": "source"
+          },
+          "key": {
+            "@type": "Literal",
+            "datatype": "js-value",
+            "value": "slice"
+          },
+          "args": [
+            {
+              "@type": "Literal",
+              "datatype": "js-value",
+              "value": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "@type": "Function",
+      "name": "uncapitalize",
+      "params": [
+        {
+          "name": "source",
+          "datatype": "js-value"
+        }
+      ],
+      "returns": "js-value",
+      "body": {
+        "@type": "HostBinary",
+        "operator": "+",
+        "left": {
+          "@type": "HostMethod",
+          "object": {
+            "@type": "HostMethod",
+            "object": {
+              "@type": "Local",
+              "name": "source"
+            },
+            "key": {
+              "@type": "Literal",
+              "datatype": "js-value",
+              "value": "charAt"
+            },
+            "args": [
+              {
+                "@type": "Literal",
+                "datatype": "js-value",
+                "value": 0
+              }
+            ]
+          },
+          "key": {
+            "@type": "Literal",
+            "datatype": "js-value",
+            "value": "toLowerCase"
+          },
+          "args": []
+        },
+        "right": {
+          "@type": "HostMethod",
+          "object": {
+            "@type": "Local",
+            "name": "source"
+          },
+          "key": {
+            "@type": "Literal",
+            "datatype": "js-value",
+            "value": "slice"
+          },
+          "args": [
+            {
+              "@type": "Literal",
+              "datatype": "js-value",
+              "value": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "@type": "Function",
+      "name": "camelCase",
+      "params": [
+        {
+          "name": "source",
+          "datatype": "js-value"
+        }
+      ],
+      "returns": "js-value",
+      "body": {
+        "@type": "HostMethod",
+        "object": {
+          "@type": "Local",
+          "name": "source"
+        },
+        "key": {
+          "@type": "Literal",
+          "datatype": "js-value",
+          "value": "replace"
+        },
+        "args": [
+          {
+            "@type": "HostRegExp",
+            "pattern": "[_-][a-z]",
+            "flags": "g"
+          },
+          {
+            "@type": "NativeLambda",
+            "params": [
+              "str"
+            ],
+            "body": {
+              "@type": "HostMethod",
+              "object": {
+                "@type": "HostMethod",
+                "object": {
+                  "@type": "Local",
+                  "name": "str"
+                },
+                "key": {
+                  "@type": "Literal",
+                  "datatype": "js-value",
+                  "value": "slice"
+                },
+                "args": [
+                  {
+                    "@type": "Literal",
+                    "datatype": "js-value",
+                    "value": 1
+                  }
+                ]
+              },
+              "key": {
+                "@type": "Literal",
+                "datatype": "js-value",
+                "value": "toUpperCase"
+              },
+              "args": []
+            }
+          }
+        ]
+      }
+    },
+    {
+      "@type": "Function",
+      "name": "tokenize",
+      "params": [
+        {
+          "name": "source",
+          "datatype": "js-value"
+        },
+        {
+          "name": "delimiters",
+          "datatype": "js-value"
+        },
+        {
+          "name": "delimiter",
+          "datatype": "js-value"
+        }
+      ],
+      "returns": "js-value",
+      "body": {
+        "@type": "Let",
+        "bindings": [
+          {
+            "name": "output",
+            "value": {
+              "@type": "HostArray",
+              "items": []
+            },
+            "mutable": true
+          },
+          {
+            "name": "state",
+            "value": {
+              "@type": "Literal",
+              "datatype": "js-value",
+              "value": 0
+            },
+            "mutable": true
+          },
+          {
+            "name": "i",
+            "value": {
+              "@type": "Literal",
+              "datatype": "js-value",
+              "value": 0
+            },
+            "mutable": true
+          }
+        ],
+        "body": {
+          "@type": "HostWhile",
+          "condition": {
+            "@type": "HostBinary",
+            "operator": "<",
+            "left": {
+              "@type": "Local",
+              "name": "i"
+            },
+            "right": {
+              "@type": "HostGet",
+              "object": {
+                "@type": "Local",
+                "name": "source"
+              },
+              "key": {
+                "@type": "Literal",
+                "datatype": "js-value",
+                "value": "length"
+              }
+            }
+          },
+          "body": {
+            "@type": "Sequence",
+            "expressions": [
+              {
+                "@type": "Let",
+                "bindings": [
+                  {
+                    "name": "code",
+                    "value": {
+                      "@type": "HostMethod",
+                      "object": {
+                        "@type": "Local",
+                        "name": "source"
+                      },
+                      "key": {
+                        "@type": "Literal",
+                        "datatype": "js-value",
+                        "value": "charCodeAt"
+                      },
+                      "args": [
+                        {
+                          "@type": "Local",
+                          "name": "i"
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "body": {
+                  "@type": "If",
+                  "condition": {
+                    "@type": "HostLogical",
+                    "operator": "&&",
+                    "left": {
+                      "@type": "HostBinary",
+                      "operator": ">=",
+                      "left": {
+                        "@type": "Local",
+                        "name": "code"
+                      },
+                      "right": {
+                        "@type": "Literal",
+                        "datatype": "js-value",
+                        "value": 65
+                      }
+                    },
+                    "right": {
+                      "@type": "HostBinary",
+                      "operator": "<=",
+                      "left": {
+                        "@type": "Local",
+                        "name": "code"
+                      },
+                      "right": {
+                        "@type": "Literal",
+                        "datatype": "js-value",
+                        "value": 90
+                      }
+                    }
+                  },
+                  "then": {
+                    "@type": "Sequence",
+                    "expressions": [
+                      {
+                        "@type": "If",
+                        "condition": {
+                          "@type": "HostBinary",
+                          "operator": "===",
+                          "left": {
+                            "@type": "Local",
+                            "name": "state"
+                          },
+                          "right": {
+                            "@type": "Literal",
+                            "datatype": "js-value",
+                            "value": 1
+                          }
+                        },
+                        "then": {
+                          "@type": "Let",
+                          "bindings": [
+                            {
+                              "name": "next",
+                              "value": {
+                                "@type": "HostMethod",
+                                "object": {
+                                  "@type": "Local",
+                                  "name": "source"
+                                },
+                                "key": {
+                                  "@type": "Literal",
+                                  "datatype": "js-value",
+                                  "value": "charCodeAt"
+                                },
+                                "args": [
+                                  {
+                                    "@type": "HostBinary",
+                                    "operator": "+",
+                                    "left": {
+                                      "@type": "Local",
+                                      "name": "i"
+                                    },
+                                    "right": {
+                                      "@type": "Literal",
+                                      "datatype": "js-value",
+                                      "value": 1
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          ],
+                          "body": {
+                            "@type": "Sequence",
+                            "expressions": [
+                              {
+                                "@type": "If",
+                                "condition": {
+                                  "@type": "HostLogical",
+                                  "operator": "&&",
+                                  "left": {
+                                    "@type": "HostBinary",
+                                    "operator": ">=",
+                                    "left": {
+                                      "@type": "Local",
+                                      "name": "next"
+                                    },
+                                    "right": {
+                                      "@type": "Literal",
+                                      "datatype": "js-value",
+                                      "value": 97
+                                    }
+                                  },
+                                  "right": {
+                                    "@type": "HostBinary",
+                                    "operator": "<=",
+                                    "left": {
+                                      "@type": "Local",
+                                      "name": "next"
+                                    },
+                                    "right": {
+                                      "@type": "Literal",
+                                      "datatype": "js-value",
+                                      "value": 122
+                                    }
+                                  }
+                                },
+                                "then": {
+                                  "@type": "HostMethod",
+                                  "object": {
+                                    "@type": "Local",
+                                    "name": "output"
+                                  },
+                                  "key": {
+                                    "@type": "Literal",
+                                    "datatype": "js-value",
+                                    "value": "push"
+                                  },
+                                  "args": [
+                                    {
+                                      "@type": "Local",
+                                      "name": "delimiter"
+                                    }
+                                  ]
+                                },
+                                "else": {
+                                  "@type": "HostUndefined"
+                                }
+                              },
+                              {
+                                "@type": "HostMethod",
+                                "object": {
+                                  "@type": "Local",
+                                  "name": "output"
+                                },
+                                "key": {
+                                  "@type": "Literal",
+                                  "datatype": "js-value",
+                                  "value": "push"
+                                },
+                                "args": [
+                                  {
+                                    "@type": "HostBinary",
+                                    "operator": "+",
+                                    "left": {
+                                      "@type": "Local",
+                                      "name": "code"
+                                    },
+                                    "right": {
+                                      "@type": "Literal",
+                                      "datatype": "js-value",
+                                      "value": 32
+                                    }
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        },
+                        "else": {
+                          "@type": "Sequence",
+                          "expressions": [
+                            {
+                              "@type": "If",
+                              "condition": {
+                                "@type": "HostBinary",
+                                "operator": "!==",
+                                "left": {
+                                  "@type": "Local",
+                                  "name": "state"
+                                },
+                                "right": {
+                                  "@type": "Literal",
+                                  "datatype": "js-value",
+                                  "value": 0
+                                }
+                              },
+                              "then": {
+                                "@type": "HostMethod",
+                                "object": {
+                                  "@type": "Local",
+                                  "name": "output"
+                                },
+                                "key": {
+                                  "@type": "Literal",
+                                  "datatype": "js-value",
+                                  "value": "push"
+                                },
+                                "args": [
+                                  {
+                                    "@type": "Local",
+                                    "name": "delimiter"
+                                  }
+                                ]
+                              },
+                              "else": {
+                                "@type": "HostUndefined"
+                              }
+                            },
+                            {
+                              "@type": "HostMethod",
+                              "object": {
+                                "@type": "Local",
+                                "name": "output"
+                              },
+                              "key": {
+                                "@type": "Literal",
+                                "datatype": "js-value",
+                                "value": "push"
+                              },
+                              "args": [
+                                {
+                                  "@type": "HostBinary",
+                                  "operator": "+",
+                                  "left": {
+                                    "@type": "Local",
+                                    "name": "code"
+                                  },
+                                  "right": {
+                                    "@type": "Literal",
+                                    "datatype": "js-value",
+                                    "value": 32
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "@type": "LocalSet",
+                        "name": "state",
+                        "value": {
+                          "@type": "Literal",
+                          "datatype": "js-value",
+                          "value": 1
+                        }
+                      }
+                    ]
+                  },
+                  "else": {
+                    "@type": "If",
+                    "condition": {
+                      "@type": "HostLogical",
+                      "operator": "&&",
+                      "left": {
+                        "@type": "HostBinary",
+                        "operator": ">=",
+                        "left": {
+                          "@type": "Local",
+                          "name": "code"
+                        },
+                        "right": {
+                          "@type": "Literal",
+                          "datatype": "js-value",
+                          "value": 97
+                        }
+                      },
+                      "right": {
+                        "@type": "HostBinary",
+                        "operator": "<=",
+                        "left": {
+                          "@type": "Local",
+                          "name": "code"
+                        },
+                        "right": {
+                          "@type": "Literal",
+                          "datatype": "js-value",
+                          "value": 122
+                        }
+                      }
+                    },
+                    "then": {
+                      "@type": "Sequence",
+                      "expressions": [
+                        {
+                          "@type": "HostMethod",
+                          "object": {
+                            "@type": "Local",
+                            "name": "output"
+                          },
+                          "key": {
+                            "@type": "Literal",
+                            "datatype": "js-value",
+                            "value": "push"
+                          },
+                          "args": [
+                            {
+                              "@type": "Local",
+                              "name": "code"
+                            }
+                          ]
+                        },
+                        {
+                          "@type": "LocalSet",
+                          "name": "state",
+                          "value": {
+                            "@type": "Literal",
+                            "datatype": "js-value",
+                            "value": 2
+                          }
+                        }
+                      ]
+                    },
+                    "else": {
+                      "@type": "If",
+                      "condition": {
+                        "@type": "HostMethod",
+                        "object": {
+                          "@type": "Local",
+                          "name": "delimiters"
+                        },
+                        "key": {
+                          "@type": "Literal",
+                          "datatype": "js-value",
+                          "value": "includes"
+                        },
+                        "args": [
+                          {
+                            "@type": "Local",
+                            "name": "code"
+                          }
+                        ]
+                      },
+                      "then": {
+                        "@type": "Sequence",
+                        "expressions": [
+                          {
+                            "@type": "If",
+                            "condition": {
+                              "@type": "HostBinary",
+                              "operator": "!==",
+                              "left": {
+                                "@type": "Local",
+                                "name": "state"
+                              },
+                              "right": {
+                                "@type": "Literal",
+                                "datatype": "js-value",
+                                "value": 0
+                              }
+                            },
+                            "then": {
+                              "@type": "HostMethod",
+                              "object": {
+                                "@type": "Local",
+                                "name": "output"
+                              },
+                              "key": {
+                                "@type": "Literal",
+                                "datatype": "js-value",
+                                "value": "push"
+                              },
+                              "args": [
+                                {
+                                  "@type": "Local",
+                                  "name": "delimiter"
+                                }
+                              ]
+                            },
+                            "else": {
+                              "@type": "HostUndefined"
+                            }
+                          },
+                          {
+                            "@type": "LocalSet",
+                            "name": "state",
+                            "value": {
+                              "@type": "Literal",
+                              "datatype": "js-value",
+                              "value": 0
+                            }
+                          }
+                        ]
+                      },
+                      "else": {
+                        "@type": "HostMethod",
+                        "object": {
+                          "@type": "Local",
+                          "name": "output"
+                        },
+                        "key": {
+                          "@type": "Literal",
+                          "datatype": "js-value",
+                          "value": "push"
+                        },
+                        "args": [
+                          {
+                            "@type": "Local",
+                            "name": "code"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "@type": "LocalSet",
+                "name": "i",
+                "value": {
+                  "@type": "HostBinary",
+                  "operator": "+",
+                  "left": {
+                    "@type": "Local",
+                    "name": "i"
+                  },
+                  "right": {
+                    "@type": "Literal",
+                    "datatype": "js-value",
+                    "value": 1
+                  }
+                }
+              }
+            ]
+          },
+          "result": {
+            "@type": "HostMethodItems",
+            "object": {
+              "@type": "HostImport",
+              "name": "String"
+            },
+            "key": {
+              "@type": "Literal",
+              "datatype": "js-value",
+              "value": "fromCharCode"
+            },
+            "items": [
+              {
+                "spread": {
+                  "@type": "Local",
+                  "name": "output"
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "@type": "Function",
+      "name": "paramCase",
+      "params": [
+        {
+          "name": "source",
+          "datatype": "js-value"
+        }
+      ],
+      "returns": "js-value",
+      "body": {
+        "@type": "Call",
+        "name": "tokenize",
+        "args": [
+          {
+            "@type": "Local",
+            "name": "source"
+          },
+          {
+            "@type": "HostArray",
+            "items": [
+              {
+                "@type": "Literal",
+                "datatype": "js-value",
+                "value": 45
+              },
+              {
+                "@type": "Literal",
+                "datatype": "js-value",
+                "value": 95
+              }
+            ]
+          },
+          {
+            "@type": "Literal",
+            "datatype": "js-value",
+            "value": 45
+          }
+        ]
+      }
+    },
+    {
+      "@type": "Function",
+      "name": "snakeCase",
+      "params": [
+        {
+          "name": "source",
+          "datatype": "js-value"
+        }
+      ],
+      "returns": "js-value",
+      "body": {
+        "@type": "Call",
+        "name": "tokenize",
+        "args": [
+          {
+            "@type": "Local",
+            "name": "source"
+          },
+          {
+            "@type": "HostArray",
+            "items": [
+              {
+                "@type": "Literal",
+                "datatype": "js-value",
+                "value": 45
+              },
+              {
+                "@type": "Literal",
+                "datatype": "js-value",
+                "value": 95
+              }
+            ]
+          },
+          {
+            "@type": "Literal",
+            "datatype": "js-value",
+            "value": 95
+          }
+        ]
+      }
+    },
+    {
+      "@type": "Function",
+      "name": "formatProperty",
+      "params": [
+        {
+          "name": "key",
+          "datatype": "js-value"
+        }
+      ],
+      "returns": "js-value",
+      "body": {
+        "@type": "If",
+        "condition": {
+          "@type": "HostBinary",
+          "operator": "!==",
+          "left": {
+            "@type": "HostUnary",
+            "operator": "typeof",
+            "value": {
+              "@type": "Local",
+              "name": "key"
+            }
+          },
+          "right": {
+            "@type": "Literal",
+            "datatype": "js-value",
+            "value": "string"
+          }
+        },
+        "then": {
+          "@type": "HostBinary",
+          "operator": "+",
+          "left": {
+            "@type": "HostBinary",
+            "operator": "+",
+            "left": {
+              "@type": "Literal",
+              "datatype": "js-value",
+              "value": "["
+            },
+            "right": {
+              "@type": "HostToString",
+              "value": {
+                "@type": "HostMethod",
+                "object": {
+                  "@type": "Local",
+                  "name": "key"
+                },
+                "key": {
+                  "@type": "Literal",
+                  "datatype": "js-value",
+                  "value": "toString"
+                },
+                "args": []
+              }
+            }
+          },
+          "right": {
+            "@type": "Literal",
+            "datatype": "js-value",
+            "value": "]"
+          }
+        },
+        "else": {
+          "@type": "If",
+          "condition": {
+            "@type": "HostMethod",
+            "object": {
+              "@type": "HostRegExp",
+              "pattern": "^[a-z_$][\\w$]*$",
+              "flags": "i"
+            },
+            "key": {
+              "@type": "Literal",
+              "datatype": "js-value",
+              "value": "test"
+            },
+            "args": [
+              {
+                "@type": "Local",
+                "name": "key"
+              }
+            ]
+          },
+          "then": {
+            "@type": "HostBinary",
+            "operator": "+",
+            "left": {
+              "@type": "Literal",
+              "datatype": "js-value",
+              "value": "."
+            },
+            "right": {
+              "@type": "HostToString",
+              "value": {
+                "@type": "Local",
+                "name": "key"
+              }
+            }
+          },
+          "else": {
+            "@type": "HostBinary",
+            "operator": "+",
+            "left": {
+              "@type": "HostBinary",
+              "operator": "+",
+              "left": {
+                "@type": "Literal",
+                "datatype": "js-value",
+                "value": "["
+              },
+              "right": {
+                "@type": "HostToString",
+                "value": {
+                  "@type": "HostMethod",
+                  "object": {
+                    "@type": "HostImport",
+                    "name": "JSON"
+                  },
+                  "key": {
+                    "@type": "Literal",
+                    "datatype": "js-value",
+                    "value": "stringify"
+                  },
+                  "args": [
+                    {
+                      "@type": "Local",
+                      "name": "key"
+                    }
+                  ]
+                }
+              }
+            },
+            "right": {
+              "@type": "Literal",
+              "datatype": "js-value",
+              "value": "]"
+            }
+          }
+        }
+      }
+    },
+    {
+      "@type": "Function",
+      "name": "trimSlash",
+      "params": [
+        {
+          "name": "source",
+          "datatype": "js-value"
+        }
+      ],
+      "returns": "js-value",
+      "body": {
+        "@type": "HostMethod",
+        "object": {
+          "@type": "Local",
+          "name": "source"
+        },
+        "key": {
+          "@type": "Literal",
+          "datatype": "js-value",
+          "value": "replace"
+        },
+        "args": [
+          {
+            "@type": "HostRegExp",
+            "pattern": "/$",
+            "flags": ""
+          },
+          {
+            "@type": "Literal",
+            "datatype": "js-value",
+            "value": ""
+          }
+        ]
+      }
+    },
+    {
+      "@type": "Function",
+      "name": "sanitize",
+      "params": [
+        {
+          "name": "source",
+          "datatype": "js-value"
+        }
+      ],
+      "returns": "js-value",
+      "body": {
+        "@type": "Let",
+        "bindings": [
+          {
+            "name": "source",
+            "value": {
+              "@type": "Local",
+              "name": "source"
+            },
+            "mutable": true
+          }
+        ],
+        "body": {
+          "@type": "Sequence",
+          "expressions": [
+            {
+              "@type": "If",
+              "condition": {
+                "@type": "HostUnary",
+                "operator": "!",
+                "value": {
+                  "@type": "HostMethod",
+                  "object": {
+                    "@type": "Local",
+                    "name": "source"
+                  },
+                  "key": {
+                    "@type": "Literal",
+                    "datatype": "js-value",
+                    "value": "startsWith"
+                  },
+                  "args": [
+                    {
+                      "@type": "Literal",
+                      "datatype": "js-value",
+                      "value": "/"
+                    }
+                  ]
+                }
+              },
+              "then": {
+                "@type": "LocalSet",
+                "name": "source",
+                "value": {
+                  "@type": "HostBinary",
+                  "operator": "+",
+                  "left": {
+                    "@type": "Literal",
+                    "datatype": "js-value",
+                    "value": "/"
+                  },
+                  "right": {
+                    "@type": "Local",
+                    "name": "source"
+                  }
+                }
+              },
+              "else": {
+                "@type": "HostUndefined"
+              }
+            },
+            {
+              "@type": "Call",
+              "name": "trimSlash",
+              "args": [
+                {
+                  "@type": "Local",
+                  "name": "source"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "exports": [
+    "camelCase",
+    {
+      "name": "camelize",
+      "function": "camelCase"
+    },
+    "capitalize",
+    "formatProperty",
+    {
+      "name": "hyphenate",
+      "function": "paramCase"
+    },
+    "paramCase",
+    "sanitize",
+    "snakeCase",
+    "trimSlash",
+    "uncapitalize"
+  ]
+}

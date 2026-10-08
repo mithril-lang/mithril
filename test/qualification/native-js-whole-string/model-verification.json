@@ -1,0 +1,126 @@
+{
+  "format": "mithril.code-refactor-verification/v1",
+  "verified": false,
+  "verification_scope": "Declared checks on selected baseline and candidate snapshots only; not whole-repository or universal API equivalence.",
+  "input_sha256": "bddfa825a4ebdd0cf6ced1e81ef597ad5f4fc0ff5f2da29e65bc60e03a4fc420",
+  "proposal_sha256": "66ddf623644f1c84f1379695628178b2ea60a1576c38d2991c01cb1239569968",
+  "candidate_sha256": "9ac20f680bf1a3112b0a85318ccae1f74615e8a2c9c356411c4ba282e850ee3c",
+  "image": "sha256:f5568511e80d5ab177b8f0783357d44bfa0788edf7d1b152c37792df2aa8e9cf",
+  "plan": {
+    "image": "sha256:f5568511e80d5ab177b8f0783357d44bfa0788edf7d1b152c37792df2aa8e9cf",
+    "seed_directory": "/opt/mithril-refactor-base",
+    "timeout_seconds": 300,
+    "checks": [
+      {
+        "id": "retained-source-88-447",
+        "argv": [
+          "node",
+          "/opt/string-controls/run-check.mjs",
+          "test/run_modules.cljk"
+        ]
+      },
+      {
+        "id": "whole-string-source42",
+        "argv": [
+          "node",
+          "--experimental-vm-modules",
+          "/opt/string-controls/string-contract.mjs",
+          "baseline",
+          "/opt/string-controls/string-baseline.mjs",
+          "/opt/string-controls/string-cases.json",
+          "/opt/string-controls/string-expected.json"
+        ]
+      },
+      {
+        "id": "whole-string-native-cli42",
+        "variant": "candidate",
+        "argv": [
+          "node",
+          "/opt/string-controls/run-check.mjs",
+          "/opt/string-controls/compile-string.cljk"
+        ]
+      }
+    ]
+  },
+  "checks": [
+    {
+      "variant": "baseline",
+      "id": "retained-source-88-447",
+      "argv": [
+        "node",
+        "/opt/string-controls/run-check.mjs",
+        "test/run_modules.cljk"
+      ],
+      "wall_seconds": 4.745752584,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "\nTesting mithril.module-test\n\nTesting mithril.module-lower-test\n\nTesting mithril.form-test\n\nTesting mithril.compiler-test\n\nTesting mithril.conditional-test\n\nTesting mithril.branding-test\n\nTesting mithril.undefined-test\n\nTesting mithril.library-test\n\nTesting mithril.module-bindings-test\n\nTesting mithril.module-guest-closure-test\n\nTesting mithril.native-js-test\n\nTesting mithril.native-misc-test\nNative primitive runtime: strict comparison/raw logical values/spread/assignment/for-of checked.\n11 primitive admissions, 9 refusals, all 8 Form tags checked.\n\nTesting mithril.native-array-test\nNative array primitives: 20 runtime contract groups passed.\n4 admissions / 13 malformed refusals / 2 budget refusals / 3 Form tags passed.\n\nTesting mithril.native-volatile-test\nNamed-function/generated-binding collision regression passed.\nNative volatile prerequisites: 15 runtime contract groups passed.\n7 admissions / 15 malformed refusals / 2 budget refusals / 4 Form tags passed.\n\nTesting mithril.native-types-test\nNative type prerequisites: 16 runtime contract groups passed.\n6 admissions / 6 malformed or scope refusals / 2 budget refusals / 1 Form tag passed.\nNative arguments Let scope: 3 runtime boundary groups passed.\n4 additional scope refusals and normal/default/LocalFunction Let capture groups passed.\n\nTesting mithril.native-blocks-test\nNative export/loop/string prerequisites: 18 runtime contract groups passed.\n3 admissions / 12 malformed or scope refusals / 3 budget refusals / 2 Form tags passed.\n\nTesting mithril.native-spreads-test\nNative ordered object spreads:18 runtime groups passed.\n3 admissions / 5 malformed refusals / 2 shared budget refusals / 1 Form tag passed.\n\nTesting mithril.native-types-module-test\n\nTesting mithril.native-string-time-test\nString/time native prerequisites:23 runtime groups passed.\n8 admissions / 18 malformed refusals / 4 budget refusals / 2 Form tags; 5 artifact hashes unchanged.\n\nRan 88 tests containing 447 assertions.\n0 failures, 0 errors.\nJVM launcher marker absent; workspace source classpath.\n"
+    },
+    {
+      "variant": "baseline",
+      "id": "whole-string-source42",
+      "argv": [
+        "node",
+        "--experimental-vm-modules",
+        "/opt/string-controls/string-contract.mjs",
+        "baseline",
+        "/opt/string-controls/string-baseline.mjs",
+        "/opt/string-controls/string-cases.json",
+        "/opt/string-controls/string-expected.json"
+      ],
+      "wall_seconds": 0.31902358400000047,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "(node:1) ExperimentalWarning: VM Modules is an experimental feature and might change at any time\n(Use `node --trace-warnings ...` to show where the warning was created)\nWhole string baseline:42 source-derived runtime groups passed.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "retained-source-88-447",
+      "argv": [
+        "node",
+        "/opt/string-controls/run-check.mjs",
+        "test/run_modules.cljk"
+      ],
+      "wall_seconds": 4.5848432080000014,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "\nTesting mithril.module-test\n\nTesting mithril.module-lower-test\n\nTesting mithril.form-test\n\nTesting mithril.compiler-test\n\nTesting mithril.conditional-test\n\nTesting mithril.branding-test\n\nTesting mithril.undefined-test\n\nTesting mithril.library-test\n\nTesting mithril.module-bindings-test\n\nTesting mithril.module-guest-closure-test\n\nTesting mithril.native-js-test\n\nTesting mithril.native-misc-test\nNative primitive runtime: strict comparison/raw logical values/spread/assignment/for-of checked.\n11 primitive admissions, 9 refusals, all 8 Form tags checked.\n\nTesting mithril.native-array-test\nNative array primitives: 20 runtime contract groups passed.\n4 admissions / 13 malformed refusals / 2 budget refusals / 3 Form tags passed.\n\nTesting mithril.native-volatile-test\nNamed-function/generated-binding collision regression passed.\nNative volatile prerequisites: 15 runtime contract groups passed.\n7 admissions / 15 malformed refusals / 2 budget refusals / 4 Form tags passed.\n\nTesting mithril.native-types-test\nNative type prerequisites: 16 runtime contract groups passed.\n6 admissions / 6 malformed or scope refusals / 2 budget refusals / 1 Form tag passed.\nNative arguments Let scope: 3 runtime boundary groups passed.\n4 additional scope refusals and normal/default/LocalFunction Let capture groups passed.\n\nTesting mithril.native-blocks-test\nNative export/loop/string prerequisites: 18 runtime contract groups passed.\n3 admissions / 12 malformed or scope refusals / 3 budget refusals / 2 Form tags passed.\n\nTesting mithril.native-spreads-test\nNative ordered object spreads:18 runtime groups passed.\n3 admissions / 5 malformed refusals / 2 shared budget refusals / 1 Form tag passed.\n\nTesting mithril.native-types-module-test\n\nTesting mithril.native-string-time-test\nString/time native prerequisites:23 runtime groups passed.\n8 admissions / 18 malformed refusals / 4 budget refusals / 2 Form tags; 5 artifact hashes unchanged.\n\nRan 88 tests containing 447 assertions.\n0 failures, 0 errors.\nJVM launcher marker absent; workspace source classpath.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "whole-string-source42",
+      "argv": [
+        "node",
+        "--experimental-vm-modules",
+        "/opt/string-controls/string-contract.mjs",
+        "baseline",
+        "/opt/string-controls/string-baseline.mjs",
+        "/opt/string-controls/string-cases.json",
+        "/opt/string-controls/string-expected.json"
+      ],
+      "wall_seconds": 0.2829226669999989,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "(node:1) ExperimentalWarning: VM Modules is an experimental feature and might change at any time\n(Use `node --trace-warnings ...` to show where the warning was created)\nWhole string baseline:42 source-derived runtime groups passed.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "whole-string-native-cli42",
+      "argv": [
+        "node",
+        "/opt/string-controls/run-check.mjs",
+        "/opt/string-controls/compile-string.cljk"
+      ],
+      "wall_seconds": 0.42559224999999967,
+      "exit_code": 1,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "----- Error --------------------------------------\nMessage:  Unsupported escape character: \\/.\nLocation: /workspace/src/mithril/form.cljk:281:3\n\n----- Context ------------------------------------\n277:    :owl/property-disjoint-with \"owlPropertyDisjointWith\"\n278:    :owl/equivalent-property \"owlEquivalentProperty\"})\n279: \n280: (defn- fail! [code detail]\n281:   (throw (ex-info detail {:mithril/error code :detail detail})))\n       ^--- Unsupported escape character: \\/.\n282: \n283: (defn source? [text]\n284:   (str/starts-with? (str/triml (or text \"\")) \"(\"))\n285: \n286: (defn- key-name [k]\n\n----- Stack trace --------------------------------\nmithril.form/fail!             - /workspace/src/mithril/form.cljk:281:3 \nmithril.form/fail!             - /workspace/src/mithril/form.cljk:280:1 \nmithril.form/parse             - /workspace/src/mithril/form.cljk:444:9 \nmithril.form/parse             - /workspace/src/mithril/form.cljk:432:1 \nmithril.native-js/check-text   - /workspace/src/mithril/native_js.cljk:364:19 \nmithril.native-js/check-text   - /workspace/src/mithril/native_js.cljk:362:1 \nmithril.native-js/compile-text - /workspace/src/mithril/native_js.cljk:497:41 \nmithril.native-js/compile-text - /workspace/src/mithril/native_js.cljk:497:1 \ncompile-string                 - /opt/string-controls/compile-string.cljk:3:8 \n\nfile:///opt/nbb/lib/nbb_main.js:13\n$APP.aH),$APP.VZ);return g.B?g.B():g.call(null)}):null).then(function(g){$APP.k($APP.k(d)?g!=null:d)&&$APP.dz.o($APP.y([g],0));return g}).catch(function(g){$APP.Dla(g,b);$APP.k($APP.ez.h(b))&&console.error(g);throw Error($APP.Hk(g));})})):console.error(\"Usage: \"+$APP.I.h(\"nbb\")+\" \\x3cscript\\x3e or nbb -e \\x3cexpr\\x3e.\")})();\n                                                                                                                                                                                                                       ^\n\nError: Unsupported escape character: \\/.\n    at file:///opt/nbb/lib/nbb_main.js:13:216\n\nNode.js v24.21.0\nfile:///opt/string-controls/run-check.mjs:7\nif(existsSync(marker))throw Error('forbidden JVM launcher');if(r.error||r.status!==0)throw r.error||Error('source check failed: '+r.status);\n                                                                                                    ^\n\nError: source check failed: 1\n    at file:///opt/string-controls/run-check.mjs:7:101\n    at ModuleJob.run (node:internal/modules/esm/module_job:561:25)\n    at async node:internal/modules/esm/loader:647:26\n    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)\n\nNode.js v24.21.0\n"
+    }
+  ],
+  "wall_seconds": 10.593116458999999
+}

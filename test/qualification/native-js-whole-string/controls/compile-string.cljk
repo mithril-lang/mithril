@@ -1,0 +1,16 @@
+(ns compile-string (:require [mithril.native-js :as n] [mithril.module :as g] ["node:fs" :as fs] ["node:crypto" :as crypto] ["node:child_process" :as child]))
+(def text (fs/readFileSync "examples/native-js-string.mith" "utf8"))
+(def a (n/compile-text text))
+(when-not (= "cosmokit.string" (:module a)) (throw (js/Error. "Wrong string module")))
+(when-not (= #{"capitalize" "uncapitalize" "camelCase" "paramCase" "snakeCase" "camelize" "hyphenate" "formatProperty" "trimSlash" "sanitize"} (set (:exports a))) (throw (js/Error. "Incomplete string exports")))
+(when-not (= #{"String" "JSON"} (set (:required-imports a))) (throw (js/Error. "Unexpected string grants")))
+(when-not (= a (n/compile-text text)) (throw (js/Error. "Nondeterministic string artifact")))
+(when-not (try (g/check-text text) false (catch :default _ true)) (throw (js/Error. "Guest context admitted native string")))
+(def hashes (js->clj (js/JSON.parse (fs/readFileSync "/opt/string-controls/artifact-hashes.json" "utf8"))))
+(doseq [[name sha] hashes] (when-not (= sha (-> (crypto/createHash "sha256") (.update (:source (n/compile-text (fs/readFileSync (str "examples/native-js-" name ".mith") "utf8")))) (.digest "hex"))) (throw (js/Error. "Prior artifact changed"))))
+(doseq [target ["js" "js-browser"]]
+ (let [file (str "/tmp/string-" target ".mjs") r (child/spawnSync js/process.execPath #js ["/opt/nbb/cli.js" "--config" "/opt/native-controls/workspace.edn" "bin/mithril-native-js.cljk" "examples/native-js-string.mith" "--target" target "--output" file] #js {:stdio "inherit" :timeout 30000})]
+  (when-not (= 0 (.-status r)) (throw (js/Error. "Actual string CLI failed")))
+  (when-not (= (:source a) (fs/readFileSync file "utf8")) (throw (js/Error. "CLI emitted different bytes")))
+  (let [r (child/spawnSync js/process.execPath #js ["--experimental-vm-modules" "/opt/string-controls/string-contract.mjs" "candidate" file "/opt/string-controls/string-cases.json" "/opt/string-controls/string-expected.json"] #js {:stdio "inherit" :timeout 30000})] (when-not (= 0 (.-status r)) (throw (js/Error. "Whole string runtime failed"))))))
+(println "Whole string actual CLI js/js-browser; five old artifacts unchanged.")
