@@ -2256,3 +2256,9 @@ adds an inert package context and private checked factories for source-level
 linking. Standalone artifacts retain exact bytes and grant validation. Package
 composition/public ESM/type declarations and downstream Harness parity still need
 independent qualification.
+
+### Checked native package libraries
+
+`examples/native-js-cosmokit.mith` links the six checked CosmoKit runtime modules and emits an ESM library with the original 40 public names. Compile with `bin/mithril-native-package.cljk <package.mith> --target js|js-browser --output <library.mjs>`, using the pinned offline source engine. `mithril.native-package` also exposes checked explicit-grant factories. Package links are acyclic, host imports are exact, and source files are regular local `.mith` basenames.
+
+The [package qualification](test/qualification/native-js-package/README.md) covers original runtime behavior, initialization/identity, both actual CLI targets, and refusal guards. Public checked type declarations, cyclic packages, actual browser execution and full Harness parity remain pending.

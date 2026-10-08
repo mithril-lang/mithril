@@ -23,3 +23,5 @@ jobs:
         run: npm install --prefix .test-engine --omit=dev --ignore-scripts --no-audit --no-fund --package-lock=false --no-save import-meta-resolve@4.1.0
       - name: Check the native JS source namespace and actual paired runtime cases
         run: node scripts/test-native-js.mjs --engine .test-engine/cli.js
+      - name: Check package linking, original ESM runtime oracle and both actual CLI targets
+        run: node scripts/test-native-package.mjs --engine .test-engine/cli.js
