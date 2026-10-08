@@ -52,11 +52,13 @@
 (ensure (= ["Context"] (:exports artifact)) "Actual Context runtime surface")
 (ensure (= ["Context" "Intercept"] (:type-exports artifact)) "Augmented module type surface")
 (def dir (fs/mkdtempSync (str (os/tmpdir) "/mithril-augmentation-")))
+(def config (str dir "/offline.edn"))
+(fs/writeFileSync config (str "{:paths [" (js/JSON.stringify (fs/realpathSync "src")) "]}"))
 (try
  (doseq [target ["js" "js-browser"]]
   (let [out (str dir "/" target) rout (str dir "/" target "-runtime") meta (str dir "/" target ".json")]
-   (run [engine "--classpath" "src" "bin/mithril-native-esm.cljk" (str "examples/" (:runtime-source plan)) "--target" target "--output-directory" rout])
-   (run [engine "--classpath" "src" "bin/mithril-native-declaration-program.cljk" "examples/native-js-cordis-augmentation-program.mith" "--target" target "--output-directory" out])
+   (run [engine "--config" config "--classpath" "src" "bin/mithril-native-esm.cljk" (str "examples/" (:runtime-source plan)) "--target" target "--output-directory" rout])
+   (run [engine "--config" config "--classpath" "src" "bin/mithril-native-declaration-program.cljk" "examples/native-js-cordis-augmentation-program.mith" "--target" target "--output-directory" out])
    (doseq [[file expected] (:files artifact)] (ensure (= expected (fs/readFileSync (str out "/" file) "utf8")) "CLI augmentation artifact mismatch"))
    (fs/writeFileSync meta (js/JSON.stringify (clj->js artifact)))
    (run ["test/qualification/native-module-augmentation/controls/type-contract.mjs" (str out "/index.d.mts") compiler type-roots meta (str rout "/index.mjs")])
