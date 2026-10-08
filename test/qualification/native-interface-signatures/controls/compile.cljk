@@ -1,0 +1,83 @@
+(ns compile-interface-signatures
+ (:require [mithril.form :as form] [mithril.native-declarations :as declarations]
+           [mithril.native-declaration-emit :as emit] [mithril.native-esm :as esm]
+           ["node:fs" :as fs] ["node:child_process" :as child]))
+(defn ensure [p label] (when-not p (throw (js/Error. label))))
+(defn run [args]
+ (let [r (child/spawnSync js/process.execPath (clj->js args) #js {:encoding "utf8" :timeout 240000})]
+  (ensure (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r))))
+(def engine (.-MITHRIL_DECLARATIONS_ENGINE js/process.env))
+(def compiler (.-MITHRIL_DECLARATIONS_TYPESCRIPT js/process.env))
+(def type-roots (.-MITHRIL_DECLARATIONS_TYPE_ROOTS js/process.env))
+(def runtime-text (fs/readFileSync "examples/native-js-cordis-type-leaves-esm.mith" "utf8"))
+(def sources (into {} (map #(vector % (fs/readFileSync (str "examples/" %) "utf8")) (esm/source-basenames runtime-text))))
+(def runtime (esm/check-text runtime-text sources))
+(def text (fs/readFileSync "examples/native-js-cordis-interface-contracts.mith" "utf8"))
+(def doc (declarations/parse-text text))
+(def artifact (emit/compile-text text runtime))
+(ensure (= artifact (emit/compile-document doc runtime)) "Interface source/model mismatch")
+(ensure (empty? (:exports artifact)) "Interfaces changed runtime surface")
+(ensure (= 11 (count (get doc "declarations"))) "Wrong original declaration leaf count")
+(defn kw [name] {"op" "keyword" "name" name})
+(defn ref [name] {"op" "name" "name" name "args" []})
+(defn param [name t] {"name" name "optional" false "rest" false "datatype" t})
+(defn interface [name members] {"kind" "interface" "name" name "exported" true "type-params" [] "extends" [] "members" members})
+(def method {"kind" "method" "name" "choose" "optional" false "type-params" [] "params" [(param "value" (kw "string"))] "returns" (kw "string")})
+(def call (assoc (dissoc method "name" "optional") "kind" "call"))
+(def construct (assoc call "kind" "construct"))
+(def prop {"kind" "property" "name" "x" "optional" false "readonly" false "datatype" (kw "number")})
+(def computed-method (assoc method "kind" "computed-method" "name" "symbols.invoke"))
+(def controls
+ [(interface "ComputedMethods" [computed-method (assoc-in (assoc computed-method "returns" (kw "number")) ["params" 0 "datatype"] (kw "number"))])
+  (interface "CallableOverloads" [call (assoc-in (assoc call "returns" (kw "number")) ["params" 0 "datatype"] (kw "number"))])
+  (interface "ConstructOverloads" [construct (assoc-in (assoc construct "returns" (kw "number")) ["params" 0 "datatype"] (kw "number"))])
+  (interface "SymbolMap" [{"kind" "computed-property" "name" "symbols.isolate" "optional" false "readonly" false "datatype" {"op" "name" "name" "Dict" "args" [(kw "symbol")]}}])
+  (interface "ReceiverGuard" [{"kind" "call" "type-params" [] "params" [(param "this" (kw "unknown"))] "returns" {"op" "predicate" "name" "this" "datatype" (ref "Hook")}}])])
+(def control-artifact (emit/compile-document (update doc "declarations" into controls) runtime))
+(defn add [d] (update doc "declarations" conj d))
+(defn object [members] (add {"kind" "alias" "name" "ObjectControl" "exported" false "type-params" [] "datatype" {"op" "object" "members" members}}))
+(def refusals
+ [[:mithril.native-declarations/shape (add (assoc (interface "Bad" []) "raw" "interface Bad{}"))]
+  [:mithril.native-declarations/budget (add (assoc (interface "Bad" []) "extends" (vec (repeat 33 (ref "Hook")))))]
+  [:mithril.native-declarations/type (add (assoc (interface "Bad" []) "extends" [(kw "string")]))]
+  [:mithril.native-declarations/arity (add (assoc (interface "Bad" []) "extends" [(ref "Missing")]))]
+  [:mithril.native-declarations/arity (add (assoc (interface "Bad" []) "extends" [(ref "Record")]))]
+  [:mithril.native-declarations/type (add (assoc (interface "Bad" []) "extends" [(ref "Bad")]))]
+  [:mithril.native-declarations/type (update doc "declarations" into [(assoc (interface "A" []) "extends" [(ref "B")]) (assoc (interface "B" []) "extends" [(ref "A")])])]
+  [:mithril.native-declarations/duplicate (object [prop prop])]
+  [:mithril.native-declarations/duplicate (object [method (assoc prop "name" "choose")])]
+  [:mithril.native-declarations/duplicate (object [method (assoc method "optional" true)])]
+  [:mithril.native-declarations/shape (object [(assoc call "name" "arbitrary")])]
+  [:mithril.native-declarations/shape (object [(assoc construct "optional" true)])]
+  [:mithril.native-declarations/type (object [(assoc method "kind" "index")])]
+  [:mithril.native-declarations/scope (object [(assoc computed-method "name" "Missing.invoke")])]
+  [:mithril.native-declarations/name (object [(assoc computed-method "name" "x]; code()")])]
+  [:mithril.native-declarations/scope (object [(assoc prop "kind" "computed-property" "name" "Missing.key")])]
+  [:mithril.native-declarations/params (object [(assoc call "params" [(param "x" (kw "number")) (param "this" (kw "object"))])])]
+  [:mithril.native-declarations/params (object [(assoc call "params" [(assoc (param "this" (kw "object")) "optional" true)])])]
+  [:mithril.native-declarations/params (object [(assoc call "params" [(assoc (param "this" (kw "object")) "rest" true)])])]
+  [:mithril.native-declarations/params (object [(assoc construct "params" [(param "this" (kw "object"))])])]
+  [:mithril.native-declarations/params (object [(assoc call "params" [(param "this" (kw "object")) (param "this" (kw "object"))])])]
+  [:mithril.native-declarations/scope (object [(assoc call "returns" {"op" "predicate" "name" "this" "datatype" (ref "Hook")})])]
+  [:mithril.native-declarations/scope (add (interface "Bad" [(assoc computed-method "params" [(param "symbols" (kw "object"))] "returns" {"op" "typeof" "name" "symbols.invoke"})]))]
+  [:mithril.native-declarations/budget (add (interface "Bad" (vec (repeat 257 call))))]
+  [:mithril.native-declarations/shape (object [(assoc call "body" "arbitrary TS")])]])
+(def extra-refusals
+ [[:mithril.native-declarations/type (add (assoc (interface "Bad" []) "type-params" [{"name" "T" "constraint" nil "default" nil}] "extends" [(ref "T")]))]
+  [:mithril.native-declarations/budget (update doc "declarations" into
+    (mapv #(assoc (interface (str "Depth" %) []) "extends" (if (zero? %) [] [(ref (str "Depth" (dec %)))])) (range 67)))]] )
+(def all-refusals (into refusals extra-refusals))
+(doseq [[code bad] all-refusals]
+ (let [actual (try (emit/compile-document bad runtime) nil (catch :default e (:mithril/error (ex-data e))))]
+  (ensure (= code actual) (str "Wrong interface refusal: expected " code " got " actual))))
+(println (str "Interface signature admission:" (count all-refusals) " exact-code shape/scope/receiver/overload/heritage/budget refusals."))
+(def dir (fs/mkdtempSync "/tmp/mithril-interface-types-"))
+(try
+ (fs/writeFileSync (str dir "/offline.edn") "{:paths [\"src\"]}\n")
+ (fs/writeFileSync (str dir "/controls.d.mts") (:source control-artifact))
+ (doseq [target ["js" "js-browser"]]
+  (let [output (str dir "/" target ".d.mts")]
+   (run [engine "--config" (str dir "/offline.edn") "-cp" "src" "bin/mithril-native-declarations.cljk" "examples/native-js-cordis-interface-contracts.mith" "--target" target "--output" output])
+   (ensure (= (:source artifact) (fs/readFileSync output "utf8")) "Interface declaration CLI mismatch")
+   (run ["test/qualification/native-interface-signatures/controls/type-contract.mjs" output compiler type-roots (str dir "/controls.d.mts")])))
+ (finally (fs/rmSync dir #js {:recursive true :force true})))
