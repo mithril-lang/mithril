@@ -81,6 +81,14 @@
       (and (true? context) (contains? #{:function :this :new-target} flag))))
 (defn- value-context [context]
   (if (map? context) (assoc context :statement false) context))
+(defn- suspension-context [context async? generator?]
+  (assoc (if (map? context) context
+             (if (true? context) {:function true :this true :new-target true} {}))
+         :await (true? async?) :yield (true? generator?)))
+(defn- coroutine-bindings! [names context]
+  (when (and (or (context? context :await) (context? context :yield))
+             (some #{"await" "yield"} names))
+    (fail! :mithril.native-js/name "Reserved coroutine binding")))
 (defn- body-context [context statements? return?]
   (if statements?
     (assoc (if (map? context) context
@@ -97,14 +105,17 @@
       (when (contains? reserved rest-name) (fail! :mithril.native-js/name "Reserved rest binding")))
     (let [names-with-rest (cond-> names (some? rest-name) (conj rest-name))
           _ (unique! names-with-rest)
+          _ (coroutine-bindings! names-with-rest context)
           env (into locals (zipmap names-with-rest (repeat false)))
           defaults (into {} (keep-indexed
                             (fn [i p] (when (contains? p "default")
-                                        [i (expression! (get p "default") imports functions env (inc depth) nodes context)])) params))]
+                                        [i (expression! (get p "default") imports functions env (inc depth) nodes (suspension-context context false false))])) params))]
       (cond-> {:params names :rest rest-name
                :body (expression! (get member "body") imports functions env (inc depth) nodes (body-context context (get member "statements") true))}
         (seq defaults) (assoc :defaults defaults)
-        (contains? member "statements") (assoc :statements (get member "statements"))))))
+        (contains? member "statements") (assoc :statements (get member "statements"))
+        (contains? member "async") (assoc :async (get member "async"))
+        (contains? member "generator") (assoc :generator (get member "generator"))))))
 (defn- class-items! [items imports functions locals depth nodes context]
   (vector! items 64)
   (mapv (fn [item]
@@ -118,7 +129,14 @@
   (when (or (> depth 64) (> (swap! nodes inc) 4096))
     (fail! :mithril.native-js/budget "Native JS expression budget exceeded"))
   (when-not (map? expr) (fail! :mithril.native-js/shape "Expected a native expression"))
-  (let [check #(expression! % imports functions locals (inc depth) nodes (value-context args-length))
+  ;; Expression-only statement forms use an ordinary compiler arrow. Suspension
+  ;; cannot cross that frame: refuse it rather than change timing with a coroutine
+  ;; helper. Direct source statement bodies keep their own coroutine context.
+  (let [args-length (if (or (= "LocalFunction" (get expr "@type"))
+                           (and (not (context? args-length :statement))
+                                (contains? #{"Let" "HostWhile" "HostForOf" "HostThrow" "HostTryCatch" "HostTryFinally"} (get expr "@type"))))
+                      (suspension-context args-length false false) args-length)
+        check #(expression! % imports functions locals (inc depth) nodes (value-context args-length))
         body-check #(expression! % imports functions locals (inc depth) nodes args-length)
         args! (fn [args]
                 (vector! args 64)
@@ -296,6 +314,7 @@
       "HostForOf"
       (do (shape! expr ["@type" "iterable" "binding" "body" "result"])
           (let [binding (name! (get expr "binding"))]
+            (coroutine-bindings! [binding] args-length)
             (when (contains? locals binding)
               (fail! :mithril.native-js/duplicate "Loop binding must be fresh"))
             {:op :for-of :binding binding :iterable (check (get expr "iterable"))
@@ -315,7 +334,7 @@
           (let [items (get expr "items")]
             (vector! items 4096) {:op :array :items (mapv check items)}))
       "NativeLambda"
-      (do (optional-flag! expr (cond-> ["@type" "params" "body"] (contains? expr "rest") (conj "rest")) "statements")
+      (do (optional-flags! expr (cond-> ["@type" "params" "body"] (contains? expr "rest") (conj "rest")) ["statements" "async"])
           (let [params (get expr "params") rest-name (get expr "rest")]
             (vector! params 64)
             (when (some? rest-name)
@@ -326,13 +345,15 @@
                   env (into locals (zipmap names (repeat false)))
                   patterns (mapv (fn [pattern p]
                                    (if (and (map? p) (contains? p "default"))
-                                     (assoc pattern :default (expression! (get p "default") imports functions env (inc depth) nodes (value-context args-length)))
+                                     (assoc pattern :default (expression! (get p "default") imports functions env (inc depth) nodes (value-context (suspension-context args-length false false))))
                                      pattern)) patterns params)]
               (unique! names)
+              (coroutine-bindings! names (suspension-context args-length (get expr "async") false))
               (cond-> {:op :lambda :params patterns
-                        :body (expression! (get expr "body") imports functions env (inc depth) nodes (body-context args-length (get expr "statements") true))}
+                        :body (expression! (get expr "body") imports functions env (inc depth) nodes (body-context (suspension-context args-length (get expr "async") false) (get expr "statements") true))}
                 (contains? expr "rest") (assoc :rest rest-name)
-                (contains? expr "statements") (assoc :statements (get expr "statements"))))))
+                (contains? expr "statements") (assoc :statements (get expr "statements"))
+                (contains? expr "async") (assoc :async (get expr "async"))))))
       "NativeFunction"
       (do (optional-flags! expr ["@type" "name" "params" "rest" "body"] ["async" "generator" "statements"])
           (let [name (get expr "name") params (get expr "params") rest-name (get expr "rest")]
@@ -343,6 +364,7 @@
             (let [names (params! params)
                   all-names (cond-> names (some? rest-name) (conj rest-name))
                   _ (unique! all-names)
+                  _ (coroutine-bindings! all-names (suspension-context true (get expr "async") (get expr "generator")))
                   self-env (cond-> locals (some? name) (assoc name false))
                   body-env (into self-env (zipmap all-names (repeat false)))
                   defaults (into {} (keep-indexed
@@ -350,7 +372,7 @@
                                         (when (contains? p "default")
                                           [i (expression! (get p "default") imports functions body-env (inc depth) nodes true)])) params))]
               (cond-> {:op :native-function :name name :params names :rest rest-name
-                       :body (expression! (get expr "body") imports functions body-env (inc depth) nodes (body-context true (get expr "statements") true))}
+                       :body (expression! (get expr "body") imports functions body-env (inc depth) nodes (body-context (suspension-context true (get expr "async") (get expr "generator")) (get expr "statements") true))}
                 (seq defaults) (assoc :defaults defaults)
                 (contains? expr "async") (assoc :async (get expr "async"))
                 (contains? expr "generator") (assoc :generator (get expr "generator"))
@@ -384,8 +406,10 @@
                                        :value (expression! (get m "value") imports functions self-env (inc depth) nodes field-context)})
                                   (do
                                     (when-not (contains? #{"method" "get" "set"} kind) (fail! :mithril.native-js/shape "Unknown class member kind"))
-                                    (optional-flag! m ["kind" "key" "static" "params" "rest" "body"] "statements")
-                                    (let [signature (class-signature! m imports functions self-env (inc depth) nodes method-context)]
+                                    (optional-flags! m ["kind" "key" "static" "params" "rest" "body"] ["statements" "async" "generator"])
+                                    (when (and (not= kind "method") (or (true? (get m "async")) (true? (get m "generator"))))
+                                      (fail! :mithril.native-js/shape "Accessors cannot be async or generator methods"))
+                                    (let [signature (class-signature! m imports functions self-env (inc depth) nodes (suspension-context method-context (get m "async") (get m "generator")))]
                                       (when (or (and (= kind "get") (or (seq (:params signature)) (some? (:rest signature))))
                                                 (and (= kind "set") (or (not= 1 (count (:params signature))) (some? (:rest signature)))))
                                         (fail! :mithril.native-js/shape "Invalid accessor parameter list"))
@@ -399,6 +423,7 @@
               (if-let [binding (first todo)]
                 (do (optional-flags! binding ["name" "value"] ["mutable" "recursive"])
                     (let [name (name! (get binding "name"))
+                          _ (coroutine-bindings! [name] args-length)
                           init-env (if (true? (get binding "recursive")) (assoc env name (true? (get binding "mutable"))) env)
                           value (expression! (get binding "value") imports functions init-env (inc depth) nodes (value-context args-length))
                           checked-binding (cond-> {:name name :value value}
@@ -414,6 +439,17 @@
             (when-not (true? (get locals name))
               (fail! :mithril.native-js/local "LocalSet requires an explicitly mutable local"))
             {:op :local-set :name name :value (check (get expr "value"))}))
+      "HostAwait"
+      (do (shape! expr ["@type" "value"])
+          (when-not (context? args-length :await)
+            (fail! :mithril.native-js/scope "Await requires its own async source body"))
+          {:op :await :value (check (get expr "value"))})
+      "HostYield"
+      (do (optional-flag! expr ["@type" "value"] "delegate")
+          (when-not (context? args-length :yield)
+            (fail! :mithril.native-js/scope "Yield requires its own generator source body"))
+          (cond-> {:op :yield :value (check (get expr "value"))}
+            (contains? expr "delegate") (assoc :delegate (get expr "delegate"))))
       "HostReturn"
       (do (shape! expr ["@type" "value"])
           (when-not (and (context? args-length :statement) (context? args-length :source-return))
@@ -435,6 +471,7 @@
       "HostTryCatch"
       (do (shape! expr ["@type" "body" "binding" "handler"])
           (let [binding (name! (get expr "binding"))]
+            (coroutine-bindings! [binding] args-length)
             {:op :try-catch :binding binding :body (body-check (get expr "body"))
              :handler (expression! (get expr "handler") imports functions (assoc locals binding false)
                                    (inc depth) nodes args-length)}))
@@ -584,6 +621,8 @@
                                                 (str "..." (emit (:value item)))
                                                 (emit (:value item)))) (:items expr))) ")")
       :undefined "(void 0)"
+      :await (str "(await " (emit (:value expr)) ")")
+      :yield (str "(yield" (when (:delegate expr) "*") " " (emit (:value expr)) ")")
       :arguments-length "arguments.length"
       :this "this"
       :new-target "new.target"
@@ -632,7 +671,7 @@
                     pattern-source (cond-> (vec pattern-source) rest-symbol (conj (str "..." rest-symbol)))]
                 ;; Always anonymous, including Let initializers; native arrow
                 ;; arity, nonconstructibility and iterator binding are retained.
-                (str (if (:infer-name expr) "((" "(0,((")
+                (str (if (:infer-name expr) "(" "(0,(") (when (:async expr) "async ") "("
                      (str/join "," pattern-source) ")=>"
                      (if (:statements expr)
                        (str "{" (emit-body (:body expr) imports functions env counter prefix args-length true) "}")
@@ -671,7 +710,7 @@
                           (if (= :static-block (:kind m))
                             (str "static{" (emit-body (:body m) imports functions self-env counter prefix field-context false) "}")
                             (let [key (emit-expression (:key m) imports functions self-env counter prefix args-length)
-                                  member-prefix (str (when (:static m) "static ") (when (contains? #{:get :set} (:kind m)) (str (name (:kind m)) " ")) "[" key "]")]
+                                  member-prefix (str (when (:static m) "static ") (when (:async m) "async ") (when (:generator m) "*") (when (contains? #{:get :set} (:kind m)) (str (name (:kind m)) " ")) "[" key "]")]
                               (if (= :field (:kind m))
                                 (str member-prefix "=" (emit-expression (:value m) imports functions self-env counter prefix field-context) ";")
                                 (str member-prefix (emit-class-signature m imports functions self-env counter prefix method-context)))))) (:members expr))

@@ -1,0 +1,67 @@
+(ns mithril.native-suspension-test
+ (:require [cljs.test :refer [deftest is]] [mithril.native-js :as native] [mithril.form :as form]
+           [mithril.native-class-test :as c]
+           ["node:fs" :as fs] ["node:os" :as os] ["node:path" :as path] ["node:child_process" :as child]))
+(defn awaitx [v] {"@type" "HostAwait" "value" v})
+(defn yieldx [v] {"@type" "HostYield" "value" v})
+(defn asyncx [v] (assoc (c/normal v) "async" true "statements" true))
+(defn genx [v] (assoc (c/normal v) "generator" true "statements" true))
+(defn refused? [v] (try (native/check-document (c/document v [])) false (catch :default _ true)))
+(deftest suspension-own-source-scopes
+ (let [a (awaitx (c/lit 1)) y (yieldx (c/lit 2))
+       helper (fn [v] {"@type" "Let" "bindings" [] "body" v})
+       catches (fn [v] {"@type" "HostTryCatch" "body" v "binding" "error" "handler" c/undef})
+       bad [a y (c/normal a) (c/normal y) (genx a) (asyncx y)
+            (asyncx (c/arrow a)) (genx (c/arrow y)) (asyncx (c/normal a)) (genx (c/normal y))
+            (assoc (asyncx c/undef) "params" [(assoc (c/param "x") "default" a)])
+            (assoc (genx c/undef) "params" [(assoc (c/param "x") "default" y)])
+            (assoc (c/arrow c/undef) "async" true "params" [{"name" "x" "default" a}])
+            (asyncx (c/klass nil nil nil [(c/field false "x" a)]))
+            (genx (c/klass nil nil nil [(c/field true "x" y)]))
+            (asyncx (c/klass nil nil nil [{"kind" "static-block" "body" a}]))
+            (asyncx (c/klass nil nil nil [(c/meth "x" a)]))
+            (c/klass nil nil nil [(assoc (c/member "get" false (c/lit "x") [] nil a) "async" true)])
+            (c/klass nil nil nil [(assoc (c/member "set" false (c/lit "x") [(c/param "v")] nil y) "generator" true)])
+            (c/klass nil nil (assoc (c/signature [] nil a) "async" true) [])
+            (assoc (c/arrow a) "async" 1) (assoc (yieldx (c/lit 1)) "delegate" nil)
+            (assoc (asyncx c/undef) "params" [(c/param "await")])
+            (assoc (genx c/undef) "params" [(c/param "yield")])
+            (assoc (c/arrow c/undef) "async" true "params" ["await"])
+            (asyncx {"@type" "Let" "bindings" [{"name" "await" "value" c/undef}] "body" c/undef})
+            (genx {"@type" "HostTryCatch" "body" c/undef "binding" "yield" "handler" c/undef})
+            (c/klass nil nil nil [(assoc (c/meth "x" c/undef) "async" true "params" [(c/param "await")])])
+            (asyncx (c/arr (helper a))) (genx (c/arr (helper y)))
+            (asyncx (c/arr (catches a)))
+            (asyncx (c/arr {"@type" "HostThrow" "value" a}))
+            (genx (c/arr {"@type" "HostTryFinally" "body" y "finally" c/undef}))
+            (asyncx (c/arr {"@type" "HostWhile" "condition" a "body" c/undef "result" c/undef}))
+            (genx (c/arr {"@type" "HostForOf" "iterable" (c/arr) "binding" "x" "body" y "result" c/undef}))
+            (asyncx {"@type" "LocalFunction" "name" "f" "params" [] "body" c/undef "result" a})
+            (asyncx (assoc a "source" "raw JS"))
+            (genx (assoc y "source" "raw JS"))
+            (c/klass nil nil nil [(assoc (c/meth "x" c/undef) "generator" "true")])]
+       good [(asyncx a) (genx y) (asyncx (assoc (c/arrow a) "async" true))
+             (genx (assoc (c/normal a) "async" true))
+             (asyncx (helper a)) (genx (helper y)) (asyncx (catches a))
+             (asyncx (c/klass nil nil nil [(assoc (c/meth "x" c/undef) "key" a)]))
+             (genx (c/klass nil nil nil [(assoc (c/meth "x" c/undef) "key" y)]))
+             (asyncx (c/klass nil a nil []))]]
+  (is (= (form/parse "(mithril/host-await :value (mithril/literal :datatype \"js-value\" :value 1))") a))
+  (is (= (form/parse "(mithril/host-yield :delegate true :value (mithril/host-undefined))") (assoc (yieldx c/undef) "delegate" true)))
+  (is (every? refused? bad))
+  (is (every? (complement refused?) good))))
+(deftest genuine-native-suspension-cli
+ (let [text (fs/readFileSync "examples/native-js-suspension.mith" "utf8")
+       dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-suspension-"))]
+  (is (= (native/compile-text text) (native/compile-document (form/parse text))))
+  (try
+   (let [engine (.-MITHRIL_NATIVE_ENGINE js/process.env) config (path/join dir "offline.edn")]
+    (fs/writeFileSync config "{:paths [\"src\"]}\n")
+    (doseq [target ["js" "js-browser"]]
+     (let [r (child/spawnSync js/process.execPath
+              (clj->js [engine "--config" config "-cp" "src" "bin/mithril-native-js.cljk" "examples/native-js-suspension.mith" "--target" target "--output" (path/join dir (str target ".mjs"))])
+              #js {:encoding "utf8" :timeout 30000})]
+      (when-not (= 0 (.-status r)) (throw (js/Error. (str (.-stdout r) (.-stderr r))))))))
+   (let [r (child/spawnSync js/process.execPath (clj->js ["test/fixtures/native-suspension-contract.mjs" dir]) #js {:encoding "utf8" :timeout 30000})]
+    (is (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r)))
+   (finally (fs/rmSync dir #js {:recursive true :force true})))))
