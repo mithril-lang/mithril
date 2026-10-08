@@ -107,6 +107,9 @@
                      (quote-value (get paths (get g "module"))) ";\n")) (get doc "imports")))
    (apply str (map #(emit-declaration % true) (get doc "declarations")))
    (apply str (map (fn [g]
+                    (str "declare module " (quote-value (get paths (get g "module"))) " {\n"
+                         (apply str (map #(emit-declaration % false) (get g "declarations"))) "}\n")) (get doc "augmentations")))
+   (apply str (map (fn [g]
                     (str "export " (when (get g "type-only") "type ")
                      (if-let [names (get g "names")]
                       (str "{" (str/join ", " (map #(str (get % "import") " as " (get % "export")) names)) "}") "*")
