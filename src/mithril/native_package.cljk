@@ -1,0 +1,137 @@
+(ns mithril.native-package
+  "Checked acyclic native Mithril module packages, with explicit host grants."
+  (:require [clojure.string :as str] [mithril.form :as form]
+            [mithril.module :as module] [mithril.native-js :as native]))
+(defn- fail! [code message] (throw (ex-info message {:mithril/error code})))
+(defn- shape! [v fields]
+  (when-not (and (map? v) (= (set fields) (set (keys v))))
+    (fail! :mithril.native-package/shape "Unexpected package fields")))
+(defn- vector! [v limit]
+  (when-not (and (vector? v) (<= (count v) limit))
+    (fail! :mithril.native-package/budget "Invalid package collection")))
+(defn- unique! [names]
+  (when-not (= (count names) (count (set names)))
+    (fail! :mithril.native-package/duplicate "Duplicate package declaration")))
+(defn- identifier! [s]
+  (when-not (and (string? s) (re-matches #"[A-Za-z_][A-Za-z0-9_]*" s))
+    (fail! :mithril.native-package/name "Invalid host grant name")))
+(defn- name! [s]
+  (when-not (and (string? s) (re-matches #"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*" s))
+    (fail! :mithril.native-package/name "Invalid package module name")))
+(defn- filename! [s]
+  (when-not (and (string? s) (re-matches #"[A-Za-z0-9][A-Za-z0-9_-]*\.mith" s))
+    (fail! :mithril.native-package/source "Expected a local Mithril source basename")))
+(defn check-document [doc sources]
+  (shape! doc ["@context" "@type" "name" "imports" "modules" "reexports"])
+  (when-not (and (= "NativeJsPackage" (get doc "@type"))
+                (= "https://mithril.fund/context/native-js-package/v1" (get doc "@context")))
+    (fail! :mithril.native-package/context "Expected native package context"))
+  (name! (get doc "name"))
+  (let [decls (get doc "modules") host (get doc "imports") roots (get doc "reexports")]
+    (vector! decls 64) (vector! host 128) (vector! roots 64)
+    (when (or (empty? decls) (empty? roots)) (fail! :mithril.native-package/shape "Empty package"))
+    (doseq [s host] (identifier! s)) (unique! host) (unique! roots)
+    (doseq [m decls]
+      (shape! m ["name" "source" "links"])
+      (name! (get m "name")) (filename! (get m "source"))
+      (vector! (get m "links") 128)
+      (doseq [link (get m "links")]
+        (shape! link ["import" "module" "export"])
+        (identifier! (get link "import")) (name! (get link "module"))
+        (identifier! (get link "export")))
+      (unique! (mapv #(get % "import") (get m "links"))))
+    (unique! (mapv #(get % "name") decls))
+    (unique! (mapv #(get % "source") decls))
+    (when-not (and (map? sources) (= (set (keys sources)) (set (map #(get % "source") decls)))
+                  (every? string? (vals sources)) (<= (reduce + (map count (vals sources))) 1048576))
+      (fail! :mithril.native-package/source "Exact bounded source set required"))
+    (let [modules (into {} (map (fn [m]
+                    (let [text (get sources (get m "source")) _ (module/check-source-text! text)
+                          source (form/parse text) checked (native/check-document source)]
+                      (when-not (= (get m "name") (:name checked))
+                        (fail! :mithril.native-package/source "Module source identity mismatch"))
+                      [(get m "name") {:name (:name checked) :source (get m "source")
+                                      :document source :imports (:imports checked)
+                                      :exports (mapv :name (:exports checked)) :links (get m "links")}])) decls))
+          required (atom #{})]
+      (doseq [[_ m] modules]
+        (doseq [link (:links m)]
+          (when-not (and (some #{(get link "import")} (:imports m))
+                        (some #{(get link "export")} (:exports (get modules (get link "module")))))
+            (fail! :mithril.native-package/link "Unknown import, module or export in link")))
+        (doseq [n (:imports m)]
+          (when-not (some #(= n (get % "import")) (:links m)) (swap! required conj n))))
+      (when-not (= (set host) @required)
+        (fail! :mithril.native-package/grants "Exact unlinked host capability set required"))
+      (let [states (atom {}) order (atom [])]
+        (letfn [(visit [n]
+                  (when-not (contains? modules n) (fail! :mithril.native-package/link "Unknown reexport module"))
+                  (case (get @states n)
+                    :done nil
+                    :visiting (fail! :mithril.native-package/cycle "Cyclic native package requires a different linking profile")
+                    (do (swap! states assoc n :visiting)
+                        (doseq [l (:links (get modules n))] (visit (get l "module")))
+                        (swap! states assoc n :done) (swap! order conj n))))]
+          (doseq [n roots] (visit n)))
+        (when-not (= (set @order) (set (keys modules)))
+          (fail! :mithril.native-package/link "Unreachable package module"))
+        (let [exports (vec (mapcat (fn [n] (map #(hash-map :name % :module n) (:exports (get modules n)))) roots))]
+          (vector! exports 128)
+          (when-not (= (count exports) (count (set (map :name exports))))
+            (fail! :mithril.native-package/ambiguous "Ambiguous star reexports"))
+          {:format :mithril.native-package/checked-v1 :name (get doc "name") :imports host
+           :modules modules :order @order :exports exports})))))
+(defn check-text [text sources]
+  (module/check-source-text! text) (check-document (form/parse text) sources))
+(defn source-basenames
+  "Validate the bounded local source read plan before a CLI reads any leaf."
+  [text]
+  (module/check-source-text! text)
+  (let [doc (form/parse text) decls (get doc "modules")]
+    (shape! doc ["@context" "@type" "name" "imports" "modules" "reexports"])
+    (when-not (and (= "NativeJsPackage" (get doc "@type"))
+                  (= "https://mithril.fund/context/native-js-package/v1" (get doc "@context")))
+      (fail! :mithril.native-package/context "Expected native package context"))
+    (vector! decls 64)
+    (doseq [m decls]
+      (shape! m ["name" "source" "links"])
+      (filename! (get m "source")))
+    (let [names (mapv #(get % "source") decls)] (unique! names) names)))
+(defn- quoted [v] (js/JSON.stringify (clj->js v)))
+(defn- emit [checked library?]
+  (let [indexes (zipmap (:order checked) (range))
+        factory #(str "__mithril_package_factory_" (get indexes %))
+        instance #(str "__mithril_package_module_" (get indexes %))
+        factories (apply str (map (fn [n] (:source (native/compile-package-factory-document
+                                             (:document (get (:modules checked) n)) (factory n)))) (:order checked)))
+        statements (apply str (map (fn [n]
+          (let [m (get (:modules checked) n) links (into {} (map #(vector (get % "import") %) (:links m)))
+                grants (map (fn [s]
+                         (let [link (get links s) value (if link
+                                       (str (instance (get link "module")) "[" (quoted (get link "export")) "]")
+                                       (str "__mithril_package_grants[" (quoted s) "]"))]
+                           ;; Access remains lazy: reading a host or dependency grant must
+                           ;; follow the source operation, never declaration enumeration.
+                           (str "get [" (quoted s) "](){return " value ";}"))) (:imports m))]
+            (str "const " (instance n) "=" (factory n) "({" (str/join "," grants) "});\n"))) (:order checked)))
+        initializer (str (if library? "" "export ") "function instantiateMithrilNativePackage(__mithril_package_grants){\n"
+                      (when-not library?
+                        (str "if(__mithril_package_grants===null||typeof __mithril_package_grants!=='object')throw new Error('host-grant-mismatch');\n"
+                             "const __mithril_package_keys=Reflect.ownKeys(__mithril_package_grants);\n"
+                             "if(__mithril_package_keys.length!==" (count (:imports checked))
+                             "||__mithril_package_keys.some(k=>!" (quoted (:imports checked)) ".includes(k)))throw new Error('host-grant-mismatch');\n"))
+                      statements "return {" (str/join "," (map #(str "[" (quoted (:name %)) "]:" (instance (:module %)) "[" (quoted (:name %)) "]") (:exports checked))) "};\n}\n")
+        public (when library?
+                 (str "const __mithril_package_public=instantiateMithrilNativePackage({"
+                      (str/join "," (map #(str "get [" (quoted %) "](){return globalThis[" (quoted %) "];}" ) (:imports checked))) "});\n"
+                      (apply str (map-indexed (fn [i e]
+                                  (str "const __mithril_package_export_" i "=__mithril_package_public[" (quoted (:name e)) "];\n"
+                                       "export {__mithril_package_export_" i " as " (quoted (:name e)) "};\n")) (:exports checked)))))]
+    {:format :mithril.native-package/artifact-v1 :runtime :native-js :module (:name checked)
+     :required-imports (:imports checked) :module-order (:order checked) :exports (mapv :name (:exports checked))
+     :profile (if library? :esm-library :explicit-grants)
+     :source (str "// Compiled checked Mithril package; no delegated JavaScript source.\n" factories initializer public)}))
+(defn compile-document [doc sources] (emit (check-document doc sources) false))
+(defn compile-text [text sources] (emit (check-text text sources) false))
+(defn compile-library-document [doc sources] (emit (check-document doc sources) true))
+(defn compile-library-text [text sources] (emit (check-text text sources) true))

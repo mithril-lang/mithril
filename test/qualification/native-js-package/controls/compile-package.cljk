@@ -1,0 +1,80 @@
+(ns compile-package
+ (:require [mithril.native-package :as p] [mithril.native-js :as n] [mithril.form :as f] [mithril.module :as guest]
+           ["node:fs" :as fs] ["node:child_process" :as child] ["node:crypto" :as crypto]))
+(defn ensure [value label] (when-not value (throw (js/Error. label))))
+(defn refused [thunk label] (ensure (try (thunk) false (catch :default _ true)) label))
+(defn run [args] (let [r (child/spawnSync js/process.execPath (clj->js args) #js {:encoding "utf8" :timeout 60000 :env (js/Object.assign #js {} js/process.env #js {:TZ "UTC"})})] (ensure (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r))))
+(fs/writeFileSync "/tmp/mithril-package-offline.edn" "{:paths [\"src\"]}\n")
+(def package-text (fs/readFileSync "examples/native-js-cosmokit.mith" "utf8"))
+(def doc (f/parse package-text))
+(def sources (into {} (map #(vector (get % "source") (fs/readFileSync (str "examples/" (get % "source")) "utf8")) (get doc "modules"))))
+(def expected-exports #{"contain" "intersection" "difference" "union" "deduplicate" "remove" "makeArray" "is" "Binary" "base64ToArrayBuffer" "arrayBufferToBase64" "hexToArrayBuffer" "arrayBufferToHex" "clone" "deepEqual" "noop" "isNullable" "isNonNullable" "isPlainObject" "filterKeys" "mapValues" "valueMap" "pick" "omit" "defineProperty" "camelCase" "camelize" "capitalize" "formatProperty" "hyphenate" "paramCase" "sanitize" "snakeCase" "trimSlash" "uncapitalize" "Time" "createVolatile" "isVolatile" "volatileEntries" "updateVolatile"})
+(def artifact (p/compile-library-text package-text sources))
+(ensure (= expected-exports (set (:exports artifact))) "Public index export set changed")
+(ensure (= ["cosmokit.misc" "cosmokit.array" "cosmokit.volatile" "cosmokit.types" "cosmokit.string" "cosmokit.time"] (:module-order artifact)) "Source ESM dependency order changed")
+(ensure (= artifact (p/compile-library-text package-text sources)) "Nondeterministic package")
+(ensure (= (mapv #(get % "source") (get doc "modules")) (p/source-basenames package-text)) "Wrong source read plan")
+(ensure (= :esm-library (:profile artifact)) "Wrong public ESM profile")
+(ensure (= :explicit-grants (:profile (p/compile-text package-text sources))) "Wrong explicit-grant profile")
+(refused #(guest/check-text package-text) "Guest admitted native package")
+(doseq [bad [(assoc doc "unknown" true) (assoc doc "@context" "wrong") (assoc doc "imports" (conj (get doc "imports") "fetch"))
+             (assoc doc "imports" (vec (rest (get doc "imports")))) (assoc doc "imports" (conj (get doc "imports") (first (get doc "imports"))))
+             (assoc doc "reexports" ["missing"]) (assoc doc "reexports" ["cosmokit.misc"]) (assoc doc "modules" [])
+             (update-in doc ["modules" 0] assoc "source" "../secret.mith")
+             (update-in doc ["modules" 0] assoc "source" "https://remote/source.mith")
+             (update-in doc ["modules" 0] assoc "name" "wrong")
+             (update-in doc ["modules" 0 "links" 0] assoc "export" "missing")
+             (update-in doc ["modules" 0 "links" 0] assoc "import" "missing")
+             (update-in doc ["modules" 0 "links" 0] assoc "module" "missing")
+             (update-in doc ["modules" 0 "links"] conj (get-in doc ["modules" 0 "links" 0]))
+             (update doc "modules" conj (first (get doc "modules")))
+             (assoc doc "reexports" (vec (repeat 65 "cosmokit.misc")))]]
+ (refused #(p/compile-library-document bad sources) "Malformed package admitted"))
+(doseq [bad [(dissoc sources "native-js-misc.mith") (assoc sources "extra.mith" "secret")
+             (assoc sources "native-js-misc.mith" "export const fake=1")
+             (assoc sources "native-js-misc.mith" (apply str (repeat 1048577 "x")))]]
+ (refused #(p/compile-library-document doc bad) "Invalid source set admitted"))
+(doseq [bad ["../secret.mith" "/secret.mith" "source.js" "https://host/source.mith"]]
+ (refused #(p/source-basenames (str "(mithril/native-js-package :name \"bad\" :imports [] :modules [(rdf/node :name \"bad\" :source " (js/JSON.stringify bad) " :links [])] :reexports [\"bad\"] )")) "Unsafe read plan admitted"))
+(def producer "(mithril/native-js-module :name \"producer\" :imports [\"make\"] :bindings [(rdf/node :name \"token\" :value (mithril/host-invoke :function (mithril/host-import :name \"make\") :args []))] :functions [] :exports [(mithril/export :name \"token\" :value (mithril/local :name \"token\"))])")
+(def left "(mithril/native-js-module :name \"left\" :imports [\"token\"] :functions [] :exports [(mithril/export :name \"left\" :value (mithril/host-import :name \"token\"))])")
+(def right "(mithril/native-js-module :name \"right\" :imports [\"token\"] :functions [] :exports [(mithril/export :name \"right\" :value (mithril/host-import :name \"token\"))])")
+(def shared-doc (f/parse "(mithril/native-js-package :name \"shared\" :imports [\"make\"] :modules [(rdf/node :name \"left\" :source \"left.mith\" :links [(rdf/node :import \"token\" :module \"producer\" :export \"token\")]) (rdf/node :name \"right\" :source \"right.mith\" :links [(rdf/node :import \"token\" :module \"producer\" :export \"token\")]) (rdf/node :name \"producer\" :source \"producer.mith\" :links [])] :reexports [\"left\" \"right\"] )"))
+(def shared-sources {"producer.mith" producer "left.mith" left "right.mith" right})
+(def shared (p/compile-document shared-doc shared-sources))
+(ensure (= ["producer" "left" "right"] (:module-order shared)) "Shared dependency initialized in wrong order")
+(fs/writeFileSync "/tmp/mithril-shared-package.mjs" (:source shared))
+(run ["--experimental-vm-modules" "test/qualification/native-js-package/controls/package-factory.mjs" "/tmp/mithril-shared-package.mjs"])
+(def cycle-doc (assoc-in shared-doc ["modules" 2 "links"] [{"import" "make" "module" "left" "export" "left"}]))
+(refused #(p/compile-document (assoc cycle-doc "imports" []) shared-sources) "Cycle admitted")
+(def ambiguous-sources (assoc shared-sources "right.mith" left))
+(refused #(p/compile-document (assoc-in shared-doc ["modules" 1 "name"] "left") ambiguous-sources) "Duplicate module admitted")
+(def collision-sources (assoc shared-sources "right.mith" (clojure.string/replace right ":name \"right\" :value" ":name \"left\" :value")))
+(refused #(p/compile-document shared-doc collision-sources) "Ambiguous star exports admitted")
+(def hashes (js->clj (js/JSON.parse (fs/readFileSync "test/qualification/native-js-package/controls/artifact-hashes.json" "utf8"))))
+(doseq [[name sha] hashes]
+ (ensure (= sha (-> (crypto/createHash "sha256") (.update (:source (n/compile-text (fs/readFileSync (str "examples/native-js-" name ".mith") "utf8")))) (.digest "hex"))) "Prior leaf artifact changed"))
+(fs/writeFileSync "/tmp/mithril-package-api.mjs" (:source artifact))
+(run ["--experimental-vm-modules" "test/fixtures/cosmokit-package/contract.mjs" "test/fixtures/cosmokit-package/index.js" "/tmp/mithril-package-api.mjs"])
+(doseq [target ["js" "js-browser"]]
+ (let [output (str "/tmp/mithril-package-" target ".mjs") engine (.-MITHRIL_PACKAGE_ENGINE js/process.env)]
+  (ensure (string? engine) "Pinned package CLI engine required")
+  (run [engine "--config" "/tmp/mithril-package-offline.edn" "-cp" "src" "bin/mithril-native-package.cljk" "examples/native-js-cosmokit.mith" "--target" target "--output" output])
+  (ensure (= (:source artifact) (fs/readFileSync output "utf8")) "CLI output differs from checked artifact")
+  (run ["--experimental-vm-modules" "test/fixtures/cosmokit-package/contract.mjs" "test/fixtures/cosmokit-package/index.js" output])))
+(let [engine (.-MITHRIL_PACKAGE_ENGINE js/process.env) dir (fs/mkdtempSync "/tmp/mithril-package-refusals-") output (str dir "/sentinel.mjs")
+      sentinel "preserve-existing-output"]
+ (try
+  (fs/writeFileSync output sentinel)
+  (doseq [[file target] [["does-not-exist.mith" "amu"] ["does-not-exist.mith" "js"]]]
+   (let [r (child/spawnSync js/process.execPath (clj->js [engine "--config" "/tmp/mithril-package-offline.edn" "-cp" "src" "bin/mithril-native-package.cljk" file "--target" target "--output" output]) #js {:encoding "utf8" :timeout 60000})]
+    (ensure (= 65 (.-status r)) "Invalid CLI input did not refuse")
+    (ensure (= sentinel (fs/readFileSync output "utf8")) "Refusal overwrote existing output")))
+  (let [text "(mithril/native-js-package :name \"producer\" :imports [\"make\"] :modules [(rdf/node :name \"producer\" :source \"producer.mith\" :links [])] :reexports [\"producer\"])"
+        manifest (str dir "/package.mith") leaf (str dir "/producer.mith") actual (str dir "/actual.mith")]
+   (fs/writeFileSync manifest text) (fs/writeFileSync actual producer) (fs/symlinkSync actual leaf)
+   (let [r (child/spawnSync js/process.execPath (clj->js [engine "--config" "/tmp/mithril-package-offline.edn" "-cp" "src" "bin/mithril-native-package.cljk" manifest "--target" "js" "--output" output]) #js {:encoding "utf8" :timeout 60000})]
+    (ensure (= 65 (.-status r)) "Symlink source did not refuse")
+    (ensure (= sentinel (fs/readFileSync output "utf8")) "Symlink refusal overwrote existing output")))
+  (finally (fs/rmSync dir #js {:recursive true :force true}))))
+(println "Full checked package qualification: exact 40 exports, source order, generic shared dependency, malformed/cyclic/ambiguous/source/read-plan refusals, CLI sentinel and symlink refusals, both actual CLI targets and seven frozen leaf artifacts.")

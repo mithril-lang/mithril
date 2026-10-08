@@ -1,0 +1,18 @@
+; Complete CosmoKit runtime index, linking the checked Mithril leaves.
+; Original MIT source index.ts from mithril-harness 441416c0; see test/fixtures/COSMOKIT-LICENSE.
+(mithril/native-js-package
+ :name "cosmokit"
+ :imports ["Array" "Set" "Object" "TypeError" "Symbol" "globalThis"
+           "ArrayBuffer" "Uint8Array" "Buffer" "String" "btoa" "atob"
+           "parseInt" "Date" "RegExp" "Map" "Reflect" "Math" "parseFloat" "JSON"]
+ :modules [(rdf/node :name "cosmokit.array" :source "native-js-array.mith"
+                    :links [(rdf/node :import "isNullable" :module "cosmokit.misc" :export "isNullable")])
+           (rdf/node :name "cosmokit.types" :source "native-js-types.mith"
+                    :links [(rdf/node :import "isNullable" :module "cosmokit.misc" :export "isNullable")
+                            (rdf/node :import "isVolatile" :module "cosmokit.volatile" :export "isVolatile")])
+           (rdf/node :name "cosmokit.misc" :source "native-js-misc.mith" :links [])
+           (rdf/node :name "cosmokit.string" :source "native-js-string.mith" :links [])
+           (rdf/node :name "cosmokit.time" :source "native-js-time.mith" :links [])
+           (rdf/node :name "cosmokit.volatile" :source "native-js-volatile.mith" :links [])]
+ :reexports ["cosmokit.array" "cosmokit.types" "cosmokit.misc"
+             "cosmokit.string" "cosmokit.time" "cosmokit.volatile"])
