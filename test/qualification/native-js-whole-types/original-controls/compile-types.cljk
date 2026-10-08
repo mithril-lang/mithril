@@ -1,0 +1,17 @@
+(ns compile-types (:require [mithril.native-js :as n] [mithril.module :as g] ["node:fs" :as fs] ["node:crypto" :as crypto] ["node:child_process" :as child]))
+(def text (fs/readFileSync "examples/native-js-types.mith" "utf8"))
+(def a (n/compile-text text))
+(when-not (= #{"is" "Binary" "base64ToArrayBuffer" "arrayBufferToBase64" "hexToArrayBuffer" "arrayBufferToHex" "clone" "deepEqual"} (set (:exports a))) (throw (js/Error. "Incomplete types exports")))
+(when-not (= #{"globalThis" "Object" "ArrayBuffer" "Uint8Array" "Buffer" "String" "btoa" "atob" "parseInt" "Date" "RegExp" "Map" "Array" "Reflect" "Set" "isNullable" "isVolatile"} (set (:required-imports a))) (throw (js/Error. "Unexpected types grants")))
+(when-not (= a (n/compile-text text)) (throw (js/Error. "Nondeterministic types artifact")))
+(when-not (try (g/check-text text) false (catch :default _ true)) (throw (js/Error. "Guest context admitted native module")))
+(doseq [[name sha] [["map-values" "5420bbe2a9932b27141280438674906d4d72c7941477690f37201a4eb1b72191"] ["misc" "b2e52089674875efa3b5a8c135e4fccd37b258c8d5d72adcfc05338f38c0a4fb"] ["array" "d2de5ed22d8b5afe5dea4c0125af71805573541a7156c55efc19b34672c26db8"] ["volatile" "a866812a56dfaba0fdcf682d478f3e4590e1d2b48820c273d51c22aaae6d1bd1"]]]
+ (let [a (n/compile-text (fs/readFileSync (str "examples/native-js-" name ".mith") "utf8"))]
+  (when-not (= sha (-> (crypto/createHash "sha256") (.update (:source a)) (.digest "hex"))) (throw (js/Error. "Prior artifact changed")))
+  (when (contains? #{"misc" "volatile"} name) (fs/writeFileSync (str "/tmp/types-dep-" name ".mjs") (:source a)))))
+(doseq [target ["js" "js-browser"]]
+ (let [file (str "/tmp/types-" target ".mjs") r (child/spawnSync js/process.execPath #js ["/opt/nbb/cli.js" "--config" "/opt/native-controls/workspace.edn" "bin/mithril-native-js.cljk" "examples/native-js-types.mith" "--target" target "--output" file] #js {:stdio "inherit" :timeout 30000})]
+  (when-not (= 0 (.-status r)) (throw (js/Error. "Actual types CLI failed")))
+  (when-not (= (:source a) (fs/readFileSync file "utf8")) (throw (js/Error. "CLI emitted different bytes")))
+  (let [r (child/spawnSync js/process.execPath #js ["--experimental-vm-modules" "/opt/whole-types-controls/types-contract.mjs" "candidate" file "/tmp/types-dep-misc.mjs" "/tmp/types-dep-volatile.mjs"] #js {:stdio "inherit" :timeout 30000})] (when-not (= 0 (.-status r)) (throw (js/Error. "Whole types runtime failed"))))))
+(println "Whole types actual CLI js/js-browser with generated misc/volatile; four old artifact hashes retained.")
