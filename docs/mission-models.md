@@ -42,7 +42,7 @@ Link 16 implements the SISO 2021 DIS/UDP simulation subset (TSA 0, MTI 0, opaque
 75-bit words), not RF terminals or tactical J-series field semantics. HLA uses
 actual OpenRTI IEEE 1516e services: two federates exchange object attributes and
 timestamped interactions and receive time grants. In-process RTI is verified;
-TCP RTI handshake timed out on the local macOS host and remains unverified.
+TCP RTI passed Linux CI; its handshake timed out on the local macOS host.
 
 ## Source contract
 
