@@ -1,0 +1,7 @@
+(ns test.run-mission-native
+  (:require [cljs.test :as t] [mithril.mission-native-test]))
+
+(when-not (.-MITHRIL_INTEROP_PYTHON js/process.env)
+  (throw (ex-info "Set MITHRIL_INTEROP_PYTHON to the installed adapter's Python runtime" {})))
+(let [result (t/run-tests 'mithril.mission-native-test)]
+  (when (pos? (+ (:fail result) (:error result))) (js/process.exit 1)))

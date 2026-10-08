@@ -1,0 +1,265 @@
+(ns mithril.mission
+  "Lossless normalized model exchange. This is a Mithril profile, not a wire
+  decoder or an implementation of the source standards' execution semantics."
+  (:require [clojure.string :as str]))
+
+(def format-id "https://mithril.fund/artifact/mission-ir-v1")
+(def node-types #{"Entity" "Relation" "Capability" "Goal" "Task" "Constraint"
+                  "Decision" "State" "Transition" "Observation" "Event"})
+
+;; Source type names belong to this normalized profile. They are not XML QNames
+;; or claims about the full metamodel vocabulary of any source standard.
+(def profiles
+  {"dm2" {"Organization" "Entity" "Resource" "Entity" "Activity" "Task"
+          "Capability" "Capability" "Rule" "Constraint" "State" "State"
+          "Transition" "Transition" "InformationFlow" "Relation"}
+   "c-bml" {"Actor" "Entity" "Location" "Entity" "Order" "Task"
+            "Goal" "Goal" "Report" "Observation" "Event" "Event"}
+   "msdl" {"Unit" "Entity" "Equipment" "Entity" "Location" "Entity"
+           "Environment" "Entity" "InitialState" "State"}
+   "c2sim" {"Entity" "Entity" "Task" "Task" "Report" "Observation" "Event" "Event"}
+   "jc3iedm" {"Object" "Entity" "Action" "Task" "Status" "State"
+              "Association" "Relation" "Observation" "Observation"}
+   "mim" {"Object" "Entity" "Action" "Task" "Capability" "Capability"
+          "Goal" "Goal" "Status" "State" "Association" "Relation"
+          "Observation" "Observation"}
+   "bpmn" {"Participant" "Entity" "ServiceTask" "Task" "UserTask" "Task"
+           "ExclusiveGateway" "Decision" "StartEvent" "Event" "EndEvent" "Event"
+           "SequenceFlow" "Relation"}
+   "dmn" {"InputData" "Entity" "Decision" "Decision" "Rule" "Constraint"
+          "InformationRequirement" "Relation"}
+   "forms" {"Form" "Entity" "Field" "Entity" "Validation" "Constraint"
+            "Submission" "Observation"}})
+
+(def standards
+  "Honest capability inventory. Only normalized records are imported in v1."
+  (merge
+   (into {} (map (fn [[id types]]
+                   [id {:support :normalized-records :wire-import false
+                        :execution false :types types}]) profiles))
+   (into {} (map (fn [id] [id {:support :metadata-only :wire-import false
+                              :execution false}])
+                 ["mil-std-2525" "link-16" "vmf" "usmtf" "hla-fom"
+                  "nitf" "nsif" "stanag-4607" "stanag-4609"]))))
+
+(def ^:private reference-types
+  {"subject" node-types "object" node-types
+   "actor" #{"Entity"} "location" #{"Entity"} "goal" #{"Goal"}
+   "capability" #{"Capability"} "entity" #{"Entity"}
+   "from" #{"State"} "to" #{"State"} "trigger" #{"Event"}
+   "constraints" #{"Constraint"} "dependsOn" #{"Task" "Decision" "Entity"}
+   "initialState" #{"State"}})
+(def ^:private type-refs
+  {"Entity" #{"initialState"}
+   "Relation" #{"subject" "object"}
+   "Capability" #{"entity" "constraints"}
+   "Goal" #{"entity" "constraints"}
+   "Task" #{"actor" "location" "goal" "capability" "constraints" "dependsOn"}
+   "Constraint" #{"entity"}
+   "Decision" #{"dependsOn" "constraints"}
+   "State" #{"entity"}
+   "Transition" #{"entity" "from" "to" "trigger" "constraints"}
+   "Observation" #{"entity" "actor" "location"}
+   "Event" #{"entity"}})
+(def ^:private required-refs
+  {"Relation" #{"subject" "object"} "State" #{"entity"}
+   "Transition" #{"entity" "from" "to" "trigger"}})
+(def ^:private many-refs #{"constraints" "dependsOn"})
+
+(defn- fail! [code detail data]
+  (throw (ex-info detail (merge {:mithril/error code :detail detail} data))))
+
+(defn- text? [x] (and (string? x) (not (str/blank? x))))
+(defn- iri? [x]
+  (and (text? x) (boolean (re-matches #"[A-Za-z][A-Za-z0-9+.-]*:[^\s]+" x))))
+(defn- fields! [x required optional label]
+  (when-not (and (map? x) (every? #(contains? x %) required)
+                 (every? (into required optional) (keys x)))
+    (fail! :mithril.mission/invalid-fields
+           (str label " has unknown or missing fields") {})))
+
+(defn- data? [x]
+  (cond
+    (or (nil? x) (string? x) (boolean? x) (integer? x)) true
+    (vector? x) (every? data? x)
+    (map? x) (and (every? string? (keys x)) (every? data? (vals x)))
+    :else false))
+
+(defn- provenance! [source]
+  (fields! source #{"standard" "version" "document" "record" "type"} #{} "source")
+  (when-not (every? text? (vals source))
+    (fail! :mithril.mission/invalid-source "source fields must be nonblank strings" {}))
+  (when-not (contains? profiles (get source "standard"))
+    (fail! :mithril.mission/unsupported-standard
+           "standard has no normalized-record adapter" {:source source})))
+
+(defn- node! [node]
+  (fields! node #{"@id" "@type" "source" "payload" "refs"} #{"label"} "node")
+  (let [id (get node "@id") type (get node "@type") refs (get node "refs")]
+    (when-not (iri? id)
+      (fail! :mithril.mission/invalid-id "node identity must be an absolute IRI" {}))
+    (when-not (contains? node-types type)
+      (fail! :mithril.mission/unknown-type "unknown IR node type" {:id id :type type}))
+    (provenance! (get node "source"))
+    (when-not (= type (get-in profiles [(get-in node ["source" "standard"])
+                                       (get-in node ["source" "type"])]))
+      (fail! :mithril.mission/unsupported-mapping "source type does not match IR type" {:id id}))
+    (when-not (and (map? (get node "payload")) (data? (get node "payload")))
+      (fail! :mithril.mission/invalid-payload "payload must be a JSON data object" {:id id}))
+    (when (and (contains? node "label") (not (text? (get node "label"))))
+      (fail! :mithril.mission/invalid-label "label must be nonblank" {:id id}))
+    (fields! refs (get required-refs type #{})
+             (get type-refs type) "node references")
+    (when (and (= "c-bml" (get-in node ["source" "standard"]))
+               (= "Order" (get-in node ["source" "type"]))
+               (not (every? #(contains? refs %) ["actor" "location" "goal"])))
+      (fail! :mithril.mission/incomplete-order "normalized Order requires actor, location and goal" {:id id}))
+    (doseq [[role targets] refs]
+      (when-not (if (contains? many-refs role)
+                  (and (vector? targets) (every? text? targets)
+                       (= (count targets) (count (set targets))))
+                  (text? targets))
+        (fail! :mithril.mission/invalid-reference "reference cardinality is invalid"
+               {:id id :role role})))
+    node))
+
+(defn validate
+  "Validate an IR artifact, including forward references and state ownership.
+  Payload remains opaque, lossless source data; it never authorizes execution."
+  [artifact]
+  (fields! artifact #{"format" "@id" "nodes"} #{} "mission artifact")
+  (when-not (and (= format-id (get artifact "format")) (iri? (get artifact "@id")))
+    (fail! :mithril.mission/invalid-artifact "invalid format or artifact identity" {}))
+  (let [nodes (get artifact "nodes")]
+    (when-not (and (vector? nodes) (seq nodes) (<= (count nodes) 10000))
+      (fail! :mithril.mission/invalid-nodes "expected 1 through 10000 nodes" {}))
+    (doseq [node nodes] (node! node))
+    (let [by-id (into {} (map (juxt #(get % "@id") identity) nodes))]
+      (when-not (= (count nodes) (count by-id))
+        (fail! :mithril.mission/duplicate-id "node identities must be globally unique" {}))
+      (doseq [node nodes [role targets] (get node "refs")
+              target-id (if (contains? many-refs role) targets [targets])]
+        (let [target (get by-id target-id)]
+          (when-not target
+            (fail! :mithril.mission/dangling-reference "reference target is absent"
+                   {:id (get node "@id") :role role :target target-id}))
+          (when-not (contains? (get reference-types role) (get target "@type"))
+            (fail! :mithril.mission/reference-type "reference target has wrong type"
+                   {:id (get node "@id") :role role :target target-id}))))
+      (doseq [node nodes]
+        (let [type (get node "@type") refs (get node "refs")]
+          (when (= type "Transition")
+            (doseq [role ["from" "to"]]
+              (when-not (= (get refs "entity")
+                           (get-in by-id [(get refs role) "refs" "entity"]))
+                (fail! :mithril.mission/state-owner "transition states belong to another entity"
+                       {:id (get node "@id") :role role}))))
+          (when-let [initial (get refs "initialState")]
+            (when-not (= (get node "@id") (get-in by-id [initial "refs" "entity"]))
+              (fail! :mithril.mission/state-owner "initial state belongs to another entity"
+                     {:id (get node "@id")})))))
+      artifact)))
+
+(defn compile-document
+  "Compile a .mith JSON document containing normalized records. `type` names
+  are the exact case-sensitive types from `profiles`, not native schema names."
+  [doc]
+  (fields! doc #{"@type" "@id" "records"} #{} "mission document")
+  (when-not (= "MissionModel" (get doc "@type"))
+    (fail! :mithril.mission/not-a-model "@type must be MissionModel" {}))
+  (when-not (and (vector? (get doc "records")) (seq (get doc "records")))
+    (fail! :mithril.mission/invalid-records "records must be a nonempty array" {}))
+  (validate
+   {"format" format-id "@id" (get doc "@id")
+    "nodes"
+    (mapv (fn [record]
+            (fields! record #{"@id" "standard" "version" "document" "record"
+                              "type" "payload" "refs"} #{"label"} "normalized record")
+            (let [standard (get record "standard")
+                  type (get-in profiles [standard (get record "type")])]
+              (when-not type
+                (fail! :mithril.mission/unsupported-mapping
+                       "source standard/type is outside the normalized profile"
+                       {:standard standard :type (get record "type")}))
+              (cond-> {"@id" (get record "@id") "@type" type
+                       "source" (select-keys record ["standard" "version" "document" "record" "type"])
+                       "payload" (get record "payload") "refs" (get record "refs")}
+                (contains? record "label") (assoc "label" (get record "label")))))
+          (get doc "records"))}))
+
+(defn export-document
+  "Lossless normalized profile round-trip, including original source type."
+  [artifact]
+  (validate artifact)
+  {"@type" "MissionModel" "@id" (get artifact "@id")
+   "records" (mapv (fn [node]
+                     (merge (get node "source")
+                            (select-keys node ["@id" "label" "payload" "refs"])))
+                   (get artifact "nodes"))})
+
+(defn compose
+  "Compose independently imported artifacts without dropping provenance.
+  Cross-document references can be resolved by compiling one combined input."
+  [id artifacts]
+  (doseq [artifact artifacts] (validate artifact))
+  (validate {"format" format-id "@id" id
+             "nodes" (vec (mapcat #(get % "nodes") artifacts))}))
+
+(defn initial-state
+  "Initial entity states from the validated model; no source engine is run."
+  [artifact]
+  (validate artifact)
+  (into {} (keep (fn [node]
+                   (when-let [state (get-in node ["refs" "initialState"])]
+                     [(get node "@id") state])) (get artifact "nodes"))))
+
+(defn step
+  "Pure, explicit IR state transition. Caller supplies the triggering event
+  and a literal true/false result for every constraint. No DMN/FEEL evaluation,
+  BPMN token movement, C-BML order execution, HLA time advance or host effects."
+  [artifact state transition-id event-id results]
+  (validate artifact)
+  (let [by-id (into {} (map (juxt #(get % "@id") identity) (get artifact "nodes")))
+        transition (get by-id transition-id)
+        refs (get transition "refs")
+        required (set (get refs "constraints" []))]
+    (when-not (and (map? state)
+                   (every? (fn [[entity status]]
+                             (and (= "Entity" (get-in by-id [entity "@type"]))
+                                  (= "State" (get-in by-id [status "@type"]))
+                                  (= entity (get-in by-id [status "refs" "entity"])))) state))
+      (fail! :mithril.mission/invalid-state "state must map entities to their own states" {}))
+    (when-not (= "Transition" (get transition "@type"))
+      (fail! :mithril.mission/not-a-transition "selected node is not a Transition" {}))
+    (when-not (= (get refs "from") (get state (get refs "entity")))
+      (fail! :mithril.mission/stale-state "entity is not in the required source state" {}))
+    (when-not (= event-id (get refs "trigger"))
+      (fail! :mithril.mission/wrong-event "event does not match the transition trigger" {}))
+    (when-not (and (map? results) (= required (set (keys results)))
+                   (every? true? (vals results)))
+      (fail! :mithril.mission/constraint-denied "all and only required constraints must be true" {}))
+    {:state (assoc state (get refs "entity") (get refs "to"))
+     :receipt {:transition transition-id :event event-id :constraints results
+               :source (get transition "source") :effects false :semantics :mission-ir-v1}}))
+
+(defn rdf-document
+  "JSON-LD projection for existing Mithril reasoning tools. Source, payload
+  and refs use EDN string literals: the pinned JSON-LD engine rejects @json."
+  [artifact]
+  (validate artifact)
+  {"@context" (merge {"mission" "https://mithril.fund/ns/mission/v1#"
+                "source" "mission:sourceEDN"
+                "payload" "mission:payloadEDN"
+                "label" "http://www.w3.org/2000/01/rdf-schema#label"
+                "refs" "mission:refsEDN"}
+                      (into {} (map (fn [role]
+                                      [role (cond-> {"@id" (str "mission:" role) "@type" "@id"}
+                                              (contains? many-refs role) (assoc "@container" "@set"))])
+                                    (keys reference-types))))
+   "@id" (get artifact "@id")
+   "@graph" (mapv #(merge (-> %
+                             (update "@type" (fn [type] (str "mission:" type)))
+                             (update "source" pr-str)
+                             (update "payload" pr-str)
+                             (update "refs" pr-str)) (get % "refs"))
+                  (get artifact "nodes"))})

@@ -1,0 +1,124 @@
+(ns mithril.mission-test
+  (:require [cljs.test :refer [deftest is]]
+            [cljs.reader :as reader]
+            [mithril.mission :as mission]
+            [mithril.compiler :as compiler]
+            [json-ld-api.core :as jsonld]
+            [json-ld-api.to-rdf :as to-rdf]))
+
+(defn record [id standard type refs]
+  {"@id" (str "urn:test:" id) "standard" standard "type" type
+   "version" "fixture-v1" "document" "urn:source:fixture" "record" id
+   "payload" {"untouched" [nil true 12 {"original" "値"}]} "refs" refs})
+(defn doc [records] {"@id" "urn:test:model" "@type" "MissionModel" "records" records})
+(def records
+  [(record "team" "msdl" "Unit" {"initialState" "urn:test:ready"})
+   (record "place" "c-bml" "Location" {})
+   (record "goal" "c-bml" "Goal" {})
+   (record "ready" "msdl" "InitialState" {"entity" "urn:test:team"})
+   (record "done" "mim" "Status" {"entity" "urn:test:team"})
+   (record "event" "c-bml" "Event" {})
+   (record "rule" "dmn" "Rule" {})
+   (record "transition" "dm2" "Transition"
+           {"entity" "urn:test:team" "from" "urn:test:ready" "to" "urn:test:done"
+            "trigger" "urn:test:event" "constraints" ["urn:test:rule"]})
+   (record "order" "c-bml" "Order"
+           {"actor" "urn:test:team" "location" "urn:test:place" "goal" "urn:test:goal"})
+   (record "form" "forms" "Submission" {"entity" "urn:test:team"})
+   (record "task" "bpmn" "ServiceTask" {"dependsOn" ["urn:test:order"]})
+   (record "association" "jc3iedm" "Association"
+           {"subject" "urn:test:team" "object" "urn:test:place"})])
+(def artifact (mission/compile-document (doc records)))
+(defn reason [f]
+  (try (f) nil (catch :default e (:mithril/error (ex-data e)))))
+
+(deftest import-export-is-lossless-and-source-types-are-retained
+  (is (= (doc records) (mission/export-document artifact)))
+  (is (= artifact (mission/compile-document (mission/export-document artifact))))
+  (is (= "Task" (get-in artifact ["nodes" 8 "@type"])))
+  (is (= "Order" (get-in artifact ["nodes" 8 "source" "type"]))))
+
+(deftest every-advertised-mapping-has-a-validated-example
+  (doseq [[standard types] mission/profiles [source-type ir-type] types]
+    (let [refs (case ir-type
+                 "State" {"entity" "urn:test:team"}
+                 "Transition" {"entity" "urn:test:team" "from" "urn:test:ready"
+                               "to" "urn:test:done" "trigger" "urn:test:event"}
+                 "Relation" {"subject" "urn:test:team" "object" "urn:test:place"}
+                 "Task" (if (= source-type "Order")
+                          {"actor" "urn:test:team" "location" "urn:test:place" "goal" "urn:test:goal"} {})
+                 {})
+          result (mission/compile-document
+                  (doc (conj records (record "mapping" standard source-type refs))))]
+      (is (= ir-type (get (last (get result "nodes")) "@type"))))))
+
+(deftest structural-and-semantic-admission-refuses-malformed-input
+  (is (= :mithril.mission/duplicate-id
+         (reason #(mission/compile-document (doc (conj records (first records)))))))
+  (is (= :mithril.mission/dangling-reference
+         (reason #(mission/compile-document (doc (assoc-in records [8 "refs" "actor"] "urn:absent"))))))
+  (is (= :mithril.mission/reference-type
+         (reason #(mission/compile-document (doc (assoc-in records [8 "refs" "actor"] "urn:test:ready"))))))
+  (is (= :mithril.mission/state-owner
+         (reason #(mission/compile-document (doc (assoc-in records [4 "refs" "entity"] "urn:test:place"))))))
+  (is (= :mithril.mission/state-owner
+         (reason #(mission/compile-document
+                   (doc (-> records
+                            (assoc-in [0 "refs" "initialState"] "urn:test:done")
+                            (assoc-in [4 "refs" "entity"] "urn:test:place")
+                            (assoc-in [7 "refs" "to"] "urn:test:ready")))))))
+  (is (= :mithril.mission/invalid-fields
+         (reason #(mission/compile-document (assoc (doc records) "execute" true)))))
+  (is (= :mithril.mission/incomplete-order
+         (reason #(mission/compile-document (doc (assoc-in records [8 "refs"] {}))))))
+  (is (= :mithril.mission/unsupported-mapping
+         (reason #(mission/compile-document (doc [(record "wire" "link-16" "Message" {})])))))
+  (is (= :mithril.mission/invalid-reference
+         (reason #(mission/compile-document (doc (assoc-in records [10 "refs" "dependsOn"] "urn:test:order"))))))
+  (is (= :mithril.mission/invalid-payload
+         (reason #(mission/compile-document (doc (assoc-in records [0 "payload"] {:host-fn identity}))))))
+  (is (= :mithril.mission/unsupported-mapping
+         (reason #(mission/validate (assoc-in artifact ["nodes" 0 "@type"] "Goal"))))))
+
+(deftest explicit-state-step-is-pure-and-guards-are-fail-closed
+  (let [state (mission/initial-state artifact)
+        run #(mission/step artifact state "urn:test:transition" "urn:test:event" %)
+        result (run {"urn:test:rule" true})]
+    (is (= {"urn:test:team" "urn:test:ready"} state))
+    (is (= {"urn:test:team" "urn:test:done"} (:state result)))
+    (is (false? (get-in result [:receipt :effects])))
+    (doseq [results [{} {"urn:test:rule" false} {"urn:test:rule" "true"}
+                     {"urn:test:rule" true "extra" true}]]
+      (is (= :mithril.mission/constraint-denied (reason #(run results)))))
+    (is (= :mithril.mission/stale-state
+           (reason #(mission/step artifact (:state result) "urn:test:transition" "urn:test:event"
+                                  {"urn:test:rule" true}))))
+    (is (= :mithril.mission/wrong-event
+           (reason #(mission/step artifact state "urn:test:transition" "urn:test:missing" {}))))
+    (is (= :mithril.mission/not-a-transition
+           (reason #(mission/step artifact state "urn:test:order" "urn:test:event" {}))))
+    (is (= :mithril.mission/invalid-state
+           (reason #(mission/step artifact {"urn:test:place" "urn:test:ready"}
+                                  "urn:test:transition" "urn:test:event" {}))))))
+
+(deftest composition-retains-provenance-and-refuses-identity-collisions
+  (let [a (mission/compile-document (doc [(record "a" "dm2" "Organization" {})]))
+        b (mission/compile-document (doc [(record "b" "mim" "Object" {})]))]
+    (is (= (concat (get a "nodes") (get b "nodes"))
+           (get (mission/compose "urn:test:combined" [a b]) "nodes")))
+    (is (= :mithril.mission/duplicate-id
+           (reason #(mission/compose "urn:test:combined" [a a]))))))
+
+(deftest rdf-projection-retains-payload-and-emits-typed-reference-edges
+  (let [rdf (mission/rdf-document artifact)
+        expanded (jsonld/expand rdf {})
+        dataset (to-rdf/to-rdf expanded {})]
+    (is (= (get-in artifact ["nodes" 8 "payload"])
+           (reader/read-string (get-in rdf ["@graph" 8 "payload"]))))
+    (is (some #(and (= "https://mithril.fund/ns/mission/v1#actor" (get-in % [:predicate :value]))
+                    (= "urn:test:team" (get-in % [:object :value]))) dataset))))
+
+(deftest example-is-admitted-by-the-real-mithril-source-reader
+  (let [text (.readFileSync (js/require "node:fs") "examples/mission/relief.mith" "utf8")
+        doc (compiler/parse-source text)]
+    (is (= doc (mission/export-document (mission/compile-document doc))))))

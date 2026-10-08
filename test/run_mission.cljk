@@ -1,0 +1,5 @@
+(ns test.run-mission
+  (:require [cljs.test :as t] [mithril.mission-test]))
+
+(let [result (t/run-tests 'mithril.mission-test)]
+  (when (pos? (+ (:fail result) (:error result))) (js/process.exit 1)))
