@@ -2250,3 +2250,9 @@ System One's Time trial has no terminal receipt at the saved observation and is
 unscored; the independently prequalified operator source was adopted unchanged.
 Public package index/declarations/linking and downstream Harness API/plugin/Session
 parity remain open. js-browser has Node execution evidence only.
+
+The [native package prerequisite](test/qualification/native-js-package/README.md)
+adds an inert package context and private checked factories for source-level
+linking. Standalone artifacts retain exact bytes and grant validation. Package
+composition/public ESM/type declarations and downstream Harness parity still need
+independent qualification.

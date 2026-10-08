@@ -450,7 +450,7 @@
       :sequence (str "(" (args (:expressions expr)) ")")
       :if (str "(" (emit (:condition expr)) "?" (emit (:then expr)) ":" (emit (:else expr)) ")"))))
 
-(defn- emit-checked [checked]
+(defn- emit-checked [checked factory public? check-grants?]
   (let [named-functions (concat (:functions checked)
                                 (filter #(and (map? %) (= :local-function (:op %)))
                                         (tree-seq coll? seq checked)))
@@ -481,11 +481,13 @@
                                (str "const " (get functions (:name f)) "=function " (:name f) "(" (str/join "," param-source) "){return "
                                     (emit-expression (:body f) imports functions env counter prefix true) ";};\n"))) (:functions checked)))
         source (str "// Mithril native JS host module; explicit grants; native runtime semantics.\n"
-                    "export function instantiateMithrilNative(" grants "){\n"
+                    (if public? "export " "") "function " factory "(" grants "){\n"
+                    (when check-grants?
+                      (str
                     "if(" grants "===null||typeof " grants "!=='object')throw new Error('host-grant-mismatch');\n"
                     "const " prefix "keys=Reflect.ownKeys(" grants ");\n"
                     "if(" prefix "keys.length!==" (count (:imports checked)) "||"
-                    prefix "keys.some(k=>!" (quoted (clj->js (:imports checked))) ".includes(k)))throw new Error('host-grant-mismatch');\n"
+                    prefix "keys.some(k=>!" (quoted (clj->js (:imports checked))) ".includes(k)))throw new Error('host-grant-mismatch');\n"))
                     (if initialize-functions-first? function-source "")
                     (:source module-bindings)
                     (if initialize-functions-first? "" function-source)
@@ -497,5 +499,14 @@
      :required-imports (:imports checked) :exports (mapv :name (:exports checked))
      :runtime :native-js :source source}))
 
-(defn compile-document [doc] (emit-checked (check-document doc)))
-(defn compile-text [text] (emit-checked (check-text text)))
+(defn compile-document [doc] (emit-checked (check-document doc) "instantiateMithrilNative" true true))
+(defn compile-text [text] (emit-checked (check-text text) "instantiateMithrilNative" true true))
+
+(defn compile-package-factory-document
+  "Private package factory: the checked linker supplies every declared grant.
+   Ordinary standalone artifacts retain their exact runtime grant validation."
+  [doc factory]
+  (name! factory)
+  (when (contains? reserved factory)
+    (fail! :mithril.native-js/name "Reserved package factory identifier"))
+  (emit-checked (check-document doc) factory false false))
