@@ -67,6 +67,33 @@
     (catch :default _
       (fail! :mithril.native-js/regexp "Invalid native regex pattern or flags"))))
 
+(defn- context? [context flag]
+  (if (map? context) (true? (get context flag))
+      (and (true? context) (contains? #{:function :this :new-target} flag))))
+(declare expression!)
+(defn- class-signature! [member imports functions locals depth nodes context]
+  (let [params (get member "params") names (params! params) rest-name (get member "rest")]
+    (when (some? rest-name)
+      (name! rest-name)
+      (when (contains? reserved rest-name) (fail! :mithril.native-js/name "Reserved rest binding")))
+    (let [names-with-rest (cond-> names (some? rest-name) (conj rest-name))
+          _ (unique! names-with-rest)
+          env (into locals (zipmap names-with-rest (repeat false)))
+          defaults (into {} (keep-indexed
+                            (fn [i p] (when (contains? p "default")
+                                        [i (expression! (get p "default") imports functions env (inc depth) nodes context)])) params))]
+      (cond-> {:params names :rest rest-name
+               :body (expression! (get member "body") imports functions env (inc depth) nodes context)}
+        (seq defaults) (assoc :defaults defaults)))))
+(defn- class-items! [items imports functions locals depth nodes context]
+  (vector! items 64)
+  (mapv (fn [item]
+          (let [kind (cond
+                       (and (map? item) (= #{"value"} (set (keys item)))) :value
+                       (and (map? item) (= #{"spread"} (set (keys item)))) :spread
+                       :else (fail! :mithril.native-js/shape "Super call item requires value or spread"))]
+            {:kind kind :value (expression! (get item (name kind)) imports functions locals (inc depth) nodes context)})) items))
+
 (defn- expression! [expr imports functions locals depth nodes args-length]
   (when (or (> depth 64) (> (swap! nodes inc) 4096))
     (fail! :mithril.native-js/budget "Native JS expression budget exceeded"))
@@ -138,19 +165,40 @@
       (do (shape! expr ["@type"]) {:op :undefined})
       "HostArgumentsLength"
       (do (shape! expr ["@type"])
-          (when-not args-length
+          (when-not (context? args-length :function)
             (fail! :mithril.native-js/scope "HostArgumentsLength requires a source normal function context"))
           {:op :arguments-length})
       "HostThis"
       (do (shape! expr ["@type"])
-          (when-not args-length
+          (when-not (context? args-length :this)
             (fail! :mithril.native-js/scope "HostThis requires a source normal function context"))
           {:op :this})
       "HostNewTarget"
       (do (shape! expr ["@type"])
-          (when-not args-length
+          (when-not (context? args-length :new-target)
             (fail! :mithril.native-js/scope "HostNewTarget requires a source normal function context"))
           {:op :new-target})
+      "HostSuperCall"
+      (do (shape! expr ["@type" "items"])
+          (when-not (context? args-length :super-call)
+            (fail! :mithril.native-js/scope "Super call requires a derived class constructor"))
+          {:op :super-call :items (class-items! (get expr "items") imports functions locals depth nodes args-length)})
+      "HostSuperGet"
+      (do (shape! expr ["@type" "key"])
+          (when-not (context? args-length :super-property)
+            (fail! :mithril.native-js/scope "Super property requires a class member context"))
+          {:op :super-get :key (check (get expr "key"))})
+      "HostSuperSet"
+      (do (shape! expr ["@type" "key" "value"])
+          (when-not (context? args-length :super-property)
+            (fail! :mithril.native-js/scope "Super property requires a class member context"))
+          {:op :super-set :key (check (get expr "key")) :value (check (get expr "value"))})
+      "HostSuperMethod"
+      (do (shape! expr ["@type" "key" "items"])
+          (when-not (context? args-length :super-property)
+            (fail! :mithril.native-js/scope "Super method requires a class member context"))
+          {:op :super-method :key (check (get expr "key"))
+           :items (class-items! (get expr "items") imports functions locals depth nodes args-length)})
       "HostUnary"
       (do (shape! expr ["@type" "operator" "value"])
           (let [operator (get expr "operator")]
@@ -198,8 +246,8 @@
             {:op :object :entries (mapv (fn [entry]
                                          (optional-flag! entry ["key" "value"] "infer_name")
                                          (let [value (check (get entry "value"))]
-                                           (when (and (contains? entry "infer_name") (not (contains? #{:lambda :native-function} (:op value))))
-                                             (fail! :mithril.native-js/shape "Name inference requires a native function initializer"))
+                                           (when (and (contains? entry "infer_name") (not (contains? #{:lambda :native-function :native-class} (:op value))))
+                                             (fail! :mithril.native-js/shape "Name inference requires a native function or class initializer"))
                                            {:key (check (get entry "key"))
                                             :value (cond-> value (true? (get entry "infer_name"))
                                                      (assoc :infer-name true))})) entries)}))
@@ -211,6 +259,12 @@
           (let [values (get expr "values")]
             (vector! values 4096)
             {:op :object-spreads :values (mapv check values)}))
+      "HostUpdate"
+      (do (shape! expr ["@type" "object" "key" "operator" "prefix"])
+          (when-not (and (contains? #{"++" "--"} (get expr "operator")) (boolean? (get expr "prefix")))
+            (fail! :mithril.native-js/shape "Invalid native property update"))
+          {:op :update :object (check (get expr "object")) :key (check (get expr "key"))
+           :operator (get expr "operator") :prefix (get expr "prefix")})
       "HostSet"
       (do (shape! expr ["@type" "object" "key" "value"])
           {:op :set :object (check (get expr "object")) :key (check (get expr "key"))
@@ -265,6 +319,38 @@
               (cond-> {:op :native-function :name name :params names :rest rest-name
                        :body (expression! (get expr "body") imports functions body-env (inc depth) nodes true)}
                 (seq defaults) (assoc :defaults defaults)))))
+      "NativeClass"
+      (do (shape! expr ["@type" "name" "extends" "constructor" "members"])
+          (let [name (get expr "name") heritage (get expr "extends") ctor (get expr "constructor") members (get expr "members")]
+            (when (some? name)
+              (name! name)
+              (when (contains? reserved name) (fail! :mithril.native-js/name "Reserved class name")))
+            (vector! members 128)
+            (let [self-env (cond-> locals (some? name) (assoc name false))
+                  method-context {:function true :this true :new-target true :super-property true}
+                  field-context {:this true :new-target true :super-property true}
+                  constructor-context (assoc method-context :super-call (some? heritage))
+                  base (when (some? heritage) (expression! heritage imports functions self-env (inc depth) nodes args-length))
+                  constructor (when (some? ctor)
+                                (shape! ctor ["params" "rest" "body"])
+                                (class-signature! ctor imports functions self-env (inc depth) nodes constructor-context))
+                  checked-members
+                  (mapv (fn [m]
+                          (when-not (boolean? (get m "static")) (fail! :mithril.native-js/shape "Class static flag must be boolean"))
+                          (let [kind (get m "kind") key (expression! (get m "key") imports functions self-env (inc depth) nodes args-length)]
+                            (if (= kind "field")
+                              (do (shape! m ["kind" "key" "static" "value"])
+                                  {:kind :field :key key :static (get m "static")
+                                   :value (expression! (get m "value") imports functions self-env (inc depth) nodes field-context)})
+                              (do
+                                (when-not (contains? #{"method" "get" "set"} kind) (fail! :mithril.native-js/shape "Unknown class member kind"))
+                                (shape! m ["kind" "key" "static" "params" "rest" "body"])
+                                (let [signature (class-signature! m imports functions self-env (inc depth) nodes method-context)]
+                                  (when (or (and (= kind "get") (or (seq (:params signature)) (some? (:rest signature))))
+                                            (and (= kind "set") (or (not= 1 (count (:params signature))) (some? (:rest signature)))))
+                                    (fail! :mithril.native-js/shape "Invalid accessor parameter list"))
+                                  (assoc signature :kind (keyword kind) :key key :static (get m "static"))))))) members)]
+              {:op :native-class :name name :extends base :constructor constructor :members checked-members})))
       "Let"
       (do (shape! expr ["@type" "bindings" "body"])
           (let [bindings (get expr "bindings")]
@@ -394,6 +480,18 @@
 (defn- quoted [s] (js/JSON.stringify s))
 (defn- fresh [counter prefix] (str prefix "v" (swap! counter inc)))
 
+(declare emit-expression)
+(defn- emit-class-signature [signature imports functions env counter prefix context]
+  (let [params (mapv (fn [_] (fresh counter prefix)) (:params signature))
+        rest-symbol (when (some? (:rest signature)) (fresh counter prefix))
+        body-env (cond-> (into env (zipmap (:params signature) params)) rest-symbol (assoc (:rest signature) rest-symbol))
+        param-source (map-indexed
+                      (fn [i symbol] (if (contains? (:defaults signature) i)
+                                       (str symbol "=" (emit-expression (get (:defaults signature) i) imports functions body-env counter prefix context)) symbol)) params)
+        param-source (cond-> (vec param-source) rest-symbol (conj (str "..." rest-symbol)))]
+    (str "(" (str/join "," param-source) "){return "
+         (emit-expression (:body signature) imports functions body-env counter prefix context) ";}")))
+
 (defn- emit-expression [expr imports functions env counter prefix args-length]
   (let [emit #(emit-expression % imports functions env counter prefix args-length)
         args #(str/join "," (map emit %))]
@@ -418,6 +516,10 @@
       :arguments-length "arguments.length"
       :this "this"
       :new-target "new.target"
+      :super-get (str "super[" (emit (:key expr)) "]")
+      :super-set (str "(super[" (emit (:key expr)) "]=" (emit (:value expr)) ")")
+      :super-call (str "super(" (str/join "," (map #(str (when (= :spread (:kind %)) "...") (emit (:value %))) (:items expr))) ")")
+      :super-method (str "super[" (emit (:key expr)) "](" (str/join "," (map #(str (when (= :spread (:kind %)) "...") (emit (:value %))) (:items expr))) ")")
       :unary (str "(" (:operator expr) " " (emit (:value expr)) ")")
       :binary (str "(" (emit (:left expr))
                    (if (contains? #{"in" "instanceof" "+" "-" "%" "<" "<=" "*" "/"} (:operator expr))
@@ -429,6 +531,7 @@
                                           (:entries expr))) "})")
       :spread (str "({..." (emit (:value expr)) "})")
       :object-spreads (str "({" (str/join "," (map #(str "..." (emit %)) (:values expr))) "})")
+      :update (str "(" (when (:prefix expr) (:operator expr)) "(" (emit (:object expr)) ")[" (emit (:key expr)) "]" (when-not (:prefix expr) (:operator expr)) ")")
       :set (str "((" (emit (:object expr)) ")[" (emit (:key expr)) "]=" (emit (:value expr)) ")")
       :for-of (let [symbol (fresh counter prefix)
                     body-env (assoc env (:binding expr) symbol)]
@@ -477,6 +580,22 @@
         ;; Suppress incidental helper-variable name inference. Explicit computed
         ;; property inference retains the native SetFunctionName operation.
         (str (if (:infer-name expr) "(" "(0,(") source (if (:infer-name expr) ")" "))")))
+      :native-class
+      (let [self-env (cond-> env (some? (:name expr)) (assoc (:name expr) (:name expr)))
+            method-context {:function true :this true :new-target true :super-property true}
+            field-context {:this true :new-target true :super-property true}
+            ctor-context (assoc method-context :super-call (some? (:extends expr)))
+            header (str "class" (when (some? (:name expr)) (str " " (:name expr)))
+                        (when (some? (:extends expr)) (str " extends " (emit-expression (:extends expr) imports functions self-env counter prefix args-length))))
+            ctor (when (:constructor expr) (str "constructor" (emit-class-signature (:constructor expr) imports functions self-env counter prefix ctor-context)))
+            members (mapv (fn [m]
+                            (let [key (emit-expression (:key m) imports functions self-env counter prefix args-length)
+                                  member-prefix (str (when (:static m) "static ") (when (contains? #{:get :set} (:kind m)) (str (name (:kind m)) " ")) "[" key "]")]
+                              (if (= :field (:kind m))
+                                (str member-prefix "=" (emit-expression (:value m) imports functions self-env counter prefix field-context) ";")
+                                (str member-prefix (emit-class-signature m imports functions self-env counter prefix method-context))))) (:members expr))
+            source (str header "{" ctor (apply str members) "}")]
+        (str (if (:infer-name expr) "(" "(0,(") source (if (:infer-name expr) ")" "))")))
       :let (loop [todo (:bindings expr) env env statements []]
              (if-let [b (first todo)]
                (let [value (emit-expression (:value b) imports functions env counter prefix args-length)
@@ -501,7 +620,7 @@
 
 (defn- emit-checked [checked factory public? check-grants?]
   (let [named-functions (concat (:functions checked)
-                                (filter #(and (map? %) (string? (:name %)) (contains? #{:local-function :native-function} (:op %)))
+                                (filter #(and (map? %) (string? (:name %)) (contains? #{:local-function :native-function :native-class} (:op %)))
                                         (tree-seq coll? seq checked)))
         prefix (loop [p "__mithril_native_"]
                  (if (some #(str/starts-with? (:name %) p) named-functions)
