@@ -1,0 +1,58 @@
+(ns mithril.native-mutable-parameters-test
+  (:require [cljs.test :refer [deftest is]] [mithril.native-js :as native] [mithril.form :as form]
+            [mithril.native-class-test :as c] [mithril.native-esm-test :as e]
+            ["node:fs" :as fs] ["node:os" :as os] ["node:path" :as path] ["node:child_process" :as child]))
+(defn setx [n value] {"@type" "LocalSet" "name" n "value" value})
+(defn refused? [expr] (try (native/compile-document (c/document expr [])) false (catch :default _ true)))
+(deftest explicit-native-parameter-mutability-admission
+  (let [p (assoc (c/param "value") "mutable" true) set (setx "value" c/undef)
+        normal (assoc (c/normal set) "params" [p])
+        method (c/member "method" false (c/lit "write") [p] nil set)
+        arrow (assoc (c/arrow set) "params" [{"name" "value" "mutable" true}])
+        bad (vec (concat
+             (for [flag [false nil 1 "true"]]
+               (assoc normal "params" [(assoc p "mutable" flag)]))
+             (for [flag [false nil 1 "true"]]
+               (assoc arrow "params" [{"name" "value" "mutable" flag}]))
+             [(assoc normal "params" [(c/param "value")])
+              (assoc arrow "params" ["value"])
+              (assoc normal "params" [(assoc p "extra" true)])
+              (assoc normal "params" [p p])
+              (assoc normal "params" [p] "body" (assoc (c/normal set) "params" [(c/param "value")]))
+              (assoc arrow "body" (assoc (c/arrow set) "params" ["value"]))
+              (assoc normal "body" (setx "value" {"@type" "HostAwait" "value" c/undef}))
+              (assoc normal "body" (setx "value" {"@type" "HostYield" "value" c/undef}))
+              (assoc normal "params" [(assoc p "default" {"@type" "HostAwait" "value" c/undef})] "async" true)
+              (assoc arrow "params" [{"name" "value" "mutable" true "default" {"@type" "HostAwait" "value" c/undef}}] "async" true)
+              (c/klass "Box" nil nil [(assoc method "params" [(c/param "value")])])
+              (assoc arrow "params" [{"array" ["value" "value"] "mutable" true}])
+              {"@type" "HostForOf" "iterable" (c/arr) "binding" {"array" ["value"] "mutable" true} "body" set "result" c/undef}]))
+        good [normal arrow (c/klass "Box" nil (c/signature [p] nil set) [method])
+              (assoc normal "body" (c/arrow set))
+              (assoc normal "params" [(assoc p "default" set)])
+              (assoc arrow "params" [{"array" ["value"] "mutable" true}])
+              (assoc normal "async" true "body" (setx "value" {"@type" "HostAwait" "value" c/undef}))
+              (assoc normal "generator" true "body" (setx "value" {"@type" "HostYield" "value" c/undef}))]]
+    (is (and (= 21 (count bad)) (every? refused? bad)))
+    (is (every? (complement refused?) good))
+    (is (= (:source (native/compile-document (c/document (assoc (c/normal c/undef) "params" [(c/param "value")]) [])))
+           (:source (native/compile-document (c/document (assoc (c/normal c/undef) "params" [(assoc (c/param "value") "mutable" false)]) [])))))))
+(deftest native-mutable-parameters-actual-cli
+  (let [text (fs/readFileSync "examples/native-js-mutable-parameters.mith" "utf8")
+        checked (native/check-text text) dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-mutable-parameters-"))]
+    (is (= (native/compile-text text) (native/compile-document (form/parse text))))
+    (is (= 13 (count (:exports checked))))
+    (try
+      (let [engine (.-MITHRIL_NATIVE_ENGINE js/process.env) config (path/join dir "offline.edn")]
+        (fs/writeFileSync config "{:paths [\"src\"]}\n")
+        (doseq [target ["js" "js-browser"]]
+          (e/result! [engine "--config" config "-cp" "src" "bin/mithril-native-js.cljk" "examples/native-js-mutable-parameters.mith" "--target" target "--output" (path/join dir (str target ".mjs"))])
+          (let [manifest {"@type" "NativeJsEsmPackage" "name" "mutable.parameters" "imports" ["JSON"]
+                          "modules" [{"name" "cordis.mutableParameters" "source" "source.mith" "dependencies" [] "links" []}]
+                          "reexports" ["cordis.mutableParameters"]} input (path/join dir (str target "-input.mith"))]
+            (fs/writeFileSync (path/join dir "source.mith") text)
+            (fs/writeFileSync input (e/source-form manifest))
+            (e/cli! engine config input target (path/join dir (str target "-esm"))))))
+      (let [r (child/spawnSync js/process.execPath (clj->js ["test/fixtures/mutable-parameters/contract.mjs" dir]) #js {:encoding "utf8" :timeout 30000})]
+        (is (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r)))
+      (finally (fs/rmSync dir #js {:recursive true :force true})))))

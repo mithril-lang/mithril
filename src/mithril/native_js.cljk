@@ -41,11 +41,14 @@
 (defn- params! [params]
   (vector! params 64)
   (let [names (mapv (fn [p]
-                     (shape! p (if (contains? p "default") ["name" "datatype" "default"] ["name" "datatype"]))
+                     (optional-flag! p (cond-> ["name" "datatype"] (contains? p "default") (conj "default")) "mutable")
                      (when-not (= "js-value" (get p "datatype"))
                        (fail! :mithril.native-js/type "Native JS parameters use js-value"))
                      (name! (get p "name"))) params)]
     (unique! names) names))
+(defn- parameter-env [locals params names rest-name]
+  (cond-> (into locals (map (fn [p name] [name (true? (get p "mutable"))]) params names))
+    (some? rest-name) (assoc rest-name false)))
 (defn- literal! [value]
   (when-not (or (nil? value) (string? value) (boolean? value)
                 (and (number? value) (js/Number.isFinite value)))
@@ -56,12 +59,14 @@
     {:op :name :names [(name! p)]}
     (let [array? (contains? p "array")
           fields (if array? ["array"] ["name"])]
-      (shape! p (cond-> fields (contains? p "default") (conj "default")))
+      (optional-flag! p (cond-> fields (contains? p "default") (conj "default")) "mutable")
       (if array?
         (let [names (get p "array")]
           (vector! names 64)
-          {:op :array :names (mapv name! names)})
-        {:op :name :names [(name! (get p "name"))]}))))
+          (cond-> {:op :array :names (mapv name! names)}
+            (contains? p "mutable") (assoc :mutable (get p "mutable"))))
+        (cond-> {:op :name :names [(name! (get p "name"))]}
+          (contains? p "mutable") (assoc :mutable (get p "mutable")))))))
 
 (defn- regexp! [pattern flags]
   (when-not (and (string? pattern) (string? flags))
@@ -106,7 +111,7 @@
     (let [names-with-rest (cond-> names (some? rest-name) (conj rest-name))
           _ (unique! names-with-rest)
           _ (coroutine-bindings! names-with-rest context)
-          env (into locals (zipmap names-with-rest (repeat false)))
+          env (parameter-env locals params names rest-name)
           defaults (into {} (keep-indexed
                             (fn [i p] (when (contains? p "default")
                                         [i (expression! (get p "default") imports functions env (inc depth) nodes (suspension-context context false false))])) params))]
@@ -392,7 +397,8 @@
               (when (contains? reserved rest-name) (fail! :mithril.native-js/name "Reserved arrow rest binding")))
             (let [patterns (mapv pattern! params)
                   names (cond-> (vec (mapcat :names patterns)) (some? rest-name) (conj rest-name))
-                  env (into locals (zipmap names (repeat false)))
+                  env (cond-> (into locals (mapcat (fn [pattern] (map #(vector % (true? (:mutable pattern))) (:names pattern))) patterns))
+                        (some? rest-name) (assoc rest-name false))
                   patterns (mapv (fn [pattern p]
                                    (if (and (map? p) (contains? p "default"))
                                      (assoc pattern :default (expression! (get p "default") imports functions env (inc depth) nodes (value-context (suspension-context args-length false false))))
@@ -416,7 +422,7 @@
                   _ (unique! all-names)
                   _ (coroutine-bindings! all-names (suspension-context true (get expr "async") (get expr "generator")))
                   self-env (cond-> locals (some? name) (assoc name false))
-                  body-env (into self-env (zipmap all-names (repeat false)))
+                  body-env (parameter-env self-env params names rest-name)
                   defaults (into {} (keep-indexed
                                       (fn [i p]
                                         (when (contains? p "default")
@@ -606,7 +612,7 @@
             module-env (:env checked-bindings)
             checked-functions
             (mapv (fn [f d]
-                    (let [env (into module-env (zipmap (:params d) (repeat false)))
+                    (let [env (parameter-env module-env (get f "params") (:params d) nil)
                           defaults (into {} (keep-indexed
                                              (fn [i p]
                                                (when (contains? p "default")
