@@ -1,0 +1,25 @@
+name: Native JS host module
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  native-js-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: kotoba-lang/org-babashka-nbb
+          ref: 829f0ba11016e925001d80e51f12848c4ad58112
+          path: .test-engine
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24.21.0'
+      - name: Install pinned bootstrap runtime dependency without build scripts
+        run: npm install --prefix .test-engine --omit=dev --ignore-scripts --no-audit --no-fund --package-lock=false --no-save import-meta-resolve@4.1.0
+      - name: Check the native JS source namespace and actual paired runtime cases
+        run: node scripts/test-native-js.mjs --engine .test-engine/cli.js

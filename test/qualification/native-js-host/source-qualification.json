@@ -1,0 +1,66 @@
+{
+  "stage": "operator-authored native JS host backend candidate; not restricted guest/Q9 migration",
+  "baseline": "643af7648086d03d107f304f6e7047311bde9f73",
+  "dependency_image": "sha256:4b95fd6683bb82364f70e799b4507e61d3834f86068da9ee8f05cdabe0195772",
+  "registered_maintained": {
+    "tests": 74,
+    "assertions": 391,
+    "failures": 0,
+    "errors": 0,
+    "node": "v24.21.0",
+    "network": "none",
+    "read_only_source": true,
+    "forbidden_jvm_marker": false
+  },
+  "new_feature": {
+    "tests": 9,
+    "assertions": 40
+  },
+  "native_js_runtime": {
+    "opaque_capture_calls": 100000,
+    "opaque_proxy_property_or_prototype_reads": 0,
+    "deferred_callback": true,
+    "reentrant_callback": true,
+    "thrown_values": "6 exact identities incl NaN and stack-like RangeError",
+    "runtime": "native JS; no guest word arena/fuel"
+  },
+  "actual_map_values": {
+    "baseline_ts_source_sha256": "117617943074ea57c15f216905dacd2f6d1c4c2ff16586f97a7a7a87dbf2141f",
+    "baseline_transpiled_sha256": "1bc8cfd971ad220437dc6d4de235c8dd5587084eefc61e4aa8c92c23de72edd0",
+    "generated_artifact_sha256": "5420bbe2a9932b27141280438674906d4d72c7941477690f37201a4eb1b72191",
+    "same_verifier_cases_each": 24,
+    "repeated_calls_each": 2000,
+    "native_callback_metadata_and_iterator_close": true,
+    "captured_ts_function_delegation": false,
+    "whole_cosmokit": false,
+    "additional_paired_case": "live global Object binding replacement during fromEntries lookup",
+    "constructible_callback_mutant": "same verifier refuses with AssertionError, exit1"
+  },
+  "targets": {
+    "js": "CLI and Node runtime qualified",
+    "js-browser": "same source, CLI and Node runtime only",
+    "cljs_wasm32_browser_x86_64": "CLI65 no output; not supported by native backend"
+  },
+  "normal_amu_consumption": false,
+  "native_selfhost": false,
+  "whole_component_q9": false,
+  "whole_harness_api_plugin_parity": false,
+  "system_one_model_attempt": false,
+  "authorship": "operator",
+  "ci": "new native-js-source workflow registered; exact-head run pending",
+  "baseline_retained": {
+    "tests": 65,
+    "assertions": 351,
+    "failures": 0,
+    "errors": 0,
+    "execution": "same frozen offline dependency image; published source archive"
+  },
+  "ci_scope": {
+    "engine": "829f0ba11016e925001d80e51f12848c4ad58112",
+    "node": "24.21.0",
+    "runtime_dependency": "import-meta-resolve@4.1.0",
+    "tests": 9,
+    "assertions": 40,
+    "retained_module_suite": "local frozen image, not source CI"
+  }
+}

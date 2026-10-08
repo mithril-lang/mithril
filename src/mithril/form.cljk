@@ -36,7 +36,8 @@
    'mithril/stack "Stack"
    'mithril/twin-run "TwinRun"
    'mithril/cluster "Cluster"
-   'mithril/module "Module"})
+   'mithril/module "Module"
+   'mithril/native-js-module "NativeJsModule"})
 
 (def ^:private nested-tags
   #{'mithril/choice 'mithril/export 'mithril/import 'mithril/route
@@ -70,7 +71,13 @@
    'mithril/function-type "FunctionType"
    'mithril/lambda "Lambda"
    'mithril/invoke "Invoke"
-   'mithril/function-ref "FunctionRef"})
+   'mithril/function-ref "FunctionRef"
+   'mithril/host-import "HostImport"
+   'mithril/host-get "HostGet"
+   'mithril/host-invoke "HostInvoke"
+   'mithril/host-method "HostMethod"
+   'mithril/host-array "HostArray"
+   'mithril/native-lambda "NativeLambda"})
 
 (def ^:private key-names
   {:id "@id"
@@ -382,6 +389,8 @@
                                 "https://mithril.fund/context/twin/v1"
                                 (= tag 'mithril/module)
                                 "https://mithril.fund/context/module/v1"
+                                (= tag 'mithril/native-js-module)
+                                "https://mithril.fund/context/native-js-module/v1"
                                 :else "https://mithril.fund/context/v1")
                   "@type" (get top-level-tags tag))
 

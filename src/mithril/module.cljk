@@ -270,7 +270,9 @@
             (some map? exports)
             (assoc :export-targets (into {} (map (juxt :name :target) checked-exports))))))))))
 
-(defn- source-budget! [text]
+(defn check-source-text!
+  "Refuse oversized or excessively nested inert module source before Form parsing."
+  [text]
   (when-not (string? text)
     (fail! :mithril.module/invalid-shape "Module text must be a string"))
   (when (> (count text) 262144)
@@ -293,5 +295,5 @@
         :else (recur (next chars) depth false false false)))))
 
 (defn check-text [text]
-  (source-budget! text)
+  (check-source-text! text)
   (check-document (form/parse text)))
