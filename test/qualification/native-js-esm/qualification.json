@@ -1,0 +1,55 @@
+{
+  "format": "mithril.native-esm-qualification/v1",
+  "source_tests": 46,
+  "source_assertions": 174,
+  "runtime_groups": {
+    "native_esm_reference_graphs": 18,
+    "new_profile_cosmokit_per_target": 15,
+    "new_profile_reflect_per_target": 44,
+    "new_profile_reflect_total": 88
+  },
+  "refusals": {
+    "admission": 37,
+    "cli": 5
+  },
+  "actual_cli_targets": [
+    "js",
+    "js-browser"
+  ],
+  "execution_host": "Node/Node VM",
+  "full_dependency_leaves": {
+    "modules": 10,
+    "public_names": 57,
+    "core_scc_ported": false,
+    "logger_behavioral_profile": "retained factory controls; new-profile source compiles and initializes"
+  },
+  "retained": {
+    "package_exports": 40,
+    "package_groups_per_target": 15,
+    "frozen_leaf_artifacts": 7,
+    "type_nodes": 446,
+    "strict_type_positive_per_target": 10,
+    "strict_type_negative_per_target": 12,
+    "type_profile": "existing package; new-profile declaration packaging pending"
+  },
+  "system_one": {
+    "new_inferences": 0,
+    "repairs": 0,
+    "model_code_adoption": false
+  },
+  "source_sha256": {
+    "src/mithril/native_js.cljk": "d8587be65a2a2dfb7a1c8a71dfaad507ac30ea0283e0f2d7234acfa4d0da5ad3",
+    "src/mithril/native_package.cljk": "63d015f4ebdaf359059cf58fc2632e3454fe14ef040f7946b2951c07caf2d352",
+    "src/mithril/native_esm.cljk": "f5e21eda03e0e5965ac91c2a2f75eddfa9cedb9d17a03268bfd1063dacf559cb",
+    "src/mithril/form.cljk": "aa5f1efe150595e8493f415df5347304e9b48b7d1f95d12ecfdaeaf44f5c9827",
+    "bin/mithril-native-esm.cljk": "e36179184bf83279445fb5f9f6e1a46f32ee4691992b3280c6f0ce9010489249",
+    "examples/native-js-cosmokit-index.mith": "ea1cd38bf0de28761bdac36da6183bab4812054a41923a3a3bf3eeb0d9f842fa",
+    "examples/native-js-cosmokit-esm.mith": "35da97c7d43a56ccfb1ff2144a5ffae64b53a0213d063845c257a60b24c93cf8",
+    "examples/native-js-cordis-leaves-esm.mith": "0304c681da929d90ead5c2b2014a8691dba6892dd2518511241a98459d8379c5",
+    "test/mithril/native_esm_test.cljk": "d206ea5cae45c7851f1b61cd727ed99f91e86f19a8bfb19214b2b0ffbc2c7251",
+    "test/fixtures/native-esm/contract.mjs": "da6b10ad979d877a49f5390ddc7a0ccdb31f61b45f10a186c2518c7535dfa3e7",
+    "test/fixtures/native-reflect-contract.mjs": "841c2023cffa10c8320f94a5ac505760f1877639ce9627860416433628276e09",
+    "test/fixtures/cosmokit-package/contract.mjs": "951cb68ed7af461501aef3dfa4623d102ea0c6a6275d432cd1593e9df7437e6b"
+  },
+  "scope": "Real native ESM linking and complete dependency leaves; actual core SCC/source lifecycle, multi-file declarations, full Harness parity, provider/browser/native/Q9 and org delivery destination pending."
+}

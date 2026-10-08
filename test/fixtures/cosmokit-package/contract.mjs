@@ -3,7 +3,7 @@ import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
 import {resolve,dirname,basename} from 'node:path';
 import {pathToFileURL,fileURLToPath} from 'node:url';
-const [oracle,candidate]=process.argv.slice(2);if(!oracle||!candidate)throw Error('usage: contract <original-index.js> <compiled-library.mjs>');
+const [oracle,candidate,mode]=process.argv.slice(2);if(!oracle||!candidate)throw Error('usage: contract <original-index.js> <compiled-library.mjs>');
 async function load(file,buffer=false){
  const c=vm.createContext({btoa,atob,...(buffer?{Buffer}:{} )});
  vm.runInContext(`globalThis.initTrace=[];
@@ -20,7 +20,7 @@ async function load(file,buffer=false){
   const m=new vm.SourceTextModule(readFileSync(file,'utf8'),{context:c,identifier:pathToFileURL(file).href});cache.set(file,m);return m;
  };
  const entry=module(file),base=resolve(dirname(file));
- await entry.link((specifier,ref)=>{assert.match(specifier,/^\.\/[a-z]+\.js$/);const resolved=resolve(dirname(fileURLToPath(ref.identifier)),specifier);assert.equal(dirname(resolved),base);return module(resolved);});await entry.evaluate({timeout:2000});
+ await entry.link((specifier,ref)=>{assert.match(specifier,mode==='--native-esm'?/^(?:\.\/[a-z]+\.js|\.\/module-[0-9]+\.mjs|\.\/host-globals\.mjs)$/:/^\.\/[a-z]+\.js$/);const resolved=resolve(dirname(fileURLToPath(ref.identifier)),specifier);assert.equal(dirname(resolved),base);return module(resolved);});await entry.evaluate({timeout:2000});
  return {c,api:entry.namespace,trace:vm.runInContext('initTrace.slice()',c)};
 }
 function normalize(value,seen=new Map()){

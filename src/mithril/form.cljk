@@ -39,6 +39,7 @@
    'mithril/module "Module"
    'mithril/native-js-module "NativeJsModule"
    'mithril/native-js-package "NativeJsPackage"
+   'mithril/native-js-esm-package "NativeJsEsmPackage"
    'mithril/native-js-declarations "NativeJsDeclarations"})
 
 (def ^:private nested-tags
@@ -434,6 +435,8 @@
                                 "https://mithril.fund/context/native-js-module/v1"
                                 (= tag 'mithril/native-js-package)
                                 "https://mithril.fund/context/native-js-package/v1"
+                                (= tag 'mithril/native-js-esm-package)
+                                "https://mithril.fund/context/native-js-esm-package/v1"
                                 (= tag 'mithril/native-js-declarations)
                                 "https://mithril.fund/context/native-js-declarations/v1"
                                 :else "https://mithril.fund/context/v1")

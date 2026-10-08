@@ -1,0 +1,170 @@
+(ns mithril.native-esm-test
+  (:require [cljs.test :refer [deftest is]] [clojure.string :as str] [mithril.native-esm :as esm]
+            [mithril.native-package :as package] [mithril.native-js :as native]
+            [mithril.form :as form] [mithril.native-class-test :as c]
+            ["node:fs" :as fs] ["node:os" :as os] ["node:path" :as path] ["node:child_process" :as child]))
+(def fixture "test/fixtures/native-esm/")
+(defn read [name] (fs/readFileSync (str fixture name ".mith") "utf8"))
+(defn sources-for [text directory]
+  (into {} (map #(vector % (fs/readFileSync (path/join directory %) "utf8")) (esm/source-basenames text))))
+(defn result! [args]
+  (let [r (child/spawnSync js/process.execPath (clj->js args) #js {:encoding "utf8" :timeout 30000})]
+    (when-not (= 0 (.-status r)) (throw (js/Error. (str (.-stdout r) (.-stderr r))))) r))
+(defn cli! [engine config input target output]
+  (let [r (result! [engine "--config" config "-cp" "src" "bin/mithril-native-esm.cljk" input "--target" target "--output-directory" output])]
+    (js->clj (js/JSON.parse (.-stdout r)))))
+(defn save! [directory label artifact]
+  (fs/writeFileSync (path/join directory (str label ".json")) (js/JSON.stringify (clj->js artifact))))
+(defn source-form [value]
+  (cond
+    (map? value)
+    (let [tag (case (get value "@type")
+                "NativeJsEsmPackage" "mithril/native-js-esm-package" "NativeJsModule" "mithril/native-js-module" "Function" "mithril/function"
+                "Literal" "mithril/literal" "Local" "mithril/local" "FunctionRef" "mithril/function-ref"
+                "HostGet" "mithril/host-get" "HostImport" "mithril/host-import" "HostInvoke" "mithril/host-invoke"
+                "HostBinary" "mithril/host-binary" "LocalSet" "mithril/local-set"
+                "NativeClass" "mithril/native-class" "HostThrow" "mithril/host-throw"
+                "HostConstruct" "mithril/host-construct" nil "rdf/node")]
+      (str "(" tag " " (str/join " " (mapcat (fn [[k v]] [(str ":" k) (source-form v)]) (dissoc value "@type" "@context"))) ")"))
+    (vector? value) (str "[" (str/join " " (map source-form value)) "]")
+    :else (pr-str value)))
+(defn star-control []
+  (let [a {"@context" "https://mithril.fund/context/native-js-module/v1" "@type" "NativeJsModule"
+           "name" "star.a" "imports" []
+           "bindings" [{"name" "value" "mutable" true "value" (c/lit 7)}]
+           "functions" [{"@type" "Function" "name" "inc" "params" [] "returns" "js-value"
+                         "body" {"@type" "LocalSet" "name" "value" "value" {"@type" "HostBinary" "operator" "+" "left" (c/local "value") "right" (c/lit 1)}}}]
+           "exports" [{"name" "value" "value" (c/local "value")} {"name" "inc" "function" "inc"}
+                      {"name" "default" "value" (c/lit 3)} {"name" "shadow" "value" (c/lit 1)}]}
+        b (assoc a "name" "star.b" "imports" ["value"] "bindings" [] "functions" []
+                 "exports" [{"name" "value" "value" (c/grant "value")} {"name" "default" "value" (c/lit 4)} {"name" "shadow" "value" (c/lit 2)}])
+        c (assoc b "name" "star.c" "imports" ["firstDefault"] "exports" [{"name" "defaultCopy" "value" (c/grant "firstDefault")}])
+        doc {"@context" "https://mithril.fund/context/native-js-esm-package/v1" "@type" "NativeJsEsmPackage"
+             "name" "stars" "imports" [] "reexports" ["star.a" "star.b" "star.c"]
+             "modules" [{"name" "star.a" "source" "a.mith" "dependencies" [] "links" []}
+                        {"name" "star.b" "source" "b.mith" "dependencies" ["star.a"] "links" [{"import" "value" "module" "star.a" "export" "value"}]}
+                        {"name" "star.c" "source" "c.mith" "dependencies" ["star.a"] "links" [{"import" "firstDefault" "module" "star.a" "export" "default"}]}]}]
+    (esm/compile-document doc {"a.mith" (source-form a) "b.mith" (source-form b) "c.mith" (source-form c)})))
+(deftest checked-live-native-esm
+  (let [text (read "cycle") doc (form/parse text) sources (sources-for text fixture)
+        artifact (esm/compile-text text sources) a (form/parse (read "a")) b (form/parse (read "b"))
+        bad [(assoc doc "source" "raw JS") (assoc doc "@context" "wrong") (assoc doc "@type" "NativeJsPackage")
+             (assoc doc "modules" []) (assoc doc "reexports" []) (assoc doc "imports" [])
+             (assoc doc "imports" ["record" "extra"]) (assoc doc "imports" ["record" "record"])
+             (assoc doc "reexports" ["missing"]) (assoc doc "reexports" ["a" "a"])
+             (assoc-in doc ["modules" 0 "dependencies"] ["missing"])
+             (assoc-in doc ["modules" 0 "dependencies"] ["b" "b"])
+             (assoc-in doc ["modules" 0 "dependencies"] [])
+             (assoc-in doc ["modules" 0 "links" 0 "export"] "missing")
+             (assoc-in doc ["modules" 0 "links" 0 "import"] "missing")
+             (assoc-in doc ["modules" 0 "links" 0 "source"] "raw JS")
+             (update-in doc ["modules" 0 "links"] conj (get-in doc ["modules" 0 "links" 0]))
+             (update doc "modules" conj (first (get doc "modules")))
+             (assoc-in doc ["modules" 1 "source"] "a.mith")
+             (assoc-in doc ["modules" 0 "source"] "../secret.mith")
+             (assoc-in doc ["modules" 0 "source"] "https://host/a.mith")
+             (assoc-in doc ["modules" 0 "source"] "source.js")
+             (assoc doc "modules" (vec (repeat 65 (first (get doc "modules")))))
+             (assoc-in doc ["modules" 0 "dependencies"] (vec (repeat 65 "b")))]
+        refused? (fn [f] (try (f) false (catch :default _ true)))
+        dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-native-esm-"))]
+    (is (and (= artifact (esm/compile-document doc sources))
+             (= :native-esm (:profile artifact)) (= "index.mjs" (:entry artifact))
+             (= #{"module-0.mjs" "module-1.mjs" "host-globals.mjs" "index.mjs"} (set (keys (:files artifact))))))
+    (is (and (every? #(refused? (fn [] (esm/compile-document % sources))) bad)
+             (every? #(refused? (fn [] (esm/compile-document doc %)))
+                     [(dissoc sources "b.mith") (assoc sources "extra.mith" (read "a"))
+                      (assoc sources "a.mith" "export const source=1;")
+                      (assoc sources "a.mith" (apply str (repeat 1048577 "x")))])
+             (refused? #(package/check-document
+                          (-> doc (assoc "@type" "NativeJsPackage" "@context" "https://mithril.fund/context/native-js-package/v1")
+                              (update "modules" (fn [ms] (mapv (fn [m] (dissoc m "dependencies")) ms)))) sources))
+             (refused? #(native/compile-esm-document a [{"import" "readB" "export" "readB" "source" "../source.mjs"}] ["../source.mjs"]))
+             (refused? #(native/compile-esm-document a [] ["./module-0.mjs" "./module-0.mjs"]))
+             (refused? #(native/compile-esm-document a [{"import" "missing" "export" "readB" "source" "./module-0.mjs"}] ["./module-0.mjs"]))
+             (refused? #(native/compile-esm-document a [{"import" "readB" "export" "readB" "source" "./module-0.mjs"}] []))
+             (refused? #(native/compile-esm-document (assoc-in b ["bindings" 1 "name"] "await") [] []))
+             (refused? #(native/compile-esm-document
+                          (assoc-in a ["bindings" 0 "value"] (assoc (c/normal (c/grant "readB")) "name" "readB"))
+                          [{"import" "readB" "export" "readB" "source" "./module-0.mjs"}] ["./module-0.mjs"]))
+             (refused? #(native/compile-esm-document
+                          (assoc-in a ["bindings" 0 "value"] (assoc (c/normal {"@type" "FunctionRef" "name" "readA"}) "name" "readA")) [] []))
+             (refused? #(esm/compile-document
+                          {"@context" "https://mithril.fund/context/native-js-esm-package/v1" "@type" "NativeJsEsmPackage"
+                           "name" "aliascycle" "imports" [] "reexports" ["a"]
+                           "modules" [{"name" "a" "source" "a.mith" "dependencies" ["b"] "links" [{"import" "x" "module" "b" "export" "x"}]}
+                                      {"name" "b" "source" "b.mith" "dependencies" ["a"] "links" [{"import" "x" "module" "a" "export" "x"}]}]}
+                          (into {} (map (fn [name]
+                                          [ (str name ".mith") (source-form {"@type" "NativeJsModule" "name" name "imports" ["x"] "functions" [] "exports" [{"name" "x" "value" (c/grant "x")} ]})]) ["a" "b"]))))))
+    (try
+      (save! dir "cycle" artifact)
+      (save! dir "stars" (star-control))
+      (let [serialize source-form
+            ;; Serialize checked fixture variants back into inert source forms.
+            tdz (assoc-in b ["bindings" 0 "value"] (c/grant "count"))
+            class-tdz (assoc-in b ["bindings" 0 "value"] (c/klass "B" (c/grant "A") nil []))
+            class-doc (update-in doc ["modules" 1 "links"] conj {"import" "A" "module" "a" "export" "A"})
+            class-source (update class-tdz "imports" conj "A")
+            thrown (assoc-in b ["bindings" 0 "value"] {"@type" "HostThrow" "value" {"@type" "HostConstruct" "constructor" (c/grant "Error") "args" [(c/lit "source initialization failure")]}})
+            throw-source (update thrown "imports" conj "Error")]
+        (save! dir "tdz" (esm/compile-document doc (assoc sources "b.mith" (serialize tdz))))
+        (save! dir "class-tdz" (esm/compile-document class-doc (assoc sources "b.mith" (serialize class-source))))
+        (save! dir "throw" (esm/compile-document (assoc doc "imports" ["record" "Error"]) (assoc sources "b.mith" (serialize throw-source))))
+        (save! dir "reverse" (esm/compile-document (assoc doc "reexports" ["b" "a"]) sources))
+        ;; A hoisted declaration can use a host capability even while its first
+        ;; source dependency is still evaluating the back edge.
+        (let [host-a (-> a (update "imports" conj "Math")
+                         (assoc-in ["functions" 0 "body"] (c/call (c/getp (c/grant "Math") "max") (c/lit 7) (c/lit 1))))
+              host-b (-> b (update "imports" (fn [xs] (vec (remove #{"record"} xs))))
+                         (update "bindings" (fn [xs] (vec (remove #(= "mark" (get % "name")) xs)))))]
+          (save! dir "host-hoist" (esm/compile-document (assoc doc "imports" ["record" "Math"])
+                                                      {"a.mith" (serialize host-a) "b.mith" (serialize host-b)}))))
+      (let [ordered (read "ordered")]
+        (save! dir "ordered" (esm/compile-text ordered (sources-for ordered fixture))))
+      (let [engine (.-MITHRIL_NATIVE_ENGINE js/process.env) config (path/join dir "offline.edn")]
+        (fs/writeFileSync config "{:paths [\"src\"]}\n")
+        (doseq [target ["js" "js-browser"]]
+          (let [output (path/join dir (str "cycle-" target)) result (cli! engine config (str fixture "cycle.mith") target output)]
+            (when-not (= (get result "exports") (:exports artifact)) (throw (js/Error. "CLI export mismatch")))
+            (doseq [[name contents] (:files artifact)]
+              (when-not (= contents (fs/readFileSync (path/join output name) "utf8")) (throw (js/Error. "CLI artifact mismatch"))))))
+        ;; Existing output, invalid graph and symlink leaf leave owned sentinels intact.
+        (let [output (path/join dir "sentinel") manifest (path/join dir "package.mith")]
+          (fs/mkdirSync output) (fs/writeFileSync (path/join output "keep") "preserve")
+          (doseq [[file target] [[(str fixture "cycle.mith") "amu"] ["does-not-exist.mith" "js"] [(str fixture "cycle.mith") "js"]]]
+            (let [r (child/spawnSync js/process.execPath (clj->js [engine "--config" config "-cp" "src" "bin/mithril-native-esm.cljk" file "--target" target "--output-directory" output]) #js {:encoding "utf8" :timeout 30000})]
+              (when-not (= 65 (.-status r)) (throw (js/Error. "CLI refusal missing")))
+              (when-not (= ["keep"] (js->clj (fs/readdirSync output))) (throw (js/Error. "Existing output changed")))))
+          (fs/writeFileSync manifest (source-form (assoc-in doc ["modules" 0 "links" 0 "export"] "missing")))
+          (fs/writeFileSync (path/join dir "a.mith") (read "a"))
+          (fs/writeFileSync (path/join dir "b.mith") (read "b"))
+          (let [r (child/spawnSync js/process.execPath (clj->js [engine "--config" config "-cp" "src" "bin/mithril-native-esm.cljk" manifest "--target" "js" "--output-directory" (path/join dir "invalid-graph-output")]) #js {:encoding "utf8" :timeout 30000})]
+            (when-not (and (= 65 (.-status r)) (not (fs/existsSync (path/join dir "invalid-graph-output")))) (throw (js/Error. "Invalid graph wrote output"))))
+          (fs/writeFileSync manifest text) (fs/unlinkSync (path/join dir "a.mith"))
+          (fs/symlinkSync (path/resolve (str fixture "a.mith")) (path/join dir "a.mith"))
+          (fs/writeFileSync (path/join dir "b.mith") (read "b"))
+          (let [r (child/spawnSync js/process.execPath (clj->js [engine "--config" config "-cp" "src" "bin/mithril-native-esm.cljk" manifest "--target" "js" "--output-directory" (path/join dir "must-not-exist")]) #js {:encoding "utf8" :timeout 30000})]
+            (when-not (and (= 65 (.-status r)) (not (fs/existsSync (path/join dir "must-not-exist")))) (throw (js/Error. "Symlink admission/output failure"))))))
+      (let [r (child/spawnSync js/process.execPath (clj->js ["--experimental-vm-modules" "test/fixtures/native-esm/contract.mjs" dir]) #js {:encoding "utf8" :timeout 30000})]
+        (is (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r)))
+      (finally (fs/rmSync dir #js {:recursive true :force true})))))
+(deftest complete-libraries-native-esm
+  (let [text (fs/readFileSync "examples/native-js-cordis-leaves-esm.mith" "utf8")
+        sources (sources-for text "examples") artifact (esm/compile-text text sources)
+        dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-esm-libraries-"))]
+    (is (= artifact (esm/compile-document (form/parse text) sources)))
+    (is (and (= 57 (count (:exports artifact))) (= 10 (count (:module-files artifact)))))
+    (try
+      (let [engine (.-MITHRIL_NATIVE_ENGINE js/process.env) config (path/join dir "offline.edn")]
+        (fs/writeFileSync config "{:paths [\"src\"]}\n")
+        (doseq [target ["js" "js-browser"]]
+          (let [output (path/join dir target) result (cli! engine config "examples/native-js-cordis-leaves-esm.mith" target output)]
+            (fs/writeFileSync (path/join dir (str target ".json")) (js/JSON.stringify (clj->js result)))
+            (doseq [[name contents] (:files artifact)]
+              (when-not (= contents (fs/readFileSync (path/join output name) "utf8")) (throw (js/Error. "Whole leaf CLI artifact mismatch")))))
+          (let [output (path/join dir (str "cosmo-" target)) _ (cli! engine config "examples/native-js-cosmokit-esm.mith" target output)
+                r (result! ["--experimental-vm-modules" "test/fixtures/cosmokit-package/contract.mjs" "test/fixtures/cosmokit-package/index.js" (path/join output "index.mjs") "--native-esm"])]
+            (print (.-stdout r)))))
+      (let [r (child/spawnSync js/process.execPath (clj->js ["test/fixtures/native-reflect-contract.mjs" dir "--esm"]) #js {:encoding "utf8" :timeout 30000})]
+        (is (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r)))
+      (finally (fs/rmSync dir #js {:recursive true :force true})))))
