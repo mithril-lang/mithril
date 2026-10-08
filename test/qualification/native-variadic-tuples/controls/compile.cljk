@@ -1,0 +1,73 @@
+(ns compile-variadic-tuples
+ (:require [mithril.native-declaration-program :as program] [mithril.native-declarations :as declarations]
+           [mithril.native-declaration-emit :as emit] [mithril.native-esm :as esm] [clojure.string :as str]
+           ["node:fs" :as fs] ["node:os" :as os] ["node:child_process" :as child]))
+(defn ensure [p text] (when-not p (throw (js/Error. text))))
+(def engine (.-MITHRIL_DECLARATIONS_ENGINE js/process.env))
+(def compiler (.-MITHRIL_DECLARATIONS_TYPESCRIPT js/process.env))
+(def type-roots (.-MITHRIL_DECLARATIONS_TYPE_ROOTS js/process.env))
+(defn run [args] (let [r (child/spawnSync js/process.execPath (clj->js args) #js {:encoding "utf8" :timeout 240000})] (ensure (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r))))
+(defn render [v] (cond (map? v) (str "(" (case (get v "@type") "NativeJsDeclarationProgram" "mithril/native-js-declaration-program" "NativeJsDeclarationModule" "mithril/native-js-declaration-module" "NativeJsDeclarations" "mithril/native-js-declarations" "rdf/node") " " (str/join " " (for [[k x] v :when (not (str/starts-with? k "@"))] (str ":" k " " (render x)))) ")") (vector? v) (str "[" (str/join " " (map render v)) "]") (nil? v) "nil" :else (js/JSON.stringify v)))
+(def text (fs/readFileSync "examples/native-js-schemastery-tuple-program.mith" "utf8"))
+(def plan (program/read-plan text))
+(def module-text (fs/readFileSync "examples/native-js-schemastery-tuples.mith" "utf8"))
+(def module-doc (declarations/parse-text module-text))
+(def runtime-text (fs/readFileSync (str "examples/" (:runtime-source plan)) "utf8"))
+(def runtime-sources (into {} (map #(vector % (fs/readFileSync (str "examples/" %) "utf8")) (esm/source-basenames runtime-text))))
+(def runtime (esm/check-text runtime-text runtime-sources))
+(def artifact (program/compile-text text {"native-js-schemastery-tuples.mith" module-text} runtime))
+(ensure (empty? (:exports artifact)) "Tuple types invented runtime exports")
+(ensure (= 13 (count (:type-exports artifact))) "Tuple public type surface")
+(def kw {"op" "keyword" "name" "string"})
+(def arr {"op" "array" "item" kw})
+(def optional {"op" "optional-tuple-item" "datatype" kw})
+(def rest-item {"op" "rest-tuple-item" "datatype" arr})
+(def named-rest {"op" "named-tuple-item" "name" "tail" "optional" false "rest" true "datatype" arr})
+(defn tuple [items] {"op" "tuple" "items" items})
+(defn bad-alias [t] {"kind" "alias" "name" "Bad" "exported" true "type-params" [] "datatype" t})
+(defn refuse [t code]
+ (try (declarations/check-module-program [(update module-doc "declarations" conj (bad-alias t))] [] runtime "schemastery.tuples") (throw (js/Error. "Invalid tuple admitted"))
+  (catch :default e (ensure (= code (:mithril/error (ex-data e))) (str "Wrong refusal: " e)))))
+(def bads [[optional :mithril.native-declarations/type]
+           [rest-item :mithril.native-declarations/type]
+           [(tuple [(assoc optional "source" "arbitrary TS")]) :mithril.native-declarations/shape]
+           [(tuple [(assoc rest-item "rest" false)]) :mithril.native-declarations/shape]
+           [(tuple [(dissoc optional "datatype")]) :mithril.native-declarations/shape]
+           [(tuple [(assoc rest-item "datatype" {"op" "keyword" "name" "number"})]) :mithril.native-declarations/type]
+           [(tuple [(assoc rest-item "datatype" {"op" "literal" "value" "injected"})]) :mithril.native-declarations/type]
+           [(tuple [(assoc rest-item "datatype" {"op" "raw" "source" "payload"})]) :mithril.native-declarations/type]
+           [(tuple [optional kw]) :mithril.native-declarations/tuple]
+           [(tuple [optional rest-item kw]) :mithril.native-declarations/tuple]
+           [(tuple [rest-item optional]) :mithril.native-declarations/tuple]
+           [(tuple [rest-item rest-item]) :mithril.native-declarations/tuple]
+           [(tuple [optional {"op" "rest-tuple-item" "datatype" (tuple [kw])}]) :mithril.native-declarations/tuple]
+           [(tuple [rest-item {"op" "rest-tuple-item" "datatype" (tuple [optional])}]) :mithril.native-declarations/tuple]
+           [(tuple [rest-item {"op" "rest-tuple-item" "datatype" (tuple [rest-item])}]) :mithril.native-declarations/tuple]
+           [(tuple [(assoc named-rest "optional" true)]) :mithril.native-declarations/tuple]
+           [(tuple [(assoc named-rest "rest" "yes")]) :mithril.native-declarations/shape]
+           [(tuple [(assoc named-rest "name" "../attack")]) :mithril.native-declarations/name]
+           [(tuple [(assoc rest-item "datatype" {"op" "name" "name" "Missing" "args" []})]) :mithril.native-declarations/arity]
+           [(tuple [(assoc rest-item "datatype" {"op" "infer" "name" "R" "constraint" nil})]) :mithril.native-declarations/scope]
+           [(tuple [(assoc rest-item "datatype" {"op" "optional-tuple-item" "datatype" kw})]) :mithril.native-declarations/type]
+           [(tuple (vec (repeat 129 optional))) :mithril.native-declarations/budget]
+           [(nth (iterate #(tuple [{"op" "rest-tuple-item" "datatype" %}]) (tuple [kw])) 33) :mithril.native-declarations/budget]])
+(doseq [[t code] bads] (refuse t code))
+(println "Variadic tuple admission:23 exact-code shape/scope/arity/order/direct-array/rest/collection/depth refusals;wrappers are tuple-only.")
+(def legacy-doc {"@context" "https://mithril.fund/context/native-js-declarations/v1" "@type" "NativeJsDeclarations" "name" "cordis.leaves" "runtime-source" (:runtime-source plan) "ambient-types" [] "ambient-values" [] "declarations" (get module-doc "declarations")})
+(def legacy-artifact (emit/compile-document legacy-doc runtime))
+(ensure (= (set (:type-exports artifact)) (set (:type-exports legacy-artifact))) "Legacy tuple type surface")
+(ensure (empty? (:exports legacy-artifact)) "Legacy tuple runtime surface")
+(def dir (fs/mkdtempSync (str (os/tmpdir) "/mithril-variadic-tuples-")))
+(def config (str dir "/offline.edn"))
+(fs/writeFileSync config (str "{:paths [" (js/JSON.stringify (fs/realpathSync "src")) "]}"))
+(try
+ (doseq [[file source] (merge runtime-sources {(:runtime-source plan) runtime-text "legacy.mith" (render legacy-doc)})] (fs/writeFileSync (str dir "/" file) source))
+ (doseq [target ["js" "js-browser"]]
+  (let [out (str dir "/" target "-program") legacy (str dir "/" target "-legacy.d.mts")]
+   (run [engine "--config" config "--classpath" "src" "bin/mithril-native-declaration-program.cljk" "examples/native-js-schemastery-tuple-program.mith" "--target" target "--output-directory" out])
+   (doseq [[file source] (:files artifact)] (ensure (= source (fs/readFileSync (str out "/" file) "utf8")) "Program tuple CLI artifact"))
+   (run ["test/qualification/native-variadic-tuples/controls/type-contract.mjs" (str out "/index.d.mts") compiler type-roots])
+   (run [engine "--config" config "--classpath" "src" "bin/mithril-native-declarations.cljk" (str dir "/legacy.mith") "--target" target "--output" legacy])
+   (ensure (= (:source legacy-artifact) (fs/readFileSync legacy "utf8")) "Legacy tuple CLI artifact")
+   (run ["test/qualification/native-variadic-tuples/controls/type-contract.mjs" legacy compiler type-roots])))
+ (finally (fs/rmSync dir #js {:recursive true :force true})))

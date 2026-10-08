@@ -24,8 +24,10 @@
     (str (generic-text (get m "type-params")) "(" (params-text (get m "params")) "): " (emit-type (get m "returns")))
     (str ": " (emit-type (get m "datatype")))) ";")))
 (defn- tuple-item-text [t]
- (if (= "named-tuple-item" (get t "op"))
-  (str (get t "name") (when (get t "optional") "?") ": " (emit-type (get t "datatype")))
+ (case (get t "op")
+  "named-tuple-item" (str (when (get t "rest") "...") (get t "name") (when (get t "optional") "?") ": " (emit-type (get t "datatype")))
+  "optional-tuple-item" (str "(" (emit-type (get t "datatype")) ")?")
+  "rest-tuple-item" (str "..." (emit-type (get t "datatype")))
   (emit-type t)))
 (defn- emit-type [t]
  (case (get t "op")
