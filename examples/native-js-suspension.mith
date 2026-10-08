@@ -1,0 +1,52 @@
+(mithril/native-js-module
+ :name "native.suspension"
+ :imports ["mark" "Base"]
+ :functions []
+ :exports
+ [(rdf/node :name "wait"
+   :value (mithril/native-function :name nil :params [(rdf/node :name "value" :datatype "js-value")] :rest nil
+    :async true :statements true
+    :body (mithril/let :bindings [(rdf/node :name "answer" :value
+      (mithril/host-await :value (mithril/host-invoke :function (mithril/host-import :name "mark")
+       :args [(mithril/local :name "value")])))]
+      :body (mithril/host-array :items [(mithril/local :name "answer") (mithril/host-this) (mithril/host-arguments-length)]))))
+  (rdf/node :name "generate"
+   :value (mithril/native-function :name nil :params [(rdf/node :name "value" :datatype "js-value")] :rest nil
+    :generator true :statements true
+    :body (mithril/host-try-finally
+      :body (mithril/let :bindings [(rdf/node :name "resumed" :value (mithril/host-yield :value (mithril/local :name "value")))]
+       :body (mithril/host-return :value (mithril/local :name "resumed")))
+      :finally (mithril/host-invoke :function (mithril/host-import :name "mark") :args [(mithril/literal :datatype "js-value" :value "finally")]))))
+  (rdf/node :name "delegate"
+   :value (mithril/native-function :name nil :params [(rdf/node :name "values" :datatype "js-value")] :rest nil
+    :generator true :body (mithril/host-yield :delegate true :value (mithril/local :name "values"))))
+  (rdf/node :name "asyncGenerate"
+   :value (mithril/native-function :name nil :params [(rdf/node :name "value" :datatype "js-value")] :rest nil
+    :async true :generator true :statements true
+    :body (mithril/host-yield :value (mithril/host-await :value (mithril/local :name "value")))))
+  (rdf/node :name "lexical"
+   :value (mithril/native-function :name nil :params [] :rest nil
+    :body (mithril/native-lambda :params [] :async true
+      :body (mithril/host-array :items [(mithril/host-await :value (mithril/host-this)) (mithril/host-arguments-length) (mithril/host-new-target)]))))
+  (rdf/node :name "Methods"
+   :value (mithril/native-class :name "Methods" :extends (mithril/host-import :name "Base") :constructor nil
+    :members
+    [(rdf/node :kind "method" :static false :key (mithril/literal :datatype "js-value" :value "wait")
+       :params [] :rest nil :async true
+       :body (mithril/host-await :value (mithril/host-super-method :key (mithril/literal :datatype "js-value" :value "value") :items [])))
+     (rdf/node :kind "method" :static false :key (mithril/literal :datatype "js-value" :value "generate")
+       :params [] :rest nil :generator true
+       :body (mithril/host-yield :value (mithril/host-this)))
+     (rdf/node :kind "method" :static true :key (mithril/literal :datatype "js-value" :value "asyncGenerate")
+       :params [] :rest nil :async true :generator true
+       :body (mithril/host-yield :value (mithril/host-await :value (mithril/host-this))))]))
+  (rdf/node :name "computed"
+   :value (mithril/native-function :name nil :params [(rdf/node :name "key" :datatype "js-value")] :rest nil :async true
+    :body (mithril/native-class :name nil :extends (mithril/host-await :value (mithril/host-import :name "Base")) :constructor nil
+     :members [(rdf/node :kind "method" :static false :key (mithril/host-await :value (mithril/local :name "key"))
+      :params [] :rest nil :body (mithril/host-this))])))
+  (rdf/node :name "yieldKey"
+   :value (mithril/native-function :name nil :params [] :rest nil :generator true
+    :body (mithril/native-class :name nil :extends nil :constructor nil
+     :members [(rdf/node :kind "method" :static false :key (mithril/host-yield :value (mithril/literal :datatype "js-value" :value "key"))
+      :params [] :rest nil :body (mithril/host-this))])))])

@@ -1,0 +1,40 @@
+{
+  "format": "mithril.native-suspension-qualification/v1",
+  "source_tests": 38,
+  "source_assertions": 152,
+  "paired_runtime_groups": 26,
+  "actual_cli_targets": [
+    "js",
+    "js-browser"
+  ],
+  "execution_host": "Node",
+  "native_forms": [
+    "HostAwait",
+    "HostYield",
+    "NativeLambda.async",
+    "NativeClass.method.async",
+    "NativeClass.method.generator"
+  ],
+  "preservation": {
+    "package_exports": 40,
+    "runtime_groups_per_target": 15,
+    "frozen_leaf_artifacts": 7,
+    "declaration_nodes": 446,
+    "strict_type_positive_groups_per_target": 10,
+    "strict_type_negative_groups_per_target": 12
+  },
+  "system_one": {
+    "new_requests": 0,
+    "repairs": 0,
+    "adopted_model_code": false
+  },
+  "source_sha256": {
+    "src/mithril/native_js.cljk": "f20689f9661996d7f721c6a7bc8aeea44f5dce5b1044b6577c204269ab221250",
+    "src/mithril/form.cljk": "97ee026251135e9102f824553c50320711c2281124d18b2d31212d9444b51095",
+    "examples/native-js-suspension.mith": "9147f68dae719f895ecfa9dd7c3f16ea3295cb5cf414c7885c068c8c40214598",
+    "test/mithril/native_suspension_test.cljk": "07cca6579297ca3f19a25edf9ce49ff2a0c0d8cf85f5bf38ea2b6568e77520ac",
+    "test/fixtures/native-suspension-contract.mjs": "c0564f23eef8f9ca24da1005de3bf4b094aa256d06c2a544f1e69f957796cf25",
+    "test/qualification/native-js-suspension/cordis-program-runtime-graph.json": "bfc506bcd39f265db0e151e33238ab000f7642c3b586ae25e3e9e0b39b9c5e61"
+  },
+  "scope": "Native suspension prerequisite only; full reflect source, array for-of bindings/property deletion, Cordis public types/named ESM/live SCC, Schemastery, full Harness/browser/native/Q9/org destination pending."
+}

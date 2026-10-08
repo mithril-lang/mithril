@@ -25,8 +25,8 @@
             (doc (assoc base "async" true "generator" true "name" "yield") ["mark"])
             (doc (assoc base "generator" true "rest" "value") ["mark"])
             (doc (assoc base "generator" true "body" {"@type" "HostSuperCall" "items" []}) ["mark"])
-            (doc (assoc base "async" true "body" {"@type" "HostAwait" "value" (lit 0)}) ["mark"])
-            (doc (assoc base "generator" true "body" {"@type" "HostYield" "value" (lit 0)}) ["mark"])]
+            (doc (assoc base "generator" true "body" {"@type" "HostAwait" "value" (lit 0)}) ["mark"])
+            (doc (assoc base "async" true "body" {"@type" "HostYield" "value" (lit 0)}) ["mark"])]
        artifacts (into {} (for [[name flags] [["normal" {}] ["generator" {"generator" true}] ["async" {"async" true}] ["asyncGenerator" {"async" true "generator" true}]]]
                            [name (:source (native/compile-document (doc (merge base flags) ["mark"]))) ]))
        artifacts (into artifacts (for [[name flags] [["returnNormal" {}] ["returnGenerator" {"generator" true}] ["returnAsync" {"async" true}] ["returnAsyncGenerator" {"async" true "generator" true}]]]
