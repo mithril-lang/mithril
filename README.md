@@ -2237,3 +2237,16 @@ symbol/proxy/getter order and avoiding inherited setters.
 [Qualification and actual System One evaluation](test/qualification/native-js-object-spreads/README.md)
 record a rejected model change shape and the independent operator implementation.
 The whole types.ts runtime is still awaiting qualification.
+
+Current complete native runtime ports include misc, array, volatile, types,
+string and Time. `examples/native-js-time.mith` preserves all nine Time normal
+functions, six constants and initialization order using checked Mithril source.
+[Whole Time contracts and System One evaluation](test/qualification/native-js-whole-time/README.md)
+compare sixty source-derived groups under an explicit clock/timezone adapter on
+both actual CLI targets, preserve six prior artifact hashes and retain guest refusal.
+The current native source suite passes27tests/117assertions and full registered
+suite92/468; earlier counts and pending statuses above describe previous milestones.
+System One's Time trial has no terminal receipt at the saved observation and is
+unscored; the independently prequalified operator source was adopted unchanged.
+Public package index/declarations/linking and downstream Harness API/plugin/Session
+parity remain open. js-browser has Node execution evidence only.

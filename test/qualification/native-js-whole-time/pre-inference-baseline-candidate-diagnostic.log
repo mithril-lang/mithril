@@ -1,0 +1,36 @@
+----- Error --------------------------------------
+Message:  ENOENT: no such file or directory, open 'examples/native-js-time.mith'
+Location: /opt/time-controls/compile-time.cljk:2:11
+
+----- Context ------------------------------------
+1: (ns compile-time (:require [mithril.native-js :as n] [mithril.module :as g] ["node:fs" :as fs] ["node:crypto" :as crypto] ["node:child_process" :as child]))
+2: (def text (fs/readFileSync "examples/native-js-time.mith" "utf8"))
+             ^--- ENOENT: no such file or directory, open 'examples/native-js-time.mith'
+3: (def a (n/compile-text text))
+4: (when-not (= "cosmokit.time" (:module a)) (throw (js/Error. "Wrong time module")))
+5: (when-not (= #{"Time"} (set (:exports a))) (throw (js/Error. "Incomplete time exports")))
+6: (when-not (= #{"Date" "Math" "RegExp" "parseFloat"} (set (:required-imports a))) (throw (js/Error. "Unexpected time grants")))
+7: (when-not (= a (n/compile-text text)) (throw (js/Error. "Nondeterministic time artifact")))
+
+----- Stack trace --------------------------------
+compile-time - /opt/time-controls/compile-time.cljk:2:11 
+
+file:///opt/nbb/lib/nbb_main.js:13
+$APP.aH),$APP.VZ);return g.B?g.B():g.call(null)}):null).then(function(g){$APP.k($APP.k(d)?g!=null:d)&&$APP.dz.o($APP.y([g],0));return g}).catch(function(g){$APP.Dla(g,b);$APP.k($APP.ez.h(b))&&console.error(g);throw Error($APP.Hk(g));})})):console.error("Usage: "+$APP.I.h("nbb")+" \x3cscript\x3e or nbb -e \x3cexpr\x3e.")})();
+                                                                                                                                                                                                                       ^
+
+Error: ENOENT: no such file or directory, open 'examples/native-js-time.mith'
+    at file:///opt/nbb/lib/nbb_main.js:13:216
+
+Node.js v24.21.0
+file:///opt/time-controls/run-check.mjs:7
+if(existsSync(marker))throw Error('forbidden JVM launcher');if(r.error||r.status!==0)throw r.error||Error('source check failed: '+r.status);
+                                                                                                    ^
+
+Error: source check failed: 1
+    at file:///opt/time-controls/run-check.mjs:7:101
+    at ModuleJob.run (node:internal/modules/esm/module_job:561:25)
+    at async node:internal/modules/esm/loader:647:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+
+Node.js v24.21.0
