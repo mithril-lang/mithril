@@ -1,0 +1,34 @@
+{
+  "format": "mithril.native-catch-qualification/v1",
+  "qualified_at": "2026-10-08T10:55:46.829281+00:00",
+  "base_main": "80515fcdc30b44e5f148d003053fc1083f2eb670",
+  "implementation": "operator",
+  "new_model_requests": 0,
+  "model_metrics": null,
+  "source_tests": 31,
+  "source_assertions": 130,
+  "runtime_groups": 46,
+  "malformed_scope_flag_budget_refusals": 10,
+  "asynchronous_controls": 16,
+  "actual_cli_targets": [
+    "js",
+    "js-browser"
+  ],
+  "real_stack_checks": "Exact unnormalized default-supplier stack equality at shared callsite; explicit-supplier real callback frame and total line count equality. Controlled original stack-splice data equality.",
+  "source_hashes": {
+    "src/mithril/native_js.cljk": "421606e145e2213a4bfc879829d85c0ad2a3657cf9da076c673be36ca7be8c6e",
+    "src/mithril/form.cljk": "75895903c1d1d21cf543cfb0ffe2df63f4347ad7c2400476f83d3d0585cde0b6",
+    "examples/native-js-compose-error.mith": "b3b373111a08a4ecc1bb43be0f930ed8010fa3eed75c0a6c256ef4425ded23a0",
+    "test/mithril/native_catch_test.cljk": "89bfc588879e8904aa9dbab43ded366d38ddfdb6d7138e2b4ac54e6565c8e8f2",
+    "test/fixtures/native-catch-contract.mjs": "20213debd87111d08c171fe608fc2ce835103f0194eaa2034e316b37c27b0624",
+    "test/fixtures/cordis-compose-error/original.ts": "c30c11826d812c26562f5bd9e32d07d9c8057c0a35765d44c0dd819e712c93e8",
+    "test/fixtures/cordis-compose-error/original.mjs": "2d9cab85a3e919d5ae6f18f4fc0930011382a72264856e7569b22fe89d9e59fd"
+  },
+  "retained_package_runtime_groups_per_target": 15,
+  "retained_type_consumers_per_target": {
+    "positive": 10,
+    "negative": 12,
+    "skipLibCheck": false
+  },
+  "scope": "Complete original error composition source and catch/optional-access/explicit normal module statement bodies. Node controls only; not whole Cordis/Schemastery/Harness/typing/browser/Q9."
+}

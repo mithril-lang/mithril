@@ -134,6 +134,9 @@
             ;; Native calls keep JS missing/extra argument behavior. Runtime
             ;; function values are neither inspected nor prevalidated.
             {:op :call :name name :args args}))
+      "HostOptionalGet"
+      (do (shape! expr ["@type" "object" "key"])
+          {:op :optional-get :object (check (get expr "object")) :key (check (get expr "key"))})
       "HostGet"
       (do (shape! expr ["@type" "object" "key"])
           {:op :get :object (check (get expr "object")) :key (check (get expr "key"))})
@@ -375,6 +378,12 @@
       "HostThrow"
       (do (shape! expr ["@type" "value"])
           {:op :throw :value (check (get expr "value"))})
+      "HostTryCatch"
+      (do (shape! expr ["@type" "body" "binding" "handler"])
+          (let [binding (name! (get expr "binding"))]
+            {:op :try-catch :binding binding :body (check (get expr "body"))
+             :handler (expression! (get expr "handler") imports functions (assoc locals binding false)
+                                   (inc depth) nodes args-length)}))
       "HostTryFinally"
       (do (shape! expr ["@type" "body" "finally"])
           {:op :try-finally :body (check (get expr "body")) :finally (check (get expr "finally"))})
@@ -419,14 +428,15 @@
     (vector! imports 128) (vector! functions 128) (vector! exports 128)
     (doseq [import imports] (name! import)) (unique! imports)
     (let [declarations (mapv (fn [f]
-                              (shape! f ["@type" "name" "params" "returns" "body"])
+                              (optional-flag! f ["@type" "name" "params" "returns" "body"] "statements")
                               (when-not (and (= "Function" (get f "@type"))
                                             (= "js-value" (get f "returns")))
                                 (fail! :mithril.native-js/type "Expected a js-value native function"))
                               (let [name (name! (get f "name"))]
                                 (when (contains? reserved name)
                                   (fail! :mithril.native-js/name "Reserved native JS function name"))
-                                {:name name :params (params! (get f "params"))})) functions)
+                                (cond-> {:name name :params (params! (get f "params"))}
+                                  (contains? f "statements") (assoc :statements (get f "statements"))))) functions)
           names (mapv :name declarations)
           _ (unique! names)
           targets (set names)
@@ -480,7 +490,7 @@
 (defn- quoted [s] (js/JSON.stringify s))
 (defn- fresh [counter prefix] (str prefix "v" (swap! counter inc)))
 
-(declare emit-expression)
+(declare emit-expression emit-body)
 (defn- emit-class-signature [signature imports functions env counter prefix context]
   (let [params (mapv (fn [_] (fresh counter prefix)) (:params signature))
         rest-symbol (when (some? (:rest signature)) (fresh counter prefix))
@@ -501,6 +511,7 @@
       :import (get imports (:name expr))
       :function-ref (get functions (:name expr))
       :call (str (get functions (:name expr)) "(" (args (:args expr)) ")")
+      :optional-get (str "(" (emit (:object expr)) ")?.[" (emit (:key expr)) "]")
       :get (str "(" (emit (:object expr)) ")[" (emit (:key expr)) "]")
       ;; The comma expression makes a value call, never a Reference call with
       ;; an accidental receiver (e.g. when the callee is a HostGet).
@@ -606,6 +617,10 @@
                     (emit-expression (:body expr) imports functions env counter prefix args-length) ";})()")))
       :local-set (str "(" (get env (:name expr)) "=" (emit (:value expr)) ")")
       :throw (str "(()=>{throw " (emit (:value expr)) ";})()")
+      :try-catch (let [symbol (fresh counter prefix)
+                       handler-env (assoc env (:binding expr) symbol)]
+                   (str "(()=>{try{return " (emit (:body expr)) ";}catch(" symbol "){return "
+                        (emit-expression (:handler expr) imports functions handler-env counter prefix args-length) ";}})()"))
       :try-finally (str "(()=>{try{return " (emit (:body expr)) ";}finally{"
                         (emit (:finally expr)) ";}})()")
       :local-function (let [symbol (fresh counter prefix)
@@ -617,6 +632,42 @@
                              ";};return " (emit-expression (:result expr) imports functions self-env counter prefix args-length) ";})()"))
       :sequence (str "(" (args (:expressions expr)) ")")
       :if (str "(" (emit (:condition expr)) "?" (emit (:then expr)) ":" (emit (:else expr)) ")"))))
+
+;; Explicit function statement bodies preserve call-site stack depth for source
+;; contracts such as Cordis composeError. Expression operands still use the
+;; existing expression emitter; old functions/artifact bytes are unchanged.
+(defn- emit-body [expr imports functions env counter prefix context result?]
+  (let [emit #(emit-expression % imports functions env counter prefix context)
+        body (fn [x e result] (emit-body x imports functions e counter prefix context result))]
+    (case (:op expr)
+      :let
+      (loop [todo (:bindings expr) e env statements []]
+        (if-let [b (first todo)]
+          (let [value (emit-expression (:value b) imports functions e counter prefix context)
+                symbol (fresh counter prefix)]
+            (recur (next todo) (assoc e (:name b) symbol)
+                   (conj statements (str (if (:mutable b) "let " "const ") symbol "=" value ";"))))
+          (str "{" (apply str statements) (body (:body expr) e result?) "}")))
+      :sequence
+      (str (apply str (map #(body % env false) (butlast (:expressions expr))))
+           (body (last (:expressions expr)) env result?))
+      :if (str "if(" (emit (:condition expr)) "){" (body (:then expr) env result?)
+               "}else{" (body (:else expr) env result?) "}")
+      :throw (str "throw " (emit (:value expr)) ";")
+      :try-catch
+      (let [symbol (fresh counter prefix)]
+        (str "try{" (body (:body expr) env result?) "}catch(" symbol "){"
+             (body (:handler expr) (assoc env (:binding expr) symbol) result?) "}"))
+      :try-finally (str "try{" (body (:body expr) env result?) "}finally{"
+                        (body (:finally expr) env false) "}")
+      :while (str "while(" (emit (:condition expr)) "){" (body (:body expr) env false) "}"
+                  (body (:result expr) env result?))
+      :for-of
+      (let [symbol (fresh counter prefix)]
+        (str "for(const " symbol " of " (emit (:iterable expr)) "){"
+             (body (:body expr) (assoc env (:binding expr) symbol) false) "}"
+             (body (:result expr) env result?)))
+      (str (when result? "return ") (emit expr) ";"))))
 
 (defn- emit-checked [checked factory public? check-grants?]
   (let [named-functions (concat (:functions checked)
@@ -646,8 +697,10 @@
                                                     (if (contains? (:defaults f) i)
                                                       (str symbol "=" (emit-expression (get (:defaults f) i) imports functions env counter prefix true))
                                                       symbol)) params)]
-                               (str "const " (get functions (:name f)) "=function " (:name f) "(" (str/join "," param-source) "){return "
-                                    (emit-expression (:body f) imports functions env counter prefix true) ";};\n"))) (:functions checked)))
+                               (str "const " (get functions (:name f)) "=function " (:name f) "(" (str/join "," param-source) "){"
+                                    (if (:statements f)
+                                      (emit-body (:body f) imports functions env counter prefix true true)
+                                      (str "return " (emit-expression (:body f) imports functions env counter prefix true) ";")) "};\n"))) (:functions checked)))
         source (str "// Mithril native JS host module; explicit grants; native runtime semantics.\n"
                     (if public? "export " "") "function " factory "(" grants "){\n"
                     (when check-grants?
