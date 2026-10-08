@@ -18,4 +18,3 @@
   (fs/writeFileSync file (:source artifact))
   (let [result (child/spawnSync js/process.execPath #js [runtime-file file] #js {:stdio "inherit" :timeout 30000})] (when-not (= 0 (.-status result)) (js/process.exit 1))))
  (println "4 additional scope refusals and normal/default/LocalFunction Let capture groups passed."))
-
