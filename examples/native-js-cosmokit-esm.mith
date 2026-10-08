@@ -1,0 +1,234 @@
+; Complete CosmoKit native multi-file ESM package.
+(mithril/native-js-esm-package
+ :name "cosmokit"
+ :imports ["Array"
+ "Set"
+ "Object"
+ "TypeError"
+ "Symbol"
+ "globalThis"
+ "ArrayBuffer"
+ "Uint8Array"
+ "Buffer"
+ "String"
+ "btoa"
+ "atob"
+ "parseInt"
+ "Date"
+ "RegExp"
+ "Map"
+ "Reflect"
+ "Math"
+ "parseFloat"
+ "JSON"]
+ :modules [(rdf/node
+ :name "cosmokit.array"
+ :source "native-js-array.mith"
+ :links [(rdf/node
+ :import "isNullable"
+ :module "cosmokit.misc"
+ :export "isNullable")]
+ :dependencies ["cosmokit.misc"])
+ (rdf/node
+ :name "cosmokit.types"
+ :source "native-js-types.mith"
+ :links [(rdf/node
+ :import "isNullable"
+ :module "cosmokit.misc"
+ :export "isNullable")
+ (rdf/node
+ :import "isVolatile"
+ :module "cosmokit.volatile"
+ :export "isVolatile")]
+ :dependencies ["cosmokit.misc"
+ "cosmokit.volatile"])
+ (rdf/node
+ :name "cosmokit.misc"
+ :source "native-js-misc.mith"
+ :links []
+ :dependencies [])
+ (rdf/node
+ :name "cosmokit.string"
+ :source "native-js-string.mith"
+ :links []
+ :dependencies [])
+ (rdf/node
+ :name "cosmokit.time"
+ :source "native-js-time.mith"
+ :links []
+ :dependencies [])
+ (rdf/node
+ :name "cosmokit.volatile"
+ :source "native-js-volatile.mith"
+ :links []
+ :dependencies [])
+ (rdf/node
+ :name "cosmokit"
+ :source "native-js-cosmokit-index.mith"
+ :dependencies ["cosmokit.array"
+ "cosmokit.types"
+ "cosmokit.misc"
+ "cosmokit.string"
+ "cosmokit.time"
+ "cosmokit.volatile"]
+ :links [(rdf/node
+ :import "contain"
+ :module "cosmokit.array"
+ :export "contain")
+ (rdf/node
+ :import "intersection"
+ :module "cosmokit.array"
+ :export "intersection")
+ (rdf/node
+ :import "difference"
+ :module "cosmokit.array"
+ :export "difference")
+ (rdf/node
+ :import "union"
+ :module "cosmokit.array"
+ :export "union")
+ (rdf/node
+ :import "deduplicate"
+ :module "cosmokit.array"
+ :export "deduplicate")
+ (rdf/node
+ :import "remove"
+ :module "cosmokit.array"
+ :export "remove")
+ (rdf/node
+ :import "makeArray"
+ :module "cosmokit.array"
+ :export "makeArray")
+ (rdf/node
+ :import "is"
+ :module "cosmokit.types"
+ :export "is")
+ (rdf/node
+ :import "Binary"
+ :module "cosmokit.types"
+ :export "Binary")
+ (rdf/node
+ :import "base64ToArrayBuffer"
+ :module "cosmokit.types"
+ :export "base64ToArrayBuffer")
+ (rdf/node
+ :import "arrayBufferToBase64"
+ :module "cosmokit.types"
+ :export "arrayBufferToBase64")
+ (rdf/node
+ :import "hexToArrayBuffer"
+ :module "cosmokit.types"
+ :export "hexToArrayBuffer")
+ (rdf/node
+ :import "arrayBufferToHex"
+ :module "cosmokit.types"
+ :export "arrayBufferToHex")
+ (rdf/node
+ :import "clone"
+ :module "cosmokit.types"
+ :export "clone")
+ (rdf/node
+ :import "deepEqual"
+ :module "cosmokit.types"
+ :export "deepEqual")
+ (rdf/node
+ :import "noop"
+ :module "cosmokit.misc"
+ :export "noop")
+ (rdf/node
+ :import "isNullable"
+ :module "cosmokit.misc"
+ :export "isNullable")
+ (rdf/node
+ :import "isNonNullable"
+ :module "cosmokit.misc"
+ :export "isNonNullable")
+ (rdf/node
+ :import "isPlainObject"
+ :module "cosmokit.misc"
+ :export "isPlainObject")
+ (rdf/node
+ :import "filterKeys"
+ :module "cosmokit.misc"
+ :export "filterKeys")
+ (rdf/node
+ :import "mapValues"
+ :module "cosmokit.misc"
+ :export "mapValues")
+ (rdf/node
+ :import "valueMap"
+ :module "cosmokit.misc"
+ :export "valueMap")
+ (rdf/node
+ :import "pick"
+ :module "cosmokit.misc"
+ :export "pick")
+ (rdf/node
+ :import "omit"
+ :module "cosmokit.misc"
+ :export "omit")
+ (rdf/node
+ :import "defineProperty"
+ :module "cosmokit.misc"
+ :export "defineProperty")
+ (rdf/node
+ :import "camelCase"
+ :module "cosmokit.string"
+ :export "camelCase")
+ (rdf/node
+ :import "camelize"
+ :module "cosmokit.string"
+ :export "camelize")
+ (rdf/node
+ :import "capitalize"
+ :module "cosmokit.string"
+ :export "capitalize")
+ (rdf/node
+ :import "formatProperty"
+ :module "cosmokit.string"
+ :export "formatProperty")
+ (rdf/node
+ :import "hyphenate"
+ :module "cosmokit.string"
+ :export "hyphenate")
+ (rdf/node
+ :import "paramCase"
+ :module "cosmokit.string"
+ :export "paramCase")
+ (rdf/node
+ :import "sanitize"
+ :module "cosmokit.string"
+ :export "sanitize")
+ (rdf/node
+ :import "snakeCase"
+ :module "cosmokit.string"
+ :export "snakeCase")
+ (rdf/node
+ :import "trimSlash"
+ :module "cosmokit.string"
+ :export "trimSlash")
+ (rdf/node
+ :import "uncapitalize"
+ :module "cosmokit.string"
+ :export "uncapitalize")
+ (rdf/node
+ :import "Time"
+ :module "cosmokit.time"
+ :export "Time")
+ (rdf/node
+ :import "createVolatile"
+ :module "cosmokit.volatile"
+ :export "createVolatile")
+ (rdf/node
+ :import "isVolatile"
+ :module "cosmokit.volatile"
+ :export "isVolatile")
+ (rdf/node
+ :import "volatileEntries"
+ :module "cosmokit.volatile"
+ :export "volatileEntries")
+ (rdf/node
+ :import "updateVolatile"
+ :module "cosmokit.volatile"
+ :export "updateVolatile")])]
+ :reexports ["cosmokit"])

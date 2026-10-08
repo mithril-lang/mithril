@@ -1,0 +1,51 @@
+(ns mithril.native-esm
+  "Checked multi-file native ESM packages; static engine linking owns cycles."
+  (:require [clojure.string :as str] [mithril.native-package :as package]
+            [mithril.native-js :as native] [mithril.form :as form]
+            [mithril.module :as module]))
+(defn check-document [doc sources] (package/check-esm-document doc sources))
+(defn check-text [text sources]
+  (module/check-source-text! text) (check-document (form/parse text) sources))
+(defn source-basenames
+  "Admit the complete inert manifest read plan before reading any module source."
+  [text]
+  (module/check-source-text! text)
+  (let [doc (form/parse text) decls (get doc "modules")]
+    ;; Reject nonlocal/duplicate leaf reads before touching source files. Complete
+    ;; collection, graph, link and capability admission follows before emission.
+    (when-not (and (map? doc)
+                   (= (set (keys doc)) #{"@context" "@type" "name" "imports" "modules" "reexports"})
+                   (= "NativeJsEsmPackage" (get doc "@type"))
+                   (= "https://mithril.fund/context/native-js-esm-package/v1" (get doc "@context"))
+                   (vector? decls) (<= 1 (count decls) 64)
+                   (every? #(and (map? %) (= (set (keys %)) #{"name" "source" "dependencies" "links"})
+                                 (string? (get % "source"))
+                                 (re-matches #"[A-Za-z0-9][A-Za-z0-9_-]*\.mith" (get % "source"))) decls))
+      (throw (ex-info "Invalid bounded local ESM source read plan" {:mithril/error :mithril.native-esm/source})))
+    (let [names (mapv #(get % "source") decls)]
+      (when-not (= (count names) (count (set names)))
+        (throw (ex-info "Duplicate ESM source read plan" {:mithril/error :mithril.native-esm/source})))
+      names)))
+(defn- emit [checked roots]
+  (let [names (mapv :name (vals (:modules checked)))
+        ;; Declared module identity, not DFS order, owns output filenames. Sorting
+        ;; is only an artifact naming decision; static dependency order is retained.
+        names (vec (sort names)) indexes (zipmap names (range))
+        filename #(str "module-" (get indexes %) ".mjs")
+        files (into {} (map (fn [name]
+                              (let [m (get (:modules checked) name)
+                                    links (mapv #(hash-map "import" (get % "import")
+                                                          "source" (str "./" (filename (get % "module")))
+                                                          "export" (get % "export")) (:links m))
+                                    deps (mapv #(str "./" (filename %)) (:dependencies m))]
+                                [(filename name) (:source (native/compile-esm-document (:document m) links deps))])) names))]
+    {:format :mithril.native-esm/artifact-v1 :runtime :native-js :profile :native-esm
+     :module (:name checked) :required-imports (:imports checked)
+     :exports (mapv :name (:exports checked)) :entry "index.mjs"
+     :module-files (into {} (map #(vector % (filename %)) names))
+     :files (assoc files "host-globals.mjs" "// Native host global adapter; no delegated source.\nconst globals=globalThis;\nexport {globals};\n"
+                         "index.mjs" (str "// Checked Mithril ESM package entry; ordered native reexports.\n"
+                                          (apply str (map #(str "export * from \"./" (filename %) "\";\n") roots))))}))
+(defn compile-document [doc sources] (emit (check-document doc sources) (get doc "reexports")))
+(defn compile-text [text sources]
+  (module/check-source-text! text) (compile-document (form/parse text) sources))

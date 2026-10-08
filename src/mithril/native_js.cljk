@@ -888,3 +888,96 @@
   (when (contains? reserved factory)
     (fail! :mithril.native-js/name "Reserved package factory identifier"))
   (emit-checked (check-document doc) factory false false))
+
+(defn compile-esm-document
+  "Emit a checked native module with real named ESM imports/exports. Link paths
+   are inert generated local basenames; declarations remain engine-owned."
+  [doc links dependencies]
+  (let [checked (check-document doc)
+        _ (vector! links 128) _ (vector! dependencies 64)
+        path! (fn [path]
+                (when-not (and (string? path) (re-matches #"\./module-[0-9]+\.mjs" path))
+                  (fail! :mithril.native-js/link "Expected a generated local ESM module basename")))
+        _ (doseq [path dependencies] (path! path)) _ (unique! dependencies)
+        _ (doseq [link links]
+            (shape! link ["import" "source" "export"])
+            (name! (get link "import")) (name! (get link "export")) (path! (get link "source"))
+            (when-not (and (some #{(get link "import")} (:imports checked))
+                           (some #{(get link "source")} dependencies))
+              (fail! :mithril.native-js/link "Unknown linked import or unordered dependency")))
+        _ (unique! (mapv #(get % "import") links))
+        declared-names (concat (map #(get % "import") links)
+                               (map :name (:functions checked)) (map :name (:bindings checked)))
+        _ (unique! declared-names)
+        _ (doseq [name (concat declared-names (mapcat :params (:functions checked)))]
+            (when (contains? reserved name)
+              (fail! :mithril.native-js/name "Reserved native ESM declaration binding")))
+        ;; All compiler-owned names avoid native self bindings and source function
+        ;; declarations, including names nested in keys/defaults/initializers.
+        _ (letfn [(walk [x shadows]
+                    (cond
+                      (map? x)
+                      (let [self (when (contains? #{:native-function :native-class} (:op x)) (:name x))
+                            shadows (cond-> shadows (some? self) (conj self))]
+                        (when (and (contains? shadows (:name x))
+                                   (or (and (= :import (:op x)) (some #(= (:name x) (get % "import")) links))
+                                       (contains? #{:function-ref :call} (:op x))))
+                          (fail! :mithril.native-js/scope "Native ESM self binding shadows an explicit module reference"))
+                        (doseq [v (vals x)] (walk v shadows)))
+                      (coll? x) (doseq [v x] (walk v shadows))))]
+            (walk checked #{}))
+        names (concat (map :name (:functions checked))
+                      (keep :name (filter map? (tree-seq coll? seq checked))))
+        prefix (loop [p "__mithril_esm_"]
+                 (if (some #(and (string? %) (str/starts-with? % p)) names)
+                   (recur (str p "_")) p))
+        counter (atom 0)
+        globals (str prefix "globals")
+        link-symbols (into {} (map #(vector (get % "import") (get % "import")) links))
+        imports (into {} (map #(vector % (or (get link-symbols %) (str globals "[" (quoted %) "]"))) (:imports checked)))
+        functions (into {} (map #(vector (:name %) (:name %)) (:functions checked)))
+        env (into {} (map #(vector (:name %) (:name %)) (:bindings checked)))
+        dependency-source (apply str
+                             (map (fn [path]
+                                    (let [imports (filter #(= path (get % "source")) links)]
+                                      (if (seq imports)
+                                        (str "import {" (str/join "," (map #(str (quoted (get % "export")) " as " (get link-symbols (get % "import"))) imports)) "} from " (quoted path) ";\n")
+                                        (str "import " (quoted path) ";\n")))) dependencies))
+        function-source (apply str
+                           (map (fn [f]
+                                  (let [params (mapv (fn [_] (fresh counter prefix)) (:params f))
+                                        body-env (into env (zipmap (:params f) params))
+                                        signature (map-indexed
+                                                    (fn [i symbol]
+                                                      (if (contains? (:defaults f) i)
+                                                        (str symbol "=" (emit-expression (get (:defaults f) i) imports functions body-env counter prefix true)) symbol)) params)]
+                                    (str "function " (:name f) "(" (str/join "," signature) "){"
+                                         (if (:statements f)
+                                           (emit-body (:body f) imports functions body-env counter prefix true true)
+                                           (str "return " (emit-expression (:body f) imports functions body-env counter prefix true) ";")) "}\n"))) (:functions checked)))
+        binding-source (apply str
+                          (map (fn [b]
+                                 (str (if (:mutable b) "let " "const ") (get env (:name b)) "="
+                                      (emit-expression (:value b) imports functions env counter prefix false) ";\n")) (:bindings checked)))
+        export-source (apply str
+                         (map (fn [e]
+                                (let [value (:value e)
+                                      live (or (get functions (:target e))
+                                               (case (:op value)
+                                                 :local (get env (:name value))
+                                                 :function-ref (get functions (:name value))
+                                                 :import (get link-symbols (:name value))
+                                                 nil))
+                                      symbol (or live (fresh counter prefix))]
+                                  (str (when-not live
+                                         (str "const " symbol "=" (emit-expression value imports functions env counter prefix false) ";\n"))
+                                       "export {" symbol " as " (quoted (:name e)) "};\n"))) (:exports checked)))]
+    {:format :mithril.native-esm/module-v1 :runtime :native-js :module (:name checked)
+     :required-imports (vec (remove (set (keys link-symbols)) (:imports checked)))
+     :exports (mapv :name (:exports checked))
+     :source (str "// Checked Mithril native ESM; engine-owned live bindings and initialization.\n"
+                  ;; Pure host adapter initializes before a source back edge can
+                  ;; call this module's hoisted declaration using a capability.
+                  (when (some #(not (contains? link-symbols %)) (:imports checked))
+                    (str "import {globals as " globals "} from './host-globals.mjs';\n"))
+                  dependency-source function-source binding-source export-source)}))
