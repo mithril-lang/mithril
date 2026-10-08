@@ -2217,3 +2217,11 @@ The native source suite passes16/80 and full registered suite81/431. See
 System One's single raw language candidate failed parsing; the qualified language
 and module implementation are operator authored. Remaining types/string/time,
 package/type linkage and Harness API/plugin/Session parity stay open.
+
+The next types.ts foundation adds native argument count and
+`instanceof`, `+`, `-`, `%`, `<` operations with lexical normal-function scope.
+The native source suite passes18/82 and full registered suite83/433.
+[Fixed contracts and System One evaluation](test/qualification/native-js-types-foundation/README.md)
+retain the raw candidate's artifact-preservation failure and two operator repairs.
+Binary namespace/value exports, indexed loops and the complete types runtime port
+are still pending; these primitives do not qualify the whole module.

@@ -1,0 +1,32 @@
+{
+  "image": "sha256:f73b2ecd3adebf79a19ba8f32bed6b0231ae056c0908d63e4d660fbcb570e383",
+  "seed_directory": "/opt/mithril-refactor-base",
+  "timeout_seconds": 180,
+  "checks": [
+    {
+      "id": "retained-source-81-431",
+      "argv": [
+        "node",
+        "/opt/types-controls/run-check.mjs",
+        "test/run_modules.cljk"
+      ]
+    },
+    {
+      "id": "types-primitives-reference",
+      "argv": [
+        "node",
+        "/opt/types-controls/types-primitives-runtime.mjs",
+        "/opt/types-controls/types-primitives-reference.mjs"
+      ]
+    },
+    {
+      "id": "native-types-primitives",
+      "variant": "candidate",
+      "argv": [
+        "node",
+        "/opt/types-controls/run-check.mjs",
+        "/opt/types-controls/types-primitives.cljk"
+      ]
+    }
+  ]
+}

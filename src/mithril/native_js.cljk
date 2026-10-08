@@ -54,11 +54,11 @@
           (vector! names 64)
           {:op :array :names (mapv name! names)}))))
 
-(defn- expression! [expr imports functions locals depth nodes]
+(defn- expression! [expr imports functions locals depth nodes args-length]
   (when (or (> depth 64) (> (swap! nodes inc) 4096))
     (fail! :mithril.native-js/budget "Native JS expression budget exceeded"))
   (when-not (map? expr) (fail! :mithril.native-js/shape "Expected a native expression"))
-  (let [check #(expression! % imports functions locals (inc depth) nodes)
+  (let [check #(expression! % imports functions locals (inc depth) nodes args-length)
         args! (fn [args]
                 (vector! args 64)
                 (mapv check args))]
@@ -106,6 +106,11 @@
            :args (args! (get expr "args"))})
       "HostUndefined"
       (do (shape! expr ["@type"]) {:op :undefined})
+      "HostArgumentsLength"
+      (do (shape! expr ["@type"])
+          (when-not args-length
+            (fail! :mithril.native-js/scope "HostArgumentsLength requires a source normal function context"))
+          {:op :arguments-length})
       "HostUnary"
       (do (shape! expr ["@type" "operator" "value"])
           (let [operator (get expr "operator")]
@@ -115,7 +120,7 @@
       "HostBinary"
       (do (shape! expr ["@type" "operator" "left" "right"])
           (let [operator (get expr "operator")]
-            (when-not (contains? #{"===" "!==" ">=" "in"} operator)
+            (when-not (contains? #{"===" "!==" ">=" "in" "instanceof" "+" "-" "%" "<"} operator)
               (fail! :mithril.native-js/operator "Unsupported native binary operator"))
             {:op :binary :operator operator :left (check (get expr "left"))
              :right (check (get expr "right"))}))
@@ -172,7 +177,7 @@
               (fail! :mithril.native-js/duplicate "Loop binding must be fresh"))
             {:op :for-of :binding binding :iterable (check (get expr "iterable"))
              :body (expression! (get expr "body") imports functions (assoc locals binding false)
-                                (inc depth) nodes)
+                                (inc depth) nodes args-length)
              :result (check (get expr "result"))}))
       "HostArray"
       (do (shape! expr ["@type" "items"])
@@ -187,7 +192,7 @@
               (unique! names)
               {:op :lambda :params patterns
                :body (expression! (get expr "body") imports functions
-                                  (into locals (zipmap names (repeat false))) (inc depth) nodes)})))
+                                  (into locals (zipmap names (repeat false))) (inc depth) nodes args-length)})))
       "Let"
       (do (shape! expr ["@type" "bindings" "body"])
           (let [bindings (get expr "bindings")]
@@ -196,13 +201,13 @@
               (if-let [binding (first todo)]
                 (do (optional-flag! binding ["name" "value"] "mutable")
                     (let [name (name! (get binding "name"))
-                          value (expression! (get binding "value") imports functions env (inc depth) nodes)
+                          value (expression! (get binding "value") imports functions env (inc depth) nodes args-length)
                           checked-binding (cond-> {:name name :value value}
                                             (contains? binding "mutable") (assoc :mutable (get binding "mutable")))]
                       (recur (next todo) (assoc env name (true? (get binding "mutable")))
                              (conj checked checked-binding))))
                 {:op :let :bindings checked
-                 :body (expression! (get expr "body") imports functions env (inc depth) nodes)}))))
+                 :body (expression! (get expr "body") imports functions env (inc depth) nodes args-length)}))))
       "LocalSet"
       (do (shape! expr ["@type" "name" "value"])
           (let [name (name! (get expr "name"))]
@@ -227,8 +232,8 @@
                   self-env (assoc locals name false)
                   body-env (into self-env (zipmap params (repeat false)))]
               {:op :local-function :name name :params params
-               :body (expression! (get expr "body") imports functions body-env (inc depth) nodes)
-               :result (expression! (get expr "result") imports functions self-env (inc depth) nodes)})))
+               :body (expression! (get expr "body") imports functions body-env (inc depth) nodes true)
+               :result (expression! (get expr "result") imports functions self-env (inc depth) nodes args-length)})))
       "Sequence"
       (do (shape! expr ["@type" "expressions"])
           (let [expressions (get expr "expressions")]
@@ -287,7 +292,7 @@
                                (if-let [b (first todo)]
                                  (let [name (get b "name")
                                        ;; Initializers can use earlier bindings, never functions.
-                                       value (expression! (get b "value") (set imports) #{} env 1 nodes)
+                                       value (expression! (get b "value") (set imports) #{} env 1 nodes false)
                                        cb (cond-> {:name name :value value}
                                             (contains? b "mutable") (assoc :mutable (get b "mutable")))]
                                    (recur (next todo) (assoc env name (true? (get b "mutable"))) (conj checked cb)))
@@ -299,9 +304,9 @@
                           defaults (into {} (keep-indexed
                                              (fn [i p]
                                                (when (contains? p "default")
-                                                 [i (expression! (get p "default") (set imports) targets env 1 nodes)]))
+                                                 [i (expression! (get p "default") (set imports) targets env 1 nodes true)]))
                                              (get f "params")))]
-                      (cond-> (assoc d :body (expression! (get f "body") (set imports) targets env 1 nodes))
+                      (cond-> (assoc d :body (expression! (get f "body") (set imports) targets env 1 nodes true))
                         (seq defaults) (assoc :defaults defaults)))) functions declarations)]
         (cond-> {:format :mithril.native-js/checked-v1 :name name :imports imports :exports public
                  :functions checked-functions}
@@ -313,8 +318,8 @@
 (defn- quoted [s] (js/JSON.stringify s))
 (defn- fresh [counter prefix] (str prefix "v" (swap! counter inc)))
 
-(defn- emit-expression [expr imports functions env counter prefix]
-  (let [emit #(emit-expression % imports functions env counter prefix)
+(defn- emit-expression [expr imports functions env counter prefix args-length]
+  (let [emit #(emit-expression % imports functions env counter prefix args-length)
         args #(str/join "," (map emit %))]
     (case (:op expr)
       :literal (quoted (:value expr))
@@ -328,8 +333,11 @@
       :invoke (str "(0," (emit (:function expr)) ")(" (args (:args expr)) ")")
       :method (str "(" (emit (:object expr)) ")[" (emit (:key expr)) "](" (args (:args expr)) ")")
       :undefined "(void 0)"
+      :arguments-length "arguments.length"
       :unary (str "(" (:operator expr) " " (emit (:value expr)) ")")
-      :binary (str "(" (emit (:left expr)) (if (= "in" (:operator expr)) " in " (:operator expr))
+      :binary (str "(" (emit (:left expr))
+                   (if (contains? #{"in" "instanceof" "+" "-" "%" "<"} (:operator expr))
+                     (str " " (:operator expr) " ") (:operator expr))
                    (emit (:right expr)) ")")
       :logical (str "(" (emit (:left expr)) (:operator expr) (emit (:right expr)) ")")
       ;; Computed properties avoid the special object-literal __proto__ setter.
@@ -341,7 +349,7 @@
                     body-env (assoc env (:binding expr) symbol)]
                 ;; Native for-of supplies IteratorClose and lexical iteration scope.
                 (str "(()=>{for(const " symbol " of " (emit (:iterable expr)) "){"
-                     (emit-expression (:body expr) imports functions body-env counter prefix)
+                     (emit-expression (:body expr) imports functions body-env counter prefix args-length)
                      ";}return " (emit (:result expr)) ";})()"))
       :array (str "[" (args (:items expr)) "]")
       :construct (str "new (" (emit (:constructor expr)) ")(" (args (:args expr)) ")")
@@ -361,16 +369,16 @@
                 ;; arity, nonconstructibility and iterator binding are retained.
                 (str (if (:infer-name expr) "((" "(0,((")
                      (str/join "," pattern-source) ")=>"
-                     (emit-expression (:body expr) imports functions env counter prefix)
+                     (emit-expression (:body expr) imports functions env counter prefix args-length)
                      (if (:infer-name expr) ")" "))")))
       :let (loop [todo (:bindings expr) env env statements []]
              (if-let [b (first todo)]
-               (let [value (emit-expression (:value b) imports functions env counter prefix)
+               (let [value (emit-expression (:value b) imports functions env counter prefix args-length)
                      symbol (fresh counter prefix)]
                  (recur (next todo) (assoc env (:name b) symbol)
                         (conj statements (str (if (:mutable b) "let " "const ") symbol "=" value ";"))))
                (str "(()=>{" (apply str statements) "return "
-                    (emit-expression (:body expr) imports functions env counter prefix) ";})()")))
+                    (emit-expression (:body expr) imports functions env counter prefix args-length) ";})()")))
       :local-set (str "(" (get env (:name expr)) "=" (emit (:value expr)) ")")
       :throw (str "(()=>{throw " (emit (:value expr)) ";})()")
       :try-finally (str "(()=>{try{return " (emit (:body expr)) ";}finally{"
@@ -380,8 +388,8 @@
                             params (mapv (fn [_] (fresh counter prefix)) (:params expr))
                             body-env (into self-env (zipmap (:params expr) params))]
                         (str "(()=>{const " symbol "=function " (:name expr) "(" (str/join "," params) "){return "
-                             (emit-expression (:body expr) imports functions body-env counter prefix)
-                             ";};return " (emit-expression (:result expr) imports functions self-env counter prefix) ";})()"))
+                             (emit-expression (:body expr) imports functions body-env counter prefix true)
+                             ";};return " (emit-expression (:result expr) imports functions self-env counter prefix args-length) ";})()"))
       :sequence (str "(" (args (:expressions expr)) ")")
       :if (str "(" (emit (:condition expr)) "?" (emit (:then expr)) ":" (emit (:else expr)) ")"))))
 
@@ -397,7 +405,7 @@
         functions (zipmap (map :name (:functions checked)) (map #(str prefix "f" %) (range)))
         module-bindings (loop [todo (:bindings checked) env {} statements []]
                           (if-let [b (first todo)]
-                            (let [value (emit-expression (:value b) imports functions env counter prefix)
+                            (let [value (emit-expression (:value b) imports functions env counter prefix false)
                                   symbol (fresh counter prefix)]
                               (recur (next todo) (assoc env (:name b) symbol)
                                      (conj statements (str (if (:mutable b) "let " "const ") symbol "=" value ";\n"))))
@@ -416,10 +424,10 @@
                                    param-source (map-indexed
                                                   (fn [i symbol]
                                                     (if (contains? (:defaults f) i)
-                                                      (str symbol "=" (emit-expression (get (:defaults f) i) imports functions env counter prefix))
+                                                      (str symbol "=" (emit-expression (get (:defaults f) i) imports functions env counter prefix true))
                                                       symbol)) params)]
                                (str "const " (get functions (:name f)) "=function " (:name f) "(" (str/join "," param-source) "){return "
-                                    (emit-expression (:body f) imports functions env counter prefix) ";};\n"))) (:functions checked)))
+                                    (emit-expression (:body f) imports functions env counter prefix true) ";};\n"))) (:functions checked)))
                     "return {" (str/join "," (map #(str "[" (quoted (:name %)) "]:" (get functions (:target %))) (:exports checked))) "};\n}\n")]
     {:format :mithril.native-js/artifact-v1 :module (:name checked)
      :required-imports (:imports checked) :exports (mapv :name (:exports checked))

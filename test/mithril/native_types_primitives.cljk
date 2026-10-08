@@ -1,0 +1,36 @@
+(ns mithril.native-types-primitives (:require [mithril.native-js :as n] [mithril.form :as form] ["node:fs" :as fs] ["node:crypto" :as crypto] ["node:child_process" :as child]))
+(defn lit [v] {"@type" "Literal" "datatype" "js-value" "value" v})
+(defn local [n] {"@type" "Local" "name" n})
+(def argc {"@type" "HostArgumentsLength"})
+(defn binary [op a b] {"@type" "HostBinary" "operator" op "left" a "right" b})
+(defn fun [name params body] {"@type" "Function" "name" name "params" (mapv #(if (string? %) {"name" % "datatype" "js-value"} %) params) "returns" "js-value" "body" body})
+(defn doc [body] {"@context" "https://mithril.fund/context/native-js-module/v1" "@type" "NativeJsModule" "name" "types.primitives" "imports" [] "functions" [(fun "probe" ["a" "b"] body)] "exports" ["probe"]})
+(def ops ["instanceof" "+" "-" "%" "<"])
+(defn verify [file runtime-file]
+(doseq [body (conj (mapv #(binary % (local "a") (local "b")) ops) argc)] (n/compile-document (doc body)))
+(doseq [body [(assoc argc "extra" true) (binary "instanceof;evil" (local "a") (local "b")) (binary "**" (local "a") (local "b")) (binary "+" (local "missing") (local "b"))]]
+ (when-not (try (n/compile-document (doc body)) false (catch :default _ true)) (throw (js/Error. "Malformed arguments/operator admitted"))))
+(doseq [body [argc {"@type" "NativeLambda" "params" [] "body" argc}]]
+ (when-not (try (n/compile-document (assoc (doc (lit 0)) "bindings" [{"name" "x" "value" body}])) false (catch :default _ true)) (throw (js/Error. "Module arguments scope admitted"))))
+(doseq [body [(reduce (fn [x _] (binary "+" x (lit 1))) (lit 0) (range 65)) {"@type" "HostArray" "items" (vec (repeat 4096 argc))}]]
+ (when-not (= :mithril.native-js/budget (try (n/compile-document (doc body)) nil (catch :default e (:mithril/error (ex-data e))))) (throw (js/Error. "Shared source budget bypassed"))))
+(n/compile-text "(mithril/native-js-module :name \"types.primitives\" :imports [] :exports [\"probe\"] :functions [(mithril/function :name \"probe\" :params [] :returns \"js-value\" :body (mithril/host-arguments-length))])")
+(def local-count {"@type" "LocalFunction" "name" "inner" "params" ["a"] "body" {"@type" "NativeLambda" "params" [] "body" argc} "result" (local "inner")})
+(def functions [(fun "count" ["a" "b"] argc) (fun "capture" [] {"@type" "NativeLambda" "params" [] "body" argc})
+ (fun "nested" [] local-count)
+ (fun "defaultCapture" [{"name" "value" "datatype" "js-value" "default" {"@type" "NativeLambda" "params" [] "body" argc}}] (local "value"))
+ (fun "add" ["a" "b"] (binary "+" (local "a") (local "b")))
+ (fun "subtract" ["a" "b"] (binary "-" (local "a") (local "b")))
+ (fun "remainder" ["a" "b"] (binary "%" (local "a") (local "b")))
+ (fun "less" ["a" "b"] (binary "<" (local "a") (local "b")))
+ (fun "instance" ["a" "b"] (binary "instanceof" (local "a") (local "b")))
+ (fun "literalSubtract" [] (binary "-" (lit 1) (lit -3)))])
+(let [module-count {"@type" "LocalFunction" "name" "moduleInner" "params" [] "body" argc "result" {"@type" "HostInvoke" "function" (local "moduleInner") "args" [(lit 1) (lit 2)]}}
+      artifact (n/compile-document (assoc (doc (local "initialCount")) "bindings" [{"name" "initialCount" "value" module-count}] "functions" (conj functions (fun "moduleCount" [] (local "initialCount"))) "exports" (conj (mapv #(get % "name") functions) "moduleCount")))]
+ (fs/writeFileSync file (:source artifact))
+ (let [result (child/spawnSync js/process.execPath #js [runtime-file file] #js {:stdio "inherit" :timeout 30000})] (when-not (= 0 (.-status result)) (js/process.exit 1))))
+(when-not (= [{:name "probe" :params ["a" "b"] :body {:op :literal :value 0}}] (:functions (n/check-document (doc (lit 0))))) (throw (js/Error. "Old checked IR changed")))
+(when-not (= "a866812a56dfaba0fdcf682d478f3e4590e1d2b48820c273d51c22aaae6d1bd1" (-> (crypto/createHash "sha256") (.update (:source (n/compile-text (fs/readFileSync "examples/native-js-volatile.mith" "utf8")))) (.digest "hex"))) (throw (js/Error. "Old volatile artifact changed")))
+(println "6 admissions / 6 malformed or scope refusals / 2 budget refusals / 1 Form tag passed.")
+
+)
