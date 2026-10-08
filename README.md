@@ -2172,7 +2172,8 @@ encoding. The existing restricted `mithril/module` path stays separate.
 A host installs exactly the declared named grants with
 `artifact.instantiateMithrilNative(grants)`. Import reads are live: use a provider
 getter when a host binding can change. Public function aliases share identity;
-native arrows are anonymous, nonconstructible and retain their source arity.
+native arrows are anonymous by default, nonconstructible and retain their source arity.
+Explicit HostObject infer_name enables native property-name inference.
 Array binding patterns appear only on NativeLambda parameters. Source budgets
 limit expressions to 4,096, depth to 64 and functions/exports/imports to 128.
 The backend checks source syntax/data and does not inspect opaque runtime values.
@@ -2206,3 +2207,13 @@ using the actual generated Mithril misc module for `isNullable`. Native
 construction, iterable array spread and optional receiver method calls retain
 JavaScript behavior. See [paired runtime and System One evaluation](test/qualification/native-js-array/README.md).
 The remaining CosmoKit modules and package/type/Harness parity are still open.
+
+`examples/native-js-volatile.mith` adds all four volatile runtime exports, including
+immutable detached snapshots, shared mutable references and the cross-copy writer
+symbol protocol. Generic module/lexical bindings, recursive local functions,
+native parameter defaults, throw/finally and `in` preserve their native semantics.
+The native source suite passes16/80 and full registered suite81/431. See
+[whole-runtime contracts and actual System One evaluation](test/qualification/native-js-volatile/README.md).
+System One's single raw language candidate failed parsing; the qualified language
+and module implementation are operator authored. Remaining types/string/time,
+package/type linkage and Harness API/plugin/Session parity stay open.

@@ -1,0 +1,47 @@
+(ns mithril.native-volatile-test
+ (:require [cljs.test :refer [deftest is]] [mithril.native-js :as native]
+           [mithril.module :as guest] [mithril.native-volatile-primitives :as p]
+           ["node:fs" :as fs] ["node:os" :as os] ["node:path" :as path]
+           ["node:child_process" :as child] ["node:crypto" :as crypto]))
+(deftest complete-volatile-source-shared-snapshots-and-protocol
+ (let [text (fs/readFileSync "examples/native-js-volatile.mith" "utf8") artifact (native/compile-text text)
+       dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-volatile-")) file (path/join dir "volatile.mjs")]
+  (try
+   (is (= artifact (native/compile-text text)))
+   (is (= "cosmokit.volatile" (:module artifact)))
+   (is (= :mithril.native-js/artifact-v1 (:format artifact)))
+   (is (= #{"Object" "Array" "Set" "TypeError" "Symbol"} (set (:required-imports artifact))))
+   (is (= #{"createVolatile" "isVolatile" "volatileEntries" "updateVolatile"} (set (:exports artifact))))
+   (is (try (guest/check-text text) false (catch :default _ true)))
+   (is (= {"map-values" "5420bbe2a9932b27141280438674906d4d72c7941477690f37201a4eb1b72191"
+           "misc" "b2e52089674875efa3b5a8c135e4fccd37b258c8d5d72adcfc05338f38c0a4fb"
+           "array" "d2de5ed22d8b5afe5dea4c0125af71805573541a7156c55efc19b34672c26db8"}
+          (into {} (map (fn [n] [n (-> (crypto/createHash "sha256") (.update (:source (native/compile-text (fs/readFileSync (str "examples/native-js-" n ".mith") "utf8")))) (.digest "hex"))]) ["map-values" "misc" "array"]))))
+   (fs/writeFileSync file (:source artifact))
+   (let [result (child/spawnSync js/process.execPath #js ["test/fixtures/volatile-contract.mjs" file] #js {:encoding "utf8" :timeout 30000})]
+    (is (= 0 (.-status result)) (str (.-stdout result) (.-stderr result))))
+   (finally (fs/rmSync dir #js {:recursive true :force true})))))
+(deftest generic-volatile-native-prerequisites
+ (let [dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-volatile-primitives-"))]
+  (try (is (nil? (p/verify (path/join dir "primitives.mjs") (path/resolve "test/fixtures/volatile-primitives-runtime.mjs"))))
+   (finally (fs/rmSync dir #js {:recursive true :force true})))))
+(deftest lexical-write-authority-and-additional-structural-refusals
+ (let [var-body (fn [body] (p/letvar "state" (p/lit 0) body))
+       rejected [(p/doc (var-body {"@type" "NativeLambda" "params" ["state"] "body" (p/assign "state" (p/lit 1))}))
+                 (p/doc (var-body {"@type" "Let" "bindings" [{"name" "state" "value" (p/lit 1)}] "body" (p/assign "state" (p/lit 2))}))
+                 (assoc (p/doc (p/lit 0)) "bindings" [{"name" "Object" "value" (p/lit 0)}] "imports" ["Object"])
+                 (assoc (p/doc (p/lit 0)) "bindings" [{"name" "x" "value" {"@type" "FunctionRef" "name" "probe"}}])
+                 (assoc (p/doc (p/lit 0)) "bindings" (vec (map (fn [i] {"name" (str "v" i) "value" (p/lit 0)}) (range 129))))
+                 (assoc (p/doc (p/lit 0)) "bindings" [{"name" "x" "value" (p/lit 0) "extra" 1}])
+                 (assoc (p/doc (p/lit 0)) "functions" [(p/fun "probe" [{"name" "x" "datatype" "js-value" "default" (p/lit 0) "extra" 1}] (p/local "x"))])
+                 (assoc (p/doc (p/lit 0)) "functions" [(p/fun "probe" [{"name" "x" "datatype" "js-value" "default" {"@type" "HostArray" "items" (vec (repeat 4096 (p/lit 0)))}}] (p/local "x"))])
+                 (p/doc {"@type" "HostObject" "entries" [{"key" (p/lit "x") "value" (p/lit 1) "infer_name" true}]})
+                 (p/doc {"@type" "HostObject" "entries" [{"key" (p/lit "x") "value" {"@type" "NativeLambda" "params" [] "body" (p/lit 0)} "infer_name" 1}]})
+                 (p/doc (var-body {"@type" "LocalFunction" "name" "visit" "params" ["state"] "body" (p/assign "state" (p/lit 1)) "result" (p/local "visit")}))
+                 (assoc (p/doc (p/lit 0)) "bindings" [{"name" "shared" "value" (p/lit 0) "mutable" true}] "functions" [(p/fun "probe" [{"name" "shared" "datatype" "js-value" "default" (p/assign "shared" (p/lit 0))}] (p/local "shared"))])
+                 (assoc (p/doc (p/assign "shared" (p/lit 0))) "bindings" [{"name" "shared" "value" (p/lit 0) "mutable" false}])]]
+  (is (= {:format :mithril.native-js/checked-v1 :name "volatile.primitives" :imports []
+          :exports [{:name "probe" :target "probe"}]
+          :functions [{:name "probe" :params ["a" "b"] :body {:op :literal :value 0}}]}
+         (native/check-document (p/doc (p/lit 0)))))
+  (doseq [d rejected] (is (try (native/compile-document d) false (catch :default _ true)) (pr-str d)))))

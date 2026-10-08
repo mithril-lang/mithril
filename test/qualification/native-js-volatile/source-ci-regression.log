@@ -1,0 +1,68 @@
+
+Testing mithril.native-js-test
+
+Testing mithril.native-misc-test
+Native primitive runtime: strict comparison/raw logical values/spread/assignment/for-of checked.
+11 primitive admissions, 9 refusals, all 8 Form tags checked.
+
+Testing mithril.native-array-test
+Native array primitives: 20 runtime contract groups passed.
+4 admissions / 13 malformed refusals / 2 budget refusals / 3 Form tags passed.
+
+Testing mithril.native-volatile-test
+Named-function/generated-binding collision regression passed.
+Native volatile prerequisites: 15 runtime contract groups passed.
+7 admissions / 15 malformed refusals / 2 budget refusals / 4 Form tags passed.
+
+Ran 16 tests containing 80 assertions.
+0 failures, 0 errors.
+Native JS host backend: 16 tests / 80 assertions; paired mapValues, complete misc, array and volatile runtime contracts; no JVM fallback.
+
+Testing mithril.module-test
+
+Testing mithril.module-lower-test
+
+Testing mithril.form-test
+
+Testing mithril.compiler-test
+
+Testing mithril.conditional-test
+
+Testing mithril.branding-test
+
+Testing mithril.undefined-test
+
+Testing mithril.library-test
+
+Testing mithril.module-bindings-test
+
+Testing mithril.module-guest-closure-test
+
+Testing mithril.native-js-test
+
+Testing mithril.native-misc-test
+Native primitive runtime: strict comparison/raw logical values/spread/assignment/for-of checked.
+11 primitive admissions, 9 refusals, all 8 Form tags checked.
+
+Testing mithril.native-array-test
+Native array primitives: 20 runtime contract groups passed.
+4 admissions / 13 malformed refusals / 2 budget refusals / 3 Form tags passed.
+
+Testing mithril.native-volatile-test
+Named-function/generated-binding collision regression passed.
+Native volatile prerequisites: 15 runtime contract groups passed.
+7 admissions / 15 malformed refusals / 2 budget refusals / 4 Form tags passed.
+
+Ran 81 tests containing 431 assertions.
+0 failures, 0 errors.
+JVM launcher marker absent; workspace source classpath.
+{"format":"mithril.native-js/artifact-v1","target":"js","module":"cosmokit.volatile","required-imports":["Object","Array","Set","TypeError","Symbol"],"exports":["createVolatile","isVolatile","volatileEntries","updateVolatile"],"output":"/tmp/volatile-js.mjs"}
+actual TypeScript volatile baseline: 30 complete volatile runtime contract groups passed.
+Mithril volatile candidate: 30 complete volatile runtime contract groups passed.
+Cross-copy symbol protocol and module-instance initialization passed.
+{"format":"mithril.native-js/artifact-v1","target":"js-browser","module":"cosmokit.volatile","required-imports":["Object","Array","Set","TypeError","Symbol"],"exports":["createVolatile","isVolatile","volatileEntries","updateVolatile"],"output":"/tmp/volatile-js-browser.mjs"}
+actual TypeScript volatile baseline: 30 complete volatile runtime contract groups passed.
+Mithril volatile candidate: 30 complete volatile runtime contract groups passed.
+Cross-copy symbol protocol and module-instance initialization passed.
+Actual native CLI js/js-browser SHA256 a866812a56dfaba0fdcf682d478f3e4590e1d2b48820c273d51c22aaae6d1bd1
+JVM launcher marker absent; workspace source classpath.
