@@ -110,6 +110,21 @@
         binds (reduce into #{} (map #(check-type! (get % "datatype") tenv venv mode (inc depth) budget registry scope nil) params))
         ret (check-type! (get x "returns") tenv venv mode (inc depth) budget registry scope (when-not constructor? names))]
    (into binds ret))))
+(defn- check-tuple! [items env values mode depth budget registry scope]
+ (vector! items 128)
+ (loop [xs items optional? false binds #{}]
+  (if-let [item (first xs)]
+   (let [named? (= "named-tuple-item" (get item "op"))
+         opt? (and named? (get item "optional"))]
+    (when named?
+     (charge! budget (inc depth))
+     (shape! item ["op" "name" "optional" "datatype"])
+     (identifier! (get item "name")) (flag! (get item "optional")))
+    (when (and optional? (not opt?))
+     (fail! :mithril.native-declarations/tuple "Required tuple element after optional"))
+    (recur (next xs) (or optional? opt?)
+           (into binds (check-type! (if named? (get item "datatype") item) env values mode (if named? (+ depth 2) (inc depth)) budget registry scope nil))))
+   binds)))
 (defn- check-type! [x env values mode depth budget registry scope predicate-names]
  (charge! budget depth)
  (when-not (map? x) (fail! :mithril.native-declarations/type "Expected structured type"))
@@ -124,7 +139,7 @@
      (reduce into #{} (map check (get x "args")))))
    "literal" (do (shape! x ["op" "value"]) (when-not (and (not (identical? js/undefined (get x "value"))) (or (nil? (get x "value")) (string? (get x "value")) (boolean? (get x "value")) (and (number? (get x "value")) (js/Number.isFinite (get x "value"))))) (fail! :mithril.native-declarations/type "Expected finite type literal")) (when (string? (get x "value")) (text! (get x "value"))) #{})
    "array" (do (shape! x ["op" "item"]) (check (get x "item")))
-   "tuple" (do (shape! x ["op" "items"]) (vector! (get x "items") 128) (reduce into #{} (map check (get x "items"))))
+   "tuple" (do (shape! x ["op" "items"]) (check-tuple! (get x "items") env values mode depth budget registry scope))
    ("union" "intersection") (do (shape! x ["op" "items"]) (items! (get x "items")))
    "keyof" (do (shape! x ["op" "datatype"]) (check (get x "datatype")))
    "readonly" (do (shape! x ["op" "datatype"]) (when-not (contains? #{"array" "tuple"} (get-in x ["datatype" "op"])) (fail! :mithril.native-declarations/type "Readonly type requires array or tuple")) (check (get x "datatype")))

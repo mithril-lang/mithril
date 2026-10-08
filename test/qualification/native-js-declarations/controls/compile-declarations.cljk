@@ -10,9 +10,9 @@
 (def runtime (package/check-text text sources))
 (defn source-form [value]
  (cond
-  (map? value) (let [esm? (= "NativeJsEsmPackage" (get value "@type"))
+  (map? value) (let [esm? (contains? #{"NativeJsEsmPackage" "NativeJsDeclarations"} (get value "@type"))
                      fields (if esm? (dissoc value "@context" "@type") (dissoc value "@context"))]
-                 (str (if esm? "(mithril/native-js-esm-package " "(rdf/node ")
+                 (str (case (get value "@type") "NativeJsEsmPackage" "(mithril/native-js-esm-package " "NativeJsDeclarations" "(mithril/native-js-declarations " "(rdf/node ")
                       (apply str (map (fn [[k v]] (str ":" (case k "@type" "type" k) " " (source-form v) " ")) fields)) ")"))
   (vector? value) (str "[" (apply str (interpose " " (map source-form value))) "]")
   :else (pr-str value)))
@@ -89,6 +89,28 @@
  {"kind" "namespace" "name" "Scope" "exported" false "declarations" [(alias "Hidden" {"op" "literal" "value" "private"}) {"kind" "namespace" "name" "Child" "exported" true "declarations" [(assoc (alias "Visible" {"op" "name" "name" "Hidden" "args" []}) "exported" true)]}]}
  (assoc (alias "Visible" {"op" "name" "name" "Scope.Child.Visible" "args" []}) "exported" true)])
 (def toy-doc (assoc doc "name" "toy" "runtime-source" "toy-package.mith" "ambient-types" [] "ambient-values" [] "declarations" toy-declarations))
+(def named-item {"op" "named-tuple-item" "name" "config" "optional" false "datatype" {"op" "name" "name" "T" "args" []}})
+(def spread {"op" "conditional" "test" {"op" "keyword" "name" "undefined"} "extends" {"op" "name" "name" "T" "args" []}
+             "then" {"op" "tuple" "items" [(assoc named-item "optional" true)]} "else" {"op" "tuple" "items" [named-item]}})
+(def named-doc (assoc toy-doc "runtime-source" "toy-package.mith" "declarations"
+ [{"kind" "alias" "name" "Spread" "exported" false "type-params" [{"name" "T" "constraint" nil "default" nil}] "datatype" spread}
+  {"kind" "function" "name" "echo" "exported" true "type-params" [{"name" "T" "constraint" nil "default" nil}]
+   "params" [{"name" "args" "optional" false "rest" true "datatype" {"op" "name" "name" "Spread" "args" [{"op" "name" "name" "T" "args" []}]}}]
+   "returns" {"op" "name" "name" "T" "args" []}}]))
+(def named-text (source-form named-doc))
+(ensure (= named-doc (declarations/parse-text named-text)) "Named tuple source roundtrip differs")
+(def named-artifact (emit/compile-text named-text toy-runtime))
+(doseq [bad [(assoc named-item "source" "raw TS") (assoc named-item "name" "x]; injected")
+             (assoc named-item "optional" "true") (assoc named-item "datatype" {"op" "name" "name" "Missing" "args" []})]]
+ (refused #(emit/compile-document (assoc-in named-doc ["declarations" 0 "datatype" "then" "items" 0] bad) toy-runtime) "Bad named tuple item admitted"))
+(refused #(emit/compile-document (assoc-in named-doc ["declarations" 0 "datatype" "then"] named-item) toy-runtime) "Named tuple item outside tuple admitted")
+(doseq [items [[(assoc named-item "optional" true) named-item] [(assoc named-item "optional" true) kw]
+              (vec (repeat 129 named-item))]]
+ (refused #(emit/compile-document (assoc-in named-doc ["declarations" 0 "datatype" "then" "items"] items) toy-runtime) "Bad tuple order/budget admitted"))
+(refused #(emit/compile-document (assoc-in named-doc ["declarations" 0 "datatype" "then"]
+           (nth (iterate (fn [t] {"op" "tuple" "items" [(assoc named-item "datatype" t)]}) kw) 33)) toy-runtime)
+         "Named tuple wrappers did not charge depth")
+(println "Named tuple admission:9 shape/scope/order/collection/depth refusals; no standalone named-item or source delegation.")
 (def toy-artifact (emit/compile-document toy-doc toy-runtime))
 (ensure (= ["echo"] (:exports toy-artifact)) "Generic runtime declaration shape changed")
 (def dir (fs/mkdtempSync "/tmp/mithril-declarations-control-"))
@@ -108,6 +130,18 @@
     (ensure (= (:source artifact) (fs/readFileSync output "utf8")) "Actual ESM declaration CLI differs from complete legacy types")
     (run ["test/qualification/native-js-declarations/controls/type-contract.mjs" "test/fixtures/cosmokit-declarations/index.d.ts" output compiler type-roots (str dir "/generic.d.mts")])
     (run ["--experimental-vm-modules" "test/fixtures/cosmokit-package/contract.mjs" "test/fixtures/cosmokit-package/index.js" (str folder "/index.mjs") "--native-esm"]))))
+ (let [fixture (str dir "/named-tuple") config (str dir "/offline.edn")
+       old-runtime "(mithril/native-js-package :name \"toy\" :imports [] :modules [(rdf/node :name \"toy\" :source \"toy.mith\" :links [])] :reexports [\"toy\"])"
+       new-runtime "(mithril/native-js-esm-package :name \"toy\" :imports [] :modules [(rdf/node :name \"toy\" :source \"toy.mith\" :links [] :dependencies [])] :reexports [\"toy\"])" ]
+  (fs/mkdirSync fixture)
+  (fs/writeFileSync (str fixture "/toy.mith") toy-leaf)
+  (fs/writeFileSync (str fixture "/types.mith") named-text)
+  (doseq [[profile runtime-text] [["old" old-runtime] ["esm" new-runtime]] target ["js" "js-browser"]]
+   (fs/writeFileSync (str fixture "/toy-package.mith") runtime-text)
+   (let [output (str dir "/named-" profile "-" target ".d.mts")]
+    (run [engine "--config" config "-cp" "src" "bin/mithril-native-declarations.cljk" (str fixture "/types.mith") "--target" target "--output" output])
+    (ensure (= (:source named-artifact) (fs/readFileSync output "utf8")) "Named tuple CLI bytes differ")
+    (run ["test/qualification/native-js-declarations/controls/named-tuple-contract.mjs" output compiler type-roots]))))
  (let [sentinel (str dir "/sentinel.d.mts") config (str dir "/offline.edn")]
   (fs/writeFileSync sentinel "preserve-existing-declarations")
   (doseq [target ["amu" "js"]]

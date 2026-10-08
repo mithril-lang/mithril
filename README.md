@@ -2304,3 +2304,5 @@ The complete `context/events/fiber/registry` source is in the four `native-js-co
 The complete Cordis Service and original 26-value public index run as a 15-module native ESM graph from checked Mithril source. Both actual CLI targets pass 36 paired Service/index groups in Node with real compiled core owners; public/new-profile types and full Harness/browser/native/Q9 remain separate gates. See [qualification](test/qualification/native-service/README.md).
 
 The native declaration CLI now accepts fully checked native ESM packages. Full CosmoKit declarations retain identical emitted bytes and pass original strict consumer/runtime contracts for both profiles and both targets, with index.d.mts adjacent to the native ESM entry. Cordis public typing remains next; see [qualification](test/qualification/native-esm-declarations/README.md).
+
+Named and optional tuple elements now express the original Cordis Spread<T> configuration argument rule. Both CLI targets/profiles pass source-derived strict arity consumers; complete Context.plugin/public Cordis typing remains next. See [qualification](test/qualification/native-named-tuples/README.md).
