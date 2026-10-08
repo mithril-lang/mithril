@@ -177,7 +177,7 @@
  (shape! doc ["@context" "@type" "name" "runtime-source" "ambient-types" "ambient-values" "declarations"])
  (when-not (and (= "NativeJsDeclarations" (get doc "@type")) (= "https://mithril.fund/context/native-js-declarations/v1" (get doc "@context"))) (fail! :mithril.native-declarations/context "Expected declaration context"))
  (qualified! (get doc "name")) (source! (get doc "runtime-source"))
- (when-not (and (= :mithril.native-package/checked-v1 (:format runtime)) (= (get doc "name") (:name runtime)))
+ (when-not (and (contains? #{:mithril.native-package/checked-v1 :mithril.native-esm/checked-v1} (:format runtime)) (= (get doc "name") (:name runtime)))
   (fail! :mithril.native-declarations/runtime "Matching checked runtime package required"))
  (let [ambient (get doc "ambient-types") values (get doc "ambient-values") registry (atom {:types {} :values {} :namespaces {}})]
   (vector! ambient 64) (vector! values 64)

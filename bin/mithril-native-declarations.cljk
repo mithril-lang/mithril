@@ -1,6 +1,6 @@
 (ns mithril.native-declarations-cli
  (:require [mithril.native-declarations :as declarations] [mithril.native-package :as package]
-           [mithril.native-declaration-emit :as emit] ["node:fs" :as fs] ["node:path" :as path]))
+           [mithril.native-declaration-emit :as emit] [mithril.native-esm :as esm] [mithril.form :as form] ["node:fs" :as fs] ["node:path" :as path]))
 (defn read-local [directory name]
  (let [file (path/join directory name) stat (fs/lstatSync file)]
   (when-not (and (.isFile stat) (not (.isSymbolicLink stat)) (<= (.-size stat) 1048576))
@@ -16,9 +16,15 @@
  (try
   (let [text (fs/readFileSync source "utf8") name (declarations/runtime-basename text)
         directory (path/dirname (path/resolve source)) runtime-text (read-local directory name)
-        names (package/source-basenames runtime-text)
+        runtime-kind (get (form/parse runtime-text) "@type")
+        names (case runtime-kind
+                "NativeJsPackage" (package/source-basenames runtime-text)
+                "NativeJsEsmPackage" (esm/source-basenames runtime-text)
+                (throw (ex-info "Expected checked native package runtime" {:mithril/error :mithril.native-declarations/runtime})))
         sources (into {} (map #(vector % (read-local directory %)) names))
-        checked-runtime (package/check-text runtime-text sources) result (emit/compile-text text checked-runtime)]
+        checked-runtime (case runtime-kind
+                          "NativeJsPackage" (package/check-text runtime-text sources)
+                          "NativeJsEsmPackage" (esm/check-text runtime-text sources)) result (emit/compile-text text checked-runtime)]
    (fs/writeFileSync output (:source result))
    (println (js/JSON.stringify (clj->js (assoc (dissoc result :source) :target target :output output)))))
   (catch :default e

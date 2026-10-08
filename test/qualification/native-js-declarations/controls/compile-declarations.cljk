@@ -1,13 +1,25 @@
 (ns compile-declarations
  (:require [clojure.walk :as walk] [mithril.form :as form] [mithril.native-package :as package]
            [mithril.native-declarations :as declarations] [mithril.native-declaration-emit :as emit]
-           [mithril.module :as guest] ["node:fs" :as fs] ["node:child_process" :as child]))
+           [mithril.module :as guest] [mithril.native-esm :as esm] ["node:fs" :as fs] ["node:child_process" :as child]))
 (defn ensure [p label] (when-not p (throw (js/Error. label))))
 (defn refused [f label] (ensure (try (f) false (catch :default _ true)) label))
 (def text (fs/readFileSync "examples/native-js-cosmokit.mith" "utf8"))
 (def runtime-doc (form/parse text))
 (def sources (into {} (map #(vector (get % "source") (fs/readFileSync (str "examples/" (get % "source")) "utf8")) (get runtime-doc "modules"))))
 (def runtime (package/check-text text sources))
+(defn source-form [value]
+ (cond
+  (map? value) (let [esm? (= "NativeJsEsmPackage" (get value "@type"))
+                     fields (if esm? (dissoc value "@context" "@type") (dissoc value "@context"))]
+                 (str (if esm? "(mithril/native-js-esm-package " "(rdf/node ")
+                      (apply str (map (fn [[k v]] (str ":" (case k "@type" "type" k) " " (source-form v) " ")) fields)) ")"))
+  (vector? value) (str "[" (apply str (interpose " " (map source-form value))) "]")
+  :else (pr-str value)))
+(def esm-text (fs/readFileSync "examples/native-js-cosmokit-esm.mith" "utf8"))
+(def esm-doc (form/parse esm-text))
+(def esm-sources (into {} (map #(vector % (fs/readFileSync (str "examples/" %) "utf8")) (esm/source-basenames esm-text))))
+(def esm-runtime (esm/check-text esm-text esm-sources))
 (def declaration-text (fs/readFileSync "examples/native-js-cosmokit-declarations.mith" "utf8"))
 (def doc (declarations/parse-text declaration-text))
 (def artifact (emit/compile-document doc runtime))
@@ -16,6 +28,13 @@
 (ensure (= "native-js-cosmokit.mith" (declarations/runtime-basename declaration-text)) "Wrong runtime read plan")
 (ensure (= artifact (emit/compile-text declaration-text runtime)) "Non-deterministic declarations")
 (refused #(guest/check-text declaration-text) "Guest admitted declaration context")
+(def esm-declaration-text (fs/readFileSync "examples/native-js-cosmokit-esm-declarations.mith" "utf8"))
+(def esm-declaration-doc (declarations/parse-text esm-declaration-text))
+(def esm-artifact (emit/compile-text esm-declaration-text esm-runtime))
+(ensure (= (assoc artifact :runtime-source "native-js-cosmokit-esm.mith") esm-artifact) "Native ESM declaration artifact differs from full checked legacy types")
+(ensure (= (assoc doc "runtime-source" "native-js-cosmokit-esm.mith") esm-declaration-doc) "Native ESM declaration AST differs from original complete types")
+(doseq [bad-runtime [(assoc esm-runtime :format :unchecked) (assoc esm-runtime :name "wrong") (update esm-runtime :exports pop)]]
+ (refused #(emit/compile-document esm-declaration-doc bad-runtime) "Native ESM mismatched runtime admitted"))
 (def kw {"op" "keyword" "name" "string"})
 (def raw {"op" "raw" "source" "globalThis.attack()"})
 (defn alias [name datatype] {"kind" "alias" "name" name "exported" false "type-params" [] "datatype" datatype})
@@ -82,12 +101,44 @@
    (run [engine "--config" config "-cp" "src" "bin/mithril-native-declarations.cljk" "examples/native-js-cosmokit-declarations.mith" "--target" target "--output" output])
    (ensure (= (:source artifact) (fs/readFileSync output "utf8")) "CLI differed from checked declaration artifact")
    (run ["test/qualification/native-js-declarations/controls/type-contract.mjs" "test/fixtures/cosmokit-declarations/index.d.ts" output compiler type-roots (str dir "/generic.d.mts")])
-   (run ["--experimental-vm-modules" "test/fixtures/cosmokit-package/contract.mjs" "test/fixtures/cosmokit-package/index.js" library])))
+   (run ["--experimental-vm-modules" "test/fixtures/cosmokit-package/contract.mjs" "test/fixtures/cosmokit-package/index.js" library])
+   (let [folder (str dir "/esm-" target) output (str folder "/index.d.mts")]
+    (run [engine "--config" config "-cp" "src" "bin/mithril-native-esm.cljk" "examples/native-js-cosmokit-esm.mith" "--target" target "--output-directory" folder])
+    (run [engine "--config" config "-cp" "src" "bin/mithril-native-declarations.cljk" "examples/native-js-cosmokit-esm-declarations.mith" "--target" target "--output" output])
+    (ensure (= (:source artifact) (fs/readFileSync output "utf8")) "Actual ESM declaration CLI differs from complete legacy types")
+    (run ["test/qualification/native-js-declarations/controls/type-contract.mjs" "test/fixtures/cosmokit-declarations/index.d.ts" output compiler type-roots (str dir "/generic.d.mts")])
+    (run ["--experimental-vm-modules" "test/fixtures/cosmokit-package/contract.mjs" "test/fixtures/cosmokit-package/index.js" (str folder "/index.mjs") "--native-esm"]))))
  (let [sentinel (str dir "/sentinel.d.mts") config (str dir "/offline.edn")]
   (fs/writeFileSync sentinel "preserve-existing-declarations")
   (doseq [target ["amu" "js"]]
    (let [r (child/spawnSync js/process.execPath (clj->js [engine "--config" config "-cp" "src" "bin/mithril-native-declarations.cljk" "missing.mith" "--target" target "--output" sentinel]) #js {:encoding "utf8" :timeout 60000})]
     (ensure (= 65 (.-status r)) "Invalid declaration CLI input did not refuse")
     (ensure (= "preserve-existing-declarations" (fs/readFileSync sentinel "utf8")) "Refusal overwrote declaration output"))))
+ (let [fixture (str dir "/esm-refusals") config (str dir "/offline.edn") sentinel (str dir "/esm-refusal.d.mts")]
+  (fs/mkdirSync fixture)
+  (doseq [[name text] esm-sources] (fs/writeFileSync (str fixture "/" name) text))
+  (fs/writeFileSync (str fixture "/native-js-cosmokit-esm.mith") esm-text)
+  (fs/writeFileSync (str fixture "/types.mith") esm-declaration-text)
+  (fs/writeFileSync sentinel "preserve-existing-esm-types")
+  (let [reject! (fn [target code]
+                 (let [r (child/spawnSync js/process.execPath (clj->js [engine "--config" config "-cp" "src" "bin/mithril-native-declarations.cljk" (str fixture "/types.mith") "--target" target "--output" sentinel]) #js {:encoding "utf8" :timeout 60000})]
+                  (ensure (= 65 (.-status r)) "Invalid native ESM declaration CLI input admitted")
+                  (ensure (re-find (re-pattern (str "REFUSE\t" code "\t")) (.-stderr r)) (str "Wrong native ESM refusal: " (.-stderr r)))
+                  (ensure (= "preserve-existing-esm-types" (fs/readFileSync sentinel "utf8")) "Native ESM refusal overwrote output")))]
+   (reject! "amu" "native-declarations-target")
+   (doseq [[bad code] [[(assoc esm-doc "name" "wrong") "runtime"] [(assoc esm-doc "extra" "raw JS") "source"]
+                      [(assoc-in esm-doc ["modules" 0 "source"] "../outside.mith") "source"]
+                      [(update esm-doc "modules" conj (first (get esm-doc "modules"))) "source"]
+                      [(assoc esm-doc "@type" "UnknownRuntime") "runtime"]]]
+    (ensure (= (if (= "NativeJsEsmPackage" (get bad "@type")) bad (dissoc bad "@context")) (form/parse (source-form bad))) "Invalid runtime fixture did not roundtrip as actual inert Mithril data")
+    (fs/writeFileSync (str fixture "/native-js-cosmokit-esm.mith") (source-form bad))
+    (reject! "js" code))
+   (fs/writeFileSync (str fixture "/native-js-cosmokit-esm.mith") esm-text)
+   (let [leaf (first (keys esm-sources)) file (str fixture "/" leaf)]
+    (fs/unlinkSync file) (fs/symlinkSync "absent.mith" file) (reject! "js" "source")
+    (fs/unlinkSync file) (fs/writeFileSync file (get esm-sources leaf)))
+   (fs/unlinkSync (str fixture "/native-js-cosmokit-esm.mith"))
+   (fs/symlinkSync "absent.mith" (str fixture "/native-js-cosmokit-esm.mith")) (reject! "js" "source")
+   (println "Native ESM declarations: complete446type nodes/exact49publicnames/40values/11typebindings, old byte-identical types, actual two-profile/two-target runtime and strict type oracles;3runtime-identity/surface and8actualCLI refusals with output preservation.")))
  (println (str "Full declaration AST qualification: " @nodes " type nodes, scope/arity/shape/visibility/infer/budget refusals, both actual CLI targets and runtime/type consumer oracles; no source delegation."))
  (finally (fs/rmSync dir #js {:recursive true :force true})))
