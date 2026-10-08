@@ -1,6 +1,7 @@
 name: Mission native plugins
 on:
   push:
+    branches: [main]
     paths: ["src/mithril/mission*", "test/*mission*", "test/mithril/mission*", "scripts/run-mission-sci.mjs", ".github/workflows/mission-native.yml"]
   pull_request:
     paths: ["src/mithril/mission*", "test/*mission*", "test/mithril/mission*", "scripts/run-mission-sci.mjs", ".github/workflows/mission-native.yml"]
@@ -21,6 +22,7 @@ jobs:
       - uses: DeLaGuardo/setup-clojure@13.7.0
         with:
           cli: 1.12.5.1654
+          bb: 1.12.218
       - run: npm install --global nbb@1.5.212
       - run: |
           git clone --branch v0.2.0 https://github.com/mithril-lang/fund.mithril.interop.git /tmp/interop
