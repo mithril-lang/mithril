@@ -5,7 +5,7 @@
 (def ^:dynamic *module-paths* nil)
 (declare emit-type)
 (defn- generic-text [params]
- (when (seq params) (str "<" (str/join ", " (map (fn [p] (str (case (get p "variance") "in" "in " "out" "out " "in-out" "in out " "") (get p "name")
+ (when (seq params) (str "<" (str/join ", " (map (fn [p] (str (when (get p "const") "const ") (case (get p "variance") "in" "in " "out" "out " "in-out" "in out " "") (get p "name")
   (when-let [c (get p "constraint")] (str " extends " (emit-type c)))
   (when-let [d (get p "default")] (str " = " (emit-type d))))) params)) ">")))
 (defn- params-text [params]

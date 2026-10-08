@@ -2356,3 +2356,12 @@ See [tuple qualification](test/qualification/native-variadic-tuples/README.md).
 This is a type-only prerequisite with13 aliases and zero runtime values; complete
 Schemastery/Harness equivalence remains pending. Operator authored, zero new
 System One inference or measured gain.
+
+Checked const generic parameters now preserve all4 original Schemastery Static
+const/tuple/union/intersect signatures under explicit Schema/type observation helpers.
+Program/legacy profiles on both Node-executed CLI targets pass212 original-paired
+strict groups and16 exact-code refusals. Plain/false const emission stays byte-identical;
+alias/interface parameters remain strict. See [const generic qualification](test/qualification/native-const-generics/README.md).
+This is a type-only prerequisite with21 public types/zero runtime values; global
+namespace/default Schema/full Schemastery/Harness remain pending. Operator authored,
+zero new System One inference or measured gain.
