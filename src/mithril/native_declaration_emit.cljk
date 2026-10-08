@@ -74,6 +74,8 @@
   (case kind
    "function" (str prefix ambient "function " name generic "(" (params-text (get d "params")) "): " (emit-type (get d "returns")) ";\n")
    "const" (str prefix ambient "const " name ": " (emit-type (get d "datatype")) ";\n")
+   "const-enum" (str prefix ambient "const enum " name " {\n"
+                     (str/join ",\n" (map #(str (get % "name") " = " (quote-value (get % "value"))) (get d "members"))) "\n}\n")
    "alias" (str prefix "type " name generic " = " (emit-type (get d "datatype")) ";\n")
    "interface" (str prefix "interface " name generic
      (when (seq (get d "extends")) (str " extends " (str/join ", " (map emit-type (get d "extends")))))
@@ -85,11 +87,14 @@
    "namespace" (str prefix ambient "namespace " name " {\n" (apply str (map #(emit-declaration % false) (get d "declarations"))) "export {};\n}\n")
    "export-alias" (str "export {" (get d "target") " as " name "};\n"))))
 (defn compile-document [doc runtime]
- (let [checked (declarations/check-document doc runtime)]
+ (let [checked (declarations/check-document doc runtime)
+       enums (set (map #(get % "name") (filter #(= "const-enum" (get % "kind")) (:declarations checked))))]
   {:format :mithril.native-declarations/artifact-v1 :module (:name checked) :runtime-source (:runtime-source checked)
    :exports (:exports checked) :type-exports (:type-exports checked)
    :source (str "// Compiled checked Mithril declaration AST; no TypeScript source delegation.\n"
-    (apply str (map #(emit-declaration % true) (:declarations checked))) "export {};\n")}))
+    (apply str (map #(if (and (= "export-alias" (get % "kind")) (contains? enums (get % "target")))
+                       (str "export import " (get % "name") " = " (get % "target") ";\n")
+                       (emit-declaration % true)) (:declarations checked))) "export {};\n")}))
 (defn compile-text [text runtime]
  (compile-document (declarations/parse-text text) runtime))
 

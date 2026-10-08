@@ -2327,3 +2327,13 @@ Mithril Utils/Service/Context declaration cycle. External plugin/service contrac
 qualification adapters; the independent nine-module type graph, erased enums,
 full26-value root and complete Harness equivalence remain pending. Operator
 authored; no new System One inference or measured performance gain is claimed.
+
+Checked literal const enums now preserve original Cordis LoggerLevel/FiberState
+nominal/member identity while erasing their bindings from actual native ESM.
+Both Node-executed CLI targets and legacy aliases pass50 original-paired strict
+logical groups and18 exact-code refusals, including real consumer constant
+folding and structured Error/TypeError constructor heritage. The selected root
+has5 types,4 TypeScript value bindings and1 genuine Context runtime value.
+See [erased enum qualification](test/qualification/native-erased-enums/README.md).
+The complete independent Cordis graph and full Harness parity remain pending;
+operator authored with no new System One inference or measured gain.
