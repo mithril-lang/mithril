@@ -1,0 +1,22 @@
+(ns mithril.native-misc-primitives (:require [mithril.native-js :as n] [mithril.form :as form] ["node:fs" :as fs] ["node:child_process" :as child]))
+(defn lit [x] {"@type" "Literal" "datatype" "js-value" "value" x})
+(defn local [x] {"@type" "Local" "name" x})
+(def undef {"@type" "HostUndefined"})
+(defn binary [op a b] {"@type" "HostBinary" "operator" op "left" a "right" b})
+(defn unary [op x] {"@type" "HostUnary" "operator" op "value" x})
+(defn logical [op a b] {"@type" "HostLogical" "operator" op "left" a "right" b})
+(defn fun [name params body] {"@type" "Function" "name" name "params" (mapv #(hash-map "name" % "datatype" "js-value") params) "returns" "js-value" "body" body})
+(defn doc [body] {"@context" "https://mithril.fund/context/native-js-module/v1" "@type" "NativeJsModule" "name" "primitives.test" "imports" [] "functions" [(fun "probe" ["a" "b"] body)] "exports" ["probe"]})
+(def good [(binary "===" (local "a") (local "b")) (binary "!==" (local "a") undef) (unary "!" (local "a")) (unary "typeof" (local "a")) (logical "&&" (local "a") (local "b")) (logical "||" (local "a") (local "b")) (logical "??" (local "a") (local "b")) {"@type" "HostObject" "entries" [{"key" (lit "__proto__") "value" (local "a")}]} {"@type" "HostSpread" "value" (local "a")} {"@type" "HostSet" "object" (local "a") "key" (lit "x") "value" (local "b")} {"@type" "HostForOf" "iterable" (local "a") "binding" "key" "body" undef "result" (local "b")}])
+(defn verify [file runtime-file]
+(doseq [body good] (n/compile-document (doc body)))
+(doseq [body [(binary "==" (local "a") (local "b")) (binary ";throw 1;" (local "a") (local "b")) (unary "delete" (local "a")) (logical "+" (local "a") (local "b")) (assoc undef "value" 1) {"@type" "HostObject" "entries" [{"key" (lit "x") "value" undef "extra" true}]} {"@type" "HostForOf" "iterable" (local "a") "binding" "k" "body" undef "result" (local "k")} {"@type" "HostForOf" "iterable" (local "key") "binding" "key" "body" undef "result" undef} {"@type" "HostForOf" "iterable" (local "a") "binding" "a" "body" undef "result" undef}]]
+ (when-not (try (n/compile-document (doc body)) false (catch :default _ true)) (throw (js/Error. "malformed native primitive admitted"))))
+(doseq [[tag fields] [["host-undefined" ""] ["host-unary" ":operator \"!\" :value (mithril/local :name \"a\")"] ["host-binary" ":operator \"===\" :left (mithril/local :name \"a\") :right (mithril/local :name \"b\")"] ["host-logical" ":operator \"&&\" :left (mithril/local :name \"a\") :right (mithril/local :name \"b\")"] ["host-object" ":entries []"] ["host-spread" ":value (mithril/local :name \"a\")"] ["host-set" ":object (mithril/local :name \"a\") :key (mithril/literal :datatype \"js-value\" :value \"x\") :value (mithril/local :name \"b\")"] ["host-for-of" ":iterable (mithril/local :name \"a\") :binding \"key\" :body (mithril/host-undefined) :result (mithril/local :name \"b\")"]]]
+ (let [source (str "(mithril/native-js-module :name \"primitives.test\" :imports [] :exports [\"probe\"] :functions [(mithril/function :name \"probe\" :params [(rdf/node :name \"a\" :datatype \"js-value\") (rdf/node :name \"b\" :datatype \"js-value\")] :returns \"js-value\" :body (mithril/" tag " " fields "))])")]
+  (n/compile-text source)))
+(let [functions (mapv (fn [idx body] (fun (str "f" idx) ["a" "b"] body)) (range) good) artifact (n/compile-document (assoc (doc undef) "functions" functions "exports" (mapv #(get % "name") functions)))]
+ (fs/writeFileSync file (:source artifact))
+ (let [result (child/spawnSync js/process.execPath #js [runtime-file file] #js {:stdio "inherit" :timeout 30000})] (when-not (= 0 (.-status result)) (js/process.exit 1))))
+(println "11 primitive admissions, 9 refusals, all 8 Form tags checked.")
+)

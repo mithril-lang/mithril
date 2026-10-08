@@ -10,11 +10,12 @@
             [mithril.library-test]
             [mithril.module-bindings-test]
             [mithril.module-guest-closure-test]
-            [mithril.native-js-test]))
+            [mithril.native-js-test]
+            [mithril.native-misc-test]))
 (defmethod t/report [::t/default :end-run-tests] [m]
-  (when (or (not= 74 (:test m)) (not= 391 (:pass m))
+  (when (or (not= 76 (:test m)) (not= 399 (:pass m))
             (pos? (+ (:fail m) (:error m))))
     (js/process.exit 1)))
 (t/run-tests 'mithril.module-test 'mithril.module-lower-test 'mithril.form-test
              'mithril.compiler-test 'mithril.conditional-test 'mithril.branding-test
-             'mithril.undefined-test 'mithril.library-test 'mithril.module-bindings-test 'mithril.module-guest-closure-test 'mithril.native-js-test)
+             'mithril.undefined-test 'mithril.library-test 'mithril.module-bindings-test 'mithril.module-guest-closure-test 'mithril.native-js-test 'mithril.native-misc-test)
