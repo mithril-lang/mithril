@@ -16,8 +16,8 @@ try{
     '#!/bin/sh\n: > "$MITHRIL_NATIVE_JVM_MARKER"\nexit 97\n',{mode:0o755});
   const result=spawnSync(process.execPath,[engine,'--config',config,'test/run_native_js.cljk'],
     {cwd:root,stdio:'inherit',timeout:120000,env:{...process.env,
-      PATH:dir+delimiter+process.env.PATH,MITHRIL_NATIVE_JVM_MARKER:marker}});
+      PATH:dir+delimiter+process.env.PATH,MITHRIL_NATIVE_JVM_MARKER:marker,MITHRIL_NATIVE_ENGINE:engine}});
   if(existsSync(marker))throw Error('Forbidden JVM launcher was invoked');
   if(result.error||result.status!==0)throw result.error||Error(`Native JS source suite exited ${result.status}`);
-  console.log('Native JS host backend: 28 tests / 121 assertions; paired mapValues, complete misc, array and volatile runtime contracts; native type foundation; native loop/string/export values; ordered object spreads; whole types runtime; string/time native prerequisites; whole string runtime; module initializer function references; whole time runtime; private checked package factories; no JVM fallback.');
+  console.log('Native JS host backend: 29 tests / 124 assertions; paired mapValues, complete misc, array and volatile runtime contracts; native type foundation; native loop/string/export values; ordered object spreads; whole types runtime; string/time native prerequisites; whole string runtime; module initializer function references; whole time runtime; private checked package factories; native normal function contexts; no JVM fallback.');
 }finally{rmSync(dir,{recursive:true,force:true});}

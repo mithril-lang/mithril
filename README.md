@@ -2269,3 +2269,10 @@ The [package qualification](test/qualification/native-js-package/README.md) cove
 `examples/native-js-cosmokit-declarations.mith` expresses the complete CosmoKit public declaration shapes as inert Mithril AST. `bin/mithril-native-declarations.cljk <declarations.mith> --target js|js-browser --output <library.d.mts>` checks names, scope, generic arity/defaults, budgets and the matching checked runtime package before emitting declarations. Pair the output basename with the package .mjs. The compiler emits admitted data and has no TypeScript parser dependency.
 
 The [declaration qualification](test/qualification/native-js-declarations/README.md) covers 49 public names across value/type spaces, both actual CLI targets, strict positive/negative consumer comparisons and a generic namespace/infer control. The operator implementation passed isolated controls before inference. Its new System One experiment remains unstarted because public browser access was refused; no model quality result is claimed. Browser/Q9/cyclic-linking/full Harness parity remain open.
+
+
+### Native normal function expressions
+
+`mithril/native-function` emits checked native normal function syntax with optional name, js-value parameters/defaults, optional rest binding and body. `mithril/host-this` and `mithril/host-new-target` read the current source normal function context; nested NativeLambda and compiler arrow wrappers preserve lexical capture. Initializers and top-level arrows cannot read an absent function context. Anonymous names, arity, native construction and prototype descriptors are retained.
+
+The [normal function qualification](test/qualification/native-js-normal-functions/README.md) contains the exact admission rules, receiver/rest constructor example, 19 JS reference groups and both actual CLI targets. This supplies callable-function prerequisites for Cordis/Schemastery; class/generator/async/cyclic-linking and whole Harness parity remain open.

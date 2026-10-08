@@ -1,0 +1,86 @@
+(ns mithril.native-function-test
+ (:require [cljs.test :refer [deftest is]] [mithril.native-js :as native] [mithril.form :as form]
+           ["node:fs" :as fs] ["node:os" :as os] ["node:path" :as path] ["node:child_process" :as child]))
+(defn lit [v] {"@type" "Literal" "datatype" "js-value" "value" v})
+(defn local [s] {"@type" "Local" "name" s})
+(defn arr [xs] {"@type" "HostArray" "items" xs})
+(defn normal [name params rest-name body] {"@type" "NativeFunction" "name" name "params" params "rest" rest-name "body" body})
+(defn param [name] {"name" name "datatype" "js-value"})
+(def this {"@type" "HostThis"})
+(def new-target {"@type" "HostNewTarget"})
+(def argc {"@type" "HostArgumentsLength"})
+(defn make-doc [expression]
+ {"@context" "https://mithril.fund/context/native-js-module/v1" "@type" "NativeJsModule" "name" "normal.control"
+  "imports" [] "functions" [] "exports" [{"name" "value" "value" expression}]})
+(def doc
+ (form/parse "(mithril/native-js-module :name \"normal.control\" :imports [] :functions [] :exports [(rdf/node :name \"value\" :value (mithril/native-function :name nil :params [(rdf/node :name \"a\" :datatype \"js-value\") (rdf/node :name \"b\" :datatype \"js-value\" :default (mithril/host-arguments-length))] :rest \"tail\" :body (mithril/host-array :items [(mithril/host-this) (mithril/local :name \"a\") (mithril/local :name \"b\") (mithril/local :name \"tail\") (mithril/host-new-target) (mithril/host-arguments-length)])))])"))
+(deftest normal-function-native-scope-and-call-semantics
+ (let [a (native/compile-document doc)
+       capture (normal nil [] nil {"@type" "Let" "bindings" [] "body" {"@type" "NativeLambda" "params" [] "body" (arr [this new-target argc])}})
+       own (normal "Inner" [] nil (arr [this new-target argc]))
+       nested (normal "Outer" [] nil own)
+       recurse (normal "__mithril_native_v1" [(param "n")] nil
+                 {"@type" "If" "condition" {"@type" "HostBinary" "operator" "<=" "left" (local "n") "right" (lit 0)}
+                  "then" (local "__mithril_native_v1")
+                  "else" {"@type" "HostInvoke" "function" (local "__mithril_native_v1") "args" [{"@type" "HostBinary" "operator" "-" "left" (local "n") "right" (lit 1)}]}})
+       inferred {"@type" "HostObject" "entries" [{"key" (lit "named") "value" (normal nil [] nil this) "infer_name" true}]}
+       maker (normal nil [(param "value")] nil
+                {"@type" "Sequence" "expressions" [{"@type" "HostSet" "object" this "key" (lit "value") "value" (local "value")} {"@type" "HostUndefined"}]})
+       early (normal nil [] nil {"@type" "HostObject" "entries" [{"key" (lit "replacement") "value" (lit true)}]})
+       default-this (normal nil [(assoc (param "value") "default" this)] nil (local "value"))
+       top-normal (assoc (make-doc this) "functions" [{"@type" "Function" "name" "method" "params" [] "returns" "js-value" "body" this}] "exports" ["method"])
+       local-normal (make-doc {"@type" "LocalFunction" "name" "method" "params" [] "body" this "result" (local "method")})
+       bad [(make-doc this) (make-doc new-target)
+            (make-doc (normal nil (vec (repeat 65 (param "x"))) nil (lit 0)))
+            (make-doc {"@type" "NativeLambda" "params" [] "body" this})
+            (make-doc {"@type" "NativeLambda" "params" [] "body" new-target})
+            (make-doc (assoc (normal nil [] nil (lit 0)) "source" "arbitrary JS"))
+            (make-doc (normal "return" [] nil (lit 0)))
+            (make-doc (normal nil [] 1 (lit 0)))
+            (make-doc (normal nil [(param "x")] "x" (lit 0)))
+            (make-doc (normal nil [(param "x") (param "x")] nil (lit 0)))
+            (make-doc (normal nil [] nil (local "missing")))
+            (make-doc (normal nil [(assoc (param "x") "default" (local "missing"))] nil (lit 0)))
+            (make-doc {"@type" "HostObject" "entries" [{"key" (lit "bad") "value" (lit 1) "infer_name" true}]})]
+       dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-normal-function-")) file (path/join dir "contract.mjs")]
+  (is (= a (native/compile-document doc)))
+  (is (every? (fn [d] (try (native/check-document d) false (catch :default _ true))) bad))
+  (try
+   (let [engine (.-MITHRIL_NATIVE_ENGINE js/process.env) config (path/join dir "offline.edn")]
+    (fs/writeFileSync config "{:paths [\"src\"]}\n")
+    (doseq [target ["js" "js-browser"]]
+     (let [r (child/spawnSync js/process.execPath
+              (clj->js [engine "--config" config "-cp" "src" "bin/mithril-native-js.cljk" "examples/native-js-normal-functions.mith" "--target" target "--output" (path/join dir (str target ".mjs"))])
+              #js {:encoding "utf8" :timeout 30000})]
+      (when-not (= 0 (.-status r)) (throw (js/Error. (str (.-stdout r) (.-stderr r))))))))
+   (fs/writeFileSync file
+    (str "import assert from 'node:assert/strict';import vm from 'node:vm';import{pathToFileURL}from'node:url';\n"
+         "let groups=0;const group=f=>{f();groups++};const load=s=>{const realm=vm.createContext({});return vm.runInContext('\"use strict\";'+s.replace('export function','function')+';instantiateMithrilNative({})',realm)};\n"
+         "const fn=load(" (js/JSON.stringify (:source a)) ").value;const host={mark:1};const ref=function(a,b=arguments.length,...tail){return [this,a,b,tail,new.target,arguments.length]};\n"
+         "const equal=(x,y)=>{assert.equal(x[0],y[0]);assert.equal(x[1],y[1]);assert.equal(x[2],y[2]);assert.deepEqual(Array.from(x[3]),y[3]);assert.equal(x[5],y[5]);};\n"
+         "group(()=>{assert.equal(fn.name,'');assert.equal(fn.length,ref.length);assert.equal(typeof fn.prototype,'object')});\n"
+         "group(()=>{for(const key of ['length','name','prototype']){const x=Object.getOwnPropertyDescriptor(fn,key),y=Object.getOwnPropertyDescriptor(ref,key);assert.equal(x.writable,y.writable);assert.equal(x.enumerable,y.enumerable);assert.equal(x.configurable,y.configurable)}assert.equal(fn.prototype.constructor,fn)});\n"
+         "group(()=>equal(fn.call(host,3),ref.call(host,3)));group(()=>equal(fn.call(host,3,4,5,6),ref.call(host,3,4,5,6)));\n"
+         "group(()=>{const x=fn(3);assert.equal(x[0],undefined);assert.equal(x[4],undefined)});\n"
+         "group(()=>{const x=new fn(3);assert.equal(x[4],fn);assert.equal(Object.getPrototypeOf(x[0]),fn.prototype)});\n"
+         "group(()=>{function Sub(){}const x=Reflect.construct(fn,[3,undefined,4],Sub);assert.equal(x[4],Sub);assert.equal(Object.getPrototypeOf(x[0]),Sub.prototype);assert.deepEqual(Array.from(x[3]),[4])});\n"
+         "group(()=>{const bound=fn.bind(host,3);equal(bound(4,5),ref.bind(host,3)(4,5));const x=new bound(4);assert.equal(x[4],fn)});\n"
+         "const capture=load(" (js/JSON.stringify (:source (native/compile-document (make-doc capture)))) ").value;\n"
+         "group(()=>{const arrow=capture.call(host,1,2);const x=arrow.call({other:1},3);assert.equal(x[0],host);assert.equal(x[1],undefined);assert.equal(x[2],2);assert.throws(()=>new arrow(),TypeError)});\n"
+         "group(()=>{const arrow=new capture(1);const x=arrow();assert.equal(Object.getPrototypeOf(x[0]),capture.prototype);assert.equal(x[1],capture);assert.equal(x[2],1)});\n"
+         "const outer=load(" (js/JSON.stringify (:source (native/compile-document (make-doc nested)))) ").value;group(()=>{const inner=outer.call(host,1);const other={other:1};const x=inner.call(other,2,3);assert.equal(x[0],other);assert.equal(x[1],undefined);assert.equal(x[2],2)});\n"
+         "const recurse=load(" (js/JSON.stringify (:source (native/compile-document (make-doc recurse)))) ").value;group(()=>{assert.equal(recurse(3),recurse);assert.equal(recurse.name,'__mithril_native_v1')});\n"
+         "const obj=load(" (js/JSON.stringify (:source (native/compile-document (make-doc inferred)))) ").value;group(()=>{assert.equal(obj.named.name,'named');assert.equal(obj.named(),obj);assert.equal(typeof obj.named.prototype,'object')});\n"
+         "const maker=load(" (js/JSON.stringify (:source (native/compile-document (make-doc maker)))) ").value;group(()=>{const x=new maker(7);assert.equal(x.value,7);assert.equal(Object.getPrototypeOf(x),maker.prototype);assert.equal(maker.call(host,8),undefined);assert.equal(host.value,8)});\n"
+         "const early=load(" (js/JSON.stringify (:source (native/compile-document (make-doc early)))) ").value;group(()=>assert.equal(new early().replacement,true));\n"
+         "const defaultThis=load(" (js/JSON.stringify (:source (native/compile-document (make-doc default-this)))) ").value;group(()=>assert.equal(defaultThis.call(host),host));\n"
+         "const top=load(" (js/JSON.stringify (:source (native/compile-document top-normal))) ").method;const local=load(" (js/JSON.stringify (:source (native/compile-document local-normal))) ").value;group(()=>{assert.equal(top.call(host),host);assert.equal(local.call(host),host)});\n"
+         "const sample=load(" (js/JSON.stringify (:source (native/compile-text (fs/readFileSync "examples/native-js-normal-functions.mith" "utf8")))) ");\n"
+         "group(()=>{const fn=sample.makeCallable((receiver,args)=>[receiver,...args]);const x=fn.call(host,1,2,3);assert.equal(x[0],host);assert.deepEqual(Array.from(x).slice(1),[1,2,3]);assert.equal(fn.name,'');assert.equal(fn.length,0)});\n"
+         "group(()=>{class Child extends sample.Box{}const box=new Child(9);assert.equal(box.value,9);assert.equal(box instanceof sample.Box,true);assert.equal(box instanceof Child,true);assert.equal(sample.Box.name,'Box')});\n"
+         "for(const target of ['js','js-browser']){const mod=await import(pathToFileURL(new URL(target+'.mjs',import.meta.url).pathname));const api=mod.instantiateMithrilNative({});const f=api.makeCallable((receiver,args)=>[receiver,...args]);const result=f.call(host,1,2);assert.equal(result[0],host);assert.deepEqual(result.slice(1),[1,2]);assert.equal(f.name,'');class Child extends api.Box{}assert.equal(new Child(7).value,7);console.log('Native normal function actual '+target+' CLI ESM: callable receiver/rest and native base-constructor subclass passed.')}\n"
+         "console.log('Native normal functions: '+groups+' JS reference groups; dynamic/lexical receivers, rest/defaults, arguments, named recursion, construction/new.target, descriptors and old function contexts.');\n"))
+   (let [r (child/spawnSync js/process.execPath #js [file] #js {:encoding "utf8" :timeout 30000})]
+    (is (= 0 (.-status r)) (str (.-stdout r) (.-stderr r)))
+    (print (.-stdout r)))
+   (finally (fs/rmSync dir #js {:recursive true :force true})))))
