@@ -1,0 +1,202 @@
+; CosmoKit array.ts runtime API, expressed in Mithril native JS host forms.
+(mithril/native-js-module
+ :name "cosmokit.array"
+ :imports ["Array"
+   "Set"
+   "isNullable"]
+ :functions [(mithril/function
+    :name "contain"
+    :params [(rdf/node
+       :name "array1"
+       :datatype "js-value")
+      (rdf/node
+       :name "array2"
+       :datatype "js-value")]
+    :returns "js-value"
+    :body (mithril/host-method
+      :object (mithril/local
+        :name "array2")
+      :key (mithril/literal
+        :datatype "js-value"
+        :value "every")
+      :args [(mithril/native-lambda
+         :params ["item"]
+         :body (mithril/host-method
+           :object (mithril/local
+             :name "array1")
+           :key (mithril/literal
+             :datatype "js-value"
+             :value "includes")
+           :args [(mithril/local
+              :name "item")]))]))
+   (mithril/function
+    :name "intersection"
+    :params [(rdf/node
+       :name "array1"
+       :datatype "js-value")
+      (rdf/node
+       :name "array2"
+       :datatype "js-value")]
+    :returns "js-value"
+    :body (mithril/host-method
+      :object (mithril/local
+        :name "array1")
+      :key (mithril/literal
+        :datatype "js-value"
+        :value "filter")
+      :args [(mithril/native-lambda
+         :params ["item"]
+         :body (mithril/host-method
+           :object (mithril/local
+             :name "array2")
+           :key (mithril/literal
+             :datatype "js-value"
+             :value "includes")
+           :args [(mithril/local
+              :name "item")]))]))
+   (mithril/function
+    :name "difference"
+    :params [(rdf/node
+       :name "array1"
+       :datatype "js-value")
+      (rdf/node
+       :name "array2"
+       :datatype "js-value")]
+    :returns "js-value"
+    :body (mithril/host-method
+      :object (mithril/local
+        :name "array1")
+      :key (mithril/literal
+        :datatype "js-value"
+        :value "filter")
+      :args [(mithril/native-lambda
+         :params ["item"]
+         :body (mithril/host-unary
+           :operator "!"
+           :value (mithril/host-method
+             :object (mithril/local
+               :name "array2")
+             :key (mithril/literal
+               :datatype "js-value"
+               :value "includes")
+             :args [(mithril/local
+                :name "item")])))]))
+   (mithril/function
+    :name "union"
+    :params [(rdf/node
+       :name "array1"
+       :datatype "js-value")
+      (rdf/node
+       :name "array2"
+       :datatype "js-value")]
+    :returns "js-value"
+    :body (mithril/host-method
+      :object (mithril/host-import
+        :name "Array")
+      :key (mithril/literal
+        :datatype "js-value"
+        :value "from")
+      :args [(mithril/host-construct
+         :constructor (mithril/host-import
+           :name "Set")
+         :args [(mithril/host-array-items
+            :items [(rdf/node
+               :spread (mithril/local
+                 :name "array1"))
+              (rdf/node
+               :spread (mithril/local
+                 :name "array2"))])])]))
+   (mithril/function
+    :name "deduplicate"
+    :params [(rdf/node
+       :name "array"
+       :datatype "js-value")]
+    :returns "js-value"
+    :body (mithril/host-array-items
+      :items [(rdf/node
+         :spread (mithril/host-construct
+           :constructor (mithril/host-import
+             :name "Set")
+           :args [(mithril/local
+              :name "array")]))]))
+   (mithril/function
+    :name "remove"
+    :params [(rdf/node
+       :name "list"
+       :datatype "js-value")
+      (rdf/node
+       :name "item"
+       :datatype "js-value")]
+    :returns "js-value"
+    :body (mithril/let
+      :bindings [(rdf/node
+         :name "index"
+         :value (mithril/host-optional-method
+           :object (mithril/local
+             :name "list")
+           :key (mithril/literal
+             :datatype "js-value"
+             :value "indexOf")
+           :args [(mithril/local
+              :name "item")]))]
+      :body (mithril/if
+        :condition (mithril/host-binary
+          :operator ">="
+          :left (mithril/local
+            :name "index")
+          :right (mithril/literal
+            :datatype "js-value"
+            :value 0))
+        :then (mithril/sequence
+          :expressions [(mithril/host-method
+              :object (mithril/local
+                :name "list")
+              :key (mithril/literal
+                :datatype "js-value"
+                :value "splice")
+              :args [(mithril/local
+                 :name "index")
+                (mithril/literal
+                  :datatype "js-value"
+                  :value 1)])
+            (mithril/literal
+              :datatype "js-value"
+              :value true)])
+        :else (mithril/literal
+          :datatype "js-value"
+          :value false))))
+   (mithril/function
+    :name "makeArray"
+    :params [(rdf/node
+       :name "source"
+       :datatype "js-value")]
+    :returns "js-value"
+    :body (mithril/if
+      :condition (mithril/host-method
+        :object (mithril/host-import
+          :name "Array")
+        :key (mithril/literal
+          :datatype "js-value"
+          :value "isArray")
+        :args [(mithril/local
+           :name "source")])
+      :then (mithril/local
+        :name "source")
+      :else (mithril/if
+        :condition (mithril/host-invoke
+          :function (mithril/host-import
+            :name "isNullable")
+          :args [(mithril/local
+             :name "source")])
+        :then (mithril/host-array
+          :items [])
+        :else (mithril/host-array
+          :items [(mithril/local
+             :name "source")]))))]
+ :exports ["contain"
+   "intersection"
+   "difference"
+   "union"
+   "deduplicate"
+   "remove"
+   "makeArray"])

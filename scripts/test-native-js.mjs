@@ -19,5 +19,5 @@ try{
       PATH:dir+delimiter+process.env.PATH,MITHRIL_NATIVE_JVM_MARKER:marker}});
   if(existsSync(marker))throw Error('Forbidden JVM launcher was invoked');
   if(result.error||result.status!==0)throw result.error||Error(`Native JS source suite exited ${result.status}`);
-  console.log('Native JS host backend: 11 tests / 48 assertions; paired mapValues verifier and complete misc runtime contract; no JVM fallback.');
+  console.log('Native JS host backend: 13 tests / 57 assertions; paired mapValues, complete misc and array runtime contracts; no JVM fallback.');
 }finally{rmSync(dir,{recursive:true,force:true});}

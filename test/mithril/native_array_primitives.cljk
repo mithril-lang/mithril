@@ -1,0 +1,29 @@
+(ns mithril.native-array-primitives (:require [mithril.native-js :as n] [mithril.form :as form] ["node:fs" :as fs] ["node:child_process" :as child]))
+(defn lit [v] {"@type" "Literal" "datatype" "js-value" "value" v})
+(defn local [name] {"@type" "Local" "name" name})
+(defn invoke [name] {"@type" "HostInvoke" "function" (local name) "args" []})
+(defn construct [ctor args] {"@type" "HostConstruct" "constructor" ctor "args" args})
+(defn spread-array [items] {"@type" "HostArrayItems" "items" items})
+(defn optional-method [o k args] {"@type" "HostOptionalMethod" "object" o "key" k "args" args})
+(defn binary [op a b] {"@type" "HostBinary" "operator" op "left" a "right" b})
+(defn fun [name params body] {"@type" "Function" "name" name "params" (mapv #(hash-map "name" % "datatype" "js-value") params) "returns" "js-value" "body" body})
+(defn doc [body] {"@context" "https://mithril.fund/context/native-js-module/v1" "@type" "NativeJsModule" "name" "arrays.primitives" "imports" [] "functions" [(fun "probe" ["a" "b"] body)] "exports" ["probe"]})
+(def positive [(construct (local "a") [(local "b")]) (spread-array [{"spread" (local "a")} {"value" (local "b")}]) (optional-method (local "a") (lit "x") [(local "b")]) (binary ">=" (local "a") (local "b"))])
+(defn verify [file runtime-file]
+(doseq [body positive] (n/compile-document (doc body)))
+(doseq [body [(assoc (first positive) "extra" true) (construct (local "a") {}) (construct (local "a") (vec (repeat 65 (lit 0)))) (construct (local "missing") []) (spread-array [{"spread" (local "a") "value" (local "b")}]) (spread-array [{}]) (spread-array [{"value" (lit 1) "extra" 2}]) (spread-array [{"spread" (local "missing")}]) (spread-array (vec (repeat 4097 {"value" (lit 0)}))) (assoc (nth positive 2) "optional_function" true) (optional-method (local "a") (lit "x") {}) (binary ">=;throw 1" (local "a") (local "b")) (binary "==" (local "a") (local "b"))]]
+ (when-not (try (n/compile-document (doc body)) false (catch :default _ true)) (throw (js/Error. "Malformed constructor/spread/optional/comparison admitted"))))
+(doseq [body [(spread-array (vec (repeat 4096 {"value" (lit 0)}))) (reduce (fn [x _] (spread-array [{"value" x}])) (lit 0) (range 65))]]
+ (when-not (= :mithril.native-js/budget (try (n/compile-document (doc body)) nil (catch :default e (:mithril/error (ex-data e))))) (throw (js/Error. "Shared native source budget bypassed"))))
+(doseq [[tag fields] [["host-construct" ":constructor (mithril/local :name \"a\") :args [(mithril/local :name \"b\")]"] ["host-array-items" ":items [(rdf/node :spread (mithril/local :name \"a\")) (rdf/node :value (mithril/local :name \"b\"))]"] ["host-optional-method" ":object (mithril/local :name \"a\") :key (mithril/literal :datatype \"js-value\" :value \"x\") :args [(mithril/local :name \"b\")]"]]]
+ (n/compile-text (str "(mithril/native-js-module :name \"arrays.primitives\" :imports [] :exports [\"probe\"] :functions [(mithril/function :name \"probe\" :params [(rdf/node :name \"a\" :datatype \"js-value\") (rdf/node :name \"b\" :datatype \"js-value\")] :returns \"js-value\" :body (mithril/" tag " " fields "))])")))
+(let [functions [(fun "construct" ["ctor" "arg"] (construct (local "ctor") [(local "arg")]))
+                 (fun "constructOrder" ["resolve" "argument"] (construct (invoke "resolve") [(invoke "argument")]))
+                 (fun "spread" ["a" "b"] (spread-array [{"spread" (local "a")} {"value" (local "b")} {"spread" (local "a")}]))
+                 (fun "optional" ["object" "key" "arg"] (optional-method (invoke "object") (invoke "key") [(invoke "arg")]))
+                 (fun "greater" ["a" "b"] (binary ">=" (local "a") (local "b")))]
+      artifact (n/compile-document (assoc (doc (lit nil)) "functions" functions "exports" (mapv #(get % "name") functions)))]
+ (fs/writeFileSync file (:source artifact))
+ (let [r (child/spawnSync js/process.execPath #js [runtime-file file] #js {:stdio "inherit" :timeout 30000})] (when-not (= 0 (.-status r)) (js/process.exit 1))))
+(println "4 admissions / 13 malformed refusals / 2 budget refusals / 3 Form tags passed.")
+)

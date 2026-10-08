@@ -2200,3 +2200,9 @@ property descriptors, filter callbacks and the shared `mapValues` alias. See
 [test contracts and System One evaluation](test/qualification/native-js-misc/README.md).
 This is one file's runtime port; public TypeScript declarations and complete
 CosmoKit/Harness migration remain separate work.
+
+`examples/native-js-array.mith` adds the complete seven-export array runtime,
+using the actual generated Mithril misc module for `isNullable`. Native
+construction, iterable array spread and optional receiver method calls retain
+JavaScript behavior. See [paired runtime and System One evaluation](test/qualification/native-js-array/README.md).
+The remaining CosmoKit modules and package/type/Harness parity are still open.
