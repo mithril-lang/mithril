@@ -305,21 +305,49 @@
         binds (reduce into #{} (map #(check-type! (get % "datatype") tenv venv mode (inc depth) budget registry scope nil) params))
         ret (check-type! (get x "returns") tenv venv mode (inc depth) budget registry scope (when-not constructor? (cond-> names (:this? (meta env)) (conj "this"))))]
    (into binds ret))))
-(defn- check-tuple! [items env values mode depth budget registry scope]
+(defn- direct-array-rest? [t]
+ (or (= "array" (get t "op"))
+     (and (= "readonly" (get t "op")) (= "array" (get-in t ["datatype" "op"])))))
+(defn- check-tuple-state! [items env values mode depth budget registry scope initial-optional? initial-array-rest?]
  (vector! items 128)
- (loop [xs items optional? false binds #{}]
+ (loop [xs items optional? initial-optional? array-rest? initial-array-rest? binds #{}]
   (if-let [item (first xs)]
    (let [named? (= "named-tuple-item" (get item "op"))
-         opt? (and named? (get item "optional"))]
-    (when named?
+         wrapped? (contains? #{"optional-tuple-item" "rest-tuple-item"} (get item "op"))
+         opt? (or (= "optional-tuple-item" (get item "op")) (and named? (get item "optional")))
+         rest? (or (= "rest-tuple-item" (get item "op")) (and named? (true? (get item "rest"))))
+         datatype (if (or named? wrapped?) (get item "datatype") item)
+         array? (and rest? (direct-array-rest? datatype))]
+    (when (or named? wrapped?)
      (charge! budget (inc depth))
-     (shape! item ["op" "name" "optional" "datatype"])
-     (identifier! (get item "name")) (flag! (get item "optional")))
-    (when (and optional? (not opt?))
-     (fail! :mithril.native-declarations/tuple "Required tuple element after optional"))
-    (recur (next xs) (or optional? opt?)
-           (into binds (check-type! (if named? (get item "datatype") item) env values mode (if named? (+ depth 2) (inc depth)) budget registry scope nil))))
-   binds)))
+     (if named?
+      (do (shape! item (cond-> ["op" "name" "optional" "datatype"] (contains? item "rest") (conj "rest")))
+          (identifier! (get item "name")) (flag! (get item "optional"))
+          (when (contains? item "rest") (flag! (get item "rest"))))
+      (shape! item ["op" "datatype"])))
+    (when (and rest? opt?) (fail! :mithril.native-declarations/tuple "Tuple rest element cannot be optional"))
+    (when (and rest? (not (or (contains? #{"array" "tuple" "readonly" "name" "infer" "union" "intersection" "conditional" "index" "typeof" "import-type"} (get datatype "op"))
+                             (and (= "keyword" (get datatype "op")) (contains? #{"any" "never"} (get datatype "name"))))))
+     (fail! :mithril.native-declarations/type "Tuple rest requires array-like type syntax"))
+    (let [fixed (when rest? (cond (= "tuple" (get datatype "op")) datatype
+                                  (and (= "readonly" (get datatype "op")) (= "tuple" (get-in datatype ["datatype" "op"]))) (get datatype "datatype")))
+          child-depth (if (or named? wrapped?) (+ depth 2) (inc depth))]
+     (if fixed
+      (let [readonly? (= "readonly" (get datatype "op")) tuple-depth (+ child-depth (if readonly? 1 0))]
+       (when readonly? (charge! budget child-depth) (shape! datatype ["op" "datatype"]))
+       (charge! budget tuple-depth) (shape! fixed ["op" "items"])
+       (let [state (check-tuple-state! (get fixed "items") env values mode tuple-depth budget registry scope optional? array-rest?)]
+        (recur (next xs) (:optional state) (:array-rest state) (into binds (:binds state)))))
+      (do
+       (when (and array-rest? (or opt? array?))
+        (fail! :mithril.native-declarations/tuple "Optional or second array rest after array rest"))
+       (when (and optional? (not opt?) (not rest?))
+        (fail! :mithril.native-declarations/tuple "Required tuple element after optional"))
+       (recur (next xs) (or optional? opt?) (or array-rest? array?)
+              (into binds (check-type! datatype env values mode child-depth budget registry scope nil)))))))
+   {:binds binds :optional optional? :array-rest array-rest?})))
+(defn- check-tuple! [items env values mode depth budget registry scope]
+ (:binds (check-tuple-state! items env values mode depth budget registry scope false false)))
 (defn- program-type-binding [tables module name]
  (let [[head & tail] (str/split name #"\.") b (get-in tables [module head]) suffix (str/join "." tail)]
   (if (empty? tail) b

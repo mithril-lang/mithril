@@ -2347,3 +2347,12 @@ closure and genuine runtime binding checks. The exact public surface is50names,
 See [qualification](test/qualification/native-cordis-complete-types/README.md).
 Full Harness/profile/Session and actual browser/native/Q9 remain later gates;
 operator authored with zero new System One inference or measured gain.
+
+Checked optional/variadic tuple declarations now preserve the two original
+Schemastery TupleS/T templates under explicit identity observation helpers.
+Program/legacy profiles on both Node-executed CLI targets pass136 original-paired
+strict logical groups and23 exact-code refusals, including fixed-spread ordering.
+See [tuple qualification](test/qualification/native-variadic-tuples/README.md).
+This is a type-only prerequisite with13 aliases and zero runtime values; complete
+Schemastery/Harness equivalence remains pending. Operator authored, zero new
+System One inference or measured gain.
