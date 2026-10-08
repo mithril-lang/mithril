@@ -1,0 +1,16 @@
+(ns compile-time (:require [mithril.native-js :as n] [mithril.module :as g] ["node:fs" :as fs] ["node:crypto" :as crypto] ["node:child_process" :as child]))
+(def text (fs/readFileSync "examples/native-js-time.mith" "utf8"))
+(def a (n/compile-text text))
+(when-not (= "cosmokit.time" (:module a)) (throw (js/Error. "Wrong time module")))
+(when-not (= #{"Time"} (set (:exports a))) (throw (js/Error. "Incomplete time exports")))
+(when-not (= #{"Date" "Math" "RegExp" "parseFloat"} (set (:required-imports a))) (throw (js/Error. "Unexpected time grants")))
+(when-not (= a (n/compile-text text)) (throw (js/Error. "Nondeterministic time artifact")))
+(when-not (try (g/check-text text) false (catch :default _ true)) (throw (js/Error. "Guest context admitted native time")))
+(def hashes (js->clj (js/JSON.parse (fs/readFileSync "/opt/time-controls/artifact-hashes.json" "utf8"))))
+(doseq [[name sha] hashes] (when-not (= sha (-> (crypto/createHash "sha256") (.update (:source (n/compile-text (fs/readFileSync (str "examples/native-js-" name ".mith") "utf8")))) (.digest "hex"))) (throw (js/Error. "Prior artifact changed"))))
+(doseq [target ["js" "js-browser"]]
+ (let [file (str "/tmp/time-" target ".mjs") r (child/spawnSync js/process.execPath #js ["/opt/nbb/cli.js" "--config" "/opt/native-controls/workspace.edn" "bin/mithril-native-js.cljk" "examples/native-js-time.mith" "--target" target "--output" file] #js {:stdio "inherit" :timeout 30000})]
+  (when-not (= 0 (.-status r)) (throw (js/Error. "Actual time CLI failed")))
+  (when-not (= (:source a) (fs/readFileSync file "utf8")) (throw (js/Error. "CLI emitted different bytes")))
+  (let [r (child/spawnSync js/process.execPath #js ["--experimental-vm-modules" "/opt/time-controls/time-contract.mjs" "candidate" file "/opt/time-controls/time-cases.json" "/opt/time-controls/time-expected.json"] #js {:stdio "inherit" :timeout 30000})] (when-not (= 0 (.-status r)) (throw (js/Error. "Whole time runtime failed"))))))
+(println "Whole time actual CLI js/js-browser; six old artifacts unchanged.")

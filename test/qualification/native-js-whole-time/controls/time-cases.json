@@ -1,0 +1,302 @@
+[
+  [
+    "public namespace own shape",
+    "",
+    "[Object.keys(api),Object.keys(api.Time),Object.getPrototypeOf(api.Time)===Object.prototype,Object.entries(api.Time).map(([k,v])=>[k,typeof v,typeof v==='number'?v:null])]"
+  ],
+  [
+    "normal method metadata",
+    "",
+    "Object.entries(api.Time).filter(([k,v])=>typeof v==='function').map(([k,f])=>{const d=Object.getOwnPropertyDescriptor(api.Time,k);return [k,f.name,f.length,Object.hasOwn(f,'prototype'),Object.getPrototypeOf(f)===Function.prototype,d.writable,d.enumerable,d.configurable]})"
+  ],
+  [
+    "initial timezone and setter undefined",
+    "",
+    "[api.Time.getTimezoneOffset(),api.Time.setTimezoneOffset(0),api.Time.getTimezoneOffset(),api.Time.setTimezoneOffset(-480),api.Time.getTimezoneOffset()]"
+  ],
+  [
+    "timezone accepts opaque values",
+    "",
+    "(()=>{const x={};api.Time.setTimezoneOffset(x);return [api.Time.getTimezoneOffset()===x,api.Time.setTimezoneOffset(undefined),api.Time.getTimezoneOffset()]})()"
+  ],
+  [
+    "getDateNumber numeric matrix",
+    "",
+    "[-86400001,-86400000,-1,0,1,86399999,86400000,1709210096789,NaN,Infinity].map(x=>[api.Time.getDateNumber(x,0),api.Time.getDateNumber(x,540),api.Time.getDateNumber(x,-540)])"
+  ],
+  [
+    "getDateNumber default and invalid explicit values",
+    "",
+    "(()=>{const a=[api.Time.getDateNumber(),api.Time.getDateNumber(undefined),api.Time.getDateNumber(new Date(0))];for(const x of [null,false,'2024',Symbol()]){try{a.push(api.Time.getDateNumber(x,0))}catch(e){a.push(e instanceof TypeError)}}return a})()"
+  ],
+  [
+    "getDateNumber receiver and order",
+    "",
+    "(()=>{const ev=[],x={get valueOf(){ev.push('valueOf:get');return function(){ev.push(['valueOf:call',this===x]);return {[Symbol.toPrimitive](h){ev.push('date:'+h);return 86400000}}}}},offset={[Symbol.toPrimitive](h){ev.push('offset:'+h);return 5}};return [api.Time.getDateNumber(x,offset),ev]})()"
+  ],
+  [
+    "getDateNumber mutable namespace minute",
+    "",
+    "(()=>{const ev=[];Object.defineProperty(api.Time,'minute',{get(){ev.push('minute');return 120000}});return [api.Time.getDateNumber(86400000,0),ev]})()"
+  ],
+  [
+    "getDateNumber opaque early exception",
+    "",
+    "(()=>{const token={},ev=[];Object.defineProperty(api.Time,'minute',{get(){ev.push('minute');return 60000}});try{api.Time.getDateNumber({valueOf(){ev.push('valueOf');throw token}},0)}catch(e){return [e===token,ev]}})()"
+  ],
+  [
+    "getDateNumber live Math and floor receiver",
+    "",
+    "(()=>{const ev=[],math={get floor(){ev.push('floor:get');return function(x){ev.push(['floor:call',this===math,x]);return x}}};Object.defineProperty(globalThis,'Math',{get(){ev.push('Math');return math},configurable:true});return [api.Time.getDateNumber(86400000,0),ev]})()"
+  ],
+  [
+    "fromDateNumber value offset matrix",
+    "",
+    "[-2,-1,0,1,1.5,NaN,Infinity].map(x=>[0,540,-540,undefined,null].map(o=>api.Time.fromDateNumber(x,o).getTime()))"
+  ],
+  [
+    "fromDateNumber conversion ordering",
+    "",
+    "(()=>{const ev=[],v={[Symbol.toPrimitive](h){ev.push('value:'+h);return 1}},o={[Symbol.toPrimitive](h){ev.push('offset:'+h);return 1}};return [api.Time.fromDateNumber(v,o).getTime(),ev]})()"
+  ],
+  [
+    "fromDateNumber uses live Date and properties",
+    "",
+    "(()=>{const ev=[],D=Date;Object.defineProperty(api.Time,'day',{get(){ev.push('day');return 1000}});Object.defineProperty(api.Time,'minute',{get(){ev.push('minute');return 100}});Object.defineProperty(globalThis,'Date',{configurable:true,get(){ev.push('Date');return class extends D{constructor(x){ev.push(['construct',x]);super(x)}valueOf(){ev.push('valueOf');return super.valueOf()}}}});return [api.Time.fromDateNumber(2,3).getTime(),ev]})()"
+  ],
+  [
+    "fromDateNumber opaque conversion stops second constructor",
+    "",
+    "(()=>{const token={},ev=[],D=Date;globalThis.Date=class extends D{constructor(x){ev.push('construct');super(x)}valueOf(){ev.push('valueOf');throw token}};try{api.Time.fromDateNumber(1,0)}catch(e){return [e===token,ev]}})()"
+  ],
+  [
+    "parseTime ordinary unit grammar",
+    "",
+    "['','1w','2weeks','1d','2days','1h','2hours','1m','2minutes','1min','1s','2seconds','1sec','1w2d3h4m5s','1.5h','0s','1.25m','1week2days3hours4minutes5seconds'].map(s=>[s,api.Time.parseTime(s)])"
+  ],
+  [
+    "parseTime invalid and edge grammar",
+    "",
+    "[' 1s','1s ','1S','-1s','+1s','.5s','1.s','1e2s','1ms','1month','1s1m','1w1w','abc','0.0w','999999999999999999999999999999999999999999w','1s\\n'].map(s=>[s,api.Time.parseTime(s)])"
+  ],
+  [
+    "parseTime regex exec receiver and capture slots",
+    "",
+    "(()=>{const ev=[],x={toString(){ev.push('source');return '1h2m3s'}};return [api.Time.parseTime(x),ev]})()"
+  ],
+  [
+    "parseTime native source Symbol failure",
+    "",
+    "(()=>{try{api.Time.parseTime(Symbol())}catch(e){return e instanceof TypeError}})()"
+  ],
+  [
+    "parseTime parseFloat live global order",
+    "",
+    "(()=>{const ev=[],f=parseFloat;Object.defineProperty(globalThis,'parseFloat',{configurable:true,get(){ev.push('parseFloat:get');return function(v){ev.push(['parseFloat:call',this===undefined,v]);return f(v)}}});for(const k of ['week','day','hour','minute','second']){const v=api.Time[k];Object.defineProperty(api.Time,k,{get(){ev.push(k);return v}})}return [api.Time.parseTime('2h'),ev]})()"
+  ],
+  [
+    "parseTime opaque parseFloat failure",
+    "",
+    "(()=>{const token={},ev=[];globalThis.parseFloat=()=>{ev.push('float');throw token};try{api.Time.parseTime('1s')}catch(e){return [e===token,ev]}})()"
+  ],
+  [
+    "parseTime failed capture avoids parseFloat",
+    "",
+    "(()=>{globalThis.parseFloat=()=>{throw 'called'};return api.Time.parseTime('invalid')})()"
+  ],
+  [
+    "parseTime mutable namespace constants",
+    "",
+    "(()=>{api.Time.week=7;api.Time.day=6;api.Time.hour=5;api.Time.minute=4;api.Time.second=3;return api.Time.parseTime('1w2d3h4m5s')})()"
+  ],
+  [
+    "parseDate clock duration and fallback branches",
+    "",
+    "['1s','1.5h','0s','','invalid','12:34','12:34:56','2-29-12:34','2024-02-29T12:34:56.789Z'].map(s=>[s,api.Time.parseDate(s).getTime()])"
+  ],
+  [
+    "parseDate explicit null undefined falsy and numeric",
+    "",
+    "[undefined,null,false,0,1,'0'].map(x=>api.Time.parseDate(x).getTime())"
+  ],
+  [
+    "parseDate private lexical parseTime",
+    "",
+    "(()=>{api.Time.parseTime=()=>{throw 'namespace replaced'};return api.Time.parseDate('1s').getTime()})()"
+  ],
+  [
+    "parseDate duration live Date now getter receiver",
+    "",
+    "(()=>{const ev=[],D=Date;Object.defineProperty(D,'now',{get(){ev.push('now:get');return function(){ev.push(['now:call',this===D]);return 1000}},configurable:true});return [api.Time.parseDate('1s').getTime(),ev]})()"
+  ],
+  [
+    "parseDate repeated source coercions",
+    "",
+    "(()=>{const ev=[],x={toString(){ev.push('toString');return '12:34'}};return [api.Time.parseDate(x).getTime(),ev]})()"
+  ],
+  [
+    "parseDate opaque source exception",
+    "",
+    "(()=>{const token={},ev=[];try{api.Time.parseDate({toString(){ev.push('toString');throw token}})}catch(e){return [e===token,ev]}})()"
+  ],
+  [
+    "parseDate native Symbol exception",
+    "",
+    "(()=>{try{api.Time.parseDate(Symbol())}catch(e){return e instanceof TypeError}})()"
+  ],
+  [
+    "format thresholds and signed rounding",
+    "",
+    "[-86400000,-84600000,-84599999,-3600000,-3570000,-3569999,-60000,-59500,-59499,-1000,-999,-0,0,999,1000,59499,59500,3569999,3570000,84599999,84600000,NaN,Infinity,-Infinity].map(x=>[x,api.Time.format(x)])"
+  ],
+  [
+    "format bigint symbol and native error",
+    "",
+    "[1n,Symbol()].map(x=>{try{return api.Time.format(x)}catch(e){return e instanceof TypeError}})"
+  ],
+  [
+    "format coercion native hints and property order",
+    "",
+    "(()=>{const ev=[],x={[Symbol.toPrimitive](h){ev.push(h);return 60000}};for(const k of ['day','hour','minute','second']){const v=api.Time[k];Object.defineProperty(api.Time,k,{get(){ev.push(k);return v}})}return [api.Time.format(x),ev]})()"
+  ],
+  [
+    "format no round below second",
+    "",
+    "(()=>{const ev=[],m=Math;globalThis.Math={abs:m.abs,round(){ev.push('round');return 0}};return [api.Time.format(12),ev]})()"
+  ],
+  [
+    "format opaque Math getter",
+    "",
+    "(()=>{const token={};Object.defineProperty(globalThis,'Math',{get(){throw token}});try{api.Time.format(10)}catch(e){return e===token}})()"
+  ],
+  [
+    "format dynamic namespace thresholds",
+    "",
+    "(()=>{api.Time.day=100;api.Time.hour=10;api.Time.minute=2;api.Time.second=1;return [0,0.5,1,1.5,9,95].map(v=>api.Time.format(v))})()"
+  ],
+  [
+    "toDigits matrix defaults",
+    "",
+    "[0,1,-1,12,NaN,Infinity,1.2].map(x=>[api.Time.toDigits(x),api.Time.toDigits(x,undefined),api.Time.toDigits(x,0),api.Time.toDigits(x,5)])"
+  ],
+  [
+    "toDigits receiver getter order",
+    "",
+    "(()=>{const ev=[],r={get padStart(){ev.push('padStart:get');return function(n,c){ev.push(['padStart:call',this===r,n,c]);return 'X'}}},s={get toString(){ev.push('toString:get');return function(){ev.push(['toString:call',this===s]);return r}}};return [api.Time.toDigits(s,3),ev]})()"
+  ],
+  [
+    "toDigits opaque toString",
+    "",
+    "(()=>{const token={};try{api.Time.toDigits({toString(){throw token}})}catch(e){return e===token}})()"
+  ],
+  [
+    "toDigits native length coercion",
+    "",
+    "(()=>{const ev=[],n={[Symbol.toPrimitive](h){ev.push(h);return 4}};return [api.Time.toDigits(2,n),ev]})()"
+  ],
+  [
+    "template complete fields and first replacement only",
+    "",
+    "[api.Time.template('yyyy-yy-MM-dd hh:mm:ss.SSS'),api.Time.template('yyyy yyyy MM MM'),api.Time.template('nothing'),api.Time.template('yyyy',new Date(0))]"
+  ],
+  [
+    "template private lexical toDigits",
+    "",
+    "(()=>{api.Time.toDigits=()=>{throw 'replaced'};return api.Time.template('MM dd ss SSS')})()"
+  ],
+  [
+    "template all time getters still evaluated",
+    "",
+    "(()=>{const ev=[],t={};for(const [m,v]of [['getFullYear',2024],['getMonth',1],['getDate',29],['getHours',12],['getMinutes',34],['getSeconds',56],['getMilliseconds',789]])t[m]=function(){ev.push([m,this===t]);return v};return [api.Time.template('no tokens',t),ev]})()"
+  ],
+  [
+    "template replacement getter ordering",
+    "",
+    "(()=>{const ev=[],s={get replace(){ev.push('replace:get');return function(k,v){ev.push(['replace:call',this===s,k,v]);return s}}},t={};for(const m of ['getFullYear','getMonth','getDate','getHours','getMinutes','getSeconds','getMilliseconds'])t[m]=function(){ev.push(m);return 1};api.Time.template(s,t);return ev})()"
+  ],
+  [
+    "template opaque early field error",
+    "",
+    "(()=>{const ev=[],token={},s={get replace(){ev.push('replace:get');return ()=>s}},t={getFullYear(){ev.push('year');throw token}};try{api.Time.template(s,t)}catch(e){return [e===token,ev]}})()"
+  ],
+  [
+    "template null explicit time avoids default",
+    "",
+    "(()=>{try{api.Time.template('yyyy',null)}catch(e){return e instanceof TypeError}})()"
+  ],
+  [
+    "init property assignment chronology",
+    "globalThis.initEvents=[];for(const k of ['millisecond','second','minute','hour','day','week','setTimezoneOffset','getTimezoneOffset','getDateNumber','fromDateNumber','parseTime','parseDate','format','toDigits','template'])Object.defineProperty(Object.prototype,k,{configurable:true,set(v){initEvents.push([k,typeof v,typeof v==='function'?v.name:v]);Object.defineProperty(this,k,{value:v,writable:true,enumerable:true,configurable:true})}});const D=Date,R=RegExp;globalThis.Date=class extends D{constructor(...x){initEvents.push('Date:new');super(...x)}getTimezoneOffset(){initEvents.push('timezone');return -90}};globalThis.RegExp=class extends R{constructor(...x){initEvents.push(['RegExp:new',...x]);super(...x)}};",
+    "[initEvents,Object.keys(api.Time)]"
+  ],
+  [
+    "init early function callback executes timezone before regexp",
+    "globalThis.initEvents=[];Object.defineProperty(Object.prototype,'getTimezoneOffset',{configurable:true,set(f){initEvents.push([f.name,f()]);Object.defineProperty(this,'getTimezoneOffset',{value:f,enumerable:true,writable:true,configurable:true})}});const R=RegExp;globalThis.RegExp=class extends R{constructor(...x){initEvents.push('RegExp');super(...x)}};",
+    "[initEvents,api.Time.getTimezoneOffset()]"
+  ],
+  [
+    "init regex callback name arity and template hints",
+    "globalThis.initEvents=[];const orig=Array.prototype.map;Array.prototype.map=function(f,...rest){initEvents.push([f.name,f.length,Object.hasOwn(f,'prototype'),this.length]);const value={[Symbol.toPrimitive](h){initEvents.push(['unit',h]);return 's'}};initEvents.push(f(value));return orig.call(this,f,...rest)};",
+    "initEvents"
+  ],
+  [
+    "init opaque setter stops timezone constructor",
+    "globalThis.initToken={};globalThis.initEvents=[];Object.defineProperty(Object.prototype,'second',{set(){initEvents.push('second');throw initToken}});const D=Date;globalThis.Date=class extends D{constructor(...x){initEvents.push('Date');super(...x)}};",
+    "[initializationError===initToken,initEvents]"
+  ],
+  [
+    "init regex opaque error after first registrations",
+    "globalThis.initToken={};globalThis.initEvents=[];for(const k of ['setTimezoneOffset','getTimezoneOffset','getDateNumber','fromDateNumber','parseTime'])Object.defineProperty(Object.prototype,k,{set(f){initEvents.push(k);Object.defineProperty(this,k,{value:f,enumerable:true,configurable:true})}});globalThis.RegExp=class{constructor(){initEvents.push('RegExp');throw initToken}};",
+    "[initializationError===initToken,initEvents]"
+  ],
+  [
+    "normal methods constructibility and Date return override",
+    "",
+    "(()=>{const args={setTimezoneOffset:[0],getTimezoneOffset:[],getDateNumber:[0,0],fromDateNumber:[0,0],parseTime:['1s'],parseDate:['1s'],format:[0],toDigits:[1],template:['yyyy',new Date(0)]};return Object.entries(args).map(([k,x])=>{const f=api.Time[k],o=Reflect.construct(f,x);return [k,o instanceof f,o instanceof Date,Object.getPrototypeOf(o)===f.prototype]})})()"
+  ],
+  [
+    "isolated namespace instances and mutable closures",
+    "globalThis.needSecond=true;",
+    "(()=>{api.Time.setTimezoneOffset(12);api.Time.minute=2;return [api.Time!==apiTwo.Time,api.Time.getTimezoneOffset!==apiTwo.Time.getTimezoneOffset,api.Time.getTimezoneOffset(),apiTwo.Time.getTimezoneOffset(),api.Time.minute,apiTwo.Time.minute]})()"
+  ],
+  [
+    "init live host global getter counts",
+    "globalThis.initEvents=[];const D=Date,R=RegExp;Object.defineProperty(globalThis,'Date',{configurable:true,get(){initEvents.push('Date:get');return D}});Object.defineProperty(globalThis,'RegExp',{configurable:true,get(){initEvents.push('RegExp:get');return R}});",
+    "initEvents"
+  ],
+  [
+    "parseTime custom exec capture and native property order",
+    "globalThis.initEvents=[];globalThis.regexObject={get exec(){initEvents.push('exec:get');return function(s){initEvents.push(['exec:call',this===regexObject,s]);const c={};for(let i=1;i<=5;i++)Object.defineProperty(c,i,{get(){initEvents.push('capture:'+i);return String(i)}});return c}}};globalThis.RegExp=class{constructor(){return regexObject}};",
+    "(()=>{for(const k of ['week','day','hour','minute','second']){const v=api.Time[k];Object.defineProperty(api.Time,k,{get(){initEvents.push(k);return v}})}return [api.Time.parseTime('x'),initEvents]})()"
+  ],
+  [
+    "parseTime custom exec false capture avoids float",
+    "globalThis.initEvents=[];globalThis.RegExp=class{constructor(){return {exec(s){initEvents.push(s);return null}}}};",
+    "(()=>{globalThis.parseFloat=()=>{throw 'called'};return [api.Time.parseTime('x'),initEvents]})()"
+  ],
+  [
+    "parseTime opaque capture slot preserves exception",
+    "globalThis.initToken={};globalThis.initEvents=[];globalThis.RegExp=class{constructor(){return {exec(){return {get 1(){initEvents.push('capture');throw initToken}}}}}};",
+    "(()=>{try{api.Time.parseTime('x')}catch(e){return [e===initToken,initEvents]}})()"
+  ],
+  [
+    "fromDateNumber unary number hint and offset coercion",
+    "",
+    "(()=>{const ev=[],D=Date;globalThis.Date=class extends D{[Symbol.toPrimitive](h){ev.push(h);return 1000}};const o={[Symbol.toPrimitive](h){ev.push('offset:'+h);return 2}};return [api.Time.fromDateNumber(0,o).getTime(),ev]})()"
+  ],
+  [
+    "format below second default concatenation hint",
+    "",
+    "(()=>{const ev=[],x={[Symbol.toPrimitive](h){ev.push(h);return 500}};return [api.Time.format(x),ev]})()"
+  ],
+  [
+    "template native replace result conversion hint",
+    "",
+    "(()=>{const ev=[],t={getFullYear(){ev.push('year');return {toString(){ev.push('toString');return {[Symbol.toPrimitive](h){ev.push(h);return '2024'}}}}}};try{api.Time.template('yyyy',t)}catch(e){return [e instanceof TypeError,ev]}})()"
+  ],
+  [
+    "default Date constructors are live at each call",
+    "",
+    "(()=>{const ev=[],D=Date;Object.defineProperty(globalThis,'Date',{configurable:true,get(){ev.push('Date:get');return class extends D{constructor(...xs){ev.push(['Date:new',xs.length]);super(...xs)}}}});api.Time.getDateNumber();api.Time.template('yyyy');return ev})()"
+  ]
+]

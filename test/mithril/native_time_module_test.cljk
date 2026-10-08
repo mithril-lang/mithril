@@ -1,0 +1,21 @@
+(ns mithril.native-time-module-test
+ (:require [cljs.test :refer [deftest is]] [mithril.native-js :as native] [mithril.module :as guest]
+           ["node:fs" :as fs] ["node:os" :as os] ["node:path" :as path]
+           ["node:child_process" :as child] ["node:crypto" :as crypto]))
+(deftest whole-time-runtime-with-source-derived-snapshots
+ (let [text (fs/readFileSync "examples/native-js-time.mith" "utf8") artifact (native/compile-text text)
+       dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-whole-time-")) file (path/join dir "time.mjs")]
+  (try
+   (is (= artifact (native/compile-text text)))
+   (is (= :mithril.native-js/artifact-v1 (:format artifact)))
+   (is (= "cosmokit.time" (:module artifact)))
+   (is (= #{"Date" "Math" "RegExp" "parseFloat"} (set (:required-imports artifact))))
+   (is (= #{"Time"} (set (:exports artifact))))
+   (is (try (guest/check-text text) false (catch :default _ true)))
+   (is (= (js->clj (js/JSON.parse (fs/readFileSync "test/fixtures/time-artifact-hashes.json" "utf8")))
+          (into {} (map (fn [name] [name (-> (crypto/createHash "sha256") (.update (:source (native/compile-text (fs/readFileSync (str "examples/native-js-" name ".mith") "utf8")))) (.digest "hex"))]) ["map-values" "misc" "array" "volatile" "types" "string"]))))
+   (fs/writeFileSync file (:source artifact))
+   (doseq [[mode source] [["baseline" "test/fixtures/time-baseline.mjs"] ["candidate" file]]]
+    (let [r (child/spawnSync js/process.execPath (clj->js ["--experimental-vm-modules" "test/fixtures/time-contract.mjs" mode source "test/fixtures/time-cases.json" "test/fixtures/time-expected.json"]) #js {:encoding "utf8" :timeout 30000})]
+     (is (= 0 (.-status r)) (str (.-stdout r) (.-stderr r)))))
+   (finally (fs/rmSync dir #js {:recursive true :force true})))))
