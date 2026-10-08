@@ -1,0 +1,44 @@
+{
+  "format": "mithril.native-mutable-parameters-qualification/v1",
+  "source_tests": 53,
+  "source_assertions": 195,
+  "runtime_groups_per_target_profile": 19,
+  "runtime_groups_total": 76,
+  "actual_cli_targets": [
+    "js",
+    "js-browser"
+  ],
+  "profiles": [
+    "factory",
+    "native-esm"
+  ],
+  "execution_host": "Node",
+  "admission_refusals": 21,
+  "exports": 13,
+  "reference": "Complete original EventsService.on body in observation class; original owner/constructor/full Events/core lifecycle unported.",
+  "arguments_probe": "length only, not complete arguments-object aliasing",
+  "rest_loop_bindings": "existing immutable guards retained",
+  "retained": {
+    "package_exports": 40,
+    "package_groups_per_target": 15,
+    "frozen_leaf_artifacts": 7,
+    "type_nodes": 446,
+    "strict_positive_groups_per_target": 10,
+    "strict_negative_groups_per_target": 12,
+    "type_profile": "existing package only"
+  },
+  "system_one": {
+    "new_inferences": 0,
+    "repairs": 0,
+    "model_code_adoption": false
+  },
+  "source_sha256": {
+    "src/mithril/native_js.cljk": "40a9e9e754d0fe498ecf95af87308be212309b5b8b8a187ef4d8a09e2e2b061e",
+    "examples/native-js-mutable-parameters.mith": "e3eaa5686950a73cd8f5dc1818727ae8438823ce8ec5297b2a20213283ad561b",
+    "test/mithril/native_mutable_parameters_test.cljk": "1b82651b087133126c0a6c96fc02e5145e03e52545bc520607aea9f2f3342f2a",
+    "test/fixtures/mutable-parameters/contract.mjs": "1af40ab10c4bd3f58f4c045a06a6699f30a545896be1f64fe8180e6a29092738",
+    "test/fixtures/mutable-parameters/reference.mjs": "0c00d32b8a60f9787f12114216d9274677e78d9a09499ae3e73c14ce7a3ee797",
+    "test/fixtures/mutable-parameters/provenance.json": "70f2500bda5b9a2d89bf5ee441e118248d7a954ce4f7337de0f7d5424046eb99"
+  },
+  "scope": "Parameter mutability source prerequisite only; complete core/Harness/browser/native/Q9 parity and new System One evaluations remain pending."
+}

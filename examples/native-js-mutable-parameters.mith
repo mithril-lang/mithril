@@ -1,0 +1,549 @@
+; Native parameter assignment controls; complete Events.on body in observation class, not whole Events/core.
+(mithril/native-js-module
+ :name "cordis.mutableParameters"
+ :imports ["JSON"]
+ :functions [(mithril/function
+   :name "moduleWrite"
+   :params [(rdf/node
+     :name "value"
+     :datatype "js-value"
+     :mutable true)
+(rdf/node
+     :name "read"
+     :datatype "js-value"
+     :default (mithril/native-lambda
+      :params []
+      :body (mithril/local
+       :name "value")))]
+   :returns "js-value"
+   :body (mithril/sequence
+    :expressions [(mithril/local-set
+      :name "value"
+      :value (mithril/literal
+       :datatype "js-value"
+       :value 11))
+(mithril/host-array
+      :items [(mithril/local
+        :name "value")
+(mithril/host-invoke
+        :function (mithril/local
+         :name "read")
+        :args [])])]))]
+ :exports [(rdf/node
+   :name "moduleWrite"
+   :function "moduleWrite")
+(rdf/node
+   :name "closure"
+   :value (mithril/native-function
+    :name "closure"
+    :params [(rdf/node
+      :name "value"
+      :datatype "js-value"
+      :mutable true)
+(rdf/node
+      :name "read"
+      :datatype "js-value"
+      :default (mithril/native-lambda
+       :params []
+       :body (mithril/local
+        :name "value")))
+(rdf/node
+      :name "write"
+      :datatype "js-value"
+      :default (mithril/native-lambda
+       :params ["next"]
+       :body (mithril/local-set
+        :name "value"
+        :value (mithril/local
+         :name "next"))))]
+    :rest nil
+    :body (mithril/sequence
+     :expressions [(mithril/local-set
+       :name "value"
+       :value (mithril/literal
+        :datatype "js-value"
+        :value 2))
+(mithril/host-array
+       :items [(mithril/local
+         :name "value")
+(mithril/host-invoke
+         :function (mithril/local
+          :name "read")
+         :args [])
+(mithril/local
+         :name "read")
+(mithril/local
+         :name "write")
+(mithril/host-arguments-length)])])))
+(rdf/node
+   :name "defaultWrite"
+   :value (mithril/native-function
+    :name "defaultWrite"
+    :params [(rdf/node
+      :name "value"
+      :datatype "js-value"
+      :mutable true
+      :default (mithril/literal
+       :datatype "js-value"
+       :value 1))
+(rdf/node
+      :name "next"
+      :datatype "js-value"
+      :default (mithril/local-set
+       :name "value"
+       :value (mithril/literal
+        :datatype "js-value"
+        :value 3)))]
+    :rest nil
+    :body (mithril/host-array
+     :items [(mithril/local
+       :name "value")
+(mithril/local
+       :name "next")])))
+(rdf/node
+   :name "tdz"
+   :value (mithril/native-function
+    :name "tdz"
+    :params [(rdf/node
+      :name "value"
+      :datatype "js-value"
+      :mutable true
+      :default (mithril/local-set
+       :name "value"
+       :value (mithril/literal
+        :datatype "js-value"
+        :value 2)))]
+    :rest nil
+    :body (mithril/local
+     :name "value")))
+(rdf/node
+   :name "shadow"
+   :value (mithril/native-function
+    :name "shadow"
+    :params [(rdf/node
+      :name "value"
+      :datatype "js-value"
+      :mutable true)
+(rdf/node
+      :name "read"
+      :datatype "js-value"
+      :default (mithril/native-lambda
+       :params []
+       :body (mithril/local
+        :name "value")))]
+    :rest nil
+    :body (mithril/let
+     :bindings [(rdf/node
+       :name "value"
+       :value (mithril/literal
+        :datatype "js-value"
+        :value 9))]
+     :body (mithril/host-array
+      :items [(mithril/local
+        :name "value")
+(mithril/host-invoke
+        :function (mithril/local
+         :name "read")
+        :args [])]))))
+(rdf/node
+   :name "arrowPattern"
+   :value (mithril/native-lambda
+    :params [(rdf/node
+      :array ["a"
+"b"]
+      :mutable true)]
+    :body (mithril/sequence
+     :expressions [(mithril/local-set
+       :name "a"
+       :value (mithril/local
+        :name "b"))
+(mithril/local-set
+       :name "b"
+       :value (mithril/literal
+        :datatype "js-value"
+        :value 7))
+(mithril/host-array
+       :items [(mithril/local
+         :name "a")
+(mithril/local
+         :name "b")])])))
+(rdf/node
+   :name "arrowDefault"
+   :value (mithril/native-lambda
+    :params [(rdf/node
+      :name "value"
+      :mutable true
+      :default (mithril/literal
+       :datatype "js-value"
+       :value 1))
+(rdf/node
+      :name "read"
+      :default (mithril/native-lambda
+       :params []
+       :body (mithril/local
+        :name "value")))]
+    :body (mithril/sequence
+     :expressions [(mithril/local-set
+       :name "value"
+       :value (mithril/literal
+        :datatype "js-value"
+        :value 4))
+(mithril/host-invoke
+       :function (mithril/local
+        :name "read")
+       :args [])])))
+(rdf/node
+   :name "asyncSet"
+   :value (mithril/native-function
+    :name "asyncSet"
+    :params [(rdf/node
+      :name "value"
+      :datatype "js-value"
+      :mutable true)]
+    :rest nil
+    :body (mithril/sequence
+     :expressions [(mithril/local-set
+       :name "value"
+       :value (mithril/host-await
+        :value (mithril/local
+         :name "value")))
+(mithril/local
+       :name "value")])
+    :async true))
+(rdf/node
+   :name "generatorSet"
+   :value (mithril/native-function
+    :name "generatorSet"
+    :params [(rdf/node
+      :name "value"
+      :datatype "js-value"
+      :mutable true)]
+    :rest nil
+    :body (mithril/sequence
+     :expressions [(mithril/local-set
+       :name "value"
+       :value (mithril/host-yield
+        :value (mithril/local
+         :name "value")))
+(mithril/local
+       :name "value")])
+    :generator true))
+(rdf/node
+   :name "asyncGeneratorSet"
+   :value (mithril/native-function
+    :name "asyncGeneratorSet"
+    :params [(rdf/node
+      :name "value"
+      :datatype "js-value"
+      :mutable true)]
+    :rest nil
+    :body (mithril/sequence
+     :expressions [(mithril/local-set
+       :name "value"
+       :value (mithril/host-yield
+        :value (mithril/host-await
+         :value (mithril/local
+          :name "value"))))
+(mithril/local
+       :name "value")])
+    :generator true
+    :async true))
+(rdf/node
+   :name "Box"
+   :value (mithril/native-class
+    :name "Box"
+    :extends nil
+    :constructor (rdf/node
+     :params [(rdf/node
+       :name "value"
+       :datatype "js-value"
+       :mutable true)
+(rdf/node
+       :name "read"
+       :datatype "js-value"
+       :default (mithril/native-lambda
+        :params []
+        :body (mithril/local
+         :name "value")))]
+     :rest nil
+     :body (mithril/sequence
+      :expressions [(mithril/local-set
+        :name "value"
+        :value (mithril/literal
+         :datatype "js-value"
+         :value 5))
+(mithril/host-set
+        :object (mithril/host-this)
+        :key (mithril/literal
+         :datatype "js-value"
+         :value "read")
+        :value (mithril/local
+         :name "read"))
+(mithril/host-set
+        :object (mithril/host-this)
+        :key (mithril/literal
+         :datatype "js-value"
+         :value "value")
+        :value (mithril/local
+         :name "value"))
+(mithril/host-undefined)]))
+    :members [(rdf/node
+      :kind "method"
+      :static false
+      :key (mithril/literal
+       :datatype "js-value"
+       :value "update")
+      :params [(rdf/node
+        :name "value"
+        :datatype "js-value"
+        :mutable true)
+(rdf/node
+        :name "read"
+        :datatype "js-value"
+        :default (mithril/native-lambda
+         :params []
+         :body (mithril/local
+          :name "value")))]
+      :rest nil
+      :body (mithril/sequence
+       :expressions [(mithril/local-set
+         :name "value"
+         :value (mithril/literal
+          :datatype "js-value"
+          :value 6))
+(mithril/host-array
+         :items [(mithril/local
+           :name "value")
+(mithril/host-invoke
+           :function (mithril/local
+            :name "read")
+           :args [])])]))]))
+(rdf/node
+   :name "object"
+   :value (mithril/host-object
+    :entries [(rdf/node
+      :kind "method"
+      :key (mithril/literal
+       :datatype "js-value"
+       :value "update")
+      :params [(rdf/node
+        :name "value"
+        :datatype "js-value"
+        :mutable true)
+(rdf/node
+        :name "read"
+        :datatype "js-value"
+        :default (mithril/native-lambda
+         :params []
+         :body (mithril/local
+          :name "value")))]
+      :rest nil
+      :body (mithril/sequence
+       :expressions [(mithril/local-set
+         :name "value"
+         :value (mithril/literal
+          :datatype "js-value"
+          :value 8))
+(mithril/host-array
+         :items [(mithril/local
+           :name "value")
+(mithril/host-invoke
+           :function (mithril/local
+            :name "read")
+           :args [])])]))]))
+(rdf/node
+   :name "EventsOnFixture"
+   :value (mithril/native-class
+    :name "EventsOnFixture"
+    :extends nil
+    :constructor (rdf/node
+     :params [(rdf/node
+       :name "ctx"
+       :datatype "js-value")
+(rdf/node
+       :name "hooks"
+       :datatype "js-value")]
+     :rest nil
+     :body (mithril/sequence
+      :expressions [(mithril/host-set
+        :object (mithril/host-this)
+        :key (mithril/literal
+         :datatype "js-value"
+         :value "ctx")
+        :value (mithril/local
+         :name "ctx"))
+(mithril/host-set
+        :object (mithril/host-this)
+        :key (mithril/literal
+         :datatype "js-value"
+         :value "_hooks")
+        :value (mithril/local
+         :name "hooks"))
+(mithril/host-undefined)]))
+    :members [(rdf/node
+      :kind "method"
+      :static false
+      :key (mithril/literal
+       :datatype "js-value"
+       :value "on")
+      :statements true
+      :params [(rdf/node
+        :name "name"
+        :datatype "js-value")
+(rdf/node
+        :name "listener"
+        :datatype "js-value"
+        :mutable true)
+(rdf/node
+        :name "options"
+        :datatype "js-value"
+        :mutable true)]
+      :rest nil
+      :body (mithril/sequence
+       :expressions [(mithril/if
+         :condition (mithril/host-binary
+          :operator "!=="
+          :left (mithril/host-unary
+           :operator "typeof"
+           :value (mithril/local
+            :name "options"))
+          :right (mithril/literal
+           :datatype "js-value"
+           :value "object"))
+         :then (mithril/local-set
+          :name "options"
+          :value (mithril/host-object
+           :entries [(rdf/node
+             :key (mithril/literal
+              :datatype "js-value"
+              :value "prepend")
+             :value (mithril/local
+              :name "options"))]))
+         :else (mithril/host-undefined))
+(mithril/host-method
+         :object (mithril/host-get
+          :object (mithril/host-get
+           :object (mithril/host-this)
+           :key (mithril/literal
+            :datatype "js-value"
+            :value "ctx"))
+          :key (mithril/literal
+           :datatype "js-value"
+           :value "fiber"))
+         :key (mithril/literal
+          :datatype "js-value"
+          :value "assertActive")
+         :args [])
+(mithril/local-set
+         :name "listener"
+         :value (mithril/host-method
+          :object (mithril/host-get
+           :object (mithril/host-get
+            :object (mithril/host-this)
+            :key (mithril/literal
+             :datatype "js-value"
+             :value "ctx"))
+           :key (mithril/literal
+            :datatype "js-value"
+            :value "reflect"))
+          :key (mithril/literal
+           :datatype "js-value"
+           :value "bind")
+          :args [(mithril/local
+            :name "listener")]))
+(mithril/let
+         :bindings [(rdf/node
+           :name "result"
+           :value (mithril/host-method
+            :object (mithril/host-this)
+            :key (mithril/literal
+             :datatype "js-value"
+             :value "bail")
+            :args [(mithril/host-get
+              :object (mithril/host-this)
+              :key (mithril/literal
+               :datatype "js-value"
+               :value "ctx"))
+(mithril/literal
+              :datatype "js-value"
+              :value "internal/listener")
+(mithril/local
+              :name "name")
+(mithril/local
+              :name "listener")
+(mithril/local
+              :name "options")]))]
+         :body (mithril/sequence
+          :expressions [(mithril/if
+            :condition (mithril/local
+             :name "result")
+            :then (mithril/host-return
+             :value (mithril/local
+              :name "result"))
+            :else (mithril/host-undefined))
+(mithril/let
+            :bindings [(rdf/node
+              :name "hooks"
+              :value (mithril/host-logical-assign
+               :object (mithril/host-get
+                :object (mithril/host-this)
+                :key (mithril/literal
+                 :datatype "js-value"
+                 :value "_hooks"))
+               :key (mithril/local
+                :name "name")
+               :operator "||="
+               :value (mithril/host-array
+                :items [])))
+(rdf/node
+              :name "label"
+              :value (mithril/host-binary
+               :operator "+"
+               :left (mithril/host-binary
+                :operator "+"
+                :left (mithril/literal
+                 :datatype "js-value"
+                 :value "ctx.on(")
+                :right (mithril/host-to-string
+                 :value (mithril/if
+                  :condition (mithril/host-binary
+                   :operator "==="
+                   :left (mithril/host-unary
+                    :operator "typeof"
+                    :value (mithril/local
+                     :name "name"))
+                   :right (mithril/literal
+                    :datatype "js-value"
+                    :value "string"))
+                  :then (mithril/host-method
+                   :object (mithril/host-import
+                    :name "JSON")
+                   :key (mithril/literal
+                    :datatype "js-value"
+                    :value "stringify")
+                   :args [(mithril/local
+                     :name "name")])
+                  :else (mithril/host-method
+                   :object (mithril/local
+                    :name "name")
+                   :key (mithril/literal
+                    :datatype "js-value"
+                    :value "toString")
+                   :args []))))
+               :right (mithril/literal
+                :datatype "js-value"
+                :value ")")))]
+            :body (mithril/host-return
+             :value (mithril/host-method
+              :object (mithril/host-this)
+              :key (mithril/literal
+               :datatype "js-value"
+               :value "register")
+              :args [(mithril/local
+                :name "label")
+(mithril/local
+                :name "hooks")
+(mithril/local
+                :name "listener")
+(mithril/local
+                :name "options")])))]))]))]))])
