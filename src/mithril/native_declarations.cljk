@@ -197,7 +197,7 @@
    (when (and (contains? kinds "export-alias") (pos? depth))
     (fail! :mithril.native-declarations/declaration "Export aliases are top-level"))))))
 (defn- accessible? [metadata scope]
- (or (nil? (:scope metadata)) (empty? (:scope metadata)) (:exported metadata) (str/starts-with? scope (:scope metadata))))
+ (or (nil? (:scope metadata)) (empty? (:scope metadata)) (:exported metadata) (str/starts-with? scope (or (:access-scope metadata) (:scope metadata)))))
 (defn- resolve-entry [registry space scope n]
  (some (fn [prefix]
   (let [candidate (str prefix n) qualified? (str/includes? n ".") receiver (str prefix (first (str/split n #"\.")))
@@ -321,7 +321,7 @@
    "keyword" (do (shape! x ["op" "name"]) (when-not (contains? #{"any" "unknown" "never" "string" "number" "boolean" "void" "undefined" "object" "symbol"} (get x "name")) (fail! :mithril.native-declarations/type "Unknown type keyword")) #{})
    "name" (do (shape! x ["op" "name" "args"]) (qualified! (get x "name")) (vector! (get x "args") 32)
     (let [n (get x "name") local? (contains? env n) a (if local? {:min 0 :max 0} (second (resolve-entry registry :types scope n)))]
-     (when-not (and a (<= (:min a) (count (get x "args")) (:max a))) (fail! :mithril.native-declarations/arity "Unknown type name or wrong generic arity"))
+     (when-not (and a (<= (:min a) (count (get x "args")) (:max a))) (fail! :mithril.native-declarations/arity (str "Unknown type name or wrong generic arity: " n " in " scope)))
      (reduce into #{} (map check (get x "args")))))
    "import-type" (do (shape! x ["op" "module" "name" "args" "query"]) (qualified! (get x "module")) (qualified! (get x "name"))
     (flag! (get x "query")) (vector! (get x "args") 32)
@@ -550,7 +550,7 @@
  (let [registry (atom {:types {} :values {} :namespaces {} :blocks {}})
        names (mapv #(get % "name") modules) prefixes (zipmap names (map #(str "D" % ".") (range)))
        documents (mapv (fn [doc]
-                   (shape! doc ["@context" "@type" "name" "runtime" "ambient-types" "ambient-values" "imports" "reexports" "declarations"])
+                   (shape! doc (cond-> ["@context" "@type" "name" "runtime" "ambient-types" "ambient-values" "imports" "reexports" "declarations"] (contains? doc "augmentations") (conj "augmentations")))
                    (when-not (and (= "NativeJsDeclarationModule" (get doc "@type")) (= "https://mithril.fund/context/native-js-declaration-module/v1" (get doc "@context")))
                     (fail! :mithril.native-declarations/context "Expected checked declaration module"))
                    (qualified! (get doc "name"))
@@ -559,9 +559,22 @@
                     (vector! (get doc field) 128) (doseq [g (get doc field)] (import-group! g (= field "reexports"))))
                    (unique! (vec (mapcat #(map (fn [n] (get n "local")) (get % "names")) (get doc "imports"))))
                    (unique! (vec (mapcat #(map (fn [n] (get n "export")) (get % "names")) (get doc "reexports"))))
+                   (when (contains? doc "augmentations")
+                    (vector! (get doc "augmentations") 128)
+                    (doseq [g (get doc "augmentations")]
+                     (shape! g ["module" "declarations"]) (qualified! (get g "module"))
+                     (when-not (some #{(get g "module")} names) (fail! :mithril.native-declarations/link "Augmentation target must be an internal module"))
+                     (vector! (get g "declarations") 256)
+                     (when (empty? (get g "declarations")) (fail! :mithril.native-declarations/link "Empty module augmentation"))
+                     (doseq [d (get g "declarations")]
+                      (declaration-shape! d)
+                      (when-not (and (= "interface" (get d "kind")) (get d "exported"))
+                       (fail! :mithril.native-declarations/declaration "Module augmentations contain public interfaces")))))
                    (when (some #(= "export-alias" (get % "kind")) (get doc "declarations"))
                     (fail! :mithril.native-declarations/link "Program exports use explicit checked reexport groups")) doc) modules)
-       wrappers (mapv (fn [index doc] {"kind" "namespace" "name" (str "D" index) "exported" true "declarations" (get doc "declarations")}) (range) documents)]
+       augmentations (vec (mapcat (fn [[index doc]] (map #(assoc % :source-index index) (get doc "augmentations"))) (map-indexed vector documents)))
+       wrappers (into (mapv (fn [index doc] {"kind" "namespace" "name" (str "D" index) "exported" true "declarations" (get doc "declarations")}) (range) documents)
+                  (map (fn [g] {"kind" "namespace" "name" (str/replace (get prefixes (get g "module")) #"\.$" "") "exported" true "declarations" (get g "declarations")}) augmentations))]
   (register! wrappers "" registry -1)
   (doseq [[index doc] (map-indexed vector documents)]
    (let [id [nil "" index] prefix (get prefixes (get doc "name"))]
@@ -580,7 +593,8 @@
      (swap! registry assoc-in [:blocks id :values (str prefix v)] {:kind "ambient" :scope prefix :context id :lexical true}))))
   (let [own (into {} (map (fn [doc]
                       (let [prefix (get prefixes (get doc "name"))
-                            public (distinct (map #(get % "name") (filter #(get % "exported") (get doc "declarations"))))]
+                            public (distinct (map #(get % "name") (filter #(get % "exported")
+                                               (concat (get doc "declarations") (mapcat #(get % "declarations") (filter #(= (get doc "name") (get % "module")) augmentations))))))]
                        [(get doc "name") (into {} (keep #(when-let [b (exported-binding @registry prefix %)] [% (assoc b :origin {:module (get doc "runtime") :export %})]) public))])) documents))
         external (into {} (map (fn [e]
                     (shape! e ["name" "specifier" "types" "values"])
@@ -644,7 +658,7 @@
               (install-program-binding! registry id (str prefix (get n "local") ".") name b false)))
          (if-let [b (get target (get n "import"))]
           (install-program-binding! registry id prefix (get n "local") b false)
-          (fail! :mithril.native-declarations/link "Unknown imported declaration symbol"))))))
+          (fail! :mithril.native-declarations/link (str "Unknown imported declaration symbol " (get n "import") " from " (get g "module"))))))))
      (let [values (set (for [[name b] (get @tables (get doc "name"))
                             :when (and (not (:type-only-value b)) (or (:values b) (get-in b [:namespaces :value?])))] name))
            native (get doc "runtime") expected (set (:exports (get-in runtime [:modules native])))]
@@ -657,6 +671,20 @@
           (fail! :mithril.native-declarations/surface "Declaration module binding origin mismatch")))))
       (when (and (nil? native) (not= entry (get doc "name")) (seq values))
        (fail! :mithril.native-declarations/surface "Value barrel requires actual native module identity")))))
+   ;; An augmentation owns declarations in the target module, but its type
+   ;; references resolve the source module's lexical imports/private bindings.
+   ;; Each block has its own frame; never rewrite AST names or symbol owners.
+   (doseq [[offset g] (map-indexed vector augmentations)]
+    (let [source-index (:source-index g) source-prefix (get prefixes (nth names source-index))
+          target-prefix (get prefixes (get g "module")) id [nil "" (+ (count documents) offset)]
+          source-view (block-view @registry [nil "" source-index])
+          declared (set (map #(get % "name") (get g "declarations")))]
+     (doseq [space [:types :values :namespaces] [n metadata] (get source-view space)
+             :when (str/starts-with? n source-prefix)]
+      (let [suffix (subs n (count source-prefix)) root (first (str/split suffix #"\."))]
+       (when-not (and (contains? declared root) (get-in @registry [space (str target-prefix root)]))
+        (swap! registry assoc-in [:blocks id space (str target-prefix suffix)]
+               (assoc metadata :canonical (or (:canonical metadata) n) :access-scope target-prefix :lexical true)))))))
    (swap! registry assoc :module-tables @tables)
    (class-inheritance! @registry) (interface-inheritance! @registry)
    (check-declarations! wrappers #{} #{} (atom 0) @registry "" -1)
@@ -668,7 +696,7 @@
               (when-not (contains? @visited name)
                (swap! visited conj name)
                (when-let [doc (get by-name name)]
-                (doseq [target (concat (map #(get % "module") (concat (get doc "imports") (get doc "reexports"))) (inline-modules (get doc "declarations")))]
+                (doseq [target (concat (map #(get % "module") (concat (get doc "imports") (get doc "reexports"))) (map #(get % "module") (get doc "augmentations")) (inline-modules (get doc "declarations")) (inline-modules (get doc "augmentations")))]
                  (when-not (contains? @tables target) (fail! :mithril.native-declarations/link "Unknown declaration dependency"))
                  (visit target)))))]
      (visit entry)

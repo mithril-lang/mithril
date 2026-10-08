@@ -1,0 +1,425 @@
+(mithril/native-js-declaration-module
+ :augmentations [(rdf/node
+   :module "cordis.context"
+   :declarations [(rdf/node
+     :kind "interface"
+     :name "Context"
+     :exported true
+     :type-params []
+     :extends []
+     :members [(rdf/node
+       :kind "method"
+       :name "get"
+       :optional false
+       :type-params [(rdf/node
+         :name "K"
+         :constraint (rdf/node
+          :op "intersection"
+          :items [(rdf/node
+            :op "keyword"
+            :name "string")
+           (rdf/node
+            :op "keyof"
+            :datatype (rdf/node
+             :op "this"))])
+         :default nil)]
+       :params [(rdf/node
+         :name "name"
+         :optional false
+         :rest false
+         :datatype (rdf/node
+          :op "name"
+          :name "K"
+          :args []))
+        (rdf/node
+         :name "strict"
+         :optional true
+         :rest false
+         :datatype (rdf/node
+          :op "keyword"
+          :name "boolean"))]
+       :returns (rdf/node
+        :op "union"
+        :items [(rdf/node
+          :op "keyword"
+          :name "undefined")
+         (rdf/node
+          :op "index"
+          :object (rdf/node
+           :op "this")
+          :key (rdf/node
+           :op "name"
+           :name "K"
+           :args []))]))
+      (rdf/node
+       :kind "method"
+       :name "get"
+       :optional false
+       :type-params []
+       :params [(rdf/node
+         :name "name"
+         :optional false
+         :rest false
+         :datatype (rdf/node
+          :op "keyword"
+          :name "string"))
+        (rdf/node
+         :name "strict"
+         :optional true
+         :rest false
+         :datatype (rdf/node
+          :op "keyword"
+          :name "boolean"))]
+       :returns (rdf/node
+        :op "keyword"
+        :name "any"))
+      (rdf/node
+       :kind "method"
+       :name "set"
+       :optional false
+       :type-params [(rdf/node
+         :name "K"
+         :constraint (rdf/node
+          :op "intersection"
+          :items [(rdf/node
+            :op "keyword"
+            :name "string")
+           (rdf/node
+            :op "keyof"
+            :datatype (rdf/node
+             :op "this"))])
+         :default nil)]
+       :params [(rdf/node
+         :name "name"
+         :optional false
+         :rest false
+         :datatype (rdf/node
+          :op "name"
+          :name "K"
+          :args []))
+        (rdf/node
+         :name "value"
+         :optional false
+         :rest false
+         :datatype (rdf/node
+          :op "union"
+          :items [(rdf/node
+            :op "keyword"
+            :name "undefined")
+           (rdf/node
+            :op "index"
+            :object (rdf/node
+             :op "this")
+            :key (rdf/node
+             :op "name"
+             :name "K"
+             :args []))]))]
+       :returns (rdf/node
+        :op "keyword"
+        :name "void"))
+      (rdf/node
+       :kind "method"
+       :name "set"
+       :optional false
+       :type-params []
+       :params [(rdf/node
+         :name "name"
+         :optional false
+         :rest false
+         :datatype (rdf/node
+          :op "keyword"
+          :name "string"))
+        (rdf/node
+         :name "value"
+         :optional false
+         :rest false
+         :datatype (rdf/node
+          :op "keyword"
+          :name "any"))]
+       :returns (rdf/node
+        :op "keyword"
+        :name "void"))
+      (rdf/node
+       :kind "method"
+       :name "provide"
+       :optional false
+       :type-params [(rdf/node
+         :name "K"
+         :constraint (rdf/node
+          :op "intersection"
+          :items [(rdf/node
+            :op "keyword"
+            :name "string")
+           (rdf/node
+            :op "keyof"
+            :datatype (rdf/node
+             :op "this"))])
+         :default nil)]
+       :params [(rdf/node
+         :name "name"
+         :optional false
+         :rest false
+         :datatype (rdf/node
+          :op "name"
+          :name "K"
+          :args []))
+        (rdf/node
+         :name "value"
+         :optional false
+         :rest false
+         :datatype (rdf/node
+          :op "union"
+          :items [(rdf/node
+            :op "keyword"
+            :name "undefined")
+           (rdf/node
+            :op "index"
+            :object (rdf/node
+             :op "this")
+            :key (rdf/node
+             :op "name"
+             :name "K"
+             :args []))]))]
+       :returns (rdf/node
+        :op "function"
+        :abstract false
+        :type-params []
+        :params []
+        :returns (rdf/node
+         :op "keyword"
+         :name "void")))
+      (rdf/node
+       :kind "method"
+       :name "provide"
+       :optional false
+       :type-params []
+       :params [(rdf/node
+         :name "name"
+         :optional false
+         :rest false
+         :datatype (rdf/node
+          :op "keyword"
+          :name "string"))
+        (rdf/node
+         :name "value"
+         :optional true
+         :rest false
+         :datatype (rdf/node
+          :op "keyword"
+          :name "any"))]
+       :returns (rdf/node
+        :op "function"
+        :abstract false
+        :type-params []
+        :params []
+        :returns (rdf/node
+         :op "keyword"
+         :name "void")))
+      (rdf/node
+       :kind "method"
+       :name "accessor"
+       :optional false
+       :type-params []
+       :params [(rdf/node
+         :name "name"
+         :optional false
+         :rest false
+         :datatype (rdf/node
+          :op "keyword"
+          :name "string"))
+        (rdf/node
+         :name "options"
+         :optional false
+         :rest false
+         :datatype (rdf/node
+          :op "name"
+          :name "Omit"
+          :args [(rdf/node
+            :op "name"
+            :name "Property.Accessor"
+            :args [])
+           (rdf/node
+            :op "literal"
+            :value "type")]))]
+       :returns (rdf/node
+        :op "keyword"
+        :name "void"))
+      (rdf/node
+       :kind "method"
+       :name "mixin"
+       :optional false
+       :type-params [(rdf/node
+         :name "K"
+         :constraint (rdf/node
+          :op "intersection"
+          :items [(rdf/node
+            :op "keyword"
+            :name "string")
+           (rdf/node
+            :op "keyof"
+            :datatype (rdf/node
+             :op "this"))])
+         :default nil)]
+       :params [(rdf/node
+         :name "name"
+         :optional false
+         :rest false
+         :datatype (rdf/node
+          :op "name"
+          :name "K"
+          :args []))
+        (rdf/node
+         :name "mixins"
+         :optional false
+         :rest false
+         :datatype (rdf/node
+          :op "union"
+          :items [(rdf/node
+            :op "array"
+            :item (rdf/node
+             :op "intersection"
+             :items [(rdf/node
+               :op "keyof"
+               :datatype (rdf/node
+                :op "this"))
+              (rdf/node
+               :op "keyof"
+               :datatype (rdf/node
+                :op "index"
+                :object (rdf/node
+                 :op "this")
+                :key (rdf/node
+                 :op "name"
+                 :name "K"
+                 :args [])))]))
+           (rdf/node
+            :op "name"
+            :name "Dict"
+            :args [(rdf/node
+              :op "keyword"
+              :name "string")])]))]
+       :returns (rdf/node
+        :op "keyword"
+        :name "void"))
+      (rdf/node
+       :kind "method"
+       :name "mixin"
+       :optional false
+       :type-params [(rdf/node
+         :name "T"
+         :constraint (rdf/node
+          :op "object"
+          :members [])
+         :default nil)]
+       :params [(rdf/node
+         :name "source"
+         :optional false
+         :rest false
+         :datatype (rdf/node
+          :op "name"
+          :name "T"
+          :args []))
+        (rdf/node
+         :name "mixins"
+         :optional false
+         :rest false
+         :datatype (rdf/node
+          :op "union"
+          :items [(rdf/node
+            :op "array"
+            :item (rdf/node
+             :op "intersection"
+             :items [(rdf/node
+               :op "keyof"
+               :datatype (rdf/node
+                :op "this"))
+              (rdf/node
+               :op "keyof"
+               :datatype (rdf/node
+                :op "name"
+                :name "T"
+                :args []))]))
+           (rdf/node
+            :op "name"
+            :name "Dict"
+            :args [(rdf/node
+              :op "keyword"
+              :name "string")])]))]
+       :returns (rdf/node
+        :op "keyword"
+        :name "void"))])])]
+ :reexports []
+ :runtime nil
+ :ambient-types [(rdf/node
+   :name "Pick"
+   :min 2
+   :max 2)
+  (rdf/node
+   :name "Omit"
+   :min 2
+   :max 2)
+  (rdf/node
+   :name "Promise"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "PromiseLike"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "Parameters"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "ThisType"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "NoInfer"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "ReturnType"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "Record"
+   :min 2
+   :max 2)
+  (rdf/node
+   :name "Spread"
+   :min 1
+   :max 1)]
+ :name "augmentation.reflect"
+ :ambient-values []
+ :declarations []
+ :imports [(rdf/node
+   :module "qualification.cosmokit"
+   :type-only true
+   :names [(rdf/node
+     :import "Dict"
+     :local "Dict")])
+  (rdf/node
+   :module "qualification.context"
+   :type-only false
+   :names [(rdf/node
+     :import "Context"
+     :local "Context")])
+  (rdf/node
+   :module "qualification.fiber"
+   :type-only false
+   :names [(rdf/node
+     :import "Fiber"
+     :local "Fiber")])
+  (rdf/node
+   :module "qualification.reflect"
+   :type-only true
+   :names [(rdf/node
+     :import "Property"
+     :local "Property")
+    (rdf/node
+     :import "Impl"
+     :local "Impl")
+    (rdf/node
+     :import "ReflectService"
+     :local "ReflectService")])])

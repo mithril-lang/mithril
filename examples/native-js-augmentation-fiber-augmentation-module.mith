@@ -1,0 +1,138 @@
+(mithril/native-js-declaration-module
+ :augmentations [(rdf/node
+   :module "cordis.context"
+   :declarations [(rdf/node
+     :kind "interface"
+     :name "Context"
+     :exported true
+     :type-params []
+     :extends [(rdf/node
+       :op "name"
+       :name "Pick"
+       :args [(rdf/node
+         :op "name"
+         :name "Fiber"
+         :args [])
+        (rdf/node
+         :op "literal"
+         :value "effect")])]
+     :members [(rdf/node
+       :kind "property"
+       :name "fiber"
+       :optional false
+       :readonly false
+       :datatype (rdf/node
+        :op "name"
+        :name "Fiber"
+        :args []))])])]
+ :reexports []
+ :runtime nil
+ :ambient-types [(rdf/node
+   :name "Pick"
+   :min 2
+   :max 2)
+  (rdf/node
+   :name "Omit"
+   :min 2
+   :max 2)
+  (rdf/node
+   :name "Promise"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "PromiseLike"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "Parameters"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "ThisType"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "NoInfer"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "ReturnType"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "Record"
+   :min 2
+   :max 2)
+  (rdf/node
+   :name "Spread"
+   :min 1
+   :max 1)]
+ :name "augmentation.fiber"
+ :ambient-values []
+ :declarations []
+ :imports [(rdf/node
+   :module "qualification.cosmokit"
+   :type-only true
+   :names [(rdf/node
+     :import "Awaitable"
+     :local "Awaitable")
+    (rdf/node
+     :import "Dict"
+     :local "Dict")])
+  (rdf/node
+   :module "qualification.context"
+   :type-only false
+   :names [(rdf/node
+     :import "Context"
+     :local "Context")])
+  (rdf/node
+   :module "qualification.registry"
+   :type-only true
+   :names [(rdf/node
+     :import "Plugin"
+     :local "Plugin")])
+  (rdf/node
+   :module "qualification.utils"
+   :type-only false
+   :names [(rdf/node
+     :import "DisposableList"
+     :local "DisposableList")])
+  (rdf/node
+   :module "qualification.reflect"
+   :type-only true
+   :names [(rdf/node
+     :import "Impl"
+     :local "Impl")])
+  (rdf/node
+   :module "qualification.schema"
+   :type-only true
+   :names [(rdf/node
+     :import "StandardSchemaV1"
+     :local "StandardSchemaV1")])
+  (rdf/node
+   :module "qualification.fiber"
+   :type-only true
+   :names [(rdf/node
+     :import "ValidationError"
+     :local "ValidationError")
+    (rdf/node
+     :import "Disposable"
+     :local "Disposable")
+    (rdf/node
+     :import "Effect"
+     :local "Effect")
+    (rdf/node
+     :import "EffectMeta"
+     :local "EffectMeta")
+    (rdf/node
+     :import "FiberState"
+     :local "FiberState")
+    (rdf/node
+     :import "CordisError"
+     :local "CordisError")
+    (rdf/node
+     :import "Fiber"
+     :local "Fiber")
+    (rdf/node
+     :import "resolveConfig"
+     :local "resolveConfig")])])

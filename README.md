@@ -2316,3 +2316,14 @@ Checked interface declarations now preserve named heritage, call/construct and c
 Checked declaration groups now merge compatible class/interface/namespace forms with separate namespace private scopes and ownership-aware heritage/static queries. Original Logger/Inject/Plugin/CordisError forms and a Context observation pass98 strict type groups on both actual declaration CLI targets, plus25 exact-code refusals. The qualification root verifies19 genuine runtime values; external type adapters and full independent Cordis linkage remain pending. See [declaration merging qualification](test/qualification/native-declaration-merging/README.md).
 
 Checked native declaration programs now link finite module imports and reexports to the actual ESM graph, preserving cyclic barrels and class/symbol ownership. Service/Utils/Logger declarations pass142 strict type groups and43 exact-code refusals across both actual CLI targets, plus output/symlink guards. Genuine inline import types and type-only export erasure are retained. Context/Fiber remain pinned external qualification imports; the full nine-module augmentation/enum graph remains pending. See [declaration program qualification](test/qualification/native-declaration-program/README.md).
+
+Native declaration programs also admit finite internal module interface
+augmentations while preserving separate declaring-module lexical frames and
+actual target module identity. The pinned complete Context class/interface and
+all five Cordis augmentation structures qualify with60 logical strict type
+groups,12 exact-code refusals and original-paired actual Context runtime behavior
+on both Node-executed CLI targets. Context computed symbols link to the actual
+Mithril Utils/Service/Context declaration cycle. External plugin/service contracts remain
+qualification adapters; the independent nine-module type graph, erased enums,
+full26-value root and complete Harness equivalence remain pending. Operator
+authored; no new System One inference or measured performance gain is claimed.

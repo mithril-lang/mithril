@@ -122,6 +122,7 @@
  (run [engine "--config" (str dir "/offline.edn") "-cp" "src" "test/qualification/native-interface-signatures/controls/compile.cljk"])
  (run [engine "--config" (str dir "/offline.edn") "-cp" "src" "test/qualification/native-declaration-merging/controls/compile.cljk"])
  (run [engine "--config" (str dir "/offline.edn") "-cp" "src" "test/qualification/native-declaration-program/controls/compile.cljk"])
+ (run [engine "--config" (str dir "/offline.edn") "-cp" "src" "test/qualification/native-module-augmentation/controls/compile.cljk"])
  (doseq [target ["js" "js-browser"]]
   (let [output (str dir "/" target ".d.mts") library (str dir "/" target ".mjs") config (str dir "/offline.edn")]
    (run [engine "--config" config "-cp" "src" "bin/mithril-native-package.cljk" "examples/native-js-cosmokit.mith" "--target" target "--output" library])

@@ -1,0 +1,69 @@
+(ns compile-augmentation
+ (:require [mithril.native-declaration-program :as program] [mithril.native-declarations :as declarations]
+           [mithril.native-esm :as esm] [clojure.string :as str] ["node:fs" :as fs] ["node:os" :as os] ["node:child_process" :as child]))
+(defn ensure [p text] (when-not p (throw (js/Error. text))))
+(defn run [args] (let [r (child/spawnSync js/process.execPath (clj->js args) #js {:encoding "utf8" :timeout 240000})] (ensure (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r)) (.-stdout r)))
+(def engine (.-MITHRIL_DECLARATIONS_ENGINE js/process.env))
+(def compiler (.-MITHRIL_DECLARATIONS_TYPESCRIPT js/process.env))
+(def type-roots (.-MITHRIL_DECLARATIONS_TYPE_ROOTS js/process.env))
+(def text (fs/readFileSync "examples/native-js-cordis-augmentation-program.mith" "utf8"))
+(def plan (program/read-plan text))
+(def doc (:document plan))
+(def sources (into {} (map #(vector % (fs/readFileSync (str "examples/" %) "utf8")) (:sources plan))))
+(def modules (mapv #(declarations/parse-text (get sources (get % "source"))) (get doc "modules")))
+(def runtime-text (fs/readFileSync (str "examples/" (:runtime-source plan)) "utf8"))
+(def runtime-sources (into {} (map #(vector % (fs/readFileSync (str "examples/" %) "utf8")) (esm/source-basenames runtime-text))))
+(def runtime (esm/check-text runtime-text runtime-sources))
+(defn reject [mods code]
+ (try (declarations/check-module-program mods (get doc "externals") runtime (get doc "entry")) (throw (js/Error. "Invalid augmentation admitted"))
+      (catch :default e (ensure (= code (:mithril/error (ex-data e))) (str "Wrong augmentation refusal: " e)))))
+(def target "cordis.context")
+(def g (get-in modules [1 "augmentations" 0]))
+(def interface (get-in g ["declarations" 0]))
+(def bads [[(assoc-in modules [1 "augmentations" 0 "module"] "missing.target") :mithril.native-declarations/link]
+           [(assoc-in modules [1 "augmentations" 0 "module"] "qualification.context") :mithril.native-declarations/link]
+           [(assoc-in modules [1 "augmentations" 0 "declarations"] []) :mithril.native-declarations/link]
+           [(assoc-in modules [1 "augmentations" 0 "declarations" 0 "exported"] false) :mithril.native-declarations/declaration]
+           [(assoc-in modules [1 "augmentations" 0 "raw"] "source") :mithril.native-declarations/shape]
+           [(assoc-in modules [1 "augmentations"] (vec (repeat 129 g))) :mithril.native-declarations/budget]
+           [(assoc-in modules [1 "augmentations" 0 "declarations"] (vec (repeat 257 interface))) :mithril.native-declarations/budget]
+           [(assoc-in modules [1 "augmentations" 0 "declarations" 0 "type-params"] [{"name" "T" "constraint" nil "default" nil}]) :mithril.native-declarations/duplicate]
+           [(assoc-in modules [1 "augmentations" 0 "declarations"] [{"kind" "const" "name" "Context" "exported" true "datatype" {"op" "keyword" "name" "any"}}]) :mithril.native-declarations/declaration]
+           [(assoc-in modules [1 "augmentations" 0 "declarations" 0 "members"] [{"kind" "property" "name" "root" "optional" false "readonly" false "datatype" {"op" "keyword" "name" "number"}}]) :mithril.native-declarations/duplicate]
+           [(assoc-in modules [1 "augmentations" 0 "declarations" 0 "members" 0 "returns"] {"op" "name" "name" "Missing" "args" []}) :mithril.native-declarations/arity]
+           [(assoc-in modules [1 "augmentations" 0 "declarations" 0 "extends"] [{"op" "name" "name" "Context" "args" []}]) :mithril.native-declarations/type]])
+(doseq [[mods code] bads] (reject mods code))
+(println "Module augmentation admission:12 exact-code target/shape/visibility/merge/scope/heritage/budget refusals.")
+(defn render [v]
+ (cond (map? v) (str "(" (case (get v "@type") "NativeJsDeclarationModule" "mithril/native-js-declaration-module" "NativeJsDeclarationProgram" "mithril/native-js-declaration-program" "rdf/node") " "
+                    (str/join " " (for [[k x] v :when (not (str/starts-with? k "@"))] (str ":" k " " (render x)))) ")")
+       (vector? v) (str "[" (str/join " " (map render v)) "]") (nil? v) "nil" :else (js/JSON.stringify v)))
+(defn private-scope [d name datatype]
+ (-> d
+  (update "declarations" into [{"kind" "const" "name" "Token" "exported" false "datatype" {"op" "unique-symbol"}}
+                               {"kind" "alias" "name" "Local" "exported" false "type-params" [] "datatype" {"op" "keyword" "name" datatype}}])
+  (update "augmentations" conj {"module" "cordis.context" "declarations" [{"kind" "interface" "name" "Context" "exported" true "type-params" []
+    "members" [{"kind" "property" "name" name "readonly" false "optional" false "datatype" {"op" "name" "name" "Local" "args" []}}
+               {"kind" "property" "name" (str name "Token") "readonly" false "optional" false "datatype" {"op" "typeof" "name" "Token"}}]}]})))
+(def scoped-modules (-> modules (update 1 private-scope "left" "string") (update 2 private-scope "right" "number")))
+(def scoped-sources (into {} (map #(vector (get %1 "source") (render %2)) (get doc "modules") scoped-modules)))
+(def scoped-artifact (program/compile-text text scoped-sources runtime))
+(def artifact (program/compile-text text sources runtime))
+(ensure (= ["Context"] (:exports artifact)) "Actual Context runtime surface")
+(ensure (= ["Context" "Intercept" "Service"] (:type-exports artifact)) "Augmented module type surface")
+(def dir (fs/mkdtempSync (str (os/tmpdir) "/mithril-augmentation-")))
+(def config (str dir "/offline.edn"))
+(fs/writeFileSync config (str "{:paths [" (js/JSON.stringify (fs/realpathSync "src")) "]}"))
+(try
+ (doseq [target ["js" "js-browser"]]
+  (let [out (str dir "/" target) rout (str dir "/" target "-runtime") meta (str dir "/" target ".json")]
+   (run [engine "--config" config "--classpath" "src" "bin/mithril-native-esm.cljk" (str "examples/" (:runtime-source plan)) "--target" target "--output-directory" rout])
+   (run [engine "--config" config "--classpath" "src" "bin/mithril-native-declaration-program.cljk" "examples/native-js-cordis-augmentation-program.mith" "--target" target "--output-directory" out])
+   (doseq [[file expected] (:files artifact)] (ensure (= expected (fs/readFileSync (str out "/" file) "utf8")) "CLI augmentation artifact mismatch"))
+   (fs/writeFileSync meta (js/JSON.stringify (clj->js artifact)))
+   (run ["test/qualification/native-module-augmentation/controls/type-contract.mjs" (str out "/index.d.mts") compiler type-roots meta (str rout "/index.mjs")])
+   (let [scoped (str dir "/" target "-scoped")]
+    (fs/mkdirSync scoped)
+    (doseq [[file source] (:files scoped-artifact)] (fs/writeFileSync (str scoped "/" file) source))
+    (run ["test/qualification/native-module-augmentation/controls/private-scope.mjs" (str scoped "/index.d.mts") compiler type-roots]))))
+ (finally (fs/rmSync dir #js {:recursive true :force true})))
