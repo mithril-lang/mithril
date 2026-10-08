@@ -1,0 +1,4 @@
+; Type-only qualification runtime: no substitute Cordis values or implementations.
+(mithril/native-js-esm-package :name "cordis.leaves" :imports []
+ :modules [(rdf/node :name "cordis.leaves" :source "native-js-cordis-type-leaves.mith" :dependencies [] :links [])]
+ :reexports ["cordis.leaves"])

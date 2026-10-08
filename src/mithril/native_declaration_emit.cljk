@@ -11,10 +11,17 @@
  (str/join ", " (map #(str (when (get % "rest") "...") (get % "name")
   (when (get % "optional") "?") ": " (emit-type (get % "datatype"))) params)))
 (defn- member-text [m]
- (str (when (get m "readonly") "readonly ") (quote-value (get m "name")) (when (get m "optional") "?")
-  (if (= "method" (get m "kind"))
-   (str (generic-text (get m "type-params")) "(" (params-text (get m "params")) "): " (emit-type (get m "returns")))
-   (str ": " (emit-type (get m "datatype")))) ";"))
+ (let [kind (get m "kind")]
+  (str (when (get m "readonly") "readonly ")
+   (case kind
+    "call" ""
+    "construct" "new "
+    ("computed-property" "computed-method") (str "[" (get m "name") "]")
+    (quote-value (get m "name")))
+   (when (get m "optional") "?")
+   (if (contains? #{"method" "computed-method" "call" "construct"} kind)
+    (str (generic-text (get m "type-params")) "(" (params-text (get m "params")) "): " (emit-type (get m "returns")))
+    (str ": " (emit-type (get m "datatype")))) ";")))
 (defn- tuple-item-text [t]
  (if (= "named-tuple-item" (get t "op"))
   (str (get t "name") (when (get t "optional") "?") ": " (emit-type (get t "datatype")))
@@ -65,7 +72,9 @@
    "function" (str prefix ambient "function " name generic "(" (params-text (get d "params")) "): " (emit-type (get d "returns")) ";\n")
    "const" (str prefix ambient "const " name ": " (emit-type (get d "datatype")) ";\n")
    "alias" (str prefix "type " name generic " = " (emit-type (get d "datatype")) ";\n")
-   "interface" (str prefix "interface " name generic " {\n" (str/join "\n" (map member-text (get d "members"))) "\n}\n")
+   "interface" (str prefix "interface " name generic
+     (when (seq (get d "extends")) (str " extends " (str/join ", " (map emit-type (get d "extends")))))
+     " {\n" (str/join "\n" (map member-text (get d "members"))) "\n}\n")
    "class" (str prefix ambient (when (get d "abstract") "abstract ") "class " name generic
      (when-let [base (get d "extends")] (str " extends " (emit-type base)))
      (when (seq (get d "implements")) (str " implements " (str/join ", " (map emit-type (get d "implements")))))
