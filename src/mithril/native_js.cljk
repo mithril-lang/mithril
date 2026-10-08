@@ -166,6 +166,11 @@
       "HostSpread"
       (do (shape! expr ["@type" "value"])
           {:op :spread :value (check (get expr "value"))})
+      "HostObjectSpreads"
+      (do (shape! expr ["@type" "values"])
+          (let [values (get expr "values")]
+            (vector! values 4096)
+            {:op :object-spreads :values (mapv check values)}))
       "HostSet"
       (do (shape! expr ["@type" "object" "key" "value"])
           {:op :set :object (check (get expr "object")) :key (check (get expr "key"))
@@ -356,6 +361,7 @@
       :object (str "({" (str/join "," (map #(str "[" (emit (:key %)) "]:" (emit (:value %)))
                                           (:entries expr))) "})")
       :spread (str "({..." (emit (:value expr)) "})")
+      :object-spreads (str "({" (str/join "," (map #(str "..." (emit %)) (:values expr))) "})")
       :set (str "((" (emit (:object expr)) ")[" (emit (:key expr)) "]=" (emit (:value expr)) ")")
       :for-of (let [symbol (fresh counter prefix)
                     body-env (assoc env (:binding expr) symbol)]

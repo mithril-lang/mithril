@@ -1,0 +1,1 @@
+export function instantiateMithrilNative(){function merge(a,b){return {...a,...b}}function empty(){return {}}function ordered(left,right){return {...left(),...right()}}function argc(){return {...{count:arguments.length}}}return {merge,empty,ordered,argc}}

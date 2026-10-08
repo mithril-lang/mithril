@@ -1,0 +1,24 @@
+(ns mithril.native-spreads-primitives (:require [mithril.native-js :as n] ["node:fs" :as fs] ["node:crypto" :as crypto] ["node:child_process" :as child]))
+(defn lit [v] {"@type" "Literal" "datatype" "js-value" "value" v})
+(defn local [s] {"@type" "Local" "name" s})
+(defn spread [values] {"@type" "HostObjectSpreads" "values" values})
+(defn fun [name params body] {"@type" "Function" "name" name "params" (mapv #(hash-map "name" % "datatype" "js-value") params) "returns" "js-value" "body" body})
+(defn doc [body] {"@context" "https://mithril.fund/context/native-js-module/v1" "@type" "NativeJsModule" "name" "types.objectspreads" "imports" [] "functions" [(fun "merge" ["a" "b"] body)] "exports" ["merge"]})
+(defn verify [file runtime-file]
+(doseq [body [(spread []) (spread [(local "a")]) (spread [(local "a") (local "b")])]] (n/compile-document (doc body)))
+(doseq [body [(assoc (spread []) "extra" true) (dissoc (spread []) "values") (spread "raw") (spread ["raw"]) (spread [(local "missing")])]]
+ (when-not (try (n/compile-document (doc body)) false (catch :default _ true)) (throw (js/Error. "Invalid multi-spread admitted"))))
+(doseq [d [(doc (spread (vec (repeat 4096 (lit 0))))) (doc (reduce (fn [x _] (spread [x])) (lit 0) (range 65)))]]
+ (when-not (= :mithril.native-js/budget (try (n/compile-document d) nil (catch :default e (:mithril/error (ex-data e))))) (throw (js/Error. "Multi-spread source budget bypassed"))))
+(n/compile-text "(mithril/native-js-module :name \"types.objectspreads\" :imports [] :functions [(mithril/function :name \"merge\" :params [] :returns \"js-value\" :body (mithril/host-object-spreads :values []))] :exports [\"merge\"])")
+(def obj {"@type" "HostObject" "entries" [{"key" (lit "count") "value" {"@type" "HostArgumentsLength"}}]})
+(def functions [(fun "merge" ["a" "b"] (spread [(local "a") (local "b")])) (fun "empty" [] (spread []))
+ (fun "ordered" ["left" "right"] (spread [{"@type" "HostInvoke" "function" (local "left") "args" []} {"@type" "HostInvoke" "function" (local "right") "args" []}]))
+ (fun "argc" [] (spread [obj]))])
+(let [a (n/compile-document (assoc (doc (lit 0)) "functions" functions "exports" ["merge" "empty" "ordered" "argc"]))]
+ (fs/writeFileSync file (:source a))
+ (let [r (child/spawnSync js/process.execPath #js [runtime-file file] #js {:stdio "inherit" :timeout 30000})] (when-not (= 0 (.-status r)) (js/process.exit 1))))
+(doseq [[name sha] [["map-values" "5420bbe2a9932b27141280438674906d4d72c7941477690f37201a4eb1b72191"] ["misc" "b2e52089674875efa3b5a8c135e4fccd37b258c8d5d72adcfc05338f38c0a4fb"] ["array" "d2de5ed22d8b5afe5dea4c0125af71805573541a7156c55efc19b34672c26db8"] ["volatile" "a866812a56dfaba0fdcf682d478f3e4590e1d2b48820c273d51c22aaae6d1bd1"]]]
+ (when-not (= sha (-> (crypto/createHash "sha256") (.update (:source (n/compile-text (fs/readFileSync (str "examples/native-js-" name ".mith") "utf8")))) (.digest "hex"))) (throw (js/Error. "Prior artifact changed"))))
+(println "3 admissions / 5 malformed refusals / 2 shared budget refusals / 1 Form tag passed.")
+)
