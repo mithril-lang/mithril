@@ -189,6 +189,23 @@
       "HostOptionalGet"
       (do (shape! expr ["@type" "object" "key"])
           {:op :optional-get :object (check (get expr "object")) :key (check (get expr "key"))})
+      "HostOptionalChain"
+      (do (shape! expr ["@type" "base" "steps"])
+          (let [steps (get expr "steps")]
+            (vector! steps 64)
+            (when (or (empty? steps) (not-any? #(true? (get % "optional")) steps))
+              (fail! :mithril.native-js/shape "Optional chain requires a nonempty chain with an optional step"))
+            {:op :optional-chain :base (check (get expr "base"))
+             :steps (mapv (fn [step]
+                            (when-not (boolean? (get step "optional"))
+                              (fail! :mithril.native-js/shape "Optional chain step flag must be boolean"))
+                            (case (get step "kind")
+                              "get" (do (shape! step ["kind" "optional" "key"])
+                                        {:kind :get :optional (get step "optional") :key (check (get step "key"))})
+                              "call" (do (shape! step ["kind" "optional" "items"])
+                                         {:kind :call :optional (get step "optional")
+                                          :items (class-items! (get step "items") imports functions locals depth nodes args-length)})
+                              (fail! :mithril.native-js/shape "Unknown optional chain step"))) steps)}))
       "HostGet"
       (do (shape! expr ["@type" "object" "key"])
           {:op :get :object (check (get expr "object")) :key (check (get expr "key"))})
@@ -674,6 +691,13 @@
       :function-set (str "(" (get functions (:name expr)) "=" (emit (:value expr)) ")")
       :call (str (get functions (:name expr)) "(" (args (:args expr)) ")")
       :optional-get (str "(" (emit (:object expr)) ")?.[" (emit (:key expr)) "]")
+      :optional-chain
+      (str "((0," (emit (:base expr)) ")"
+           (apply str (map (fn [step]
+                             (case (:kind step)
+                               :get (str (if (:optional step) "?.[" "[") (emit (:key step)) "]")
+                               :call (str (when (:optional step) "?.") "("
+                                          (str/join "," (map #(str (when (= :spread (:kind %)) "...") (emit (:value %))) (:items step))) ")"))) (:steps expr))) ")")
       :get (str "(" (emit (:object expr)) ")[" (emit (:key expr)) "]")
       ;; The comma expression makes a value call, never a Reference call with
       ;; an accidental receiver (e.g. when the callee is a HostGet).

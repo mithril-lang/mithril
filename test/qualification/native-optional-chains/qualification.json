@@ -1,0 +1,43 @@
+{
+  "format": "mithril.native-optional-chains-qualification/v1",
+  "source_tests": 55,
+  "source_assertions": 201,
+  "runtime_groups_per_target_profile": 19,
+  "runtime_groups_total": 76,
+  "admission_refusals": 25,
+  "actual_cli_targets": [
+    "js",
+    "js-browser"
+  ],
+  "profiles": [
+    "factory",
+    "native-esm"
+  ],
+  "execution_host": "Node",
+  "exports": 11,
+  "reference": "Pinned original Fiber initialization and verbatim cleanup expressions, explicit instance/runner/disposer/logger adapters, not full owner lifecycle.",
+  "retained": {
+    "package_exports": 40,
+    "package_groups_per_target": 15,
+    "frozen_leaf_artifacts": 7,
+    "type_nodes": 446,
+    "strict_positive_groups_per_target": 10,
+    "strict_negative_groups_per_target": 12,
+    "type_profile": "existing package only"
+  },
+  "system_one": {
+    "new_inferences": 0,
+    "repairs": 0,
+    "model_code_adoption": false
+  },
+  "source_sha256": {
+    "src/mithril/native_js.cljk": "48c6b70c8e400566c50f7fe7301db4a0948623535343448752eef25366003007",
+    "src/mithril/form.cljk": "5ce2c08eea3f5737cbdcb18a73a25e15af0eb544299c2996f365056cd63f6b82",
+    "examples/native-js-optional-chains.mith": "b61a3957f34a688fced76fff5bc0caad3771ab36b4228c58e2497589ce00efb2",
+    "test/mithril/native_optional_chains_test.cljk": "237eeb6a2b4bb5db1f5d1e072ebe5d44943186364f62afc58b464bbf096d9b1c",
+    "test/fixtures/optional-chains/contract.mjs": "c9fb6adfb7c25015c1741f231c73c396f35a373ece6c2c0964266ec1ff04a890",
+    "test/fixtures/optional-chains/reference.mjs": "d567aaad3ebc9244728f766a51dfa45a7878d21b5076096bf59944f28b1b2594",
+    "test/fixtures/optional-chains/provenance.json": "8fe767f14ab197f2c2470588e800be7296657d3fa9c88d9abc43e2faa0e071f8"
+  },
+  "scope": "Continuous checked value-base get/call chain prerequisite; no universal JavaScript/full core/Harness/browser/native/Q9 proof."
+}

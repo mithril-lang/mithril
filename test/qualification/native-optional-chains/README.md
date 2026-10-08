@@ -1,0 +1,9 @@
+# Continuous native optional chains
+
+HostOptionalChain takes a checked value base and 1–64 ordered get/call steps. Each step requires its boolean optional flag; at least one step is optional. Get has a checked key; call has at most 64 exact value/spread items. The emitter uses a single continuous native chain, parenthesized only at its boundary. Root calls are explicit unbound value calls; calls following a get retain the native property receiver. No eager argument/key evaluation, temporary invocation helper or callable precheck is introduced.
+
+The source suite adds 2 tests / 6 assertions, with 25 shape/budget/own-context refusals. Both actual js/js-browser CLI targets and factory/native-ESM profiles execute 19 paired runtime groups each (76 total) in Node. Controls cover nullish-only base/callee short circuit, full-chain continuation, grouping boundaries, native receiver and Proxy apply, noncallable argument evaluation, spread and abrupt identity, root value calls, adjacent call result receivers, own await/yield and retaining the retrieved method through suspension.
+
+Pinned original Fiber initialization and cleanup expressions are read from the already licensed/hash-pinned complete original program fixture in core-prerequisites. The cleanup expression is copied verbatim into a reference function; initialization uses an explicit init-symbol parameter adapter. Runner/disposal/logger/instance controls are observation fixtures, not the full Fiber owner/lifecycle or core SCC. No actual browser/native/Q9, universal JavaScript syntax, broad stack/error-text or System One quality proof is claimed.
+
+Existing optional get/receiver-optional method/value-optional invocation forms retain their prior semantics and artifact bytes. Existing checked package/frozen-leaf and strict declaration controls pass. Operator-authored, zero new inference/repair/model adoption. Full core source/lifecycle and Harness parity remain required.
