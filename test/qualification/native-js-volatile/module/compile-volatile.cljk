@@ -1,0 +1,19 @@
+(ns compile-volatile (:require [mithril.native-js :as native] [mithril.module :as guest] ["node:fs" :as fs] ["node:crypto" :as crypto] ["node:child_process" :as child]))
+(def text (fs/readFileSync "examples/native-js-volatile.mith" "utf8"))
+(def artifact (native/compile-text text))
+(when-not (= #{"Object" "Array" "Set" "TypeError" "Symbol"} (set (:required-imports artifact))) (throw (js/Error. "Unexpected volatile grants")))
+(when-not (= #{"createVolatile" "isVolatile" "volatileEntries" "updateVolatile"} (set (:exports artifact))) (throw (js/Error. "Incomplete volatile runtime exports")))
+(when-not (= artifact (native/compile-text text)) (throw (js/Error. "Nondeterministic native artifact")))
+(when-not (try (guest/check-text text) false (catch :default _ true)) (throw (js/Error. "Legacy guest admitted native source")))
+(doseq [[source expected] [["map-values" "5420bbe2a9932b27141280438674906d4d72c7941477690f37201a4eb1b72191"] ["misc" "b2e52089674875efa3b5a8c135e4fccd37b258c8d5d72adcfc05338f38c0a4fb"] ["array" "d2de5ed22d8b5afe5dea4c0125af71805573541a7156c55efc19b34672c26db8"]]]
+ (let [s (:source (native/compile-text (fs/readFileSync (str "examples/native-js-" source ".mith") "utf8"))) actual (-> (crypto/createHash "sha256") (.update s) (.digest "hex"))] (when-not (= expected actual) (throw (js/Error. (str "Old artifact bytes changed: " source))))))
+(doseq [target ["js" "js-browser"]]
+ (let [file (str "/tmp/volatile-" target ".mjs")
+       r (child/spawnSync js/process.execPath #js ["/opt/nbb/cli.js" "--config" "/opt/native-controls/workspace.edn" "bin/mithril-native-js.cljk" "examples/native-js-volatile.mith" "--target" target "--output" file] #js {:stdio "inherit" :timeout 30000})]
+  (when-not (= 0 (.-status r)) (js/process.exit 1))
+  (when-not (= (:source artifact) (fs/readFileSync file "utf8")) (throw (js/Error. "Actual CLI bytes differ")))
+  (let [r (child/spawnSync js/process.execPath #js ["/opt/volatile-controls/volatile-contract.mjs" file] #js {:stdio "inherit" :timeout 30000})] (when-not (= 0 (.-status r)) (js/process.exit 1)))))
+(doseq [target ["cljs" "wasm32-browser" "x86_64"]]
+ (let [file (str "/tmp/refused-" target ".mjs") r (child/spawnSync js/process.execPath #js ["/opt/nbb/cli.js" "--config" "/opt/native-controls/workspace.edn" "bin/mithril-native-js.cljk" "examples/native-js-volatile.mith" "--target" target "--output" file] #js {:encoding "utf8" :timeout 30000})]
+  (when-not (and (= 65 (.-status r)) (not (fs/existsSync file))) (throw (js/Error. "Unsupported target was not refused without artifact")))))
+(println "Actual native CLI js/js-browser SHA256" (-> (crypto/createHash "sha256") (.update (:source artifact)) (.digest "hex")))

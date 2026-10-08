@@ -1,7 +1,7 @@
 (ns test.run-native-js
-  (:require [cljs.test :as t] [mithril.native-js-test] [mithril.native-misc-test] [mithril.native-array-test]))
+  (:require [cljs.test :as t] [mithril.native-js-test] [mithril.native-misc-test] [mithril.native-array-test] [mithril.native-volatile-test]))
 (defmethod t/report [::t/default :end-run-tests] [m]
-  (when (or (not= 13 (:test m)) (not= 57 (:pass m))
+  (when (or (not= 16 (:test m)) (not= 80 (:pass m))
             (pos? (+ (:fail m) (:error m))))
     (js/process.exit 1)))
-(t/run-tests 'mithril.native-js-test 'mithril.native-misc-test 'mithril.native-array-test)
+(t/run-tests 'mithril.native-js-test 'mithril.native-misc-test 'mithril.native-array-test 'mithril.native-volatile-test)

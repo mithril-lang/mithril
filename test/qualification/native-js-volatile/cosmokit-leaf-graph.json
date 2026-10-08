@@ -1,0 +1,151 @@
+{
+  "format": "mithril.cosmokit-runtime-dependencies/v1",
+  "typescript_version": "6.0.3",
+  "source_harness_snapshot": "441416c0048aa4281bffe59c1c7b5e13e08a9ec1",
+  "edges": "consumer -> dependency",
+  "graph": {
+    "array.ts": [
+      "misc.ts"
+    ],
+    "index.ts": [
+      "array.ts",
+      "types.ts",
+      "misc.ts",
+      "string.ts",
+      "time.ts",
+      "volatile.ts"
+    ],
+    "misc.ts": [],
+    "string.ts": [],
+    "time.ts": [],
+    "types.ts": [
+      "misc.ts",
+      "volatile.ts"
+    ],
+    "volatile.ts": []
+  },
+  "dependency_first_order": [
+    "misc.ts",
+    "array.ts",
+    "volatile.ts",
+    "types.ts",
+    "string.ts",
+    "time.ts",
+    "index.ts"
+  ],
+  "declared_runtime_exports": {
+    "array.ts": [
+      "contain",
+      "intersection",
+      "difference",
+      "union",
+      "deduplicate",
+      "remove",
+      "makeArray"
+    ],
+    "index.ts": [],
+    "misc.ts": [
+      "noop",
+      "isNullable",
+      "isNonNullable",
+      "isPlainObject",
+      "filterKeys",
+      "mapValues",
+      "valueMap",
+      "pick",
+      "omit",
+      "defineProperty"
+    ],
+    "string.ts": [
+      "capitalize",
+      "uncapitalize",
+      "camelCase",
+      "paramCase",
+      "snakeCase",
+      "camelize",
+      "hyphenate",
+      "formatProperty",
+      "trimSlash",
+      "sanitize"
+    ],
+    "time.ts": [
+      "Time"
+    ],
+    "types.ts": [
+      "is",
+      "Binary",
+      "base64ToArrayBuffer",
+      "arrayBufferToBase64",
+      "hexToArrayBuffer",
+      "arrayBufferToHex",
+      "clone",
+      "deepEqual"
+    ],
+    "volatile.ts": [
+      "createVolatile",
+      "isVolatile",
+      "volatileEntries",
+      "updateVolatile"
+    ]
+  },
+  "index_reexports": [
+    "array.ts",
+    "types.ts",
+    "misc.ts",
+    "string.ts",
+    "time.ts",
+    "volatile.ts"
+  ],
+  "source_sha256": {
+    "array.ts": "cf4de899ecffd66a90d8cef6f4c7d127d31f77f776d8e173d41c30d2d7632cf7",
+    "index.ts": "1087da74b9c461984e547d524ee766eebcf329a78e4720bff5b60a004ccf6e8c",
+    "misc.ts": "117617943074ea57c15f216905dacd2f6d1c4c2ff16586f97a7a7a87dbf2141f",
+    "string.ts": "5564272b3e15e49235cbe3a8b453f27306baf282d23a893982841670f65d3c04",
+    "time.ts": "49957c4608465a1fbd738186a92c47fffcd1fc4ba59dbf89524f8a773fe16fe2",
+    "types.ts": "cc49c12e4a637f7b0754ff78a8299e9c42fa40ee8c678550af0c538a80146a92",
+    "volatile.ts": "937433215595f89da249ec7cabb89e331ff4135a40c6686a95666d2095315e55"
+  },
+  "selected_feature_counts": {
+    "array.ts": {},
+    "index.ts": {},
+    "misc.ts": {
+      "local_assignment": 1
+    },
+    "string.ts": {
+      "mutable_let": 2,
+      "local_assignment": 4,
+      "namespace": 1
+    },
+    "time.ts": {
+      "namespace": 1,
+      "mutable_let": 1,
+      "local_assignment": 7,
+      "default_param": 3
+    },
+    "types.ts": {
+      "namespace": 1,
+      "local_assignment": 4,
+      "mutable_let": 5,
+      "default_param": 1,
+      "try_finally": 1
+    },
+    "volatile.ts": {
+      "default_param": 1,
+      "throw": 3,
+      "try_finally": 2,
+      "mutable_let": 1,
+      "local_assignment": 1
+    }
+  },
+  "qualified_runtime_files": [
+    "misc.ts",
+    "array.ts",
+    "volatile.ts"
+  ],
+  "remaining_runtime_files": [
+    "types.ts",
+    "string.ts",
+    "time.ts"
+  ],
+  "next_priority": "types.ts has qualified misc/volatile runtime dependencies; argument count, instanceof, namespace/value exports, arithmetic/indexed loops remain language prerequisites; string/time independent; public types and package linking incomplete"
+}

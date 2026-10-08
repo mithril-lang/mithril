@@ -1,0 +1,114 @@
+{
+  "format": "mithril.code-refactor-verification/v1",
+  "verified": false,
+  "verification_scope": "Declared checks on selected baseline and candidate snapshots only; not whole-repository or universal API equivalence.",
+  "input_sha256": "58c29c1f263622dfd8edfd621d4cd312101ece367d856bc1bc679a04799d92f0",
+  "proposal_sha256": "235dc23838fbf3910f8c5d8986d5b220322736a691e4dfdc13744f258c50701b",
+  "candidate_sha256": "6e510504f19db88b6ad033c49ad42ac918646b4a4251e47f550c21ec08dd6d55",
+  "image": "sha256:313e525b3549e13e7c029889999fc40420eafa8726da43583e909f4276ff02ca",
+  "plan": {
+    "image": "sha256:313e525b3549e13e7c029889999fc40420eafa8726da43583e909f4276ff02ca",
+    "seed_directory": "/opt/mithril-refactor-base",
+    "timeout_seconds": 180,
+    "checks": [
+      {
+        "id": "retained-source-78-408",
+        "argv": [
+          "node",
+          "/opt/volatile-controls/run-check.mjs",
+          "test/run_modules.cljk"
+        ]
+      },
+      {
+        "id": "volatile-primitives-reference",
+        "argv": [
+          "node",
+          "/opt/volatile-controls/volatile-primitives-runtime.mjs",
+          "/opt/volatile-controls/volatile-primitives-reference.mjs"
+        ]
+      },
+      {
+        "id": "native-volatile-primitives",
+        "variant": "candidate",
+        "argv": [
+          "node",
+          "/opt/volatile-controls/run-check.mjs",
+          "/opt/volatile-controls/volatile-primitives.cljk"
+        ]
+      }
+    ]
+  },
+  "checks": [
+    {
+      "variant": "baseline",
+      "id": "retained-source-78-408",
+      "argv": [
+        "node",
+        "/opt/volatile-controls/run-check.mjs",
+        "test/run_modules.cljk"
+      ],
+      "wall_seconds": 14.347412499999999,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "\nTesting mithril.module-test\n\nTesting mithril.module-lower-test\n\nTesting mithril.form-test\n\nTesting mithril.compiler-test\n\nTesting mithril.conditional-test\n\nTesting mithril.branding-test\n\nTesting mithril.undefined-test\n\nTesting mithril.library-test\n\nTesting mithril.module-bindings-test\n\nTesting mithril.module-guest-closure-test\n\nTesting mithril.native-js-test\n\nTesting mithril.native-misc-test\nNative primitive runtime: strict comparison/raw logical values/spread/assignment/for-of checked.\n11 primitive admissions, 9 refusals, all 8 Form tags checked.\n\nTesting mithril.native-array-test\nNative array primitives: 20 runtime contract groups passed.\n4 admissions / 13 malformed refusals / 2 budget refusals / 3 Form tags passed.\n\nRan 78 tests containing 408 assertions.\n0 failures, 0 errors.\nJVM launcher marker absent; workspace source classpath.\n"
+    },
+    {
+      "variant": "baseline",
+      "id": "volatile-primitives-reference",
+      "argv": [
+        "node",
+        "/opt/volatile-controls/volatile-primitives-runtime.mjs",
+        "/opt/volatile-controls/volatile-primitives-reference.mjs"
+      ],
+      "wall_seconds": 0.8255922089999985,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "Native volatile prerequisites: 15 runtime contract groups passed.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "retained-source-78-408",
+      "argv": [
+        "node",
+        "/opt/volatile-controls/run-check.mjs",
+        "test/run_modules.cljk"
+      ],
+      "wall_seconds": 1.6608196659999994,
+      "exit_code": 1,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "----- Error --------------------------------------\nMessage:  Unmatched delimiter: }, expected: ) to match ( at [157 35]\nLocation: 168:95\nPhase:    parse\nfile:///opt/nbb/lib/nbb_main.js:13\n$APP.aH),$APP.VZ);return g.B?g.B():g.call(null)}):null).then(function(g){$APP.k($APP.k(d)?g!=null:d)&&$APP.dz.o($APP.y([g],0));return g}).catch(function(g){$APP.Dla(g,b);$APP.k($APP.ez.h(b))&&console.error(g);throw Error($APP.Hk(g));})})):console.error(\"Usage: \"+$APP.I.h(\"nbb\")+\" \\x3cscript\\x3e or nbb -e \\x3cexpr\\x3e.\")})();\n                                                                                                                                                                                                                       ^\n\nError: Unmatched delimiter: }, expected: ) to match ( at [157 35]\n    at file:///opt/nbb/lib/nbb_main.js:13:216\n\nNode.js v24.21.0\nfile:///opt/volatile-controls/run-check.mjs:7\nif(existsSync(marker))throw Error('forbidden JVM launcher');if(r.error||r.status!==0)throw r.error||Error('source check failed: '+r.status);\n                                                                                                    ^\n\nError: source check failed: 1\n    at file:///opt/volatile-controls/run-check.mjs:7:101\n    at ModuleJob.run (node:internal/modules/esm/module_job:561:25)\n    at async node:internal/modules/esm/loader:647:26\n    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)\n\nNode.js v24.21.0\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "volatile-primitives-reference",
+      "argv": [
+        "node",
+        "/opt/volatile-controls/volatile-primitives-runtime.mjs",
+        "/opt/volatile-controls/volatile-primitives-reference.mjs"
+      ],
+      "wall_seconds": 0.5911424169999991,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "Native volatile prerequisites: 15 runtime contract groups passed.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "native-volatile-primitives",
+      "argv": [
+        "node",
+        "/opt/volatile-controls/run-check.mjs",
+        "/opt/volatile-controls/volatile-primitives.cljk"
+      ],
+      "wall_seconds": 0.8771933329999992,
+      "exit_code": 1,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "----- Error --------------------------------------\nMessage:  Unmatched delimiter: }, expected: ) to match ( at [157 35]\nLocation: 168:95\nPhase:    parse\nfile:///opt/nbb/lib/nbb_main.js:13\n$APP.aH),$APP.VZ);return g.B?g.B():g.call(null)}):null).then(function(g){$APP.k($APP.k(d)?g!=null:d)&&$APP.dz.o($APP.y([g],0));return g}).catch(function(g){$APP.Dla(g,b);$APP.k($APP.ez.h(b))&&console.error(g);throw Error($APP.Hk(g));})})):console.error(\"Usage: \"+$APP.I.h(\"nbb\")+\" \\x3cscript\\x3e or nbb -e \\x3cexpr\\x3e.\")})();\n                                                                                                                                                                                                                       ^\n\nError: Unmatched delimiter: }, expected: ) to match ( at [157 35]\n    at file:///opt/nbb/lib/nbb_main.js:13:216\n\nNode.js v24.21.0\nfile:///opt/volatile-controls/run-check.mjs:7\nif(existsSync(marker))throw Error('forbidden JVM launcher');if(r.error||r.status!==0)throw r.error||Error('source check failed: '+r.status);\n                                                                                                    ^\n\nError: source check failed: 1\n    at file:///opt/volatile-controls/run-check.mjs:7:101\n    at ModuleJob.run (node:internal/modules/esm/module_job:561:25)\n    at async node:internal/modules/esm/loader:647:26\n    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)\n\nNode.js v24.21.0\n"
+    }
+  ],
+  "wall_seconds": 22.78008125
+}
