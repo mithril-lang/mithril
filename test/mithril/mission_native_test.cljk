@@ -51,3 +51,14 @@
     (is (= #{"fund.mithril.xml" "fund.mithril.siso.link16" "fund.mithril.ieee.hla"
              "fund.mithril.siso.c2sim" "fund.mithril.siso.msdl"}
            (set (map #(get % "id") (get result "plugins")))))))
+
+(deftest specification-profile-projections-also-pass-typed-admission
+  (doseq [[family fixture type] [["c2sim" "c2sim-command.xml" "Event"]
+                                ["msdl" "msdl-relief.xml" "Entity"]]]
+    (let [bytes (.readFileSync fs (str xml-root "/examples/" fixture))
+          artifact (native/invoke! config {"operation" (str family "-import")
+                                           "bytesBase64" (.toString bytes "base64")})
+          projected (native/invoke! config {"operation" (str family "-project")
+                                            "artifact" artifact})]
+      (is (= mission/format-id (get-in projected ["compiled" "format"])))
+      (is (= type (get-in projected ["compiled" "nodes" 0 "@type"]))))))
