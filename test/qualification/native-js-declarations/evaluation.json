@@ -7,12 +7,28 @@
   "operator_source_sha256": "5dc75d41849bfad1762095db598e6042aeaf4ce8b712d632a496d1f64e2d797a",
   "operator_preflight_verified": true,
   "operator_preflight_wall_seconds": 45.701982083000004,
-  "model_status": "not_started_access_blocked",
-  "model_requests": 0,
+  "model_status": "completed_candidate_compile_failed",
+  "model_requests": 1,
   "repairs": 0,
   "model_adopted": false,
-  "model_metrics": null,
-  "adopted_source": "Independently prequalified operator implementation, byte-identical; no model proposal exists for this task.",
+  "model_metrics": {
+    "format": "mithril.code-refactor-inference/v1",
+    "provider": "mithril",
+    "endpoint": "https://api.mithril.fund/v1/chat/completions",
+    "model": "qwen/qwen3.8-27b",
+    "completion_id": "chatcmpl-f80ebc1a-0bdf-4907-a7d6-1f808c82c732",
+    "request_id": "chat:f80ebc1a-0bdf-4907-a7d6-1f808c82c732",
+    "input_sha256": "6468c0015d001db3bc89636745ed4f380f9cc4929ac23ccaf23e6c983de52a98",
+    "usage": {
+      "prompt_tokens": 24515,
+      "completion_tokens": 4776
+    },
+    "wall_seconds": 121.693,
+    "attempts": 1,
+    "api_cost_usd": null,
+    "verification_scope": "Edit scope and source preconditions only; compilation and behavior have not been checked."
+  },
+  "adopted_source": "Independently prequalified operator implementation, byte-identical; failed model candidate was never adopted.",
   "live_access_blocker": {
     "observed_at": "2026-10-08T09:43:45.882485+00:00",
     "status": "not_started",
@@ -26,7 +42,8 @@
     "legacy_time_retried": false,
     "completed_package_trial_preserved": true,
     "inference_metrics": null,
-    "reason": "Public UI navigation refused by browser; maintained CLI requires MITHRIL_API_TOKEN, which is not present. No provider request sent; no model performance score."
+    "reason": "Public UI navigation refused by browser; maintained CLI requires MITHRIL_API_TOKEN, which is not present. No provider request sent; no model performance score.",
+    "historical": true
   },
   "declaration_ast_type_nodes": 446,
   "public_unique_names": 49,
@@ -49,7 +66,27 @@
     "tests": 28,
     "assertions": 121
   },
-  "scope": "Inert declaration AST scope/arity/shape admission plus pinned strict TSC consumer comparisons. Node VM execution only. No arbitrary TypeScript semantic replacement, browser/nonJS/Q9/SCC/full Harness equivalence or new model-quality measurement.",
-  "next_system_one_experiment": "Use the sealed task unchanged once authenticated public access is available. Create the absent checker path only; readonly emitter/schema/full AST and consumer controls; repairs 0. Verify unchanged raw proposal against the same pinned plan before adoption.",
-  "improvement_research": "Previous runtime package candidate failed parsing. This prepared task separates checker from readonly emitter and specifies exact data/scope/return schema with generic controls. Effect on coding quality is unmeasured because no inference was sent."
+  "scope": "Inert declaration AST scope/arity/shape admission plus pinned strict TSC consumer comparisons. Node VM execution only. One sealed unchanged live model attempt failed checker loading. No universal TypeScript semantic replacement, browser/nonJS/Q9/SCC/full Harness equivalence.",
+  "next_system_one_experiment": "No retry or repair performed. Before a separately sealed future task, investigate stage-wise syntax/namespace loading feedback and shorter checker units while preserving held-out fixed behavior controls.",
+  "improvement_research": "Checker/emitter split and exact schema did not yield an admissible checker in this single task: candidate failed case macro expansion before type/runtime checks. Previous package task failed parsing. Two different single-attempt tasks do not establish a causal comparison or general coding success rate. Recommend source-load gate and bounded staged tasks; effect remains unmeasured.",
+  "model_candidate": {
+    "sha256": "c51faef2525a7973d11536ddb30fa88ef0fb7a67fb7c50b5e5a38a30f142cf8a",
+    "bytes": 15642,
+    "verified": false,
+    "first_failure": "Duplicate case test constant: do",
+    "location": "src/mithril/native_declarations.cljk:82:5",
+    "candidate_type_and_runtime_checks_reached": false
+  },
+  "model_verification_wall_seconds": 12.165322415999999,
+  "same_execution_recovery": {
+    "format": "mithril.code-refactor-same-execution-recovery/v1",
+    "checked_at": "2026-10-08T10:32:50.648Z",
+    "same_changes": true,
+    "same_receipt": true,
+    "same_completion_id": true,
+    "same_input_sha256": true,
+    "inference_restarted": false
+  },
+  "live_access_restored_at": "2026-10-08T10:23:26.657Z",
+  "evaluated_at": "2026-10-08T10:37:19.188110+00:00"
 }

@@ -1,0 +1,123 @@
+{
+  "format": "mithril.code-refactor-verification/v1",
+  "verified": false,
+  "verification_scope": "Declared checks on selected baseline and candidate snapshots only; not whole-repository or universal API equivalence.",
+  "input_sha256": "6468c0015d001db3bc89636745ed4f380f9cc4929ac23ccaf23e6c983de52a98",
+  "proposal_sha256": "c496e7c8245780a3ca4a42fd8eca3c2458249ca87dae494b8e60d272efb36843",
+  "candidate_sha256": "dc40427c45924e3d562ae4a89a9a9feb91089482f172d5fb0d098f305a4ccc93",
+  "image": "sha256:487559a055e7d5e3cdfbd73bc279d19ac6a84279f81ed53b07e68ab1b49dd10d",
+  "plan": {
+    "image": "sha256:487559a055e7d5e3cdfbd73bc279d19ac6a84279f81ed53b07e68ab1b49dd10d",
+    "seed_directory": "/opt/mithril-refactor-base",
+    "timeout_seconds": 300,
+    "checks": [
+      {
+        "id": "retained-native28-121",
+        "argv": [
+          "node",
+          "/opt/declaration-controls/run-check.mjs",
+          "test/run_native_js.cljk"
+        ]
+      },
+      {
+        "id": "original-type-consumers10-12",
+        "argv": [
+          "node",
+          "test/qualification/native-js-declarations/controls/type-contract.mjs",
+          "test/fixtures/cosmokit-declarations/index.d.ts",
+          "test/fixtures/cosmokit-declarations/index.d.ts",
+          "/opt/type-deps/node_modules/typescript/lib/typescript.js",
+          "/opt/type-deps/node_modules/@types"
+        ]
+      },
+      {
+        "id": "full-declaration-ast-cli-types-runtime",
+        "variant": "candidate",
+        "argv": [
+          "node",
+          "/opt/declaration-controls/run-check.mjs",
+          "test/qualification/native-js-declarations/controls/compile-declarations.cljk"
+        ]
+      }
+    ]
+  },
+  "checks": [
+    {
+      "variant": "baseline",
+      "id": "retained-native28-121",
+      "argv": [
+        "node",
+        "/opt/declaration-controls/run-check.mjs",
+        "test/run_native_js.cljk"
+      ],
+      "wall_seconds": 3.9955670420000002,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "\nTesting mithril.native-js-test\n\nTesting mithril.native-misc-test\nNative primitive runtime: strict comparison/raw logical values/spread/assignment/for-of checked.\n11 primitive admissions, 9 refusals, all 8 Form tags checked.\n\nTesting mithril.native-array-test\nNative array primitives: 20 runtime contract groups passed.\n4 admissions / 13 malformed refusals / 2 budget refusals / 3 Form tags passed.\n\nTesting mithril.native-volatile-test\nNamed-function/generated-binding collision regression passed.\nNative volatile prerequisites: 15 runtime contract groups passed.\n7 admissions / 15 malformed refusals / 2 budget refusals / 4 Form tags passed.\n\nTesting mithril.native-types-test\nNative type prerequisites: 16 runtime contract groups passed.\n6 admissions / 6 malformed or scope refusals / 2 budget refusals / 1 Form tag passed.\nNative arguments Let scope: 3 runtime boundary groups passed.\n4 additional scope refusals and normal/default/LocalFunction Let capture groups passed.\n\nTesting mithril.native-blocks-test\nNative export/loop/string prerequisites: 18 runtime contract groups passed.\n3 admissions / 12 malformed or scope refusals / 3 budget refusals / 2 Form tags passed.\n\nTesting mithril.native-spreads-test\nNative ordered object spreads:18 runtime groups passed.\n3 admissions / 5 malformed refusals / 2 shared budget refusals / 1 Form tag passed.\n\nTesting mithril.native-types-module-test\n\nTesting mithril.native-string-time-test\nString/time native prerequisites:23 runtime groups passed.\n8 admissions / 18 malformed refusals / 4 budget refusals / 2 Form tags; 5 artifact hashes unchanged.\n\nTesting mithril.native-string-module-test\n\nTesting mithril.native-module-init-test\nNested init reference closure passed.\n(node:277) ExperimentalWarning: VM Modules is an experimental feature and might change at any time\n(Use `node --trace-warnings ...` to show where the warning was created)\nNative module init candidate:12 reference-derived runtime groups passed.\n3 admissions, 7 malformed/scope refusals, 2 budget refusals, six old hashes unchanged.\n\nTesting mithril.native-time-module-test\n\nTesting mithril.native-package-factory-test\n\nRan 28 tests containing 121 assertions.\n0 failures, 0 errors.\nPinned offline source; no forbidden launcher.\n"
+    },
+    {
+      "variant": "baseline",
+      "id": "original-type-consumers10-12",
+      "argv": [
+        "node",
+        "test/qualification/native-js-declarations/controls/type-contract.mjs",
+        "test/fixtures/cosmokit-declarations/index.d.ts",
+        "test/fixtures/cosmokit-declarations/index.d.ts",
+        "/opt/type-deps/node_modules/typescript/lib/typescript.js",
+        "/opt/type-deps/node_modules/@types"
+      ],
+      "wall_seconds": 1.908468833,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "Declaration oracle: 10 positive consumer groups, 12 source-derived negative groups, full bidirectional value namespace, exact49public names/40values/11type bindings (2dual), pinned TSC6.0.3 strict noEmit. No skipLibCheck; generic=false.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "retained-native28-121",
+      "argv": [
+        "node",
+        "/opt/declaration-controls/run-check.mjs",
+        "test/run_native_js.cljk"
+      ],
+      "wall_seconds": 3.797001416,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "\nTesting mithril.native-js-test\n\nTesting mithril.native-misc-test\nNative primitive runtime: strict comparison/raw logical values/spread/assignment/for-of checked.\n11 primitive admissions, 9 refusals, all 8 Form tags checked.\n\nTesting mithril.native-array-test\nNative array primitives: 20 runtime contract groups passed.\n4 admissions / 13 malformed refusals / 2 budget refusals / 3 Form tags passed.\n\nTesting mithril.native-volatile-test\nNamed-function/generated-binding collision regression passed.\nNative volatile prerequisites: 15 runtime contract groups passed.\n7 admissions / 15 malformed refusals / 2 budget refusals / 4 Form tags passed.\n\nTesting mithril.native-types-test\nNative type prerequisites: 16 runtime contract groups passed.\n6 admissions / 6 malformed or scope refusals / 2 budget refusals / 1 Form tag passed.\nNative arguments Let scope: 3 runtime boundary groups passed.\n4 additional scope refusals and normal/default/LocalFunction Let capture groups passed.\n\nTesting mithril.native-blocks-test\nNative export/loop/string prerequisites: 18 runtime contract groups passed.\n3 admissions / 12 malformed or scope refusals / 3 budget refusals / 2 Form tags passed.\n\nTesting mithril.native-spreads-test\nNative ordered object spreads:18 runtime groups passed.\n3 admissions / 5 malformed refusals / 2 shared budget refusals / 1 Form tag passed.\n\nTesting mithril.native-types-module-test\n\nTesting mithril.native-string-time-test\nString/time native prerequisites:23 runtime groups passed.\n8 admissions / 18 malformed refusals / 4 budget refusals / 2 Form tags; 5 artifact hashes unchanged.\n\nTesting mithril.native-string-module-test\n\nTesting mithril.native-module-init-test\nNested init reference closure passed.\n(node:277) ExperimentalWarning: VM Modules is an experimental feature and might change at any time\n(Use `node --trace-warnings ...` to show where the warning was created)\nNative module init candidate:12 reference-derived runtime groups passed.\n3 admissions, 7 malformed/scope refusals, 2 budget refusals, six old hashes unchanged.\n\nTesting mithril.native-time-module-test\n\nTesting mithril.native-package-factory-test\n\nRan 28 tests containing 121 assertions.\n0 failures, 0 errors.\nPinned offline source; no forbidden launcher.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "original-type-consumers10-12",
+      "argv": [
+        "node",
+        "test/qualification/native-js-declarations/controls/type-contract.mjs",
+        "test/fixtures/cosmokit-declarations/index.d.ts",
+        "test/fixtures/cosmokit-declarations/index.d.ts",
+        "/opt/type-deps/node_modules/typescript/lib/typescript.js",
+        "/opt/type-deps/node_modules/@types"
+      ],
+      "wall_seconds": 1.7868829160000004,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "Declaration oracle: 10 positive consumer groups, 12 source-derived negative groups, full bidirectional value namespace, exact49public names/40values/11type bindings (2dual), pinned TSC6.0.3 strict noEmit. No skipLibCheck; generic=false.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "full-declaration-ast-cli-types-runtime",
+      "argv": [
+        "node",
+        "/opt/declaration-controls/run-check.mjs",
+        "test/qualification/native-js-declarations/controls/compile-declarations.cljk"
+      ],
+      "wall_seconds": 0.4499340830000001,
+      "exit_code": 1,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "----- Error --------------------------------------\nMessage:  Duplicate case test constant: do\nLocation: /workspace/src/mithril/native_declarations.cljk:82:5\n\n----- Context ------------------------------------\n78: \n79: (defn- check-type [node scope depth]\n80:   (when (> depth 64) (fail \"Type depth exceeds budget\"))\n81:   (let [op (get node \"op\")]\n82:     (case op\n        ^--- Duplicate case test constant: do\n83:       \"keyword\" (do (exact node [\"name\" \"op\"] \"keyword type\")\n84:                     (when-not (contains? primitive-keywords (get node \"name\")) (fail \"Unknown keyword\"))\n85:                     node)\n86:       \"name\" (do (exact node [\"args\" \"name\" \"op\"] \"name type\")\n87:                  (when-not (qualified? (get node \"name\")) (fail \"Invalid type name\"))\n\n----- Stack trace --------------------------------\nclojure.core/case                 - cljs/core.cljc:2405:1 \nmithril.native-declarations/let   - /workspace/src/mithril/native_declarations.cljk:82:5 \nmithril.native-declarations/let   - /workspace/src/mithril/native_declarations.cljk:82:5 \nmithril.native-declarations       - /workspace/src/mithril/native_declarations.cljk:81:3 \nclojure.core/let                  - cljs/core.cljc:772:1 \n...\nmithril.native-declarations/defn- - /workspace/src/mithril/native_declarations.cljk:79:1 \nmithril.native-declarations       - /workspace/src/mithril/native_declarations.cljk:79:1 \nclojure.core/defn-                - clojure/core.clj:4925:4 \nmithril.native-declarations       - /workspace/src/mithril/native_declarations.cljk:79:1 \nmithril.native-declarations       - /workspace/src/mithril/native_declarations.cljk:79:1 \n\nfile:///opt/nbb/lib/nbb_main.js:13\n$APP.aH),$APP.VZ);return g.B?g.B():g.call(null)}):null).then(function(g){$APP.k($APP.k(d)?g!=null:d)&&$APP.dz.o($APP.y([g],0));return g}).catch(function(g){$APP.Dla(g,b);$APP.k($APP.ez.h(b))&&console.error(g);throw Error($APP.Hk(g));})})):console.error(\"Usage: \"+$APP.I.h(\"nbb\")+\" \\x3cscript\\x3e or nbb -e \\x3cexpr\\x3e.\")})();\n                                                                                                                                                                                                                       ^\n\nError: Duplicate case test constant: do\n    at file:///opt/nbb/lib/nbb_main.js:13:216\n\nNode.js v24.21.0\nfile:///opt/declaration-controls/run-check.mjs:1\nimport{spawnSync}from'node:child_process';import{mkdtempSync,writeFileSync,existsSync,rmSync}from'node:fs';import{join}from'node:path';const d=mkdtempSync('/tmp/declaration-check-'),marker=join(d,'launcher');try{for(const n of ['java','javac','clojure','clj','bb'])writeFileSync(join(d,n),'#!/bin/sh\\n: > \"$MITHRIL_DECLARATIONS_LAUNCHER\"\\nexit 97\\n',{mode:0o755});const r=spawnSync(process.execPath,['/opt/nbb/cli.js','--config','/opt/declaration-controls/workspace.edn',...process.argv.slice(2)],{cwd:'/workspace',stdio:'inherit',timeout:240000,env:{PATH:d+':'+process.env.PATH,TZ:'UTC',MITHRIL_DECLARATIONS_LAUNCHER:marker,MITHRIL_DECLARATIONS_ENGINE:'/opt/nbb/cli.js',MITHRIL_DECLARATIONS_TYPESCRIPT:'/opt/type-deps/node_modules/typescript/lib/typescript.js',MITHRIL_DECLARATIONS_TYPE_ROOTS:'/opt/type-deps/node_modules/@types'}});if(existsSync(marker))throw Error('Forbidden JVM/dependency launcher');if(r.error||r.status!==0)throw r.error||Error('source failed:'+r.status);console.log('Pinned offline source; no forbidden launcher.');}finally{rmSync(d,{recursive:true,force:true})}\n                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 ^\n\nError: source failed:1\n    at file:///opt/declaration-controls/run-check.mjs:1:946\n    at ModuleJob.run (node:internal/modules/esm/module_job:561:25)\n    at async node:internal/modules/esm/loader:647:26\n    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)\n\nNode.js v24.21.0\n"
+    }
+  ],
+  "wall_seconds": 12.165322415999999
+}

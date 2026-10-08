@@ -1,0 +1,105 @@
+(ns mithril.native-class-test
+ (:require [cljs.test :refer [deftest is]] [mithril.native-js :as native] [mithril.form :as form]
+           ["node:fs" :as fs] ["node:os" :as os] ["node:path" :as path] ["node:child_process" :as child]))
+(defn lit [x] {"@type" "Literal" "datatype" "js-value" "value" x})
+(defn local [x] {"@type" "Local" "name" x})
+(defn grant [x] {"@type" "HostImport" "name" x})
+(def this {"@type" "HostThis"})
+(def nt {"@type" "HostNewTarget"})
+(def undef {"@type" "HostUndefined"})
+(def argc {"@type" "HostArgumentsLength"})
+(defn param [x] {"name" x "datatype" "js-value"})
+(defn getp [o k] {"@type" "HostGet" "object" o "key" (lit k)})
+(defn setp [o k v] {"@type" "HostSet" "object" o "key" (lit k) "value" v})
+(defn seqx [& xs] {"@type" "Sequence" "expressions" (vec xs)})
+(defn call [f & xs] {"@type" "HostInvoke" "function" f "args" (vec xs)})
+(defn arr [& xs] {"@type" "HostArray" "items" (vec xs)})
+(defn arrow [b] {"@type" "NativeLambda" "params" [] "body" b})
+(defn normal [b] {"@type" "NativeFunction" "name" nil "params" [] "rest" nil "body" b})
+(defn signature [params rest-name body] {"params" params "rest" rest-name "body" body})
+(defn member [kind static? key params rest-name body]
+ (merge (signature params rest-name body) {"kind" kind "static" static? "key" key}))
+(defn meth [k b] (member "method" false (lit k) [] nil b))
+(defn field [static? k v] {"kind" "field" "static" static? "key" (lit k) "value" v})
+(defn klass [name base ctor members] {"@type" "NativeClass" "name" name "extends" base "constructor" ctor "members" members})
+(defn super-call [items] {"@type" "HostSuperCall" "items" items})
+(defn super-get [k] {"@type" "HostSuperGet" "key" (lit k)})
+(defn super-method [k items] {"@type" "HostSuperMethod" "key" (lit k) "items" items})
+(defn document [x imports]
+ {"@context" "https://mithril.fund/context/native-js-module/v1" "@type" "NativeJsModule" "name" "classes.control"
+  "imports" imports "functions" [] "exports" [{"name" "value" "value" x}]})
+(defn source [x imports] (:source (native/compile-document (document x imports))))
+(deftest class-native-home-object-and-source-derived-disposal
+ (let [base (klass "Box" nil (signature [(assoc (param "value") "default" (lit 7))] "tail"
+                         (seqx (setp this "value" (local "value")) (setp this "tail" (local "tail")) (setp this "target" nt) undef))
+              [(field false "own" (lit 1)) (field true "staticValue" (lit 3))
+               (member "get" false (lit "double") [] nil {"@type" "HostBinary" "operator" "*" "left" (getp this "value") "right" (lit 2)})
+               (member "set" false (lit "double") [(param "value")] nil (setp this "value" (local "value")))
+               (meth "self" this) (meth "context" (arr nt argc))])
+       derived (klass "Derived" (grant "Base")
+                 (signature [] "args" (seqx (super-call [{"spread" (local "args")}]) (setp this "seen" nt) undef))
+                 [(field false "fieldTarget" nt) (field false "baseField" (super-get "double"))
+                  (meth "self" (super-method "self" []))
+                  (meth "lexical" (arrow (super-method "self" [])))
+                  (meth "setDouble" {"@type" "HostSuperSet" "key" (lit "double") "value" (lit 9)})
+                  (member "method" true (lit "staticRead") [] nil (super-get "staticValue"))
+                  (meth "context" (arr nt argc))])
+       ordered (klass nil (call (grant "heritage")) nil
+                 [{"kind" "field" "key" (call (grant "key") (lit "instance")) "static" false "value" (call (grant "init") this (lit "instance"))}
+                  {"kind" "field" "key" (call (grant "key") (lit "static")) "static" true "value" (call (grant "init") this (lit "static"))}
+                  (assoc (meth "method" this) "key" (call (grant "key") (lit "method")))])
+       named (klass "__mithril_native_v1" nil nil [(meth "selfClass" (local "__mithril_native_v1"))])
+       early (klass nil (grant "Base") (signature [] nil {"@type" "HostObject" "entries" [{"key" (lit "replacement") "value" (lit true)}]}) [])
+       before (klass nil (grant "Base") (signature [] nil this) [])
+       twice (klass nil (grant "Base") (signature [] nil (seqx (super-call []) (super-call []) undef)) [])
+       nullbase (klass nil (lit nil) nil [])
+       nested-own (klass nil nil nil [(meth "own" (normal (arr this nt argc)))])
+       outer-key (normal (klass nil nil nil [(assoc (meth "self" this) "key" (getp this "key"))]))
+       anonymous (klass nil nil nil [])
+       inferred {"@type" "HostObject" "entries" [{"key" (lit "C") "value" anonymous "infer_name" true}]}
+       value-super (super-get "x")
+       bad [(document value-super []) (document (super-call []) [])
+            (document (klass nil nil (signature [] nil (super-call [])) []) [])
+            (document (klass nil (grant "Base") nil [(meth "bad" (super-call []))]) ["Base"])
+            (document (klass nil nil nil [(meth "bad" (normal value-super))]) [])
+            (document (klass nil nil nil [(field false "bad" argc)]) [])
+            (document (klass nil nil nil [(field false "bad" (arrow argc))]) [])
+            (document (klass nil nil nil [(member "get" false (lit "x") [(param "x")] nil this)]) [])
+            (document (klass nil nil nil [(member "set" false (lit "x") [] nil this)]) [])
+            (document (klass nil nil nil [(member "set" false (lit "x") [(param "x")] "rest" this)]) [])
+            (document (klass "class" nil nil []) [])
+            (document (klass nil nil nil [(assoc (meth "x" this) "static" 1)]) [])
+            (document (klass nil nil nil [(assoc (meth "x" this) "kind" "raw")]) [])
+            (document (klass nil nil (signature [(param "x")] "x" this) []) [])
+            (document (klass nil nil (signature [] "return" this) []) [])
+            (document (klass nil nil nil (vec (repeat 129 (field false "x" (lit 0))))) [])
+            (document (klass nil (grant "Base") (signature [] nil (super-call [{"value" (lit 1) "spread" (lit 2)}])) []) ["Base"])
+            (document (klass nil nil nil [(assoc (meth "x" this) "source" "raw")]) [])
+            (document {"@type" "HostUpdate" "object" this "key" (lit "x") "operator" "+=" "prefix" true} [])]
+       expressions {"base" [base []] "derived" [derived ["Base"]] "ordered" [ordered ["heritage" "key" "init"]]
+                    "named" [named []] "early" [early ["Base"]] "before" [before ["Base"]] "twice" [twice ["Base"]]
+                    "nullbase" [nullbase []] "nested" [nested-own []] "outerKey" [outer-key []]
+                    "anonymous" [anonymous []] "inferred" [inferred []]
+                    "fieldOwn" [(klass nil nil nil [(field false "f" (normal argc))]) []]
+                    "tdz" [(klass "C" (local "C") nil []) []]
+                    "computedConstructor" [(klass nil nil nil [(meth "constructor" (lit 12))]) []]
+                    "arrowSuper" [(klass nil (grant "Base") (signature [] nil (seqx (call (arrow (super-call [{"value" (lit 3)}]))) undef)) []) ["Base"]]
+                    "update" [{"@type" "HostUpdate" "object" (call (grant "object")) "key" (call (grant "key")) "operator" "--" "prefix" false} ["object" "key"]]}
+       text (fs/readFileSync "examples/native-js-disposable-list.mith" "utf8")
+       artifacts (into {} (map (fn [[k [v imports]]] [k (source v imports)]) expressions))
+       artifacts (assoc artifacts "disposable" (:source (native/compile-text text)))
+       dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-classes-"))]
+  (is (= (native/compile-text text) (native/compile-document (form/parse text))))
+  (is (every? (fn [d] (try (native/check-document d) false (catch :default _ true))) bad))
+  (try
+   (fs/writeFileSync (path/join dir "artifacts.json") (js/JSON.stringify (clj->js artifacts)))
+   (let [engine (.-MITHRIL_NATIVE_ENGINE js/process.env) config (path/join dir "offline.edn")]
+    (fs/writeFileSync config "{:paths [\"src\"]}\n")
+    (doseq [target ["js" "js-browser"]]
+     (let [r (child/spawnSync js/process.execPath
+              (clj->js [engine "--config" config "-cp" "src" "bin/mithril-native-js.cljk" "examples/native-js-disposable-list.mith" "--target" target "--output" (path/join dir (str target ".mjs"))])
+              #js {:encoding "utf8" :timeout 30000})]
+      (when-not (= 0 (.-status r)) (throw (js/Error. (str (.-stdout r) (.-stderr r))))))))
+   (let [r (child/spawnSync js/process.execPath (clj->js ["test/fixtures/native-class-contract.mjs" dir]) #js {:encoding "utf8" :timeout 30000})]
+    (is (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r)))
+   (finally (fs/rmSync dir #js {:recursive true :force true})))))
