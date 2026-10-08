@@ -89,7 +89,8 @@
                                         [i (expression! (get p "default") imports functions env (inc depth) nodes context)])) params))]
       (cond-> {:params names :rest rest-name
                :body (expression! (get member "body") imports functions env (inc depth) nodes context)}
-        (seq defaults) (assoc :defaults defaults)))))
+        (seq defaults) (assoc :defaults defaults)
+        (contains? member "statements") (assoc :statements (get member "statements"))))))
 (defn- class-items! [items imports functions locals depth nodes context]
   (vector! items 64)
   (mapv (fn [item]
@@ -299,17 +300,18 @@
           (let [items (get expr "items")]
             (vector! items 4096) {:op :array :items (mapv check items)}))
       "NativeLambda"
-      (do (shape! expr ["@type" "params" "body"])
+      (do (optional-flag! expr ["@type" "params" "body"] "statements")
           (let [params (get expr "params")]
             (vector! params 64)
             (let [patterns (mapv pattern! params)
                   names (vec (mapcat :names patterns))]
               (unique! names)
-              {:op :lambda :params patterns
-               :body (expression! (get expr "body") imports functions
-                                  (into locals (zipmap names (repeat false))) (inc depth) nodes args-length)})))
+              (cond-> {:op :lambda :params patterns
+                        :body (expression! (get expr "body") imports functions
+                                           (into locals (zipmap names (repeat false))) (inc depth) nodes args-length)}
+                (contains? expr "statements") (assoc :statements (get expr "statements"))))))
       "NativeFunction"
-      (do (optional-flags! expr ["@type" "name" "params" "rest" "body"] ["async" "generator"])
+      (do (optional-flags! expr ["@type" "name" "params" "rest" "body"] ["async" "generator" "statements"])
           (let [name (get expr "name") params (get expr "params") rest-name (get expr "rest")]
             (doseq [n [name rest-name] :when (some? n)]
               (name! n)
@@ -328,7 +330,8 @@
                        :body (expression! (get expr "body") imports functions body-env (inc depth) nodes true)}
                 (seq defaults) (assoc :defaults defaults)
                 (contains? expr "async") (assoc :async (get expr "async"))
-                (contains? expr "generator") (assoc :generator (get expr "generator"))))))
+                (contains? expr "generator") (assoc :generator (get expr "generator"))
+                (contains? expr "statements") (assoc :statements (get expr "statements"))))))
       "NativeClass"
       (do (shape! expr ["@type" "name" "extends" "constructor" "members"])
           (let [name (get expr "name") heritage (get expr "extends") ctor (get expr "constructor") members (get expr "members")]
@@ -342,7 +345,7 @@
                   constructor-context (assoc method-context :super-call (some? heritage))
                   base (when (some? heritage) (expression! heritage imports functions self-env (inc depth) nodes args-length))
                   constructor (when (some? ctor)
-                                (shape! ctor ["params" "rest" "body"])
+                                (optional-flag! ctor ["params" "rest" "body"] "statements")
                                 (class-signature! ctor imports functions self-env (inc depth) nodes constructor-context))
                   checked-members
                   (mapv (fn [m]
@@ -354,7 +357,7 @@
                                    :value (expression! (get m "value") imports functions self-env (inc depth) nodes field-context)})
                               (do
                                 (when-not (contains? #{"method" "get" "set"} kind) (fail! :mithril.native-js/shape "Unknown class member kind"))
-                                (shape! m ["kind" "key" "static" "params" "rest" "body"])
+                                (optional-flag! m ["kind" "key" "static" "params" "rest" "body"] "statements")
                                 (let [signature (class-signature! m imports functions self-env (inc depth) nodes method-context)]
                                   (when (or (and (= kind "get") (or (seq (:params signature)) (some? (:rest signature))))
                                             (and (= kind "set") (or (not= 1 (count (:params signature))) (some? (:rest signature)))))
@@ -367,11 +370,13 @@
             (vector! bindings 4096)
             (loop [todo (seq bindings) env locals checked []]
               (if-let [binding (first todo)]
-                (do (optional-flag! binding ["name" "value"] "mutable")
+                (do (optional-flags! binding ["name" "value"] ["mutable" "recursive"])
                     (let [name (name! (get binding "name"))
-                          value (expression! (get binding "value") imports functions env (inc depth) nodes args-length)
+                          init-env (if (true? (get binding "recursive")) (assoc env name (true? (get binding "mutable"))) env)
+                          value (expression! (get binding "value") imports functions init-env (inc depth) nodes args-length)
                           checked-binding (cond-> {:name name :value value}
-                                            (contains? binding "mutable") (assoc :mutable (get binding "mutable")))]
+                                            (contains? binding "mutable") (assoc :mutable (get binding "mutable"))
+                                            (contains? binding "recursive") (assoc :recursive (get binding "recursive")))]
                       (recur (next todo) (assoc env name (true? (get binding "mutable")))
                              (conj checked checked-binding))))
                 {:op :let :bindings checked
@@ -506,8 +511,10 @@
                       (fn [i symbol] (if (contains? (:defaults signature) i)
                                        (str symbol "=" (emit-expression (get (:defaults signature) i) imports functions body-env counter prefix context)) symbol)) params)
         param-source (cond-> (vec param-source) rest-symbol (conj (str "..." rest-symbol)))]
-    (str "(" (str/join "," param-source) "){return "
-         (emit-expression (:body signature) imports functions body-env counter prefix context) ";}")))
+    (str "(" (str/join "," param-source) "){"
+         (if (:statements signature)
+           (emit-body (:body signature) imports functions body-env counter prefix context true)
+           (str "return " (emit-expression (:body signature) imports functions body-env counter prefix context) ";")) "}")))
 
 (defn- emit-expression [expr imports functions env counter prefix args-length]
   (let [emit #(emit-expression % imports functions env counter prefix args-length)
@@ -578,7 +585,9 @@
                 ;; arity, nonconstructibility and iterator binding are retained.
                 (str (if (:infer-name expr) "((" "(0,((")
                      (str/join "," pattern-source) ")=>"
-                     (emit-expression (:body expr) imports functions env counter prefix args-length)
+                     (if (:statements expr)
+                       (str "{" (emit-body (:body expr) imports functions env counter prefix args-length true) "}")
+                       (emit-expression (:body expr) imports functions env counter prefix args-length))
                      (if (:infer-name expr) ")" "))")))
       :native-function
       (let [self-env (cond-> env (some? (:name expr)) (assoc (:name expr) (:name expr)))
@@ -594,8 +603,10 @@
             param-source (cond-> (vec param-source) rest-symbol (conj (str "..." rest-symbol)))
             source (str (when (:async expr) "async ") "function" (when (:generator expr) "*")
                         (when (some? (:name expr)) (str " " (:name expr)))
-                        "(" (str/join "," param-source) "){return "
-                        (emit-expression (:body expr) imports functions body-env counter prefix true) ";}")]
+                        "(" (str/join "," param-source) "){"
+                        (if (:statements expr)
+                          (emit-body (:body expr) imports functions body-env counter prefix true true)
+                          (str "return " (emit-expression (:body expr) imports functions body-env counter prefix true) ";")) "}")]
         ;; Suppress incidental helper-variable name inference. Explicit computed
         ;; property inference retains the native SetFunctionName operation.
         (str (if (:infer-name expr) "(" "(0,(") source (if (:infer-name expr) ")" "))")))
@@ -617,8 +628,10 @@
         (str (if (:infer-name expr) "(" "(0,(") source (if (:infer-name expr) ")" "))")))
       :let (loop [todo (:bindings expr) env env statements []]
              (if-let [b (first todo)]
-               (let [value (emit-expression (:value b) imports functions env counter prefix args-length)
-                     symbol (fresh counter prefix)]
+               (let [early-symbol (when (:recursive b) (fresh counter prefix))
+                     init-env (if early-symbol (assoc env (:name b) early-symbol) env)
+                     value (emit-expression (:value b) imports functions init-env counter prefix args-length)
+                     symbol (or early-symbol (fresh counter prefix))]
                  (recur (next todo) (assoc env (:name b) symbol)
                         (conj statements (str (if (:mutable b) "let " "const ") symbol "=" value ";"))))
                (str "(()=>{" (apply str statements) "return "
@@ -651,8 +664,10 @@
       :let
       (loop [todo (:bindings expr) e env statements []]
         (if-let [b (first todo)]
-          (let [value (emit-expression (:value b) imports functions e counter prefix context)
-                symbol (fresh counter prefix)]
+          (let [early-symbol (when (:recursive b) (fresh counter prefix))
+                init-env (if early-symbol (assoc e (:name b) early-symbol) e)
+                value (emit-expression (:value b) imports functions init-env counter prefix context)
+                symbol (or early-symbol (fresh counter prefix))]
             (recur (next todo) (assoc e (:name b) symbol)
                    (conj statements (str (if (:mutable b) "let " "const ") symbol "=" value ";"))))
           (str "{" (apply str statements) (body (:body expr) e result?) "}")))
