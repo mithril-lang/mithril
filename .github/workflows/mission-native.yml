@@ -1,0 +1,35 @@
+name: Mission native plugins
+on:
+  push:
+    branches: [main]
+    paths: ["src/mithril/mission*", "test/*mission*", "test/mithril/mission*", "scripts/run-mission-sci.mjs", ".github/workflows/mission-native.yml"]
+  pull_request:
+    paths: ["src/mithril/mission*", "test/*mission*", "test/mithril/mission*", "scripts/run-mission-sci.mjs", ".github/workflows/mission-native.yml"]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: DeLaGuardo/setup-clojure@13.7.0
+        with:
+          cli: 1.12.5.1654
+          bb: 1.12.218
+      - run: npm install --global nbb@1.5.212
+      - run: |
+          git clone --branch v0.2.0 https://github.com/mithril-lang/fund.mithril.interop.git /tmp/interop
+          git clone --branch v0.2.0 https://github.com/mithril-lang/fund.mithril.xml.git /tmp/xml
+          git clone --branch v0.2.2 https://github.com/mithril-lang/fund.mithril.ieee.hla.git /tmp/hla
+          python -m pip install 'git+https://github.com/mithril-lang/fund.mithril.ieee.hla.git@v0.2.2' 'git+https://github.com/mithril-lang/fund.mithril.siso.link16.git@v0.2.0' 'git+https://github.com/mithril-lang/fund.mithril.siso.c2sim.git@v0.2.0' 'git+https://github.com/mithril-lang/fund.mithril.siso.msdl.git@v0.2.0'
+          python -m pip install --no-deps -e /tmp/hla
+          /tmp/hla/scripts/build-hla.sh
+      - run: node scripts/run-mission-sci.mjs test/run_mission.cljk
+      - run: MITHRIL_INTEROP_PYTHON="$(command -v python)" MITHRIL_INTEROP_ROOT=/tmp/interop MITHRIL_XML_ROOT=/tmp/xml node scripts/run-mission-sci.mjs test/run_mission_native.cljk

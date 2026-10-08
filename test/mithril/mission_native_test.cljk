@@ -1,0 +1,64 @@
+(ns mithril.mission-native-test
+  (:require [cljs.test :refer [deftest is]]
+            [mithril.mission :as mission]
+            [mithril.mission-native :as native]))
+
+(def fs (js/require "node:fs"))
+(def root (or (.-MITHRIL_INTEROP_ROOT js/process.env) (.resolve (js/require "node:path") "../mithril-interop")))
+(def xml-root (or (.-MITHRIL_XML_ROOT js/process.env) (.resolve (js/require "node:path") "../fund.mithril.xml")))
+(def python (.-MITHRIL_INTEROP_PYTHON js/process.env))
+(def config {:python python :adapter-root root})
+(defn read-json [path] (js->clj (.parse js/JSON (.readFileSync fs (str xml-root "/" path) "utf8"))))
+
+(deftest actual-native-xml-projection-is-admitted-by-mithril
+  (let [bytes (.readFileSync fs (str xml-root "/examples/msdl-relief.xml"))
+        artifact (native/invoke! config {"operation" "xml-import" "standard" "msdl"
+                                          "version" "SISO-STD-007-2008"
+                                          "bytesBase64" (.toString bytes "base64")})
+        projected (native/invoke! config {"operation" "xml-project" "artifact" artifact
+                                           "profile" (read-json "examples/msdl-profile.json")})]
+    (is (= "Entity" (get-in projected ["compiled" "nodes" 0 "@type"])))
+    (is (= 1 (get-in projected ["receipt" "mappedRecords"])))
+    (is (= mission/format-id (get-in projected ["compiled" "format"])))
+    (is (= (.toString bytes "base64")
+           (get (native/invoke! config {"operation" "xml-export" "artifact" artifact}) "bytesBase64")))
+    (is (false? (get-in artifact ["validation" "xsdValidated"])))))
+
+(deftest projected-unknown-types-cannot-bypass-language-admission
+  (let [artifact (native/invoke! config {"operation" "xml-import" "standard" "msdl"
+                                        "version" "SISO-STD-007-2008"
+                                        "bytesBase64" (.toString (.readFileSync fs (str xml-root "/examples/msdl-relief.xml")) "base64")})
+        profile (assoc-in (read-json "examples/msdl-profile.json") ["rules" 0 "type"] "UntrustedType")]
+    (is (= :mithril.mission/unsupported-mapping
+           (try (native/invoke! config {"operation" "xml-project" "artifact" artifact "profile" profile})
+                nil (catch :default e (:mithril/error (ex-data e))))))))
+
+(deftest actual-udp-host-receipt-is-returned-through-mithril
+  (let [receipt (native/invoke! config {"operation" "link16-loopback"})]
+    (is (true? (get receipt "binaryReadBack")))
+    (is (= [112 80] (mapv #(get % "sentBytes") (get receipt "packets"))))))
+
+(deftest real-hla-time-grants-are-returned-through-mithril
+  (let [receipt (native/invoke! config {"operation" "hla-exercise"})]
+    (is (true? (get receipt "payloadVerified")))
+    (is (= 2 (get receipt "logicalTime")))
+    (is (= #{"writer" "reader"}
+           (set (keep #(when (= "time-advance-grant" (get % "type")) (get % "session"))
+                      (get receipt "events")))))))
+
+(deftest specification-plugins-are-discovered
+  (let [result (native/invoke! config {"operation" "plugins"})]
+    (is (= #{"fund.mithril.xml" "fund.mithril.siso.link16" "fund.mithril.ieee.hla"
+             "fund.mithril.siso.c2sim" "fund.mithril.siso.msdl"}
+           (set (map #(get % "id") (get result "plugins")))))))
+
+(deftest specification-profile-projections-also-pass-typed-admission
+  (doseq [[family fixture type] [["c2sim" "c2sim-command.xml" "Event"]
+                                ["msdl" "msdl-relief.xml" "Entity"]]]
+    (let [bytes (.readFileSync fs (str xml-root "/examples/" fixture))
+          artifact (native/invoke! config {"operation" (str family "-import")
+                                           "bytesBase64" (.toString bytes "base64")})
+          projected (native/invoke! config {"operation" (str family "-project")
+                                            "artifact" artifact})]
+      (is (= mission/format-id (get-in projected ["compiled" "format"])))
+      (is (= type (get-in projected ["compiled" "nodes" 0 "@type"]))))))
