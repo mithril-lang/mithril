@@ -40,6 +40,37 @@
  (let [required (count (take-while #(nil? (get % "default")) params))]
   (when (some #(nil? (get % "default")) (drop required params)) (fail! :mithril.native-declarations/arity "Required generic after default"))
   {:min required :max (count params)}))
+(defn- class-params! [params]
+ (vector! params 32)
+ (doseq [p params]
+  (shape! p ["name" "constraint" "default" "variance"])
+  (when-not (contains? #{nil "in" "out" "in-out"} (get p "variance"))
+   (fail! :mithril.native-declarations/type "Invalid class variance")))
+ (let [plain (mapv #(dissoc % "variance") params)] (arity plain) plain))
+(defn- class-key! [key]
+ (case (get key "kind")
+  "name" (do (shape! key ["kind" "name"]) (text! (get key "name")))
+  "computed" (do (shape! key ["kind" "name"]) (qualified! (get key "name")))
+  (fail! :mithril.native-declarations/type "Unknown class member key")))
+(defn- visibility! [v]
+ (when-not (contains? #{"public" "protected" "private"} v)
+  (fail! :mithril.native-declarations/type "Unknown class visibility")))
+(defn- class-member-shape! [m]
+ (visibility! (get m "visibility"))
+ (case (get m "kind")
+  "constructor" (shape! m ["kind" "visibility" "params"])
+  "property" (shape! m ["kind" "key" "visibility" "static" "readonly" "optional" "datatype"])
+  "opaque" (do (shape! m ["kind" "key" "visibility" "static"])
+    (when-not (and (= "private" (get m "visibility")) (= "name" (get-in m ["key" "kind"])))
+     (fail! :mithril.native-declarations/type "Only named private members may omit their type")))
+  "method" (shape! m ["kind" "key" "visibility" "static" "abstract" "optional" "type-params" "params" "returns"])
+  "getter" (shape! m ["kind" "key" "visibility" "static" "datatype"])
+  (fail! :mithril.native-declarations/type "Unknown class member"))
+ (when-not (= "constructor" (get m "kind"))
+  (class-key! (get m "key")) (flag! (get m "static")))
+ (when (contains? m "optional") (flag! (get m "optional")))
+ (when (contains? m "readonly") (flag! (get m "readonly")))
+ (when (contains? m "abstract") (flag! (get m "abstract"))))
 (defn- add! [registry space name value]
  (when (contains? (get @registry space) name) (fail! :mithril.native-declarations/duplicate "Duplicate declaration symbol"))
  (swap! registry assoc-in [space name] value))
@@ -50,6 +81,7 @@
   "alias" (shape! d ["kind" "name" "exported" "type-params" "datatype"])
   "interface" (shape! d ["kind" "name" "exported" "type-params" "members"])
   "namespace" (shape! d ["kind" "name" "exported" "declarations"])
+  "class" (do (shape! d ["kind" "name" "exported" "abstract" "type-params" "extends" "implements" "members"]) (flag! (get d "abstract")) (class-params! (get d "type-params")) (nullable-type! (get d "extends")) (vector! (get d "implements") 32) (vector! (get d "members") 256) (doseq [m (get d "members")] (class-member-shape! m)))
   "export-alias" (shape! d ["kind" "name" "target"])
   (fail! :mithril.native-declarations/declaration "Unknown declaration kind"))
  (identifier! (get d "name"))
@@ -72,7 +104,16 @@
    (case kind
     ("alias" "interface") (do (type-identifier! (get d "name")) (add! registry :types n (assoc (arity (get d "type-params")) :scope prefix :exported (get d "exported"))))
     "function" (do (arity (get d "type-params")) (when-not (contains? (:values @registry) n) (swap! registry assoc-in [:values n] {:kind "function" :scope prefix :exported (get d "exported")})))
-    "const" (add! registry :values n {:kind "const" :scope prefix :exported (get d "exported")})
+    "const" (add! registry :values n {:kind "const" :scope prefix :exported (get d "exported") :datatype (get d "datatype")})
+    "class" (do
+      (type-identifier! (get d "name"))
+      (add! registry :types n (assoc (arity (class-params! (get d "type-params"))) :kind "class" :scope prefix :exported (get d "exported") :base (get d "extends")))
+      (add! registry :values n {:kind "class" :class-name n :scope prefix :exported (get d "exported")})
+      (doseq [m (get d "members") :when (and (get m "static") (= "name" (get-in m ["key" "kind"])))]
+       (let [key (get-in m ["key" "name"])]
+        (identifier! key)
+        (when-not (contains? (get @registry :values) (str n "." key))
+         (add! registry :values (str n "." key) {:kind (get m "kind") :scope prefix :exported (get d "exported") :owner n :visibility (get m "visibility") :datatype (get m "datatype")})))))
     "namespace" (do (add! registry :namespaces n {:value? (boolean (namespace-value? d)) :scope prefix :exported (get d "exported")}) (register! (get d "declarations") (str n ".") registry (inc depth)))
     "export-alias" (when (pos? depth) (fail! :mithril.native-declarations/declaration "Export aliases are top-level")))))))
 (defn- accessible? [metadata scope]
@@ -85,6 +126,42 @@
               (every? #(accessible? (get-in registry [:namespaces %]) scope) parents)) candidate)))
   (let [parts (vec (remove str/blank? (str/split scope #"\.")))]
    (map #(str (when (pos? %) (str (str/join "." (take % parts)) ".")) n) (range (count parts) -1 -1)))))
+(defn- value-metadata [registry scope name depth]
+ (when (> depth 32) (fail! :mithril.native-declarations/budget "Value member query depth"))
+ (if-let [n (resolve-name registry :values scope name)]
+  (get-in registry [:values n])
+  (let [parts (str/split name #"\.") field (last parts) parent (str/join "." (butlast parts))]
+   (when (seq parent)
+    (when-let [base (value-metadata registry scope parent (inc depth))]
+     (if (= "class" (:kind base))
+      (let [class-name (:class-name base) t (get-in registry [:types class-name])]
+       (or (get-in registry [:values (str class-name "." field)])
+           (when-let [parent-type (:base t)]
+            (value-metadata registry (:scope t) (str (get parent-type "name") "." field) (inc depth)))))
+      (let [datatype (loop [t (:datatype base) depth depth]
+                      (when (> depth 32) (fail! :mithril.native-declarations/budget "Value type query cycle/depth"))
+                      (if (= "typeof" (get t "op"))
+                       (recur (:datatype (value-metadata registry scope (get t "name") (inc depth))) (inc depth)) t))
+            member (when (= "object" (get datatype "op"))
+                     (first (filter #(= field (get % "name")) (get datatype "members"))))]
+       (when (= "property" (get member "kind")) (assoc base :datatype (get member "datatype"))))))))))
+
+(defn- subclass-of? [registry name owner]
+ (loop [name name seen #{}]
+  (cond
+   (= name owner) true
+   (or (nil? name) (contains? seen name)) false
+   :else (let [t (get-in registry [:types name]) base (:base t)]
+           (recur (when base (resolve-name registry :types (:scope t) (get base "name"))) (conj seen name))))))
+(defn- value-known? [registry scope env values name]
+ (when (and (str/includes? name ".") (contains? values (first (str/split name #"\."))))
+  (fail! :mithril.native-declarations/scope "Qualified query cannot borrow a shadowed outer value"))
+ (or (contains? values name)
+     (when-let [v (value-metadata registry scope name 0)]
+      (when (and (contains? #{"private" "protected"} (:visibility v))
+                 (not (if (= "protected" (:visibility v)) (subclass-of? registry (:class (meta env)) (:owner v)) (= (:owner v) (:class (meta env))))))
+       (fail! :mithril.native-declarations/scope "Non-public static class member")) true)
+     (let [n (resolve-name registry :namespaces scope name)] (true? (get-in registry [:namespaces n :value?])))))
 (declare check-type! check-members!)
 (defn- generic-env! [params env values mode depth budget registry scope]
  (arity params)
@@ -108,7 +185,7 @@
     (recur (next xs) (or optional? (get p "optional")))))
   (let [names (set (map #(get % "name") params)) venv (into values names)
         binds (reduce into #{} (map #(check-type! (get % "datatype") tenv venv mode (inc depth) budget registry scope nil) params))
-        ret (check-type! (get x "returns") tenv venv mode (inc depth) budget registry scope (when-not constructor? names))]
+        ret (check-type! (get x "returns") tenv venv mode (inc depth) budget registry scope (when-not constructor? (cond-> names (:this? (meta env)) (conj "this"))))]
    (into binds ret))))
 (defn- check-tuple! [items env values mode depth budget registry scope]
  (vector! items 128)
@@ -128,10 +205,12 @@
 (defn- check-type! [x env values mode depth budget registry scope predicate-names]
  (charge! budget depth)
  (when-not (map? x) (fail! :mithril.native-declarations/type "Expected structured type"))
- (let [op (get x "op") check #(check-type! % env values mode (inc depth) budget registry scope nil)
+ (let [op (get x "op") child-mode (if (= :unique mode) :normal mode) check #(check-type! % env values child-mode (inc depth) budget registry scope nil)
        normal #(check-type! % env values :normal (inc depth) budget registry scope nil)
        items! (fn [items] (vector! items 128) (when (empty? items) (fail! :mithril.native-declarations/type "Empty type collection")) (reduce into #{} (map check items)))]
   (case op
+   "this" (do (shape! x ["op"]) (when-not (:this? (meta env)) (fail! :mithril.native-declarations/scope "This type requires instance class/interface scope")) #{})
+   "unique-symbol" (do (shape! x ["op"]) (when-not (= :unique mode) (fail! :mithril.native-declarations/type "Unique symbol requires const or readonly static class property")) #{})
    "keyword" (do (shape! x ["op" "name"]) (when-not (contains? #{"any" "unknown" "never" "string" "number" "boolean" "void" "undefined" "object" "symbol"} (get x "name")) (fail! :mithril.native-declarations/type "Unknown type keyword")) #{})
    "name" (do (shape! x ["op" "name" "args"]) (qualified! (get x "name")) (vector! (get x "args") 32)
     (let [n (get x "name") local? (contains? env n) resolved (resolve-name registry :types scope n) a (if local? {:min 0 :max 0} (get-in registry [:types resolved]))]
@@ -139,12 +218,12 @@
      (reduce into #{} (map check (get x "args")))))
    "literal" (do (shape! x ["op" "value"]) (when-not (and (not (identical? js/undefined (get x "value"))) (or (nil? (get x "value")) (string? (get x "value")) (boolean? (get x "value")) (and (number? (get x "value")) (js/Number.isFinite (get x "value"))))) (fail! :mithril.native-declarations/type "Expected finite type literal")) (when (string? (get x "value")) (text! (get x "value"))) #{})
    "array" (do (shape! x ["op" "item"]) (check (get x "item")))
-   "tuple" (do (shape! x ["op" "items"]) (check-tuple! (get x "items") env values mode depth budget registry scope))
+   "tuple" (do (shape! x ["op" "items"]) (check-tuple! (get x "items") env values child-mode depth budget registry scope))
    ("union" "intersection") (do (shape! x ["op" "items"]) (items! (get x "items")))
    "keyof" (do (shape! x ["op" "datatype"]) (check (get x "datatype")))
    "readonly" (do (shape! x ["op" "datatype"]) (when-not (contains? #{"array" "tuple"} (get-in x ["datatype" "op"])) (fail! :mithril.native-declarations/type "Readonly type requires array or tuple")) (check (get x "datatype")))
    "typeof" (do (shape! x ["op" "name"]) (qualified! (get x "name"))
-    (when-not (or (contains? values (get x "name")) (resolve-name registry :values scope (get x "name")) (let [n (resolve-name registry :namespaces scope (get x "name"))] (true? (get-in registry [:namespaces n :value?])))) (fail! :mithril.native-declarations/scope "Unknown value in type query")) #{})
+    (when-not (value-known? registry scope env values (get x "name")) (fail! :mithril.native-declarations/scope "Unknown value in type query")) #{})
    "index" (do (shape! x ["op" "object" "key"]) (into (check (get x "object")) (check (get x "key"))))
    "conditional" (do (shape! x ["op" "test" "extends" "then" "else"])
     (normal (get x "test"))
@@ -156,14 +235,14 @@
     (nullable-type! (get x "constraint")) (when-let [c (get x "constraint")] (normal c)) #{(get x "name")})
    ("function" "constructor") (do (shape! x ["op" "abstract" "type-params" "params" "returns"]) (flag! (get x "abstract"))
     (when (and (= op "function") (get x "abstract")) (fail! :mithril.native-declarations/type "Abstract flag is constructor-only"))
-    (signature! x env values mode depth budget registry scope (= op "constructor")))
-   "predicate" (do (shape! x ["op" "name" "datatype"]) (identifier! (get x "name"))
+    (signature! x env values child-mode depth budget registry scope (= op "constructor")))
+   "predicate" (do (shape! x ["op" "name" "datatype"]) (when-not (= "this" (get x "name")) (identifier! (get x "name")))
     (when-not (contains? predicate-names (get x "name")) (fail! :mithril.native-declarations/scope "Predicate must refine its own parameter")) (normal (get x "datatype")) #{})
-   "object" (do (shape! x ["op" "members"]) (check-members! (get x "members") env values mode depth budget registry scope))
+   "object" (do (shape! x ["op" "members"]) (check-members! (get x "members") env values child-mode depth budget registry scope))
    "mapped" (do (shape! x ["op" "name" "keys" "remap" "readonly" "optional" "value"]) (identifier! (get x "name")) (flag! (get x "readonly")) (flag! (get x "optional")) (nullable-type! (get x "remap"))
     (let [binds (check (get x "keys")) e (conj env (get x "name"))]
-     (when-let [r (get x "remap")] (check-type! r e values mode (inc depth) budget registry scope nil))
-     (into binds (check-type! (get x "value") e values mode (inc depth) budget registry scope nil))))
+     (when-let [r (get x "remap")] (check-type! r e values child-mode (inc depth) budget registry scope nil))
+     (into binds (check-type! (get x "value") e values child-mode (inc depth) budget registry scope nil))))
    "template" (do (shape! x ["op" "head" "spans"]) (text! (get x "head")) (vector! (get x "spans") 128)
     (reduce into #{} (map #(do (shape! % ["datatype" "tail"]) (text! (get % "tail")) (check (get % "datatype"))) (get x "spans"))))
    (fail! :mithril.native-declarations/type "Unknown type operation"))))
@@ -175,19 +254,63 @@
    "property" (do (shape! m ["kind" "name" "optional" "readonly" "datatype"]) (flag! (get m "readonly")) (check-type! (get m "datatype") env values mode (inc depth) budget registry scope nil))
    "method" (do (shape! m ["kind" "name" "optional" "type-params" "params" "returns"]) (signature! m env values mode (inc depth) budget registry scope false))
    (fail! :mithril.native-declarations/type "Unknown type member"))) members)))
+(defn- class-env [env class-name instance?]
+ (with-meta env {:class class-name :this? instance?}))
+(defn- check-class! [d env values depth budget registry scope]
+ (let [name (str scope (get d "name"))
+       e (generic-env! (class-params! (get d "type-params")) env values :normal depth budget registry scope)
+       members (get d "members") groups (group-by #(if (= "constructor" (get % "kind")) :constructor [(get % "static") (get % "key")]) members)]
+  (when-let [base (get d "extends")]
+   (when-not (= "name" (get base "op")) (fail! :mithril.native-declarations/type "Class base requires named constructor type"))
+   (check-type! base e values :normal (inc depth) budget registry scope nil)
+   (let [v (value-metadata registry scope (get base "name") 0)]
+    (when-not (or (= "class" (:kind v)) (= "ambient" v)) (fail! :mithril.native-declarations/type "Class base requires declared constructor value"))))
+  (doseq [t (get d "implements")]
+   (when-not (= "name" (get t "op")) (fail! :mithril.native-declarations/type "Implements requires named type"))
+   (check-type! t e values :normal (inc depth) budget registry scope nil))
+  (doseq [[_ ms] groups :when (> (count ms) 1)]
+   (when-not (and (or (every? #(= "constructor" (get % "kind")) ms) (every? #(= "method" (get % "kind")) ms))
+                 (= 1 (count (set (map #(select-keys % ["visibility" "abstract" "optional"]) ms)))))
+    (fail! :mithril.native-declarations/duplicate "Class overload/member collision")))
+  (doseq [m members]
+   (charge! budget (inc depth))
+   (let [kind (get m "kind") instance? (and (not (get m "static")) (not= kind "constructor"))
+         menv (class-env (if (get m "static") env e) name instance?)]
+    (when-not (= kind "constructor") (charge! budget (+ depth 2)))
+    (when (= "computed" (get-in m ["key" "kind"]))
+     (when-not (value-known? registry scope menv values (get-in m ["key" "name"]))
+      (fail! :mithril.native-declarations/scope "Unknown computed class member value")))
+    (case kind
+     "opaque" nil
+     "property" (check-type! (get m "datatype") menv values (if (and (get m "static") (get m "readonly") (not (get m "optional"))) :unique :normal) (+ depth 2) budget registry scope nil)
+     "getter" (check-type! (get m "datatype") menv values :normal (+ depth 2) budget registry scope nil)
+     "constructor" (signature! {"type-params" [] "params" (get m "params") "returns" {"op" "keyword" "name" "void"}} menv values :normal (inc depth) budget registry scope true)
+     "method" (do
+       (when (and (get m "abstract") (or (not (get d "abstract")) (get m "static") (= "private" (get m "visibility"))))
+        (fail! :mithril.native-declarations/type "Abstract method requires abstract instance class and non-private visibility"))
+       (signature! m menv values :normal (inc depth) budget registry scope false)))))))
+(defn- class-inheritance! [registry]
+ (doseq [[name t] (:types registry) :when (= "class" (:kind t))]
+  (loop [current name seen #{}]
+   (when (contains? seen current) (fail! :mithril.native-declarations/type "Cyclic class inheritance"))
+   (let [t (get-in registry [:types current]) base (:base t)]
+    (when (and (= "class" (:kind t)) base)
+     (when-let [next (resolve-name registry :types (:scope t) (get base "name"))]
+      (recur next (conj seen current))))))))
 (defn- check-declarations! [decls env values budget registry scope depth]
  (doseq [d decls]
   (charge! budget depth)
   (let [kind (get d "kind")]
    (case kind
     "function" (signature! d env values :normal depth budget registry scope false)
-    "const" (check-type! (get d "datatype") env values :normal (inc depth) budget registry scope nil)
+    "const" (check-type! (get d "datatype") env values :unique (inc depth) budget registry scope nil)
     "alias" (let [e (generic-env! (get d "type-params") env values :normal depth budget registry scope)] (check-type! (get d "datatype") e values :normal (inc depth) budget registry scope nil))
-    "interface" (let [e (generic-env! (get d "type-params") env values :normal depth budget registry scope)] (check-members! (get d "members") e values :normal depth budget registry scope))
+    "interface" (let [e (generic-env! (get d "type-params") env values :normal depth budget registry scope)] (check-members! (get d "members") (with-meta e {:this? true}) values :normal depth budget registry scope))
+    "class" (check-class! d env values depth budget registry scope)
     "namespace" (check-declarations! (get d "declarations") env values budget registry (str scope (get d "name") ".") (inc depth))
     "export-alias" (do (identifier! (get d "target")) (when-not (or (contains? (:values registry) (get d "target")) (contains? (:types registry) (get d "target"))) (fail! :mithril.native-declarations/export "Unknown alias target")))))))
 (defn- namespace-value? [d]
- (some #(or (contains? #{"function" "const"} (get % "kind")) (and (= "namespace" (get % "kind")) (namespace-value? %))) (get d "declarations")))
+ (some #(or (contains? #{"function" "const" "class"} (get % "kind")) (and (= "namespace" (get % "kind")) (namespace-value? %))) (get d "declarations")))
 (defn check-document [doc runtime]
  (shape! doc ["@context" "@type" "name" "runtime-source" "ambient-types" "ambient-values" "declarations"])
  (when-not (and (= "NativeJsDeclarations" (get doc "@type")) (= "https://mithril.fund/context/native-js-declarations/v1" (get doc "@context"))) (fail! :mithril.native-declarations/context "Expected declaration context"))
@@ -206,11 +329,12 @@
    (let [target (get d "target") n (get d "name")]
     (when-let [t (get-in @registry [:types target])] (add! registry :types n t))
     (when-let [v (get-in @registry [:values target])] (add! registry :values n v))))
+  (class-inheritance! @registry)
   (check-declarations! (get doc "declarations") #{} #{} (atom 0) @registry "" 0)
   (let [decls (get doc "declarations")
         public? #(or (get % "exported") (= "export-alias" (get % "kind")))
-        exports (vec (distinct (map #(get % "name") (filter #(and (public? %) (or (or (contains? #{"function" "const"} (get % "kind")) (and (= "export-alias" (get % "kind")) (contains? (:values @registry) (get % "name")))) (and (= "namespace" (get % "kind")) (namespace-value? %)))) decls))))
-        types (vec (distinct (map #(get % "name") (filter #(and (public? %) (or (contains? #{"alias" "interface"} (get % "kind")) (and (= "export-alias" (get % "kind")) (contains? (:types @registry) (get % "name"))))) decls))))]
+        exports (vec (distinct (map #(get % "name") (filter #(and (public? %) (or (or (contains? #{"function" "const" "class"} (get % "kind")) (and (= "export-alias" (get % "kind")) (contains? (:values @registry) (get % "name")))) (and (= "namespace" (get % "kind")) (namespace-value? %)))) decls))))
+        types (vec (distinct (map #(get % "name") (filter #(and (public? %) (or (contains? #{"alias" "interface" "class"} (get % "kind")) (and (= "export-alias" (get % "kind")) (contains? (:types @registry) (get % "name"))))) decls))))]
    (when-not (= (set exports) (set (map :name (:exports runtime)))) (fail! :mithril.native-declarations/surface "Public runtime declaration surface mismatch"))
    {:format :mithril.native-declarations/checked-v1 :name (get doc "name") :runtime-source (get doc "runtime-source")
     :declarations decls :exports exports :type-exports types})))
