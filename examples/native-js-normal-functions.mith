@@ -1,0 +1,25 @@
+(mithril/native-js-module
+ :name "native.normal.functions"
+ :imports []
+ :bindings
+ [(rdf/node :name "Box"
+   :value (mithril/native-function
+           :name "Box"
+           :params [(rdf/node :name "value" :datatype "js-value")]
+           :rest nil
+           :body (mithril/sequence
+                  :expressions [(mithril/host-set :object (mithril/host-this)
+                                 :key (mithril/literal :datatype "js-value" :value "value")
+                                 :value (mithril/local :name "value"))
+                                (mithril/host-undefined)])))]
+ :functions
+ [(mithril/function
+   :name "makeCallable"
+   :params [(rdf/node :name "invoke" :datatype "js-value")]
+   :returns "js-value"
+   :body (mithril/native-function
+          :name nil :params [] :rest "args"
+          :body (mithril/host-invoke
+                 :function (mithril/local :name "invoke")
+                 :args [(mithril/host-this) (mithril/local :name "args")])))]
+ :exports ["makeCallable" (rdf/node :name "Box" :value (mithril/local :name "Box"))])

@@ -141,6 +141,16 @@
           (when-not args-length
             (fail! :mithril.native-js/scope "HostArgumentsLength requires a source normal function context"))
           {:op :arguments-length})
+      "HostThis"
+      (do (shape! expr ["@type"])
+          (when-not args-length
+            (fail! :mithril.native-js/scope "HostThis requires a source normal function context"))
+          {:op :this})
+      "HostNewTarget"
+      (do (shape! expr ["@type"])
+          (when-not args-length
+            (fail! :mithril.native-js/scope "HostNewTarget requires a source normal function context"))
+          {:op :new-target})
       "HostUnary"
       (do (shape! expr ["@type" "operator" "value"])
           (let [operator (get expr "operator")]
@@ -188,8 +198,8 @@
             {:op :object :entries (mapv (fn [entry]
                                          (optional-flag! entry ["key" "value"] "infer_name")
                                          (let [value (check (get entry "value"))]
-                                           (when (and (contains? entry "infer_name") (not= :lambda (:op value)))
-                                             (fail! :mithril.native-js/shape "Name inference requires a NativeLambda initializer"))
+                                           (when (and (contains? entry "infer_name") (not (contains? #{:lambda :native-function} (:op value))))
+                                             (fail! :mithril.native-js/shape "Name inference requires a native function initializer"))
                                            {:key (check (get entry "key"))
                                             :value (cond-> value (true? (get entry "infer_name"))
                                                      (assoc :infer-name true))})) entries)}))
@@ -236,6 +246,25 @@
               {:op :lambda :params patterns
                :body (expression! (get expr "body") imports functions
                                   (into locals (zipmap names (repeat false))) (inc depth) nodes args-length)})))
+      "NativeFunction"
+      (do (shape! expr ["@type" "name" "params" "rest" "body"])
+          (let [name (get expr "name") params (get expr "params") rest-name (get expr "rest")]
+            (doseq [n [name rest-name] :when (some? n)]
+              (name! n)
+              (when (contains? reserved n)
+                (fail! :mithril.native-js/name "Reserved native function binding")))
+            (let [names (params! params)
+                  all-names (cond-> names (some? rest-name) (conj rest-name))
+                  _ (unique! all-names)
+                  self-env (cond-> locals (some? name) (assoc name false))
+                  body-env (into self-env (zipmap all-names (repeat false)))
+                  defaults (into {} (keep-indexed
+                                      (fn [i p]
+                                        (when (contains? p "default")
+                                          [i (expression! (get p "default") imports functions body-env (inc depth) nodes true)])) params))]
+              (cond-> {:op :native-function :name name :params names :rest rest-name
+                       :body (expression! (get expr "body") imports functions body-env (inc depth) nodes true)}
+                (seq defaults) (assoc :defaults defaults)))))
       "Let"
       (do (shape! expr ["@type" "bindings" "body"])
           (let [bindings (get expr "bindings")]
@@ -387,6 +416,8 @@
                                                 (emit (:value item)))) (:items expr))) ")")
       :undefined "(void 0)"
       :arguments-length "arguments.length"
+      :this "this"
+      :new-target "new.target"
       :unary (str "(" (:operator expr) " " (emit (:value expr)) ")")
       :binary (str "(" (emit (:left expr))
                    (if (contains? #{"in" "instanceof" "+" "-" "%" "<" "<=" "*" "/"} (:operator expr))
@@ -428,6 +459,24 @@
                      (str/join "," pattern-source) ")=>"
                      (emit-expression (:body expr) imports functions env counter prefix args-length)
                      (if (:infer-name expr) ")" "))")))
+      :native-function
+      (let [self-env (cond-> env (some? (:name expr)) (assoc (:name expr) (:name expr)))
+            params (mapv (fn [_] (fresh counter prefix)) (:params expr))
+            rest-symbol (when (some? (:rest expr)) (fresh counter prefix))
+            body-env (cond-> (into self-env (zipmap (:params expr) params))
+                       rest-symbol (assoc (:rest expr) rest-symbol))
+            param-source (map-indexed
+                           (fn [i symbol]
+                             (if (contains? (:defaults expr) i)
+                               (str symbol "=" (emit-expression (get (:defaults expr) i) imports functions body-env counter prefix true))
+                               symbol)) params)
+            param-source (cond-> (vec param-source) rest-symbol (conj (str "..." rest-symbol)))
+            source (str "function" (when (some? (:name expr)) (str " " (:name expr)))
+                        "(" (str/join "," param-source) "){return "
+                        (emit-expression (:body expr) imports functions body-env counter prefix true) ";}")]
+        ;; Suppress incidental helper-variable name inference. Explicit computed
+        ;; property inference retains the native SetFunctionName operation.
+        (str (if (:infer-name expr) "(" "(0,(") source (if (:infer-name expr) ")" "))")))
       :let (loop [todo (:bindings expr) env env statements []]
              (if-let [b (first todo)]
                (let [value (emit-expression (:value b) imports functions env counter prefix args-length)
@@ -452,7 +501,7 @@
 
 (defn- emit-checked [checked factory public? check-grants?]
   (let [named-functions (concat (:functions checked)
-                                (filter #(and (map? %) (= :local-function (:op %)))
+                                (filter #(and (map? %) (string? (:name %)) (contains? #{:local-function :native-function} (:op %)))
                                         (tree-seq coll? seq checked)))
         prefix (loop [p "__mithril_native_"]
                  (if (some #(str/starts-with? (:name %) p) named-functions)
