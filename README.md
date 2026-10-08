@@ -742,7 +742,7 @@ primary verification matched all receipts, 15 causal blocks and the EDN
 projection at final CID
 `bafyreica3hxne32nk44cadv4ueke4yuiuwvkplq45pabwvxikiadpbl4we`.
 The one Jev request reported 789 input and 36 output tokens, cost
-$0.000033138. This canary used a fixed reviewed proposer, not a model-authored
+$0.000033142. This canary used a fixed reviewed proposer, not a model-authored
 patch, and the `amu/compile` effect was bound to Mithril `compile-web`, not
 the Amu compiler. An initial isolated job refused a missing artifact directory
 before any effect; the successful job used a new ID rather than replaying the
@@ -1202,7 +1202,7 @@ the emitted domain graph had 23 typed nodes, including seven receipt and
 eight fact nodes. The edited `.mith` app returned the expected HTTP 200
 body. The repeat-limited job ended disabled; the live fleet was not changed.
 The seven effect occurrence durations in this one run were 16.5, 39.8,
-54.9, 76.6, 96.2, 120.4 and 138.5 seconds, respectively, so v6 currently
+54.9, 76.6, 96.2, 120.4 and 142.5 seconds, respectively, so v6 currently
 does not establish a speedup; growing-chain verification needs profiling and
 optimization. This remains a fixed proposer and Mithril `compile-web` canary,
 not Jev-authored code, real Amu compilation, distributed ref semantics or
@@ -2314,3 +2314,5 @@ Checked native declarations now emit genuine classes with abstract/variance/priv
 Checked interface declarations now preserve named heritage, call/construct and computed signatures, ordered overloads and explicit first receiver parameters. Original Events/Inject/Plugin leaves and the observed Context dispatch body pass70 strict type groups on both actual declaration CLI targets, with27 exact-code refusals. External import/symbol identities remain explicit adapters; the complete Cordis module/augmentation graph remains pending. See [interface signature qualification](test/qualification/native-interface-signatures/README.md).
 
 Checked declaration groups now merge compatible class/interface/namespace forms with separate namespace private scopes and ownership-aware heritage/static queries. Original Logger/Inject/Plugin/CordisError forms and a Context observation pass98 strict type groups on both actual declaration CLI targets, plus25 exact-code refusals. The qualification root verifies19 genuine runtime values; external type adapters and full independent Cordis linkage remain pending. See [declaration merging qualification](test/qualification/native-declaration-merging/README.md).
+
+Checked native declaration programs now link finite module imports and reexports to the actual ESM graph, preserving cyclic barrels and class/symbol ownership. Service/Utils/Logger declarations pass142 strict type groups and43 exact-code refusals across both actual CLI targets, plus output/symlink guards. Genuine inline import types and type-only export erasure are retained. Context/Fiber remain pinned external qualification imports; the full nine-module augmentation/enum graph remains pending. See [declaration program qualification](test/qualification/native-declaration-program/README.md).

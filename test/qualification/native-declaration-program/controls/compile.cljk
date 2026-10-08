@@ -1,0 +1,169 @@
+(ns compile-declaration-program
+ (:require [mithril.native-declaration-program :as program] [mithril.native-declarations :as declarations]
+           [mithril.native-esm :as esm] [clojure.string :as str] ["node:fs" :as fs] ["node:child_process" :as child]))
+(defn ensure [p label] (when-not p (throw (js/Error. label))))
+(defn run [args]
+ (let [r (child/spawnSync js/process.execPath (clj->js args) #js {:encoding "utf8" :timeout 240000})]
+  (ensure (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r)) (.-stdout r)))
+(def engine (.-MITHRIL_DECLARATIONS_ENGINE js/process.env))
+(def compiler (.-MITHRIL_DECLARATIONS_TYPESCRIPT js/process.env))
+(def type-roots (.-MITHRIL_DECLARATIONS_TYPE_ROOTS js/process.env))
+(def text (fs/readFileSync "examples/native-js-cordis-declaration-program.mith" "utf8"))
+(def plan (program/read-plan text))
+(def doc (:document plan))
+(def sources (into {} (map #(vector % (fs/readFileSync (str "examples/" %) "utf8")) (:sources plan))))
+(def runtime-text (fs/readFileSync (str "examples/" (:runtime-source plan)) "utf8"))
+(def runtime-sources (into {} (map #(vector % (fs/readFileSync (str "examples/" %) "utf8")) (esm/source-basenames runtime-text))))
+(def runtime (esm/check-text runtime-text runtime-sources))
+(def artifact (program/compile-text text sources runtime))
+(ensure (= 17 (count (:exports artifact))) "Program runtime surface mismatch")
+(ensure (= 12 (count (:type-exports artifact))) "Program type surface mismatch")
+(defn render [v]
+ (cond (map? v) (str "(" (case (get v "@type") "NativeJsDeclarationProgram" "mithril/native-js-declaration-program" "NativeJsDeclarationModule" "mithril/native-js-declaration-module" "NativeJsEsmPackage" "mithril/native-js-esm-package" "rdf/node") " "
+                     (str/join " " (for [[k x] v :when (not (str/starts-with? k "@"))] (str ":" k " " (render x)))) ")")
+       (vector? v) (str "[" (str/join " " (map render v)) "]")
+       (nil? v) "nil" :else (js/JSON.stringify v)))
+(defn group [module names only] {"module" module "names" names "type-only" only})
+(defn local [import name] {"import" import "local" name})
+(defn export-name [import name] {"import" import "export" name})
+(defn kw [name] {"op" "keyword" "name" name})
+(defn ref [name args] {"op" "name" "name" name "args" args})
+(defn alias [name t] {"kind" "alias" "name" name "exported" true "type-params" [] "datatype" t})
+(defn inline [module name args query] {"op" "import-type" "module" module "name" name "args" args "query" query})
+(def generic {"@context" "https://mithril.fund/context/native-js-declaration-module/v1" "@type" "NativeJsDeclarationModule"
+ "name" "generic.program" "runtime" nil "ambient-types" [{"name" "Promise" "min" 1 "max" 1} {"name" "globalThis.Function" "min" 0 "max" 0}] "ambient-values" []
+ "imports" [(group "cordis.index" [(local "*" "API")] false) (group "cordis.service" [(local "Service" "BaseService")] true) (group "standard.schema" [(local "StandardSchemaV1" "StandardSchemaV1")] true)] "reexports" [(group "cordis.utils" nil true) (group "cordis.service" [(export-name "Service" "Tracker") (export-name "Service" "NamedService")] true)]
+ "declarations" [{"kind" "const" "name" "CtorAlias" "exported" false "datatype" {"op" "typeof" "name" "BaseService"}}
+                  (alias "ConstCtorConfig" {"op" "typeof" "name" "CtorAlias.config"})
+                  {"kind" "class" "name" "DerivedService" "exported" false "abstract" false "type-params" [] "extends" (ref "BaseService" [(kw "string")]) "implements" []
+                   "members" [{"kind" "property" "key" {"kind" "name" "name" "copy"} "visibility" "public" "static" true "readonly" true "optional" false "datatype" {"op" "typeof" "name" "BaseService.config"}}]}
+                  (alias "DerivedServiceConstructor" {"op" "typeof" "name" "DerivedService"})
+                  (alias "SchemaIssue" (ref "StandardSchemaV1.Issue" []))
+                  (alias "ImportedSchemaIssue" (inline "standard.schema" "StandardSchemaV1.Issue" [] false))
+                  (alias "InheritedConfig" {"op" "typeof" "name" "DerivedService.config"})
+                  (alias "GlobalFunction" (ref "globalThis.Function" []))
+                  (alias "NamespaceService" (ref "API.Service" [(kw "string")]))
+                  (alias "NamespaceConfig" {"op" "typeof" "name" "API.Service.config"})
+                  (alias "NamedConfig" {"op" "typeof" "name" "BaseService.config"})
+                  (alias "ImportedService" (inline "cordis.service" "Service" [(kw "string")] false))
+                  (alias "ImportedConfig" (inline "cordis.service" "Service.config" [] true))
+                  (alias "ImportedLoggerIntercept" (inline "cordis.logger" "LoggerService.Intercept" [] false))
+                  (alias "ImportedDisposable" (inline "qualification.fiber" "Disposable" [(ref "Promise" [(kw "void")])] false))
+                  (alias "ImportedFiberConstructor" (inline "qualification.fiber" "Fiber" [] true))]})
+(def generic-doc (-> doc (update "modules" conj {"name" "generic.program" "source" "generic-program.mith"})
+                        (update "externals" conj {"name" "standard.schema" "specifier" "@standard-schema/spec"
+                                                   "types" [{"name" "StandardSchemaV1" "min" 0 "max" 2} {"name" "StandardSchemaV1.Issue" "min" 0 "max" 0}] "values" []})))
+(def generic-sources (-> sources (assoc "generic-program.mith" (render generic))
+                         (update "native-js-cordis-index-declaration-module.mith"
+                           #(render (update (declarations/parse-text %) "reexports" conj (group "generic.program" (into (mapv (fn [d] (export-name (get d "name") (get d "name"))) (filter (fn [d] (get d "exported")) (get generic "declarations"))) [(export-name "Tracker" "ShadowedTracker") (export-name "NamedService" "NamedService")]) true))))))
+(def generic-artifact (program/compile-text (render generic-doc) generic-sources runtime))
+(def barrel-name "qualification.barrel")
+(def barrel-file "qualified-barrel.mith")
+(def barrel-source (str "(mithril/native-js-module :name " (js/JSON.stringify barrel-name)
+                       " :imports " (render (mapv :name (:exports runtime))) " :functions [] :exports ["
+                       (str/join " " (map #(str "(rdf/node :name " (js/JSON.stringify (:name %)) " :value (mithril/host-import :name " (js/JSON.stringify (:name %)) "))") (:exports runtime))) "])"))
+(def barrel-runtime-doc (-> (declarations/parse-text runtime-text)
+                         (update "modules" conj {"name" barrel-name "source" barrel-file "dependencies" ["cordis.service" "cordis.utils" "cordis.logger"]
+                                                  "links" (mapv #(hash-map "import" (:name %) "module" (:module %) "export" (:name %)) (:exports runtime))})
+                         (assoc "reexports" [barrel-name])))
+(def barrel-runtime (esm/check-text (render barrel-runtime-doc) (assoc runtime-sources barrel-file barrel-source)))
+(def barrel-doc (assoc doc "runtime-source" "qualified-barrel-runtime.mith"))
+(def barrel-sources (update sources "native-js-cordis-index-declaration-module.mith" #(render (assoc (declarations/parse-text %) "runtime" barrel-name))))
+(def barrel-artifact (program/compile-text (render barrel-doc) barrel-sources barrel-runtime))
+(ensure (= (:exports artifact) (:exports barrel-artifact)) "Actual native barrel changed typed root values")
+(defn mutate-module [sources name f] (update sources name #(render (f (declarations/parse-text %)))))
+(def service-file "native-js-cordis-service-declaration-module.mith")
+(def utils-file "native-js-cordis-utils-declaration-module.mith")
+(def index-file "native-js-cordis-index-declaration-module.mith")
+(def extra-type (alias "Extra" (kw "string")))
+(defn refuse [code f label]
+ (let [actual (try (f) nil (catch :default e (:mithril/error (ex-data e))))]
+  (ensure (= actual code) (str label ": expected " code " got " actual))))
+(def refusals
+ [[:mithril.native-declarations/source #(program/read-plan (render (assoc-in doc ["modules" 0 "source"] "../escape.mith")))]
+  [:mithril.native-declarations/source #(program/read-plan (render (assoc-in doc ["modules" 1 "source"] (get-in doc ["modules" 0 "source"]))))]
+  [:mithril.native-declarations/shape #(program/read-plan (render (assoc doc "raw" "export {};")))]
+  [:mithril.native-declarations/context #(program/read-plan (str/replace text "mithril/native-js-declaration-program" "mithril/native-js-declarations"))]
+  [:mithril.native-declarations/source #(program/compile-text text (dissoc sources service-file) runtime)]
+  [:mithril.native-declarations/source #(program/compile-text text (assoc sources "extra.mith" "") runtime)]
+  [:mithril.native-declarations/source #(program/compile-text text (mutate-module sources service-file (fn [d] (assoc d "name" "different"))) runtime)]
+  [:mithril.native-declarations/runtime #(program/compile-text text sources (assoc runtime :name "different"))]
+  [:mithril.native-declarations/runtime #(program/compile-text text sources (assoc runtime :format :mithril.native-package/checked-v1))]
+  [:mithril.native-declarations/runtime #(program/compile-text text (mutate-module sources service-file (fn [d] (assoc d "runtime" "missing"))) runtime)]
+  [:mithril.native-declarations/surface #(program/compile-text text (mutate-module sources service-file (fn [d] (assoc d "runtime" nil))) runtime)]
+  [:mithril.native-declarations/surface #(program/compile-text text sources (assoc runtime :exports []))]
+  [:mithril.native-declarations/link #(program/compile-text text (mutate-module sources service-file (fn [d] (assoc-in d ["imports" 0 "module"] "missing"))) runtime)]
+  [:mithril.native-declarations/link #(program/compile-text text (mutate-module sources service-file (fn [d] (assoc-in d ["imports" 0 "names" 0 "import"] "Missing"))) runtime)]
+  [:mithril.native-declarations/link #(program/compile-text text (mutate-module sources service-file (fn [d] (assoc-in d ["imports" 0 "names"] []))) runtime)]
+  [:mithril.native-declarations/link #(program/compile-text text (mutate-module sources service-file (fn [d] (-> d (assoc-in ["imports" 0 "names"] nil) (assoc-in ["imports" 0 "type-only"] true)))) runtime)]
+  [:mithril.native-declarations/duplicate #(program/compile-text text (mutate-module sources service-file (fn [d] (update d "imports" conj (first (get d "imports"))))) runtime)]
+  [:mithril.native-declarations/duplicate #(program/compile-text text (mutate-module sources service-file (fn [d] (assoc-in d ["imports" 0 "names" 0 "local"] "Service"))) runtime)]
+  [:mithril.native-declarations/link #(program/compile-text text (mutate-module sources index-file (fn [d] (assoc-in d ["reexports" 0 "module"] "missing"))) runtime)]
+  [:mithril.native-declarations/link #(program/compile-text text (mutate-module sources index-file (fn [d] (assoc-in d ["reexports" 0 "names"] [(export-name "Missing" "Missing")]))) runtime)]
+  [:mithril.native-declarations/link #(program/compile-text text (mutate-module sources service-file (fn [d] (update d "imports" conj (group "cordis.utils" [(local "StackInfo" "PrivateBorrow")] true)))) runtime)]
+  [:mithril.native-declarations/arity #(program/compile-text text (mutate-module sources index-file (fn [d] (update d "declarations" conj (alias "PrivateBorrow" (inline "cordis.utils" "StackInfo" [] false))))) runtime)]
+  [:mithril.native-declarations/arity #(program/compile-text text (mutate-module sources index-file (fn [d] (update d "declarations" conj (alias "BadArity" (inline "qualification.fiber" "Disposable" [] false))))) runtime)]
+  [:mithril.native-declarations/arity #(program/compile-text text (mutate-module sources index-file (fn [d] (update d "declarations" conj (alias "BadQuery" (inline "cordis.utils" "Tracker" [] true))))) runtime)]
+  [:mithril.native-declarations/arity #(program/compile-text text (mutate-module sources index-file (fn [d] (update d "declarations" conj (alias "BadQueryArgs" (inline "cordis.service" "Service" [(kw "string")] true))))) runtime)]
+  [:mithril.native-declarations/arity #(program/compile-text text (mutate-module sources index-file (fn [d] (update d "declarations" conj (alias "InternalLeak" (ref "D0.Service" []))))) runtime)]
+  [:mithril.native-declarations/scope #(program/compile-text text (mutate-module sources index-file (fn [d] (update d "declarations" conj (alias "InternalValueLeak" {"op" "typeof" "name" "D0.Service.config"})))) runtime)]
+  [:mithril.native-declarations/link #(program/compile-text text (mutate-module sources index-file (fn [d] (update d "declarations" conj (alias "UnknownInlineModule" (inline "missing" "Item" [] false))))) runtime)]
+  [:mithril.native-declarations/arity #(program/compile-text text (mutate-module sources utils-file (fn [d] (update d "declarations" conj (alias "CrossModuleBorrow" (ref "Logger" []))))) runtime)]
+  [:mithril.native-declarations/budget #(program/compile-text text (mutate-module sources index-file (fn [d] (update d "declarations" conj (alias "DeepImport" (nth (iterate (fn [t] {"op" "array" "item" t}) (inline "cordis.service" "Service" [] false)) 65))))) runtime)]
+  [:mithril.native-declarations/type #(program/compile-text text
+     (-> sources
+       (mutate-module service-file (fn [d] (-> d (assoc-in ["declarations" 0 "extends"] (ref "LoggerService" [])) (update "imports" conj (group "cordis.logger" [(local "LoggerService" "LoggerService")] false)))))
+       (mutate-module "native-js-cordis-logger-declaration-module.mith" (fn [d] (-> d (update "declarations" (fn [ds] (mapv (fn [x] (if (and (= "class" (get x "kind")) (= "LoggerService" (get x "name"))) (assoc x "extends" (ref "Service" [])) x)) ds))) (update "imports" conj (group "cordis.index" [(local "Service" "Service")] false)))))) runtime)]
+  [:mithril.native-declarations/link #(program/compile-text text (mutate-module sources index-file (fn [d] (assoc-in d ["reexports" 0] (group "cordis.index" [(export-name "Service" "Service")] false)))) runtime)]
+  [:mithril.native-declarations/surface #(program/compile-text text (mutate-module sources index-file (fn [d] (update d "declarations" conj {"kind" "function" "name" "getTraceable" "exported" true "type-params" [] "params" [] "returns" (kw "string")}))) runtime)]
+  [:mithril.native-declarations/surface #(program/compile-text text (mutate-module sources index-file (fn [d] (update d "reexports" conj (group "cordis.utils" [(export-name "isObject" "getTraceable")] false)))) runtime)]
+  [:mithril.native-declarations/surface #(program/compile-text text (mutate-module sources index-file (fn [d] (update d "reexports" conj (group "qualification.context" [(export-name "Context" "getTraceable")] false)))) runtime)]
+  [:mithril.native-declarations/surface #(program/compile-text text (mutate-module sources service-file (fn [d] (update d "reexports" conj (group "cordis.utils" nil false)))) runtime)]
+  [:mithril.native-declarations/duplicate #(program/compile-text (render (update doc "externals" conj (first (get doc "externals")))) sources runtime)]
+  [:mithril.native-declarations/source #(program/compile-text (render (assoc-in doc ["externals" 0 "specifier"] "../../escape.mjs")) sources runtime)]
+  [:mithril.native-declarations/arity #(program/compile-text (render (assoc-in doc ["externals" 0 "types" 0 "max"] 33)) sources runtime)]
+  [:mithril.native-declarations/link #(program/compile-text (render (assoc doc "entry" "qualification.context")) sources runtime)]
+  [:mithril.native-declarations/link #(program/compile-text (render generic-doc) (mutate-module generic-sources index-file (fn [d] (update d "reexports" pop))) runtime)]
+  [:mithril.native-declarations/surface #(program/compile-text text (mutate-module sources index-file (fn [d] (assoc-in d ["reexports" 0 "type-only"] true))) runtime)]])
+(doseq [[index [code f]] (map-indexed vector refusals)] (refuse code f (str "Program refusal " index)))
+(refuse :mithril.native-declarations/link
+ #(program/compile-text (render generic-doc) (mutate-module generic-sources index-file (fn [d] (assoc-in d ["reexports" 4 "names"] nil))) runtime)
+ "Ambiguous star types after explicit shadow in another module")
+(println (str "Declaration program admission:" (inc (count refusals)) " exact-code source/identity/import/visibility/arity/erasure/graph refusals."))
+(def dir (fs/mkdtempSync "/tmp/mithril-program-controls-"))
+(try
+ (fs/writeFileSync (str dir "/offline.edn") "{:paths [\"src\"]}\n")
+ (doseq [[file contents] (merge sources runtime-sources)] (fs/writeFileSync (str dir "/" file) contents))
+ (fs/writeFileSync (str dir "/" (:runtime-source plan)) runtime-text)
+ (fs/writeFileSync (str dir "/program.mith") text)
+ (doseq [target ["js" "js-browser"]]
+  (let [typed (str dir "/types-" target) actual (str dir "/runtime-" target)]
+   (fs/writeFileSync (str typed ".json") (run [engine "--config" (str dir "/offline.edn") "-cp" "src" "bin/mithril-native-declaration-program.cljk" (str dir "/program.mith") "--target" target "--output-directory" typed]))
+   (fs/writeFileSync (str actual ".json") (run [engine "--config" (str dir "/offline.edn") "-cp" "src" "bin/mithril-native-esm.cljk" (str dir "/" (:runtime-source plan)) "--target" target "--output-directory" actual]))
+   (doseq [[file contents] (:files artifact)] (ensure (= contents (fs/readFileSync (str typed "/" file) "utf8")) "Program CLI/model mismatch"))
+   (run ["test/qualification/native-declaration-program/controls/type-contract.mjs" (str typed "/index.d.mts") compiler type-roots (str typed ".json") (str actual "/index.mjs") (str actual ".json")])
+   (let [generic-dir (str dir "/generic-" target)]
+    (fs/mkdirSync generic-dir)
+    (doseq [[file contents] (:files generic-artifact)] (fs/writeFileSync (str generic-dir "/" file) contents))
+    (run ["test/qualification/native-declaration-program/controls/generic-contract.mjs" (str generic-dir "/index.d.mts") compiler type-roots]))))
+ (doseq [[file contents] barrel-sources] (fs/writeFileSync (str dir "/" file) contents))
+ (fs/writeFileSync (str dir "/" barrel-file) barrel-source)
+ (fs/writeFileSync (str dir "/qualified-barrel-runtime.mith") (render barrel-runtime-doc))
+ (fs/writeFileSync (str dir "/barrel-program.mith") (render barrel-doc))
+ (doseq [target ["js" "js-browser"]]
+  (let [typed (str dir "/barrel-types-" target) actual (str dir "/barrel-runtime-" target)]
+   (fs/writeFileSync (str typed ".json") (run [engine "--config" (str dir "/offline.edn") "-cp" "src" "bin/mithril-native-declaration-program.cljk" (str dir "/barrel-program.mith") "--target" target "--output-directory" typed]))
+   (fs/writeFileSync (str actual ".json") (run [engine "--config" (str dir "/offline.edn") "-cp" "src" "bin/mithril-native-esm.cljk" (str dir "/qualified-barrel-runtime.mith") "--target" target "--output-directory" actual]))
+   (doseq [[file contents] (:files barrel-artifact)] (ensure (= contents (fs/readFileSync (str typed "/" file) "utf8")) "Native barrel CLI/model mismatch"))
+   (run ["test/qualification/native-declaration-program/controls/type-contract.mjs" (str typed "/index.d.mts") compiler type-roots (str typed ".json") (str actual "/index.mjs") (str actual ".json")])))
+ ;; Restore the ordinary sources for the following output/symlink controls.
+ (doseq [[file contents] sources] (fs/writeFileSync (str dir "/" file) contents))
+ (let [output (str dir "/existing") marker (str output "/sentinel")]
+  (fs/mkdirSync output) (fs/writeFileSync marker "keep")
+  (let [r (child/spawnSync js/process.execPath #js [engine "--config" (str dir "/offline.edn") "-cp" "src" "bin/mithril-native-declaration-program.cljk" (str dir "/program.mith") "--target" "js" "--output-directory" output] #js {:encoding "utf8"})]
+   (ensure (= 65 (.-status r)) "Existing program output admitted") (ensure (= "keep" (fs/readFileSync marker "utf8")) "Existing output changed")))
+ (fs/unlinkSync (str dir "/" service-file)) (fs/symlinkSync (str "examples/" service-file) (str dir "/" service-file))
+ (let [output (str dir "/symlink-refusal") r (child/spawnSync js/process.execPath #js [engine "--config" (str dir "/offline.edn") "-cp" "src" "bin/mithril-native-declaration-program.cljk" (str dir "/program.mith") "--target" "js" "--output-directory" output] #js {:encoding "utf8"})]
+  (ensure (= 65 (.-status r)) "Symlink source admitted") (ensure (str/includes? (.-stderr r) "REFUSE\tsource\t") "Wrong symlink refusal") (ensure (not (fs/existsSync output)) "Refused program emitted output"))
+ (println "Declaration program CLI:existing output preserved;symlink source refused before output;both actual targets match checked module artifacts.")
+ (finally (fs/rmSync dir #js {:recursive true :force true})))
