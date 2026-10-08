@@ -1,0 +1,41 @@
+{
+  "format": "mithril.native-function-namespace-qualification/v1",
+  "source_tests": 51,
+  "source_assertions": 189,
+  "runtime_groups_per_target": 32,
+  "runtime_groups_total": 64,
+  "admission_refusals": 24,
+  "execution_host": "Node",
+  "actual_cli_targets": [
+    "js",
+    "js-browser"
+  ],
+  "reference": "Complete original namespace IIFE/resolve; function decorator body and cycle are observation controls only",
+  "retained": {
+    "package_exports": 40,
+    "package_groups_per_target": 15,
+    "frozen_leaf_artifacts": 7,
+    "type_nodes": 446,
+    "strict_positive_groups_per_target": 10,
+    "strict_negative_groups_per_target": 12,
+    "type_profile": "existing package only"
+  },
+  "system_one": {
+    "new_inferences": 0,
+    "repairs": 0,
+    "model_code_adoption": false
+  },
+  "scope": "Mutable declaration assignment prerequisite, not complete core source/lifecycle/Harness parity.",
+  "source_sha256": {
+    "src/mithril/native_js.cljk": "a13f61f372e472ddf4c66724159b42218fa281ee8748fb5fcb90309d87cece5e",
+    "src/mithril/form.cljk": "3e56b83e4f4deb67183cb3a8b3126fa4e19cbb50c1e9b794803f642cd77fe8fc",
+    "test/mithril/native_function_namespace_test.cljk": "ea95d9066455978c640885094827d9aa99b1a55af5474c9e10c40357487853ea",
+    "test/fixtures/native-function-namespace/a.mith": "415650b5a703c755093ade5b6bd285b84cd59d0778a5123a331df4c065dc4383",
+    "test/fixtures/native-function-namespace/b.mith": "3abc0e90ba7fd5db8342f1830f41bba591af92fc886aab2846ccc3712f5c597a",
+    "test/fixtures/native-function-namespace/cycle.mith": "d62ac089b557fff785509076d143432753bd1278fb9a26c4c1a3f47778de73f2",
+    "test/fixtures/native-function-namespace/contract.mjs": "a43e619ccfbd37b81c872b118f712a427fffc3502393c6b4c6f57cde49422760",
+    "test/fixtures/native-function-namespace/reference-a.mjs": "cd4f79184a33841333508f752b6b3cbb13f384a9a0c0f37bb0868067e339caae",
+    "test/fixtures/native-function-namespace/reference-b.mjs": "ac1cb990acebfa8eeaf7d528e022c09b3785df943f7946a2f84c5ab7ca17fad9",
+    "test/fixtures/native-function-namespace/provenance.json": "0b2d9c1e6959abbcb00ee9ca70f83e196acd0eb485731dc9c85c61076e7d9f6a"
+  }
+}
