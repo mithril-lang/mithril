@@ -18,7 +18,16 @@
    :source "native-js-augmentation-registry-augmentation-module.mith")
   (rdf/node
    :name "augmentation.fiber"
-   :source "native-js-augmentation-fiber-augmentation-module.mith")]
+   :source "native-js-augmentation-fiber-augmentation-module.mith")
+  (rdf/node
+   :name "cordis.service"
+   :source "native-js-cordis-augmentation-service.mith")
+  (rdf/node
+   :name "cordis.utils"
+   :source "native-js-cordis-augmentation-utils.mith")
+  (rdf/node
+   :name "cordis.index"
+   :source "native-js-cordis-augmentation-index.mith")]
  :externals [(rdf/node
    :name "qualification.context"
    :specifier "@augmentation/context"
@@ -289,4 +298,4 @@
      :min 0
      :max 2)]
    :values [])]
- :entry "cordis.context")
+ :entry "cordis.index")

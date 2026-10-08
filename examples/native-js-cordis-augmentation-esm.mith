@@ -432,5 +432,44 @@
     (rdf/node
      :import "withProps"
      :module "cordis.utils"
-     :export "withProps")])]
- :reexports ["cordis.context"])
+     :export "withProps")])
+  (rdf/node
+   :name "cordis.service"
+   :source "native-js-cordis-service.mith"
+   :dependencies ["cosmokit"
+    "cordis.context"
+    "cordis.utils"]
+   :links [(rdf/node
+     :import "defineProperty"
+     :module "cosmokit"
+     :export "defineProperty")
+    (rdf/node
+     :import "Context"
+     :module "cordis.context"
+     :export "Context")
+    (rdf/node
+     :import "createCallable"
+     :module "cordis.utils"
+     :export "createCallable")
+    (rdf/node
+     :import "joinPrototype"
+     :module "cordis.utils"
+     :export "joinPrototype")
+    (rdf/node
+     :import "symbols"
+     :module "cordis.utils"
+     :export "symbols")])
+  (rdf/node
+   :name "qualification.context_barrel"
+   :source "native-js-cordis-augmentation-barrel.mith"
+   :dependencies ["cordis.context"
+    "cordis.service"]
+   :links [(rdf/node
+     :import "Context"
+     :module "cordis.context"
+     :export "Context")
+    (rdf/node
+     :import "Service"
+     :module "cordis.service"
+     :export "Service")])]
+ :reexports ["qualification.context_barrel"])

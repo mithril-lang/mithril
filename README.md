@@ -2320,9 +2320,10 @@ Checked native declaration programs now link finite module imports and reexports
 Native declaration programs also admit finite internal module interface
 augmentations while preserving separate declaring-module lexical frames and
 actual target module identity. The pinned complete Context class/interface and
-all five Cordis augmentation structures qualify with56 logical strict type
+all five Cordis augmentation structures qualify with60 logical strict type
 groups,12 exact-code refusals and original-paired actual Context runtime behavior
-on both Node-executed CLI targets. External source service/type contracts remain
+on both Node-executed CLI targets. Context computed symbols link to the actual
+Mithril Utils/Service/Context declaration cycle. External plugin/service contracts remain
 qualification adapters; the independent nine-module type graph, erased enums,
 full26-value root and complete Harness equivalence remain pending. Operator
 authored; no new System One inference or measured performance gain is claimed.

@@ -20,11 +20,18 @@ unsupported; all five pinned Cordis augmentation blocks contain interfaces.
 
 The qualification admits the complete original Context class/interface and all
 five original Events/Logger/Reflect/Registry/Fiber augmentation structures. The
-native14-module graph exports the actual Context binding, with no constructor
-facade. Seven emitted files include six declaration modules and the root barrel.
+native16-module graph exports the actual Context binding, with no constructor
+facade. Nine emitted files contain three full selected Cordis modules (Context/Service/
+Utils), five augmentation-only modules and a pure root barrel.
+The Service/Utils declarations also link to the actual Context and index; their
+14 original structures and Context static-to-computed symbol identity are checked.
+A genuine native selector imports Context and Service and reexports the original
+Context binding, keeping Service reachable without constructing a facade.
 The exact Context module surface has two type names and one runtime value.
-Both actual CLI targets run20 original-paired strict consumer groups plus eight
-additional original-paired private-type/unique-symbol groups:56 logical groups.
+The qualification root additionally exposes Service as an erased type-only value
+binding (three root types/two TS value bindings/one actual runtime value).
+Both actual CLI targets run22 original-paired strict consumer groups plus eight
+additional original-paired private-type/unique-symbol groups:60 logical groups.
 TSC6.0.3 uses strict and full library checking. All source structures are compared
 to hashed pinned originals; negative diagnostics must match. Twelve exact-code
 admission cases cover target/shape/visibility/merge/scope/heritage/budget failures.
@@ -32,7 +39,9 @@ Real Context event, reflection, child/root identity and disposal behavior is
 compared against the original runtime. Existing declaration/source/package
 controls remain required. Both target runtime labels execute under Node.
 
-External service/plugin/event/symbol types remain explicit finite qualification
+Context computed symbols now reference admitted Mithril Utils and the actual
+Context static symbols, rather than an external Utils symbol adapter. External
+plugin/event/Fiber/Logger/Reflect/Registry types remain finite qualification
 contracts resolved to pinned original modules. This verifies linked augmentation
 of the genuine Context binding, not the complete independent nine-module Cordis
 type graph. The two erased enums and full26-value index still need admission and

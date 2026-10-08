@@ -19,6 +19,7 @@ function fingerprint(n){
 
 const own=n=>!ts.isImportDeclaration(n)&&!ts.isExportDeclaration(n);
 assert.deepEqual(parse(readFileSync(join(dirname(candidate),meta['module-files']['cordis.context']),'utf8'),'context.d.mts').statements.filter(own).map(fingerprint),source('context').statements.filter(own).map(fingerprint));
+for(const name of ['service','utils']){assert.deepEqual(parse(readFileSync(join(dirname(candidate),meta['module-files']['cordis.'+name]),'utf8'),name+'.d.mts').statements.filter(own).map(fingerprint),source(name).statements.filter(own).map(fingerprint),name);}
 for(const name of ['events','logger','reflect','registry','fiber']){
  const original=source(name).statements.find(n=>ts.isModuleDeclaration(n)&&ts.isStringLiteral(n.name)),generated=parse(readFileSync(join(dirname(candidate),meta['module-files']['augmentation.'+name]),'utf8'),name+'.d.mts').statements.find(ts.isModuleDeclaration);
  assert(generated&&ts.isStringLiteral(generated.name));assert.equal(generated.name.text,'./'+meta['module-files']['cordis.context'].replace(/\.d\.mts$/,'.mjs'));
@@ -27,6 +28,8 @@ for(const name of ['events','logger','reflect','registry','fiber']){
 const dir=mkdtempSync(join(tmpdir(),'mithril-augmentation-consumers-'));
 try{
  const cases=[
+ ['own Context isolate symbol indexes its map',true,'const c=new api.Context();const map:import("@deepseek-ai/cosmokit").Dict<symbol>=c[api.Context.isolate];'],
+ ['own Context intercept symbol indexes its map',true,'const c=new api.Context();const map:import("@deepseek-ai/cosmokit").Dict=c[api.Context.intercept];'],
  ['real constructor',true,'const c=new api.Context();const root:api.Context=c.root;'],
  ['polymorphic Context',true,'class C extends api.Context { extra=1; } const c=new C();const e:C=c.extend({});const i:C=c.isolate("x");const n:C=c.intercept("x",{});'],
  ['predicate narrows',true,'declare const x:unknown;if(api.Context.is(x)){const c:api.Context=x;}'],
@@ -53,9 +56,9 @@ try{
  const program=ts.createProgram(files.map(x=>x.file),{strict:true,noEmit:true,skipLibCheck:false,target:ts.ScriptTarget.ES2024,module:ts.ModuleKind.ESNext,moduleResolution:ts.ModuleResolutionKind.Bundler,allowImportingTsExtensions:true,types:['node'],typeRoots:[resolve(typeRoots)],paths}),diagnostics=ts.getPreEmitDiagnostics(program),negative=new Set(files.filter(x=>!x.ok).map(x=>x.file));
  assert.deepEqual(diagnostics.filter(d=>!d.file||!negative.has(d.file.fileName)).map(d=>({file:d.file?.fileName,code:d.code,text:ts.flattenDiagnosticMessageText(d.messageText,' ')})),[]);
  for(const[name,ok]of cases)if(!ok){const pair=files.filter(x=>x.name===name),codes=c=>diagnostics.filter(d=>d.file?.fileName===c.file).map(d=>d.code).sort((a,b)=>a-b);assert(codes(pair[0]).length,name);assert.deepEqual(codes(pair[0]),codes(pair[1]),name);}
- const checker=program.getTypeChecker(),surface=file=>checker.getExportsOfModule(checker.getSymbolAtLocation(program.getSourceFile(file))).map(s=>s.name).sort();assert.deepEqual(surface(join(dirname(candidate),meta['module-files']['cordis.context'])),surface(join(fixture,'program/context.d.ts')));assert.deepEqual(surface(join(dirname(candidate),meta['module-files']['cordis.context'])),['Context','Intercept']);
+ const checker=program.getTypeChecker(),surface=file=>checker.getExportsOfModule(checker.getSymbolAtLocation(program.getSourceFile(file))).map(s=>s.name).sort();assert.deepEqual(surface(join(dirname(candidate),meta['module-files']['cordis.context'])),surface(join(fixture,'program/context.d.ts')));assert.deepEqual(surface(join(dirname(candidate),meta['module-files']['cordis.context'])),['Context','Intercept']);assert.deepEqual(surface(candidate),['Context','Intercept','Service']);
  const actual=await import(pathToFileURL(resolve(runtime))),original=await import(new URL('../../../fixtures/cordis-core/index.mjs',import.meta.url));assert.deepEqual(Object.keys(actual),['Context']);assert.equal(actual.Context,(await import(new URL('./module-0.mjs',pathToFileURL(resolve(runtime))))).Context);
  async function contract(C){const c=new C();c.logger.error=()=>{};let n=0;const d=c.on('qualification',()=>n++);c.emit('qualification');d();c.emit('qualification');const release=c.provide('qualification',42);const value=c.get('qualification');release();const child=c.extend({label:'child'});const out=[n,value,c.get('qualification')===undefined,child.root===c,C.is(child),typeof c.effect,typeof c.plugin,typeof c.inject,typeof c.fiber.dispose];await c.fiber.dispose();return out;}
  assert.deepEqual(await contract(actual.Context),await contract(original.Context));
- console.log('Module augmentation oracle:real Context class/interface plus all5 original augmentation structures;20 paired strict groups;2types/1actual runtime value;original-paired context event/reflection/disposal behavior. External source service contracts remain qualification adapters.');
+ console.log('Module augmentation oracle:real Context class/interface,14Service/Utils forms and all5 original augmentation structures;22 paired strict groups;2target types/3root types/1actual runtime value;own static-to-computed Context symbols;original-paired context event/reflection/disposal behavior. External source service contracts remain qualification adapters.');
 }finally{rmSync(dir,{recursive:true,force:true});}

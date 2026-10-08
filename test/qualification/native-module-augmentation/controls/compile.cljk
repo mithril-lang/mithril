@@ -15,7 +15,7 @@
 (def runtime-sources (into {} (map #(vector % (fs/readFileSync (str "examples/" %) "utf8")) (esm/source-basenames runtime-text))))
 (def runtime (esm/check-text runtime-text runtime-sources))
 (defn reject [mods code]
- (try (declarations/check-module-program mods (get doc "externals") runtime "cordis.context") (throw (js/Error. "Invalid augmentation admitted"))
+ (try (declarations/check-module-program mods (get doc "externals") runtime (get doc "entry")) (throw (js/Error. "Invalid augmentation admitted"))
       (catch :default e (ensure (= code (:mithril/error (ex-data e))) (str "Wrong augmentation refusal: " e)))))
 (def target "cordis.context")
 (def g (get-in modules [1 "augmentations" 0]))
@@ -50,7 +50,7 @@
 (def scoped-artifact (program/compile-text text scoped-sources runtime))
 (def artifact (program/compile-text text sources runtime))
 (ensure (= ["Context"] (:exports artifact)) "Actual Context runtime surface")
-(ensure (= ["Context" "Intercept"] (:type-exports artifact)) "Augmented module type surface")
+(ensure (= ["Context" "Intercept" "Service"] (:type-exports artifact)) "Augmented module type surface")
 (def dir (fs/mkdtempSync (str (os/tmpdir) "/mithril-augmentation-")))
 (def config (str dir "/offline.edn"))
 (fs/writeFileSync config (str "{:paths [" (js/JSON.stringify (fs/realpathSync "src")) "]}"))
