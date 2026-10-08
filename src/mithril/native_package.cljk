@@ -21,23 +21,31 @@
 (defn- filename! [s]
   (when-not (and (string? s) (re-matches #"[A-Za-z0-9][A-Za-z0-9_-]*\.mith" s))
     (fail! :mithril.native-package/source "Expected a local Mithril source basename")))
+(defn- binding-origin [modules module-name public-name seen]
+ (let [key [module-name public-name]]
+  (when (contains? seen key)
+   (fail! :mithril.native-package/link "Circular reexport has no native binding origin"))
+  (let [m (get modules module-name)
+        e (first (filter #(= public-name (:name %)) (:exports (:checked m))))
+        value (:value e)]
+   (cond
+    (:target e) [module-name :function (:target e)]
+    (= :function-ref (:op value)) [module-name :function (:name value)]
+    (= :local (:op value)) [module-name :binding (:name value)]
+    (= :import (:op value))
+    (if-let [link (first (filter #(= (:name value) (get % "import")) (:links m)))]
+     (binding-origin modules (get link "module") (get link "export") (conj seen key))
+     [module-name :export public-name])
+    :else [module-name :export public-name]))))
+(defn export-origin
+ "Binding identity from a checked native ESM graph, following named aliases."
+ [runtime module-name public-name]
+ (when-not (and (= :mithril.native-esm/checked-v1 (:format runtime))
+                (some #{public-name} (:exports (get-in runtime [:modules module-name]))))
+  (fail! :mithril.native-package/link "Unknown checked ESM export origin"))
+ (binding-origin (:modules runtime) module-name public-name #{}))
 (defn- esm-public-exports [modules roots]
-  (letfn [(origin [module-name public-name seen]
-            (let [key [module-name public-name]]
-              (when (contains? seen key)
-                (fail! :mithril.native-package/link "Circular reexport has no native binding origin"))
-              (let [m (get modules module-name)
-                    e (first (filter #(= public-name (:name %)) (:exports (:checked m))))
-                    value (:value e)]
-                (cond
-                  (:target e) [module-name :function (:target e)]
-                  (= :function-ref (:op value)) [module-name :function (:name value)]
-                  (= :local (:op value)) [module-name :binding (:name value)]
-                  (= :import (:op value))
-                  (if-let [link (first (filter #(= (:name value) (get % "import")) (:links m)))]
-                    (origin (get link "module") (get link "export") (conj seen key))
-                    [module-name :export public-name])
-                  :else [module-name :export public-name]))))]
+  (let [origin #(binding-origin modules %1 %2 %3)]
     ;; Every explicit alias must resolve, including private/default exports not
     ;; visible through the root stars. Native linking rejects originless cycles.
     (doseq [[n m] modules e (:exports m)] (origin n e #{}))

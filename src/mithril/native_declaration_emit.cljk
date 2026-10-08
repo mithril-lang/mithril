@@ -2,6 +2,7 @@
   "TypeScript declaration text from checked, inert Mithril type data. No source delegation."
   (:require [clojure.string :as str] [mithril.native-declarations :as declarations]))
 (defn- quote-value [v] (js/JSON.stringify v))
+(def ^:dynamic *module-paths* nil)
 (declare emit-type)
 (defn- generic-text [params]
  (when (seq params) (str "<" (str/join ", " (map (fn [p] (str (case (get p "variance") "in" "in " "out" "out " "in-out" "in out " "") (get p "name")
@@ -28,6 +29,8 @@
   (emit-type t)))
 (defn- emit-type [t]
  (case (get t "op")
+  "import-type" (str (when (get t "query") "typeof ") "import(" (quote-value (get *module-paths* (get t "module"))) ")." (get t "name")
+                     (when (seq (get t "args")) (str "<" (str/join ", " (map emit-type (get t "args"))) ">")))
   "this" "this"
   "unique-symbol" "unique symbol"
   "keyword" (get t "name")
@@ -89,3 +92,23 @@
     (apply str (map #(emit-declaration % true) (:declarations checked))) "export {};\n")}))
 (defn compile-text [text runtime]
  (compile-document (declarations/parse-text text) runtime))
+
+(defn emit-module
+ "Render a module only after the complete program has passed admission."
+ [doc paths]
+ (binding [*module-paths* paths]
+  (str "// Compiled checked Mithril declaration module; no TypeScript source delegation.\n"
+   (apply str (map (fn [g]
+                    (str "import " (when (get g "type-only") "type ")
+                     (when-let [names (get g "names")]
+                      (if (= "*" (get (first names) "import"))
+                       (str "* as " (get (first names) "local") " from ")
+                       (str "{" (str/join ", " (map #(str (get % "import") " as " (get % "local")) names)) "} from ")))
+                     (quote-value (get paths (get g "module"))) ";\n")) (get doc "imports")))
+   (apply str (map #(emit-declaration % true) (get doc "declarations")))
+   (apply str (map (fn [g]
+                    (str "export " (when (get g "type-only") "type ")
+                     (if-let [names (get g "names")]
+                      (str "{" (str/join ", " (map #(str (get % "import") " as " (get % "export")) names)) "}") "*")
+                     " from " (quote-value (get paths (get g "module"))) ";\n")) (get doc "reexports")))
+   "export {};\n")))

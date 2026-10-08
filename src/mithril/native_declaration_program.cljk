@@ -1,0 +1,44 @@
+(ns mithril.native-declaration-program
+ "Finite checked declaration modules tied to a native ESM graph."
+ (:require [mithril.native-declarations :as declarations]
+           [mithril.native-declaration-emit :as emit] [mithril.form :as form]
+           [mithril.module :as module]))
+(defn- fail! [code text] (throw (ex-info text {:mithril/error code})))
+(defn- shape! [x fields]
+ (when-not (and (map? x) (= (set fields) (set (keys x)))) (fail! :mithril.native-declarations/shape "Unexpected declaration program fields")))
+(defn- basename! [name]
+ (when-not (and (string? name) (re-matches #"[A-Za-z0-9][A-Za-z0-9_-]*\.mith" name))
+  (fail! :mithril.native-declarations/source "Expected local declaration Mithril basename")))
+(defn read-plan [text]
+ (module/check-source-text! text)
+ (let [doc (form/parse text) modules (get doc "modules")]
+  (shape! doc ["@context" "@type" "name" "runtime-source" "modules" "externals" "entry"])
+  (when-not (and (= "NativeJsDeclarationProgram" (get doc "@type")) (= "https://mithril.fund/context/native-js-declaration-program/v1" (get doc "@context")))
+   (fail! :mithril.native-declarations/context "Expected declaration program context"))
+  (basename! (get doc "runtime-source"))
+  (when-not (and (vector? modules) (<= 1 (count modules) 64)) (fail! :mithril.native-declarations/budget "Declaration module budget"))
+  (doseq [m modules] (shape! m ["name" "source"]) (basename! (get m "source")))
+  (let [sources (mapv #(get % "source") modules)]
+   (when-not (= (count sources) (count (set sources))) (fail! :mithril.native-declarations/source "Duplicate declaration read plan"))
+   {:document doc :runtime-source (get doc "runtime-source") :sources sources})))
+(defn compile-text [text sources runtime]
+ (let [{:keys [document] names :sources} (read-plan text)]
+  (when-not (and (= :mithril.native-esm/checked-v1 (:format runtime)) (= (get document "name") (:name runtime)))
+   (fail! :mithril.native-declarations/runtime "Matching checked native ESM runtime required"))
+  (when-not (and (map? sources) (= (set names) (set (keys sources))) (every? string? (vals sources)) (<= (reduce + (map count (vals sources))) 1048576))
+   (fail! :mithril.native-declarations/source "Exact bounded declaration source set required"))
+  (let [modules (mapv (fn [m]
+                        (let [text (get sources (get m "source")) _ (module/check-source-text! text) doc (form/parse text)]
+                         (when-not (= (get m "name") (get doc "name")) (fail! :mithril.native-declarations/source "Declaration source identity mismatch")) doc)) (get document "modules"))
+        checked (declarations/check-module-program modules (get document "externals") runtime (get document "entry"))
+        runtime-names (vec (sort (keys (:modules runtime)))) runtime-files (zipmap runtime-names (map #(str "module-" %) (range)))
+        stems (mapv (fn [index doc] (if-let [n (get doc "runtime")] (get runtime-files n) (if (= (get doc "name") (:entry checked)) "index" (str "declaration-" index)))) (range) modules)
+        _ (when-not (= (count stems) (count (set stems))) (fail! :mithril.native-declarations/source "Repeated declaration runtime identity"))
+        paths (merge (into {} (map #(vector (get %1 "name") (str "./" %2 ".mjs")) modules stems))
+                     (into {} (map #(vector (get % "name") (get % "specifier")) (get document "externals"))))
+        files (into {} (map #(vector (str %2 ".d.mts") (emit/emit-module %1 paths)) modules stems))]
+   {:format :mithril.native-declarations/program-artifact-v1 :module (:name runtime) :entry "index.d.mts"
+    :module-files (into {} (map #(vector (get %1 "name") (str %2 ".d.mts")) modules stems))
+    :exports (:exports checked) :type-exports (:type-exports checked)
+    :files (if (contains? files "index.d.mts") files
+             (assoc files "index.d.mts" (str "// Checked Mithril declaration entry.\nexport * from " (js/JSON.stringify (get paths (:entry checked))) ";\n")))})))

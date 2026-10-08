@@ -40,7 +40,9 @@
    'mithril/native-js-module "NativeJsModule"
    'mithril/native-js-package "NativeJsPackage"
    'mithril/native-js-esm-package "NativeJsEsmPackage"
-   'mithril/native-js-declarations "NativeJsDeclarations"})
+   'mithril/native-js-declarations "NativeJsDeclarations"
+   'mithril/native-js-declaration-module "NativeJsDeclarationModule"
+   'mithril/native-js-declaration-program "NativeJsDeclarationProgram"})
 
 (def ^:private nested-tags
   #{'mithril/choice 'mithril/export 'mithril/import 'mithril/route
@@ -445,6 +447,10 @@
                                 "https://mithril.fund/context/native-js-esm-package/v1"
                                 (= tag 'mithril/native-js-declarations)
                                 "https://mithril.fund/context/native-js-declarations/v1"
+                                (= tag 'mithril/native-js-declaration-module)
+                                "https://mithril.fund/context/native-js-declaration-module/v1"
+                                (= tag 'mithril/native-js-declaration-program)
+                                "https://mithril.fund/context/native-js-declaration-program/v1"
                                 :else "https://mithril.fund/context/v1")
                   "@type" (get top-level-tags tag))
 
