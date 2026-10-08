@@ -15,13 +15,17 @@
   (if (= "method" (get m "kind"))
    (str (generic-text (get m "type-params")) "(" (params-text (get m "params")) "): " (emit-type (get m "returns")))
    (str ": " (emit-type (get m "datatype")))) ";"))
+(defn- tuple-item-text [t]
+ (if (= "named-tuple-item" (get t "op"))
+  (str (get t "name") (when (get t "optional") "?") ": " (emit-type (get t "datatype")))
+  (emit-type t)))
 (defn- emit-type [t]
  (case (get t "op")
   "keyword" (get t "name")
   "name" (str (get t "name") (when (seq (get t "args")) (str "<" (str/join ", " (map emit-type (get t "args"))) ">")))
   "literal" (quote-value (get t "value"))
   "array" (str "(" (emit-type (get t "item")) ")[]")
-  "tuple" (str "[" (str/join ", " (map emit-type (get t "items"))) "]")
+  "tuple" (str "[" (str/join ", " (map tuple-item-text (get t "items"))) "]")
   "union" (str "(" (str/join " | " (map emit-type (get t "items"))) ")")
   "intersection" (str "(" (str/join " & " (map emit-type (get t "items"))) ")")
   "keyof" (str "keyof (" (emit-type (get t "datatype")) ")")

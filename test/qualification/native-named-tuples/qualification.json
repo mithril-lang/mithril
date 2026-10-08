@@ -1,0 +1,44 @@
+{
+  "format": "mithril.native-named-tuples-qualification/v1",
+  "source_tests": 59,
+  "source_assertions": 209,
+  "actual_cli_targets": [
+    "js",
+    "js-browser"
+  ],
+  "profiles": [
+    "esm-library",
+    "native-esm"
+  ],
+  "positive_type_groups_per_target_profile": 10,
+  "negative_type_groups_per_target_profile": 8,
+  "type_groups_total": 72,
+  "admission_refusals": 9,
+  "original_alias": "type Spread<T> = undefined extends T ? [config?: T] : [config: T]",
+  "original_source_hash_and_alias_line_checked": true,
+  "scope_adapter": "echo<T>(...args: Spread<T>): T observes exact original alias; not complete Context.plugin",
+  "guard_changes": "Exact named-tuple-item only inside tuples; boolean optional/identifier/scoped datatype; own node/depth charging and required-after-optional refusal; old tuple format and budgets retained",
+  "retained": {
+    "cosmokit_type_nodes": 446,
+    "old_native_esm_type_bytes_identical": true,
+    "core_runtime_groups": 48,
+    "service_index_groups": 36,
+    "public_cordis_runtime_values": 26,
+    "frozen_package_artifacts": 7
+  },
+  "source_sha256": {
+    "src/mithril/native_declarations.cljk": "3f21ce5fe92af158640946bb816dd0f14412c146d3110fb4f38a6e548d2b2cda",
+    "src/mithril/native_declaration_emit.cljk": "255ba57ef36cda6e2f5cc1f6a0caafeb7358a4b27113562999f641a8ee6dfce6",
+    "test/qualification/native-js-declarations/controls/compile-declarations.cljk": "796ba05ad2cc37a5ffa928dd9ea89707896f58fac7ec455a017e09ba6c62fa29",
+    "test/qualification/native-js-declarations/controls/named-tuple-contract.mjs": "2558534d32e3c08ed61619aa1bd45d9997b22bf26ce28c41d577758947d221b7",
+    "test/fixtures/cordis-declarations/original-registry.ts": "34bbd60ae502b4f85201c204afb52a9acabde6878d9278493478c1b2183debd3",
+    "test/fixtures/cordis-declarations/spread-reference.d.ts": "87e76f1a164ecb17d9c1e5157248c26b3f45365fa2c104f7f7b8c87547865be1",
+    "test/fixtures/cordis-declarations/provenance.json": "5deff91d5b229e9c0286e473ebc42c61a46637b2d027b32f322ed3be6aeac50a"
+  },
+  "system_one": {
+    "new_inferences": 0,
+    "repairs": 0,
+    "model_code_adoption": false
+  },
+  "next": "Class/interface/namespace/augmentation/const-enum type language and whole Cordis/public Harness parity"
+}
