@@ -1,0 +1,22 @@
+{
+  "format": "mithril.control-preflight-investigation/v1",
+  "observations": [
+    {
+      "variant": "original",
+      "image": "sha256:873b3d66920d62e0b029099749fa784ce5891dbeb75b201074673898ba08937b",
+      "exit_code": 1,
+      "observed_expected_diagnostic": "Invalid native JS module name",
+      "after_model_inference": true
+    },
+    {
+      "variant": "corrected",
+      "image": "sha256:f91e284fcbc2e1b05aa6a1936b5da2782adf62cd3bd179c97f7c594dd46eff31",
+      "exit_code": 1,
+      "observed_expected_diagnostic": "Unsupported native JS expression",
+      "after_model_inference": true
+    }
+  ],
+  "conclusion": "Original candidate control fails on invalid module name before the intended missing HostRegExp feature. Corrected control fails on the intended unsupported expression. Run candidate controls against baseline before inference and require declared expected diagnostic categories to detect malformed controls.",
+  "model_requests": 0,
+  "model_performance_improvement_proven": false
+}

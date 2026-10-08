@@ -1,7 +1,7 @@
 (ns test.run-native-js
-  (:require [cljs.test :as t] [mithril.native-js-test] [mithril.native-misc-test] [mithril.native-array-test] [mithril.native-volatile-test] [mithril.native-types-test] [mithril.native-blocks-test] [mithril.native-spreads-test] [mithril.native-types-module-test]))
+  (:require [cljs.test :as t] [mithril.native-js-test] [mithril.native-misc-test] [mithril.native-array-test] [mithril.native-volatile-test] [mithril.native-types-test] [mithril.native-blocks-test] [mithril.native-spreads-test] [mithril.native-types-module-test] [mithril.native-string-time-test]))
 (defmethod t/report [::t/default :end-run-tests] [m]
-  (when (or (not= 21 (:test m)) (not= 93 (:pass m))
+  (when (or (not= 23 (:test m)) (not= 96 (:pass m))
             (pos? (+ (:fail m) (:error m))))
     (js/process.exit 1)))
-(t/run-tests 'mithril.native-js-test 'mithril.native-misc-test 'mithril.native-array-test 'mithril.native-volatile-test 'mithril.native-types-test 'mithril.native-blocks-test 'mithril.native-spreads-test 'mithril.native-types-module-test)
+(t/run-tests 'mithril.native-js-test 'mithril.native-misc-test 'mithril.native-array-test 'mithril.native-volatile-test 'mithril.native-types-test 'mithril.native-blocks-test 'mithril.native-spreads-test 'mithril.native-types-module-test 'mithril.native-string-time-test)

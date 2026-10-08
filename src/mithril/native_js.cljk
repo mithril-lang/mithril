@@ -54,6 +54,19 @@
           (vector! names 64)
           {:op :array :names (mapv name! names)}))))
 
+(defn- regexp! [pattern flags]
+  (when-not (and (string? pattern) (string? flags))
+    (fail! :mithril.native-js/shape "Native regex pattern and flags must be strings"))
+  (when (> (count pattern) 4096)
+    (fail! :mithril.native-js/budget "Native regex pattern exceeds its source budget"))
+  ;; The compiler validates and canonicalizes data. Runtime output remains a
+  ;; literal: fresh current-realm intrinsic value with no constructor grant.
+  (try
+    (let [regex (js/RegExp. pattern flags)]
+      {:op :regexp :source (.-source regex) :flags (.-flags regex)})
+    (catch :default _
+      (fail! :mithril.native-js/regexp "Invalid native regex pattern or flags"))))
+
 (defn- expression! [expr imports functions locals depth nodes args-length]
   (when (or (> depth 64) (> (swap! nodes inc) 4096))
     (fail! :mithril.native-js/budget "Native JS expression budget exceeded"))
@@ -104,6 +117,23 @@
       (do (shape! expr ["@type" "object" "key" "args"])
           {:op :method :object (check (get expr "object")) :key (check (get expr "key"))
            :args (args! (get expr "args"))})
+      "HostRegExp"
+      (do (shape! expr ["@type" "pattern" "flags"])
+          (regexp! (get expr "pattern") (get expr "flags")))
+      "HostMethodItems"
+      (do (shape! expr ["@type" "object" "key" "items"])
+          (let [items (get expr "items")]
+            (vector! items 64)
+            {:op :method-items :object (check (get expr "object"))
+             :key (check (get expr "key"))
+             :items (mapv (fn [item]
+                            (cond
+                              (and (map? item) (= #{"value"} (set (keys item))))
+                              {:kind :value :value (check (get item "value"))}
+                              (and (map? item) (= #{"spread"} (set (keys item))))
+                              {:kind :spread :value (check (get item "spread"))}
+                              :else (fail! :mithril.native-js/shape
+                                           "HostMethodItems entries need exactly value or spread"))) items)}))
       "HostUndefined"
       (do (shape! expr ["@type"]) {:op :undefined})
       "HostArgumentsLength"
@@ -114,13 +144,13 @@
       "HostUnary"
       (do (shape! expr ["@type" "operator" "value"])
           (let [operator (get expr "operator")]
-            (when-not (contains? #{"!" "typeof"} operator)
+            (when-not (contains? #{"!" "typeof" "+"} operator)
               (fail! :mithril.native-js/operator "Unsupported native unary operator"))
             {:op :unary :operator operator :value (check (get expr "value"))}))
       "HostBinary"
       (do (shape! expr ["@type" "operator" "left" "right"])
           (let [operator (get expr "operator")]
-            (when-not (contains? #{"===" "!==" ">=" "in" "instanceof" "+" "-" "%" "<"} operator)
+            (when-not (contains? #{"===" "!==" ">=" "in" "instanceof" "+" "-" "%" "<" "<=" "*" "/"} operator)
               (fail! :mithril.native-js/operator "Unsupported native binary operator"))
             {:op :binary :operator operator :left (check (get expr "left"))
              :right (check (get expr "right"))}))
@@ -349,11 +379,17 @@
       ;; an accidental receiver (e.g. when the callee is a HostGet).
       :invoke (str "(0," (emit (:function expr)) ")(" (args (:args expr)) ")")
       :method (str "(" (emit (:object expr)) ")[" (emit (:key expr)) "](" (args (:args expr)) ")")
+      :regexp (str "(/" (:source expr) "/" (:flags expr) ")")
+      :method-items (str "(" (emit (:object expr)) ")[" (emit (:key expr)) "]("
+                         (str/join "," (map (fn [item]
+                                              (if (= :spread (:kind item))
+                                                (str "..." (emit (:value item)))
+                                                (emit (:value item)))) (:items expr))) ")")
       :undefined "(void 0)"
       :arguments-length "arguments.length"
       :unary (str "(" (:operator expr) " " (emit (:value expr)) ")")
       :binary (str "(" (emit (:left expr))
-                   (if (contains? #{"in" "instanceof" "+" "-" "%" "<"} (:operator expr))
+                   (if (contains? #{"in" "instanceof" "+" "-" "%" "<" "<=" "*" "/"} (:operator expr))
                      (str " " (:operator expr) " ") (:operator expr))
                    (emit (:right expr)) ")")
       :logical (str "(" (emit (:left expr)) (:operator expr) (emit (:right expr)) ")")
