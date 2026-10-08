@@ -2231,3 +2231,9 @@ the indexed-loop, template-coercion and namespace/alias prerequisites for types.
 [Contracts and actual System One evaluation](test/qualification/native-js-types-blocks/README.md)
 retain the raw parse failure and operator repairs. The whole Binary/clone/deepEqual
 Mithril port and full Harness parity remain open.
+
+`HostObjectSpreads` emits ordered native object literal spreads, preserving
+symbol/proxy/getter order and avoiding inherited setters.
+[Qualification and actual System One evaluation](test/qualification/native-js-object-spreads/README.md)
+record a rejected model change shape and the independent operator implementation.
+The whole types.ts runtime is still awaiting qualification.

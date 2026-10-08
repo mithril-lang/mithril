@@ -1,0 +1,32 @@
+{
+  "image": "sha256:199ed7b0684d4903d2042759240d935a9d87ca1444a1134d4066028c978e5025",
+  "seed_directory": "/opt/mithril-refactor-base",
+  "timeout_seconds": 180,
+  "checks": [
+    {
+      "id": "retained-source-84-434",
+      "argv": [
+        "node",
+        "/opt/spreads-controls/run-check.mjs",
+        "test/run_modules.cljk"
+      ]
+    },
+    {
+      "id": "object-spreads-reference",
+      "argv": [
+        "node",
+        "/opt/spreads-controls/spreads-runtime.mjs",
+        "/opt/spreads-controls/spreads-reference.mjs"
+      ]
+    },
+    {
+      "id": "native-object-spreads",
+      "variant": "candidate",
+      "argv": [
+        "node",
+        "/opt/spreads-controls/run-check.mjs",
+        "/opt/spreads-controls/spreads.cljk"
+      ]
+    }
+  ]
+}
