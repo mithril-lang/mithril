@@ -1,0 +1,10 @@
+[
+  [
+    "ASCII state boundaries",
+    "[64,65,90,91,96,97,122,123,44,45,46,94,95].flatMap(c=>{const s=String.fromCharCode(c);return [s+'Foo','Foo'+s+'Bar',s+'a','a'+s,'a'+s+'Z']}).map(s=>[s,api.paramCase(s),api.snakeCase(s)])"
+  ],
+  [
+    "all ASCII characters around transitions",
+    "Array.from({length:128},(_,c)=>String.fromCharCode(c)).flatMap(s=>[s+'Az','Az'+s+'Za','z'+s+'A']).map(s=>[s,api.paramCase(s),api.snakeCase(s)])"
+  ]
+]

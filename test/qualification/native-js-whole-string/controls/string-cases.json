@@ -1,0 +1,170 @@
+[
+  [
+    "exports",
+    "Object.keys(api).sort()"
+  ],
+  [
+    "function metadata",
+    "Object.entries(api).map(([k,f])=>[k,f.name,f.length,Object.hasOwn(f,'prototype'),Object.getPrototypeOf(f)===Function.prototype])"
+  ],
+  [
+    "alias identity",
+    "(()=>{api.camelCase.marker={};return [api.camelize===api.camelCase,api.hyphenate===api.paramCase,api.camelize.marker===api.camelCase.marker,api.camelize.prototype===api.camelCase.prototype]})()"
+  ],
+  [
+    "constructibility",
+    "Object.entries(api).map(([k,f])=>{const x=new f('a');return [k,Object.getPrototypeOf(x)===f.prototype,x.constructor===f]})"
+  ],
+  [
+    "capitalize ascii",
+    "['','foo','FOO',' foo','1foo','\\nabc'].map(s=>api.capitalize(s))"
+  ],
+  [
+    "uncapitalize ascii",
+    "['','Foo','FOO',' foo','1Foo','\\nABC'].map(s=>api.uncapitalize(s))"
+  ],
+  [
+    "utf16 first character",
+    "['😀Hello','\\ud800abc','\\udc00abc','ßeta','İtem','école'].map(s=>[api.capitalize(s),api.uncapitalize(s)])"
+  ],
+  [
+    "capitalize receiver order",
+    "(()=>{const ev=[];const s={get charAt(){ev.push('charAt:get');return function(i){ev.push(['charAt',this===s,i]);return {get toUpperCase(){ev.push('upper:get');return function(){ev.push('upper:call');return 'A'}}}}},get slice(){ev.push('slice:get');return function(i){ev.push(['slice',this===s,i]);return 'b'}}};return [api.capitalize(s),ev]})()"
+  ],
+  [
+    "capitalize plus conversion order",
+    "(()=>{const ev=[];const s={charAt(){ev.push('charAt');return {toUpperCase(){ev.push('upper');return {[Symbol.toPrimitive](h){ev.push('left:'+h);return 'L'}}}}},slice(){ev.push('slice');return {[Symbol.toPrimitive](h){ev.push('right:'+h);return 'R'}}}};return [api.capitalize(s),ev]})()"
+  ],
+  [
+    "uncapitalize opaque early throw",
+    "(()=>{const token={},ev=[];const s={charAt(){ev.push('charAt');return {toLowerCase(){throw token}}},slice(){ev.push('slice')}};try{api.uncapitalize(s)}catch(e){return [e===token,ev]}})()"
+  ],
+  [
+    "camel basic",
+    "['','hello_world','hello-world','foo--bar','_foo','FOO_BAR','foo_1','foo_é','a-_bc','a--B','a_-b'].map(s=>api.camelCase(s))"
+  ],
+  [
+    "camel callback and fresh regex",
+    "(()=>{const ev=[],res=[];const s={replace(r,f){res.push([r.source,r.flags,r.lastIndex,f.name,f.length,Object.hasOwn(f,'prototype')]);r.lastIndex=9;ev.push(f('_a'));return r}};const a=api.camelCase(s),b=api.camelCase(s);return [a!==b,res,ev]})()"
+  ],
+  [
+    "camel callback method order",
+    "(()=>{const ev=[];const s={replace(r,f){return f({slice(i){ev.push(['slice',i]);return {toUpperCase(){ev.push('upper');return 'Z'}}}})}};return [api.camelCase(s),ev]})()"
+  ],
+  [
+    "camel opaque callback error",
+    "(()=>{const token={};try{api.camelCase({replace(r,f){return f({slice(){throw token}})}})}catch(e){return e===token}})()"
+  ],
+  [
+    "case token matrix",
+    "['','foo','FooBar','FOOBar','fooBARBaz','XMLHttpRequest','foo_bar','foo-bar','--Foo__Bar--','ABC','aB','A B','a1B','A1b','Foo😀Bar','foo.bar','12-Foo','_a_','-','--','a--','---a'].map(s=>[api.paramCase(s),api.snakeCase(s)])"
+  ],
+  [
+    "utf16 tokenization",
+    "['😀ABC','日本語ABC','éFoo','\\ud800Foo','A\\udc00b','A\\nB','ß_İ'].map(s=>[api.paramCase(s),api.snakeCase(s)])"
+  ],
+  [
+    "private lexical tokenization",
+    "(()=>{api.paramCase.extra='x';return [api.hyphenate('FooBar'),Object.keys(api).includes('tokenize'),Object.keys(api).includes('State'),Object.keys(api).includes('Letter')]})()"
+  ],
+  [
+    "source reads and acronym lookahead",
+    "(()=>{const ev=[],text='ABc';const s={get length(){ev.push('length');return text.length},get charCodeAt(){ev.push('charCodeAt:get');return function(i){ev.push(['charCodeAt',this===s,i]);return text.charCodeAt(i)}}};return [api.paramCase(s),ev]})()"
+  ],
+  [
+    "coercive charCodeAt object",
+    "(()=>{const ev=[];const value={[Symbol.toPrimitive](h){ev.push(h);return 65}},s={length:1,charCodeAt(){ev.push('char');return value}};return [api.snakeCase(s),ev]})()"
+  ],
+  [
+    "opaque charCodeAt short circuit",
+    "(()=>{const token={},ev=[];const s={get length(){ev.push('length');return 3},charCodeAt(i){ev.push(i);throw token}};try{api.paramCase(s)}catch(e){return [e===token,ev]}})()"
+  ],
+  [
+    "native String grant order",
+    "(()=>{const S=String,ev=[];Object.defineProperty(globalThis,'String',{configurable:true,get(){ev.push('String');return {get fromCharCode(){ev.push('fromCharCode:get');return function(...xs){ev.push(['call',xs]);return S.fromCharCode(...xs)}}}}});const s={get length(){ev.push('length');return 1},charCodeAt(i){ev.push(['code',i]);return 65}};return [api.paramCase(s),ev]})()"
+  ],
+  [
+    "argument spread iterator",
+    "(()=>{const original=Array.prototype[Symbol.iterator],ev=[];Array.prototype[Symbol.iterator]=function(){ev.push(['iter',this.length]);return original.call(this)};let result;try{result=api.snakeCase('Ab')}finally{Array.prototype[Symbol.iterator]=original}return [result,ev]})()"
+  ],
+  [
+    "fresh delimiters arrays and output",
+    "(()=>{const orig=Array.prototype.includes,seen=[];Array.prototype.includes=function(c){seen.push(this);return orig.call(this,c)};let a,b;try{a=api.paramCase('-');b=api.paramCase('-')}finally{Array.prototype.includes=orig}return [a,b,seen.length,seen[0]!==seen[1],seen.map(v=>v.join(','))]})()"
+  ],
+  [
+    "large native argument limit",
+    "(()=>{try{api.paramCase('a'.repeat(150000));return 'no throw'}catch(e){return [e instanceof RangeError,e.name]}})()"
+  ],
+  [
+    "medium complete tokenization",
+    "(()=>{const s='XMLHttp-Foo_bar'.repeat(200);return [api.paramCase(s).length,api.snakeCase(s).length,api.paramCase(s).slice(0,45),api.snakeCase(s).slice(-45)]})()"
+  ],
+  [
+    "format string keys",
+    "['','foo','Foo','$x','_x','a0','0a','a-b','a.b','é','日本語','a\\n','a\"b','a\\\\b','a\\u2028b'].map(s=>api.formatProperty(s))"
+  ],
+  [
+    "format nonstring primitives",
+    "[0,-1,1.5,Infinity,NaN,1n,true,Symbol(),Symbol('a')].map(k=>api.formatProperty(k))"
+  ],
+  [
+    "format boxed string",
+    "api.formatProperty(new String('x'))"
+  ],
+  [
+    "format native tostring receiver",
+    "(()=>{const ev=[],k={get toString(){ev.push('get');return function(){ev.push(this===k);return 'X'}}};return [api.formatProperty(k),ev]})()"
+  ],
+  [
+    "format template hint",
+    "(()=>{const ev=[],k={toString(){ev.push('toString');return {[Symbol.toPrimitive](h){ev.push(h);return 'X'}}}};return [api.formatProperty(k),ev]})()"
+  ],
+  [
+    "format opaque tostring exception",
+    "(()=>{const token={};try{api.formatProperty({toString(){throw token}})}catch(e){return e===token}})()"
+  ],
+  [
+    "format symbol result error",
+    "(()=>{try{api.formatProperty({toString(){return Symbol('x')}})}catch(e){return [e instanceof TypeError,e.name]}})()"
+  ],
+  [
+    "format JSON receiver and result hint",
+    "(()=>{const ev=[],j={get stringify(){ev.push('get');return function(s){ev.push([this===j,s]);return {[Symbol.toPrimitive](h){ev.push(h);return 'Y'}}}}};Object.defineProperty(globalThis,'JSON',{configurable:true,get(){ev.push('JSON');return j}});return [api.formatProperty('a-b'),ev]})()"
+  ],
+  [
+    "format identifier avoids JSON",
+    "(()=>{Object.defineProperty(globalThis,'JSON',{get(){throw 'JSON accessed'}});return api.formatProperty('valid_$0')})()"
+  ],
+  [
+    "trim slash matrix",
+    "['','/','//','foo/','foo//','/foo/','foo/\\n','foo\\n/','foo?x/','foo\\\\'].map(s=>api.trimSlash(s))"
+  ],
+  [
+    "trim native regex fresh",
+    "(()=>{const values=[],s={replace(r,replacement){values.push([r.source,r.flags,replacement]);return r}};const a=api.trimSlash(s),b=api.trimSlash(s);return [a!==b,values]})()"
+  ],
+  [
+    "sanitize matrix",
+    "['','/','//','foo','foo/','foo//','/foo/','http://x/','\\n','foo/\\n'].map(s=>api.sanitize(s))"
+  ],
+  [
+    "sanitize startsWith order and conversion",
+    "(()=>{const ev=[],s={startsWith(prefix){ev.push(prefix);return false},[Symbol.toPrimitive](h){ev.push(h);return 'foo/'}};return [api.sanitize(s),ev]})()"
+  ],
+  [
+    "sanitize no coercion and lexical trim",
+    "(()=>{const ev=[],s={startsWith(prefix){ev.push(prefix);return true},replace(r,x){ev.push([r.source,x,this===s]);return 'result'},[Symbol.toPrimitive](){throw 'extra conversion'}};return [api.sanitize(s),ev]})()"
+  ],
+  [
+    "opaque sanitize stops",
+    "(()=>{const token={},ev=[],s={startsWith(){ev.push('startsWith');throw token},replace(){ev.push('replace')}};try{api.sanitize(s)}catch(e){return [e===token,ev]}})()"
+  ],
+  [
+    "missing and null input error type",
+    "['capitalize','uncapitalize','camelCase','paramCase','snakeCase','trimSlash','sanitize','formatProperty'].map(k=>[k,...[null,undefined].map(x=>{try{api[k](x);return 'no throw'}catch(e){return e instanceof TypeError}})])"
+  ],
+  [
+    "opaque global constructor not read by regex",
+    "(()=>{Object.defineProperty(globalThis,'RegExp',{get(){throw 'RegExp accessed'}});return [api.camelCase('foo_bar'),api.formatProperty('foo'),api.trimSlash('foo/')]})()"
+  ]
+]
