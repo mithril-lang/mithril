@@ -286,13 +286,24 @@
           (let [entries (get expr "entries")]
             (vector! entries 4096)
             {:op :object :entries (mapv (fn [entry]
-                                         (optional-flag! entry ["key" "value"] "infer_name")
-                                         (let [value (check (get entry "value"))]
-                                           (when (and (contains? entry "infer_name") (not (contains? #{:lambda :native-function :native-class} (:op value))))
-                                             (fail! :mithril.native-js/shape "Name inference requires a native function or class initializer"))
-                                           {:key (check (get entry "key"))
-                                            :value (cond-> value (true? (get entry "infer_name"))
-                                                     (assoc :infer-name true))})) entries)}))
+                                       (if (contains? entry "kind")
+                                         (do
+                                           (optional-flags! entry ["kind" "key" "params" "rest" "body"] ["statements" "async" "generator"])
+                                           (when-not (= "method" (get entry "kind"))
+                                             (fail! :mithril.native-js/shape "Object method entry requires method kind"))
+                                           (let [key (check (get entry "key"))
+                                                 context (suspension-context {:function true :this true :new-target true :super-property true}
+                                                                             (get entry "async") (get entry "generator"))]
+                                             (assoc (class-signature! entry imports functions locals (inc depth) nodes context)
+                                                    :kind :method :key key)))
+                                         (do
+                                           (optional-flag! entry ["key" "value"] "infer_name")
+                                           (let [value (check (get entry "value"))]
+                                             (when (and (contains? entry "infer_name") (not (contains? #{:lambda :native-function :native-class} (:op value))))
+                                               (fail! :mithril.native-js/shape "Name inference requires a native function or class initializer"))
+                                             {:key (check (get entry "key"))
+                                              :value (cond-> value (true? (get entry "infer_name"))
+                                                       (assoc :infer-name true))})))) entries)}))
       "HostSpread"
       (do (shape! expr ["@type" "value"])
           {:op :spread :value (check (get expr "value"))})
@@ -311,14 +322,21 @@
       (do (shape! expr ["@type" "object" "key" "value"])
           {:op :set :object (check (get expr "object")) :key (check (get expr "key"))
            :value (check (get expr "value"))})
+      "HostDelete"
+      (do (shape! expr ["@type" "object" "key"])
+          {:op :delete :object (check (get expr "object")) :key (check (get expr "key"))})
       "HostForOf"
       (do (shape! expr ["@type" "iterable" "binding" "body" "result"])
-          (let [binding (name! (get expr "binding"))]
-            (coroutine-bindings! [binding] args-length)
-            (when (contains? locals binding)
+          (let [raw (get expr "binding")
+                binding (if (string? raw) (name! raw)
+                            (do (shape! raw ["array"]) (pattern! raw)))
+                names (if (string? binding) [binding] (:names binding))]
+            (unique! names)
+            (coroutine-bindings! names args-length)
+            (when (some #(contains? locals %) names)
               (fail! :mithril.native-js/duplicate "Loop binding must be fresh"))
             {:op :for-of :binding binding :iterable (check (get expr "iterable"))
-             :body (expression! (get expr "body") imports functions (assoc locals binding false)
+             :body (expression! (get expr "body") imports functions (into locals (zipmap names (repeat false)))
                                 (inc depth) nodes (loop-context args-length))
              :result (body-check (get expr "result"))}))
       "HostWhile"
@@ -584,6 +602,13 @@
   (check-document (form/parse text)))
 (defn- quoted [s] (js/JSON.stringify s))
 (defn- fresh [counter prefix] (str prefix "v" (swap! counter inc)))
+(defn- emit-loop-binding [binding env counter prefix]
+  (if (string? binding)
+    (let [symbol (fresh counter prefix)]
+      {:source symbol :env (assoc env binding symbol)})
+    (let [names (:names binding) symbols (mapv (fn [_] (fresh counter prefix)) names)]
+      {:source (str "[" (str/join "," symbols) "]")
+       :env (into env (zipmap names symbols))})))
 
 (declare emit-expression emit-body)
 (defn- emit-class-signature [signature imports functions env counter prefix context]
@@ -637,16 +662,23 @@
                    (emit (:right expr)) ")")
       :logical (str "(" (emit (:left expr)) (:operator expr) (emit (:right expr)) ")")
       ;; Computed properties avoid the special object-literal __proto__ setter.
-      :object (str "({" (str/join "," (map #(str "[" (emit (:key %)) "]:" (emit (:value %)))
-                                          (:entries expr))) "})")
+      :object (str "({" (str/join "," (map (fn [entry]
+                                             (let [key (emit (:key entry))]
+                                               (if (= :method (:kind entry))
+                                                 (str (when (:async entry) "async ") (when (:generator entry) "*") "[" key "]"
+                                                      (emit-class-signature entry imports functions env counter prefix
+                                                                            {:function true :this true :new-target true :super-property true}))
+                                                 (str "[" key "]:" (emit (:value entry))))))
+                                           (:entries expr))) "})")
       :spread (str "({..." (emit (:value expr)) "})")
       :object-spreads (str "({" (str/join "," (map #(str "..." (emit %)) (:values expr))) "})")
       :update (str "(" (when (:prefix expr) (:operator expr)) "(" (emit (:object expr)) ")[" (emit (:key expr)) "]" (when-not (:prefix expr) (:operator expr)) ")")
       :set (str "((" (emit (:object expr)) ")[" (emit (:key expr)) "]=" (emit (:value expr)) ")")
-      :for-of (let [symbol (fresh counter prefix)
-                    body-env (assoc env (:binding expr) symbol)]
+      :delete (str "(delete (" (emit (:object expr)) ")[" (emit (:key expr)) "])")
+      :for-of (let [binding (emit-loop-binding (:binding expr) env counter prefix)
+                    body-env (:env binding)]
                 ;; Native for-of supplies IteratorClose and lexical iteration scope.
-                (str "(()=>{for(const " symbol " of " (emit (:iterable expr)) "){"
+                (str "(()=>{for(const " (:source binding) " of " (emit (:iterable expr)) "){"
                      (emit-expression (:body expr) imports functions body-env counter prefix args-length)
                      ";}return " (emit (:result expr)) ";})()"))
       :while (str "(()=>{while(" (emit (:condition expr)) "){"
@@ -779,9 +811,9 @@
       :while (str "while(" (emit (:condition expr)) "){" (body (:body expr) env false) "}"
                   (body (:result expr) env result?))
       :for-of
-      (let [symbol (fresh counter prefix)]
-        (str "for(const " symbol " of " (emit (:iterable expr)) "){"
-             (body (:body expr) (assoc env (:binding expr) symbol) false) "}"
+      (let [binding (emit-loop-binding (:binding expr) env counter prefix)]
+        (str "for(const " (:source binding) " of " (emit (:iterable expr)) "){"
+             (body (:body expr) (:env binding) false) "}"
              (body (:result expr) env result?)))
       (str (when result? "return ") (emit expr) ";"))))
 

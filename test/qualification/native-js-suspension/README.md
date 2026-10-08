@@ -28,7 +28,7 @@ start/resume/return/throw and finally override, delegated iterator return/throw,
 async generator request queuing/rejection, async arrow lexical receivers/arguments/
 new.target, class method super/shape and enclosing suspension in class keys/base.
 [Source checks](../../mithril/native_suspension_test.cljk) also cover scope/shape
-refusals. Full source suite: 38 tests / 152 assertions. Retained package/runtime
+refusals. At this original qualification: 38 source tests / 152 assertions. Retained package/runtime
 and strict declaration controls must also pass. These are finite Node checks;
 js-browser output execution in Node is not a browser host, native or Q9 claim.
 
@@ -43,8 +43,9 @@ tsdown bundle or dynamic provider/runtime verification. Prior five-/six-file SCC
 claims are superseded by this scoped runtime graph.
 
 Operator-authored; no new System One request, repair or model-code adoption.
-Prior completed model failures remain sealed. Next: native for-of array bindings
-and property deletion, then the COMPLETE original reflect source. Public Cordis
+Prior completed model failures remain sealed. The later [reflect prerequisites](../native-js-reflect-prerequisites/README.md)
+add native for-of array bindings, property deletion and object methods. Next is
+the COMPLETE original reflect source. Public Cordis
 types, named ESM/live SCC initialization, service/index, complete Schemastery,
 full Harness API/plugin/profile/Session/browser/native/Q9 parity and the missing
 organization delivery destination still remain. This prerequisite does not

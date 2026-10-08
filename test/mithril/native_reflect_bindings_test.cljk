@@ -1,0 +1,42 @@
+(ns mithril.native-reflect-bindings-test
+ (:require [cljs.test :refer [deftest is]] [mithril.native-js :as native] [mithril.form :as form]
+           [mithril.native-class-test :as c]
+           ["node:fs" :as fs] ["node:os" :as os] ["node:path" :as path] ["node:child_process" :as child]))
+(def loopx {"@type" "HostForOf" "iterable" (c/arr) "binding" {"array" ["key" "value"]}
+            "body" (c/arr (c/local "key") (c/local "value")) "result" c/undef})
+(defn refused? [v] (try (native/check-document (c/document v [])) false (catch :default _ true)))
+(deftest checked-property-delete-and-loop-array-binding
+ (let [del {"@type" "HostDelete" "object" (c/lit nil) "key" (c/lit "x")}
+       bad [(dissoc del "key") (assoc del "source" "raw JS")
+            (assoc del "object" (c/local "missing")) (assoc del "key" (c/local "missing"))
+            (assoc loopx "binding" {"array" ["same" "same"]})
+            (assoc loopx "binding" {"name" "x"})
+            (assoc loopx "binding" {"array" ["x"] "default" c/undef})
+            (assoc loopx "binding" {"array" ["x"] "rest" "tail"})
+            (assoc loopx "binding" {"array" [nil]})
+            (assoc loopx "binding" {"array" ["a-b"]})
+            (assoc loopx "binding" {"array" '("x")})
+            (assoc loopx "binding" {"array" (vec (repeat 65 "x"))})
+            (assoc loopx "body" {"@type" "LocalSet" "name" "key" "value" c/undef})
+            (assoc loopx "result" (c/local "key"))
+            (assoc loopx "iterable" (c/local "key"))
+            {"@type" "Let" "bindings" [{"name" "key" "value" c/undef}] "body" loopx}
+            (assoc (c/normal (assoc loopx "binding" {"array" ["yield"]})) "generator" true)]
+       text (fs/readFileSync "examples/native-js-reflect-bindings.mith" "utf8")]
+  (is (= (form/parse "(mithril/host-delete :object (mithril/literal :datatype \"js-value\" :value nil) :key (mithril/literal :datatype \"js-value\" :value \"x\"))") del))
+  (is (every? refused? bad))
+  (is (= (native/compile-text text) (native/compile-document (form/parse text))))
+  (is (not (refused? (assoc loopx "binding" {"array" []} "body" c/undef))))))
+(deftest native-delete-and-array-binding-cli
+ (let [dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-reflect-bindings-"))]
+  (try
+   (let [engine (.-MITHRIL_NATIVE_ENGINE js/process.env) config (path/join dir "offline.edn")]
+    (fs/writeFileSync config "{:paths [\"src\"]}\n")
+    (doseq [target ["js" "js-browser"]]
+     (let [r (child/spawnSync js/process.execPath
+              (clj->js [engine "--config" config "-cp" "src" "bin/mithril-native-js.cljk" "examples/native-js-reflect-bindings.mith" "--target" target "--output" (path/join dir (str target ".mjs"))])
+              #js {:encoding "utf8" :timeout 30000})]
+      (when-not (= 0 (.-status r)) (throw (js/Error. (str (.-stdout r) (.-stderr r))))))))
+   (let [r (child/spawnSync js/process.execPath (clj->js ["test/fixtures/native-reflect-bindings-contract.mjs" dir]) #js {:encoding "utf8" :timeout 30000})]
+    (is (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r)))
+   (finally (fs/rmSync dir #js {:recursive true :force true})))))
