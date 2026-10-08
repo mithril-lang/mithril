@@ -1,0 +1,114 @@
+{
+  "format": "mithril.code-refactor-verification/v1",
+  "verified": false,
+  "verification_scope": "Declared checks on selected baseline and candidate snapshots only; not whole-repository or universal API equivalence.",
+  "input_sha256": "f2918c5e167b442be2323bed32254b0df3548b42abba75cc3cefa2972d21164b",
+  "proposal_sha256": "69716329d992ac51464489c387f98fa8dbe205e80f65f766ec2c94055af0c037",
+  "candidate_sha256": "6bc9a874348d8c87c61abf4e462773f74a79a50613561e49b264ad22efc02592",
+  "image": "sha256:61a0de6d883ce81066ac8336fb41f8da63ee83a1dfe2ac68013d1145a2a5c41c",
+  "plan": {
+    "image": "sha256:61a0de6d883ce81066ac8336fb41f8da63ee83a1dfe2ac68013d1145a2a5c41c",
+    "seed_directory": "/opt/mithril-refactor-base",
+    "timeout_seconds": 180,
+    "checks": [
+      {
+        "id": "retained-source-83-433",
+        "argv": [
+          "node",
+          "/opt/blocks-controls/run-check.mjs",
+          "test/run_modules.cljk"
+        ]
+      },
+      {
+        "id": "blocks-primitives-reference",
+        "argv": [
+          "node",
+          "/opt/blocks-controls/blocks-primitives-runtime.mjs",
+          "/opt/blocks-controls/blocks-primitives-reference.mjs"
+        ]
+      },
+      {
+        "id": "native-blocks-primitives",
+        "variant": "candidate",
+        "argv": [
+          "node",
+          "/opt/blocks-controls/run-check.mjs",
+          "/opt/blocks-controls/blocks-primitives.cljk"
+        ]
+      }
+    ]
+  },
+  "checks": [
+    {
+      "variant": "baseline",
+      "id": "retained-source-83-433",
+      "argv": [
+        "node",
+        "/opt/blocks-controls/run-check.mjs",
+        "test/run_modules.cljk"
+      ],
+      "wall_seconds": 32.497864875,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "\nTesting mithril.module-test\n\nTesting mithril.module-lower-test\n\nTesting mithril.form-test\n\nTesting mithril.compiler-test\n\nTesting mithril.conditional-test\n\nTesting mithril.branding-test\n\nTesting mithril.undefined-test\n\nTesting mithril.library-test\n\nTesting mithril.module-bindings-test\n\nTesting mithril.module-guest-closure-test\n\nTesting mithril.native-js-test\n\nTesting mithril.native-misc-test\nNative primitive runtime: strict comparison/raw logical values/spread/assignment/for-of checked.\n11 primitive admissions, 9 refusals, all 8 Form tags checked.\n\nTesting mithril.native-array-test\nNative array primitives: 20 runtime contract groups passed.\n4 admissions / 13 malformed refusals / 2 budget refusals / 3 Form tags passed.\n\nTesting mithril.native-volatile-test\nNamed-function/generated-binding collision regression passed.\nNative volatile prerequisites: 15 runtime contract groups passed.\n7 admissions / 15 malformed refusals / 2 budget refusals / 4 Form tags passed.\n\nTesting mithril.native-types-test\nNative type prerequisites: 16 runtime contract groups passed.\n6 admissions / 6 malformed or scope refusals / 2 budget refusals / 1 Form tag passed.\nNative arguments Let scope: 3 runtime boundary groups passed.\n4 additional scope refusals and normal/default/LocalFunction Let capture groups passed.\n\nRan 83 tests containing 433 assertions.\n0 failures, 0 errors.\nJVM launcher marker absent; workspace source classpath.\n"
+    },
+    {
+      "variant": "baseline",
+      "id": "blocks-primitives-reference",
+      "argv": [
+        "node",
+        "/opt/blocks-controls/blocks-primitives-runtime.mjs",
+        "/opt/blocks-controls/blocks-primitives-reference.mjs"
+      ],
+      "wall_seconds": 1.1750599169999987,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "Native export/loop/string prerequisites: 18 runtime contract groups passed.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "retained-source-83-433",
+      "argv": [
+        "node",
+        "/opt/blocks-controls/run-check.mjs",
+        "test/run_modules.cljk"
+      ],
+      "wall_seconds": 4.743668042000005,
+      "exit_code": 1,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "----- Error --------------------------------------\nMessage:  Unmatched delimiter: ], expected: ) to match ( at [283 18]\nLocation: 294:57\nPhase:    parse\nfile:///opt/nbb/lib/nbb_main.js:13\n$APP.aH),$APP.VZ);return g.B?g.B():g.call(null)}):null).then(function(g){$APP.k($APP.k(d)?g!=null:d)&&$APP.dz.o($APP.y([g],0));return g}).catch(function(g){$APP.Dla(g,b);$APP.k($APP.ez.h(b))&&console.error(g);throw Error($APP.Hk(g));})})):console.error(\"Usage: \"+$APP.I.h(\"nbb\")+\" \\x3cscript\\x3e or nbb -e \\x3cexpr\\x3e.\")})();\n                                                                                                                                                                                                                       ^\n\nError: Unmatched delimiter: ], expected: ) to match ( at [283 18]\n    at file:///opt/nbb/lib/nbb_main.js:13:216\n\nNode.js v24.21.0\nfile:///opt/blocks-controls/run-check.mjs:7\nif(existsSync(marker))throw Error('forbidden JVM launcher');if(r.error||r.status!==0)throw r.error||Error('source check failed: '+r.status);\n                                                                                                    ^\n\nError: source check failed: 1\n    at file:///opt/blocks-controls/run-check.mjs:7:101\n    at ModuleJob.run (node:internal/modules/esm/module_job:561:25)\n    at async node:internal/modules/esm/loader:647:26\n    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)\n\nNode.js v24.21.0\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "blocks-primitives-reference",
+      "argv": [
+        "node",
+        "/opt/blocks-controls/blocks-primitives-runtime.mjs",
+        "/opt/blocks-controls/blocks-primitives-reference.mjs"
+      ],
+      "wall_seconds": 2.9661342080000033,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "Native export/loop/string prerequisites: 18 runtime contract groups passed.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "native-blocks-primitives",
+      "argv": [
+        "node",
+        "/opt/blocks-controls/run-check.mjs",
+        "/opt/blocks-controls/blocks-primitives.cljk"
+      ],
+      "wall_seconds": 2.2762780409999976,
+      "exit_code": 1,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "----- Error --------------------------------------\nMessage:  Unmatched delimiter: ], expected: ) to match ( at [283 18]\nLocation: 294:57\nPhase:    parse\nfile:///opt/nbb/lib/nbb_main.js:13\n$APP.aH),$APP.VZ);return g.B?g.B():g.call(null)}):null).then(function(g){$APP.k($APP.k(d)?g!=null:d)&&$APP.dz.o($APP.y([g],0));return g}).catch(function(g){$APP.Dla(g,b);$APP.k($APP.ez.h(b))&&console.error(g);throw Error($APP.Hk(g));})})):console.error(\"Usage: \"+$APP.I.h(\"nbb\")+\" \\x3cscript\\x3e or nbb -e \\x3cexpr\\x3e.\")})();\n                                                                                                                                                                                                                       ^\n\nError: Unmatched delimiter: ], expected: ) to match ( at [283 18]\n    at file:///opt/nbb/lib/nbb_main.js:13:216\n\nNode.js v24.21.0\nfile:///opt/blocks-controls/run-check.mjs:7\nif(existsSync(marker))throw Error('forbidden JVM launcher');if(r.error||r.status!==0)throw r.error||Error('source check failed: '+r.status);\n                                                                                                    ^\n\nError: source check failed: 1\n    at file:///opt/blocks-controls/run-check.mjs:7:101\n    at ModuleJob.run (node:internal/modules/esm/module_job:561:25)\n    at async node:internal/modules/esm/loader:647:26\n    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)\n\nNode.js v24.21.0\n"
+    }
+  ],
+  "wall_seconds": 46.209499875
+}

@@ -179,6 +179,14 @@
              :body (expression! (get expr "body") imports functions (assoc locals binding false)
                                 (inc depth) nodes args-length)
              :result (check (get expr "result"))}))
+      "HostWhile"
+      (do (shape! expr ["@type" "condition" "body" "result"])
+          {:op :while :condition (check (get expr "condition"))
+           :body (check (get expr "body"))
+           :result (check (get expr "result"))})
+      "HostToString"
+      (do (shape! expr ["@type" "value"])
+          {:op :to-string :value (check (get expr "value"))})
       "HostArray"
       (do (shape! expr ["@type" "items"])
           (let [items (get expr "items")]
@@ -272,14 +280,7 @@
           names (mapv :name declarations)
           _ (unique! names)
           targets (set names)
-          public (mapv (fn [e]
-                         (let [e (if (string? e) {"name" e "function" e} e)]
-                           (shape! e ["name" "function"])
-                           (let [name (name! (get e "name")) target (name! (get e "function"))]
-                             (when-not (contains? targets target)
-                               (fail! :mithril.native-js/export "Unknown native JS export"))
-                             {:name name :target target}))) exports)
-          _ (unique! (mapv :name public)) nodes (atom 0)]
+          nodes (atom 0)]
       (let [bindings (if (contains? doc "bindings") (get doc "bindings") [])
             _ (vector! bindings 128)
             binding-names (mapv (fn [b]
@@ -307,7 +308,18 @@
                                                  [i (expression! (get p "default") (set imports) targets env 1 nodes true)]))
                                              (get f "params")))]
                       (cond-> (assoc d :body (expression! (get f "body") (set imports) targets env 1 nodes true))
-                        (seq defaults) (assoc :defaults defaults)))) functions declarations)]
+                        (seq defaults) (assoc :defaults defaults)))) functions declarations)
+            public (mapv (fn [e]
+                           (let [e (if (string? e) {"name" e "function" e} e)]
+                             (shape! e (if (contains? e "value") ["name" "value"] ["name" "function"]))
+                             (let [name (name! (get e "name"))]
+                               (if (contains? e "value")
+                                 {:name name :value (expression! (get e "value") (set imports) targets module-env 1 nodes false)}
+                                 (let [target (name! (get e "function"))]
+                                   (when-not (contains? targets target)
+                                     (fail! :mithril.native-js/export "Unknown native JS export"))
+                                   {:name name :target target}))))) exports)
+            _ (unique! (mapv :name public))]
         (cond-> {:format :mithril.native-js/checked-v1 :name name :imports imports :exports public
                  :functions checked-functions}
           (contains? doc "bindings") (assoc :bindings (:bindings checked-bindings)))))))
@@ -351,6 +363,9 @@
                 (str "(()=>{for(const " symbol " of " (emit (:iterable expr)) "){"
                      (emit-expression (:body expr) imports functions body-env counter prefix args-length)
                      ";}return " (emit (:result expr)) ";})()"))
+      :while (str "(()=>{while(" (emit (:condition expr)) "){"
+               (emit (:body expr)) ";}return " (emit (:result expr)) ";})()")
+      :to-string (str "`${" (emit (:value expr)) "}`")
       :array (str "[" (args (:items expr)) "]")
       :construct (str "new (" (emit (:constructor expr)) ")(" (args (:args expr)) ")")
       :array-items (str "[" (str/join "," (map (fn [item]
@@ -428,7 +443,10 @@
                                                       symbol)) params)]
                                (str "const " (get functions (:name f)) "=function " (:name f) "(" (str/join "," param-source) "){return "
                                     (emit-expression (:body f) imports functions env counter prefix true) ";};\n"))) (:functions checked)))
-                    "return {" (str/join "," (map #(str "[" (quoted (:name %)) "]:" (get functions (:target %))) (:exports checked))) "};\n}\n")]
+                    "return {" (str/join "," (map (fn [e]
+                                                   (if (:target e)
+                                                     (str "[" (quoted (:name e)) "]:" (get functions (:target e)))
+                                                     (str "[" (quoted (:name e)) "]:" (emit-expression (:value e) imports functions (:env module-bindings) counter prefix false)))) (:exports checked))) "};\n}\n")]
     {:format :mithril.native-js/artifact-v1 :module (:name checked)
      :required-imports (:imports checked) :exports (mapv :name (:exports checked))
      :runtime :native-js :source source}))

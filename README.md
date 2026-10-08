@@ -2225,3 +2225,9 @@ The native source suite passes18/82 and full registered suite83/433.
 retain the raw candidate's artifact-preservation failure and two operator repairs.
 Binary namespace/value exports, indexed loops and the complete types runtime port
 are still pending; these primitives do not qualify the whole module.
+
+Native `HostWhile`, `HostToString` and exact `name/value` exports now provide
+the indexed-loop, template-coercion and namespace/alias prerequisites for types.ts.
+[Contracts and actual System One evaluation](test/qualification/native-js-types-blocks/README.md)
+retain the raw parse failure and operator repairs. The whole Binary/clone/deepEqual
+Mithril port and full Harness parity remain open.
