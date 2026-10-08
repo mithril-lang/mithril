@@ -80,6 +80,7 @@
 (defn run [args]
  (let [r (child/spawnSync js/process.execPath (clj->js args) #js {:encoding "utf8" :timeout 240000})]
   (ensure (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r))))
+(run ["test/qualification/native-js-declarations/controls/cordis-type-contract.mjs" compiler type-roots])
 (def toy-leaf "(mithril/native-js-module :name \"toy\" :imports [] :functions [(mithril/function :name \"echo\" :params [(rdf/node :name \"value\" :datatype \"js-value\")] :returns \"js-value\" :body (mithril/local :name \"value\"))] :exports [\"echo\"])" )
 (def toy-runtime (package/check-text "(mithril/native-js-package :name \"toy\" :imports [] :modules [(rdf/node :name \"toy\" :source \"toy.mith\" :links [])] :reexports [\"toy\"])" {"toy.mith" toy-leaf}))
 (def toy-declarations [{"kind" "function" "name" "echo" "exported" true "type-params" [{"name" "T" "constraint" nil "default" kw}]

@@ -1,0 +1,64 @@
+{
+  "format": "mithril.cordis-original-types-qualification/v1",
+  "upstream": "441416c0048aa4281bffe59c1c7b5e13e08a9ec1",
+  "typescript": "6.0.3",
+  "original_declaration_modules": 9,
+  "adapted_program_emit_diagnostics": 0,
+  "whole_upstream_project_build_verified": false,
+  "strict_consumer_library_diagnostics": 0,
+  "positive_consumer_groups": 16,
+  "negative_consumer_groups": 15,
+  "negative_diagnostic_codes_pinned": true,
+  "public_surface": {
+    "names": 50,
+    "type_bindings": 35,
+    "typescript_value_bindings": 28,
+    "runtime_values": 26,
+    "erased_const_enums": [
+      "FiberState",
+      "LoggerLevel"
+    ],
+    "volatile_exports_type_only": true
+  },
+  "candidate_compared": false,
+  "compiler_production_changes": false,
+  "source_tests": 59,
+  "source_assertions": 209,
+  "retained": {
+    "cosmokit_type_nodes": 446,
+    "actual_cli_targets": [
+      "js",
+      "js-browser"
+    ],
+    "legacy_and_native_esm_type_bytes_identical": true,
+    "named_tuple_groups": 72,
+    "named_tuple_admission_refusals": 9,
+    "core_runtime_groups": 48,
+    "service_index_runtime_groups": 36,
+    "frozen_package_artifacts": 7
+  },
+  "source_sha256": {
+    "test/qualification/native-js-declarations/controls/compile-declarations.cljk": "e82e25eaf10a71b257ad99f71bb61004a5f39cc5ce6cddf30fef8af3060b9263",
+    "test/qualification/native-js-declarations/controls/cordis-type-contract.mjs": "8dabfb6e5d38388d9ed3783f1a98b0b100d9151127c624075ce3d8fe5e9ada19",
+    "test/fixtures/cordis-declarations/program-provenance.json": "eaac63ea0a22c21761eee9d2989672e94a06689bfd3afd2078206848941cef86",
+    "test/fixtures/cordis-declarations/public-surface.json": "c3af774cec9eb1500d424bdcf097a0c9bc10c56c44483f157c5329888554b440",
+    "test/fixtures/cordis-declarations/program/context.d.ts": "1e2e6cfcab26ae01d7f2dd1f78a1d25ddb7f3b2e27f50c9eb3b54ee206a87884",
+    "test/fixtures/cordis-declarations/program/events.d.ts": "7534f0f4bce02f022031fa55e263b67beee3fb45bb62e65e7c6ef0ea8501ef19",
+    "test/fixtures/cordis-declarations/program/fiber.d.ts": "2f9ce62ec7dcb4af1c3ea4b97b478290bc58ac7e8ad23e588d02c752d563665b",
+    "test/fixtures/cordis-declarations/program/index.d.ts": "958249889830102ac7af78a89c28ba3ca2a5d51037a5392850b3fbbc33d58862",
+    "test/fixtures/cordis-declarations/program/logger.d.ts": "71087395cc862f52662ab2629a0f3838f8f2aaf84eb40c97f4f4004f2fcbbed6",
+    "test/fixtures/cordis-declarations/program/reflect.d.ts": "57cdef8252cb041b4b646cc9e80dcb27d2180bb78fcf95761136d99be4079cb3",
+    "test/fixtures/cordis-declarations/program/registry.d.ts": "ffd229492af3cb444c01e8e51a78dfdbed670940bac40dde083675d57d6984fc",
+    "test/fixtures/cordis-declarations/program/service.d.ts": "489ec23ef8dc0e869cf3d8d77a39ba83ab24e5e71362320f5662491b3dc5bd04",
+    "test/fixtures/cordis-declarations/program/utils.d.ts": "967b227fad024ba8a7c32127534089bce5adc800840b0288f44d41c4c849278e",
+    "test/fixtures/cordis-declarations/standard-schema/index.d.ts": "bdd14f07b4eca0b4b5203b85b8dbc4d084c749fa590bee5ea613e1641dcd3b29",
+    "test/fixtures/cordis-declarations/standard-schema/LICENSE": "653b779005a3a4d64a7288c940f7b9a0e8f0b1e0375f6aa6af9473caf131e564"
+  },
+  "system_one": {
+    "new_inferences": 0,
+    "repairs": 0,
+    "model_code_adoption": false,
+    "coding_gain_claimed": false
+  },
+  "next": "Implement checked class identity, abstract/variance/private/protected/unique-symbol/this and merged/module type graph; emit complete Cordis declarations and compare with own augmentation identities; full Harness parity remains open"
+}
