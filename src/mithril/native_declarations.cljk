@@ -33,20 +33,25 @@
   (when-not (and (= "NativeJsDeclarations" (get doc "@type")) (= "https://mithril.fund/context/native-js-declarations/v1" (get doc "@context")))
    (fail! :mithril.native-declarations/context "Expected native declaration context"))
   (source! (get doc "runtime-source")) (get doc "runtime-source")))
-(defn- arity [params]
- (vector! params 32)
- (doseq [p params] (shape! p ["name" "constraint" "default"]) (type-identifier! (get p "name")) (nullable-type! (get p "constraint")) (nullable-type! (get p "default")))
- (unique! (mapv #(get % "name") params))
- (let [required (count (take-while #(nil? (get % "default")) params))]
-  (when (some #(nil? (get % "default")) (drop required params)) (fail! :mithril.native-declarations/arity "Required generic after default"))
-  {:min required :max (count params)}))
+(defn- arity
+ ([params] (arity params false))
+ ([params const?]
+  (vector! params 32)
+  (doseq [p params]
+   (shape! p (cond-> ["name" "constraint" "default"] (and const? (contains? p "const")) (conj "const")))
+   (when (contains? p "const") (flag! (get p "const")))
+   (type-identifier! (get p "name")) (nullable-type! (get p "constraint")) (nullable-type! (get p "default")))
+  (unique! (mapv #(get % "name") params))
+  (let [required (count (take-while #(nil? (get % "default")) params))]
+   (when (some #(nil? (get % "default")) (drop required params)) (fail! :mithril.native-declarations/arity "Required generic after default"))
+   {:min required :max (count params)})))
 (defn- class-params! [params]
  (vector! params 32)
  (doseq [p params]
-  (shape! p ["name" "constraint" "default" "variance"])
+  (shape! p (cond-> ["name" "constraint" "default" "variance"] (contains? p "const") (conj "const")))
   (when-not (contains? #{nil "in" "out" "in-out"} (get p "variance"))
    (fail! :mithril.native-declarations/type "Invalid class variance")))
- (let [plain (mapv #(dissoc % "variance") params)] (arity plain) plain))
+ (let [plain (mapv #(dissoc % "variance") params)] (arity plain true) plain))
 (defn- class-key! [key]
  (case (get key "kind")
   "name" (do (shape! key ["kind" "name"]) (text! (get key "name")))
@@ -147,7 +152,7 @@
   (doseq [space [types values namespaces] :when (seq space)]
    (when (> (count (set (map #(get % "exported") space))) 1)
     (fail! :mithril.native-declarations/duplicate "Inconsistent merged space visibility")))
-  (doseq [d ds :when (contains? #{"function" "alias" "interface"} (get d "kind"))] (arity (get d "type-params")))
+  (doseq [d ds :when (contains? #{"function" "alias" "interface"} (get d "kind"))] (arity (get d "type-params") (= "function" (get d "kind"))))
   (merged-members! interfaces klass)
   (let [bases (vec (distinct (mapcat #(get % "extends") interfaces)))]
    (vector! bases 32)
@@ -276,8 +281,8 @@
        (fail! :mithril.native-declarations/scope "Non-public static class member")) true)
      (let [entry (resolve-entry registry :namespaces scope name)] (true? (:value? (second entry))))))
 (declare check-type! check-members!)
-(defn- generic-env! [params env values mode depth budget registry scope]
- (arity params)
+(defn- generic-env! [params env values mode depth budget registry scope const?]
+ (arity params const?)
  (let [all (into env (map #(get % "name") params))]
   (loop [xs params previous env]
    (when-let [p (first xs)]
@@ -285,7 +290,7 @@
     (when-let [d (get p "default")] (check-type! d previous values :normal (inc depth) budget registry scope nil))
     (recur (next xs) (conj previous (get p "name"))))) all))
 (defn- signature! [x env values mode depth budget registry scope constructor?]
- (let [tenv (generic-env! (get x "type-params") env values mode depth budget registry scope)
+ (let [tenv (generic-env! (get x "type-params") env values mode depth budget registry scope true)
        params (get x "params")]
   (vector! params 64)
   (doseq [[index p] (map-indexed vector params)]
@@ -436,7 +441,7 @@
  (with-meta env {:class class-name :this? instance?}))
 (defn- check-class! [d env values depth budget registry scope]
  (let [name (str scope (get d "name"))
-       e (generic-env! (class-params! (get d "type-params")) env values :normal depth budget registry scope)
+       e (generic-env! (class-params! (get d "type-params")) env values :normal depth budget registry scope true)
        members (get d "members") groups (group-by #(if (= "constructor" (get % "kind")) :constructor [(get % "static") (get % "key")]) members)]
   (when-let [base (get d "extends")]
    (when-not (= "name" (get base "op")) (fail! :mithril.native-declarations/type "Class base requires named constructor type"))
@@ -497,8 +502,8 @@
     "function" (signature! d env values :normal depth budget registry scope false)
     "const-enum" (doseq [_ (get d "members")] (charge! budget (inc depth)))
     "const" (check-type! (get d "datatype") env values :unique (inc depth) budget registry scope nil)
-    "alias" (let [e (generic-env! (get d "type-params") env values :normal depth budget registry scope)] (check-type! (get d "datatype") e values :normal (inc depth) budget registry scope nil))
-    "interface" (let [e (generic-env! (get d "type-params") env values :normal depth budget registry scope)]
+    "alias" (let [e (generic-env! (get d "type-params") env values :normal depth budget registry scope false)] (check-type! (get d "datatype") e values :normal (inc depth) budget registry scope nil))
+    "interface" (let [e (generic-env! (get d "type-params") env values :normal depth budget registry scope false)]
                   (doseq [base (get d "extends")]
                    (when (or (not= "name" (get base "op")) (contains? e (get base "name")))
                     (fail! :mithril.native-declarations/type "Interface heritage requires declared named type"))
