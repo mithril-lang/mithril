@@ -1,0 +1,549 @@
+(mithril/native-js-module
+  :lexical_bindings true
+  :bindings [(rdf/node
+    :name "formatters"
+    :value (mithril/host-object
+      :entries [(rdf/node
+        :key (mithril/literal
+          :datatype "js-value"
+          :value "C")
+        :value (mithril/native-lambda
+          :params []
+          :rest nil
+          :body (mithril/host-get
+            :object (mithril/local
+              :name "Late")
+            :key (mithril/literal
+              :datatype "js-value"
+              :value "value"))
+          :statements true)
+        :infer_name true)]))
+(rdf/node
+    :name "Late"
+    :value (mithril/native-class
+      :name "Late"
+      :extends nil
+      :constructor nil
+      :members [(rdf/node
+        :kind "field"
+        :key (mithril/literal
+          :datatype "js-value"
+          :value "value")
+        :static true
+        :value (mithril/literal
+          :datatype "js-value"
+          :value 23))]))]
+  :name "logger.prerequisites"
+  :imports ["Base"
+"mark"
+"key"
+"heritage"
+"fail"]
+  :functions []
+  :exports [(rdf/node
+    :name "ops"
+    :value (mithril/host-object
+      :entries [(rdf/node
+        :key (mithril/literal
+          :datatype "js-value"
+          :value "<<")
+        :value (mithril/native-lambda
+          :params ["a"
+"b"]
+          :rest nil
+          :body (mithril/host-binary
+            :operator "<<"
+            :left (mithril/local
+              :name "a")
+            :right (mithril/local
+              :name "b"))
+          :statements true)
+        :infer_name true)
+(rdf/node
+        :key (mithril/literal
+          :datatype "js-value"
+          :value ">>")
+        :value (mithril/native-lambda
+          :params ["a"
+"b"]
+          :rest nil
+          :body (mithril/host-binary
+            :operator ">>"
+            :left (mithril/local
+              :name "a")
+            :right (mithril/local
+              :name "b"))
+          :statements true)
+        :infer_name true)
+(rdf/node
+        :key (mithril/literal
+          :datatype "js-value"
+          :value ">>>")
+        :value (mithril/native-lambda
+          :params ["a"
+"b"]
+          :rest nil
+          :body (mithril/host-binary
+            :operator ">>>"
+            :left (mithril/local
+              :name "a")
+            :right (mithril/local
+              :name "b"))
+          :statements true)
+        :infer_name true)
+(rdf/node
+        :key (mithril/literal
+          :datatype "js-value"
+          :value "&")
+        :value (mithril/native-lambda
+          :params ["a"
+"b"]
+          :rest nil
+          :body (mithril/host-binary
+            :operator "&"
+            :left (mithril/local
+              :name "a")
+            :right (mithril/local
+              :name "b"))
+          :statements true)
+        :infer_name true)
+(rdf/node
+        :key (mithril/literal
+          :datatype "js-value"
+          :value "|")
+        :value (mithril/native-lambda
+          :params ["a"
+"b"]
+          :rest nil
+          :body (mithril/host-binary
+            :operator "|"
+            :left (mithril/local
+              :name "a")
+            :right (mithril/local
+              :name "b"))
+          :statements true)
+        :infer_name true)
+(rdf/node
+        :key (mithril/literal
+          :datatype "js-value"
+          :value "^")
+        :value (mithril/native-lambda
+          :params ["a"
+"b"]
+          :rest nil
+          :body (mithril/host-binary
+            :operator "^"
+            :left (mithril/local
+              :name "a")
+            :right (mithril/local
+              :name "b"))
+          :statements true)
+        :infer_name true)
+(rdf/node
+        :key (mithril/literal
+          :datatype "js-value"
+          :value ">")
+        :value (mithril/native-lambda
+          :params ["a"
+"b"]
+          :rest nil
+          :body (mithril/host-binary
+            :operator ">"
+            :left (mithril/local
+              :name "a")
+            :right (mithril/local
+              :name "b"))
+          :statements true)
+        :infer_name true)]))
+(rdf/node
+    :name "bits"
+    :value (mithril/native-function
+      :name nil
+      :params [(rdf/node
+        :name "a"
+        :datatype "js-value")
+(rdf/node
+        :name "b"
+        :datatype "js-value")]
+      :rest nil
+      :body (mithril/host-array
+        :items [(mithril/host-binary
+          :operator "<<"
+          :left (mithril/local
+            :name "a")
+          :right (mithril/local
+            :name "b"))
+(mithril/host-binary
+          :operator ">>"
+          :left (mithril/local
+            :name "a")
+          :right (mithril/local
+            :name "b"))
+(mithril/host-binary
+          :operator ">>>"
+          :left (mithril/local
+            :name "a")
+          :right (mithril/local
+            :name "b"))
+(mithril/host-binary
+          :operator "&"
+          :left (mithril/local
+            :name "a")
+          :right (mithril/local
+            :name "b"))
+(mithril/host-binary
+          :operator "|"
+          :left (mithril/local
+            :name "a")
+          :right (mithril/local
+            :name "b"))
+(mithril/host-binary
+          :operator "^"
+          :left (mithril/local
+            :name "a")
+          :right (mithril/local
+            :name "b"))
+(mithril/host-binary
+          :operator ">"
+          :left (mithril/local
+            :name "a")
+          :right (mithril/local
+            :name "b"))
+(mithril/host-unary
+          :operator "~"
+          :value (mithril/local
+            :name "a"))])
+      :statements true))
+(rdf/node
+    :name "bit"
+    :value (mithril/native-function
+      :name nil
+      :params [(rdf/node
+        :name "a"
+        :datatype "js-value")
+(rdf/node
+        :name "b"
+        :datatype "js-value")]
+      :rest nil
+      :body (mithril/host-binary
+        :operator "<<"
+        :left (mithril/host-invoke
+          :function (mithril/host-import
+            :name "mark")
+          :args [(mithril/literal
+            :datatype "js-value"
+            :value "left")
+(mithril/local
+            :name "a")])
+        :right (mithril/host-invoke
+          :function (mithril/host-import
+            :name "mark")
+          :args [(mithril/literal
+            :datatype "js-value"
+            :value "right")
+(mithril/local
+            :name "b")]))
+      :statements true))
+(rdf/node
+    :name "arrow"
+    :value (mithril/native-function
+      :name nil
+      :params []
+      :rest nil
+      :body (mithril/native-lambda
+        :params ["first"
+(rdf/node
+          :name "second"
+          :default (mithril/local
+            :name "first"))]
+        :rest "tail"
+        :body (mithril/host-array
+          :items [(mithril/host-this
+)
+(mithril/host-new-target
+)
+(mithril/host-arguments-length
+)
+(mithril/local
+            :name "first")
+(mithril/local
+            :name "second")
+(mithril/local
+            :name "tail")])
+        :statements true)
+      :statements true))
+(rdf/node
+    :name "arrayArrow"
+    :value (mithril/native-lambda
+      :params [(rdf/node
+        :array ["a"
+"b"]
+        :default (mithril/host-array
+          :items [(mithril/literal
+            :datatype "js-value"
+            :value 3)
+(mithril/literal
+            :datatype "js-value"
+            :value 4)]))]
+      :rest "tail"
+      :body (mithril/host-array
+        :items [(mithril/local
+          :name "a")
+(mithril/local
+          :name "b")
+(mithril/local
+          :name "tail")])
+      :statements true))
+(rdf/node
+    :name "selfDefault"
+    :value (mithril/native-lambda
+      :params [(rdf/node
+        :name "x"
+        :default (mithril/local
+          :name "x"))]
+      :rest nil
+      :body (mithril/local
+        :name "x")
+      :statements true))
+(rdf/node
+    :name "laterDefault"
+    :value (mithril/native-lambda
+      :params [(rdf/node
+        :name "x"
+        :default (mithril/local
+          :name "tail"))]
+      :rest "tail"
+      :body (mithril/local
+        :name "x")
+      :statements true))
+(rdf/node
+    :name "defaultClosure"
+    :value (mithril/native-lambda
+      :params [(rdf/node
+        :name "f"
+        :default (mithril/native-lambda
+          :params []
+          :rest nil
+          :body (mithril/local
+            :name "x")
+          :statements true))
+(rdf/node
+        :name "x"
+        :default (mithril/literal
+          :datatype "js-value"
+          :value 6))]
+      :rest nil
+      :body (mithril/host-invoke
+        :function (mithril/local
+          :name "f")
+        :args [])
+      :statements true))
+(rdf/node
+    :name "classFactory"
+    :value (mithril/native-function
+      :name nil
+      :params []
+      :rest nil
+      :body (mithril/native-class
+        :name "C"
+        :extends (mithril/host-invoke
+          :function (mithril/host-import
+            :name "heritage")
+          :args [(mithril/host-import
+            :name "Base")])
+        :constructor nil
+        :members [(rdf/node
+          :kind "field"
+          :key (mithril/host-invoke
+            :function (mithril/host-import
+              :name "key")
+            :args [(mithril/literal
+              :datatype "js-value"
+              :value "instance")])
+          :static false
+          :value (mithril/host-invoke
+            :function (mithril/host-import
+              :name "mark")
+            :args [(mithril/host-this
+)
+(mithril/literal
+              :datatype "js-value"
+              :value "instance")]))
+(rdf/node
+          :kind "field"
+          :key (mithril/host-invoke
+            :function (mithril/host-import
+              :name "key")
+            :args [(mithril/literal
+              :datatype "js-value"
+              :value "first")])
+          :static true
+          :value (mithril/host-invoke
+            :function (mithril/host-import
+              :name "mark")
+            :args [(mithril/host-this
+)
+(mithril/literal
+              :datatype "js-value"
+              :value "first")]))
+(rdf/node
+          :kind "static-block"
+          :body (mithril/let
+            :bindings [(rdf/node
+              :name "privateValue"
+              :value (mithril/literal
+                :datatype "js-value"
+                :value 9))]
+            :body (mithril/sequence
+              :expressions [(mithril/host-set
+                :object (mithril/host-this
+)
+                :key (mithril/literal
+                  :datatype "js-value"
+                  :value "self")
+                :value (mithril/local
+                  :name "C"))
+(mithril/host-set
+                :object (mithril/host-this
+)
+                :key (mithril/literal
+                  :datatype "js-value"
+                  :value "snapshot")
+                :value (mithril/host-super-get
+                  :key (mithril/literal
+                    :datatype "js-value"
+                    :value "base")))
+(mithril/host-set
+                :object (mithril/host-this
+)
+                :key (mithril/literal
+                  :datatype "js-value"
+                  :value "lexical")
+                :value (mithril/native-lambda
+                  :params []
+                  :rest "tail"
+                  :body (mithril/host-array
+                    :items [(mithril/host-this
+)
+(mithril/host-new-target
+)
+(mithril/host-super-get
+                      :key (mithril/literal
+                        :datatype "js-value"
+                        :value "base"))
+(mithril/local
+                      :name "privateValue")
+(mithril/local
+                      :name "tail")])
+                  :statements true))
+(mithril/host-super-set
+                :key (mithril/literal
+                  :datatype "js-value"
+                  :value "write")
+                :value (mithril/literal
+                  :datatype "js-value"
+                  :value 11))
+(mithril/host-invoke
+                :function (mithril/host-import
+                  :name "mark")
+                :args [(mithril/host-this
+)
+(mithril/literal
+                  :datatype "js-value"
+                  :value "block")])
+(mithril/host-undefined
+)])))
+(rdf/node
+          :kind "method"
+          :key (mithril/host-invoke
+            :function (mithril/host-import
+              :name "key")
+            :args [(mithril/literal
+              :datatype "js-value"
+              :value "method")])
+          :static false
+          :params []
+          :rest nil
+          :body (mithril/host-this
+))
+(rdf/node
+          :kind "field"
+          :key (mithril/host-invoke
+            :function (mithril/host-import
+              :name "key")
+            :args [(mithril/literal
+              :datatype "js-value"
+              :value "last")])
+          :static true
+          :value (mithril/host-invoke
+            :function (mithril/host-import
+              :name "mark")
+            :args [(mithril/host-this
+)
+(mithril/literal
+              :datatype "js-value"
+              :value "last")]))
+(rdf/node
+          :kind "static-block"
+          :body (mithril/host-invoke
+            :function (mithril/host-import
+              :name "mark")
+            :args [(mithril/host-this
+)
+(mithril/literal
+              :datatype "js-value"
+              :value "block2")]))])
+      :statements true))
+(rdf/node
+    :name "throwingClass"
+    :value (mithril/native-function
+      :name nil
+      :params []
+      :rest nil
+      :body (mithril/native-class
+        :name nil
+        :extends nil
+        :constructor nil
+        :members [(rdf/node
+          :kind "field"
+          :key (mithril/literal
+            :datatype "js-value"
+            :value "before")
+          :static true
+          :value (mithril/host-invoke
+            :function (mithril/host-import
+              :name "mark")
+            :args [(mithril/host-this
+)
+(mithril/literal
+              :datatype "js-value"
+              :value "before")]))
+(rdf/node
+          :kind "static-block"
+          :body (mithril/host-invoke
+            :function (mithril/host-import
+              :name "fail")
+            :args []))
+(rdf/node
+          :kind "field"
+          :key (mithril/literal
+            :datatype "js-value"
+            :value "after")
+          :static true
+          :value (mithril/host-invoke
+            :function (mithril/host-import
+              :name "mark")
+            :args [(mithril/host-this
+)
+(mithril/literal
+              :datatype "js-value"
+              :value "after")]))])
+      :statements true))
+(rdf/node
+    :name "formatters"
+    :value (mithril/local
+      :name "formatters"))
+(rdf/node
+    :name "Late"
+    :value (mithril/local
+      :name "Late"))])
