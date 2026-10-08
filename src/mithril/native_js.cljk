@@ -111,10 +111,30 @@
       "HostBinary"
       (do (shape! expr ["@type" "operator" "left" "right"])
           (let [operator (get expr "operator")]
-            (when-not (contains? #{"===" "!=="} operator)
+            (when-not (contains? #{"===" "!==" ">="} operator)
               (fail! :mithril.native-js/operator "Unsupported native binary operator"))
             {:op :binary :operator operator :left (check (get expr "left"))
              :right (check (get expr "right"))}))
+      "HostConstruct"
+      (do (shape! expr ["@type" "constructor" "args"])
+          {:op :construct :constructor (check (get expr "constructor"))
+           :args (args! (get expr "args"))})
+      "HostArrayItems"
+      (do (shape! expr ["@type" "items"])
+          (let [items (get expr "items")]
+            (vector! items 4096)
+            {:op :array-items :items (mapv (fn [item]
+                                            (cond
+                                              (and (map? item) (= #{"value"} (set (keys item))))
+                                              {:kind :value :value (check (get item "value"))}
+                                              (and (map? item) (= #{"spread"} (set (keys item))))
+                                              {:kind :spread :value (check (get item "spread"))}
+                                              :else (fail! :mithril.native-js/shape
+                                                            "HostArrayItems entries need exactly value or spread"))) items)}))
+      "HostOptionalMethod"
+      (do (shape! expr ["@type" "object" "key" "args"])
+          {:op :optional-method :object (check (get expr "object")) :key (check (get expr "key"))
+           :args (args! (get expr "args"))})
       "HostLogical"
       (do (shape! expr ["@type" "operator" "left" "right"])
           (let [operator (get expr "operator")]
@@ -258,6 +278,12 @@
                      (emit-expression (:body expr) imports functions body-env counter prefix)
                      ";}return " (emit (:result expr)) ";})()"))
       :array (str "[" (args (:items expr)) "]")
+      :construct (str "new (" (emit (:constructor expr)) ")(" (args (:args expr)) ")")
+      :array-items (str "[" (str/join "," (map (fn [item]
+                                                 (if (= :spread (:kind item))
+                                                   (str "..." (emit (:value item)))
+                                                   (emit (:value item)))) (:items expr))) "]")
+      :optional-method (str "(" (emit (:object expr)) ")?.[" (emit (:key expr)) "](" (args (:args expr)) ")")
       :lambda (let [patterns (:params expr)
                     names (vec (mapcat :names patterns))
                     symbols (mapv (fn [_] (fresh counter prefix)) names)
