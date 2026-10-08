@@ -1,0 +1,123 @@
+{
+  "format": "mithril.code-refactor-verification/v1",
+  "verified": true,
+  "verification_scope": "Declared checks on selected baseline and candidate snapshots only; not whole-repository or universal API equivalence.",
+  "input_sha256": "6468c0015d001db3bc89636745ed4f380f9cc4929ac23ccaf23e6c983de52a98",
+  "proposal_sha256": "295f41ba4cd201f94a485ed0bbc06d3b597d34a63a71cacd41afcd294b2ead30",
+  "candidate_sha256": "6aea878cc9d290a6008ae59f1e9a1c49b6c2583e9f6ae44b58f70da3447f9375",
+  "image": "sha256:487559a055e7d5e3cdfbd73bc279d19ac6a84279f81ed53b07e68ab1b49dd10d",
+  "plan": {
+    "image": "sha256:487559a055e7d5e3cdfbd73bc279d19ac6a84279f81ed53b07e68ab1b49dd10d",
+    "seed_directory": "/opt/mithril-refactor-base",
+    "timeout_seconds": 300,
+    "checks": [
+      {
+        "id": "retained-native28-121",
+        "argv": [
+          "node",
+          "/opt/declaration-controls/run-check.mjs",
+          "test/run_native_js.cljk"
+        ]
+      },
+      {
+        "id": "original-type-consumers10-12",
+        "argv": [
+          "node",
+          "test/qualification/native-js-declarations/controls/type-contract.mjs",
+          "test/fixtures/cosmokit-declarations/index.d.ts",
+          "test/fixtures/cosmokit-declarations/index.d.ts",
+          "/opt/type-deps/node_modules/typescript/lib/typescript.js",
+          "/opt/type-deps/node_modules/@types"
+        ]
+      },
+      {
+        "id": "full-declaration-ast-cli-types-runtime",
+        "variant": "candidate",
+        "argv": [
+          "node",
+          "/opt/declaration-controls/run-check.mjs",
+          "test/qualification/native-js-declarations/controls/compile-declarations.cljk"
+        ]
+      }
+    ]
+  },
+  "checks": [
+    {
+      "variant": "baseline",
+      "id": "retained-native28-121",
+      "argv": [
+        "node",
+        "/opt/declaration-controls/run-check.mjs",
+        "test/run_native_js.cljk"
+      ],
+      "wall_seconds": 13.793194000000002,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "\nTesting mithril.native-js-test\n\nTesting mithril.native-misc-test\nNative primitive runtime: strict comparison/raw logical values/spread/assignment/for-of checked.\n11 primitive admissions, 9 refusals, all 8 Form tags checked.\n\nTesting mithril.native-array-test\nNative array primitives: 20 runtime contract groups passed.\n4 admissions / 13 malformed refusals / 2 budget refusals / 3 Form tags passed.\n\nTesting mithril.native-volatile-test\nNamed-function/generated-binding collision regression passed.\nNative volatile prerequisites: 15 runtime contract groups passed.\n7 admissions / 15 malformed refusals / 2 budget refusals / 4 Form tags passed.\n\nTesting mithril.native-types-test\nNative type prerequisites: 16 runtime contract groups passed.\n6 admissions / 6 malformed or scope refusals / 2 budget refusals / 1 Form tag passed.\nNative arguments Let scope: 3 runtime boundary groups passed.\n4 additional scope refusals and normal/default/LocalFunction Let capture groups passed.\n\nTesting mithril.native-blocks-test\nNative export/loop/string prerequisites: 18 runtime contract groups passed.\n3 admissions / 12 malformed or scope refusals / 3 budget refusals / 2 Form tags passed.\n\nTesting mithril.native-spreads-test\nNative ordered object spreads:18 runtime groups passed.\n3 admissions / 5 malformed refusals / 2 shared budget refusals / 1 Form tag passed.\n\nTesting mithril.native-types-module-test\n\nTesting mithril.native-string-time-test\nString/time native prerequisites:23 runtime groups passed.\n8 admissions / 18 malformed refusals / 4 budget refusals / 2 Form tags; 5 artifact hashes unchanged.\n\nTesting mithril.native-string-module-test\n\nTesting mithril.native-module-init-test\nNested init reference closure passed.\n(node:277) ExperimentalWarning: VM Modules is an experimental feature and might change at any time\n(Use `node --trace-warnings ...` to show where the warning was created)\nNative module init candidate:12 reference-derived runtime groups passed.\n3 admissions, 7 malformed/scope refusals, 2 budget refusals, six old hashes unchanged.\n\nTesting mithril.native-time-module-test\n\nTesting mithril.native-package-factory-test\n\nRan 28 tests containing 121 assertions.\n0 failures, 0 errors.\nPinned offline source; no forbidden launcher.\n"
+    },
+    {
+      "variant": "baseline",
+      "id": "original-type-consumers10-12",
+      "argv": [
+        "node",
+        "test/qualification/native-js-declarations/controls/type-contract.mjs",
+        "test/fixtures/cosmokit-declarations/index.d.ts",
+        "test/fixtures/cosmokit-declarations/index.d.ts",
+        "/opt/type-deps/node_modules/typescript/lib/typescript.js",
+        "/opt/type-deps/node_modules/@types"
+      ],
+      "wall_seconds": 9.244152708,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "Declaration oracle: 10 positive consumer groups, 12 source-derived negative groups, full bidirectional value namespace, exact49public names/40values/11type bindings (2dual), pinned TSC6.0.3 strict noEmit. No skipLibCheck; generic=false.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "retained-native28-121",
+      "argv": [
+        "node",
+        "/opt/declaration-controls/run-check.mjs",
+        "test/run_native_js.cljk"
+      ],
+      "wall_seconds": 9.569480583,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "\nTesting mithril.native-js-test\n\nTesting mithril.native-misc-test\nNative primitive runtime: strict comparison/raw logical values/spread/assignment/for-of checked.\n11 primitive admissions, 9 refusals, all 8 Form tags checked.\n\nTesting mithril.native-array-test\nNative array primitives: 20 runtime contract groups passed.\n4 admissions / 13 malformed refusals / 2 budget refusals / 3 Form tags passed.\n\nTesting mithril.native-volatile-test\nNamed-function/generated-binding collision regression passed.\nNative volatile prerequisites: 15 runtime contract groups passed.\n7 admissions / 15 malformed refusals / 2 budget refusals / 4 Form tags passed.\n\nTesting mithril.native-types-test\nNative type prerequisites: 16 runtime contract groups passed.\n6 admissions / 6 malformed or scope refusals / 2 budget refusals / 1 Form tag passed.\nNative arguments Let scope: 3 runtime boundary groups passed.\n4 additional scope refusals and normal/default/LocalFunction Let capture groups passed.\n\nTesting mithril.native-blocks-test\nNative export/loop/string prerequisites: 18 runtime contract groups passed.\n3 admissions / 12 malformed or scope refusals / 3 budget refusals / 2 Form tags passed.\n\nTesting mithril.native-spreads-test\nNative ordered object spreads:18 runtime groups passed.\n3 admissions / 5 malformed refusals / 2 shared budget refusals / 1 Form tag passed.\n\nTesting mithril.native-types-module-test\n\nTesting mithril.native-string-time-test\nString/time native prerequisites:23 runtime groups passed.\n8 admissions / 18 malformed refusals / 4 budget refusals / 2 Form tags; 5 artifact hashes unchanged.\n\nTesting mithril.native-string-module-test\n\nTesting mithril.native-module-init-test\nNested init reference closure passed.\n(node:277) ExperimentalWarning: VM Modules is an experimental feature and might change at any time\n(Use `node --trace-warnings ...` to show where the warning was created)\nNative module init candidate:12 reference-derived runtime groups passed.\n3 admissions, 7 malformed/scope refusals, 2 budget refusals, six old hashes unchanged.\n\nTesting mithril.native-time-module-test\n\nTesting mithril.native-package-factory-test\n\nRan 28 tests containing 121 assertions.\n0 failures, 0 errors.\nPinned offline source; no forbidden launcher.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "original-type-consumers10-12",
+      "argv": [
+        "node",
+        "test/qualification/native-js-declarations/controls/type-contract.mjs",
+        "test/fixtures/cosmokit-declarations/index.d.ts",
+        "test/fixtures/cosmokit-declarations/index.d.ts",
+        "/opt/type-deps/node_modules/typescript/lib/typescript.js",
+        "/opt/type-deps/node_modules/@types"
+      ],
+      "wall_seconds": 2.316550083000002,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "Declaration oracle: 10 positive consumer groups, 12 source-derived negative groups, full bidirectional value namespace, exact49public names/40values/11type bindings (2dual), pinned TSC6.0.3 strict noEmit. No skipLibCheck; generic=false.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "full-declaration-ast-cli-types-runtime",
+      "argv": [
+        "node",
+        "/opt/declaration-controls/run-check.mjs",
+        "test/qualification/native-js-declarations/controls/compile-declarations.cljk"
+      ],
+      "wall_seconds": 10.608753707999997,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "{\"format\":\"artifact-v1\",\"required-imports\":[\"Array\",\"Set\",\"Object\",\"TypeError\",\"Symbol\",\"globalThis\",\"ArrayBuffer\",\"Uint8Array\",\"Buffer\",\"String\",\"btoa\",\"atob\",\"parseInt\",\"Date\",\"RegExp\",\"Map\",\"Reflect\",\"Math\",\"parseFloat\",\"JSON\"],\"output\":\"/tmp/mithril-declarations-control-Eb935K/js.mjs\",\"module\":\"cosmokit\",\"exports\":[\"contain\",\"intersection\",\"difference\",\"union\",\"deduplicate\",\"remove\",\"makeArray\",\"is\",\"Binary\",\"base64ToArrayBuffer\",\"arrayBufferToBase64\",\"hexToArrayBuffer\",\"arrayBufferToHex\",\"clone\",\"deepEqual\",\"noop\",\"isNullable\",\"isNonNullable\",\"isPlainObject\",\"filterKeys\",\"mapValues\",\"valueMap\",\"pick\",\"omit\",\"defineProperty\",\"camelCase\",\"camelize\",\"capitalize\",\"formatProperty\",\"hyphenate\",\"paramCase\",\"sanitize\",\"snakeCase\",\"trimSlash\",\"uncapitalize\",\"Time\",\"createVolatile\",\"isVolatile\",\"volatileEntries\",\"updateVolatile\"],\"runtime\":\"native-js\",\"module-order\":[\"cosmokit.misc\",\"cosmokit.array\",\"cosmokit.volatile\",\"cosmokit.types\",\"cosmokit.string\",\"cosmokit.time\"],\"target\":\"js\",\"profile\":\"esm-library\"}\n\n{\"format\":\"artifact-v1\",\"module\":\"cosmokit\",\"runtime-source\":\"native-js-cosmokit.mith\",\"exports\":[\"contain\",\"intersection\",\"difference\",\"union\",\"deduplicate\",\"remove\",\"makeArray\",\"is\",\"Binary\",\"base64ToArrayBuffer\",\"arrayBufferToBase64\",\"hexToArrayBuffer\",\"arrayBufferToHex\",\"clone\",\"deepEqual\",\"noop\",\"isNullable\",\"isNonNullable\",\"isPlainObject\",\"filterKeys\",\"mapValues\",\"valueMap\",\"pick\",\"omit\",\"defineProperty\",\"capitalize\",\"uncapitalize\",\"camelCase\",\"paramCase\",\"snakeCase\",\"camelize\",\"hyphenate\",\"formatProperty\",\"trimSlash\",\"sanitize\",\"Time\",\"createVolatile\",\"isVolatile\",\"volatileEntries\",\"updateVolatile\"],\"type-exports\":[\"Dict\",\"Get\",\"Extract\",\"MaybeArray\",\"Promisify\",\"Awaitable\",\"Intersect\",\"camelize\",\"hyphenate\",\"VolatileSnapshot\",\"Volatile\"],\"target\":\"js\",\"output\":\"/tmp/mithril-declarations-control-Eb935K/js.d.mts\"}\n\nDeclaration oracle: 10 positive consumer groups, 12 source-derived negative groups, full bidirectional value namespace, exact49public names/40values/11type bindings (2dual), pinned TSC6.0.3 strict noEmit. No skipLibCheck; generic=true.\n\nCosmoKit package: 15 source-derived ESM groups, 40 public exports, Buffer/browser branches; Node VM execution only.\n\n{\"format\":\"artifact-v1\",\"required-imports\":[\"Array\",\"Set\",\"Object\",\"TypeError\",\"Symbol\",\"globalThis\",\"ArrayBuffer\",\"Uint8Array\",\"Buffer\",\"String\",\"btoa\",\"atob\",\"parseInt\",\"Date\",\"RegExp\",\"Map\",\"Reflect\",\"Math\",\"parseFloat\",\"JSON\"],\"output\":\"/tmp/mithril-declarations-control-Eb935K/js-browser.mjs\",\"module\":\"cosmokit\",\"exports\":[\"contain\",\"intersection\",\"difference\",\"union\",\"deduplicate\",\"remove\",\"makeArray\",\"is\",\"Binary\",\"base64ToArrayBuffer\",\"arrayBufferToBase64\",\"hexToArrayBuffer\",\"arrayBufferToHex\",\"clone\",\"deepEqual\",\"noop\",\"isNullable\",\"isNonNullable\",\"isPlainObject\",\"filterKeys\",\"mapValues\",\"valueMap\",\"pick\",\"omit\",\"defineProperty\",\"camelCase\",\"camelize\",\"capitalize\",\"formatProperty\",\"hyphenate\",\"paramCase\",\"sanitize\",\"snakeCase\",\"trimSlash\",\"uncapitalize\",\"Time\",\"createVolatile\",\"isVolatile\",\"volatileEntries\",\"updateVolatile\"],\"runtime\":\"native-js\",\"module-order\":[\"cosmokit.misc\",\"cosmokit.array\",\"cosmokit.volatile\",\"cosmokit.types\",\"cosmokit.string\",\"cosmokit.time\"],\"target\":\"js-browser\",\"profile\":\"esm-library\"}\n\n{\"format\":\"artifact-v1\",\"module\":\"cosmokit\",\"runtime-source\":\"native-js-cosmokit.mith\",\"exports\":[\"contain\",\"intersection\",\"difference\",\"union\",\"deduplicate\",\"remove\",\"makeArray\",\"is\",\"Binary\",\"base64ToArrayBuffer\",\"arrayBufferToBase64\",\"hexToArrayBuffer\",\"arrayBufferToHex\",\"clone\",\"deepEqual\",\"noop\",\"isNullable\",\"isNonNullable\",\"isPlainObject\",\"filterKeys\",\"mapValues\",\"valueMap\",\"pick\",\"omit\",\"defineProperty\",\"capitalize\",\"uncapitalize\",\"camelCase\",\"paramCase\",\"snakeCase\",\"camelize\",\"hyphenate\",\"formatProperty\",\"trimSlash\",\"sanitize\",\"Time\",\"createVolatile\",\"isVolatile\",\"volatileEntries\",\"updateVolatile\"],\"type-exports\":[\"Dict\",\"Get\",\"Extract\",\"MaybeArray\",\"Promisify\",\"Awaitable\",\"Intersect\",\"camelize\",\"hyphenate\",\"VolatileSnapshot\",\"Volatile\"],\"target\":\"js-browser\",\"output\":\"/tmp/mithril-declarations-control-Eb935K/js-browser.d.mts\"}\n\nDeclaration oracle: 10 positive consumer groups, 12 source-derived negative groups, full bidirectional value namespace, exact49public names/40values/11type bindings (2dual), pinned TSC6.0.3 strict noEmit. No skipLibCheck; generic=true.\n\nCosmoKit package: 15 source-derived ESM groups, 40 public exports, Buffer/browser branches; Node VM execution only.\n\nFull declaration AST qualification: 446 type nodes, scope/arity/shape/visibility/infer/budget refusals, both actual CLI targets and runtime/type consumer oracles; no source delegation.\nPinned offline source; no forbidden launcher.\n"
+    }
+  ],
+  "wall_seconds": 45.701982083000004
+}

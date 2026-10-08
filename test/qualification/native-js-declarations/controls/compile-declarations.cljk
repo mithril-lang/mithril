@@ -1,0 +1,93 @@
+(ns compile-declarations
+ (:require [clojure.walk :as walk] [mithril.form :as form] [mithril.native-package :as package]
+           [mithril.native-declarations :as declarations] [mithril.native-declaration-emit :as emit]
+           [mithril.module :as guest] ["node:fs" :as fs] ["node:child_process" :as child]))
+(defn ensure [p label] (when-not p (throw (js/Error. label))))
+(defn refused [f label] (ensure (try (f) false (catch :default _ true)) label))
+(def text (fs/readFileSync "examples/native-js-cosmokit.mith" "utf8"))
+(def runtime-doc (form/parse text))
+(def sources (into {} (map #(vector (get % "source") (fs/readFileSync (str "examples/" (get % "source")) "utf8")) (get runtime-doc "modules"))))
+(def runtime (package/check-text text sources))
+(def declaration-text (fs/readFileSync "examples/native-js-cosmokit-declarations.mith" "utf8"))
+(def doc (declarations/parse-text declaration-text))
+(def artifact (emit/compile-document doc runtime))
+(ensure (= 40 (count (:exports artifact))) "Wrong runtime export count")
+(ensure (= #{"Dict" "Get" "Extract" "MaybeArray" "Promisify" "Awaitable" "Intersect" "camelize" "hyphenate" "VolatileSnapshot" "Volatile"} (set (:type-exports artifact))) "Wrong type export bindings")
+(ensure (= "native-js-cosmokit.mith" (declarations/runtime-basename declaration-text)) "Wrong runtime read plan")
+(ensure (= artifact (emit/compile-text declaration-text runtime)) "Non-deterministic declarations")
+(refused #(guest/check-text declaration-text) "Guest admitted declaration context")
+(def kw {"op" "keyword" "name" "string"})
+(def raw {"op" "raw" "source" "globalThis.attack()"})
+(defn alias [name datatype] {"kind" "alias" "name" name "exported" false "type-params" [] "datatype" datatype})
+(defn with-type [datatype] (update doc "declarations" conj (alias "PrivateControl" datatype)))
+(doseq [bad [(assoc doc "unknown" true) (assoc doc "@context" "wrong") (assoc doc "name" "wrong")
+             (assoc doc "runtime-source" "../secret.mith")
+             (update-in doc ["ambient-types" 0] assoc "min" -1)
+             (update doc "ambient-types" conj (first (get doc "ambient-types")))
+             (update doc "ambient-values" conj "globalThis")
+             (update-in doc ["declarations" 0] assoc "body" "arbitrary JS")
+             (update-in doc ["declarations" 0] assoc "name" "x; injected")
+             (update-in doc ["declarations" 0] assoc "exported" false)
+             (update doc "declarations" conj (first (filter #(= "alias" (get % "kind")) (get doc "declarations"))))
+             (with-type raw) (with-type (assoc kw "source" "arbitrary TS"))
+             (with-type {"op" "name" "name" "Missing" "args" []})
+             (with-type {"op" "name" "name" "Promise" "args" []})
+             (with-type {"op" "name" "name" "Letter.LowerToUpper" "args" []})
+             (with-type {"op" "typeof" "name" "Missing"})
+             (with-type {"op" "typeof" "name" "Letter"})
+             (with-type {"op" "infer" "name" "X" "constraint" nil})
+             (with-type {"op" "conditional" "test" kw "extends" {"op" "infer" "name" "X" "constraint" nil} "then" kw "else" {"op" "name" "name" "X" "args" []}})
+             (with-type {"op" "mapped" "name" "K" "keys" {"op" "name" "name" "K" "args" []} "remap" nil "readonly" false "optional" false "value" kw})
+             (with-type {"op" "predicate" "name" "value" "datatype" kw})
+             (with-type {"op" "readonly" "datatype" kw})
+             (with-type {"op" "literal" "value" js/NaN})
+             (with-type (nth (iterate #(hash-map "op" "array" "item" %) kw) 65))]]
+ (refused #(emit/compile-document bad runtime) "Invalid declaration AST admitted"))
+(def invalid-signature (get-in doc ["declarations" 0]))
+(doseq [bad [(assoc-in invalid-signature ["params" 0 "optional"] true)
+             (assoc-in invalid-signature ["params" 0 "rest"] true)
+             (assoc-in invalid-signature ["params" 0 "name"] "return")
+             (assoc invalid-signature "returns" {"op" "predicate" "name" "missing" "datatype" kw})]]
+ (refused #(emit/compile-document (assoc-in doc ["declarations" 0] bad) runtime) "Invalid signature admitted"))
+(def default-bad (assoc (alias "PrivateControl" kw) "type-params" [{"name" "A" "constraint" nil "default" {"op" "name" "name" "B" "args" []}} {"name" "B" "constraint" nil "default" kw}]))
+(refused #(emit/compile-document (update doc "declarations" conj default-bad) runtime) "Future default generic admitted")
+(def nodes (atom 0))
+(walk/postwalk #(do (when (and (map? %) (contains? % "op")) (swap! nodes inc)) %) doc)
+(ensure (> @nodes 400) "Full original declaration AST missing")
+(def engine (.-MITHRIL_DECLARATIONS_ENGINE js/process.env))
+(def compiler (.-MITHRIL_DECLARATIONS_TYPESCRIPT js/process.env))
+(def type-roots (.-MITHRIL_DECLARATIONS_TYPE_ROOTS js/process.env))
+(ensure (and engine compiler type-roots) "Pinned declaration toolchains required")
+(defn run [args]
+ (let [r (child/spawnSync js/process.execPath (clj->js args) #js {:encoding "utf8" :timeout 240000})]
+  (ensure (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r))))
+(def toy-leaf "(mithril/native-js-module :name \"toy\" :imports [] :functions [(mithril/function :name \"echo\" :params [(rdf/node :name \"value\" :datatype \"js-value\")] :returns \"js-value\" :body (mithril/local :name \"value\"))] :exports [\"echo\"])" )
+(def toy-runtime (package/check-text "(mithril/native-js-package :name \"toy\" :imports [] :modules [(rdf/node :name \"toy\" :source \"toy.mith\" :links [])] :reexports [\"toy\"])" {"toy.mith" toy-leaf}))
+(def toy-declarations [{"kind" "function" "name" "echo" "exported" true "type-params" [{"name" "T" "constraint" nil "default" kw}]
+ "params" [{"name" "value" "optional" false "rest" false "datatype" {"op" "name" "name" "T" "args" []}}] "returns" {"op" "name" "name" "T" "args" []}}
+ {"kind" "alias" "name" "Item" "exported" true "type-params" [{"name" "T" "constraint" nil "default" nil}]
+ "datatype" {"op" "conditional" "test" {"op" "name" "name" "T" "args" []} "extends" {"op" "array" "item" {"op" "infer" "name" "U" "constraint" nil}} "then" {"op" "name" "name" "U" "args" []} "else" kw}}
+ {"kind" "namespace" "name" "Scope" "exported" false "declarations" [(alias "Hidden" {"op" "literal" "value" "private"}) {"kind" "namespace" "name" "Child" "exported" true "declarations" [(assoc (alias "Visible" {"op" "name" "name" "Hidden" "args" []}) "exported" true)]}]}
+ (assoc (alias "Visible" {"op" "name" "name" "Scope.Child.Visible" "args" []}) "exported" true)])
+(def toy-doc (assoc doc "name" "toy" "runtime-source" "toy-package.mith" "ambient-types" [] "ambient-values" [] "declarations" toy-declarations))
+(def toy-artifact (emit/compile-document toy-doc toy-runtime))
+(ensure (= ["echo"] (:exports toy-artifact)) "Generic runtime declaration shape changed")
+(def dir (fs/mkdtempSync "/tmp/mithril-declarations-control-"))
+(try
+ (fs/writeFileSync (str dir "/generic.d.mts") (:source toy-artifact))
+ (fs/writeFileSync (str dir "/offline.edn") "{:paths [\"src\"]}\n")
+ (doseq [target ["js" "js-browser"]]
+  (let [output (str dir "/" target ".d.mts") library (str dir "/" target ".mjs") config (str dir "/offline.edn")]
+   (run [engine "--config" config "-cp" "src" "bin/mithril-native-package.cljk" "examples/native-js-cosmokit.mith" "--target" target "--output" library])
+   (run [engine "--config" config "-cp" "src" "bin/mithril-native-declarations.cljk" "examples/native-js-cosmokit-declarations.mith" "--target" target "--output" output])
+   (ensure (= (:source artifact) (fs/readFileSync output "utf8")) "CLI differed from checked declaration artifact")
+   (run ["test/qualification/native-js-declarations/controls/type-contract.mjs" "test/fixtures/cosmokit-declarations/index.d.ts" output compiler type-roots (str dir "/generic.d.mts")])
+   (run ["--experimental-vm-modules" "test/fixtures/cosmokit-package/contract.mjs" "test/fixtures/cosmokit-package/index.js" library])))
+ (let [sentinel (str dir "/sentinel.d.mts") config (str dir "/offline.edn")]
+  (fs/writeFileSync sentinel "preserve-existing-declarations")
+  (doseq [target ["amu" "js"]]
+   (let [r (child/spawnSync js/process.execPath (clj->js [engine "--config" config "-cp" "src" "bin/mithril-native-declarations.cljk" "missing.mith" "--target" target "--output" sentinel]) #js {:encoding "utf8" :timeout 60000})]
+    (ensure (= 65 (.-status r)) "Invalid declaration CLI input did not refuse")
+    (ensure (= "preserve-existing-declarations" (fs/readFileSync sentinel "utf8")) "Refusal overwrote declaration output"))))
+ (println (str "Full declaration AST qualification: " @nodes " type nodes, scope/arity/shape/visibility/infer/budget refusals, both actual CLI targets and runtime/type consumer oracles; no source delegation."))
+ (finally (fs/rmSync dir #js {:recursive true :force true})))

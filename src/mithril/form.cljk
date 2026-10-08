@@ -38,7 +38,8 @@
    'mithril/cluster "Cluster"
    'mithril/module "Module"
    'mithril/native-js-module "NativeJsModule"
-   'mithril/native-js-package "NativeJsPackage"})
+   'mithril/native-js-package "NativeJsPackage"
+   'mithril/native-js-declarations "NativeJsDeclarations"})
 
 (def ^:private nested-tags
   #{'mithril/choice 'mithril/export 'mithril/import 'mithril/route
@@ -415,6 +416,8 @@
                                 "https://mithril.fund/context/native-js-module/v1"
                                 (= tag 'mithril/native-js-package)
                                 "https://mithril.fund/context/native-js-package/v1"
+                                (= tag 'mithril/native-js-declarations)
+                                "https://mithril.fund/context/native-js-declarations/v1"
                                 :else "https://mithril.fund/context/v1")
                   "@type" (get top-level-tags tag))
 

@@ -1,0 +1,59 @@
+(ns mithril.native-declaration-emit
+  "TypeScript declaration text from checked, inert Mithril type data. No source delegation."
+  (:require [clojure.string :as str] [mithril.native-declarations :as declarations]))
+(defn- quote-value [v] (js/JSON.stringify v))
+(declare emit-type)
+(defn- generic-text [params]
+ (when (seq params) (str "<" (str/join ", " (map (fn [p] (str (get p "name")
+  (when-let [c (get p "constraint")] (str " extends " (emit-type c)))
+  (when-let [d (get p "default")] (str " = " (emit-type d))))) params)) ">")))
+(defn- params-text [params]
+ (str/join ", " (map #(str (when (get % "rest") "...") (get % "name")
+  (when (get % "optional") "?") ": " (emit-type (get % "datatype"))) params)))
+(defn- member-text [m]
+ (str (when (get m "readonly") "readonly ") (quote-value (get m "name")) (when (get m "optional") "?")
+  (if (= "method" (get m "kind"))
+   (str (generic-text (get m "type-params")) "(" (params-text (get m "params")) "): " (emit-type (get m "returns")))
+   (str ": " (emit-type (get m "datatype")))) ";"))
+(defn- emit-type [t]
+ (case (get t "op")
+  "keyword" (get t "name")
+  "name" (str (get t "name") (when (seq (get t "args")) (str "<" (str/join ", " (map emit-type (get t "args"))) ">")))
+  "literal" (quote-value (get t "value"))
+  "array" (str "(" (emit-type (get t "item")) ")[]")
+  "tuple" (str "[" (str/join ", " (map emit-type (get t "items"))) "]")
+  "union" (str "(" (str/join " | " (map emit-type (get t "items"))) ")")
+  "intersection" (str "(" (str/join " & " (map emit-type (get t "items"))) ")")
+  "keyof" (str "keyof (" (emit-type (get t "datatype")) ")")
+  "readonly" (str "readonly " (emit-type (get t "datatype")))
+  "typeof" (str "typeof " (get t "name"))
+  "index" (str "(" (emit-type (get t "object")) ")[" (emit-type (get t "key")) "]")
+  "conditional" (str "(" (emit-type (get t "test")) " extends " (emit-type (get t "extends")) " ? " (emit-type (get t "then")) " : " (emit-type (get t "else")) ")")
+  "infer" (str "infer " (get t "name") (when-let [c (get t "constraint")] (str " extends " (emit-type c))))
+  "function" (str "(" (generic-text (get t "type-params")) "(" (params-text (get t "params")) ") => " (emit-type (get t "returns")) ")")
+  "constructor" (str "(" (when (get t "abstract") "abstract ") "new " (generic-text (get t "type-params")) "(" (params-text (get t "params")) ") => " (emit-type (get t "returns")) ")")
+  "predicate" (str (get t "name") " is " (emit-type (get t "datatype")))
+  "object" (str "{ " (str/join " " (map member-text (get t "members"))) " }")
+  "mapped" (str "{ " (when (get t "readonly") "readonly ") "[" (get t "name") " in " (emit-type (get t "keys"))
+   (when-let [r (get t "remap")] (str " as " (emit-type r))) "]" (when (get t "optional") "?") ": " (emit-type (get t "value")) " }")
+  "template" (str "`" (str/escape (get t "head") {\` "\\`" \\ "\\\\" \$ "\\$"})
+   (apply str (map #(str "${" (emit-type (get % "datatype")) "}" (str/escape (get % "tail") {\` "\\`" \\ "\\\\" \$ "\\$"})) (get t "spans"))) "`")))
+(declare emit-declaration)
+(defn- emit-declaration [d top?]
+ (let [kind (get d "kind") name (get d "name") prefix (when (get d "exported") "export ")
+       ambient (when top? "declare ") generic (generic-text (get d "type-params"))]
+  (case kind
+   "function" (str prefix ambient "function " name generic "(" (params-text (get d "params")) "): " (emit-type (get d "returns")) ";\n")
+   "const" (str prefix ambient "const " name ": " (emit-type (get d "datatype")) ";\n")
+   "alias" (str prefix "type " name generic " = " (emit-type (get d "datatype")) ";\n")
+   "interface" (str prefix "interface " name generic " {\n" (str/join "\n" (map member-text (get d "members"))) "\n}\n")
+   "namespace" (str prefix ambient "namespace " name " {\n" (apply str (map #(emit-declaration % false) (get d "declarations"))) "export {};\n}\n")
+   "export-alias" (str "export {" (get d "target") " as " name "};\n"))))
+(defn compile-document [doc runtime]
+ (let [checked (declarations/check-document doc runtime)]
+  {:format :mithril.native-declarations/artifact-v1 :module (:name checked) :runtime-source (:runtime-source checked)
+   :exports (:exports checked) :type-exports (:type-exports checked)
+   :source (str "// Compiled checked Mithril declaration AST; no TypeScript source delegation.\n"
+    (apply str (map #(emit-declaration % true) (:declarations checked))) "export {};\n")}))
+(defn compile-text [text runtime]
+ (compile-document (declarations/parse-text text) runtime))
