@@ -1,0 +1,72 @@
+(ns mithril.native-catch-test
+ (:require [cljs.test :refer [deftest is]] [mithril.native-js :as native] [mithril.form :as form]
+           ["node:fs" :as fs] ["node:os" :as os] ["node:path" :as path] ["node:child_process" :as child]))
+(defn lit [x] {"@type" "Literal" "datatype" "js-value" "value" x})
+(defn local [x] {"@type" "Local" "name" x})
+(defn grant [x] {"@type" "HostImport" "name" x})
+(defn arr [& xs] {"@type" "HostArray" "items" (vec xs)})
+(defn throwx [v] {"@type" "HostThrow" "value" v})
+(defn catchx [body binding handler] {"@type" "HostTryCatch" "body" body "binding" binding "handler" handler})
+(defn call [f & xs] {"@type" "HostInvoke" "function" f "args" (vec xs)})
+(defn optional [o k] {"@type" "HostOptionalGet" "object" o "key" k})
+(defn seqx [& xs] {"@type" "Sequence" "expressions" (vec xs)})
+(def this {"@type" "HostThis"})
+(def nt {"@type" "HostNewTarget"})
+(def argc {"@type" "HostArgumentsLength"})
+(defn normal [body] {"@type" "NativeFunction" "name" nil "params" [{"name" "value" "datatype" "js-value"}] "rest" nil "body" body})
+(defn doc [x imports]
+ {"@context" "https://mithril.fund/context/native-js-module/v1" "@type" "NativeJsModule" "name" "catch.control"
+  "imports" imports "functions" [] "exports" [{"name" "value" "value" x}]})
+(defn source [x imports] (:source (native/compile-document (doc x imports))))
+(defn direct [body]
+ (assoc (doc (lit nil) ["mark"])
+        "functions" [{"@type" "Function" "name" "run" "params" [{"name" "value" "datatype" "js-value"}]
+                      "returns" "js-value" "body" body "statements" true}]
+        "exports" ["run"]))
+(deftest native-catch-scope-and-complete-error-composition
+ (let [scope (normal {"@type" "Let" "bindings" [{"name" "reason" "value" (lit "outer")}]
+                     "body" (arr (catchx (throwx (local "value")) "reason"
+                                  {"@type" "NativeLambda" "params" [] "body" (arr (local "reason") this nt argc)}) (local "reason"))})
+       order (normal {"@type" "HostTryFinally"
+                      "body" (catchx (seqx (call (grant "mark") (lit "body")) (throwx (local "value"))) "reason"
+                               (seqx (call (grant "mark") (lit "catch")) (local "reason")))
+                      "finally" (call (grant "mark") (lit "finally"))})
+       rethrow (normal (catchx (throwx (local "value")) "reason" (seqx (call (grant "mark") (local "reason")) (throwx (local "reason")))))
+       opt (normal (optional (local "value") (call (grant "key"))))
+       direct-body {"@type" "Let" "bindings" [{"name" "sum" "value" (lit 0) "mutable" true}]
+                    "body" {"@type" "HostTryFinally"
+                            "body" (catchx {"@type" "HostForOf" "iterable" (local "value") "binding" "item"
+                                           "body" {"@type" "If" "condition" {"@type" "HostBinary" "operator" "<" "left" (local "item") "right" (lit 0)}
+                                                   "then" (throwx (local "item")) "else" {"@type" "LocalSet" "name" "sum" "value" {"@type" "HostBinary" "operator" "+" "left" (local "sum") "right" (local "item")}}}
+                                           "result" (local "sum")} "reason" (arr (local "reason") (local "sum")))
+                            "finally" (call (grant "mark") (lit "finally"))}}
+       bad [(doc (catchx (local "reason") "reason" (local "reason")) [])
+            (doc (seqx (catchx (throwx (lit 0)) "reason" (local "reason")) (local "reason")) [])
+            (doc (catchx (throwx (lit 0)) 1 (lit 0)) [])
+            (doc (catchx (throwx (lit 0)) "reason" {"@type" "LocalSet" "name" "reason" "value" (lit 1)}) [])
+            (doc (assoc (catchx (throwx (lit 0)) "reason" (local "reason")) "source" "raw JS") [])
+            (doc (assoc (optional (lit nil) (lit "x")) "source" "raw JS") [])
+            (doc (catchx (lit 1) "reason" this) [])
+            (assoc-in (direct (lit 0)) ["functions" 0 "statements"] "yes")
+            (assoc-in (direct (lit 0)) ["functions" 0 "source"] "raw JS")
+            (doc (catchx (lit 0) "reason" (nth (iterate #(catchx (lit 0) "r" %) (lit 0)) 70)) [])]
+       text (fs/readFileSync "examples/native-js-compose-error.mith" "utf8")
+       artifacts {"scope" (source scope []) "order" (source order ["mark"]) "rethrow" (source rethrow ["mark"])
+                  "optional" (source opt ["key"]) "direct" (:source (native/compile-document (direct direct-body)))
+                  "noThrow" (source (catchx (lit 4) "r" (call (grant "mark"))) ["mark"])
+                  "collision" (source (catchx (throwx (lit 6)) "__mithril_native_v1" (local "__mithril_native_v1")) [])}
+       dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-catch-"))]
+  (is (= (native/compile-text text) (native/compile-document (form/parse text))))
+  (is (every? (fn [d] (try (native/check-document d) false (catch :default _ true))) bad))
+  (try
+   (fs/writeFileSync (path/join dir "artifacts.json") (js/JSON.stringify (clj->js artifacts)))
+   (let [engine (.-MITHRIL_NATIVE_ENGINE js/process.env) config (path/join dir "offline.edn")]
+    (fs/writeFileSync config "{:paths [\"src\"]}\n")
+    (doseq [target ["js" "js-browser"]]
+     (let [r (child/spawnSync js/process.execPath
+              (clj->js [engine "--config" config "-cp" "src" "bin/mithril-native-js.cljk" "examples/native-js-compose-error.mith" "--target" target "--output" (path/join dir (str target ".mjs"))])
+              #js {:encoding "utf8" :timeout 30000})]
+      (when-not (= 0 (.-status r)) (throw (js/Error. (str (.-stdout r) (.-stderr r))))))))
+   (let [r (child/spawnSync js/process.execPath (clj->js ["test/fixtures/native-catch-contract.mjs" dir]) #js {:encoding "utf8" :timeout 30000})]
+    (is (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r)))
+   (finally (fs/rmSync dir #js {:recursive true :force true})))))
