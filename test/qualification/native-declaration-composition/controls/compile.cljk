@@ -1,0 +1,41 @@
+(ns compile-declaration-composition
+ (:require [mithril.native-declaration-composition :as composition]
+           [clojure.string :as str] ["node:fs" :as fs] ["node:os" :as os] ["node:child_process" :as child]))
+(defn ensure [p label] (when-not p (throw (js/Error. label))))
+(def engine (.-MITHRIL_DECLARATIONS_ENGINE js/process.env))
+(def dir (fs/mkdtempSync (str (os/tmpdir) "/mithril-declaration-composition-")))
+(def config (str dir "/offline.edn"))
+(fs/writeFileSync config (str "{:paths [" (js/JSON.stringify (fs/realpathSync "src")) "]}"))
+(def env (into {} (map #(vector % (aget js/process.env %)) (js/Object.keys js/process.env))))
+(defn result [args env]
+ (child/spawnSync js/process.execPath (clj->js args) (clj->js {:encoding "utf8" :timeout 120000 :maxBuffer 4194304 :env env})))
+(defn run [args env]
+ (let [r (result args env)] (ensure (= 0 (.-status r)) (str "Control exit=" (.-status r) "\n" (.-stdout r) (.-stderr r))) (print (.-stdout r)) (.-stdout r)))
+(defn cli [input target output] [engine "--config" config "-cp" "src" "bin/mithril-native-declaration-composition.cljk" input "--target" target "--output-directory" output])
+(try
+ (run [engine "--config" config "-cp" "src" "test/qualification/native-declaration-composition/controls/admission.cljk"] (assoc env "MITHRIL_COMPOSITION_FIXTURES" dir))
+ (let [input (str dir "/composition.mith") text (fs/readFileSync input "utf8")
+       sources (into {} (for [file (js->clj (fs/readdirSync dir)) :when (and (str/ends-with? file ".mith") (not (str/includes? file "composition")))] [file (fs/readFileSync (str dir "/" file) "utf8")]))
+       expected (composition/compile-text text sources)]
+  (doseq [target ["js" "js-browser"]]
+   (let [output (str dir "/" target) stdout (run (cli input target output) env)]
+    (doseq [[file bytes] (:files expected)] (ensure (= bytes (fs/readFileSync (str output "/" file) "utf8")) "Exact composition artifact bytes"))
+    (fs/writeFileSync (str output "/artifact.json") stdout)
+    (doseq [prefix ["base" "bridge" "consumer"]]
+     (run [engine "--config" config "-cp" "src" "bin/mithril-native-esm.cljk" (str dir "/" prefix "-runtime.mith") "--target" target "--output-directory" (str output "/runtime-" prefix)] env))
+    (run ["test/qualification/native-declaration-composition/controls/check.mjs" output (.-MITHRIL_DECLARATIONS_TYPESCRIPT js/process.env)] env)
+    (let [refused (str output "-refused") r (result (cli (str dir "/invalid-composition.mith") target refused) env)]
+     (ensure (= 65 (.-status r)) "Unbound producer CLI refusal status")
+     (ensure (str/starts-with? (.-stderr r) "REFUSE\tlink\t") "Exact CLI producer binding refusal")
+     (ensure (not (fs/existsSync refused)) "Pre-write graph admission"))
+    (fs/writeFileSync (str output "/sentinel") "preserve")
+    (ensure (= 65 (.-status (result (cli input target output) env))) "Existing output refusal")
+    (ensure (= "preserve" (fs/readFileSync (str output "/sentinel") "utf8")) "Existing output retained")))
+  (let [leaf (str dir "/base.mith") backup (str dir "/base-backup.mith") output (str dir "/symlink-refused")]
+   (fs/renameSync leaf backup) (fs/symlinkSync backup leaf)
+   (let [r (result (cli input "js" output) env)]
+    (ensure (= 65 (.-status r)) "Symlink leaf refusal")
+    (ensure (str/starts-with? (.-stderr r) "REFUSE\tsource\t") "Symlink exact source refusal")
+    (ensure (not (fs/existsSync output)) "Symlink pre-write admission"))))
+ (println "Declaration composition CLI: both Node execution labels, three actual installed packages, independent runtime/type consumers, exact owner bytes and pre-write graph/source/output refusals passed.")
+ (finally (fs/rmSync dir #js {:recursive true :force true})))

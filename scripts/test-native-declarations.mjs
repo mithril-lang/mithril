@@ -44,6 +44,7 @@ try{
   ['native-attachment-sdk','compile.cljk'],
   ['native-tagged-templates','compile.cljk'],
   ['native-declaration-symbol-spaces','compile.cljk'],
+  ['native-declaration-composition','compile.cljk'],
  ];
  for(const [name,control] of stages){
   console.log(`Declaration qualification stage: ${name}`);

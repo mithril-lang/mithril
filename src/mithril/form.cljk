@@ -43,6 +43,7 @@
    'mithril/native-js-declarations "NativeJsDeclarations"
    'mithril/native-js-declaration-module "NativeJsDeclarationModule"
    'mithril/native-js-declaration-program "NativeJsDeclarationProgram"
+   'mithril/native-js-declaration-composition "NativeJsDeclarationComposition"
    'mithril/language "LanguageKernel"
    'mithril/codegraph "CodeGraphApplication"})
 
@@ -513,6 +514,8 @@
                                 "https://mithril.fund/context/native-js-declaration-module/v1"
                                 (= tag 'mithril/native-js-declaration-program)
                                 "https://mithril.fund/context/native-js-declaration-program/v1"
+                                (= tag 'mithril/native-js-declaration-composition)
+                                "https://mithril.fund/context/native-js-declaration-composition/v1"
                                 :else "https://mithril.fund/context/v1")
                   "@type" (get top-level-tags tag))
 
