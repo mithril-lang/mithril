@@ -1,0 +1,3 @@
+(ns test.run-library-adapter (:require [cljs.test :as t] [mithril.library-adapter-test]))
+(let [result (t/run-tests 'mithril.library-adapter-test)]
+  (when (pos? (+ (:fail result) (:error result))) (js/process.exit 1)))

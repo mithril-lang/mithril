@@ -1,0 +1,25 @@
+(ns mithril.library-main
+  (:require [mithril.compiler :as compiler]
+            [mithril.library-adapter :as library]
+            [mithril.mission-native :as native]))
+(defn read-json [path] (compiler/parse-source (.readFileSync (js/require "node:fs") path "utf8")))
+(defn output [value] (println (.stringify js/JSON (clj->js value) nil 2)))
+(let [[command & args] *command-line-args*
+      config {:python (.-MITHRIL_INTEROP_PYTHON js/process.env)
+              :adapter-root (.-MITHRIL_INTEROP_ROOT js/process.env)}]
+  (try
+    (case command
+      "resolve" (do (when-not (= 1 (count args)) (throw (js/Error. "resolve requires a library ID")))
+                    (output (library/resolve! config (first args))))
+      "invoke" (do (when-not (= 3 (count args)) (throw (js/Error. "invoke requires ID, member, arguments.json")))
+                   (output (native/invoke! config {"operation" "library-call" "libraryId" (first args)
+                                                  "member" (second args) "arguments" (read-json (nth args 2))})))
+      "compile" (do (when-not (= 2 (count args)) (throw (js/Error. "compile requires source.mith and registry.json")))
+                    (let [[path registry-path] args
+                          registry (into {} (for [[id value] (read-json registry-path)]
+                                              [id (library/binding (get value "descriptor") (get value "source"))]))]
+                      (output (library/compile-web-text path (.readFileSync (js/require "node:fs") path "utf8") registry))))
+      (throw (js/Error. "usage: mithril-library <resolve ID|invoke ID member arguments.json|compile source.mith registry.json>")))
+    (catch :default e
+      (binding [*print-fn* *print-err-fn*] (println (str "REFUSE\t" (.-message e))))
+      (js/process.exit 1))))
