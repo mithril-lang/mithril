@@ -1,0 +1,239 @@
+(mithril/native-js-declaration-module :name "values.index"
+:runtime "values.index"
+:ambient-types [(rdf/node :name "ReadonlySet"
+:min 1
+:max 1)]
+:ambient-values []
+:imports []
+:declarations [(rdf/node :kind "alias"
+:name "JsonValue"
+:exported true
+:type-params []
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "literal"
+:value nil)
+(rdf/node :op "keyword"
+:name "boolean")
+(rdf/node :op "keyword"
+:name "number")
+(rdf/node :op "keyword"
+:name "string")
+(rdf/node :op "array"
+:item (rdf/node :op "name"
+:name "JsonValue"
+:args []))
+(rdf/node :op "object"
+:members [(rdf/node :kind "index-signature"
+:name "key"
+:key (rdf/node :op "keyword"
+:name "string")
+:readonly false
+:datatype (rdf/node :op "name"
+:name "JsonValue"
+:args []))])]))
+(rdf/node :kind "function"
+:name "assertNever"
+:exported true
+:type-params []
+:params [(rdf/node :name "value"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "never"))
+(rdf/node :name "context"
+:optional true
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))]
+:returns (rdf/node :op "keyword"
+:name "never"))
+(rdf/node :kind "function"
+:name "snapshotJsonValue"
+:exported true
+:type-params [(rdf/node :name "T"
+:constraint nil
+:default nil)]
+:params [(rdf/node :name "value"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "T"
+:args []))]
+:returns (rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "T"
+:args [])
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "function"
+:name "isJsonValue"
+:exported true
+:type-params []
+:params [(rdf/node :name "value"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "unknown"))]
+:returns (rdf/node :op "keyword"
+:name "boolean"))
+(rdf/node :kind "function"
+:name "deepEqualJson"
+:exported true
+:type-params []
+:params [(rdf/node :name "a"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "unknown"))
+(rdf/node :name "b"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "unknown"))]
+:returns (rdf/node :op "keyword"
+:name "boolean"))
+(rdf/node :kind "function"
+:name "deepFreeze"
+:exported true
+:type-params [(rdf/node :name "T"
+:constraint nil
+:default nil)]
+:params [(rdf/node :name "value"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "T"
+:args []))]
+:returns (rdf/node :op "name"
+:name "T"
+:args []))
+(rdf/node :kind "class"
+:name "WeakMapWithValues"
+:exported true
+:abstract false
+:type-params [(rdf/node :name "Key"
+:constraint (rdf/node :op "keyword"
+:name "object")
+:default nil
+:variance nil)
+(rdf/node :name "Value"
+:constraint nil
+:default nil
+:variance nil)]
+:extends nil
+:implements []
+:members [(rdf/node :kind "opaque"
+:key (rdf/node :kind "name"
+:name "keys")
+:visibility "private"
+:static false)
+(rdf/node :kind "opaque"
+:key (rdf/node :kind "name"
+:name "valueSet")
+:visibility "private"
+:static false
+:readonly true)
+(rdf/node :kind "property"
+:key (rdf/node :kind "name"
+:name "values")
+:visibility "public"
+:static false
+:readonly true
+:optional false
+:datatype (rdf/node :op "name"
+:name "ReadonlySet"
+:args [(rdf/node :op "name"
+:name "Value"
+:args [])]))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "get")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "key"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "Key"
+:args []))]
+:returns (rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "Value"
+:args [])
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "has")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "key"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "Key"
+:args []))]
+:returns (rdf/node :op "keyword"
+:name "boolean"))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "set")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "key"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "Key"
+:args []))
+(rdf/node :name "value"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "Value"
+:args []))]
+:returns (rdf/node :op "this"))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "delete")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "key"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "Key"
+:args []))]
+:returns (rdf/node :op "keyword"
+:name "boolean"))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "clear")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params []
+:returns (rdf/node :op "keyword"
+:name "void"))])]
+:reexports [(rdf/node :module "values.partial_json"
+:type-only false
+:names [(rdf/node :import "PartialArguments"
+:export "PartialArguments")
+(rdf/node :import "LengthReadOptions"
+:export "LengthReadOptions")])]
+:augmentations []
+:local-exports [])

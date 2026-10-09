@@ -61,6 +61,7 @@
 (defn- class-key-text [key]
  (if (= "computed" (get key "kind")) (str "[" (get key "name") "]") (quote-value (get key "name"))))
 (defn- class-member-text [m]
+ (if (= "private-brand" (get m "kind")) "#private;"
  (let [kind (get m "kind") prefix (str (when-not (= "public" (get m "visibility")) (str (get m "visibility") " "))
                                      (when (get m "static") "static ") (when (get m "abstract") "abstract "))
        key (when-not (= kind "constructor") (class-key-text (get m "key")))]
@@ -70,7 +71,7 @@
     "opaque" (str (when (get m "readonly") "readonly ") key)
     "property" (str (when (get m "readonly") "readonly ") key (when (get m "optional") "?") ": " (emit-type (get m "datatype")))
     "getter" (str "get " key "(): " (emit-type (get m "datatype")))
-    "method" (str key (when (get m "optional") "?") (generic-text (get m "type-params")) "(" (params-text (get m "params")) "): " (emit-type (get m "returns")))) ";")))
+    "method" (str key (when (get m "optional") "?") (generic-text (get m "type-params")) "(" (params-text (get m "params")) "): " (emit-type (get m "returns")))) ";"))))
 (declare emit-declaration)
 (defn- emit-declaration [d top?]
  (let [kind (get d "kind") name (get d "name") prefix (when (get d "exported") "export ")

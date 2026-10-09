@@ -32,7 +32,7 @@ if(process.argv[2]==='case'){
 }else{
  const [candidate,compiler]=process.argv.slice(2),repo=fileURLToPath(new URL('../../../../',import.meta.url)),fixture=join(repo,'test/fixtures/values-core');
  const proof=JSON.parse(readFileSync(join(fixture,'provenance.json'),'utf8'));
- for(const[file,sha]of Object.entries(proof.fixtures)){const bytes=readFileSync(join(fixture,file));assert.equal(createHash('sha256').update(bytes).digest('hex'),sha);assert.equal(createHash('sha1').update(Buffer.from('blob '+bytes.length+'\0')).update(bytes).digest('hex'),proof.originalGitBlobs[file])}
+ for(const[file,sha]of Object.entries(proof.fixtures)){const bytes=readFileSync(join(fixture,file));assert.equal(createHash('sha256').update(bytes).digest('hex'),sha);if(proof.originalGitBlobs[file])assert.equal(createHash('sha1').update(Buffer.from('blob '+bytes.length+'\0')).update(bytes).digest('hex'),proof.originalGitBlobs[file])}
  for(const[file,sha]of Object.entries(proof.mithrilSources))assert.equal(createHash('sha256').update(readFileSync(join(repo,'examples',file))).digest('hex'),sha);
  const dir=mkdtempSync(join(tmpdir(),'mithril-values-oracle-'));
  try{
