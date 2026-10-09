@@ -2491,3 +2491,8 @@ export is a real callable/constructable value. The older global declaration
 fixtures deliberately retain their erased default contract. Both actual CLI
 targets are qualified under Node; whole-Harness and actual browser parity remain
 separate requirements.
+
+Native source supports genuine `import.meta` and dynamic `import(source[, options])`
+through checked `host-import-meta` / `host-dynamic-import` expressions. Module
+metadata belongs to the emitted ECMAScript module and loading remains the host's
+native module operation. See [module operations qualification](test/qualification/native-module-operations/README.md).
