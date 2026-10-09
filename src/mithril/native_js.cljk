@@ -900,7 +900,7 @@
   (let [emit #(emit-expression % imports functions env counter prefix args-length)
         args #(str/join "," (map emit %))]
     (case (:op expr)
-      :literal (quoted (:value expr))
+      :literal (if (and (number? (:value expr)) (js/Object.is (:value expr) (js/Number "-0"))) "(-0)" (quoted (:value expr)))
       :local (get env (:name expr))
       :import (get imports (:name expr))
       :function-ref (get functions (:name expr))

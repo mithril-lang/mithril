@@ -1,6 +1,7 @@
 (ns mithril.native-js-test
   (:require [cljs.test :refer [deftest is]]
             [mithril.native-js :as native]
+            [mithril.form :as form]
             [mithril.module :as guest]
             [mithril.module-lower :as lower]
             ["node:fs" :as fs] ["node:os" :as os]
@@ -160,3 +161,37 @@ const inherited=Object.create({Object:current});assert.throws(()=>m.instantiateM
           (is (false? (fs/existsSync output)))))
       (is (= 64 (.-status (run ["examples/native-js-map-values.mith" "--output" output]))))
       (finally (fs/rmSync dir #js {:recursive true :force true})))))
+
+(deftest numeric-source-literals-preserve-native-values-through-both-real-cli-targets
+  (let [dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-native-numbers-"))
+        config (path/join dir "offline.edn")
+        engine (aget (.-argv js/process) 1)
+        output (path/join dir "numbers.mjs")]
+    (try
+      (fs/writeFileSync config "{:paths []}")
+      (doseq [target ["js" "js-browser"]]
+        (let [compiled (child/spawnSync js/process.execPath
+                        #js [engine "--config" config "--classpath" "src" "bin/mithril-native-js.cljk"
+                             "examples/native-js-numeric-literals.mith" "--target" target "--output" output]
+                        #js {:encoding "utf8" :timeout 30000})]
+          (is (= 0 (.-status compiled)) (.-stderr compiled))
+          (let [result (child/spawnSync js/process.execPath
+                         #js ["--input-type=module" "-e"
+                              "import assert from 'node:assert/strict';const api=(await import(process.argv[1])).instantiateMithrilNative({});const actual=api.values(),expected=[0.01,-0,1e-7,1e21,Number.MAX_VALUE,Number.MIN_VALUE,-2.5,-0];assert.equal(actual.length,expected.length);for(let i=0;i<expected.length;i++)assert.ok(Object.is(actual[i],expected[i]),'numeric value '+i);assert.equal(1/actual[1],-Infinity);"
+                              output] #js {:encoding "utf8" :timeout 30000})]
+            (is (= 0 (.-status result)) (.-stderr result)))))
+      (finally (fs/rmSync dir #js {:recursive true :force true})))))
+
+(deftest finite-js-value-source-admission-keeps-general-and-guest-refusals
+  (doseq [text ["(mithril/literal :datatype \"js-value\" :value 1e309)"
+               "(mithril/literal :datatype \"js-value\" :value -1e309)"
+               "(mithril/literal :datatype \"i64\" :value 0.01)"
+               "(mithril/literal :datatype \"u32\" :value 0.01)"
+               "(mithril/module :name 0.01)"
+               "(rdf/node :value 0.01)"
+               "(mithril/literal :datatype \"js-value\" :value [0.01])"]]
+    (is (= :mithril.form/unsupported-value
+           (try (form/parse text) nil (catch :default e (:mithril/error (ex-data e)))))))
+  (is (= :mithril.module/invalid-literal
+         (try (guest/check-text "(mithril/module :name \"guest.numeric\" :functions [(mithril/function :name \"value\" :params [] :returns \"js-value\" :body (mithril/literal :datatype \"js-value\" :value 0.01))] :exports [\"value\"])")
+              nil (catch :default e (:mithril/error (ex-data e)))))))
