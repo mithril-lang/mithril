@@ -94,7 +94,7 @@
   {:format :mithril.native-declarations/artifact-v1 :module (:name checked) :runtime-source (:runtime-source checked)
    :exports (:exports checked) :type-exports (:type-exports checked)
    :source (str "// Compiled checked Mithril declaration AST; no TypeScript source delegation.\n"
-    (apply str (map #(if (and (= "export-alias" (get % "kind")) (contains? enums (get % "target")))
+    (apply str (map #(if (and (= "export-alias" (get % "kind")) (contains? enums (get % "target")) (not= "default" (get % "name")))
                        (str "export import " (get % "name") " = " (get % "target") ";\n")
                        (emit-declaration % true)) (:declarations checked))) "export {};\n")}))
 (defn compile-text [text runtime]
@@ -113,6 +113,7 @@
                        (str "{" (str/join ", " (map #(str (get % "import") " as " (get % "local")) names)) "} from ")))
                      (quote-value (get paths (get g "module"))) ";\n")) (get doc "imports")))
    (apply str (map #(emit-declaration % true) (get doc "declarations")))
+   (apply str (map #(str "export " (when (get % "type-only") "type ") "{" (get % "local") " as " (get % "export") "};\n") (get doc "local-exports")))
    (apply str (map (fn [g]
                     (str "declare module " (quote-value (get paths (get g "module"))) " {\n"
                          (apply str (map #(emit-declaration % false) (get g "declarations"))) "}\n")) (get doc "augmentations")))

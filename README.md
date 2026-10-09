@@ -2365,3 +2365,12 @@ alias/interface parameters remain strict. See [const generic qualification](test
 This is a type-only prerequisite with21 public types/zero runtime values; global
 namespace/default Schema/full Schemastery/Harness remain pending. Operator authored,
 zero new System One inference or measured gain.
+
+Explicit native ESM entry selectors and private local declaration exports now preserve
+default binding identity across imports/reexports and direct entry/type-only emission.
+Both Node-executed CLI targets pass200 trusted paired strict type groups,56 paired
+runtime groups and20 exact-code refusals, including dual alias+value/private nominal
+owners, live updates and unchanged old star semantics/bytes. See [default export
+qualification](test/qualification/native-default-exports/README.md). This mechanics
+fixture does not prove full Schema/global namespace/Harness parity. Operator authored,
+zero new System One inference or measured gain.

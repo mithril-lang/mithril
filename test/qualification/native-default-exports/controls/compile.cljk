@@ -1,0 +1,75 @@
+(ns compile-default-exports (:require [mithril.native-esm :as esm] [mithril.form :as form] [mithril.native-package :as package] [mithril.native-declarations :as decl] [mithril.native-declaration-program :as program] [mithril.native-declaration-emit :as emit] ["node:fs" :as fs] ["node:os" :as os] ["node:child_process" :as child]))
+(defn ensure [p msg] (when-not p (throw (js/Error. msg))))
+(def engine (.-MITHRIL_DECLARATIONS_ENGINE js/process.env))
+(def compiler (.-MITHRIL_DECLARATIONS_TYPESCRIPT js/process.env))
+(def roots (.-MITHRIL_DECLARATIONS_TYPE_ROOTS js/process.env))
+(defn read-example [name] (fs/readFileSync (str "examples/" name) "utf8"))
+(defn sources [text] (into {} (map #(vector % (read-example %)) (esm/source-basenames text))))
+(def text (read-example "native-js-default-esm.mith"))
+(def runtime (esm/check-text text (sources text)))
+(def doc (:document (program/read-plan (read-example "native-js-default-program-types.mith"))))
+(def da (decl/parse-text (read-example "native-js-default-a-types.mith")))
+(def db (decl/parse-text (read-example "native-js-default-b-types.mith")))
+(def dc (decl/parse-text (read-example "native-js-default-c-types.mith")))
+(def de (decl/parse-text (read-example "native-js-default-entry-types.mith")))
+(def modules [da db dc de])
+(defn refusal [f code] (try (f) (throw (js/Error. "Invalid default case admitted")) (catch :default e (ensure (= code (:mithril/error (ex-data e))) (str "Wrong refusal " e)))))
+(def native-doc (form/parse text))
+(def selector {"module" "defaults.a" "import" "default" "export" "default"})
+(def native-bads [[(assoc native-doc "entry-exports" nil) :mithril.native-package/budget]
+ [(assoc native-doc "entry-exports" [(assoc selector "source" "payload")]) :mithril.native-package/shape]
+ [(assoc native-doc "entry-exports" [selector selector]) :mithril.native-package/duplicate]
+ [(assoc native-doc "entry-exports" [(assoc selector "module" "Missing")]) :mithril.native-package/link]
+ [(assoc native-doc "entry-exports" [(assoc selector "import" "Missing")]) :mithril.native-package/link]
+ [(assoc native-doc "entry-exports" [(assoc selector "export" "../bad")]) :mithril.native-package/name]
+ [(assoc native-doc "entry-exports" (vec (repeat 129 selector))) :mithril.native-package/budget]
+ [(assoc native-doc "reexports" [] "entry-exports" []) :mithril.native-package/shape]])
+(doseq [[d code] native-bads] (refusal #(esm/check-document d (sources text)) code))
+(refusal #(package/check-document (assoc native-doc "@type" "NativeJsPackage" "@context" "https://mithril.fund/context/native-js-package/v1") (sources text)) :mithril.native-package/shape)
+(def local {"local" "Schema" "export" "default" "type-only" false})
+(def type-bads [[(assoc da "local-exports" [(assoc local "local" "default")]) :mithril.native-declarations/name]
+ [(assoc da "local-exports" [(assoc local "export" "bad;payload")]) :mithril.native-declarations/name]
+ [(assoc da "local-exports" [(assoc local "type-only" "true")]) :mithril.native-declarations/shape]
+ [(assoc da "local-exports" [(assoc local "source" "raw TS")]) :mithril.native-declarations/shape]
+ [(assoc da "local-exports" [local local]) :mithril.native-declarations/duplicate]
+ [(assoc da "local-exports" [(assoc local "local" "Missing")]) :mithril.native-declarations/export]
+ [(assoc da "local-exports" [local (assoc local "export" "count")]) :mithril.native-declarations/duplicate]
+ [(assoc da "local-exports" (vec (repeat 129 local))) :mithril.native-declarations/budget]
+ [(assoc da "local-exports" [{"local" "count" "export" "default" "type-only" false}]) :mithril.native-declarations/surface]])
+(doseq [[d code] type-bads] (refusal #(decl/check-module-program [d db dc de] [] runtime "defaults.entry") code))
+(refusal #(decl/check-module-program [da (assoc-in db ["imports" 0 "names" 0 "local"] "default") dc de] [] runtime "defaults.entry") :mithril.native-declarations/name)
+(refusal #(decl/check-module-program [da db dc (assoc-in de ["reexports" 0 "names" 0 "import"] "Missing")] [] runtime "defaults.entry") :mithril.native-declarations/link)
+(println "Default export admission:9 native entry/legacy/shape/name/link/duplicate/budget and11 declaration lexical/alias/identity/shape/name/link/duplicate/budget exact-code refusals.")
+(let [plain (assoc native-doc "entry-exports" [])]
+ (ensure (= (get-in (esm/compile-document (dissoc plain "entry-exports") (sources text)) [:files "index.mjs"])
+            (get-in (esm/compile-document plain (sources text)) [:files "index.mjs"])) "Empty explicit selectors changed previous star entry bytes")
+ (ensure (not (some #{"default"} (:exports (esm/compile-document plain (sources text))))) "Star exports leaked default"))
+(def dir (fs/mkdtempSync (str (os/tmpdir) "/mithril-default-exports-")))
+(def config (str dir "/offline.edn"))
+(fs/writeFileSync config (str "{:paths [" (js/JSON.stringify (fs/realpathSync "src")) "]}"))
+(defn run [args] (let [r (child/spawnSync js/process.execPath (clj->js args) #js {:encoding "utf8" :timeout 240000})] (ensure (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r))))
+(def items (atom []))
+(try
+ (doseq [target ["js" "js-browser"] profile ["program" "direct" "type-only" "dual" "enum"]]
+  (let [types-name (str "native-js-default-" profile "-types.mith") types-text (read-example types-name) plan (program/read-plan types-text)
+        rt-text (read-example (:runtime-source plan)) rt-sources (sources rt-text) rt (esm/check-text rt-text rt-sources)
+        a (program/compile-text types-text (into {} (map #(vector % (read-example %)) (:sources plan))) rt)
+        out (str dir "/" target "-" profile) type-out (str out "-types")]
+   (run [engine "--config" config "-cp" "src" "bin/mithril-native-esm.cljk" (str "examples/" (:runtime-source plan)) "--target" target "--output-directory" out])
+   (run [engine "--config" config "-cp" "src" "bin/mithril-native-declaration-program.cljk" (str "examples/" types-name) "--target" target "--output-directory" type-out])
+   (doseq [[file source] (:files a)] (ensure (= source (fs/readFileSync (str type-out "/" file) "utf8")) "Default declaration CLI artifact differs"))
+   (swap! items conj {"profile" profile "types" (str type-out "/index.d.mts") "runtime" (str out "/index.mjs")})
+   (when (= profile "enum")
+    (let [output (str dir "/" target "-enum-legacy.d.mts") source (read-example "native-js-default-enum-legacy-types.mith") legacy (emit/compile-text source rt)]
+     (run [engine "--config" config "-cp" "src" "bin/mithril-native-declarations.cljk" "examples/native-js-default-enum-legacy-types.mith" "--target" target "--output" output])
+     (ensure (= (:source legacy) (fs/readFileSync output "utf8")) "Default enum legacy CLI artifact differs")
+     (swap! items conj {"profile" "enum-legacy" "types" output})))
+   (when (= profile "direct")
+    (let [output (str dir "/" target "-legacy.d.mts") source (read-example "native-js-default-legacy-types.mith") legacy (emit/compile-text source rt)]
+     (run [engine "--config" config "-cp" "src" "bin/mithril-native-declarations.cljk" "examples/native-js-default-legacy-types.mith" "--target" target "--output" output])
+     (ensure (= (:source legacy) (fs/readFileSync output "utf8")) "Default legacy CLI artifact differs")
+     (swap! items conj {"profile" "legacy" "types" output})))))
+ (let [manifest (str dir "/manifest.json")]
+  (fs/writeFileSync manifest (js/JSON.stringify (clj->js @items)))
+  (run ["test/qualification/native-default-exports/controls/contract.mjs" manifest compiler roots]))
+ (finally (fs/rmSync dir #js {:recursive true :force true})))
