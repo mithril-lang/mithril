@@ -2627,3 +2627,9 @@ parts and substitution expressions. Native tagged syntax preserves template
 array identity, raw/cooked values, receivers and evaluation order. See
 [tagged template qualification](test/qualification/native-tagged-templates/README.md)
 for admission boundaries and independent runtime comparisons.
+
+Declaration programs count their bounded type, value and namespace symbol
+spaces separately. Complete private declarations may also be reached through
+the actual checked runtime graph, including empty export and side-effect roots.
+See [symbol-space qualification](test/qualification/native-declaration-symbol-spaces/README.md)
+for independent limits, strict TypeScript consumers and both actual CLI controls.

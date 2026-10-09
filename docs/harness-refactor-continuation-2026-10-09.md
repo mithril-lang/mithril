@@ -610,3 +610,38 @@ Continue those LLM gates, then Session/Agent/Tools and full boot/plugin/profile
 and API parity. Actual scoped System One authentication, trusted Docker
 verification, bounded whole-source transport and independent diagnostic
 publication remain necessary for a new model trial or a performance claim.
+
+## LLM declaration prerequisites checkpoint (2026-10-10 JST)
+
+Attachment exact-main Native 37984972916 succeeded; its complete 32-stage log
+was audited, closing the pending gate recorded above. Tagged template PR #106
+merged to `c207b9879f1544fac82925b05a635e7db7b1d7fe`. All ten changed files
+and the complete Git tree match qualified head
+`e57f01a1340d3144d9457f3a2644734539989123`. Sealed local and complete branch
+source/package/all-33-stage qualification passed. Exact-main delivery remains
+a separate gate at the time of this source checkpoint.
+
+All 13 original LLM source modules have complete operator-authored declaration
+AST proposals. The strict original compiler reports 146 distinct public names,
+92 public types and 66 runtime values. An isolated diagnostic inspection admits
+all 41 complete declaration modules after counting symbol spaces separately
+and following real runtime dependencies for private declarations. It merges
+separately checked graphs for inspection only; it is not a qualified
+multi-package CLI, published type-owner contract or full SDK consumer result.
+
+Stage 34 qualifies the compiler prerequisites independently: bounded 128-symbol
+spaces, dual-space charging, private runtime reachability, empty and side-effect
+roots, unrelated/unknown/invalid declarations, all 192 mixed fixture names,
+strict TypeScript consumers and pre-write CLI refusals. Keep complete original
+LLM declarations, Context/Events/error augmentations and one canonical private
+class/symbol owner. Do not use extra public exports, artificial side-effect
+facades, duplicated class definitions or arity-only external metadata to bypass
+ownership or graph admission. The rejected 44-module facade remains evidence.
+
+Next implement an actual bounded producer/consumer declaration contract for
+30 core runtime modules (917830 bytes) and 14 LLM/Schema modules. Qualify the
+original root and subpaths (`types`, `brand`, `message`, `assistant-stream`,
+`typert`, `remote`, `src/*`, and `package.json`), including the actual generated
+host/client APIs, all source types, upstream behavior, streams and cancellation.
+Then advance to Session/Agent/Tools and full API/plugin/profile/boot parity.
+No new System One inference or model performance gain is established here.
