@@ -355,3 +355,38 @@ whole-job timeout to 25 minutes, retaining every stage, each 300-second control
 timeout and all compiler admission budgets. Its branch/main CI remain delivery
 gates. The core source port is operator authored; the Code owner and
 real System One model trials remain the independent gates described above.
+
+## Scope public root SDK (2026-10-10 JST)
+
+PR #98 passed both branch workflows and all 25 stages on exact head
+`69dc635af84e955dc757b0758c74eebb8fb1ae11`, including the unchanged
+21 Scope runtime groups per CLI label. It merged to
+`78681852ff09059794fffd4ee4cd8d7c763df4e6`; current-main audit remains pending.
+This also remedies the observed whole-job timeout without removing tests or
+changing the 300-second qualification control/compiler admission budgets.
+
+The next concrete source blocker, opaque private readonly declaration fields,
+is now represented and emitted. Portable stage 26 compares all 19 original
+Scope declarations, 10 positive/18 negative strict original-paired consumers,
+11 exact-code admission refusals, original public symbol spaces and 21 runtime
+groups under both CLI labels. Real NodeNext package self-reference additionally
+passes one positive/four exact-code negative consumers and actual bare-package
+execution with own canonical Cordis owners. The package's type entry is the
+actual Scope index declaration module, preserving private-brand diagnostic 2459;
+the generic compiler barrel's private import diagnostic 2305 is separately
+checked and is not substituted for that package entry. Source and type artifacts
+retain original readonly/private modifiers and unique-symbol opacity.
+
+The SDK has 18 own runtime and 13 declaration modules, with 11 public values and
+nine types. Isolated stage 26 passes locally; the frozen complete 26-stage
+regression and branch/main delivery remain pending. Development source wildcard
+subpaths, destination publication, actual browser/native/Q9 and System One
+model-authored trials remain separate unqualified requirements.
+
+The complete pinned upstream workspace manifest graph is now verified: 341
+packages and 339 dependency-first SCCs, including the Cordis/Loader/Include SCC.
+Optional peers are explicit and development dependencies excluded. This is a
+manifest graph, not a substitute for actual source import and public-contract
+qualification. After Scope, resolve Session's Brand/util-values/LLM prerequisite
+closure (LLM includes util-crypto, timeout, Brand, util-values and typert-protocol),
+then Session, Agent, Tools and the boot/plugin/profile graph.

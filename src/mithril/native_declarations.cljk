@@ -79,7 +79,8 @@
  (case (get m "kind")
   "constructor" (shape! m ["kind" "visibility" "params"])
   "property" (shape! m ["kind" "key" "visibility" "static" "readonly" "optional" "datatype"])
-  "opaque" (do (shape! m ["kind" "key" "visibility" "static"])
+  "opaque" (do (shape! m (cond-> ["kind" "key" "visibility" "static"]
+                           (contains? m "readonly") (conj "readonly")))
     (when-not (and (= "private" (get m "visibility")) (= "name" (get-in m ["key" "kind"])))
      (fail! :mithril.native-declarations/type "Only named private members may omit their type")))
   "method" (shape! m ["kind" "key" "visibility" "static" "abstract" "optional" "type-params" "params" "returns"])

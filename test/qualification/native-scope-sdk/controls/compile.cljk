@@ -1,0 +1,69 @@
+(ns compile-scope-sdk
+  (:require [clojure.string :as str] [mithril.form :as form]
+            [mithril.native-esm :as esm] [mithril.native-declaration-program :as program]
+            [mithril.native-declarations :as declarations] [mithril.native-declaration-emit :as emit]
+            ["node:fs" :as fs] ["node:os" :as os] ["node:child_process" :as child]))
+(defn ensure [p message] (when-not p (throw (js/Error. message))))
+(def engine (.-MITHRIL_DECLARATIONS_ENGINE js/process.env))
+(def compiler (.-MITHRIL_DECLARATIONS_TYPESCRIPT js/process.env))
+(def type-roots (.-MITHRIL_DECLARATIONS_TYPE_ROOTS js/process.env))
+(def runtime-text (fs/readFileSync "examples/native-js-scope-program-esm.mith" "utf8"))
+(def runtime-sources (into {} (map #(vector % (fs/readFileSync (str "examples/" %) "utf8")) (esm/source-basenames runtime-text))))
+(def runtime (esm/check-text runtime-text runtime-sources))
+(def artifact (esm/compile-text runtime-text runtime-sources))
+(def text (fs/readFileSync "examples/native-js-scope-program.mith" "utf8"))
+(def plan (program/read-plan text))
+(def sources (into {} (map #(vector % (fs/readFileSync (str "examples/" %) "utf8")) (:sources plan))))
+(def types (program/compile-text text sources runtime))
+(ensure (= 18 (count (:module-files artifact))) "Complete Scope/Cordis runtime for canonical public types")
+(ensure (= 13 (count (:module-files types))) "Complete own Scope/Cordis public declaration closure")
+(ensure (= (set (:exports artifact)) (set (:exports types))) "Exact original 11 runtime values")
+(ensure (= #{"AnonymousEntries" "CreateScopeOptions" "NamedEntries" "Scope" "ScopeKey" "ScopeLayer"
+             "ScopeParentBinding" "Scoped" "ScopedLayers"} (set (:type-exports types))) "Exact original nine public types")
+(def docs (mapv #(form/parse (get sources %)) (:sources plan)))
+(def store (first (filter #(= "scope.store" (get % "name")) docs)))
+(def member-path ["declarations" 2 "members" 0])
+(def member (get-in store member-path))
+(ensure (= {"kind" "name" "name" "duplicateError"} (get member "key")) "Exact original readonly opaque field")
+(defn admit [candidate]
+  (declarations/check-module-program (mapv #(if (= "scope.store" (get % "name")) candidate %) docs) [] runtime "scope.index"))
+(defn replace-member [m] (assoc-in store member-path m))
+(defn refused [m code]
+  (ensure (= code (try (admit (replace-member m)) nil (catch :default e (:mithril/error (ex-data e))))) "Exact opaque readonly refusal"))
+(doseq [v [nil 1 "true" [] {}]] (refused (assoc member "readonly" v) :mithril.native-declarations/shape))
+(doseq [v ["public" "protected"]] (refused (assoc member "visibility" v) :mithril.native-declarations/type))
+(refused (assoc member "key" {"kind" "computed" "name" "Context.filter"}) :mithril.native-declarations/type)
+(doseq [[k v] [["optional" true] ["datatype" {"op" "keyword" "name" "any"}] ["typo" true]]]
+  (refused (assoc member k v) :mithril.native-declarations/shape))
+(def paths {"cordis.index" "./cordis.mjs" "scope.index" "./scope.mjs"})
+(def absent (replace-member (dissoc member "readonly")))
+(def false-flag (replace-member (assoc member "readonly" false)))
+(admit absent) (admit false-flag) (admit store)
+(ensure (= (emit/emit-module absent paths) (emit/emit-module false-flag paths)) "Absent/false readonly preserves ordinary opaque bytes")
+(ensure (str/includes? (emit/emit-module store paths) "private readonly \"duplicateError\";") "Exact original readonly opaque output")
+(def static-store (replace-member (assoc member "static" true)))
+(admit static-store)
+(ensure (str/includes? (emit/emit-module static-store paths) "private static readonly \"duplicateError\";") "Static opaque readonly modifier order")
+(println "Opaque readonly admission: 11 exact-code flag/visibility/key/extra-field refusals; original named-private restriction and absent/false bytes preserved.")
+(def dir (fs/mkdtempSync (str (os/tmpdir) "/mithril-scope-sdk-")))
+(def config (str dir "/offline.edn"))
+(fs/writeFileSync config (str "{:paths [" (js/JSON.stringify (fs/realpathSync "src")) "]}"))
+(defn run [args]
+  (let [r (child/spawnSync js/process.execPath (clj->js args) #js {:encoding "utf8" :timeout 240000 :maxBuffer 4194304})]
+    (ensure (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r)) (.-stdout r)))
+(try
+  (doseq [target ["js" "js-browser"]]
+    (let [output (str dir "/" target) typed (str output "-types")]
+      (fs/writeFileSync (str output ".log")
+        (run [engine "--config" config "-cp" "src" "bin/mithril-native-esm.cljk"
+              "examples/native-js-scope-program-esm.mith" "--target" target "--output-directory" output]))
+      (doseq [[file bytes] (:files artifact)] (ensure (= bytes (fs/readFileSync (str output "/" file) "utf8")) "Exact Scope SDK runtime CLI bytes"))
+      (fs/writeFileSync (str typed ".log")
+        (run [engine "--config" config "-cp" "src" "bin/mithril-native-declaration-program.cljk"
+              "examples/native-js-scope-program.mith" "--target" target "--output-directory" typed]))
+      (doseq [[file bytes] (:files types)] (ensure (= bytes (fs/readFileSync (str typed "/" file) "utf8")) "Exact Scope SDK declaration CLI bytes"))
+      (run ["test/qualification/native-scope-sdk/controls/types.mjs" compiler type-roots typed])
+      (run ["test/qualification/native-scope-core/controls/runtime.mjs" output compiler])
+      (run ["test/qualification/native-scope-sdk/controls/package.mjs" compiler type-roots output typed])))
+  (println "Scope SDK: 18 own runtime/13 public declaration modules; complete original source types and runtime under both CLI labels; Node execution only.")
+  (finally (fs/rmSync dir #js {:recursive true :force true})))

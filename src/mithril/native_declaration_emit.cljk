@@ -67,7 +67,7 @@
   (str prefix
    (case kind
     "constructor" (str "constructor(" (params-text (get m "params")) ")")
-    "opaque" key
+    "opaque" (str (when (get m "readonly") "readonly ") key)
     "property" (str (when (get m "readonly") "readonly ") key (when (get m "optional") "?") ": " (emit-type (get m "datatype")))
     "getter" (str "get " key "(): " (emit-type (get m "datatype")))
     "method" (str key (when (get m "optional") "?") (generic-text (get m "type-params")) "(" (params-text (get m "params")) "): " (emit-type (get m "returns")))) ";")))
