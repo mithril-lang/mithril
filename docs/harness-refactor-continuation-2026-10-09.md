@@ -89,7 +89,7 @@ namespace imports (PR #83) and complete Loader utils/diff runtime/public types
 property compound assignment using native JavaScript reference semantics. The
 actual refusal in complete Loader tree source at `info.offset += 3` is removed.
 Four output forms and both CLI target labels have passed 1664 paired operation
-groups locally; full regressions and PR/main delivery remain in progress.
+groups. Full regressions and PR #87/current-main CI delivery are audited successful.
 See `test/qualification/native-property-compound/README.md`.
 
 The full Loader/Include source and type closure remains pending. The original
@@ -113,10 +113,21 @@ replacement resolver does not establish identical module semantics.
 
 1. Schema and native module operations, external ESM and namespace imports main
    CI are audited successfully.
-2. Finish property compound source/package/all 17 declaration regressions and
-   normal PR/main delivery, retaining exact source and CI evidence.
-3. Port the five-file Loader SCC, then Include, by complete source and public type
-   closure.
+2. Property compound is delivered in PR #87 at main
+   `640cadcd03c8706e7a50f1163c587f15fb1e1484`. Branch/main native and CodeGraph CI
+   succeeded with full logs audited: native 81 tests/409 assertions, package
+   40 exports/7 frozen artifacts and all 17 declaration stages.
+3. The complete eight-file Loader runtime is saved on `codex/loader-scc`, with
+   a 24-module own Cordis/CosmoKit closure. Both actual CLI labels pass 25 paired
+   Node groups covering real plugin lifecycle, persistence, nested Group and
+   actual Schema volatile updates. Full original eight-file declaration emission
+   has zero diagnostics with the pinned Loader options/dependencies. See
+   `test/qualification/native-loader-sdk/README.md` for reproducible controls and
+   remaining scope. This is a local checkpoint, not delivered Loader parity.
+   Next author the complete native Loader declaration graph and strict positive/
+   negative consumers; qualify extended host/isolation/injection/lifecycle paths;
+   register qualification and complete PR/current-main CI. Then port Include by
+   complete source and public type closure.
    Then port Harness API/plugin/profile/Session and verify actual browser/native/Q9.
 4. Resolve the Code owner, qualify current main, publish through the dedicated
    guarded CI owner and read back source/status/assets.

@@ -1,0 +1,40 @@
+(ns compile-loader-sdk
+  (:require [mithril.native-esm :as esm]
+            ["node:fs" :as fs] ["node:os" :as os] ["node:child_process" :as child]))
+(defn ensure [p message] (when-not p (throw (js/Error. message))))
+(def engine (.-MITHRIL_DECLARATIONS_ENGINE js/process.env))
+(def compiler (.-MITHRIL_DECLARATIONS_TYPESCRIPT js/process.env))
+(defn run [args]
+  (let [r (child/spawnSync js/process.execPath (clj->js args)
+            #js {:encoding "utf8" :timeout 240000 :maxBuffer 4194304})]
+    (ensure (= 0 (.-status r)) (str (.-stdout r) (.-stderr r)))
+    (print (.-stdout r)) (.-stdout r)))
+(defn artifact [file]
+  (let [text (fs/readFileSync (str "examples/" file) "utf8")
+        sources (into {} (map #(vector % (fs/readFileSync (str "examples/" %) "utf8"))
+                             (esm/source-basenames text)))]
+    (esm/compile-text text sources)))
+(def loader (artifact "native-js-loader-esm.mith"))
+(def schema (artifact "native-js-schemastery-esm.mith"))
+(ensure (= 24 (count (:module-files loader))) "Complete Loader runtime module closure")
+(ensure (= #{"Entry" "EntryGroup" "EntryTree" "GlobalRealm" "Group" "Loader"
+             "LocalRealm" "ModuleLoader" "Realm" "default" "evaluate" "interpolate" "isJsExpr"}
+           (set (:exports loader))) "Complete Loader public runtime surface")
+(def dir (fs/mkdtempSync (str (os/tmpdir) "/mithril-loader-sdk-")))
+(def config (str dir "/offline.edn"))
+(fs/writeFileSync config (str "{:paths [" (js/JSON.stringify (fs/realpathSync "src")) "]}"))
+(try
+  (doseq [target ["js" "js-browser"]]
+    (let [sdk (str dir "/" target) own-schema (str sdk "-schema")]
+      (doseq [[source output expected]
+              [["native-js-loader-esm.mith" sdk loader]
+               ["native-js-schemastery-esm.mith" own-schema schema]]]
+        (fs/writeFileSync (str output ".log")
+          (run [engine "--config" config "-cp" "src" "bin/mithril-native-esm.cljk"
+                (str "examples/" source) "--target" target "--output-directory" output]))
+        (doseq [[file bytes] (:files expected)]
+          (ensure (= bytes (fs/readFileSync (str output "/" file) "utf8"))
+                  "Complete runtime CLI bytes")))
+      (run ["test/qualification/native-loader-sdk/controls/runtime.mjs" sdk own-schema compiler])))
+  (println "Loader SDK runtime checkpoint: 25 paired groups per CLI label; public declaration qualification and extended host lifecycle remain pending.")
+  (finally (fs/rmSync dir #js {:recursive true :force true})))
