@@ -14,15 +14,16 @@
     ;; Reject nonlocal/duplicate leaf reads before touching source files. Complete
     ;; collection, graph, link and capability admission follows before emission.
     (when-not (and (map? doc)
-                   (= (set (keys doc)) (cond-> #{"@context" "@type" "name" "imports" "modules" "reexports"} (contains? doc "entry-exports") (conj "entry-exports") (contains? doc "externals") (conj "externals")))
-                   (= "NativeJsEsmPackage" (get doc "@type"))
-                   (= "https://mithril.fund/context/native-js-esm-package/v1" (get doc "@context"))
+                   (= (set (keys doc)) (cond-> #{"@context" "@type" "name" "imports" "modules" "reexports"} (contains? doc "entry-exports") (conj "entry-exports") (contains? doc "externals") (conj "externals") (package/entry-package? doc) (conj "subpath-roots")))
+                   (contains? #{"NativeJsEsmPackage" "NativeJsEsmEntryPackage"} (get doc "@type"))
+                   (= (if (package/entry-package? doc) "https://mithril.fund/context/native-js-esm-package/v2" "https://mithril.fund/context/native-js-esm-package/v1") (get doc "@context"))
                    (vector? decls) (<= 1 (count decls) 64)
                    (every? #(and (map? %) (= (set (keys %)) #{"name" "source" "dependencies" "links"})
                                  (string? (get % "source"))
                                  (re-matches #"[A-Za-z0-9][A-Za-z0-9_-]*\.mith" (get % "source"))) decls))
       (throw (ex-info "Invalid bounded local ESM source read plan" {:mithril/error :mithril.native-esm/source})))
     (package/check-entry-exports doc)
+    (package/check-subpath-roots doc)
     (package/check-externals doc)
     (let [names (mapv #(get % "source") decls)]
       (when-not (= (count names) (count (set names)))
@@ -42,7 +43,7 @@
                                                           "export" (get % "export")) (:links m))
                                     deps (mapv #(if (contains? (:external-modules checked) %) (filename %) (str "./" (filename %))) (:dependencies m))]
                                 [(filename name) (:source (native/compile-esm-document (:document m) links deps (mapv :specifier (vals (:external-modules checked)))))])) names))]
-    (cond-> {:format :mithril.native-esm/artifact-v1 :runtime :native-js :profile :native-esm
+    (cond-> {:format (if (:subpath-roots checked) :mithril.native-esm/artifact-v2 :mithril.native-esm/artifact-v1) :runtime :native-js :profile :native-esm
      :module (:name checked) :required-imports (:imports checked)
      :exports (mapv :name (:exports checked)) :entry "index.mjs"
      :module-files (into {} (map #(vector % (filename %)) names))
@@ -51,6 +52,7 @@
                                           (apply str (map #(str "export * from \"./" (filename %) "\";\n") roots))
                                           (apply str (map #(str "export {" (get % "import") " as " (get % "export") "} from \"./"
                                                                   (filename (get % "module")) "\";\n") (:entry-exports checked)))))}
+      (:subpath-roots checked) (assoc :subpath-files (into {} (map #(vector % (filename %)) (:subpath-roots checked))))
       (seq (:external-modules checked)) (assoc :external-modules (into {} (map (fn [[n e]] [n (:specifier e)]) (:external-modules checked))))
       (seq ambient) (assoc :required-ambient-imports (vec (filter ambient (:imports checked)))))))
 (defn compile-document [doc sources] (emit (check-document doc sources) (get doc "reexports")))

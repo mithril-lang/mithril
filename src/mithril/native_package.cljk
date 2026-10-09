@@ -71,7 +71,7 @@
 (defn export-origin
  "Binding identity from a checked native ESM graph, following named aliases."
  [runtime module-name public-name]
- (when-not (and (= :mithril.native-esm/checked-v1 (:format runtime))
+ (when-not (and (contains? #{:mithril.native-esm/checked-v1 :mithril.native-esm/checked-v2} (:format runtime))
                 (some #{public-name} (:exports (get-in runtime [:modules module-name]))))
   (fail! :mithril.native-package/link "Unknown checked ESM export origin"))
  (binding-origin (:modules runtime) module-name public-name #{}))
@@ -98,17 +98,25 @@
           (if (and (contains? admitted (:name e)) (not (contains? seen (:name e))))
             (recur (next todo) (conj seen (:name e)) (conj result e))
             (recur (next todo) seen result)) result)))))
+(defn entry-package? [doc] (= "NativeJsEsmEntryPackage" (get doc "@type")))
+(defn check-subpath-roots [doc]
+ (when (entry-package? doc)
+  (let [roots (get doc "subpath-roots")]
+   (vector! roots 64)
+   (when (empty? roots) (fail! :mithril.native-package/shape "Explicit subpath roots required"))
+   (doseq [n roots] (name! n)) (unique! roots)))
+ (get doc "subpath-roots" []))
 (defn- check-graph [doc sources esm?]
-  (shape! doc (cond-> ["@context" "@type" "name" "imports" "modules" "reexports"] (and esm? (contains? doc "entry-exports")) (conj "entry-exports") (and esm? (contains? doc "externals")) (conj "externals")))
-  (when-not (and (= (if esm? "NativeJsEsmPackage" "NativeJsPackage") (get doc "@type"))
-                (= (if esm? "https://mithril.fund/context/native-js-esm-package/v1" "https://mithril.fund/context/native-js-package/v1") (get doc "@context")))
+  (shape! doc (cond-> ["@context" "@type" "name" "imports" "modules" "reexports"] (and esm? (contains? doc "entry-exports")) (conj "entry-exports") (and esm? (contains? doc "externals")) (conj "externals") (and esm? (entry-package? doc)) (conj "subpath-roots")))
+  (when-not (and (= (if esm? (if (entry-package? doc) "NativeJsEsmEntryPackage" "NativeJsEsmPackage") "NativeJsPackage") (get doc "@type"))
+                (= (if esm? (if (entry-package? doc) "https://mithril.fund/context/native-js-esm-package/v2" "https://mithril.fund/context/native-js-esm-package/v1") "https://mithril.fund/context/native-js-package/v1") (get doc "@context")))
     (fail! :mithril.native-package/context "Expected native package context"))
   (name! (get doc "name"))
   (let [decls (get doc "modules") host (get doc "imports") roots (get doc "reexports") explicit (get doc "entry-exports" [])
-        externals (if esm? (check-externals doc) [])]
+        externals (if esm? (check-externals doc) []) subpaths (if esm? (check-subpath-roots doc) [])]
     (vector! decls 64) (vector! host 128) (vector! roots 64)
     (check-entry-exports doc)
-    (when (or (empty? decls) (and (empty? roots) (empty? explicit))) (fail! :mithril.native-package/shape "Empty package"))
+    (when (or (empty? decls) (and (empty? roots) (empty? explicit) (empty? subpaths))) (fail! :mithril.native-package/shape "Empty package"))
     (doseq [s host] (identifier! s)) (unique! host) (unique! roots)
     (doseq [m decls]
       (shape! m (if esm? ["name" "source" "dependencies" "links"] ["name" "source" "links"]))
@@ -164,7 +172,7 @@
                     (do (swap! states assoc n :visiting)
                         (doseq [dependency (if esm? (:dependencies (get modules n)) (map #(get % "module") (:links (get modules n))))] (visit dependency))
                         (swap! states assoc n :done) (swap! order conj n))))]
-          (doseq [n (concat roots (map #(get % "module") explicit))] (visit n)))
+          (doseq [n (concat roots (map #(get % "module") explicit) subpaths)] (visit n)))
         (when-not (= (set @order) (set (keys modules)))
           (fail! :mithril.native-package/link "Unreachable package module"))
         (let [exports (if esm? (esm-public-exports modules roots explicit)
@@ -172,11 +180,12 @@
           (vector! exports 128)
           (when-not (= (count exports) (count (set (map :name exports))))
             (fail! :mithril.native-package/ambiguous "Ambiguous star reexports"))
-          (when (some #(contains? external-modules %) (concat roots (map #(get % "module") explicit)))
+          (when (some #(contains? external-modules %) (concat roots (map #(get % "module") explicit) subpaths))
            (fail! :mithril.native-package/link "Entry roots must be Mithril source modules"))
-          (cond-> {:format (if esm? :mithril.native-esm/checked-v1 :mithril.native-package/checked-v1) :name (get doc "name") :imports host
+          (cond-> {:format (if esm? (if (entry-package? doc) :mithril.native-esm/checked-v2 :mithril.native-esm/checked-v1) :mithril.native-package/checked-v1) :name (get doc "name") :imports host
            :modules modules :order @order :exports exports}
            (contains? doc "entry-exports") (assoc :entry-exports explicit)
+           (entry-package? doc) (assoc :subpath-roots subpaths)
            (seq externals) (assoc :external-modules external-modules)))))))
 (defn check-document [doc sources] (check-graph doc sources false))
 (defn check-esm-document

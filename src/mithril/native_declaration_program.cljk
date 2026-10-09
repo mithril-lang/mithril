@@ -23,7 +23,7 @@
    {:document doc :runtime-source (get doc "runtime-source") :sources sources})))
 (defn compile-text [text sources runtime]
  (let [{:keys [document] names :sources} (read-plan text)]
-  (when-not (and (= :mithril.native-esm/checked-v1 (:format runtime)) (= (get document "name") (:name runtime)))
+  (when-not (and (contains? #{:mithril.native-esm/checked-v1 :mithril.native-esm/checked-v2} (:format runtime)) (= (get document "name") (:name runtime)))
    (fail! :mithril.native-declarations/runtime "Matching checked native ESM runtime required"))
   (when-not (and (map? sources) (= (set names) (set (keys sources))) (every? string? (vals sources)) (<= (reduce + (map count (vals sources))) 1048576))
    (fail! :mithril.native-declarations/source "Exact bounded declaration source set required"))

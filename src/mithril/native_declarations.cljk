@@ -553,7 +553,7 @@
 (defn- namespace-value? [d]
  (some #(or (contains? #{"function" "const" "let" "class"} (get % "kind")) (and (= "namespace" (get % "kind")) (namespace-value? %))) (get d "declarations")))
 (defn- mutable-runtime-export! [runtime module-name public-name]
- (when-not (= :mithril.native-esm/checked-v1 (:format runtime))
+ (when-not (contains? #{:mithril.native-esm/checked-v1 :mithril.native-esm/checked-v2} (:format runtime))
   (fail! :mithril.native-declarations/surface "Mutable module exports require native ESM live bindings"))
  (let [[owner kind target] (package/export-origin runtime module-name public-name)
        declarations (get-in runtime [:modules owner :checked (case kind :binding :bindings :function :functions nil)])
@@ -615,7 +615,7 @@
  (when (contains? doc "umd-namespace") (identifier! (get doc "umd-namespace")))
  (runtime-only-shape! doc)
  (qualified! (get doc "name")) (source! (get doc "runtime-source"))
- (when-not (and (contains? #{:mithril.native-package/checked-v1 :mithril.native-esm/checked-v1} (:format runtime)) (= (get doc "name") (:name runtime)))
+ (when-not (and (contains? #{:mithril.native-package/checked-v1 :mithril.native-esm/checked-v1 :mithril.native-esm/checked-v2} (:format runtime)) (= (get doc "name") (:name runtime)))
   (fail! :mithril.native-declarations/runtime "Matching checked runtime package required"))
  (let [ambient (get doc "ambient-types") values (get doc "ambient-values") registry (atom {:types {} :values {} :namespaces {}})]
   (vector! ambient 64) (vector! values 64)

@@ -20,11 +20,13 @@
         names (case runtime-kind
                 "NativeJsPackage" (package/source-basenames runtime-text)
                 "NativeJsEsmPackage" (esm/source-basenames runtime-text)
+                "NativeJsEsmEntryPackage" (esm/source-basenames runtime-text)
                 (throw (ex-info "Expected checked native package runtime" {:mithril/error :mithril.native-declarations/runtime})))
         sources (into {} (map #(vector % (read-local directory %)) names))
         checked-runtime (case runtime-kind
                           "NativeJsPackage" (package/check-text runtime-text sources)
-                          "NativeJsEsmPackage" (esm/check-text runtime-text sources)) result (emit/compile-text text checked-runtime)]
+                          "NativeJsEsmPackage" (esm/check-text runtime-text sources)
+                          "NativeJsEsmEntryPackage" (esm/check-text runtime-text sources)) result (emit/compile-text text checked-runtime)]
    (fs/writeFileSync output (:source result))
    (println (js/JSON.stringify (clj->js (assoc (dissoc result :source) :target target :output output)))))
   (catch :default e
