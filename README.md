@@ -2644,3 +2644,8 @@ The actual 30-module Core / 14-module LLM–Schema probe now resolves all 146 pu
 names through installed NodeNext packages, with zero strict errors and exact
 original-paired consumer diagnostics. Full original public subpaths, generated
 APIs and behavioral SDK parity remain separate qualification work.
+
+Literal dollar and Unicode runtime/declaration identifiers retain their original
+spelling and normalization distinctions. The internal global declaration registry
+cannot collide with a real `$global` namespace. See [identifier qualification](test/qualification/native-js-identifiers/README.md)
+for independent JavaScript and strict original-paired TypeScript controls.

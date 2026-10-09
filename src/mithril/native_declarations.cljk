@@ -1,6 +1,6 @@
 (ns mithril.native-declarations
  "Admission of inert native declaration AST: syntax, scope, arity, surface and budgets."
- (:require [clojure.string :as str] [mithril.form :as form] [mithril.module :as module] [mithril.native-package :as package]))
+ (:require [clojure.string :as str] [mithril.form :as form] [mithril.module :as module] [mithril.native-package :as package] [mithril.js-identifier :as identifier]))
 (def ^:private reserved #{"break" "case" "catch" "class" "const" "continue" "debugger" "default" "delete" "do" "else" "enum" "export" "extends" "false" "finally" "for" "function" "if" "import" "in" "instanceof" "let" "new" "null" "return" "super" "switch" "this" "throw" "true" "try" "var" "void" "while" "with" "yield" "await"})
 (defn- fail! [code text] (throw (ex-info text {:mithril/error code})))
 (defn- shape! [x fields]
@@ -10,7 +10,7 @@
 (defn- unique! [xs]
  (when-not (= (count xs) (count (set xs))) (fail! :mithril.native-declarations/duplicate "Duplicate declaration")))
 (defn- identifier! [s]
- (when-not (and (string? s) (<= (count s) 128) (re-matches #"[A-Za-z_][A-Za-z0-9_]*" s) (not (contains? reserved s)))
+ (when-not (and (string? s) (<= (count s) 128) (identifier/valid? s) (not (contains? reserved s)))
   (fail! :mithril.native-declarations/name "Invalid declaration identifier")) s)
 (defn- export-name! [s] (if (= "default" s) s (identifier! s)))
 (defn- runtime-only-shape! [doc]
@@ -586,7 +586,7 @@
                             (map #(hash-map :prefix prefix :source-view (block-view @registry id) :group %) groups)) sources))]
   (vector! groups 128)
   (when (seq groups)
-   (let [prefix "$global."
+   (let [prefix "#global."
          groups (mapv (fn [index {:keys [group source-view] source-prefix :prefix :as g}]
                         (assoc g :id [nil :global-block index]
                                  :declarations (mapv #(ambient-global-declaration % source-view source-prefix 0) (get group "declarations")))) (range) groups)
@@ -608,7 +608,7 @@
   (charge! budget 0)
   (let [view (block-view registry id)]
    (class-inheritance! view) (interface-inheritance! view)
-   (check-declarations! declarations #{} #{} budget view "$global." 0))))
+   (check-declarations! declarations #{} #{} budget view "#global." 0))))
 (defn check-document [doc runtime]
  (shape! doc (cond-> ["@context" "@type" "name" "runtime-source" "ambient-types" "ambient-values" "declarations"] (contains? doc "globals") (conj "globals") (contains? doc "umd-namespace") (conj "umd-namespace") (contains? doc "runtime-only-exports") (conj "runtime-only-exports")))
  (when-not (and (= "NativeJsDeclarations" (get doc "@type")) (= "https://mithril.fund/context/native-js-declarations/v1" (get doc "@context"))) (fail! :mithril.native-declarations/context "Expected declaration context"))

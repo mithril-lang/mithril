@@ -1,0 +1,6 @@
+(ns mithril.js-identifier
+ "Literal ECMAScript identifier spelling without escapes or normalization.")
+(def ^:private identifier
+ (js/RegExp. "^(?:[$_]|\\p{ID_Start})(?:[$\\u200c\\u200d]|\\p{ID_Continue})*$" "u"))
+(defn valid? [name]
+ (and (string? name) (.test identifier name)))
