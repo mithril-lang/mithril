@@ -18,7 +18,7 @@ bytes match the existing declaration-program compiler exactly. An additional
 source-backed empty subpath probe verifies that its runtime route admits a real
 side-effect import while retaining its complete type declarations.
 
-Twenty exact admission refusals cover traversal, versions, entry identities,
+Twenty-one exact admission refusals cover traversal, versions, entry identities,
 unknown/unbound/unpublished entries, duplicate owners/programs, missing/extra
 sources, foreign runtime owners, mismatched source identities and aggregate
 limits. Both CLI execution labels additionally verify exact artifact bytes,
@@ -43,7 +43,9 @@ All program, runtime-manifest and leaf sources are distinct local `.mith`
 basenames. Every runtime package is first checked by the existing native ESM
 compiler. Every declaration's explicit runtime module belongs to its own
 package. Published entry specifiers must use their owner's exact bare package
-identity or its subpaths. A complete declaration module must be supplied for
+identity or its subpaths. Multiple published specifiers may alias the same
+source document and runtime body. The first specifier is its canonical emitted
+cross-owner declaration import; repeated specifiers are refused. A complete declaration module must be supplied for
 cross-owner types; external arity metadata is refused. Versions are explicit
 source metadata, not a remote registry verification or package publication.
 One package identity has one owner/version within a composition.

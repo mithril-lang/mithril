@@ -43,7 +43,6 @@
     (when-not (or (= (get producer "package") (get entry "specifier"))
                   (str/starts-with? (get entry "specifier") (str (get producer "package") "/")))
      (fail! :mithril.native-declarations/source "Producer entry requires its exact package identity")))
-   (unique! (mapv #(get % "module") (get producer "entries")))
    (unique! (mapv #(get % "specifier") (get producer "entries"))))
   (unique! (into [(get doc "consumer-package")] (map #(get % "package") producers)))
   (let [sources (into [(get doc "consumer-program")] (map #(get % "program") producers))]
@@ -167,7 +166,9 @@
         graph (assoc (:runtime (first owners)) :modules @graph-modules :external-modules @external-modules :order (vec (keys @graph-modules)))
         checked (declarations/check-module-program docs [] graph (get-in owners [0 :plan :document "entry"]))
         artifacts (mapv #(own-artifact % checked) owners)
-        entry-by-module (into {} (map #(vector (get % "module") (get % "specifier")) entries))
+        entry-by-module (reduce (fn [paths entry]
+                                   (let [name (get entry "module")]
+                                    (if (contains? paths name) paths (assoc paths name (get entry "specifier"))))) {} entries)
         owner-by-module (into {} (mapcat (fn [owner] (map #(vector (get % "name") (:slot owner)) (:documents owner))) owners))
         files (atom {})]
    ;; Validate every producer root against its actual runtime, not the consumer's

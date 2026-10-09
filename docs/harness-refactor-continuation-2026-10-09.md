@@ -655,7 +655,7 @@ complete logs verify all 34 declaration stages and the CodeGraph/HTTP controls.
 The next compiler contract is now implemented as
 `mithril/native-js-declaration-composition` and its actual CLI. Stage 35 covers
 three separately installed packages, two chained producers, root/named/default
-binding origins, standalone producer byte identity, twenty exact refusals and
+binding origins, standalone producer byte identity, twenty-one exact refusals and
 pre-write graph/symlink/output controls under both Node execution labels.
 The complete Core/LLM probe passed actual installed NodeNext checks with 42
 declaration documents, all 146 names/92 types/66 values, zero strict diagnostics,

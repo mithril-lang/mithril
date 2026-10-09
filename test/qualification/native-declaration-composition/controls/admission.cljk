@@ -35,7 +35,7 @@
 (forward! "consumer" "consumer" "bridgeAlias" "@probe/bridge" "bridge.types")
 (def plan {"name" "consumer.package" "consumer-program" "consumer-program.mith" "consumer-package" "@probe/consumer" "consumer-version" "1.2.3"
  "consumer-entries" [{"module" "consumer.types" "specifier" "@probe/consumer"}]
- "producers" [{"package" "@probe/base" "version" "1.0.0" "program" "base-program.mith" "entries" [{"module" "base.root" "specifier" "@probe/base"}]}
+ "producers" [{"package" "@probe/base" "version" "1.0.0" "program" "base-program.mith" "entries" [{"module" "base.root" "specifier" "@probe/base"} {"module" "base.root" "specifier" "@probe/base/src/index"}]}
                {"package" "@probe/bridge" "version" "2.0.0" "program" "bridge-program.mith" "entries" [{"module" "bridge.types" "specifier" "@probe/bridge"}]}]})
 (defn compile [p s] (composition/compile-text (text 'mithril/native-js-declaration-composition p) s))
 (def artifact (compile plan @sources))
@@ -60,7 +60,9 @@
        "consumer-runtime.mith" (text 'mithril/native-js-esm-package consumer-runtime) "consumer-types.mith" (text 'mithril/native-js-declaration-module consumer-doc))
       out (compile (update-in plan ["producers" 0 "entries"] conj {"module" "empty.types" "specifier" "@probe/base/empty"}) input)]
  (ensure (= ["EmptyValue"] (:type-exports out)) "Actual empty source subpath retains type declarations")
- (ensure (= "module-1.mjs" (get-in out [:packages 1 :entries 1 :runtime])) "Actual empty module route"))
+ (ensure (= "module-1.mjs" (get-in out [:packages 1 :entries 2 :runtime])) "Actual empty module route"))
+(ensure (= (get-in artifact [:packages 1 :entries 0 :declarations]) (get-in artifact [:packages 1 :entries 1 :declarations])) "Published aliases retain one declaration body")
+(ensure (= (get-in artifact [:packages 1 :entries 0 :runtime]) (get-in artifact [:packages 1 :entries 1 :runtime])) "Published aliases retain one runtime body")
 (def refusals (atom 0))
 (defn refuse [p s code label]
  (let [actual (try (compile p s) :admitted (catch :default e (:mithril/error (ex-data e))))]
@@ -85,6 +87,7 @@
 (refuse plan (assoc @sources "consumer.mith" (apply str (repeat 4194305 " "))) :mithril.native-declarations/source "Aggregate four Mi character budget")
 (refuse plan (assoc @sources "consumer.mith" (apply str (repeat 2097153 " "))) :mithril.native-declarations/source "Aggregate runtime two Mi character budget")
 (refuse plan (assoc @sources "consumer-types.mith" (apply str (repeat 1048577 " "))) :mithril.native-declarations/source "Aggregate declaration one Mi character budget")
+(refuse (update-in plan ["producers" 0 "entries"] conj (first (get-in plan ["producers" 0 "entries"]))) @sources :mithril.native-declarations/duplicate "Repeated publication specifier")
 (def dir (.-MITHRIL_COMPOSITION_FIXTURES js/process.env))
 (when dir
  (doseq [[file bytes] @sources] (fs/writeFileSync (str dir "/" file) bytes))

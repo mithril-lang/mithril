@@ -16,13 +16,13 @@ for(const [i,p] of artifact.packages.entries()){
  for(const dependency of artifact.packages)if(dependency!==p)symlinkSync(join(output,dependency.directory),join(dir,'node_modules',dependency.package),'dir');
 }
 const dir=join(output,'consumer'),entry=join(dir,'positive.mts'),negative=join(dir,'negative.mts');
-writeFileSync(entry,'import increment,{inc} from "@probe/consumer";import original from "@probe/base";const a:number=increment(3);const same:typeof original=inc;');
+writeFileSync(entry,'import increment,{inc} from "@probe/consumer";import original from "@probe/base";import alias from "@probe/base/src/index";const identical:typeof original=alias;const a:number=increment(3);const same:typeof original=inc;');
 writeFileSync(negative,'import increment from "@probe/consumer";increment("wrong");');
 const options={strict:true,noEmit:true,skipLibCheck:false,types:[],target:ts.ScriptTarget.ES2024,module:ts.ModuleKind.NodeNext,moduleResolution:ts.ModuleResolutionKind.NodeNext};
 const program=ts.createProgram([entry,negative],options),diagnostics=ts.getPreEmitDiagnostics(program);
 assert.deepEqual(diagnostics.map(d=>[d.file?.fileName,d.code]),[[negative,2345]]);
 const a=await import(pathToFileURL(join(dir,'index.mjs'))),b=await import(pathToFileURL(join(output,'producer-0/index.mjs')));
-assert.equal(a.default,b.default);assert.equal(a.inc,b.inc);assert.equal(a.default,a.inc);
+writeFileSync(join(dir,"observe.mjs"),'import root from "@probe/base";import alias from "@probe/base/src/index";export {root,alias};');const observed=await import(pathToFileURL(join(dir,"observe.mjs")));assert.equal(observed.root,observed.alias);assert.equal(observed.alias,b.default);assert.equal(a.default,b.default);assert.equal(a.inc,b.inc);assert.equal(a.default,a.inc);
 // Independent source behavior, including coercion and non-finite results.
 function original(n){return n+1;}
 for(const value of [-4,0,3,Infinity,NaN,'3'])assert.deepEqual(a.inc(value),original(value));
