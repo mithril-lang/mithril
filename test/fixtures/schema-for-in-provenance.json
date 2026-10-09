@@ -1,0 +1,77 @@
+{
+  "format": "mithril.schema-for-in-source/v1",
+  "original": "schemastery-declarations/original-index.ts",
+  "original_sha256": "a6647b515659cf439b701fa9f9574c9c310ce3872d26a13a81e9fa4d02ba10ad",
+  "qualification_only": true,
+  "helpers": [
+    "Schema",
+    "property",
+    "isNullable"
+  ],
+  "loops": [
+    {
+      "name": "refs",
+      "start": 12771,
+      "end": 13051,
+      "line": 262,
+      "source": "for (const key in refs) {\n      const options = refs[key]!\n      options.sKey = getRef(options.sKey)\n      options.inner = getRef(options.inner)\n      options.list = options.list && options.list.map(getRef)\n      options.dict = options.dict && valueMap(options.dict, getRef)\n    }",
+      "sha256": "4548cc47597c2e3791e24031e33693311b501705456f737e85cc6f7202fe7623"
+    },
+    {
+      "name": "mergeDesc",
+      "start": 15031,
+      "end": 15285,
+      "line": 336,
+      "source": "for (const locale in messages) {\n    const value = messages[locale]\n    if (value?.$description || value?.$desc) {\n      result[locale] = value.$description || value.$desc\n    } else if (typeof value === 'string') {\n      result[locale] = value\n    }\n  }",
+      "sha256": "e31a926f748dbc62b322d121b5012c13f08856df8adee5b917a82533c05370ce"
+    },
+    {
+      "name": "simplify",
+      "start": 17823,
+      "end": 18050,
+      "line": 428,
+      "source": "for (const key in value) {\n      const schema = this.type === 'object' ? this.dict![key] : this.inner\n      const item = schema?.simplify(value[key])\n      if (this.type === 'dict' || !isNullable(item)) result[key] = item\n    }",
+      "sha256": "337719748661edb2b93a552bd8cb3887adb9a1c6b1d9e14aac48e52903aa1051"
+    },
+    {
+      "name": "bitset",
+      "start": 28074,
+      "end": 28169,
+      "line": 718,
+      "source": "for (const key in bits!) {\n      if (data & bits![key]!) {\n        keys.push(key)\n      }\n    }",
+      "sha256": "e1584305fd803047b50a22fecdb70ef6fb2750de0ff1faa742eec756101dd551"
+    },
+    {
+      "name": "dict",
+      "start": 30407,
+      "end": 30714,
+      "line": 782,
+      "source": "for (const key in data) {\n    let rKey: string\n    try {\n      rKey = Schema.resolve(key, sKey!, options)[0]\n    } catch (error) {\n      if (strict) continue\n      throw error\n    }\n    result[rKey] = property(data, key, inner!, options)\n    data[rKey] = data[key]\n    if (key !== rKey) delete data[key]\n  }",
+      "sha256": "d6b8187b8ea6296ba0337b7a2a5f7346d2ba46cf94504f4935190a68051b3035"
+    },
+    {
+      "name": "merge",
+      "start": 31118,
+      "end": 31207,
+      "line": 806,
+      "source": "for (const key in data) {\n    if (key in result) continue\n    result[key] = data[key]\n  }",
+      "sha256": "192b68f65d76c97ca14d382464c2adea087a1b4dbdac8743cef9b977bdcc1717"
+    },
+    {
+      "name": "object",
+      "start": 31399,
+      "end": 31565,
+      "line": 815,
+      "source": "for (const key in dict) {\n    const value = property(data, key, dict![key]!, options)\n    if (!isNullable(value) || key in data) {\n      result[key] = value\n    }\n  }",
+      "sha256": "6d6114c63f3e528cc27f6a790f4907ddfdc8ee79c0b8a4c3042a91e1954361db"
+    },
+    {
+      "name": "factoryBits",
+      "start": 34051,
+      "end": 34212,
+      "line": 891,
+      "source": "for (const key in args[index]) {\n              if (typeof args[index][key] !== 'number') continue\n              schema.bits[key] = args[index][key]\n            }",
+      "sha256": "aba18331309ad3baa15e4ea4b673c632ee5fe9b914968ea4b9b534816453951b"
+    }
+  ]
+}

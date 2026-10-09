@@ -2399,3 +2399,12 @@ candidate compilation:140.266s,26706 input/5261 output tokens,1 attempt/0 repair
 The fixed operator candidate passes independently; no model source is adopted or
 performance gain inferred. The [evaluation](test/qualification/native-global-declarations/system-one-evaluation.json)
 records the sealed image, exact input identity and remaining diagnostic investigation.
+
+Checked native `HostForIn` enumeration emits genuine JavaScript `for…in` with
+inherited enumerable properties, native key ordering, Proxy behavior, mutation and
+per-iteration lexical bindings. Both Node-executed CLI targets are qualified by
+36 paired mechanics groups and 18 observation groups covering all eight exact
+original Schemastery loop nodes. See [enumeration qualification](test/fixtures/schema-for-in-README.md).
+The observation helpers are explicit; full Schema runtime/default value API,
+its two switch nodes and dynamic Function serialization remain pending. This
+operator-authored prerequisite makes no new System One inference or gain claim.
