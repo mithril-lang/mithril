@@ -122,6 +122,7 @@
    (apply str (map #(emit-declaration % true) (get doc "declarations")))
    (emit-globals (get doc "globals"))
    (emit-umd (get doc "umd-namespace"))
+   (apply str (map #(str "export {" (get % "local") " as " (get % "export") "};\n") (get doc "namespace-exports")))
    (apply str (map #(str "export " (when (get % "type-only") "type ") "{" (get % "local") " as " (get % "export") "};\n") (get doc "local-exports")))
    (apply str (map (fn [g]
                     (str "declare module " (quote-value (get paths (get g "module"))) " {\n"

@@ -1,0 +1,6 @@
+(mithril/native-js-declaration-module :name "yaml.public" :runtime nil
+:ambient-types [] :ambient-values [] :declarations []
+:imports [(rdf/node :module "yaml.api" :type-only false :names [(rdf/node :import "*" :local "yamlApi")])]
+:reexports [(rdf/node :module "yaml.api" :type-only false :names nil)]
+:namespace-exports [(rdf/node :local "yamlApi" :export "default" :runtime-export "default")]
+:runtime-only-exports ["safeDump" "safeLoad" "safeLoadAll" "types"])

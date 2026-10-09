@@ -2614,3 +2614,10 @@ disjoint typed values and valid typed binding origins. The
 [runtime-only qualification](test/qualification/native-runtime-only-declarations/README.md)
 includes all 18 original YAML source declarations and strict named API consumers;
 the complete default namespace facade remains pending.
+
+Checked declaration modules support `namespace-exports` with explicit native
+runtime binding origins. This preserves default namespace type/value members and
+canonical class owners. The
+[exported namespace qualification](test/qualification/native-exported-namespace/README.md)
+ports the original YAML public ESM type wrapper and resolves Include to own native
+YAML declarations, with original-paired strict consumers and actual package checks.
