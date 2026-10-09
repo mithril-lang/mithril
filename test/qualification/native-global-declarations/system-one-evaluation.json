@@ -1,0 +1,43 @@
+{
+  "format": "mithril.system-one-global-emitter-evaluation/v1",
+  "input_sha256": "acf778845c963da2a514808fea09aea64d77ccb0ac6a0293329fa71660f8b656",
+  "image": "sha256:c920144ff49365e062899fbca364dc471d55779c66d907c2d269fe1fa763bf89",
+  "model_receipt": {
+    "format": "mithril.code-refactor-failure/v1",
+    "input_sha256": "acf778845c963da2a514808fea09aea64d77ccb0ac6a0293329fa71660f8b656",
+    "model": "qwen/qwen3.8-27b",
+    "rejection_reason": "invalid_refactor_edits",
+    "completion_id": "chatcmpl-ea230788-d0e3-40a9-93cb-00ee136cbea6",
+    "usage": {
+      "prompt_tokens": 26706,
+      "completion_tokens": 5261
+    },
+    "attempts": 1,
+    "wall_seconds": 140.266,
+    "api_cost_usd": null,
+    "verified": false
+  },
+  "independent_model_checks_reached": false,
+  "model_source_adopted": false,
+  "operator_candidate_verified": true,
+  "operator_verification_receipt": "operator-verification-v2.json",
+  "operator_verification_wall_seconds": 336.812327208,
+  "repairs": 0,
+  "new_provider_requests": 1,
+  "actual_failure_reason_detail_available": false,
+  "coding_gain_measured": false,
+  "whole_harness_equivalence": false,
+  "investigation": [
+    "invalid_refactor_edits identifies edit admission, not a compiler failure; no detailed cause or raw proposal was returned",
+    "selected emitter exceeds the 8 KiB full-content hint threshold; compare a separately sealed complete-file output strategy with unchanged checks",
+    "read-only checker contributes most input; evaluate an explicit bounded checker API contract without changing frozen repository seed/held-out checks",
+    "retain known failure, same-ID replay and no automatic restart boundaries"
+  ],
+  "authenticated_same_id_replay": {
+    "same_input_sha256": true,
+    "same_completion_id": true,
+    "identical_receipt": true,
+    "new_inference": false,
+    "screenshot": "failure-replay.jpg"
+  }
+}
