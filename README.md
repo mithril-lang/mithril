@@ -1,5 +1,7 @@
 # Mithril
 
+- [Mithril Harness / System One implementation and continuation map](docs/harness-refactor-map-2026-10-10.md)
+
 ## Dataset specification and developer Quickstart
 
 Mithril Dataset 0.1 is an experimental open specification with finite model

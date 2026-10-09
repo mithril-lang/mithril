@@ -1,0 +1,188 @@
+--- a/src/mithril/native_declarations.cljk
++++ b/src/mithril/native_declarations.cljk
+@@ -793,12 +793,18 @@
+                     (fail! :mithril.native-declarations/link "Program exports use explicit checked reexport groups")) doc) modules)
+        targets (augmentation-targets documents)
+        augmentations (vec (mapcat (fn [[index doc]]
+-                                    (for [g (get doc "augmentations") d (get g "declarations")
++                                    (for [g (get doc "augmentations")
++                                          :let [peers (into {} (for [peer (get g "declarations")
++                                                                    :let [origins (get-in targets [(get g "module") (get peer "name")])
++                                                                          _ (when (> (count origins) 1) (fail! :mithril.native-declarations/link "Ambiguous augmentation export"))
++                                                                          [owner local] (or (first origins) [(get g "module") (get peer "name")])]]
++                                                                [(get peer "name") {:owner owner :local local}]))]
++                                          d (get g "declarations")
+                                           :let [origins (get-in targets [(get g "module") (get d "name")])
+                                                 _ (when (> (count origins) 1) (fail! :mithril.native-declarations/link "Ambiguous augmentation export"))
+                                                 [owner local] (or (first origins) [(get g "module") (get d "name")])]]
+                                      (assoc g "module" owner "declarations" [(with-meta d (assoc (meta d) ::registration-name local))]
+-                                              :source-index index))) (map-indexed vector documents)))
++                                              :source-index index :peer-bindings peers))) (map-indexed vector documents)))
+        wrappers (into (mapv (fn [index doc] {"kind" "namespace" "name" (str "D" index) "exported" true "declarations" (get doc "declarations")}) (range) documents)
+                   (map (fn [g] {"kind" "namespace" "name" (str/replace (get prefixes (get g "module")) #"\.$" "") "exported" true "declarations" (get g "declarations")}) augmentations))]
+   (register! wrappers "" registry -1)
+@@ -935,21 +941,21 @@
+     (let [source-index (:source-index g) source-prefix (get prefixes (nth names source-index))
+           target-prefix (get prefixes (get g "module")) id [nil "" (+ (count documents) offset)]
+           source-view (block-view @registry [nil "" source-index])
+-          declared (set (map registration-name (get g "declarations")))]
+-     ;; A renamed reexport augments the same original declaration. Its spelling
+-     ;; stays lexical to this block; neither emitted AST nor class owner changes.
+-     (doseq [d (get g "declarations")
+-             :let [local (registration-name d) name (get d "name")]
+-             :when (not= local name)
++          declared (set (keys (:peer-bindings g)))]
++     ;; All declarations in the original augmentation block share one lexical
++     ;; interface scope, even when reexports resolve their owners differently.
++     ;; Alias each peer to its actual target owner; do not rewrite source AST.
++     (doseq [[name {:keys [owner local]}] (:peer-bindings g)
++             :let [prefix (get prefixes owner)]
+              space [:types :values :namespaces]
+-             :let [metadata (get-in @registry [space (str target-prefix local)])]
++             :let [metadata (get-in @registry [space (str prefix local)])]
+              :when metadata]
+       (swap! registry assoc-in [:blocks id space (str target-prefix name)]
+-             (assoc metadata :canonical (str target-prefix local) :access-scope target-prefix :lexical true)))
++             (assoc metadata :canonical (str prefix local) :access-scope target-prefix :lexical true)))
+      (doseq [space [:types :values :namespaces] [n metadata] (get source-view space)
+              :when (str/starts-with? n source-prefix)]
+       (let [suffix (subs n (count source-prefix)) root (first (str/split suffix #"\."))]
+-       (when-not (and (contains? declared root) (get-in @registry [space (str target-prefix root)]))
++       (when-not (and (contains? declared root) (get-in @registry [:blocks id space (str target-prefix root)]))
+         (swap! registry assoc-in [:blocks id space (str target-prefix suffix)]
+                (assoc metadata :canonical (or (:canonical metadata) n) :access-scope target-prefix :lexical true)))))))
+    (swap! registry assoc :module-tables @tables)
+--- a/src/mithril/form.cljk
++++ b/src/mithril/form.cljk
+@@ -45,6 +45,7 @@
+    'mithril/native-js-declaration-module "NativeJsDeclarationModule"
+    'mithril/native-js-declaration-program "NativeJsDeclarationProgram"
+    'mithril/native-js-declaration-composition "NativeJsDeclarationComposition"
++   'mithril/native-js-declaration-host-composition "NativeJsDeclarationHostComposition"
+    'mithril/language "LanguageKernel"
+    'mithril/codegraph "CodeGraphApplication"})
+ 
+@@ -519,6 +520,8 @@
+                                 "https://mithril.fund/context/native-js-declaration-program/v1"
+                                 (= tag 'mithril/native-js-declaration-composition)
+                                 "https://mithril.fund/context/native-js-declaration-composition/v1"
++                                (= tag 'mithril/native-js-declaration-host-composition)
++                                "https://mithril.fund/context/native-js-declaration-composition/v2"
+                                 :else "https://mithril.fund/context/v1")
+                   "@type" (get top-level-tags tag))
+ 
+--- a/src/mithril/native_declaration_composition.cljk
++++ b/src/mithril/native_declaration_composition.cljk
+@@ -21,12 +21,40 @@
+ (defn- version! [value]
+  (when-not (and (string? value) (<= (count value) 64) (re-matches #"[0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9][A-Za-z0-9.-]*)?" value))
+   (fail! :mithril.native-declarations/source "Expected bounded package version")))
++(defn- host-composition? [doc] (= "NativeJsDeclarationHostComposition" (get doc "@type")))
++(defn- host-plan [doc]
++ (if-not (host-composition? doc) []
++  (let [hosts (get doc "runtime-hosts")]
++   (bounded! hosts 8)
++   (when (empty? hosts) (fail! :mithril.native-declarations/link "Explicit runtime host contracts required"))
++   (doseq [host hosts]
++    (shape! host ["package" "version" "integrity" "entries"])
++    (package! (get host "package")) (version! (get host "version"))
++    (when-not (and (string? (get host "integrity")) (re-matches #"sha512-[A-Za-z0-9+/]{85}[AQgw]==" (get host "integrity")))
++     (fail! :mithril.native-declarations/source "Exact SHA512 package integrity required"))
++    (bounded! (get host "entries") 64)
++    (when (empty? (get host "entries")) (fail! :mithril.native-declarations/link "Explicit runtime host entries required"))
++    (doseq [entry (get host "entries")]
++     (shape! entry ["module" "specifier" "exports"])
++     (when-not (and (string? (get entry "module")) (<= 1 (count (get entry "module")) 256)
++                   (re-matches #"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*" (get entry "module")))
++      (fail! :mithril.native-declarations/name "Expected runtime host module identity"))
++     (package/external-specifier! (get entry "specifier"))
++     (when-not (or (= (get host "package") (get entry "specifier")) (str/starts-with? (get entry "specifier") (str (get host "package") "/")))
++      (fail! :mithril.native-declarations/source "Runtime host entry requires its exact package identity"))
++     ;; Reuse actual native external admission for export grammar and bounds.
++     (package/check-externals {"externals" [{"name" (get entry "module") "specifier" (get entry "specifier") "exports" (get entry "exports")}]})
++     (unique! (get entry "exports"))))
++   (unique! (mapv #(get % "package") hosts))
++   (let [entries (vec (mapcat #(get % "entries") hosts))]
++    (bounded! entries 64) (unique! (mapv #(get % "module") entries)) (unique! (mapv #(get % "specifier") entries)))
++   hosts)))
+ (defn read-plan [text]
+  (module/check-source-text! text)
+  (let [doc (form/parse text) producers (get doc "producers")]
+-  (shape! doc ["@context" "@type" "name" "consumer-program" "consumer-package" "consumer-version" "consumer-entries" "producers"])
+-  (when-not (and (= "NativeJsDeclarationComposition" (get doc "@type"))
+-                (= "https://mithril.fund/context/native-js-declaration-composition/v1" (get doc "@context")))
++  (shape! doc (cond-> ["@context" "@type" "name" "consumer-program" "consumer-package" "consumer-version" "consumer-entries" "producers"] (host-composition? doc) (conj "runtime-hosts")))
++  (when-not (and (contains? #{"NativeJsDeclarationComposition" "NativeJsDeclarationHostComposition"} (get doc "@type"))
++                (= (if (host-composition? doc) "https://mithril.fund/context/native-js-declaration-composition/v2" "https://mithril.fund/context/native-js-declaration-composition/v1") (get doc "@context")))
+    (fail! :mithril.native-declarations/context "Expected declaration composition context"))
+   (basename! (get doc "consumer-program")) (package! (get doc "consumer-package")) (version! (get doc "consumer-version"))
+   (bounded! producers 8)
+@@ -44,7 +72,7 @@
+                   (str/starts-with? (get entry "specifier") (str (get producer "package") "/")))
+      (fail! :mithril.native-declarations/source "Producer entry requires its exact package identity")))
+    (unique! (mapv #(get % "specifier") (get producer "entries"))))
+-  (unique! (into [(get doc "consumer-package")] (map #(get % "package") producers)))
++  (unique! (vec (concat [(get doc "consumer-package")] (map #(get % "package") producers) (map #(get % "package") (host-plan doc)))))
+   (let [sources (into [(get doc "consumer-program")] (map #(get % "program") producers))]
+    (unique! sources) {:document doc :program-sources sources})))
+ (defn read-source-plan
+@@ -138,15 +166,33 @@
+                                           native (if root? (get package-entries (:slot owner)) (source-entry-native owner doc))]]
+                                (assoc entry :slot (:slot owner) :native native))) owners))
+        _ (unique! (mapv #(get % "specifier") entries))
++       host-contracts (host-plan document)
++       host-entries (vec (mapcat #(get % "entries") host-contracts))
++       host-by-specifier (into {} (map #(vector (get % "specifier") %) host-entries))
++       _ (when (some #(or (contains? base-modules (get % "module"))
++                         (some (fn [owner] (some (fn [d] (= (get % "module") (get d "name"))) (:documents owner))) owners)
++                         (some (fn [entry] (= (get % "specifier") (get entry "specifier"))) entries)) host-entries)
++           (fail! :mithril.native-declarations/link "Runtime host identity collides with a source owner"))
++       used-hosts (atom #{})
+        external-modules (atom {})
+        graph-modules (atom (merge base-modules entry-modules))]
+   ;; Every package external binds to an actual source-owned published entry.
+   ;; Host node: capabilities retain their already checked external contracts.
+   (doseq [owner owners [name external] (:external-modules (:runtime owner))]
+-   (if (str/starts-with? (:specifier external) "node:")
++   (cond
++    (contains? host-by-specifier (:specifier external))
++    (let [contract (get host-by-specifier (:specifier external))]
++     (when-not (and (= name (get contract "module")) (= (set (:exports external)) (set (get contract "exports"))))
++      (fail! :mithril.native-declarations/surface "Runtime host external grant must match its exact contract"))
++     (when-let [old (get @graph-modules name)]
++      (when-not (= old external) (fail! :mithril.native-declarations/link "Conflicting runtime host identity")))
++     (swap! graph-modules assoc name external) (swap! external-modules assoc name external)
++     (swap! used-hosts conj (:specifier external)))
++    (str/starts-with? (:specifier external) "node:")
+     (do (when-let [old (get @graph-modules name)]
+           (when-not (= old external) (fail! :mithril.native-declarations/link "Conflicting host external identity")))
+         (swap! graph-modules assoc name external) (swap! external-modules assoc name external))
++    :else
+     (let [matches (filter #(= (:specifier external) (get % "specifier")) entries)
+           _ (when-not (= 1 (count matches)) (fail! :mithril.native-declarations/link "Unbound actual producer package entry"))
+           entry (first matches) target (:native entry)
+@@ -159,6 +205,7 @@
+        (when-let [old (get @graph-modules name)]
+         (when-not (= old view) (fail! :mithril.native-declarations/link "Ambiguous external source owner")))
+        (swap! graph-modules assoc name view))))))
++  (when-not (= @used-hosts (set (keys host-by-specifier))) (fail! :mithril.native-declarations/link "Unused runtime host entry contract"))
+   (let [docs (vec (mapcat (fn [owner]
+                             (map (fn [doc]
+                                    (if (and (= (get doc "name") (get-in owner [:plan :document "entry"])) (nil? (get doc "runtime")))
+@@ -206,7 +253,8 @@
+              (when binding (str "export " (when (or (:type-only-value binding) (and (not (:values binding)) (not (get-in binding [:namespaces :value?])))) "type ")
+                                 "{default} from " (js/JSON.stringify (get paths (:entry artifact))) ";\n"))))))))
+    (when (or (> (count @files) 73) (> (reduce + (map count (vals @files))) 8388608)) (fail! :mithril.native-declarations/budget "Composition declaration output budget"))
+-   {:format :mithril.native-declarations/composition-artifact-v1 :module (get document "name")
++   (cond-> {:format (if (host-composition? document) :mithril.native-declarations/composition-artifact-v2 :mithril.native-declarations/composition-artifact-v1)
++    :module (get document "name")
+     :entry "consumer/index.d.mts" :exports (:exports checked) :type-exports (:type-exports checked)
+     :packages (mapv (fn [owner artifact]
+                      {:package (get-in owner [:identity "package"]) :version (get-in owner [:identity "version"])
+@@ -220,4 +268,5 @@
+                                          :declarations (get (:module-files artifact) (get e "module"))
+                                          :runtime (if root? "index.mjs" (get (:native-files artifact) native))}))
+                                      (get-in owner [:identity "entries"]))}) owners artifacts)
+-    :files @files})))
++    :files @files}
++    (host-composition? document) (assoc :runtime-hosts host-contracts)))))
