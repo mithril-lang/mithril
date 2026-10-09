@@ -31,6 +31,19 @@
   (when-not (vector? value) (fail! :mithril.native-js/shape "Expected a vector"))
   (when (> (count value) bound)
     (fail! :mithril.native-js/budget "Native JS source collection exceeds its budget")))
+(defn- template-part! [part]
+  (when-not (and (string? part) (.isWellFormed part) (not (str/includes? part "\r")))
+    (fail! :mithril.native-js/shape "Template raw parts must be well-formed LF-normalized strings"))
+  (loop [i 0]
+    (when (< i (count part))
+      (let [c (subs part i (inc i))]
+        (cond
+          (= c "\\") (if (< (inc i) (count part)) (recur (+ i 2))
+                        (fail! :mithril.native-js/shape "Template raw part ends with an incomplete escape"))
+          (or (= c "`") (and (= c "$") (< (inc i) (count part)) (= "{" (subs part (inc i) (+ i 2)))))
+          (fail! :mithril.native-js/shape "Template raw part contains an unescaped delimiter")
+          :else (recur (inc i))))))
+  part)
 (defn- name! [name]
   (when-not (and (string? name) (re-matches #"[A-Za-z_][A-Za-z0-9_]*" name))
     (fail! :mithril.native-js/name "Invalid native JS identifier"))
@@ -332,6 +345,14 @@
       (do (optional-flag! expr ["@type" "object" "key" "args"] "private")
           {:op :method :object (check (get expr "object")) :key (property-key! expr check args-length)
            :args (args! (get expr "args"))})
+      "HostTaggedTemplate"
+      (do (shape! expr ["@type" "tag" "raw" "values"])
+          (vector! (get expr "raw") 65)
+          (vector! (get expr "values") 64)
+          (when-not (= (count (get expr "raw")) (inc (count (get expr "values"))))
+            (fail! :mithril.native-js/shape "Tagged template needs one more raw part than substitutions"))
+          {:op :tagged-template :tag (check (get expr "tag"))
+           :raw (mapv template-part! (get expr "raw")) :values (mapv check (get expr "values"))})
       "HostRegExp"
       (do (shape! expr ["@type" "pattern" "flags"])
           (regexp! (get expr "pattern") (get expr "flags")))
@@ -1014,6 +1035,10 @@
       :invoke-items (str "(0," (emit (:function expr)) ")(" (str/join "," (map #(str (when (= :spread (:kind %)) "...") (emit (:value %))) (:items expr))) ")")
       :optional-invoke-items (str "(0," (emit (:function expr)) ")?.(" (str/join "," (map #(str (when (= :spread (:kind %)) "...") (emit (:value %))) (:items expr))) ")")
       :method (str "(" (emit (:object expr)) ")" (property-suffix (:key expr) emit false) "(" (args (:args expr)) ")")
+      :tagged-template (str "(" (emit (:tag expr)) ")`"
+                            (first (:raw expr))
+                            (apply str (map (fn [value part] (str "${" (emit value) "}" part))
+                                            (:values expr) (rest (:raw expr)))) "`")
       :regexp (str "(/" (:source expr) "/" (:flags expr) ")")
       :method-items (str "(" (emit (:object expr)) ")" (property-suffix (:key expr) emit false) "("
                          (str/join "," (map (fn [item]
