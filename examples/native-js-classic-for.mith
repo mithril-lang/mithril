@@ -1,0 +1,999 @@
+; Genuine classic for/local update mechanics.
+(mithril/native-js-module
+ :name "native.classicFor"
+ :imports ["mark"
+"test"
+"wait"
+"predicate"]
+ :functions []
+ :exports [(rdf/node
+   :name "updates"
+   :value (mithril/native-function
+    :name "updates"
+    :params [(rdf/node
+      :name "value"
+      :datatype "js-value")]
+    :rest nil
+    :body (mithril/let
+     :bindings [(rdf/node
+       :name "x"
+       :value (mithril/local
+        :name "value")
+       :mutable true
+       :recursive true)]
+     :body (mithril/let
+      :bindings [(rdf/node
+        :name "a"
+        :value (mithril/host-local-update
+         :name "x"
+         :operator "++"
+         :prefix false)
+        :recursive true)]
+      :body (mithril/let
+       :bindings [(rdf/node
+         :name "b"
+         :value (mithril/host-local-update
+          :name "x"
+          :operator "++"
+          :prefix true)
+         :recursive true)]
+       :body (mithril/let
+        :bindings [(rdf/node
+          :name "c"
+          :value (mithril/host-local-update
+           :name "x"
+           :operator "--"
+           :prefix false)
+          :recursive true)]
+        :body (mithril/let
+         :bindings [(rdf/node
+           :name "d"
+           :value (mithril/host-local-update
+            :name "x"
+            :operator "--"
+            :prefix true)
+           :recursive true)]
+         :body (mithril/sequence
+          :expressions [(mithril/host-return
+            :value (mithril/host-array
+             :items [(mithril/local
+               :name "a")
+(mithril/local
+               :name "b")
+(mithril/local
+               :name "c")
+(mithril/local
+               :name "d")
+(mithril/local
+               :name "x")]))
+(mithril/host-undefined)]))))))
+    :statements true))
+(rdf/node
+   :name "parameter"
+   :value (mithril/native-function
+    :name "parameter"
+    :params [(rdf/node
+      :name "value"
+      :datatype "js-value"
+      :mutable true)]
+    :rest nil
+    :body (mithril/sequence
+     :expressions [(mithril/host-return
+       :value (mithril/host-array
+        :items [(mithril/host-local-update
+          :name "value"
+          :operator "++"
+          :prefix false)
+(mithril/host-local-update
+          :name "value"
+          :operator "++"
+          :prefix true)
+(mithril/local
+          :name "value")]))
+(mithril/host-undefined)])
+    :statements true))
+(rdf/node
+   :name "collect"
+   :value (mithril/native-function
+    :name "collect"
+    :params [(rdf/node
+      :name "limit"
+      :datatype "js-value")]
+    :rest nil
+    :body (mithril/let
+     :bindings [(rdf/node
+       :name "out"
+       :value (mithril/host-array
+        :items [])
+       :recursive true)]
+     :body (mithril/sequence
+      :expressions [(mithril/host-for
+        :initializer (rdf/node
+         :bindings [(rdf/node
+           :name "i"
+           :value (mithril/literal
+            :datatype "js-value"
+            :value 0)
+           :mutable true)
+(rdf/node
+           :name "j"
+           :value (mithril/literal
+            :datatype "js-value"
+            :value 2)
+           :mutable true)])
+        :condition (mithril/host-binary
+         :operator "<"
+         :left (mithril/local
+          :name "i")
+         :right (mithril/local
+          :name "limit"))
+        :update (mithril/sequence
+         :expressions [(mithril/host-local-update
+           :name "i"
+           :operator "++"
+           :prefix false)
+(mithril/host-local-update
+           :name "j"
+           :operator "--"
+           :prefix false)])
+        :body (mithril/sequence
+         :expressions [(mithril/host-method
+           :object (mithril/local
+            :name "out")
+           :key (mithril/literal
+            :datatype "js-value"
+            :value "push")
+           :args [(mithril/host-array
+             :items [(mithril/local
+               :name "i")
+(mithril/local
+               :name "j")])])
+(mithril/host-undefined)])
+        :result (mithril/host-undefined))
+(mithril/sequence
+        :expressions [(mithril/host-return
+          :value (mithril/local
+           :name "out"))
+(mithril/host-undefined)])]))
+    :statements true))
+(rdf/node
+   :name "closures"
+   :value (mithril/native-function
+    :name "closures"
+    :params [(rdf/node
+      :name "limit"
+      :datatype "js-value")]
+    :rest nil
+    :body (mithril/let
+     :bindings [(rdf/node
+       :name "out"
+       :value (mithril/host-array
+        :items [])
+       :recursive true)]
+     :body (mithril/sequence
+      :expressions [(mithril/host-for
+        :initializer (rdf/node
+         :bindings [(rdf/node
+           :name "i"
+           :value (mithril/literal
+            :datatype "js-value"
+            :value 0)
+           :mutable true)])
+        :condition (mithril/host-binary
+         :operator "<"
+         :left (mithril/local
+          :name "i")
+         :right (mithril/local
+          :name "limit"))
+        :update (mithril/host-local-update
+         :name "i"
+         :operator "++"
+         :prefix false)
+        :body (mithril/sequence
+         :expressions [(mithril/host-method
+           :object (mithril/local
+            :name "out")
+           :key (mithril/literal
+            :datatype "js-value"
+            :value "push")
+           :args [(mithril/native-lambda
+             :params []
+             :rest nil
+             :body (mithril/local
+              :name "i"))])
+(mithril/host-undefined)])
+        :result (mithril/host-undefined))
+(mithril/sequence
+        :expressions [(mithril/host-return
+          :value (mithril/local
+           :name "out"))
+(mithril/host-undefined)])]))
+    :statements true))
+(rdf/node
+   :name "header"
+   :value (mithril/native-function
+    :name "header"
+    :params []
+    :rest nil
+    :body (mithril/let
+     :bindings [(rdf/node
+       :name "out"
+       :value (mithril/host-array
+        :items [])
+       :recursive true)]
+     :body (mithril/sequence
+      :expressions [(mithril/host-for
+        :initializer (rdf/node
+         :bindings [(rdf/node
+           :name "i"
+           :value (mithril/host-invoke
+            :function (mithril/host-import
+             :name "mark")
+            :args [(mithril/literal
+              :datatype "js-value"
+              :value "init")
+(mithril/literal
+              :datatype "js-value"
+              :value 0)])
+           :mutable true)])
+        :condition (mithril/host-invoke
+         :function (mithril/host-import
+          :name "test")
+         :args [(mithril/local
+           :name "i")])
+        :update (mithril/host-invoke
+         :function (mithril/host-import
+          :name "mark")
+         :args [(mithril/literal
+           :datatype "js-value"
+           :value "update")
+(mithril/host-local-update
+           :name "i"
+           :operator "++"
+           :prefix false)])
+        :body (mithril/sequence
+         :expressions [(mithril/host-method
+           :object (mithril/local
+            :name "out")
+           :key (mithril/literal
+            :datatype "js-value"
+            :value "push")
+           :args [(mithril/local
+             :name "i")])
+(mithril/sequence
+           :expressions [(mithril/host-invoke
+             :function (mithril/host-import
+              :name "mark")
+             :args [(mithril/literal
+               :datatype "js-value"
+               :value "body")
+(mithril/local
+               :name "i")])
+(mithril/host-undefined)])])
+        :result (mithril/host-undefined))
+(mithril/sequence
+        :expressions [(mithril/host-return
+          :value (mithril/local
+           :name "out"))
+(mithril/host-undefined)])]))
+    :statements true))
+(rdf/node
+   :name "control"
+   :value (mithril/native-function
+    :name "control"
+    :params [(rdf/node
+      :name "mode"
+      :datatype "js-value")]
+    :rest nil
+    :body (mithril/let
+     :bindings [(rdf/node
+       :name "out"
+       :value (mithril/host-array
+        :items [])
+       :recursive true)]
+     :body (mithril/sequence
+      :expressions [(mithril/host-for
+        :initializer (rdf/node
+         :bindings [(rdf/node
+           :name "i"
+           :value (mithril/literal
+            :datatype "js-value"
+            :value 0)
+           :mutable true)])
+        :condition (mithril/host-binary
+         :operator "<"
+         :left (mithril/local
+          :name "i")
+         :right (mithril/literal
+          :datatype "js-value"
+          :value 3))
+        :update (mithril/host-invoke
+         :function (mithril/host-import
+          :name "mark")
+         :args [(mithril/literal
+           :datatype "js-value"
+           :value "update")
+(mithril/host-local-update
+           :name "i"
+           :operator "++"
+           :prefix false)])
+        :body (mithril/sequence
+         :expressions [(mithril/host-try-finally
+           :body (mithril/sequence
+            :expressions [(mithril/host-method
+              :object (mithril/local
+               :name "out")
+              :key (mithril/literal
+               :datatype "js-value"
+               :value "push")
+              :args [(mithril/local
+                :name "i")])
+(mithril/sequence
+              :expressions [(mithril/if
+                :condition (mithril/host-binary
+                 :operator "==="
+                 :left (mithril/local
+                  :name "mode")
+                 :right (mithril/literal
+                  :datatype "js-value"
+                  :value "continue"))
+                :then (mithril/host-continue)
+                :else (mithril/host-undefined))
+(mithril/sequence
+                :expressions [(mithril/if
+                  :condition (mithril/host-binary
+                   :operator "==="
+                   :left (mithril/local
+                    :name "mode")
+                   :right (mithril/literal
+                    :datatype "js-value"
+                    :value "break"))
+                  :then (mithril/host-break)
+                  :else (mithril/host-undefined))
+(mithril/sequence
+                  :expressions [(mithril/if
+                    :condition (mithril/host-binary
+                     :operator "==="
+                     :left (mithril/local
+                      :name "mode")
+                     :right (mithril/literal
+                      :datatype "js-value"
+                      :value "return"))
+                    :then (mithril/host-return
+                     :value (mithril/local
+                      :name "out"))
+                    :else (mithril/host-undefined))
+(mithril/sequence
+                    :expressions [(mithril/host-throw
+                      :value (mithril/local
+                       :name "i"))
+(mithril/host-undefined)])])])])])
+           :finally (mithril/sequence
+            :expressions [(mithril/host-invoke
+              :function (mithril/host-import
+               :name "mark")
+              :args [(mithril/literal
+                :datatype "js-value"
+                :value "finally")
+(mithril/local
+                :name "i")])
+(mithril/host-undefined)]))
+(mithril/host-undefined)])
+        :result (mithril/host-undefined))
+(mithril/sequence
+        :expressions [(mithril/host-return
+          :value (mithril/local
+           :name "out"))
+(mithril/host-undefined)])]))
+    :statements true))
+(rdf/node
+   :name "external"
+   :value (mithril/native-function
+    :name "external"
+    :params []
+    :rest nil
+    :body (mithril/let
+     :bindings [(rdf/node
+       :name "i"
+       :value (mithril/literal
+        :datatype "js-value"
+        :value 0)
+       :mutable true
+       :recursive true)]
+     :body (mithril/let
+      :bindings [(rdf/node
+        :name "out"
+        :value (mithril/host-array
+         :items [])
+        :recursive true)]
+      :body (mithril/sequence
+       :expressions [(mithril/host-for
+         :initializer (rdf/node
+          :expression (mithril/host-invoke
+           :function (mithril/host-import
+            :name "mark")
+           :args [(mithril/literal
+             :datatype "js-value"
+             :value "init")]))
+         :condition (mithril/host-binary
+          :operator "<"
+          :left (mithril/local
+           :name "i")
+          :right (mithril/literal
+           :datatype "js-value"
+           :value 3))
+         :update (mithril/host-local-update
+          :name "i"
+          :operator "++"
+          :prefix false)
+         :body (mithril/sequence
+          :expressions [(mithril/host-method
+            :object (mithril/local
+             :name "out")
+            :key (mithril/literal
+             :datatype "js-value"
+             :value "push")
+            :args [(mithril/local
+              :name "i")])
+(mithril/host-undefined)])
+         :result (mithril/host-undefined))
+(mithril/sequence
+         :expressions [(mithril/host-return
+           :value (mithril/host-array
+            :items [(mithril/local
+              :name "out")
+(mithril/local
+              :name "i")]))
+(mithril/host-undefined)])])))
+    :statements true))
+(rdf/node
+   :name "missing"
+   :value (mithril/native-function
+    :name "missing"
+    :params []
+    :rest nil
+    :body (mithril/let
+     :bindings [(rdf/node
+       :name "out"
+       :value (mithril/host-array
+        :items [])
+       :recursive true)]
+     :body (mithril/sequence
+      :expressions [(mithril/host-for
+        :initializer nil
+        :condition nil
+        :update nil
+        :body (mithril/sequence
+         :expressions [(mithril/host-method
+           :object (mithril/local
+            :name "out")
+           :key (mithril/literal
+            :datatype "js-value"
+            :value "push")
+           :args [(mithril/literal
+             :datatype "js-value"
+             :value "body")])
+(mithril/sequence
+           :expressions [(mithril/host-break)
+(mithril/host-undefined)])])
+        :result (mithril/host-undefined))
+(mithril/sequence
+        :expressions [(mithril/host-return
+          :value (mithril/local
+           :name "out"))
+(mithril/host-undefined)])]))
+    :statements true))
+(rdf/node
+   :name "constant"
+   :value (mithril/native-function
+    :name "constant"
+    :params []
+    :rest nil
+    :body (mithril/let
+     :bindings [(rdf/node
+       :name "out"
+       :value (mithril/host-array
+        :items [])
+       :recursive true)]
+     :body (mithril/sequence
+      :expressions [(mithril/host-for
+        :initializer (rdf/node
+         :bindings [(rdf/node
+           :name "i"
+           :value (mithril/literal
+            :datatype "js-value"
+            :value 7))])
+        :condition (mithril/literal
+         :datatype "js-value"
+         :value true)
+        :update nil
+        :body (mithril/sequence
+         :expressions [(mithril/host-method
+           :object (mithril/local
+            :name "out")
+           :key (mithril/literal
+            :datatype "js-value"
+            :value "push")
+           :args [(mithril/native-lambda
+             :params []
+             :rest nil
+             :body (mithril/local
+              :name "i"))])
+(mithril/sequence
+           :expressions [(mithril/host-break)
+(mithril/host-undefined)])])
+        :result (mithril/host-undefined))
+(mithril/sequence
+        :expressions [(mithril/host-return
+          :value (mithril/local
+           :name "out"))
+(mithril/host-undefined)])]))
+    :statements true))
+(rdf/node
+   :name "selfTDZ"
+   :value (mithril/native-function
+    :name "selfTDZ"
+    :params []
+    :rest nil
+    :body (mithril/sequence
+     :expressions [(mithril/host-for
+       :initializer (rdf/node
+        :bindings [(rdf/node
+          :name "i"
+          :value (mithril/local
+           :name "i")
+          :mutable true)])
+       :condition (mithril/literal
+        :datatype "js-value"
+        :value false)
+       :update nil
+       :body (mithril/sequence
+        :expressions [(mithril/host-invoke
+          :function (mithril/host-import
+           :name "mark")
+          :args [(mithril/literal
+            :datatype "js-value"
+            :value "unreachable")])
+(mithril/host-undefined)])
+       :result (mithril/host-undefined))
+(mithril/host-undefined)])
+    :statements true))
+(rdf/node
+   :name "forwardTDZ"
+   :value (mithril/native-function
+    :name "forwardTDZ"
+    :params []
+    :rest nil
+    :body (mithril/sequence
+     :expressions [(mithril/host-for
+       :initializer (rdf/node
+        :bindings [(rdf/node
+          :name "i"
+          :value (mithril/local
+           :name "j")
+          :mutable true)
+(rdf/node
+          :name "j"
+          :value (mithril/literal
+           :datatype "js-value"
+           :value 1)
+          :mutable true)])
+       :condition (mithril/literal
+        :datatype "js-value"
+        :value false)
+       :update nil
+       :body (mithril/sequence
+        :expressions [(mithril/host-invoke
+          :function (mithril/host-import
+           :name "mark")
+          :args [(mithril/literal
+            :datatype "js-value"
+            :value "unreachable")])
+(mithril/host-undefined)])
+       :result (mithril/host-undefined))
+(mithril/host-undefined)])
+    :statements true))
+(rdf/node
+   :name "shadow"
+   :value (mithril/native-function
+    :name "shadow"
+    :params [(rdf/node
+      :name "value"
+      :datatype "js-value"
+      :mutable true)]
+    :rest nil
+    :body (mithril/let
+     :bindings [(rdf/node
+       :name "out"
+       :value (mithril/host-array
+        :items [])
+       :recursive true)]
+     :body (mithril/sequence
+      :expressions [(mithril/host-for
+        :initializer (rdf/node
+         :bindings [(rdf/node
+           :name "forBinding1142"
+           :value (mithril/literal
+            :datatype "js-value"
+            :value 0)
+           :mutable true)])
+        :condition (mithril/host-binary
+         :operator "<"
+         :left (mithril/local
+          :name "forBinding1142")
+         :right (mithril/literal
+          :datatype "js-value"
+          :value 2))
+        :update (mithril/host-local-update
+         :name "forBinding1142"
+         :operator "++"
+         :prefix false)
+        :body (mithril/sequence
+         :expressions [(mithril/host-method
+           :object (mithril/local
+            :name "out")
+           :key (mithril/literal
+            :datatype "js-value"
+            :value "push")
+           :args [(mithril/native-lambda
+             :params []
+             :rest nil
+             :body (mithril/local
+              :name "forBinding1142"))])
+(mithril/host-undefined)])
+        :result (mithril/host-undefined))
+(mithril/sequence
+        :expressions [(mithril/host-return
+          :value (mithril/host-array
+           :items [(mithril/local
+             :name "out")
+(mithril/local
+             :name "value")]))
+(mithril/host-undefined)])]))
+    :statements true))
+(rdf/node
+   :name "nested"
+   :value (mithril/native-function
+    :name "nested"
+    :params []
+    :rest nil
+    :body (mithril/let
+     :bindings [(rdf/node
+       :name "out"
+       :value (mithril/host-array
+        :items [])
+       :recursive true)]
+     :body (mithril/sequence
+      :expressions [(mithril/host-for
+        :initializer (rdf/node
+         :bindings [(rdf/node
+           :name "i"
+           :value (mithril/literal
+            :datatype "js-value"
+            :value 0)
+           :mutable true)])
+        :condition (mithril/host-binary
+         :operator "<"
+         :left (mithril/local
+          :name "i")
+         :right (mithril/literal
+          :datatype "js-value"
+          :value 2))
+        :update (mithril/host-local-update
+         :name "i"
+         :operator "++"
+         :prefix false)
+        :body (mithril/sequence
+         :expressions [(mithril/host-for
+           :initializer (rdf/node
+            :bindings [(rdf/node
+              :name "forBinding1269"
+              :value (mithril/literal
+               :datatype "js-value"
+               :value 0)
+              :mutable true)])
+           :condition (mithril/host-binary
+            :operator "<"
+            :left (mithril/local
+             :name "forBinding1269")
+            :right (mithril/literal
+             :datatype "js-value"
+             :value 2))
+           :update (mithril/host-local-update
+            :name "forBinding1269"
+            :operator "++"
+            :prefix false)
+           :body (mithril/sequence
+            :expressions [(mithril/host-switch
+              :value (mithril/local
+               :name "forBinding1269")
+              :clauses [(rdf/node
+                :test (mithril/literal
+                 :datatype "js-value"
+                 :value 0)
+                :statements [(rdf/node
+                  :expression (mithril/host-continue))])
+(rdf/node
+                :default true
+                :statements [(rdf/node
+                  :expression (mithril/host-method
+                   :object (mithril/local
+                    :name "out")
+                   :key (mithril/literal
+                    :datatype "js-value"
+                    :value "push")
+                   :args [(mithril/local
+                     :name "forBinding1269")]))])]
+              :result (mithril/host-undefined))
+(mithril/host-undefined)])
+           :result (mithril/host-undefined))
+(mithril/sequence
+           :expressions [(mithril/host-method
+             :object (mithril/local
+              :name "out")
+             :key (mithril/literal
+              :datatype "js-value"
+              :value "push")
+             :args [(mithril/host-binary
+               :operator "+"
+               :left (mithril/literal
+                :datatype "js-value"
+                :value "outer:")
+               :right (mithril/local
+                :name "i"))])
+(mithril/host-undefined)])])
+        :result (mithril/host-undefined))
+(mithril/sequence
+        :expressions [(mithril/host-return
+          :value (mithril/local
+           :name "out"))
+(mithril/host-undefined)])]))
+    :statements true))
+(rdf/node
+   :name "mutate"
+   :value (mithril/native-function
+    :name "mutate"
+    :params []
+    :rest nil
+    :body (mithril/let
+     :bindings [(rdf/node
+       :name "out"
+       :value (mithril/host-array
+        :items [])
+       :recursive true)]
+     :body (mithril/sequence
+      :expressions [(mithril/host-for
+        :initializer (rdf/node
+         :bindings [(rdf/node
+           :name "i"
+           :value (mithril/literal
+            :datatype "js-value"
+            :value 0)
+           :mutable true)])
+        :condition (mithril/host-binary
+         :operator "<"
+         :left (mithril/local
+          :name "i")
+         :right (mithril/literal
+          :datatype "js-value"
+          :value 3))
+        :update (mithril/host-local-update
+         :name "i"
+         :operator "++"
+         :prefix false)
+        :body (mithril/sequence
+         :expressions [(mithril/host-method
+           :object (mithril/local
+            :name "out")
+           :key (mithril/literal
+            :datatype "js-value"
+            :value "push")
+           :args [(mithril/native-lambda
+             :params []
+             :rest nil
+             :body (mithril/local
+              :name "i"))])
+(mithril/sequence
+           :expressions [(mithril/host-local-update
+             :name "i"
+             :operator "++"
+             :prefix false)
+(mithril/host-undefined)])])
+        :result (mithril/host-undefined))
+(mithril/sequence
+        :expressions [(mithril/host-return
+          :value (mithril/local
+           :name "out"))
+(mithril/host-undefined)])]))
+    :statements true))
+(rdf/node
+   :name "receiver"
+   :value (mithril/native-function
+    :name "receiver"
+    :params [(rdf/node
+      :name "limit"
+      :datatype "js-value")]
+    :rest nil
+    :body (mithril/let
+     :bindings [(rdf/node
+       :name "out"
+       :value (mithril/host-array
+        :items [])
+       :recursive true)]
+     :body (mithril/sequence
+      :expressions [(mithril/host-for
+        :initializer (rdf/node
+         :bindings [(rdf/node
+           :name "i"
+           :value (mithril/literal
+            :datatype "js-value"
+            :value 0)
+           :mutable true)])
+        :condition (mithril/host-binary
+         :operator "<"
+         :left (mithril/local
+          :name "i")
+         :right (mithril/local
+          :name "limit"))
+        :update (mithril/host-local-update
+         :name "i"
+         :operator "++"
+         :prefix false)
+        :body (mithril/sequence
+         :expressions [(mithril/host-method
+           :object (mithril/local
+            :name "out")
+           :key (mithril/literal
+            :datatype "js-value"
+            :value "push")
+           :args [(mithril/native-lambda
+             :params []
+             :rest nil
+             :body (mithril/host-array
+              :items [(mithril/local
+                :name "i")
+(mithril/host-this)]))])
+(mithril/host-undefined)])
+        :result (mithril/host-undefined))
+(mithril/sequence
+        :expressions [(mithril/host-return
+          :value (mithril/local
+           :name "out"))
+(mithril/host-undefined)])]))
+    :statements true))
+(rdf/node
+   :name "generate"
+   :value (mithril/native-function
+    :name "generate"
+    :params []
+    :rest nil
+    :body (mithril/sequence
+     :expressions [(mithril/host-for
+       :initializer (rdf/node
+        :bindings [(rdf/node
+          :name "i"
+          :value (mithril/host-yield
+           :value (mithril/literal
+            :datatype "js-value"
+            :value "init"))
+          :mutable true)])
+       :condition (mithril/host-yield
+        :value (mithril/host-array
+         :items [(mithril/literal
+           :datatype "js-value"
+           :value "test")
+(mithril/local
+           :name "i")]))
+       :update (mithril/local-set
+        :name "i"
+        :value (mithril/host-yield
+         :value (mithril/host-array
+          :items [(mithril/literal
+            :datatype "js-value"
+            :value "update")
+(mithril/local
+            :name "i")])))
+       :body (mithril/sequence
+        :expressions [(mithril/host-yield
+          :value (mithril/native-lambda
+           :params []
+           :rest nil
+           :body (mithril/local
+            :name "i")))
+(mithril/host-undefined)])
+       :result (mithril/host-undefined))
+(mithril/sequence
+       :expressions [(mithril/host-return
+         :value (mithril/literal
+          :datatype "js-value"
+          :value 42))
+(mithril/host-undefined)])])
+    :statements true
+    :generator true))
+(rdf/node
+   :name "asyncCollect"
+   :value (mithril/native-function
+    :name "asyncCollect"
+    :params [(rdf/node
+      :name "limit"
+      :datatype "js-value")]
+    :rest nil
+    :body (mithril/let
+     :bindings [(rdf/node
+       :name "out"
+       :value (mithril/host-array
+        :items [])
+       :recursive true)]
+     :body (mithril/sequence
+      :expressions [(mithril/host-for
+        :initializer (rdf/node
+         :bindings [(rdf/node
+           :name "i"
+           :value (mithril/host-await
+            :value (mithril/host-invoke
+             :function (mithril/host-import
+              :name "wait")
+             :args [(mithril/literal
+               :datatype "js-value"
+               :value 0)]))
+           :mutable true)])
+        :condition (mithril/host-await
+         :value (mithril/host-invoke
+          :function (mithril/host-import
+           :name "predicate")
+          :args [(mithril/local
+            :name "i")
+(mithril/local
+            :name "limit")]))
+        :update (mithril/local-set
+         :name "i"
+         :value (mithril/host-await
+          :value (mithril/host-invoke
+           :function (mithril/host-import
+            :name "wait")
+           :args [(mithril/host-binary
+             :operator "+"
+             :left (mithril/local
+              :name "i")
+             :right (mithril/literal
+              :datatype "js-value"
+              :value 1))])))
+        :body (mithril/sequence
+         :expressions [(mithril/host-method
+           :object (mithril/local
+            :name "out")
+           :key (mithril/literal
+            :datatype "js-value"
+            :value "push")
+           :args [(mithril/local
+             :name "i")])
+(mithril/host-undefined)])
+        :result (mithril/host-undefined))
+(mithril/sequence
+        :expressions [(mithril/host-return
+          :value (mithril/local
+           :name "out"))
+(mithril/host-undefined)])]))
+    :statements true
+    :async true))
+(rdf/node
+   :name "wrapped"
+   :value (mithril/native-function
+    :name nil
+    :params []
+    :rest nil
+    :body (mithril/host-for
+     :initializer nil
+     :condition nil
+     :update nil
+     :body (mithril/sequence
+      :expressions [(mithril/host-invoke
+        :function (mithril/host-import
+         :name "mark")
+        :args [(mithril/literal
+          :datatype "js-value"
+          :value "wrapped")])
+(mithril/host-break)])
+     :result (mithril/literal
+      :datatype "js-value"
+      :value 42))))])
