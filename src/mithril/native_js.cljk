@@ -139,7 +139,7 @@
   ;; helper. Direct source statement bodies keep their own coroutine context.
   (let [args-length (if (or (= "LocalFunction" (get expr "@type"))
                            (and (not (context? args-length :statement))
-                                (contains? #{"Let" "HostWhile" "HostDoWhile" "HostForOf" "HostForIn" "HostSwitch" "HostThrow" "HostTryCatch" "HostTryFinally"} (get expr "@type"))))
+                                (contains? #{"Let" "HostWhile" "HostDoWhile" "HostForOf" "HostForIn" "HostSwitch" "HostFor" "HostThrow" "HostTryCatch" "HostTryFinally"} (get expr "@type"))))
                       (suspension-context args-length false false) args-length)
         check #(expression! % imports functions locals (inc depth) nodes (value-context args-length))
         body-check #(expression! % imports functions locals (inc depth) nodes args-length)
@@ -390,6 +390,39 @@
            :body (expression! (get expr "body") imports functions (into locals (zipmap names (repeat false)))
                               (inc depth) nodes (loop-context args-length))
            :result (body-check (get expr "result"))}))
+      "HostFor"
+      (do (shape! expr ["@type" "initializer" "condition" "update" "body" "result"])
+          (let [init (get expr "initializer")
+                bindings (when (and (some? init) (contains? init "bindings"))
+                           (shape! init ["bindings"])
+                           (let [bs (get init "bindings")]
+                             (vector! bs 64)
+                             (when (empty? bs) (fail! :mithril.native-js/shape "Empty for declaration list"))
+                             (mapv (fn [b]
+                                     (optional-flag! b ["name" "value"] "mutable")
+                                     {:name (name! (get b "name")) :mutable (true? (get b "mutable")) :raw (get b "value")}) bs)))
+                _ (when (and (some? init) (nil? bindings)) (shape! init ["expression"]))
+                names (mapv :name bindings)
+                _ (unique! names)
+                _ (coroutine-bindings! names args-length)
+                _ (when (some #(contains? locals %) names)
+                    (fail! :mithril.native-js/duplicate "For bindings must be fresh"))
+                _ (when (> (count (set (map :mutable bindings))) 1)
+                    (fail! :mithril.native-js/shape "For declarations must share let or const kind"))
+                scope (into locals (map (juxt :name :mutable) bindings))
+                scoped #(expression! % imports functions scope (inc depth) nodes (value-context args-length))
+                context (if (context? args-length :statement)
+                          (assoc args-length :loop true)
+                          (assoc (suspension-context args-length false false)
+                                 :statement true :source-return false :loop true :switch false))]
+            {:op :for :initializer (cond
+                                    bindings {:bindings (mapv (fn [b] (-> b (dissoc :raw) (assoc :value (scoped (:raw b))))) bindings)}
+                                    (some? init) {:expression (check (get init "expression"))}
+                                    :else nil)
+             :condition (when (some? (get expr "condition")) (scoped (get expr "condition")))
+             :update (when (some? (get expr "update")) (scoped (get expr "update")))
+             :body (expression! (get expr "body") imports functions scope (inc depth) nodes context)
+             :result (body-check (get expr "result"))}))
       "HostSwitch"
       (do (shape! expr ["@type" "value" "clauses" "result"])
           (let [clauses (get expr "clauses")
@@ -558,6 +591,14 @@
                              (conj checked checked-binding))))
                 {:op :let :bindings checked
                  :body (expression! (get expr "body") imports functions env (inc depth) nodes args-length)}))))
+      "HostLocalUpdate"
+      (do (shape! expr ["@type" "name" "operator" "prefix"])
+          (let [name (name! (get expr "name"))]
+            (when-not (true? (get locals name))
+              (fail! :mithril.native-js/local "Local update requires an explicitly mutable local"))
+            (when-not (and (contains? #{"++" "--"} (get expr "operator")) (boolean? (get expr "prefix")))
+              (fail! :mithril.native-js/shape "Invalid native local update"))
+            {:op :local-update :name name :operator (get expr "operator") :prefix (get expr "prefix")}))
       "LocalSet"
       (do (shape! expr ["@type" "name" "value"])
           (let [name (name! (get expr "name"))]
@@ -801,6 +842,7 @@
                 (str "(()=>{for(const " (:source binding) (if (= :for-in (:op expr)) " in " " of ") (emit (:iterable expr)) "){"
                      (emit-expression (:body expr) imports functions body-env counter prefix args-length)
                      ";}return " (emit (:result expr)) ";})()"))
+      :for (str "(()=>{" (emit-body expr imports functions env counter prefix args-length true) "})()")
       :switch (str "(()=>{" (emit-body expr imports functions env counter prefix args-length true) "})()")
       :while (str "(()=>{while(" (emit (:condition expr)) "){"
                (emit (:body expr)) ";}return " (emit (:result expr)) ";})()")
@@ -880,6 +922,8 @@
                         (conj statements (str (if (:mutable b) "let " "const ") symbol "=" value ";"))))
                (str "(()=>{" (apply str statements) "return "
                     (emit-expression (:body expr) imports functions env counter prefix args-length) ";})()")))
+      :local-update (str "(" (when (:prefix expr) (:operator expr)) (get env (:name expr))
+                         (when-not (:prefix expr) (:operator expr)) ")")
       :local-set (str "(" (get env (:name expr)) "=" (emit (:value expr)) ")")
       :throw (str "(()=>{throw " (emit (:value expr)) ";})()")
       :try-catch (let [symbol (fresh counter prefix)
@@ -930,6 +974,18 @@
              (body (:handler expr) (assoc env (:binding expr) symbol) result?) "}"))
       :try-finally (str "try{" (body (:body expr) env result?) "}finally{"
                         (body (:finally expr) env false) "}")
+      :for
+      (let [init (:initializer expr) bindings (:bindings init)
+            scope (reduce (fn [e b] (assoc e (:name b) (fresh counter prefix))) env bindings)
+            scoped #(emit-expression % imports functions scope counter prefix context)
+            head (cond
+                   (seq bindings) (str (if (:mutable (first bindings)) "let " "const ")
+                                       (str/join "," (map #(str (get scope (:name %)) "=" (scoped (:value %))) bindings)))
+                   (:expression init) (emit (:expression init))
+                   :else "")]
+        (str "for(" head ";" (when (:condition expr) (scoped (:condition expr))) ";"
+             (when (:update expr) (scoped (:update expr))) "){" (body (:body expr) scope false) "}"
+             (body (:result expr) env result?)))
       :switch
       (let [scope (reduce (fn [e binding] (assoc e (:name binding) (fresh counter prefix))) env (:bindings expr))
             scoped #(emit-expression % imports functions scope counter prefix context)]

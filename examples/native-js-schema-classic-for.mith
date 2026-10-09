@@ -1,0 +1,79 @@
+; Exact original validateVolatileSchema list loop with explicit observation helper; not whole Schema.
+(mithril/native-js-module
+ :name "schema.classicFor"
+ :imports ["validateVolatileSchema"
+"String"]
+ :functions []
+ :exports [(rdf/node
+   :name "list"
+   :value (mithril/native-function
+    :name "list"
+    :params [(rdf/node
+      :name "schema"
+      :datatype "js-value")
+(rdf/node
+      :name "path"
+      :datatype "js-value")
+(rdf/node
+      :name "seen"
+      :datatype "js-value")]
+    :rest nil
+    :body (mithril/sequence
+     :expressions [(mithril/host-for
+       :initializer (rdf/node
+        :bindings [(rdf/node
+          :name "index"
+          :value (mithril/literal
+           :datatype "js-value"
+           :value 0)
+          :mutable true)])
+       :condition (mithril/host-binary
+        :operator "<"
+        :left (mithril/local
+         :name "index")
+        :right (mithril/host-get
+         :object (mithril/host-get
+          :object (mithril/local
+           :name "schema")
+          :key (mithril/literal
+           :datatype "js-value"
+           :value "list"))
+         :key (mithril/literal
+          :datatype "js-value"
+          :value "length")))
+       :update (mithril/host-local-update
+        :name "index"
+        :operator "++"
+        :prefix false)
+       :body (mithril/sequence
+        :expressions [(mithril/host-invoke
+          :function (mithril/host-import
+           :name "validateVolatileSchema")
+          :args [(mithril/host-get
+            :object (mithril/host-get
+             :object (mithril/local
+              :name "schema")
+             :key (mithril/literal
+              :datatype "js-value"
+              :value "list"))
+            :key (mithril/local
+             :name "index"))
+(mithril/host-array-items
+            :items [(rdf/node
+              :spread (mithril/local
+               :name "path"))
+(rdf/node
+              :value (mithril/host-invoke
+               :function (mithril/host-import
+                :name "String")
+               :args [(mithril/local
+                 :name "index")]))])
+(mithril/literal
+            :datatype "js-value"
+            :value true)
+(mithril/local
+            :name "seen")])
+(mithril/host-undefined)])
+       :result (mithril/host-undefined))
+(mithril/host-undefined)])
+    :statements true))])

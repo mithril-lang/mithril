@@ -2417,3 +2417,12 @@ actual CLI targets under Node and both exact original Schemastery switches. See
 helpers are observations, not the complete runtime or real default value API;
 serialization/Function reconstruction and full Harness/browser/native/Q9 remain
 subsequent work. No new System One request or performance-gain claim in this stage.
+
+Checked `HostFor` and `HostLocalUpdate` now preserve genuine classic for lexical
+iteration/TDZ and native mutable-local prefix/postfix ToNumeric updates. Both actual
+CLI targets under Node pass42 paired mechanics groups and18 observation groups for
+the exact original Schemastery list-validation loop at line505. See [classic for
+qualification](test/fixtures/schema-classic-for-README.md). The validateVolatileSchema
+helper is explicit; full Schema/volatile validation/serialization/default value
+API and Harness/browser/native/Q9 remain subsequent work. No new System One
+inference/adoption or performance gain is claimed by this operator-authored stage.
