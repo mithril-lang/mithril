@@ -1,5 +1,20 @@
 # Mithril
 
+## Dataset specification and developer Quickstart
+
+Mithril Dataset 0.1 is an experimental open specification with finite model
+compression, Zstd/gzip, exact RDF-term reconstruction and Arrow/Parquet interchange.
+
+- [Published specification site](https://mithril-lang.github.io/mithril/dataset/)
+- [Versioned specification and conformance vectors](spec/README.md)
+- [Python Quickstart](docs/dataset/quickstart.md)
+- [Implementation status and roadmap](spec/implementation-status.md)
+- [Release announcement](docs/dataset/announcement.md)
+
+The Python SDK installs from source and requires Node.js. A stable binary format,
+S3 partial reads and Iceberg catalog integration are proposed, not released.
+
+
 The name is a metaphor: mithril is the imagined metal, used here for a source
 surface whose graph semantics stay inspectable through compilation. It does
 not name Tolkien's work or imply compatibility with another Mithril project.

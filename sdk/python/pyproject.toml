@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=77,<83"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mithril-dataset"
+version = "0.1.0"
+description = "Experimental Mithril Dataset reference profile with Arrow and Parquet interchange"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+classifiers = ["Development Status :: 3 - Alpha", "Programming Language :: Python :: 3"]
+
+[project.optional-dependencies]
+arrow = ["pyarrow>=18,<26"]
+test = ["pyarrow==25.0.1", "duckdb==1.4.1"]
+
+[project.scripts]
+mithril-dataset = "mithril_dataset:main"
+
+[tool.setuptools.package-data]
+mithril_dataset = ["*.cjs"]
+
+[tool.setuptools.packages.find]
+include = ["mithril_dataset*"]
