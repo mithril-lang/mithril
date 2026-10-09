@@ -1,0 +1,33 @@
+(ns compile-scope-core
+  (:require [mithril.native-esm :as esm]
+            ["node:fs" :as fs] ["node:os" :as os] ["node:child_process" :as child]))
+(defn ensure [p message] (when-not p (throw (js/Error. message))))
+(def engine (.-MITHRIL_DECLARATIONS_ENGINE js/process.env))
+(def compiler (.-MITHRIL_DECLARATIONS_TYPESCRIPT js/process.env))
+(def text (fs/readFileSync "examples/native-js-scope-esm.mith" "utf8"))
+(def sources (into {} (map #(vector % (fs/readFileSync (str "examples/" %) "utf8"))
+                          (esm/source-basenames text))))
+(def artifact (esm/compile-text text sources))
+(ensure (= 16 (count (:module-files artifact))) "Complete own Scope and reachable Cordis runtime closure")
+(ensure (= #{"bindScopeParent" "scopeParentOf" "scopeChainOf" "createScope" "scopeOf"
+             "scopeTarget" "isScopeCarrier" "carrierKeyOf" "AnonymousEntries" "NamedEntries" "ScopedLayers"}
+           (set (:exports artifact))) "Exact pinned Scope runtime exports")
+(def dir (fs/mkdtempSync (str (os/tmpdir) "/mithril-scope-core-")))
+(def config (str dir "/offline.edn"))
+(fs/writeFileSync config (str "{:paths [" (js/JSON.stringify (fs/realpathSync "src")) "]}"))
+(defn run [args]
+  (let [r (child/spawnSync js/process.execPath (clj->js args)
+                          #js {:encoding "utf8" :timeout 240000 :maxBuffer 4194304})]
+    (ensure (= 0 (.-status r)) (str (.-stdout r) (.-stderr r)))
+    (print (.-stdout r)) (.-stdout r)))
+(try
+  (doseq [target ["js" "js-browser"]]
+    (let [output (str dir "/" target)
+          log (run [engine "--config" config "-cp" "src" "bin/mithril-native-esm.cljk"
+                    "examples/native-js-scope-esm.mith" "--target" target "--output-directory" output])]
+      (fs/writeFileSync (str output ".log") log)
+      (doseq [[file bytes] (:files artifact)]
+        (ensure (= bytes (fs/readFileSync (str output "/" file) "utf8")) "Actual Scope CLI artifact bytes"))
+      (run ["test/qualification/native-scope-core/controls/runtime.mjs" output compiler])))
+  (println "Scope core: complete two-file source cycle and 16 own runtime modules; both CLI labels under Node. Public declaration parity and browser execution remain unqualified.")
+  (finally (fs/rmSync dir #js {:recursive true :force true})))

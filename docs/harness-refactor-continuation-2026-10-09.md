@@ -267,14 +267,16 @@ replacement resolver does not establish identical module semantics.
    API consumers. The source-derived view preserves 10 named typed values and
    15 actual runtime exports. It is not yet the complete default import facade.
    PR #96 passed all 23 stages on its exact head and merged to
-   `46556d1829176e97f115db507ffd0c4cec8f55ad`; main CI remains pending.
+   `46556d1829176e97f115db507ffd0c4cec8f55ad`; main CI passed both workflows and all 23 stages, fully audited.
    The native exported namespace now preserves the complete original public ESM
    default alias and conditional UMD globals. Local controls pass 13 positive/11
    negative strict default consumers, 20 exact admission refusals, all 304 paired
    YAML groups and all 32 Include groups per label. Include uses own native YAML
    declarations in both paired consumers and real NodeNext package resolution,
-   preserving canonical Context/Loader owners. Full regression/CI delivery remain
-   pending. Other package modes and actual browser/native/Q9 remain unqualified.
+   preserving canonical Context/Loader owners. PR #97 passed all 24 stages on exact head
+   `f870f445bebd75c82f9197356909ea5a58bfe169` and merged to
+   `19ca70b5e0fc98b685877f0139246bc30a6f22e5`; current-main CI remains pending.
+   Other package modes and actual browser/native/Q9 remain unqualified.
    Preserve the four original mutable schema declarations and do not invent
    typed safe-load functions or an object-only default facade.
    Evidence: `yaml-source-audit.json`, `yaml-source-frontier.json`,
@@ -320,3 +322,30 @@ Historical real trial: `chatcmpl-ea230788-d0e3-40a9-93cb-00ee136cbea6`,
 gain. Do not infer its missing cause or retry an unknown historical outcome.
 New trials require a separate sealed contract and real receipts; include repairs
 in measurement and distinguish source/CI/publication/live/installed evidence.
+
+## Core Scope continuation (2026-10-10 JST)
+
+The previous local reference contained only root/vendor sources. The complete
+non-truncated Git tree at the same pinned upstream commit is now recorded in
+`original-harness-complete-tree.json` outside the repository. Core Scope's two
+source files, both upstream test files, package manifest and license have
+independently verified original Git blob identities. Its only runtime dependency
+is Cordis (a workspace peer), so it is the next core prerequisite.
+
+`native-js-scope-esm.mith` contains the genuine two-module Scope cycle plus the
+14 reachable, already qualified Cordis/CosmoKit modules. Both actual CLI labels
+pass 21 unchanged upstream runtime test groups against the independent original
+source oracle and match the full public function/class descriptor shape. No
+compiler change or budget increase was needed. Portable stage 25 preserves
+fixture hashes, source hashes and the original license.
+
+Next qualify complete original Scope public declarations and strict consumers,
+including its opaque unique-symbol brand, parameter-property visibility,
+generics and Cordis disposer/context identities. Runtime tests deliberately
+exclude upstream type assertions. Then traverse the verified core dependency
+graph toward Session/Agent/tools and the boot/plugin/profile graph. Runtime
+qualification alone does not complete any package's public API parity.
+
+Current-main CI for PR #97 and the new complete stage-25 regression are separate
+delivery gates. The core source port is operator authored; the Code owner and
+real System One model trials remain the independent gates described above.
