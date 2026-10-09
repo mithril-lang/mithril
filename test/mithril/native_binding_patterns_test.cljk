@@ -1,0 +1,57 @@
+(ns mithril.native-binding-patterns-test
+ (:require [cljs.test :refer [deftest is]] [mithril.native-js :as native] [mithril.form :as form]
+           [mithril.native-class-test :as c]
+           ["node:fs" :as fs] ["node:os" :as os] ["node:path" :as path] ["node:child_process" :as child]))
+(def px {"array" ["x"]})
+(defn bind [pattern] {"@type" "HostBindingLet" "bindings" [{"pattern" pattern "value" c/undef}] "body" c/undef})
+(defn fnx [pattern] (assoc (c/normal c/undef) "params" [{"pattern" pattern "datatype" "js-value"}]))
+(defn refused? [v] (try (native/check-document (c/document v [])) false (catch :default _ true)))
+(deftest checked-pattern-shapes-budgets-and-source-context
+ (let [bad-patterns [nil [] 3 {} {"source" "[x]"} {"array" '("x")} {"array" ["x" "x"]}
+                     {"array" ["x"] "extra" true} {"array" ["x"] "rest" {"binding" "y" "default" c/undef}}
+                     {"object" [{"key" (c/lit "a") "pattern" "x" "source" "raw"}]}
+                     {"object" [] "rest" px} {"object" [{"key" c/undef "pattern" "x" "computed" false}]}
+                     {"object" [{"key" (c/lit "a") "pattern" "x" "computed" "yes"}]}
+                     {"binding" "x"} {"array" (mapv #(str "x" %) (range 65))}
+                     (reduce (fn [p _] {"array" [p]}) "x" (range 66))
+                     {"array" (vec (repeat 64 {"array" (vec (repeat 64 {"array" []}))}))}]
+       invalid (concat (map bind bad-patterns) (map fnx bad-patterns)
+                       [(bind {"binding" "x" "default" c/undef})
+                        (assoc (bind px) "bindings" [{"pattern" px "value" c/undef "mutable" "yes"}])
+                        (assoc (bind px) "bindings" [{"pattern" px "value" c/undef} {"pattern" "x" "value" c/undef}])
+                        (assoc (bind px) "body" {"@type" "LocalSet" "name" "x" "value" c/undef})
+                        (assoc (bind px) "body" (c/local "missing"))
+                        (fnx {"array" [{"binding" "x" "default" (c/local "missing")}]})
+                        (assoc (fnx {"binding" "x" "default" c/undef}) "params" [{"pattern" {"binding" "x" "default" c/undef} "datatype" "js-value" "default" c/undef}])
+                        (assoc (fnx px) "async" true "params" [{"pattern" {"array" [{"binding" "x" "default" {"@type" "HostAwait" "value" c/undef}}]} "datatype" "js-value"}])
+                        (assoc (fnx px) "generator" true "params" [{"pattern" {"array" ["yield"]} "datatype" "js-value"}])
+                        (assoc (c/arrow c/undef) "async" true "params" [{"pattern" {"array" ["await"]}}])
+                        (assoc (c/normal (assoc (bind px) "body" {"@type" "HostYield" "value" c/undef})) "generator" true)
+                        (assoc (bind px) "body" {"@type" "HostReturn" "value" c/undef})
+                        (assoc (fnx px) "statements" true "body" (assoc (bind px) "body" {"@type" "HostBreak"}))
+                        (assoc (fnx px) "params" [{"pattern" px "name" "extra" "datatype" "js-value"}])
+                        {"@type" "Sequence" "expressions" (vec (repeat 1024 (bind {"array" []})))}])
+       text (fs/readFileSync "examples/native-js-binding-patterns.mith" "utf8")]
+  (is (every? refused? invalid))
+  (is (not (refused? (bind {"array" [nil {"binding" "x" "default" c/undef}] "rest" "tail"}))))
+  (is (not (refused? (fnx {"object" [{"key" (c/lit "x") "pattern" "x"}]}))))
+  (is (= (native/compile-text text) (native/compile-document (form/parse text))))
+  (is (not (refused? (assoc (fnx px) "statements" true "generator" true "body" (assoc (bind {"array" [{"binding" "y" "default" {"@type" "HostYield" "value" c/undef}}]}) "body" (c/local "y"))))))
+  (is (= "HostBindingLet" (get (form/parse "(mithril/host-binding-let :bindings [] :body (mithril/host-undefined))") "@type")))))
+(deftest actual-binding-pattern-cli-targets
+ (let [dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-binding-patterns-"))]
+  (try
+   (let [engine (.-MITHRIL_NATIVE_ENGINE js/process.env) config (path/join dir "offline.edn")]
+    (fs/writeFileSync config "{:paths [\"src\"]}\n")
+    (doseq [target ["js" "js-browser"]
+            [source output] [["native-js-binding-patterns.mith" "binding-patterns"] ["native-js-schema-binding-patterns.mith" "schema-binding-patterns"] ["native-js-binding-patterns-esm.mith" "binding-patterns-esm"]]]
+     (let [r (child/spawnSync js/process.execPath
+              (clj->js [engine "--config" config "-cp" "src" (if (= output "binding-patterns-esm") "bin/mithril-native-esm.cljk" "bin/mithril-native-js.cljk") (str "examples/" source) "--target" target (if (= output "binding-patterns-esm") "--output-directory" "--output") (path/join dir (str output "-" target (when-not (= output "binding-patterns-esm") ".mjs")))])
+              #js {:encoding "utf8" :timeout 30000})]
+      (when-not (= 0 (.-status r)) (throw (js/Error. (str (.-stdout r) (.-stderr r))))))))
+   (doseq [contract ["native-binding-patterns-contract.mjs" "schema-binding-patterns-contract.mjs"]]
+   (let [r (child/spawnSync js/process.execPath (clj->js [(str "test/fixtures/" contract) dir]) #js {:encoding "utf8" :timeout 30000})]
+    (is (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r))))
+   (let [r (child/spawnSync js/process.execPath (clj->js ["test/fixtures/native-binding-patterns-contract.mjs" dir "--native-esm"]) #js {:encoding "utf8" :timeout 30000})]
+    (is (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r)))
+   (finally (fs/rmSync dir #js {:recursive true :force true})))))
