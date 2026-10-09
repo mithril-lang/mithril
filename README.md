@@ -2601,3 +2601,9 @@ rerun the command to refresh the exported snapshot. See the
 for contracts, APIs and validation; the
 [remaining work map](docs/design/codegraph-remaining-map.md) records the Amu
 host boundary and delivery/expansion gates.
+
+Native declaration documents and program modules accept optional `umd-namespace`
+metadata, emitting TypeScript `export as namespace` with its conditional
+`allowUmdGlobalAccess` behavior. This creates no runtime global. See
+[UMD qualification](test/qualification/native-umd-declarations/README.md) for
+strict original-paired consumers and the remaining YAML type boundaries.
