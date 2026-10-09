@@ -1,0 +1,118 @@
+(mithril/native-js-declaration-module :name "protocol.remote_error"
+:runtime "protocol.remote_error"
+:ambient-types [(rdf/node :name "Error"
+:min 0
+:max 0)
+(rdf/node :name "ErrorOptions"
+:min 0
+:max 0)]
+:ambient-values ["Error"
+"Symbol.dispose"]
+:imports [(rdf/node :module "protocol.types"
+:type-only true
+:names [(rdf/node :import "RemoteErrorCode"
+:local "RemoteErrorCode")])
+(rdf/node :module "protocol.types"
+:type-only true
+:names [(rdf/node :import "RemoteErrorDetailsMap"
+:local "RemoteErrorDetailsMap")])
+(rdf/node :module "protocol.types"
+:type-only true
+:names [(rdf/node :import "RemoteFailure"
+:local "RemoteFailure")])]
+:declarations [(rdf/node :kind "class"
+:name "RemoteError"
+:exported true
+:abstract false
+:type-params [(rdf/node :name "Code"
+:constraint (rdf/node :op "name"
+:name "RemoteErrorCode"
+:args [])
+:default (rdf/node :op "name"
+:name "RemoteErrorCode"
+:args [])
+:variance nil)]
+:extends (rdf/node :op "name"
+:name "Error"
+:args [])
+:implements []
+:members [(rdf/node :kind "property"
+:key (rdf/node :kind "name"
+:name "code")
+:visibility "public"
+:static false
+:readonly true
+:optional false
+:datatype (rdf/node :op "name"
+:name "Code"
+:args []))
+(rdf/node :kind "property"
+:key (rdf/node :kind "name"
+:name "details")
+:visibility "public"
+:static false
+:readonly true
+:optional false
+:datatype (rdf/node :op "index"
+:object (rdf/node :op "name"
+:name "RemoteErrorDetailsMap"
+:args [])
+:key (rdf/node :op "name"
+:name "Code"
+:args [])))
+(rdf/node :kind "property"
+:key (rdf/node :kind "name"
+:name "isDSHRemoteError")
+:visibility "public"
+:static false
+:readonly true
+:optional false
+:datatype (rdf/node :op "literal"
+:value true))
+(rdf/node :kind "constructor"
+:visibility "public"
+:params [(rdf/node :name "code"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "Code"
+:args []))
+(rdf/node :name "message"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :name "details"
+:optional false
+:rest false
+:datatype (rdf/node :op "index"
+:object (rdf/node :op "name"
+:name "RemoteErrorDetailsMap"
+:args [])
+:key (rdf/node :op "name"
+:name "Code"
+:args [])))
+(rdf/node :name "options"
+:optional true
+:rest false
+:datatype (rdf/node :op "name"
+:name "ErrorOptions"
+:args []))])])
+(rdf/node :kind "function"
+:name "remoteErrorOf"
+:exported true
+:type-params []
+:params [(rdf/node :name "value"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "unknown"))]
+:returns (rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "RemoteFailure"
+:args [])
+(rdf/node :op "keyword"
+:name "undefined")]))]
+:reexports []
+:augmentations []
+:local-exports [])

@@ -1,0 +1,77 @@
+(mithril/native-js-module :name "protocol.owned_value"
+:ambient_imports ["Symbol"]
+:imports ["Symbol"]
+:functions [(mithril/function :name "typertOwnedValue"
+:params [(rdf/node :name "value"
+:datatype "js-value")
+(rdf/node :name "release"
+:datatype "js-value")]
+:returns "js-value"
+:body (mithril/host-binding-let :bindings [(rdf/node :pattern "active"
+:value (mithril/literal :datatype "js-value"
+:value true)
+:mutable true)]
+:body (mithril/sequence :expressions [(mithril/host-return :value (mithril/host-object :entries [(rdf/node :key (mithril/local :name "TYPERT_OWNED_VALUE")
+:value (mithril/literal :datatype "js-value"
+:value true))
+(rdf/node :key (mithril/literal :datatype "js-value"
+:value "value")
+:value (mithril/local :name "value"))
+(rdf/node :kind "method"
+:key (mithril/host-get :object (mithril/host-import :name "Symbol")
+:key (mithril/literal :datatype "js-value"
+:value "dispose"))
+:params []
+:rest nil
+:body (mithril/sequence :expressions [(mithril/if :condition (mithril/host-unary :operator "!"
+:value (mithril/local :name "active"))
+:then (mithril/host-return :value (mithril/host-undefined ))
+:else (mithril/host-undefined ))
+(mithril/sequence :expressions [(mithril/local-set :name "active"
+:value (mithril/literal :datatype "js-value"
+:value false))
+(mithril/sequence :expressions [(mithril/host-invoke :function (mithril/local :name "release")
+:args [])
+(mithril/host-undefined )])])])
+:statements true)]))
+(mithril/host-undefined )]))
+:statements true)
+(mithril/function :name "isTypertOwnedValue"
+:params [(rdf/node :name "value"
+:datatype "js-value")]
+:returns "js-value"
+:body (mithril/sequence :expressions [(mithril/host-return :value (mithril/host-logical :operator "&&"
+:left (mithril/host-logical :operator "&&"
+:left (mithril/host-logical :operator "&&"
+:left (mithril/host-binary :operator "==="
+:left (mithril/host-unary :operator "typeof"
+:value (mithril/local :name "value"))
+:right (mithril/literal :datatype "js-value"
+:value "object"))
+:right (mithril/host-binary :operator "!=="
+:left (mithril/local :name "value")
+:right (mithril/literal :datatype "js-value"
+:value nil)))
+:right (mithril/host-binary :operator "in"
+:left (mithril/local :name "TYPERT_OWNED_VALUE")
+:right (mithril/local :name "value")))
+:right (mithril/host-binary :operator "==="
+:left (mithril/host-get :object (mithril/local :name "value")
+:key (mithril/local :name "TYPERT_OWNED_VALUE"))
+:right (mithril/literal :datatype "js-value"
+:value true))))
+(mithril/host-undefined )])
+:statements true)]
+:bindings [(rdf/node :name "TYPERT_OWNED_VALUE"
+:value (mithril/host-method :object (mithril/host-import :name "Symbol")
+:key (mithril/literal :datatype "js-value"
+:value "for")
+:args [(mithril/literal :datatype "js-value"
+:value "dsh.typert.owned-value")]))]
+:exports [(rdf/node :name "TYPERT_OWNED_VALUE"
+:value (mithril/local :name "TYPERT_OWNED_VALUE"))
+(rdf/node :name "typertOwnedValue"
+:function "typertOwnedValue")
+(rdf/node :name "isTypertOwnedValue"
+:function "isTypertOwnedValue")]
+:lexical_bindings true)
