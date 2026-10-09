@@ -79,7 +79,8 @@
  (case (get m "kind")
   "private-brand" (shape! m ["kind"])
   "constructor" (shape! m ["kind" "visibility" "params"])
-  "property" (shape! m ["kind" "key" "visibility" "static" "readonly" "optional" "datatype"])
+  "property" (shape! m (cond-> ["kind" "key" "visibility" "static" "readonly" "optional" "datatype"]
+                           (contains? m "abstract") (conj "abstract")))
   "opaque" (do (shape! m (cond-> ["kind" "key" "visibility" "static"]
                            (contains? m "readonly") (conj "readonly")))
     (when-not (and (= "private" (get m "visibility")) (= "name" (get-in m ["key" "kind"])))
@@ -495,6 +496,9 @@
     (when (= "computed" (get-in m ["key" "kind"]))
      (when-not (value-known? registry scope menv values (get-in m ["key" "name"]))
       (fail! :mithril.native-declarations/scope "Unknown computed class member value")))
+    (when (and (= kind "property") (get m "abstract")
+               (or (not (get d "abstract")) (get m "static") (= "private" (get m "visibility"))))
+     (fail! :mithril.native-declarations/type "Abstract property requires abstract instance class and non-private visibility"))
     (case kind
      ("opaque" "private-brand") nil
      "property" (check-type! (get m "datatype") menv values (if (and (get m "static") (get m "readonly") (not (get m "optional"))) :unique :normal) (+ depth 2) budget registry scope nil)

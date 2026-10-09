@@ -1,0 +1,76 @@
+(mithril/native-js-declaration-module :name "attachment.admission"
+:runtime "attachment.admission"
+:ambient-types [(rdf/node :name "Promise"
+:min 1
+:max 1)]
+:ambient-values ["Error"
+"Symbol.dispose"]
+:imports [(rdf/node :module "attachment.index"
+:type-only true
+:names [(rdf/node :import "AttachmentStore"
+:local "AttachmentStore")])
+(rdf/node :module "attachment.types"
+:type-only true
+:names [(rdf/node :import "EncodedFileAttachment"
+:local "EncodedFileAttachment")])
+(rdf/node :module "attachment.types"
+:type-only true
+:names [(rdf/node :import "EncodedImageAttachment"
+:local "EncodedImageAttachment")])
+(rdf/node :module "attachment.types"
+:type-only true
+:names [(rdf/node :import "FileAttachmentRef"
+:local "FileAttachmentRef")])
+(rdf/node :module "attachment.types"
+:type-only true
+:names [(rdf/node :import "ImageAttachmentRef"
+:local "ImageAttachmentRef")])]
+:declarations [(rdf/node :kind "function"
+:name "admitEncodedImages"
+:exported true
+:type-params []
+:params [(rdf/node :name "attachments"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "AttachmentStore"
+:args []))
+(rdf/node :name "images"
+:optional false
+:rest false
+:datatype (rdf/node :op "readonly"
+:datatype (rdf/node :op "array"
+:item (rdf/node :op "name"
+:name "EncodedImageAttachment"
+:args []))))]
+:returns (rdf/node :op "name"
+:name "Promise"
+:args [(rdf/node :op "readonly"
+:datatype (rdf/node :op "array"
+:item (rdf/node :op "name"
+:name "ImageAttachmentRef"
+:args [])))]))
+(rdf/node :kind "function"
+:name "admitEncodedFile"
+:exported true
+:type-params []
+:params [(rdf/node :name "attachments"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "AttachmentStore"
+:args []))
+(rdf/node :name "file"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "EncodedFileAttachment"
+:args []))]
+:returns (rdf/node :op "name"
+:name "Promise"
+:args [(rdf/node :op "name"
+:name "FileAttachmentRef"
+:args [])]))]
+:reexports []
+:augmentations []
+:local-exports [])

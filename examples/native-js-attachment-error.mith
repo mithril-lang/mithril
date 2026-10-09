@@ -1,0 +1,141 @@
+(mithril/native-js-module :name "attachment.error"
+:ambient_imports ["Set"
+"Error"]
+:imports ["Set"
+"Error"]
+:functions [(mithril/function :name "isAttachmentError"
+:params [(rdf/node :name "error"
+:datatype "js-value")]
+:returns "js-value"
+:body (mithril/sequence :expressions [(mithril/host-return :value (mithril/host-logical :operator "&&"
+:left (mithril/host-logical :operator "&&"
+:left (mithril/host-logical :operator "&&"
+:left (mithril/host-binary :operator "instanceof"
+:left (mithril/local :name "error")
+:right (mithril/host-import :name "Error"))
+:right (mithril/host-binary :operator "in"
+:left (mithril/literal :datatype "js-value"
+:value "code")
+:right (mithril/local :name "error")))
+:right (mithril/host-binary :operator "==="
+:left (mithril/host-unary :operator "typeof"
+:value (mithril/host-get :object (mithril/local :name "error")
+:key (mithril/literal :datatype "js-value"
+:value "code")))
+:right (mithril/literal :datatype "js-value"
+:value "string")))
+:right (mithril/host-method :object (mithril/local :name "ATTACHMENT_ERROR_CODE_SET")
+:key (mithril/literal :datatype "js-value"
+:value "has")
+:args [(mithril/host-get :object (mithril/local :name "error")
+:key (mithril/literal :datatype "js-value"
+:value "code"))])))
+(mithril/host-undefined )])
+:statements true)
+(mithril/function :name "isImageAdmissionError"
+:params [(rdf/node :name "error"
+:datatype "js-value")]
+:returns "js-value"
+:body (mithril/sequence :expressions [(mithril/host-return :value (mithril/host-logical :operator "&&"
+:left (mithril/host-logical :operator "&&"
+:left (mithril/host-logical :operator "&&"
+:left (mithril/host-binary :operator "instanceof"
+:left (mithril/local :name "error")
+:right (mithril/host-import :name "Error"))
+:right (mithril/host-binary :operator "in"
+:left (mithril/literal :datatype "js-value"
+:value "code")
+:right (mithril/local :name "error")))
+:right (mithril/host-binary :operator "==="
+:left (mithril/host-unary :operator "typeof"
+:value (mithril/host-get :object (mithril/local :name "error")
+:key (mithril/literal :datatype "js-value"
+:value "code")))
+:right (mithril/literal :datatype "js-value"
+:value "string")))
+:right (mithril/host-method :object (mithril/local :name "IMAGE_ADMISSION_ERROR_CODE_SET")
+:key (mithril/literal :datatype "js-value"
+:value "has")
+:args [(mithril/host-get :object (mithril/local :name "error")
+:key (mithril/literal :datatype "js-value"
+:value "code"))])))
+(mithril/host-undefined )])
+:statements true)]
+:bindings [(rdf/node :name "IMAGE_ADMISSION_ERROR_CODES"
+:value (mithril/host-array :items [(mithril/literal :datatype "js-value"
+:value "TOO_MANY_IMAGES")
+(mithril/literal :datatype "js-value"
+:value "IMAGES_TOO_LARGE")
+(mithril/literal :datatype "js-value"
+:value "UNSUPPORTED_IMAGE_TYPE")
+(mithril/literal :datatype "js-value"
+:value "INVALID_IMAGE_BASE64")
+(mithril/literal :datatype "js-value"
+:value "INVALID_IMAGE")
+(mithril/literal :datatype "js-value"
+:value "IMAGE_TYPE_MISMATCH")
+(mithril/literal :datatype "js-value"
+:value "IMAGE_TOO_LARGE")
+(mithril/literal :datatype "js-value"
+:value "IMAGE_TOO_MANY_PIXELS")
+(mithril/literal :datatype "js-value"
+:value "IMAGE_DIMENSION_TOO_LARGE")]))
+(rdf/node :name "ATTACHMENT_ERROR_CODES"
+:value (mithril/host-array-items :items [(rdf/node :spread (mithril/local :name "IMAGE_ADMISSION_ERROR_CODES"))
+(rdf/node :value (mithril/literal :datatype "js-value"
+:value "INVALID_FILE_BASE64"))
+(rdf/node :value (mithril/literal :datatype "js-value"
+:value "INVALID_ATTACHMENT_REF"))
+(rdf/node :value (mithril/literal :datatype "js-value"
+:value "ATTACHMENT_CORRUPT"))
+(rdf/node :value (mithril/literal :datatype "js-value"
+:value "ATTACHMENT_WRITE_FAILED"))
+(rdf/node :value (mithril/literal :datatype "js-value"
+:value "ATTACHMENT_NOT_FOUND"))
+(rdf/node :value (mithril/literal :datatype "js-value"
+:value "ATTACHMENT_READ_FAILED"))
+(rdf/node :value (mithril/literal :datatype "js-value"
+:value "ATTACHMENT_PROJECTION_UNSUPPORTED"))
+(rdf/node :value (mithril/literal :datatype "js-value"
+:value "ATTACHMENT_FILES_UNSUPPORTED"))]))
+(rdf/node :name "IMAGE_ADMISSION_ERROR_CODE_SET"
+:value (mithril/host-construct :constructor (mithril/host-import :name "Set")
+:args [(mithril/local :name "IMAGE_ADMISSION_ERROR_CODES")]))
+(rdf/node :name "ATTACHMENT_ERROR_CODE_SET"
+:value (mithril/host-construct :constructor (mithril/host-import :name "Set")
+:args [(mithril/local :name "ATTACHMENT_ERROR_CODES")]))
+(rdf/node :name "AttachmentError"
+:value (mithril/native-class :name "AttachmentError"
+:extends (mithril/host-import :name "Error")
+:constructor (rdf/node :params [(rdf/node :name "message"
+:datatype "js-value")
+(rdf/node :name "code"
+:datatype "js-value")
+(rdf/node :name "options"
+:datatype "js-value")]
+:rest nil
+:body (mithril/sequence :expressions [(mithril/host-super-call :items [(rdf/node :value (mithril/local :name "message"))
+(rdf/node :value (mithril/local :name "options"))])
+(mithril/sequence :expressions [(mithril/host-set :object (mithril/host-this )
+:key (mithril/literal :datatype "js-value"
+:value "name")
+:value (mithril/literal :datatype "js-value"
+:value "AttachmentError"))
+(mithril/sequence :expressions [(mithril/host-set :object (mithril/host-this )
+:key (mithril/literal :datatype "js-value"
+:value "code")
+:value (mithril/local :name "code"))
+(mithril/host-undefined )])])])
+:statements true)
+:members [(rdf/node :kind "field"
+:static false
+:key (mithril/literal :datatype "js-value"
+:value "code")
+:value (mithril/host-undefined ))]))]
+:exports [(rdf/node :name "AttachmentError"
+:value (mithril/local :name "AttachmentError"))
+(rdf/node :name "isAttachmentError"
+:function "isAttachmentError")
+(rdf/node :name "isImageAdmissionError"
+:function "isImageAdmissionError")]
+:lexical_bindings true)
