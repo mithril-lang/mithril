@@ -26,6 +26,7 @@ try{
   ['native-schema-sdk','compile.cljk'],
   ['native-esm-externals','compile.cljk'],
   ['native-esm-namespaces','compile.cljk'],
+  ['native-loader-leaves','compile.cljk'],
  ];
  for(const [name,control] of stages){
   console.log(`Declaration qualification stage: ${name}`);

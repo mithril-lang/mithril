@@ -1,0 +1,158 @@
+(mithril/native-js-module
+:name "loader.utils"
+:ambient_imports ["Function"
+"Array"
+"Object"]
+:imports ["valueMap"
+"Function"
+"Array"
+"Object"]
+:functions [(mithril/function
+:name "interpolate"
+:params [(rdf/node
+:name "ctx"
+:datatype "js-value")
+(rdf/node
+:name "value"
+:datatype "js-value")]
+:returns "js-value"
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-invoke
+:function (mithril/function-ref
+:name "isJsExpr")
+:args [(mithril/local
+:name "value")])
+:then (mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/host-invoke
+:function (mithril/local
+:name "evaluate")
+:args [(mithril/local
+:name "ctx")
+(mithril/host-get
+:object (mithril/local
+:name "value")
+:key (mithril/literal
+:datatype "js-value"
+:value "__jsExpr"))]))
+(mithril/host-undefined)])
+:else (mithril/if
+:condition (mithril/host-logical
+:operator "||"
+:left (mithril/host-unary
+:operator "!"
+:value (mithril/local
+:name "value"))
+:right (mithril/host-binary
+:operator "!=="
+:left (mithril/host-unary
+:operator "typeof"
+:value (mithril/local
+:name "value"))
+:right (mithril/literal
+:datatype "js-value"
+:value "object")))
+:then (mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/local
+:name "value"))
+(mithril/host-undefined)])
+:else (mithril/if
+:condition (mithril/host-method
+:object (mithril/host-import
+:name "Array")
+:key (mithril/literal
+:datatype "js-value"
+:value "isArray")
+:args [(mithril/local
+:name "value")])
+:then (mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/host-method
+:object (mithril/local
+:name "value")
+:key (mithril/literal
+:datatype "js-value"
+:value "map")
+:args [(mithril/native-lambda
+:params ["item"]
+:rest nil
+:body (mithril/host-invoke
+:function (mithril/function-ref
+:name "interpolate")
+:args [(mithril/local
+:name "ctx")
+(mithril/local
+:name "item")]))]))
+(mithril/host-undefined)])
+:else (mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "valueMap")
+:args [(mithril/local
+:name "value")
+(mithril/native-lambda
+:params ["item"]
+:rest nil
+:body (mithril/host-invoke
+:function (mithril/function-ref
+:name "interpolate")
+:args [(mithril/local
+:name "ctx")
+(mithril/local
+:name "item")]))]))
+(mithril/host-undefined)]))))
+(mithril/host-undefined)])
+:statements true)
+(mithril/function
+:name "isJsExpr"
+:params [(rdf/node
+:name "value"
+:datatype "js-value")]
+:returns "js-value"
+:body (mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/host-logical
+:operator "&&"
+:left (mithril/host-binary
+:operator "instanceof"
+:left (mithril/local
+:name "value")
+:right (mithril/host-import
+:name "Object"))
+:right (mithril/host-binary
+:operator "in"
+:left (mithril/literal
+:datatype "js-value"
+:value "__jsExpr")
+:right (mithril/local
+:name "value"))))
+(mithril/host-undefined)])
+:statements true)]
+:bindings [(rdf/node
+:name "evaluate"
+:value (mithril/host-construct
+:constructor (mithril/host-import
+:name "Function")
+:args [(mithril/literal
+:datatype "js-value"
+:value "ctx")
+(mithril/literal
+:datatype "js-value"
+:value "expr")
+(mithril/literal
+:datatype "js-value"
+:value "\n  with (ctx) {\n    return eval(expr)\n  }\n")]))]
+:exports [(rdf/node
+:name "evaluate"
+:value (mithril/local
+:name "evaluate"))
+(rdf/node
+:name "interpolate"
+:function "interpolate")
+(rdf/node
+:name "isJsExpr"
+:function "isJsExpr")]
+:lexical_bindings true)
