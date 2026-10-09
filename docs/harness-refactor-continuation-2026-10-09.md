@@ -275,7 +275,8 @@ replacement resolver does not establish identical module semantics.
    declarations in both paired consumers and real NodeNext package resolution,
    preserving canonical Context/Loader owners. PR #97 passed all 24 stages on exact head
    `f870f445bebd75c82f9197356909ea5a58bfe169` and merged to
-   `19ca70b5e0fc98b685877f0139246bc30a6f22e5`; current-main CI remains pending.
+   `19ca70b5e0fc98b685877f0139246bc30a6f22e5`; current-main Native CI exceeded its 15-minute job limit during stage 24;
+   CodeGraph passed. Full main qualification is not proven.
    Other package modes and actual browser/native/Q9 remain unqualified.
    Preserve the four original mutable schema declarations and do not invent
    typed safe-load functions or an object-only default facade.
@@ -346,6 +347,11 @@ exclude upstream type assertions. Then traverse the verified core dependency
 graph toward Session/Agent/tools and the boot/plugin/profile graph. Runtime
 qualification alone does not complete any package's public API parity.
 
-Current-main CI for PR #97 and the new complete stage-25 regression are separate
-delivery gates. The core source port is operator authored; the Code owner and
+Current-main Native CI for PR #97 stopped at the 15-minute job limit during
+stage 24 after stages 1-23 passed. The new complete stage-25 regression passes
+locally on frozen Scope head `87cc4d2c4f60a991b9710d462c8374584586eac7`,
+as do 85 tests/415 assertions and package regression. PR #98 extends only the
+whole-job timeout to 25 minutes, retaining every stage, each 300-second control
+timeout and all compiler admission budgets. Its branch/main CI remain delivery
+gates. The core source port is operator authored; the Code owner and
 real System One model trials remain the independent gates described above.
