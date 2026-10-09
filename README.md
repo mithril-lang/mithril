@@ -2483,3 +2483,11 @@ Native modules can explicitly select `ambient_imports` from their declared
 imports. Native free identifiers survive callback serialization with current-realm
 global lookup; other imports retain injected-grant behavior. See
 [ambient import qualification](test/qualification/native-ambient-imports/README.md).
+
+A separate [Schemastery value SDK qualification](test/qualification/native-schema-sdk/README.md)
+now combines the full source-authored Schema runtime, its own seven-module
+CosmoKit closure and the complete original private/global types. Its default
+export is a real callable/constructable value. The older global declaration
+fixtures deliberately retain their erased default contract. Both actual CLI
+targets are qualified under Node; whole-Harness and actual browser parity remain
+separate requirements.
