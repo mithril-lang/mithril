@@ -1,0 +1,36 @@
+(ns compile-esm-externals
+ (:require [mithril.native-declaration-program :as program] [mithril.native-esm :as esm]
+           [clojure.string :as str] ["node:fs" :as fs] ["node:os" :as os] ["node:child_process" :as child]))
+(defn ensure [p text] (when-not p (throw (js/Error. text))))
+(def fixture "test/fixtures/native-esm-externals/")
+(defn read [file] (fs/readFileSync (str fixture file) "utf8"))
+(def text (read "forward-program.mith"))
+(def plan (program/read-plan text))
+(def runtime-text (read (:runtime-source plan)))
+(def runtime-sources (into {} (map #(vector % (read %)) (esm/source-basenames runtime-text))))
+(def runtime (esm/check-text runtime-text runtime-sources))
+(def sources (into {} (map #(vector % (read %)) (:sources plan))))
+(def artifact (program/compile-text text sources runtime))
+(ensure (= {"external.forward" "module-0.d.mts"} (:module-files artifact)) "External identity consumed runtime filename")
+(ensure (= ["count" "default" "inc"] (:exports artifact)) "External runtime exports lost")
+(ensure (= :mithril.native-declarations/source (try (program/compile-text (str/replace text "fixture.external" "fixture.other") sources runtime) nil
+                    (catch :default e (:mithril/error (ex-data e))))) "Mismatched runtime/type external specifier admitted")
+(def dir (fs/mkdtempSync (str (os/tmpdir) "/mithril-external-types-")))
+(def config (str dir "/offline.edn"))
+(fs/writeFileSync config (str "{:paths [" (js/JSON.stringify (fs/realpathSync "src")) "]}"))
+(defn run [args]
+ (let [r (child/spawnSync js/process.execPath (clj->js args) #js {:encoding "utf8" :timeout 120000 :maxBuffer 4194304})]
+  (ensure (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r))))
+(try
+ (doseq [target ["js" "js-browser"]]
+  (let [out (str dir "/" target) types (str out "-types") engine (.-MITHRIL_DECLARATIONS_ENGINE js/process.env)]
+   (run [engine "--config" config "-cp" "src" "bin/mithril-native-esm.cljk" (str fixture "forward-esm.mith") "--target" target "--output-directory" out])
+   (run [engine "--config" config "-cp" "src" "bin/mithril-native-declaration-program.cljk" (str fixture "forward-program.mith") "--target" target "--output-directory" types])
+   (doseq [[file source] (:files artifact)]
+    (ensure (= source (fs/readFileSync (str types "/" file) "utf8")) "Declaration CLI byte mismatch")
+    (ensure (not (fs/existsSync (str out "/" file))) "Runtime/type file collision")
+    (fs/copyFileSync (str types "/" file) (str out "/" file)))
+   (run [(str fixture "contract.mjs") out "forward"])
+   (run ["test/qualification/native-esm-externals/controls/types.mjs" out (.-MITHRIL_DECLARATIONS_TYPESCRIPT js/process.env) (.-MITHRIL_DECLARATIONS_TYPE_ROOTS js/process.env)])))
+ (println "Explicit external qualification: both CLI targets, paired actual ESM binding identity and strict original/native type consumers.")
+ (finally (fs/rmSync dir #js {:recursive true :force true})))

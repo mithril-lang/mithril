@@ -21,6 +21,26 @@
 (defn- filename! [s]
   (when-not (and (string? s) (re-matches #"[A-Za-z0-9][A-Za-z0-9_-]*\.mith" s))
     (fail! :mithril.native-package/source "Expected a local Mithril source basename")))
+(defn external-specifier!
+ "Bounded bare package or explicit node: specifier; no file/URL/source injection."
+ [s]
+ (when-not (and (string? s) (<= 1 (count s) 512)
+                (or (re-matches #"node:[a-z][a-z0-9_]*(?:/[a-z][a-z0-9_]*)*" s)
+                    (re-matches #"(?:@[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*/)?[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*(?:/[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*)*" s)))
+  (fail! :mithril.native-package/link "Expected a bounded bare package or node: module specifier"))
+ s)
+(defn check-externals [doc]
+ (let [externals (get doc "externals" [])]
+  (vector! externals 64)
+  (doseq [e externals]
+   (shape! e ["name" "specifier" "exports"])
+   (name! (get e "name")) (external-specifier! (get e "specifier"))
+   (vector! (get e "exports") 128)
+   (doseq [n (get e "exports")] (identifier! n))
+   (unique! (get e "exports")))
+  (unique! (mapv #(get % "name") externals))
+  (unique! (mapv #(get % "specifier") externals))
+  externals))
 (defn check-entry-exports [doc]
  (let [explicit (get doc "entry-exports" [])]
     (when (contains? doc "entry-exports")
@@ -36,6 +56,7 @@
         e (first (filter #(= public-name (:name %)) (:exports (:checked m))))
         value (:value e)]
    (cond
+    (:external m) [(:specifier m) :external public-name]
     (:target e) [module-name :function (:target e)]
     (= :function-ref (:op value)) [module-name :function (:name value)]
     (= :local (:op value)) [module-name :binding (:name value)]
@@ -75,12 +96,13 @@
             (recur (next todo) (conj seen (:name e)) (conj result e))
             (recur (next todo) seen result)) result)))))
 (defn- check-graph [doc sources esm?]
-  (shape! doc (cond-> ["@context" "@type" "name" "imports" "modules" "reexports"] (and esm? (contains? doc "entry-exports")) (conj "entry-exports")))
+  (shape! doc (cond-> ["@context" "@type" "name" "imports" "modules" "reexports"] (and esm? (contains? doc "entry-exports")) (conj "entry-exports") (and esm? (contains? doc "externals")) (conj "externals")))
   (when-not (and (= (if esm? "NativeJsEsmPackage" "NativeJsPackage") (get doc "@type"))
                 (= (if esm? "https://mithril.fund/context/native-js-esm-package/v1" "https://mithril.fund/context/native-js-package/v1") (get doc "@context")))
     (fail! :mithril.native-package/context "Expected native package context"))
   (name! (get doc "name"))
-  (let [decls (get doc "modules") host (get doc "imports") roots (get doc "reexports") explicit (get doc "entry-exports" [])]
+  (let [decls (get doc "modules") host (get doc "imports") roots (get doc "reexports") explicit (get doc "entry-exports" [])
+        externals (if esm? (check-externals doc) [])]
     (vector! decls 64) (vector! host 128) (vector! roots 64)
     (check-entry-exports doc)
     (when (or (empty? decls) (and (empty? roots) (empty? explicit))) (fail! :mithril.native-package/shape "Empty package"))
@@ -100,12 +122,13 @@
       (unique! (mapv #(get % "import") (get m "links")))
       (when (and esm? (some #(not (some #{(get % "module")} (get m "dependencies"))) (get m "links")))
         (fail! :mithril.native-package/link "Named links must occur in the ordered dependency list")))
-    (unique! (mapv #(get % "name") decls))
+    (unique! (mapv #(get % "name") (concat decls externals)))
     (unique! (mapv #(get % "source") decls))
     (when-not (and (map? sources) (= (set (keys sources)) (set (map #(get % "source") decls)))
                   (every? string? (vals sources)) (<= (reduce + (map count (vals sources))) 1048576))
       (fail! :mithril.native-package/source "Exact bounded source set required"))
-    (let [modules (into {} (map (fn [m]
+    (let [external-modules (into {} (map #(vector (get % "name") {:name (get % "name") :external true :specifier (get % "specifier") :imports [] :dependencies [] :links [] :exports (get % "exports")}) externals))
+          modules (merge external-modules (into {} (map (fn [m]
                     (let [text (get sources (get m "source")) _ (module/check-source-text! text)
                           source (form/parse text) checked (native/check-document source)]
                       (when-not (= (get m "name") (:name checked))
@@ -114,7 +137,7 @@
                                       :document source :imports (:imports checked)
                                       :exports (mapv :name (:exports checked)) :links (get m "links")}
                                       (seq (:ambient-imports checked)) (assoc :ambient-imports (:ambient-imports checked))
-                                      esm? (assoc :dependencies (get m "dependencies") :checked checked))])) decls))
+                                      esm? (assoc :dependencies (get m "dependencies") :checked checked))])) decls)))
           required (atom #{})]
       (doseq [[_ m] modules]
         (doseq [link (:links m)]
@@ -144,9 +167,12 @@
           (vector! exports 128)
           (when-not (= (count exports) (count (set (map :name exports))))
             (fail! :mithril.native-package/ambiguous "Ambiguous star reexports"))
+          (when (some #(contains? external-modules %) (concat roots (map #(get % "module") explicit)))
+           (fail! :mithril.native-package/link "Entry roots must be Mithril source modules"))
           (cond-> {:format (if esm? :mithril.native-esm/checked-v1 :mithril.native-package/checked-v1) :name (get doc "name") :imports host
            :modules modules :order @order :exports exports}
-           (contains? doc "entry-exports") (assoc :entry-exports explicit)))))))
+           (contains? doc "entry-exports") (assoc :entry-exports explicit)
+           (seq externals) (assoc :external-modules external-modules)))))))
 (defn check-document [doc sources] (check-graph doc sources false))
 (defn check-esm-document
   "Separate native multi-file ESM profile; engine linking owns cycles and TDZ."

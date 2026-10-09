@@ -753,9 +753,13 @@
         external (into {} (map (fn [e]
                     (shape! e ["name" "specifier" "types" "values"])
                     (qualified! (get e "name"))
-                    (when-not (and (string? (get e "specifier")) (<= (count (get e "specifier")) 128)
-                                   (re-matches #"(?:@[A-Za-z0-9_-]+/)?[A-Za-z0-9][A-Za-z0-9_.-]*" (get e "specifier")))
+                    (when-not (or (and (string? (get e "specifier")) (<= (count (get e "specifier")) 128)
+                                       (re-matches #"(?:@[A-Za-z0-9_-]+/)?[A-Za-z0-9][A-Za-z0-9_.-]*" (get e "specifier")))
+                                  (try (package/external-specifier! (get e "specifier")) true (catch :default _ false)))
                      (fail! :mithril.native-declarations/source "External module requires a bounded package specifier"))
+                    (when-let [m (get-in runtime [:external-modules (get e "name")])]
+                     (when-not (= (:specifier m) (get e "specifier"))
+                      (fail! :mithril.native-declarations/source "External declaration and runtime specifiers differ")))
                     (vector! (get e "types") 64) (vector! (get e "values") 128)
                     (unique! (mapv #(get % "name") (get e "types"))) (unique! (get e "values"))
                     (let [table (reduce (fn [t a]
@@ -776,7 +780,11 @@
                                           (if (seq tail) (assoc-in t [head :children [:values (str/join "." tail)]] m) (assoc-in t [head :values] m)))) table (get e "values"))]
                      (doseq [[_ b] table :when (seq (:children b))]
                       (when-not (or (:values b) (:namespaces b)) (fail! :mithril.native-declarations/link "External member requires its exported owner")))
-                     [(get e "name") table]))) externals)
+                     [(get e "name")
+                      (if-let [m (get-in runtime [:external-modules (get e "name")])]
+                       (reduce (fn [t n] (if (get-in t [n :values])
+                                          (assoc-in t [n :origin] {:module (get e "name") :export n}) t)) table (:exports m))
+                       table)]))) externals)
         tables (atom (merge own external))]
    ;; A monotone fixed point admits forward and cyclic type/barrel dependencies.
    (loop [round 0]

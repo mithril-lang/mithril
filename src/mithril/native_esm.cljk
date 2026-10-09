@@ -14,7 +14,7 @@
     ;; Reject nonlocal/duplicate leaf reads before touching source files. Complete
     ;; collection, graph, link and capability admission follows before emission.
     (when-not (and (map? doc)
-                   (= (set (keys doc)) (cond-> #{"@context" "@type" "name" "imports" "modules" "reexports"} (contains? doc "entry-exports") (conj "entry-exports")))
+                   (= (set (keys doc)) (cond-> #{"@context" "@type" "name" "imports" "modules" "reexports"} (contains? doc "entry-exports") (conj "entry-exports") (contains? doc "externals") (conj "externals")))
                    (= "NativeJsEsmPackage" (get doc "@type"))
                    (= "https://mithril.fund/context/native-js-esm-package/v1" (get doc "@context"))
                    (vector? decls) (<= 1 (count decls) 64)
@@ -23,24 +23,25 @@
                                  (re-matches #"[A-Za-z0-9][A-Za-z0-9_-]*\.mith" (get % "source"))) decls))
       (throw (ex-info "Invalid bounded local ESM source read plan" {:mithril/error :mithril.native-esm/source})))
     (package/check-entry-exports doc)
+    (package/check-externals doc)
     (let [names (mapv #(get % "source") decls)]
       (when-not (= (count names) (count (set names)))
         (throw (ex-info "Duplicate ESM source read plan" {:mithril/error :mithril.native-esm/source})))
       names)))
 (defn- emit [checked roots]
   (let [ambient (set (mapcat :ambient-imports (vals (:modules checked))))
-        names (mapv :name (vals (:modules checked)))
+        names (mapv :name (remove :external (vals (:modules checked))))
         ;; Declared module identity, not DFS order, owns output filenames. Sorting
         ;; is only an artifact naming decision; static dependency order is retained.
         names (vec (sort names)) indexes (zipmap names (range))
-        filename #(str "module-" (get indexes %) ".mjs")
+        filename #(if-let [e (get-in checked [:external-modules %])] (:specifier e) (str "module-" (get indexes %) ".mjs"))
         files (into {} (map (fn [name]
                               (let [m (get (:modules checked) name)
                                     links (mapv #(hash-map "import" (get % "import")
-                                                          "source" (str "./" (filename (get % "module")))
+                                                          "source" (if (contains? (:external-modules checked) (get % "module")) (filename (get % "module")) (str "./" (filename (get % "module"))))
                                                           "export" (get % "export")) (:links m))
-                                    deps (mapv #(str "./" (filename %)) (:dependencies m))]
-                                [(filename name) (:source (native/compile-esm-document (:document m) links deps))])) names))]
+                                    deps (mapv #(if (contains? (:external-modules checked) %) (filename %) (str "./" (filename %))) (:dependencies m))]
+                                [(filename name) (:source (native/compile-esm-document (:document m) links deps (mapv :specifier (vals (:external-modules checked)))))])) names))]
     (cond-> {:format :mithril.native-esm/artifact-v1 :runtime :native-js :profile :native-esm
      :module (:name checked) :required-imports (:imports checked)
      :exports (mapv :name (:exports checked)) :entry "index.mjs"
@@ -50,6 +51,7 @@
                                           (apply str (map #(str "export * from \"./" (filename %) "\";\n") roots))
                                           (apply str (map #(str "export {" (get % "import") " as " (get % "export") "} from \"./"
                                                                   (filename (get % "module")) "\";\n") (:entry-exports checked)))))}
+      (seq (:external-modules checked)) (assoc :external-modules (into {} (map (fn [[n e]] [n (:specifier e)]) (:external-modules checked))))
       (seq ambient) (assoc :required-ambient-imports (vec (filter ambient (:imports checked)))))))
 (defn compile-document [doc sources] (emit (check-document doc sources) (get doc "reexports")))
 (defn compile-text [text sources]

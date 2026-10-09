@@ -1234,12 +1234,20 @@
 
 (defn compile-esm-document
   "Emit a checked native module with real named ESM imports/exports. Link paths
-   are inert generated local basenames; declarations remain engine-owned."
-  [doc links dependencies]
+   are inert generated local basenames or explicitly declared external specifiers;
+   declarations remain engine-owned."
+  ([doc links dependencies] (compile-esm-document doc links dependencies []))
+  ([doc links dependencies external-specifiers]
   (let [checked (check-document doc)
         _ (vector! links 128) _ (vector! dependencies 64)
+        _ (vector! external-specifiers 64) _ (unique! external-specifiers)
+        _ (doseq [specifier external-specifiers]
+            (when-not (and (string? specifier) (<= 1 (count specifier) 512)
+                           (or (re-matches #"node:[a-z][a-z0-9_]*(?:/[a-z][a-z0-9_]*)*" specifier)
+                               (re-matches #"(?:@[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*/)?[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*(?:/[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*)*" specifier)))
+             (fail! :mithril.native-js/link "Invalid external module specifier")))
         path! (fn [path]
-                (when-not (and (string? path) (re-matches #"\./module-[0-9]+\.mjs" path))
+                (when-not (and (string? path) (or (re-matches #"\./module-[0-9]+\.mjs" path) (some #{path} external-specifiers)))
                   (fail! :mithril.native-js/link "Expected a generated local ESM module basename")))
         _ (doseq [path dependencies] (path! path)) _ (unique! dependencies)
         _ (doseq [link links]
@@ -1322,4 +1330,4 @@
                   (when (some #(and (not (contains? link-symbols %)) (not (contains? ambient %))) (:imports checked))
                     (str "import {globals as " globals "} from './host-globals.mjs';\n"))
                   dependency-source function-source binding-source export-source)}
-      (seq ambient) (assoc :required-ambient-imports (:ambient-imports checked)))))
+      (seq ambient) (assoc :required-ambient-imports (:ambient-imports checked))))))
