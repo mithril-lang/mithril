@@ -48,6 +48,20 @@
 (def scoped-modules (-> modules (update 1 private-scope "left" "string") (update 2 private-scope "right" "number")))
 (def scoped-sources (into {} (map #(vector (get %1 "source") (render %2)) (get doc "modules") scoped-modules)))
 (def scoped-artifact (program/compile-text text scoped-sources runtime))
+(def barrel-modules
+ (mapv (fn [m] (update m "augmentations"
+                 (fn [groups] (mapv #(assoc % "module" "cordis.index") groups)))) scoped-modules))
+(def barrel-sources (into {} (map #(vector (get %1 "source") (render %2)) (get doc "modules") barrel-modules)))
+(def barrel-artifact (program/compile-text text barrel-sources runtime))
+(def alias-modules
+ (-> barrel-modules
+     (update-in [1 "imports"] conj {"module" "cordis.index" "type-only" true "names" [{"import" "Alias" "local" "Alias"}]})
+     (update-in [1 "augmentations"]
+       (fn [groups] (mapv #(update % "declarations" (fn [ds] (mapv (fn [d] (assoc d "name" "Alias")) ds))) groups)))
+     (update-in [(dec (count modules)) "reexports"] conj
+       {"module" "cordis.context" "type-only" true "names" [{"import" "Context" "export" "Alias"}]})))
+(def alias-sources (into {} (map #(vector (get %1 "source") (render %2)) (get doc "modules") alias-modules)))
+(def alias-artifact (program/compile-text text alias-sources runtime))
 (def artifact (program/compile-text text sources runtime))
 (ensure (= ["Context"] (:exports artifact)) "Actual Context runtime surface")
 (ensure (= ["Context" "Intercept" "Service"] (:type-exports artifact)) "Augmented module type surface")
@@ -65,5 +79,10 @@
    (let [scoped (str dir "/" target "-scoped")]
     (fs/mkdirSync scoped)
     (doseq [[file source] (:files scoped-artifact)] (fs/writeFileSync (str scoped "/" file) source))
-    (run ["test/qualification/native-module-augmentation/controls/private-scope.mjs" (str scoped "/index.d.mts") compiler type-roots]))))
+    (run ["test/qualification/native-module-augmentation/controls/private-scope.mjs" (str scoped "/index.d.mts") compiler type-roots]))
+   (doseq [[label a] [["barrel" barrel-artifact] ["alias" alias-artifact]]]
+    (let [out (str dir "/" target "-" label)]
+     (fs/mkdirSync out)
+     (doseq [[file source] (:files a)] (fs/writeFileSync (str out "/" file) source))
+     (run ["test/qualification/native-module-augmentation/controls/private-scope.mjs" (str out "/index.d.mts") compiler type-roots (if (= label "alias") "Alias" "Context")])))))
  (finally (fs/rmSync dir #js {:recursive true :force true})))

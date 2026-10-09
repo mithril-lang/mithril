@@ -4,7 +4,7 @@
 "JSON"
 "Date"
 "Object"]
-:imports ["Inject"
+:imports ["GlobalRealm" "Group" "LocalRealm" "Realm" "evaluate" "isJsExpr" "Inject"
 "Service"
 "defineProperty"
 "isNullable"
@@ -1255,5 +1255,16 @@
 (rdf/node
 :name "Loader"
 :value (mithril/local
-:name "Loader"))]
+:name "Loader"))
+(rdf/node :name "Entry" :value (mithril/host-import :name "Entry"))
+(rdf/node :name "EntryGroup" :value (mithril/host-import :name "EntryGroup"))
+(rdf/node :name "EntryTree" :value (mithril/host-import :name "EntryTree"))
+(rdf/node :name "GlobalRealm" :value (mithril/host-import :name "GlobalRealm"))
+(rdf/node :name "Group" :value (mithril/host-import :name "Group"))
+(rdf/node :name "LocalRealm" :value (mithril/host-import :name "LocalRealm"))
+(rdf/node :name "ModuleLoader" :value (mithril/host-import :name "ModuleLoader"))
+(rdf/node :name "Realm" :value (mithril/host-import :name "Realm"))
+(rdf/node :name "evaluate" :value (mithril/host-import :name "evaluate"))
+(rdf/node :name "interpolate" :value (mithril/host-import :name "interpolate"))
+(rdf/node :name "isJsExpr" :value (mithril/host-import :name "isJsExpr"))]
 :lexical_bindings true)

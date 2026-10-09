@@ -124,12 +124,13 @@ replacement resolver does not establish identical module semantics.
    has zero diagnostics with the pinned Loader options/dependencies. See
    `test/qualification/native-loader-sdk/README.md` for reproducible controls and
    remaining scope. This is a local checkpoint, not delivered Loader parity.
-   All eight native declaration ASTs are now authored. The actual CLI exposed the
-   next prerequisite: augmenting reexported Context/Fiber through the Cordis
-   barrel hides their runtime class bindings. The full original graph passes
-   3 positive/3 negative strict consumers without skipLibCheck. Fix canonical
-   augmentation-target resolution while preserving lexical scope and exact
-   runtime surface checks, then admit and qualify the complete native graph.
+   Canonical augmentation resolution now preserves reexported Context/Fiber
+   class bindings and source lexical scope. Both declaration CLI targets admit
+   the complete public graph: 18 modules, 13 runtime/23 type exports, 8 positive/
+   7 negative original-paired strict consumers without skipLibCheck and exact
+   rejection codes. The non-public diff declaration retains independent full
+   Loader-leaves qualification. The SDK is registered as stage 18; source,
+   package and all-stage regressions and PR/current-main delivery are in progress.
    Qualify extended host/isolation/injection/lifecycle paths;
    register qualification and complete PR/current-main CI. Then port Include by
    complete source and public type closure.
