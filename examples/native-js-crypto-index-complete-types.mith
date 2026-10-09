@@ -1,0 +1,49 @@
+(mithril/native-js-declaration-module :name "crypto.index"
+:runtime "crypto.index"
+:ambient-types [(rdf/node :name "Uint8Array"
+:min 0
+:max 1)]
+:ambient-values []
+:imports []
+:declarations [(rdf/node :kind "alias"
+:name "Uuid"
+:exported true
+:type-params []
+:datatype (rdf/node :op "template"
+:head ""
+:spans [(rdf/node :datatype (rdf/node :op "keyword"
+:name "string")
+:tail "-")
+(rdf/node :datatype (rdf/node :op "keyword"
+:name "string")
+:tail "-")
+(rdf/node :datatype (rdf/node :op "keyword"
+:name "string")
+:tail "-")
+(rdf/node :datatype (rdf/node :op "keyword"
+:name "string")
+:tail "-")
+(rdf/node :datatype (rdf/node :op "keyword"
+:name "string")
+:tail "")]))
+(rdf/node :kind "function"
+:name "bytesToBase64"
+:exported true
+:type-params []
+:params [(rdf/node :name "data"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "Uint8Array"
+:args []))]
+:returns (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "function"
+:name "randomUUID"
+:exported true
+:type-params []
+:params []
+:returns (rdf/node :op "name"
+:name "Uuid"
+:args []))]
+:reexports [])

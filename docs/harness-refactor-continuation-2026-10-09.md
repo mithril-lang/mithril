@@ -484,3 +484,28 @@ measurements. Resolve bounded transport without truncating source or weakening
 hash/scope/trusted verification. Scoped model authentication, Docker verification
 and diagnostic publication remain separate gates. No new model trial, model
 adoption or performance gain is claimed.
+
+## Complete crypto and timeout SDK source (2026-10-10 JST)
+
+Values PR #102 passed all 29 branch stages on exact head
+`f94eb90e9c177be44c67f6306efc6d46d35227df` and merged to
+`f8ae9db26e77d64ecf63989a571d9a2ef2321f2b`. All fourteen changed files and
+the complete Git tree match the qualified branch. Exact-main Native and
+CodeGraph terminal audits are pending at this checkpoint.
+
+The next dependency-first change retains both complete crypto/timeout source
+files, all eleven original declarations, eight runtime values and four public
+type exports. Stage 30 checks the unchanged upstream tests, deterministic
+runtime controls, complete original strict declaration re-emission, full
+original declaration structure and real NodeNext package self-reference and
+duplicate installs. Distinct copies of TimeoutReason remain separate runtime
+owners even though their public types are structurally assignable. Preserve
+this behavior rather than imposing a private nominal marker absent upstream.
+Both CLI labels are tested under Node; full regression and delivery remain
+independent gates.
+
+Next preserve the complete typert protocol source and public types, then the
+Attachment type owner and all LLM files before Session, Agent, Tools and
+boot/plugin/profile closure. Continue the System One scoped authentication,
+trusted verifier, bounded generic-refactor transport and diagnostic publication
+gates independently; no new model trial or measured performance gain is claimed.

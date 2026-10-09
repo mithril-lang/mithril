@@ -39,6 +39,7 @@ try{
   ['native-brand-sdk','compile.cljk'],
   ['native-private-fields','compile.cljk'],
   ['native-values-sdk','compile.cljk'],
+  ['native-crypto-timeout-sdk','compile.cljk'],
  ];
  for(const [name,control] of stages){
   console.log(`Declaration qualification stage: ${name}`);
