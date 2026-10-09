@@ -2,9 +2,9 @@ name: Mission native plugins
 on:
   push:
     branches: [main]
-    paths: ["src/mithril/mission*", "src/mithril/library*", "bin/mithril-library.cljk", "test/*library*", "test/mithril/library*", "test/*mission*", "test/mithril/mission*", "scripts/run-mission-sci.mjs", ".github/workflows/mission-native.yml"]
+    paths: ["src/mithril/mission*", "src/mithril/library*", "bin/mithril-library.cljk", "test/*library*", "test/mithril/library*", "test/*mission*", "test/mithril/mission*", "scripts/run-mission-sci.mjs", "scripts/prepare-amu-deps.py", ".github/workflows/mission-native.yml"]
   pull_request:
-    paths: ["src/mithril/mission*", "src/mithril/library*", "bin/mithril-library.cljk", "test/*library*", "test/mithril/library*", "test/*mission*", "test/mithril/mission*", "scripts/run-mission-sci.mjs", ".github/workflows/mission-native.yml"]
+    paths: ["src/mithril/mission*", "src/mithril/library*", "bin/mithril-library.cljk", "test/*library*", "test/mithril/library*", "test/*mission*", "test/mithril/mission*", "scripts/run-mission-sci.mjs", "scripts/prepare-amu-deps.py", ".github/workflows/mission-native.yml"]
 permissions:
   contents: read
 jobs:
@@ -43,4 +43,6 @@ jobs:
           git -C /tmp/amu checkout bbbdaa9cb5ee0ad4ff29e024e4a70c9db4f8c02b
           cd /tmp/amu
           npm ci --ignore-scripts
+          export GITLIBS="$RUNNER_TEMP/amu-gitlibs"
+          python "$GITHUB_WORKSPACE/scripts/prepare-amu-deps.py" --amu-root /tmp/amu --gitlibs "$GITLIBS"
           python /tmp/interop/scripts/test-kotoba-library.py --amu-root /tmp/amu --source-root /tmp/link16/src --library-id fund.mithril.lib.siso.link16 --member link16-loopback --invoke
