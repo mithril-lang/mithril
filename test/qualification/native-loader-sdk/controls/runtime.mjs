@@ -87,6 +87,57 @@ if(process.argv[2]==='case'){
  vol.remove('volatile');await volatileFiber.await();await vol.await();await volatileOwner.dispose();await volatileRoot.fiber.dispose();
  check('volatile owner cleanup',()=>{assert.equal(volatileRoot.registry.size,0)});
 
+
+ const {mkdtempSync,rmSync}=await import('node:fs'),{tmpdir}=await import('node:os');
+ const hostDir=mkdtempSync(join(tmpdir(),'mithril-loader-host-')),hostRoot=new core.Context(),hostTrace=[];
+ let hostOwner;
+ try{
+  hostRoot.baseUrl=pathToFileURL(hostDir+'/').href;hostRoot.on('loader-host-probe',value=>hostTrace.push(value));
+  hostOwner=await hostRoot.plugin(PersistentLoader,{baseUrl:pathToFileURL(hostDir+'/').href});
+  const host=hostRoot.loader;
+  writeFileSync(join(hostDir,'package.json'),JSON.stringify({type:'module'}));
+  writeFileSync(join(hostDir,'plugin.mjs'),'export default function hostPlugin(ctx,config){ctx.emit("loader-host-probe",["start",config.x]);return()=>ctx.emit("loader-host-probe","stop")}');
+  const nodePath=await host.import('node:path');
+  check('actual Node builtin module resolution',()=>{assert.equal(nodePath.join('a','b'),'a/b');assert.equal(nodePath.join,join);metadata.push({nodeModuleLoaderVersion:host.internal?.version??null})});
+  const namespace=await host.import('./plugin.mjs');
+  check('actual relative native ESM import and namespace unwrap',()=>{assert.equal(namespace.default.name,'hostPlugin');assert.equal(host.unwrapExports(namespace),namespace.default)});
+  check('original CJS and default export normalization',()=>{const fn=()=>0;for(const value of [null,undefined,false,0])assert.equal(host.unwrapExports(value),value);assert.equal(host.unwrapExports({default:fn}),fn);assert.equal(host.unwrapExports({default:{__esModule:true,default:fn}}),fn);assert.equal(host.unwrapExports(fn),fn)});
+  await host.create({id:'file',name:'./plugin.mjs',config:{x:{__jsExpr:'1+2'}}});await host.await();
+  const fileEntry=host.resolve('file');
+  check('actual file plugin owns namespace and evaluates config expressions',()=>{assert.equal(fileEntry.moduleNamespace,namespace);assert.equal(fileEntry.fiber.runtime.callback,namespace.default);assert.equal(fileEntry.fiber.config.x,3);assert.equal(fileEntry.options.config.x.__jsExpr,'1+2');assert.deepEqual(hostTrace,[['start',3]])});
+  await Promise.all([fileEntry.init(),fileEntry.init()]);await host.await();
+  check('concurrent explicit init shares task and follows original activation behavior',()=>{assert.equal(fileEntry.fiber.state,2);assert.equal(hostTrace.filter(x=>Array.isArray(x)&&x[0]==='start').length,2)});
+  let caught;try{await host.import('node:mithril-missing-module',()=>['    at fixture#missing'])}catch(e){caught=e}
+  check('actual import error preserves Node code and outer stack',()=>{assert.equal(caught.code,'ERR_UNKNOWN_BUILTIN_MODULE');metadata.push({outerStackSpliced:caught.stack.includes('fixture#missing')});metadata.push({importError:{name:caught.name,code:caught.code,message:caught.message}})});
+  await fileEntry.fiber.dispose();await host.await();
+  check('real plugin self-disposal disables retained config and persists',()=>{assert.equal(fileEntry.options.disabled,true);assert.equal(fileEntry.fiber.uid,null);assert.equal(host.root.data.length,1);metadata.push({fileLifecycle:hostTrace.slice(),fileDisabled:fileEntry.disabled})});
+  host.remove('file');await host.await();
+  check('host file entry removal clears retained config',()=>{assert.deepEqual(host.root.data,[]);assert.deepEqual(Object.keys(host.store),[])});
+ }finally{await hostOwner?.dispose();await hostRoot.fiber.dispose();rmSync(hostDir,{recursive:true,force:true})}
+ check('host owner cleanup',()=>{assert.equal(hostRoot.registry.size,0)});
+
+
+ const isolationRoot=new core.Context(),isolationOwner=await isolationRoot.plugin(PersistentLoader),isolated=isolationRoot.loader,injectTrace=[];
+ const provider=(ctx,config)=>{ctx.provide('probe',{token:config.token})};
+ const consumer=(ctx)=>{injectTrace.push(['start',ctx.probe.token]);return()=>injectTrace.push('stop')};consumer.inject=['probe'];
+ isolated.builtins.provider=provider;isolated.builtins.consumer=consumer;
+ try{
+  await isolated.create({id:'local-a',name:'cordis:provider',isolate:{probe:true},config:{token:'a'}});
+  await isolated.create({id:'local-b',name:'cordis:provider',isolate:{probe:true},config:{token:'b'}});await isolated.await();
+  const a=isolated.resolve('local-a'),b=isolated.resolve('local-b'),symbolA=a.ctx[core.Context.isolate].probe,symbolB=b.ctx[core.Context.isolate].probe,providerFiber=a.fiber;
+  check('real local realms isolate actual service providers',()=>{assert(a.realm instanceof api.LocalRealm);assert(b.realm instanceof api.LocalRealm);assert.notEqual(symbolA,symbolB);assert.equal(a.ctx.get('probe').token,'a');assert.equal(b.ctx.get('probe').token,'b');assert.equal(a.realm.size,1);assert.equal(a.realm.access('probe'),symbolA);metadata.push({localDescriptions:[symbolA.description,symbolB.description]})});
+  await isolated.update('local-a',{isolate:{probe:'shared'}});await isolated.await();
+  check('realm change transfers actual implementation without remount',()=>{assert.equal(a.fiber,providerFiber);assert.equal(a.fiber.state,2);assert.equal(a.ctx.get('probe').token,'a');assert.notEqual(a.ctx[core.Context.isolate].probe,symbolA);assert.equal(isolationRoot.reflect.store[symbolA],undefined);metadata.push({sharedDescription:a.ctx[core.Context.isolate].probe.description})});
+  await isolated.create({id:'consumer',name:'cordis:consumer',isolate:{probe:'shared'}});await isolated.await();
+  const c=isolated.resolve('consumer');
+  check('real injected consumer starts in shared realm',()=>{assert.equal(c.fiber.state,2);assert.equal(c.ctx[core.Context.isolate].probe,a.ctx[core.Context.isolate].probe);assert.deepEqual(injectTrace,[['start','a']])});
+  isolated.remove('local-a');await providerFiber.await();await isolated.await();
+  check('provider removal suspends injected consumer',()=>{assert.equal(c.fiber.state,0);metadata.push({injectedAfterRemoval:injectTrace.slice()})});
+  await isolated.create({id:'replacement',name:'cordis:provider',isolate:{probe:'shared'},config:{token:'replacement'}});await isolated.await();
+  check('replacement shared provider follows original notification behavior',()=>{const replacement=isolated.resolve('replacement');assert.equal(replacement.fiber.state,3);metadata.push({replacementState:replacement.fiber.state,replacementError:replacement.fiber._error?.message,consumerStateAfterReplacement:c.fiber.state,sameSharedSymbolAfterReplacement:c.ctx[core.Context.isolate].probe===replacement.ctx[core.Context.isolate].probe,injectedAfterReplacement:injectTrace.slice()})});
+ }finally{await isolationOwner.dispose();await isolationRoot.fiber.dispose()}
+ check('isolated provider and dependency owner cleanup',()=>{assert.equal(isolationRoot.registry.size,0)});
+
  console.log(JSON.stringify({surface:Object.keys(api).sort(),metadata,groups}));
  }else{
  const [candidate,schemaEntry,compiler]=process.argv.slice(2);

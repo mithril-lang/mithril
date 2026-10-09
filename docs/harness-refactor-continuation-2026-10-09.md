@@ -19,7 +19,7 @@ substitute for this objective.
 
 | Item | Location / identity | State |
 | --- | --- | --- |
-| Compiler checkout | `/Users/junkawasaki/github/mithril-lang/mithril-harness-language` | `codex/native-property-compound` |
+| Compiler checkout | `/Users/junkawasaki/github/mithril-lang/mithril-harness-language` | `codex/loader-lifecycle`, based on merged main `0ebbba72ef76a06dd4b03d48bfc02b406f4805f1` |
 | Saved work checkpoint | `82bd71fbfbf27e4ed3e08ba03898eb9a01a31ed4` | WIP committed and pushed before the requested pause |
 | Schema SDK | https://github.com/mithril-lang/mithril/pull/79 | Merged at `34ca28d6524c27a6c11e24c01bddeca9da35763d`; head `b211a8d076bdb85f77859a2563ba3f79ee5e433f` qualified |
 | Schema branch CI | `37894254763`, job `113701855514` | Terminal success; full source/package/all 14 declaration stages audited |
@@ -85,7 +85,7 @@ separate. Candidate runtime cannot delegate to original Schema or dependency cod
 
 Native import metadata/dynamic import (PR #80), explicit external ESM (PR #82),
 namespace imports (PR #83) and complete Loader utils/diff runtime/public types
-(PR #86) are delivered through audited main CI. The current change adds checked
+(PR #86) are delivered through audited main CI. PR #87 added checked
 property compound assignment using native JavaScript reference semantics. The
 actual refusal in complete Loader tree source at `info.offset += 3` is removed.
 Four output forms and both CLI target labels have passed 1664 paired operation
@@ -130,8 +130,19 @@ replacement resolver does not establish identical module semantics.
    7 negative original-paired strict consumers without skipLibCheck and exact
    rejection codes. The non-public diff declaration retains independent full
    Loader-leaves qualification. The SDK is registered as stage 18; source,
-   package and all-stage regressions and PR/current-main delivery are in progress.
-   Qualify extended host/isolation/injection/lifecycle paths;
+   package and all-stage regressions passed. PR #88 merged at `0ebbba72…` after
+   successful branch Native JS/CodeGraph CI and full log audit; all 54 changed
+   files match merged main. Main Native JS CI `37924754878` and CodeGraph CI
+   `37924754946` succeeded at exact `0ebbba72ef76a06dd4b03d48bfc02b406f4805f1`;
+   full logs confirm 81 tests/409 assertions, package 40 exports/7 frozen
+   artifacts, all 18 declaration stages, 25 paired runtime groups per label,
+   8 positive/7 negative strict consumers per label and CodeGraph 33/239 plus
+   its HTTP contract. Evidence: `loader-sdk-main-ci-audit.json`.
+   The next `codex/loader-lifecycle` branch extends paired runtime controls from
+   25 to 40 groups per label with actual Node imports/file plugins, self-disposal,
+   service providers, local/shared realms and inject dependencies. It preserves
+   an original store-transfer/disposer-key quirk rather than changing behavior.
+   Qualify remaining module-loader internals/HMR, persistence failures and lifecycle paths;
    register qualification and complete PR/current-main CI. Then port Include by
    complete source and public type closure.
    Then port Harness API/plugin/profile/Session and verify actual browser/native/Q9.

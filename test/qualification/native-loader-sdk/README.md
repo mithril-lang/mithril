@@ -6,15 +6,31 @@ to the complete own Cordis/CosmoKit implementation: 24 native runtime modules,
 13 public runtime exports, and a genuine default `Loader` identity. The only
 external runtime module is `node:module` for the original `createRequire` path.
 
-Both actual `js` and `js-browser` CLI outputs pass 25 paired original/candidate
+Both actual `js` and `js-browser` CLI outputs pass 40 paired original/candidate
 groups each under Node. These cover class/function/namespace metadata, Context
 and tree ownership, builtin imports, plugin start/update/disable/reenable/remove,
 persistence callbacks, nested Group children/update/removal, listener cleanup,
-and actual original/own Schema volatile references. Volatile-only updates retain
+actual original/own Schema volatile references, real Node builtin/relative ESM
+imports, file plugin namespaces, config expressions, self-disposal, actual service
+providers, local/shared realms and required-service consumers. Volatile-only updates retain
 references and activation; invalid candidates retain raw config without changing
 running references; ordinary config changes follow the original plugin lifecycle.
 Explicitly await disposed fibers before checking listener cleanup, because
 removing entries from the store does not itself drain those fibers.
+
+The host fixture sets `baseUrl` on the actual calling Context before using the
+traceable Loader service; its methods rebind the Context. Explicit concurrent
+`Entry.init()` calls on an active entry follow the original extra activation;
+`refresh()` has the separate existing-fiber guard. Node import errors retain their
+code/message and observed outer-stack splice behavior; this is not full stack text
+or source-map equivalence.
+
+The service transfer/removal fixture preserves an observed original quirk: moving
+a local provider to a shared realm transfers its implementation's store key, but
+its original disposer retains the old key. Removing it suspends the injected
+consumer; a replacement provider fails with the original duplicate-registration
+message while the consumer remains pending. Both pinned original and native
+candidate match. This qualification does not silently repair that source behavior.
 
 Pinned original source, full program-emitted runtime, and all eight declaration
 files are in `test/fixtures/loader-sdk`, with MIT licensing and SHA-256 provenance.
@@ -87,9 +103,9 @@ The control compiles both Loader and own Schema through the actual CLI into fres
 owned temporary directories, verifies exact runtime artifact bytes, checks every
 oracle fixture hash, and runs original/candidate cases in separate processes.
 
-This is registered as declaration qualification stage 18. Extended isolation,
-injection, self-disposal, module resolution/errors and persistence contracts also
-need qualification before claiming full Loader equivalence. Include, full Harness
+This is registered as declaration qualification stage 18. Extended module-loader
+internals/HMR, persistence failures and further lifecycle contracts still need
+qualification before claiming full Loader equivalence. Include, full Harness
 API/plugin/profile/Session, actual browser/native/Q9 execution and release remain
 pending. Operator authored; no new System One model trial, adoption or performance
 gain is claimed. This branch is a local checkpoint, not PR/main/production delivery.
