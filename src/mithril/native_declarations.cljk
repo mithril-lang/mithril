@@ -75,8 +75,9 @@
  (when-not (contains? #{"public" "protected" "private"} v)
   (fail! :mithril.native-declarations/type "Unknown class visibility")))
 (defn- class-member-shape! [m]
- (visibility! (get m "visibility"))
+ (when-not (= "private-brand" (get m "kind")) (visibility! (get m "visibility")))
  (case (get m "kind")
+  "private-brand" (shape! m ["kind"])
   "constructor" (shape! m ["kind" "visibility" "params"])
   "property" (shape! m ["kind" "key" "visibility" "static" "readonly" "optional" "datatype"])
   "opaque" (do (shape! m (cond-> ["kind" "key" "visibility" "static"]
@@ -86,7 +87,7 @@
   "method" (shape! m ["kind" "key" "visibility" "static" "abstract" "optional" "type-params" "params" "returns"])
   "getter" (shape! m ["kind" "key" "visibility" "static" "datatype"])
   (fail! :mithril.native-declarations/type "Unknown class member"))
- (when-not (= "constructor" (get m "kind"))
+ (when-not (contains? #{"constructor" "private-brand"} (get m "kind"))
   (class-key! (get m "key")) (flag! (get m "static")))
  (when (contains? m "optional") (flag! (get m "optional")))
  (when (contains? m "readonly") (flag! (get m "readonly")))
@@ -495,7 +496,7 @@
      (when-not (value-known? registry scope menv values (get-in m ["key" "name"]))
       (fail! :mithril.native-declarations/scope "Unknown computed class member value")))
     (case kind
-     "opaque" nil
+     ("opaque" "private-brand") nil
      "property" (check-type! (get m "datatype") menv values (if (and (get m "static") (get m "readonly") (not (get m "optional"))) :unique :normal) (+ depth 2) budget registry scope nil)
      "getter" (check-type! (get m "datatype") menv values :normal (+ depth 2) budget registry scope nil)
      "constructor" (signature! {"type-params" [] "params" (get m "params") "returns" {"op" "keyword" "name" "void"}} menv values :normal (inc depth) budget registry scope true)

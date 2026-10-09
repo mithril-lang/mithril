@@ -453,3 +453,34 @@ track runtime and declaration dependency graphs separately. Then resolve the
 remaining LLM prerequisites before Session, Agent, Tools and boot/plugin/profile
 parity. System One authentication/trusted verification/publication remain the
 independent gates above; no new inference attempt or performance gain is claimed.
+
+## Complete util-values SDK (2026-10-10 JST)
+
+Private-fields PR #101 merged to `4ff29953b60082fd1e676de12b85fd4a5049d36e`
+after all 28 branch stages passed. Its exact-main Native run is still pending
+at this checkpoint; no terminal main qualification is claimed here.
+
+The next source change preserves the original aggregate `#private;` declaration
+marker through a single-field `private-brand` member. All nine original values
+declarations are now expressed in Mithril and admitted within unchanged budgets.
+A targeted local stage passed under both actual CLI labels: six positive and
+sixteen negative strict original-paired consumers, strict complete-source oracle
+re-emission, real NodeNext same-version/different-version nominal controls, eight
+exact-code marker refusals and 75 JSON-helper runtime groups. Existing parser
+and WeakMap coverage remains in stage 28. Full 29-stage regression and branch/main
+delivery are the remaining gates for this checkpoint.
+
+Continue dependency first with the complete util-crypto, timeout and typert
+protocol sources, Attachment public type owner, then all 13 LLM files. Preserve
+actual source/type dependency ownership before Session, Agent, Tools and the
+full boot/plugin/profile closure. Manifest ordering alone does not prove public
+source dependency closure.
+
+System One's local generic-refactor SDK also has a measured scale blocker:
+encoded JSON for the current NativeJS compiler input exceeds its 98,304-byte
+input limit, and a complete Mithril parser proposal exceeds its 49,152-byte
+proposal limit. These are local SDK checks, not live service schema or inference
+measurements. Resolve bounded transport without truncating source or weakening
+hash/scope/trusted verification. Scoped model authentication, Docker verification
+and diagnostic publication remain separate gates. No new model trial, model
+adoption or performance gain is claimed.
