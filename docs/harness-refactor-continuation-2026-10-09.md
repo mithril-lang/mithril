@@ -509,3 +509,36 @@ Attachment type owner and all LLM files before Session, Agent, Tools and
 boot/plugin/profile closure. Continue the System One scoped authentication,
 trusted verifier, bounded generic-refactor transport and diagnostic publication
 gates independently; no new model trial or measured performance gain is claimed.
+
+## Complete Protocol SDK source (2026-10-10 JST)
+
+Values PR #102 and crypto/timeout PR #103 now have successful exact-main Native
+and CodeGraph audits. Crypto/timeout main is
+`ebf8bcd831f7bdac6792523e7a240936ebc368c8`; all 30 ordered declaration stages,
+85 source tests/415 assertions, 40 package exports/seven frozen leaves and
+CodeGraph's 33 tests/239 assertions plus HTTP controls were observed. Its whole
+Git tree matches the qualified branch.
+
+The next dependency-first source retains all five Protocol files, all 86
+original declarations including the Cordis augmentation, 13 runtime exports and
+56 public types. Four Protocol modules link to the canonical 16-module native
+Cordis graph. The declaration-only `protocol.types` owner remains separate from
+runtime linkage. Its original empty runtime subpath is compiled as an independent
+one-module native package, rather than introducing an unused runtime dependency.
+The actual complete native Brand SDK supplies the existing Brand package import;
+strict consumers and actual duplicate installs verify private-symbol ownership.
+
+Stage 31 checks complete strict original declaration re-emission, 16 positive
+and 16 negative strict consumers, all source declaration/import/re-export shapes,
+72 runtime groups, 18 unchanged upstream test bodies and real NodeNext package
+self-reference and duplicate installs. The upstream source-launch subprocess
+uses actual pinned TSX 4.22.4. Two upstream type-assertion bodies are runtime
+erasure only and have independent strict event/listener controls. Both actual
+CLI labels run under Node. Full sealed regression, branch CI and exact-main
+qualification are independent delivery gates.
+
+Next preserve Attachment's full source and public type owner, then all thirteen
+LLM files before Session, Agent, Tools and boot/plugin/profile parity. System One
+still requires scoped authentication, trusted Docker verification, bounded
+whole-source transport and independent diagnostic publication. No new inference,
+adopted model proposal or measured model gain is claimed by this source port.

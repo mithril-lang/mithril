@@ -1,0 +1,2311 @@
+(mithril/native-js-declaration-module :name "protocol.types"
+:runtime nil
+:ambient-types [(rdf/node :name "AsyncIterable"
+:min 1
+:max 3)
+(rdf/node :name "Promise"
+:min 1
+:max 1)
+(rdf/node :name "Extract"
+:min 2
+:max 2)
+(rdf/node :name "Exclude"
+:min 2
+:max 2)
+(rdf/node :name "Record"
+:min 2
+:max 2)
+(rdf/node :name "Readonly"
+:min 1
+:max 1)
+(rdf/node :name "AbortSignal"
+:min 0
+:max 0)
+(rdf/node :name "ThisParameterType"
+:min 1
+:max 1)
+(rdf/node :name "Uint8Array"
+:min 0
+:max 1)]
+:ambient-values ["Error"
+"Symbol.dispose"]
+:imports [(rdf/node :module "cordis.index"
+:type-only true
+:names [(rdf/node :import "Context"
+:local "Context")])
+(rdf/node :module "cordis.index"
+:type-only true
+:names [(rdf/node :import "Events"
+:local "Events")])
+(rdf/node :module "brand.index"
+:type-only true
+:names [(rdf/node :import "Branded"
+:local "Branded")])
+(rdf/node :module "protocol.owned_value"
+:type-only true
+:names [(rdf/node :import "TypertOwnedValue"
+:local "TypertOwnedValue")])]
+:declarations [(rdf/node :kind "const"
+:name "LOOKUP_HOST"
+:exported false
+:datatype (rdf/node :op "unique-symbol"))
+(rdf/node :kind "const"
+:name "LOOKUP_WIRE"
+:exported false
+:datatype (rdf/node :op "unique-symbol"))
+(rdf/node :kind "const"
+:name "CONTEXT_WIRE"
+:exported false
+:datatype (rdf/node :op "unique-symbol"))
+(rdf/node :kind "interface"
+:name "TypertLookup"
+:exported true
+:type-params [(rdf/node :name "Host"
+:constraint nil
+:default nil)
+(rdf/node :name "Wire"
+:constraint nil
+:default nil)]
+:extends []
+:members [(rdf/node :kind "computed-property"
+:name "LOOKUP_HOST"
+:optional false
+:readonly true
+:datatype (rdf/node :op "name"
+:name "Host"
+:args []))
+(rdf/node :kind "computed-property"
+:name "LOOKUP_WIRE"
+:optional false
+:readonly true
+:datatype (rdf/node :op "name"
+:name "Wire"
+:args []))])
+(rdf/node :kind "alias"
+:name "TypertLookupHost"
+:exported true
+:type-params [(rdf/node :name "Lookup"
+:constraint nil
+:default nil)]
+:datatype (rdf/node :op "conditional"
+:test (rdf/node :op "name"
+:name "Lookup"
+:args [])
+:extends (rdf/node :op "name"
+:name "TypertLookup"
+:args [(rdf/node :op "infer"
+:name "Host"
+:constraint nil)
+(rdf/node :op "infer"
+:name "_Wire"
+:constraint nil)])
+:then (rdf/node :op "name"
+:name "Host"
+:args [])
+:else (rdf/node :op "keyword"
+:name "never")))
+(rdf/node :kind "alias"
+:name "TypertLookupWire"
+:exported true
+:type-params [(rdf/node :name "Lookup"
+:constraint nil
+:default nil)]
+:datatype (rdf/node :op "conditional"
+:test (rdf/node :op "name"
+:name "Lookup"
+:args [])
+:extends (rdf/node :op "name"
+:name "TypertLookup"
+:args [(rdf/node :op "infer"
+:name "_Host"
+:constraint nil)
+(rdf/node :op "infer"
+:name "Wire"
+:constraint nil)])
+:then (rdf/node :op "name"
+:name "Wire"
+:args [])
+:else (rdf/node :op "keyword"
+:name "never")))
+(rdf/node :kind "interface"
+:name "TypertContext"
+:exported true
+:type-params [(rdf/node :name "Wire"
+:constraint nil
+:default nil)]
+:extends []
+:members [(rdf/node :kind "computed-property"
+:name "CONTEXT_WIRE"
+:optional false
+:readonly true
+:datatype (rdf/node :op "name"
+:name "Wire"
+:args []))])
+(rdf/node :kind "alias"
+:name "TypertContextWire"
+:exported true
+:type-params [(rdf/node :name "ContextType"
+:constraint nil
+:default nil)]
+:datatype (rdf/node :op "conditional"
+:test (rdf/node :op "name"
+:name "ContextType"
+:args [])
+:extends (rdf/node :op "name"
+:name "TypertContext"
+:args [(rdf/node :op "infer"
+:name "Wire"
+:constraint nil)])
+:then (rdf/node :op "name"
+:name "Wire"
+:args [])
+:else (rdf/node :op "keyword"
+:name "never")))
+(rdf/node :kind "interface"
+:name "TypertLookupMap"
+:exported true
+:type-params []
+:extends []
+:members [])
+(rdf/node :kind "interface"
+:name "TypertContextMap"
+:exported true
+:type-params []
+:extends []
+:members [])
+(rdf/node :kind "interface"
+:name "TypertRemoteMap"
+:exported true
+:type-params []
+:extends []
+:members [])
+(rdf/node :kind "interface"
+:name "RemoteErrorDetailsMap"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "gateway/bad-request"
+:optional false
+:readonly false
+:datatype (rdf/node :op "object"
+:members [(rdf/node :kind "property"
+:name "issues"
+:optional true
+:readonly true
+:datatype (rdf/node :op "readonly"
+:datatype (rdf/node :op "array"
+:item (rdf/node :op "keyword"
+:name "object"))))]))
+(rdf/node :kind "property"
+:name "gateway/cancelled"
+:optional false
+:readonly false
+:datatype (rdf/node :op "object"
+:members []))
+(rdf/node :kind "property"
+:name "gateway/internal"
+:optional false
+:readonly false
+:datatype (rdf/node :op "object"
+:members []))])
+(rdf/node :kind "alias"
+:name "RemoteErrorCode"
+:exported true
+:type-params []
+:datatype (rdf/node :op "keyof"
+:datatype (rdf/node :op "name"
+:name "RemoteErrorDetailsMap"
+:args [])))
+(rdf/node :kind "alias"
+:name "RemoteFailure"
+:exported true
+:type-params []
+:datatype (rdf/node :op "index"
+:object (rdf/node :op "mapped"
+:name "Code"
+:keys (rdf/node :op "name"
+:name "RemoteErrorCode"
+:args [])
+:remap nil
+:readonly false
+:optional false
+:value (rdf/node :op "import-type"
+:module "protocol.remote_error"
+:name "RemoteError"
+:args [(rdf/node :op "name"
+:name "Code"
+:args [])]
+:query false))
+:key (rdf/node :op "name"
+:name "RemoteErrorCode"
+:args [])))
+(rdf/node :kind "alias"
+:name "RemoteResult"
+:exported true
+:type-params [(rdf/node :name "T"
+:constraint nil
+:default nil)]
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "object"
+:members [(rdf/node :kind "property"
+:name "ok"
+:optional false
+:readonly true
+:datatype (rdf/node :op "literal"
+:value true))
+(rdf/node :kind "property"
+:name "value"
+:optional false
+:readonly true
+:datatype (rdf/node :op "name"
+:name "T"
+:args []))])
+(rdf/node :op "object"
+:members [(rdf/node :kind "property"
+:name "ok"
+:optional false
+:readonly true
+:datatype (rdf/node :op "literal"
+:value false))
+(rdf/node :kind "property"
+:name "error"
+:optional false
+:readonly true
+:datatype (rdf/node :op "name"
+:name "RemoteFailure"
+:args []))])]))
+(rdf/node :kind "const"
+:name "STREAM_UPLINK"
+:exported false
+:datatype (rdf/node :op "unique-symbol"))
+(rdf/node :kind "alias"
+:name "RemoteStream"
+:exported true
+:type-params [(rdf/node :name "Out"
+:constraint nil
+:default nil)
+(rdf/node :name "In"
+:constraint nil
+:default (rdf/node :op "keyword"
+:name "never"))]
+:datatype (rdf/node :op "intersection"
+:items [(rdf/node :op "name"
+:name "AsyncIterable"
+:args [(rdf/node :op "name"
+:name "Out"
+:args [])])
+(rdf/node :op "object"
+:members [(rdf/node :kind "computed-property"
+:name "STREAM_UPLINK"
+:optional true
+:readonly true
+:datatype (rdf/node :op "name"
+:name "In"
+:args []))])]))
+(rdf/node :kind "interface"
+:name "RemoteStreamHandle"
+:exported true
+:type-params [(rdf/node :name "Out"
+:constraint nil
+:default nil)
+(rdf/node :name "In"
+:constraint nil
+:default nil)]
+:extends [(rdf/node :op "name"
+:name "AsyncIterable"
+:args [(rdf/node :op "name"
+:name "Out"
+:args [])])]
+:members [(rdf/node :kind "method"
+:name "send"
+:optional false
+:type-params []
+:params [(rdf/node :name "item"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "In"
+:args []))]
+:returns (rdf/node :op "keyword"
+:name "void"))
+(rdf/node :kind "method"
+:name "end"
+:optional false
+:type-params []
+:params []
+:returns (rdf/node :op "keyword"
+:name "void"))
+(rdf/node :kind "method"
+:name "dispose"
+:optional false
+:type-params []
+:params []
+:returns (rdf/node :op "keyword"
+:name "void"))])
+(rdf/node :kind "interface"
+:name "TypertRemoteScopeMap"
+:exported true
+:type-params []
+:extends []
+:members [])
+(rdf/node :kind "alias"
+:name "TypertEventParameters"
+:exported false
+:type-params [(rdf/node :name "Event"
+:constraint (rdf/node :op "keyof"
+:datatype (rdf/node :op "name"
+:name "Events"
+:args []))
+:default nil)]
+:datatype (rdf/node :op "conditional"
+:test (rdf/node :op "index"
+:object (rdf/node :op "name"
+:name "Events"
+:args [])
+:key (rdf/node :op "name"
+:name "Event"
+:args []))
+:extends (rdf/node :op "function"
+:abstract false
+:type-params []
+:params [(rdf/node :name "args"
+:optional false
+:rest true
+:datatype (rdf/node :op "infer"
+:name "Args"
+:constraint nil))]
+:returns (rdf/node :op "keyword"
+:name "unknown"))
+:then (rdf/node :op "name"
+:name "Args"
+:args [])
+:else (rdf/node :op "keyword"
+:name "never")))
+(rdf/node :kind "alias"
+:name "TypertEventResult"
+:exported false
+:type-params [(rdf/node :name "Event"
+:constraint (rdf/node :op "keyof"
+:datatype (rdf/node :op "name"
+:name "Events"
+:args []))
+:default nil)]
+:datatype (rdf/node :op "conditional"
+:test (rdf/node :op "index"
+:object (rdf/node :op "name"
+:name "Events"
+:args [])
+:key (rdf/node :op "name"
+:name "Event"
+:args []))
+:extends (rdf/node :op "function"
+:abstract false
+:type-params []
+:params [(rdf/node :name "args"
+:optional false
+:rest true
+:datatype (rdf/node :op "array"
+:item (rdf/node :op "keyword"
+:name "never")))]
+:returns (rdf/node :op "infer"
+:name "Result"
+:constraint nil))
+:then (rdf/node :op "name"
+:name "Result"
+:args [])
+:else (rdf/node :op "keyword"
+:name "never")))
+(rdf/node :kind "alias"
+:name "TypertProjectedContextKey"
+:exported false
+:type-params []
+:datatype (rdf/node :op "name"
+:name "Extract"
+:args [(rdf/node :op "keyof"
+:datatype (rdf/node :op "name"
+:name "TypertLookupMap"
+:args []))
+(rdf/node :op "keyof"
+:datatype (rdf/node :op "name"
+:name "TypertContextMap"
+:args []))]))
+(rdf/node :kind "alias"
+:name "TypertProjectedContextSubject"
+:exported false
+:type-params []
+:datatype (rdf/node :op "index"
+:object (rdf/node :op "mapped"
+:name "Key"
+:keys (rdf/node :op "name"
+:name "TypertProjectedContextKey"
+:args [])
+:remap nil
+:readonly false
+:optional false
+:value (rdf/node :op "name"
+:name "TypertLookupHost"
+:args [(rdf/node :op "index"
+:object (rdf/node :op "name"
+:name "TypertLookupMap"
+:args [])
+:key (rdf/node :op "name"
+:name "Key"
+:args []))]))
+:key (rdf/node :op "name"
+:name "TypertProjectedContextKey"
+:args [])))
+(rdf/node :kind "alias"
+:name "TypertAgentScopedRequest"
+:exported false
+:type-params [(rdf/node :name "Request"
+:constraint nil
+:default nil)]
+:datatype (rdf/node :op "conditional"
+:test (rdf/node :op "name"
+:name "Request"
+:args [])
+:extends (rdf/node :op "keyword"
+:name "object")
+:then (rdf/node :op "conditional"
+:test (rdf/node :op "literal"
+:value "agent")
+:extends (rdf/node :op "keyof"
+:datatype (rdf/node :op "name"
+:name "Request"
+:args []))
+:then (rdf/node :op "conditional"
+:test (rdf/node :op "name"
+:name "Exclude"
+:args [(rdf/node :op "index"
+:object (rdf/node :op "name"
+:name "Request"
+:args [])
+:key (rdf/node :op "literal"
+:value "agent"))
+(rdf/node :op "keyword"
+:name "undefined")])
+:extends (rdf/node :op "name"
+:name "TypertProjectedContextSubject"
+:args [])
+:then (rdf/node :op "name"
+:name "Request"
+:args [])
+:else (rdf/node :op "keyword"
+:name "never"))
+:else (rdf/node :op "keyword"
+:name "never"))
+:else (rdf/node :op "keyword"
+:name "never")))
+(rdf/node :kind "alias"
+:name "TypertWaterfallEvent"
+:exported false
+:type-params [(rdf/node :name "Event"
+:constraint (rdf/node :op "keyof"
+:datatype (rdf/node :op "name"
+:name "Events"
+:args []))
+:default nil)]
+:datatype (rdf/node :op "conditional"
+:test (rdf/node :op "keyword"
+:name "unknown")
+:extends (rdf/node :op "name"
+:name "ThisParameterType"
+:args [(rdf/node :op "index"
+:object (rdf/node :op "name"
+:name "Events"
+:args [])
+:key (rdf/node :op "name"
+:name "Event"
+:args []))])
+:then (rdf/node :op "keyword"
+:name "never")
+:else (rdf/node :op "conditional"
+:test (rdf/node :op "name"
+:name "TypertEventParameters"
+:args [(rdf/node :op "name"
+:name "Event"
+:args [])])
+:extends (rdf/node :op "tuple"
+:items [(rdf/node :op "infer"
+:name "Request"
+:constraint nil)
+(rdf/node :op "infer"
+:name "Next"
+:constraint nil)])
+:then (rdf/node :op "conditional"
+:test (rdf/node :op "name"
+:name "Next"
+:args [])
+:extends (rdf/node :op "function"
+:abstract false
+:type-params []
+:params []
+:returns (rdf/node :op "name"
+:name "TypertEventResult"
+:args [(rdf/node :op "name"
+:name "Event"
+:args [])]))
+:then (rdf/node :op "conditional"
+:test (rdf/node :op "name"
+:name "TypertEventResult"
+:args [(rdf/node :op "name"
+:name "Event"
+:args [])])
+:extends (rdf/node :op "name"
+:name "Promise"
+:args [(rdf/node :op "keyword"
+:name "unknown")])
+:then (rdf/node :op "conditional"
+:test (rdf/node :op "name"
+:name "TypertAgentScopedRequest"
+:args [(rdf/node :op "name"
+:name "Request"
+:args [])])
+:extends (rdf/node :op "keyword"
+:name "never")
+:then (rdf/node :op "keyword"
+:name "never")
+:else (rdf/node :op "name"
+:name "Event"
+:args []))
+:else (rdf/node :op "keyword"
+:name "never"))
+:else (rdf/node :op "keyword"
+:name "never"))
+:else (rdf/node :op "keyword"
+:name "never"))))
+(rdf/node :kind "alias"
+:name "TypertForwardingMode"
+:exported false
+:type-params [(rdf/node :name "Event"
+:constraint (rdf/node :op "keyof"
+:datatype (rdf/node :op "name"
+:name "Events"
+:args []))
+:default nil)]
+:datatype (rdf/node :op "conditional"
+:test (rdf/node :op "keyword"
+:name "unknown")
+:extends (rdf/node :op "name"
+:name "ThisParameterType"
+:args [(rdf/node :op "index"
+:object (rdf/node :op "name"
+:name "Events"
+:args [])
+:key (rdf/node :op "name"
+:name "Event"
+:args []))])
+:then (rdf/node :op "conditional"
+:test (rdf/node :op "name"
+:name "TypertEventResult"
+:args [(rdf/node :op "name"
+:name "Event"
+:args [])])
+:extends (rdf/node :op "keyword"
+:name "void")
+:then (rdf/node :op "literal"
+:value "emit")
+:else (rdf/node :op "keyword"
+:name "never"))
+:else (rdf/node :op "conditional"
+:test (rdf/node :op "name"
+:name "TypertWaterfallEvent"
+:args [(rdf/node :op "name"
+:name "Event"
+:args [])])
+:extends (rdf/node :op "keyword"
+:name "never")
+:then (rdf/node :op "keyword"
+:name "never")
+:else (rdf/node :op "literal"
+:value "waterfall"))))
+(rdf/node :kind "alias"
+:name "TypertForwardableEvent"
+:exported true
+:type-params []
+:datatype (rdf/node :op "index"
+:object (rdf/node :op "mapped"
+:name "Event"
+:keys (rdf/node :op "keyof"
+:datatype (rdf/node :op "name"
+:name "Events"
+:args []))
+:remap nil
+:readonly false
+:optional false
+:value (rdf/node :op "conditional"
+:test (rdf/node :op "name"
+:name "TypertForwardingMode"
+:args [(rdf/node :op "name"
+:name "Event"
+:args [])])
+:extends (rdf/node :op "keyword"
+:name "never")
+:then (rdf/node :op "keyword"
+:name "never")
+:else (rdf/node :op "name"
+:name "Event"
+:args [])))
+:key (rdf/node :op "keyof"
+:datatype (rdf/node :op "name"
+:name "Events"
+:args []))))
+(rdf/node :kind "alias"
+:name "TypertForwardableEventEntry"
+:exported true
+:type-params []
+:datatype (rdf/node :op "index"
+:object (rdf/node :op "mapped"
+:name "Event"
+:keys (rdf/node :op "keyof"
+:datatype (rdf/node :op "name"
+:name "Events"
+:args []))
+:remap nil
+:readonly false
+:optional false
+:value (rdf/node :op "conditional"
+:test (rdf/node :op "name"
+:name "TypertForwardingMode"
+:args [(rdf/node :op "name"
+:name "Event"
+:args [])])
+:extends (rdf/node :op "infer"
+:name "Mode"
+:constraint nil)
+:then (rdf/node :op "conditional"
+:test (rdf/node :op "name"
+:name "Mode"
+:args [])
+:extends (rdf/node :op "union"
+:items [(rdf/node :op "literal"
+:value "emit")
+(rdf/node :op "literal"
+:value "waterfall")])
+:then (rdf/node :op "object"
+:members [(rdf/node :kind "property"
+:name "event"
+:optional false
+:readonly true
+:datatype (rdf/node :op "name"
+:name "Event"
+:args []))
+(rdf/node :kind "property"
+:name "mode"
+:optional false
+:readonly true
+:datatype (rdf/node :op "name"
+:name "Mode"
+:args []))])
+:else (rdf/node :op "keyword"
+:name "never"))
+:else (rdf/node :op "keyword"
+:name "never")))
+:key (rdf/node :op "keyof"
+:datatype (rdf/node :op "name"
+:name "Events"
+:args []))))
+(rdf/node :kind "interface"
+:name "TypertRemoteEventSelection"
+:exported true
+:type-params []
+:extends []
+:members [])
+(rdf/node :kind "alias"
+:name "TypertRemoteEvent"
+:exported true
+:type-params []
+:datatype (rdf/node :op "name"
+:name "Extract"
+:args [(rdf/node :op "name"
+:name "TypertForwardableEvent"
+:args [])
+(rdf/node :op "keyof"
+:datatype (rdf/node :op "name"
+:name "TypertRemoteEventSelection"
+:args []))]))
+(rdf/node :kind "alias"
+:name "TypertClientAgent"
+:exported false
+:type-params [(rdf/node :name "Value"
+:constraint nil
+:default nil)]
+:datatype (rdf/node :op "conditional"
+:test (rdf/node :op "name"
+:name "Exclude"
+:args [(rdf/node :op "name"
+:name "Value"
+:args [])
+(rdf/node :op "keyword"
+:name "undefined")])
+:extends (rdf/node :op "name"
+:name "TypertProjectedContextSubject"
+:args [])
+:then (rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "Context"
+:args [])
+(rdf/node :op "name"
+:name "Extract"
+:args [(rdf/node :op "name"
+:name "Value"
+:args [])
+(rdf/node :op "keyword"
+:name "undefined")])])
+:else (rdf/node :op "name"
+:name "Value"
+:args [])))
+(rdf/node :kind "alias"
+:name "TypertClientEventRequest"
+:exported false
+:type-params [(rdf/node :name "Request"
+:constraint nil
+:default nil)]
+:datatype (rdf/node :op "conditional"
+:test (rdf/node :op "name"
+:name "Request"
+:args [])
+:extends (rdf/node :op "keyword"
+:name "object")
+:then (rdf/node :op "mapped"
+:name "Key"
+:keys (rdf/node :op "keyof"
+:datatype (rdf/node :op "name"
+:name "Request"
+:args []))
+:remap nil
+:readonly false
+:optional false
+:value (rdf/node :op "conditional"
+:test (rdf/node :op "name"
+:name "Key"
+:args [])
+:extends (rdf/node :op "literal"
+:value "agent")
+:then (rdf/node :op "name"
+:name "TypertClientAgent"
+:args [(rdf/node :op "index"
+:object (rdf/node :op "name"
+:name "Request"
+:args [])
+:key (rdf/node :op "name"
+:name "Key"
+:args []))])
+:else (rdf/node :op "index"
+:object (rdf/node :op "name"
+:name "Request"
+:args [])
+:key (rdf/node :op "name"
+:name "Key"
+:args []))))
+:else (rdf/node :op "keyword"
+:name "never")))
+(rdf/node :kind "alias"
+:name "TypertScopedClientEventListener"
+:exported false
+:type-params [(rdf/node :name "Event"
+:constraint (rdf/node :op "name"
+:name "TypertRemoteEvent"
+:args [])
+:default nil)]
+:datatype (rdf/node :op "conditional"
+:test (rdf/node :op "index"
+:object (rdf/node :op "name"
+:name "Events"
+:args [])
+:key (rdf/node :op "name"
+:name "Event"
+:args []))
+:extends (rdf/node :op "function"
+:abstract false
+:type-params []
+:params [(rdf/node :name "request"
+:optional false
+:rest false
+:datatype (rdf/node :op "infer"
+:name "Request"
+:constraint nil))
+(rdf/node :name "next"
+:optional false
+:rest false
+:datatype (rdf/node :op "infer"
+:name "Next"
+:constraint nil))]
+:returns (rdf/node :op "infer"
+:name "Result"
+:constraint nil))
+:then (rdf/node :op "function"
+:abstract false
+:type-params []
+:params [(rdf/node :name "this"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "Context"
+:args []))
+(rdf/node :name "request"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "TypertClientEventRequest"
+:args [(rdf/node :op "name"
+:name "Request"
+:args [])]))
+(rdf/node :name "next"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "Next"
+:args []))]
+:returns (rdf/node :op "name"
+:name "Result"
+:args []))
+:else (rdf/node :op "keyword"
+:name "never")))
+(rdf/node :kind "alias"
+:name "TypertClientEventListener"
+:exported true
+:type-params [(rdf/node :name "Event"
+:constraint (rdf/node :op "name"
+:name "TypertRemoteEvent"
+:args [])
+:default nil)]
+:datatype (rdf/node :op "conditional"
+:test (rdf/node :op "keyword"
+:name "unknown")
+:extends (rdf/node :op "name"
+:name "ThisParameterType"
+:args [(rdf/node :op "index"
+:object (rdf/node :op "name"
+:name "Events"
+:args [])
+:key (rdf/node :op "name"
+:name "Event"
+:args []))])
+:then (rdf/node :op "index"
+:object (rdf/node :op "name"
+:name "Events"
+:args [])
+:key (rdf/node :op "name"
+:name "Event"
+:args []))
+:else (rdf/node :op "name"
+:name "TypertScopedClientEventListener"
+:args [(rdf/node :op "name"
+:name "Event"
+:args [])])))
+(rdf/node :kind "alias"
+:name "TypertRemoteNamespace"
+:exported true
+:type-params [(rdf/node :name "Namespace"
+:constraint (rdf/node :op "keyword"
+:name "string")
+:default nil)]
+:datatype (rdf/node :op "mapped"
+:name "Endpoint"
+:keys (rdf/node :op "keyof"
+:datatype (rdf/node :op "name"
+:name "TypertRemoteMap"
+:args []))
+:remap (rdf/node :op "conditional"
+:test (rdf/node :op "name"
+:name "Endpoint"
+:args [])
+:extends (rdf/node :op "template"
+:head ""
+:spans [(rdf/node :datatype (rdf/node :op "name"
+:name "Namespace"
+:args [])
+:tail "/")
+(rdf/node :datatype (rdf/node :op "infer"
+:name "Method"
+:constraint nil)
+:tail "")])
+:then (rdf/node :op "name"
+:name "Method"
+:args [])
+:else (rdf/node :op "keyword"
+:name "never"))
+:readonly false
+:optional false
+:value (rdf/node :op "index"
+:object (rdf/node :op "name"
+:name "TypertRemoteMap"
+:args [])
+:key (rdf/node :op "name"
+:name "Endpoint"
+:args []))))
+(rdf/node :kind "alias"
+:name "TypertRemoteScopeNamespace"
+:exported true
+:type-params [(rdf/node :name "Namespace"
+:constraint (rdf/node :op "keyword"
+:name "string")
+:default nil)
+(rdf/node :name "ContextKey"
+:constraint (rdf/node :op "keyword"
+:name "string")
+:default (rdf/node :op "keyword"
+:name "string"))]
+:datatype (rdf/node :op "mapped"
+:name "Endpoint"
+:keys (rdf/node :op "keyof"
+:datatype (rdf/node :op "name"
+:name "TypertRemoteScopeMap"
+:args []))
+:remap (rdf/node :op "conditional"
+:test (rdf/node :op "name"
+:name "Endpoint"
+:args [])
+:extends (rdf/node :op "template"
+:head ""
+:spans [(rdf/node :datatype (rdf/node :op "name"
+:name "ContextKey"
+:args [])
+:tail ":")
+(rdf/node :datatype (rdf/node :op "name"
+:name "Namespace"
+:args [])
+:tail "/")
+(rdf/node :datatype (rdf/node :op "infer"
+:name "Method"
+:constraint nil)
+:tail "")])
+:then (rdf/node :op "name"
+:name "Method"
+:args [])
+:else (rdf/node :op "keyword"
+:name "never"))
+:readonly false
+:optional false
+:value (rdf/node :op "index"
+:object (rdf/node :op "name"
+:name "TypertRemoteScopeMap"
+:args [])
+:key (rdf/node :op "name"
+:name "Endpoint"
+:args []))))
+(rdf/node :kind "alias"
+:name "TypertRemoteScopeNamespaceKey"
+:exported false
+:type-params [(rdf/node :name "ContextKey"
+:constraint (rdf/node :op "keyword"
+:name "string")
+:default nil)
+(rdf/node :name "Endpoint"
+:constraint nil
+:default (rdf/node :op "keyof"
+:datatype (rdf/node :op "name"
+:name "TypertRemoteScopeMap"
+:args [])))]
+:datatype (rdf/node :op "conditional"
+:test (rdf/node :op "name"
+:name "Endpoint"
+:args [])
+:extends (rdf/node :op "template"
+:head ""
+:spans [(rdf/node :datatype (rdf/node :op "name"
+:name "ContextKey"
+:args [])
+:tail ":")
+(rdf/node :datatype (rdf/node :op "infer"
+:name "Namespace"
+:constraint nil)
+:tail "/")
+(rdf/node :datatype (rdf/node :op "keyword"
+:name "string")
+:tail "")])
+:then (rdf/node :op "name"
+:name "Namespace"
+:args [])
+:else (rdf/node :op "keyword"
+:name "never")))
+(rdf/node :kind "alias"
+:name "TypertRemoteScopeApi"
+:exported true
+:type-params [(rdf/node :name "ContextKey"
+:constraint (rdf/node :op "keyword"
+:name "string")
+:default nil)]
+:datatype (rdf/node :op "mapped"
+:name "Namespace"
+:keys (rdf/node :op "name"
+:name "TypertRemoteScopeNamespaceKey"
+:args [(rdf/node :op "name"
+:name "ContextKey"
+:args [])])
+:remap nil
+:readonly false
+:optional false
+:value (rdf/node :op "name"
+:name "TypertRemoteScopeNamespace"
+:args [(rdf/node :op "name"
+:name "Namespace"
+:args [])
+(rdf/node :op "name"
+:name "ContextKey"
+:args [])])))
+(rdf/node :kind "interface"
+:name "TypertRemoteNamespaceMap"
+:exported true
+:type-params []
+:extends []
+:members [])
+(rdf/node :kind "alias"
+:name "TypertDisposer"
+:exported true
+:type-params []
+:datatype (rdf/node :op "function"
+:abstract false
+:type-params []
+:params []
+:returns (rdf/node :op "name"
+:name "Promise"
+:args [(rdf/node :op "keyword"
+:name "void")])))
+(rdf/node :kind "alias"
+:name "StringKeyOf"
+:exported false
+:type-params [(rdf/node :name "Value"
+:constraint nil
+:default nil)]
+:datatype (rdf/node :op "name"
+:name "Extract"
+:args [(rdf/node :op "keyof"
+:datatype (rdf/node :op "name"
+:name "Value"
+:args []))
+(rdf/node :op "keyword"
+:name "string")]))
+(rdf/node :kind "interface"
+:name "TypertSchema"
+:exported true
+:type-params [(rdf/node :name "Output"
+:constraint nil
+:default (rdf/node :op "keyword"
+:name "unknown"))]
+:extends []
+:members [(rdf/node :kind "method"
+:name "parse"
+:optional false
+:type-params []
+:params [(rdf/node :name "value"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "unknown"))]
+:returns (rdf/node :op "name"
+:name "Output"
+:args []))])
+(rdf/node :kind "alias"
+:name "TypertCodec"
+:exported true
+:type-params []
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "object"
+:members [(rdf/node :kind "property"
+:name "mode"
+:optional false
+:readonly true
+:datatype (rdf/node :op "literal"
+:value "strict"))
+(rdf/node :kind "property"
+:name "typeSymbol"
+:optional false
+:readonly true
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:name "create"
+:optional false
+:readonly true
+:datatype (rdf/node :op "function"
+:abstract false
+:type-params []
+:params []
+:returns (rdf/node :op "name"
+:name "TypertSchema"
+:args [])))
+(rdf/node :kind "property"
+:name "decode"
+:optional true
+:readonly true
+:datatype (rdf/node :op "function"
+:abstract false
+:type-params []
+:params [(rdf/node :name "value"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "unknown"))]
+:returns (rdf/node :op "keyword"
+:name "unknown")))
+(rdf/node :kind "property"
+:name "encode"
+:optional true
+:readonly true
+:datatype (rdf/node :op "function"
+:abstract false
+:type-params []
+:params [(rdf/node :name "value"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "unknown"))
+(rdf/node :name "writeBytes"
+:optional false
+:rest false
+:datatype (rdf/node :op "function"
+:abstract false
+:type-params []
+:params [(rdf/node :name "bytes"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "Uint8Array"
+:args []))
+(rdf/node :name "path"
+:optional false
+:rest false
+:datatype (rdf/node :op "readonly"
+:datatype (rdf/node :op "array"
+:item (rdf/node :op "union"
+:items [(rdf/node :op "keyword"
+:name "string")
+(rdf/node :op "keyword"
+:name "number")]))))]
+:returns (rdf/node :op "literal"
+:value nil)))]
+:returns (rdf/node :op "keyword"
+:name "unknown")))])
+(rdf/node :op "object"
+:members [(rdf/node :kind "property"
+:name "mode"
+:optional false
+:readonly true
+:datatype (rdf/node :op "literal"
+:value "src-json"))])]))
+(rdf/node :kind "interface"
+:name "InvocationParameterDescriptor"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "name"
+:optional false
+:readonly true
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:name "wire"
+:optional false
+:readonly true
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:name "source"
+:optional false
+:readonly true
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "literal"
+:value "json")
+(rdf/node :op "literal"
+:value "lookup")]))
+(rdf/node :kind "property"
+:name "lookup"
+:optional true
+:readonly true
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:name "codec"
+:optional false
+:readonly true
+:datatype (rdf/node :op "name"
+:name "TypertCodec"
+:args []))
+(rdf/node :kind "property"
+:name "acceptsUndefined"
+:optional true
+:readonly true
+:datatype (rdf/node :op "literal"
+:value true))])
+(rdf/node :kind "interface"
+:name "InvocationSourceLocation"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "file"
+:optional false
+:readonly true
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:name "line"
+:optional false
+:readonly true
+:datatype (rdf/node :op "keyword"
+:name "number"))
+(rdf/node :kind "property"
+:name "column"
+:optional false
+:readonly true
+:datatype (rdf/node :op "keyword"
+:name "number"))])
+(rdf/node :kind "interface"
+:name "InvocationDescriptor"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "id"
+:optional false
+:readonly true
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:name "service"
+:optional false
+:readonly true
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:name "namespace"
+:optional false
+:readonly true
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:name "method"
+:optional false
+:readonly true
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:name "implementation"
+:optional true
+:readonly true
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:name "mode"
+:optional true
+:readonly true
+:datatype (rdf/node :op "literal"
+:value "stream"))
+(rdf/node :kind "property"
+:name "invocation"
+:optional false
+:readonly true
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "object"
+:members [(rdf/node :kind "property"
+:name "kind"
+:optional false
+:readonly true
+:datatype (rdf/node :op "literal"
+:value "direct"))])
+(rdf/node :op "object"
+:members [(rdf/node :kind "property"
+:name "kind"
+:optional false
+:readonly true
+:datatype (rdf/node :op "literal"
+:value "context"))
+(rdf/node :kind "property"
+:name "context"
+:optional false
+:readonly true
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:name "wire"
+:optional false
+:readonly true
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:name "codec"
+:optional false
+:readonly true
+:datatype (rdf/node :op "name"
+:name "TypertCodec"
+:args []))])]))
+(rdf/node :kind "property"
+:name "scope"
+:optional true
+:readonly true
+:datatype (rdf/node :op "object"
+:members [(rdf/node :kind "property"
+:name "context"
+:optional false
+:readonly true
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:name "wire"
+:optional false
+:readonly true
+:datatype (rdf/node :op "keyword"
+:name "string"))]))
+(rdf/node :kind "property"
+:name "parameters"
+:optional false
+:readonly true
+:datatype (rdf/node :op "readonly"
+:datatype (rdf/node :op "array"
+:item (rdf/node :op "name"
+:name "InvocationParameterDescriptor"
+:args []))))
+(rdf/node :kind "property"
+:name "uplink"
+:optional true
+:readonly true
+:datatype (rdf/node :op "object"
+:members [(rdf/node :kind "property"
+:name "codec"
+:optional false
+:readonly true
+:datatype (rdf/node :op "name"
+:name "TypertCodec"
+:args []))]))
+(rdf/node :kind "property"
+:name "cancellation"
+:optional true
+:readonly true
+:datatype (rdf/node :op "object"
+:members [(rdf/node :kind "property"
+:name "parameter"
+:optional false
+:readonly true
+:datatype (rdf/node :op "literal"
+:value "signal"))]))
+(rdf/node :kind "property"
+:name "result"
+:optional false
+:readonly true
+:datatype (rdf/node :op "name"
+:name "TypertCodec"
+:args []))
+(rdf/node :kind "property"
+:name "sourceLocation"
+:optional true
+:readonly true
+:datatype (rdf/node :op "name"
+:name "InvocationSourceLocation"
+:args []))])
+(rdf/node :kind "alias"
+:name "PeerId"
+:exported true
+:type-params []
+:datatype (rdf/node :op "name"
+:name "Branded"
+:args [(rdf/node :op "literal"
+:value "PeerId")]))
+(rdf/node :kind "interface"
+:name "PeerScope"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "id"
+:optional false
+:readonly true
+:datatype (rdf/node :op "name"
+:name "PeerId"
+:args []))
+(rdf/node :kind "property"
+:name "ctx"
+:optional false
+:readonly true
+:datatype (rdf/node :op "name"
+:name "Context"
+:args []))
+(rdf/node :kind "method"
+:name "dispose"
+:optional false
+:type-params []
+:params []
+:returns (rdf/node :op "name"
+:name "Promise"
+:args [(rdf/node :op "keyword"
+:name "void")]))])
+(rdf/node :kind "interface"
+:name "RemoteInvocation"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "request"
+:optional false
+:readonly true
+:datatype (rdf/node :op "object"
+:members [(rdf/node :kind "property"
+:name "namespace"
+:optional false
+:readonly true
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:name "method"
+:optional false
+:readonly true
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:name "args"
+:optional false
+:readonly true
+:datatype (rdf/node :op "name"
+:name "Readonly"
+:args [(rdf/node :op "name"
+:name "Record"
+:args [(rdf/node :op "keyword"
+:name "string")
+(rdf/node :op "keyword"
+:name "unknown")])]))]))
+(rdf/node :kind "property"
+:name "service"
+:optional false
+:readonly true
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:name "peer"
+:optional false
+:readonly true
+:datatype (rdf/node :op "name"
+:name "PeerScope"
+:args []))
+(rdf/node :kind "property"
+:name "signal"
+:optional false
+:readonly true
+:datatype (rdf/node :op "name"
+:name "AbortSignal"
+:args []))
+(rdf/node :kind "method"
+:name "uplink"
+:optional false
+:type-params [(rdf/node :name "In"
+:constraint nil
+:default (rdf/node :op "keyword"
+:name "unknown"))]
+:params []
+:returns (rdf/node :op "name"
+:name "AsyncIterable"
+:args [(rdf/node :op "name"
+:name "In"
+:args [])]))])
+(rdf/node :kind "interface"
+:name "TypertRemoteContribution"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "package"
+:optional false
+:readonly true
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:name "descriptors"
+:optional false
+:readonly true
+:datatype (rdf/node :op "readonly"
+:datatype (rdf/node :op "array"
+:item (rdf/node :op "name"
+:name "InvocationDescriptor"
+:args []))))])
+(rdf/node :kind "interface"
+:name "TypertClientRemote"
+:exported true
+:type-params []
+:extends [(rdf/node :op "name"
+:name "TypertRemoteNamespaceMap"
+:args [])]
+:members [(rdf/node :kind "method"
+:name "$mount"
+:optional false
+:type-params []
+:params [(rdf/node :name "contribution"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "TypertRemoteContribution"
+:args []))]
+:returns (rdf/node :op "name"
+:name "Promise"
+:args [(rdf/node :op "name"
+:name "TypertDisposer"
+:args [])]))
+(rdf/node :kind "method"
+:name "$on"
+:optional false
+:type-params [(rdf/node :name "Event"
+:constraint (rdf/node :op "name"
+:name "TypertRemoteEvent"
+:args [])
+:default nil)]
+:params [(rdf/node :name "event"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "Event"
+:args []))
+(rdf/node :name "listener"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "TypertClientEventListener"
+:args [(rdf/node :op "name"
+:name "Event"
+:args [])]))]
+:returns (rdf/node :op "function"
+:abstract false
+:type-params []
+:params []
+:returns (rdf/node :op "keyword"
+:name "void")))])
+(rdf/node :kind "alias"
+:name "TypertLookupResolver"
+:exported true
+:type-params [(rdf/node :name "Host"
+:constraint nil
+:default (rdf/node :op "keyword"
+:name "unknown"))
+(rdf/node :name "Wire"
+:constraint nil
+:default (rdf/node :op "keyword"
+:name "unknown"))]
+:datatype (rdf/node :op "function"
+:abstract false
+:type-params []
+:params [(rdf/node :name "id"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "Wire"
+:args []))]
+:returns (rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "Host"
+:args [])
+(rdf/node :op "keyword"
+:name "undefined")
+(rdf/node :op "name"
+:name "Promise"
+:args [(rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "Host"
+:args [])
+(rdf/node :op "keyword"
+:name "undefined")])])])))
+(rdf/node :kind "interface"
+:name "TypertLookupProvider"
+:exported true
+:type-params [(rdf/node :name "Host"
+:constraint nil
+:default (rdf/node :op "keyword"
+:name "unknown"))
+(rdf/node :name "Wire"
+:constraint nil
+:default (rdf/node :op "keyword"
+:name "unknown"))]
+:extends []
+:members [(rdf/node :kind "property"
+:name "parameter"
+:optional false
+:readonly true
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:name "wire"
+:optional false
+:readonly true
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:name "hostTypeSymbol"
+:optional false
+:readonly true
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:name "wireTypeSymbol"
+:optional false
+:readonly true
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "method"
+:name "resolve"
+:optional false
+:type-params []
+:params [(rdf/node :name "id"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "Wire"
+:args []))]
+:returns (rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "Host"
+:args [])
+(rdf/node :op "keyword"
+:name "undefined")
+(rdf/node :op "name"
+:name "Promise"
+:args [(rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "Host"
+:args [])
+(rdf/node :op "keyword"
+:name "undefined")])])]))])
+(rdf/node :kind "interface"
+:name "TypertLookupDefinition"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "key"
+:optional false
+:readonly true
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:name "parameter"
+:optional false
+:readonly true
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:name "wire"
+:optional false
+:readonly true
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:name "hostTypeSymbol"
+:optional false
+:readonly true
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:name "wireTypeSymbol"
+:optional false
+:readonly true
+:datatype (rdf/node :op "keyword"
+:name "string"))])
+(rdf/node :kind "interface"
+:name "TypertHostContextAdapter"
+:exported true
+:type-params [(rdf/node :name "Wire"
+:constraint nil
+:default (rdf/node :op "keyword"
+:name "unknown"))]
+:extends []
+:members [(rdf/node :kind "property"
+:name "wire"
+:optional false
+:readonly true
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:name "wireTypeSymbol"
+:optional false
+:readonly true
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "method"
+:name "resolve"
+:optional false
+:type-params []
+:params [(rdf/node :name "id"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "Wire"
+:args []))]
+:returns (rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "Context"
+:args [])
+(rdf/node :op "keyword"
+:name "undefined")
+(rdf/node :op "name"
+:name "Promise"
+:args [(rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "Context"
+:args [])
+(rdf/node :op "keyword"
+:name "undefined")])])]))])
+(rdf/node :kind "alias"
+:name "TypertHostContextResolver"
+:exported true
+:type-params [(rdf/node :name "Wire"
+:constraint nil
+:default (rdf/node :op "keyword"
+:name "unknown"))]
+:datatype (rdf/node :op "function"
+:abstract false
+:type-params []
+:params [(rdf/node :name "id"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "Wire"
+:args []))]
+:returns (rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "Context"
+:args [])
+(rdf/node :op "keyword"
+:name "undefined")
+(rdf/node :op "name"
+:name "Promise"
+:args [(rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "Context"
+:args [])
+(rdf/node :op "keyword"
+:name "undefined")])])])))
+(rdf/node :kind "interface"
+:name "TypertClientContextAdapter"
+:exported true
+:type-params [(rdf/node :name "Wire"
+:constraint nil
+:default (rdf/node :op "keyword"
+:name "unknown"))]
+:extends []
+:members [(rdf/node :kind "method"
+:name "identity"
+:optional false
+:type-params []
+:params [(rdf/node :name "ctx"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "Context"
+:args []))]
+:returns (rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "Wire"
+:args [])
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "method"
+:name "resolve"
+:optional false
+:type-params []
+:params [(rdf/node :name "id"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "Wire"
+:args []))]
+:returns (rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "Context"
+:args [])
+(rdf/node :op "name"
+:name "TypertOwnedValue"
+:args [(rdf/node :op "name"
+:name "Context"
+:args [])])
+(rdf/node :op "keyword"
+:name "undefined")]))])
+(rdf/node :kind "interface"
+:name "TypertRegistryChange"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "kind"
+:optional false
+:readonly true
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "literal"
+:value "local")
+(rdf/node :op "literal"
+:value "remote")
+(rdf/node :op "literal"
+:value "lookup")
+(rdf/node :op "literal"
+:value "host-context")
+(rdf/node :op "literal"
+:value "client-context")]))
+(rdf/node :kind "property"
+:name "key"
+:optional false
+:readonly true
+:datatype (rdf/node :op "keyword"
+:name "string"))])
+(rdf/node :kind "alias"
+:name "TypertRegistryListener"
+:exported true
+:type-params []
+:datatype (rdf/node :op "function"
+:abstract false
+:type-params []
+:params [(rdf/node :name "change"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "TypertRegistryChange"
+:args []))]
+:returns (rdf/node :op "keyword"
+:name "void")))
+(rdf/node :kind "interface"
+:name "TypertLocalRegistry"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "method"
+:name "get"
+:optional false
+:type-params []
+:params [(rdf/node :name "endpoint"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))]
+:returns (rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "InvocationDescriptor"
+:args [])
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "method"
+:name "hasSeen"
+:optional false
+:type-params []
+:params [(rdf/node :name "endpoint"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))]
+:returns (rdf/node :op "keyword"
+:name "boolean"))
+(rdf/node :kind "method"
+:name "list"
+:optional false
+:type-params []
+:params []
+:returns (rdf/node :op "readonly"
+:datatype (rdf/node :op "array"
+:item (rdf/node :op "name"
+:name "InvocationDescriptor"
+:args []))))
+(rdf/node :kind "method"
+:name "subscribe"
+:optional false
+:type-params []
+:params [(rdf/node :name "listener"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "TypertRegistryListener"
+:args []))]
+:returns (rdf/node :op "name"
+:name "TypertDisposer"
+:args []))])
+(rdf/node :kind "interface"
+:name "TypertRemoteRegistry"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "method"
+:name "register"
+:optional false
+:type-params []
+:params [(rdf/node :name "contribution"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "TypertRemoteContribution"
+:args []))]
+:returns (rdf/node :op "name"
+:name "TypertDisposer"
+:args []))
+(rdf/node :kind "method"
+:name "get"
+:optional false
+:type-params []
+:params [(rdf/node :name "endpoint"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))]
+:returns (rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "InvocationDescriptor"
+:args [])
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "method"
+:name "list"
+:optional false
+:type-params []
+:params []
+:returns (rdf/node :op "readonly"
+:datatype (rdf/node :op "array"
+:item (rdf/node :op "name"
+:name "InvocationDescriptor"
+:args []))))
+(rdf/node :kind "method"
+:name "subscribe"
+:optional false
+:type-params []
+:params [(rdf/node :name "listener"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "TypertRegistryListener"
+:args []))]
+:returns (rdf/node :op "name"
+:name "TypertDisposer"
+:args []))])
+(rdf/node :kind "interface"
+:name "TypertLookupRegistry"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "method"
+:name "register"
+:optional false
+:type-params [(rdf/node :name "K"
+:constraint (rdf/node :op "name"
+:name "StringKeyOf"
+:args [(rdf/node :op "name"
+:name "TypertLookupMap"
+:args [])])
+:default nil)]
+:params [(rdf/node :name "key"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "K"
+:args []))
+(rdf/node :name "provider"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "TypertLookupProvider"
+:args [(rdf/node :op "name"
+:name "TypertLookupHost"
+:args [(rdf/node :op "index"
+:object (rdf/node :op "name"
+:name "TypertLookupMap"
+:args [])
+:key (rdf/node :op "name"
+:name "K"
+:args []))])
+(rdf/node :op "name"
+:name "TypertLookupWire"
+:args [(rdf/node :op "index"
+:object (rdf/node :op "name"
+:name "TypertLookupMap"
+:args [])
+:key (rdf/node :op "name"
+:name "K"
+:args []))])]))]
+:returns (rdf/node :op "name"
+:name "TypertDisposer"
+:args []))
+(rdf/node :kind "method"
+:name "configure"
+:optional false
+:type-params [(rdf/node :name "K"
+:constraint (rdf/node :op "name"
+:name "StringKeyOf"
+:args [(rdf/node :op "name"
+:name "TypertLookupMap"
+:args [])])
+:default nil)]
+:params [(rdf/node :name "key"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "K"
+:args []))
+(rdf/node :name "resolver"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "TypertLookupResolver"
+:args [(rdf/node :op "name"
+:name "TypertLookupHost"
+:args [(rdf/node :op "index"
+:object (rdf/node :op "name"
+:name "TypertLookupMap"
+:args [])
+:key (rdf/node :op "name"
+:name "K"
+:args []))])
+(rdf/node :op "name"
+:name "TypertLookupWire"
+:args [(rdf/node :op "index"
+:object (rdf/node :op "name"
+:name "TypertLookupMap"
+:args [])
+:key (rdf/node :op "name"
+:name "K"
+:args []))])]))]
+:returns (rdf/node :op "name"
+:name "TypertDisposer"
+:args []))
+(rdf/node :kind "method"
+:name "get"
+:optional false
+:type-params []
+:params [(rdf/node :name "key"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))]
+:returns (rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "TypertLookupProvider"
+:args [])
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "method"
+:name "definitions"
+:optional false
+:type-params []
+:params []
+:returns (rdf/node :op "readonly"
+:datatype (rdf/node :op "array"
+:item (rdf/node :op "name"
+:name "TypertLookupDefinition"
+:args []))))
+(rdf/node :kind "method"
+:name "keys"
+:optional false
+:type-params []
+:params []
+:returns (rdf/node :op "readonly"
+:datatype (rdf/node :op "array"
+:item (rdf/node :op "keyword"
+:name "string"))))
+(rdf/node :kind "method"
+:name "subscribe"
+:optional false
+:type-params []
+:params [(rdf/node :name "listener"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "TypertRegistryListener"
+:args []))]
+:returns (rdf/node :op "name"
+:name "TypertDisposer"
+:args []))])
+(rdf/node :kind "interface"
+:name "TypertContextRegistry"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "method"
+:name "registerHost"
+:optional false
+:type-params [(rdf/node :name "K"
+:constraint (rdf/node :op "name"
+:name "StringKeyOf"
+:args [(rdf/node :op "name"
+:name "TypertContextMap"
+:args [])])
+:default nil)]
+:params [(rdf/node :name "key"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "K"
+:args []))
+(rdf/node :name "adapter"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "TypertHostContextAdapter"
+:args [(rdf/node :op "name"
+:name "TypertContextWire"
+:args [(rdf/node :op "index"
+:object (rdf/node :op "name"
+:name "TypertContextMap"
+:args [])
+:key (rdf/node :op "name"
+:name "K"
+:args []))])]))]
+:returns (rdf/node :op "name"
+:name "TypertDisposer"
+:args []))
+(rdf/node :kind "method"
+:name "configureHost"
+:optional false
+:type-params [(rdf/node :name "K"
+:constraint (rdf/node :op "name"
+:name "StringKeyOf"
+:args [(rdf/node :op "name"
+:name "TypertContextMap"
+:args [])])
+:default nil)]
+:params [(rdf/node :name "key"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "K"
+:args []))
+(rdf/node :name "resolver"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "TypertHostContextResolver"
+:args [(rdf/node :op "name"
+:name "TypertContextWire"
+:args [(rdf/node :op "index"
+:object (rdf/node :op "name"
+:name "TypertContextMap"
+:args [])
+:key (rdf/node :op "name"
+:name "K"
+:args []))])]))]
+:returns (rdf/node :op "name"
+:name "TypertDisposer"
+:args []))
+(rdf/node :kind "method"
+:name "registerClient"
+:optional false
+:type-params [(rdf/node :name "K"
+:constraint (rdf/node :op "name"
+:name "StringKeyOf"
+:args [(rdf/node :op "name"
+:name "TypertContextMap"
+:args [])])
+:default nil)]
+:params [(rdf/node :name "key"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "K"
+:args []))
+(rdf/node :name "adapter"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "TypertClientContextAdapter"
+:args [(rdf/node :op "name"
+:name "TypertContextWire"
+:args [(rdf/node :op "index"
+:object (rdf/node :op "name"
+:name "TypertContextMap"
+:args [])
+:key (rdf/node :op "name"
+:name "K"
+:args []))])]))]
+:returns (rdf/node :op "name"
+:name "TypertDisposer"
+:args []))
+(rdf/node :kind "method"
+:name "getHost"
+:optional false
+:type-params []
+:params [(rdf/node :name "key"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))]
+:returns (rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "TypertHostContextAdapter"
+:args [])
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "method"
+:name "getClient"
+:optional false
+:type-params []
+:params [(rdf/node :name "key"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))]
+:returns (rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "TypertClientContextAdapter"
+:args [])
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "method"
+:name "subscribe"
+:optional false
+:type-params []
+:params [(rdf/node :name "listener"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "TypertRegistryListener"
+:args []))]
+:returns (rdf/node :op "name"
+:name "TypertDisposer"
+:args []))])
+(rdf/node :kind "interface"
+:name "TypertRegistryContract"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "local"
+:optional false
+:readonly true
+:datatype (rdf/node :op "name"
+:name "TypertLocalRegistry"
+:args []))
+(rdf/node :kind "property"
+:name "remotes"
+:optional false
+:readonly true
+:datatype (rdf/node :op "name"
+:name "TypertRemoteRegistry"
+:args []))
+(rdf/node :kind "property"
+:name "lookups"
+:optional false
+:readonly true
+:datatype (rdf/node :op "name"
+:name "TypertLookupRegistry"
+:args []))
+(rdf/node :kind "property"
+:name "contexts"
+:optional false
+:readonly true
+:datatype (rdf/node :op "name"
+:name "TypertContextRegistry"
+:args []))])]
+:reexports []
+:augmentations [(rdf/node :module "cordis.index"
+:declarations [(rdf/node :kind "interface"
+:name "Context"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "typert"
+:optional false
+:readonly false
+:datatype (rdf/node :op "name"
+:name "TypertRegistryContract"
+:args []))
+(rdf/node :kind "property"
+:name "invocation"
+:optional false
+:readonly true
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "RemoteInvocation"
+:args [])
+(rdf/node :op "keyword"
+:name "undefined")]))])])]
+:local-exports [])

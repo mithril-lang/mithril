@@ -1,0 +1,78 @@
+(mithril/native-js-declaration-module :name "protocol.owned_value"
+:runtime "protocol.owned_value"
+:ambient-types [(rdf/node :name "Disposable"
+:min 0
+:max 0)]
+:ambient-values ["Error"
+"Symbol.dispose"]
+:imports []
+:declarations [(rdf/node :kind "const"
+:name "TYPERT_OWNED_VALUE"
+:exported true
+:datatype (rdf/node :op "unique-symbol"))
+(rdf/node :kind "interface"
+:name "TypertOwnedValue"
+:exported true
+:type-params [(rdf/node :name "Value"
+:constraint nil
+:default nil)]
+:extends [(rdf/node :op "name"
+:name "Disposable"
+:args [])]
+:members [(rdf/node :kind "computed-property"
+:name "TYPERT_OWNED_VALUE"
+:optional false
+:readonly true
+:datatype (rdf/node :op "literal"
+:value true))
+(rdf/node :kind "property"
+:name "value"
+:optional false
+:readonly true
+:datatype (rdf/node :op "name"
+:name "Value"
+:args []))])
+(rdf/node :kind "function"
+:name "typertOwnedValue"
+:exported true
+:type-params [(rdf/node :name "Value"
+:constraint nil
+:default nil)]
+:params [(rdf/node :name "value"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "Value"
+:args []))
+(rdf/node :name "release"
+:optional false
+:rest false
+:datatype (rdf/node :op "function"
+:abstract false
+:type-params []
+:params []
+:returns (rdf/node :op "keyword"
+:name "void")))]
+:returns (rdf/node :op "name"
+:name "TypertOwnedValue"
+:args [(rdf/node :op "name"
+:name "Value"
+:args [])]))
+(rdf/node :kind "function"
+:name "isTypertOwnedValue"
+:exported true
+:type-params []
+:params [(rdf/node :name "value"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "unknown"))]
+:returns (rdf/node :op "predicate"
+:name "value"
+:datatype (rdf/node :op "name"
+:name "TypertOwnedValue"
+:args [(rdf/node :op "keyword"
+:name "unknown")])))]
+:reexports []
+:augmentations []
+:local-exports [])
