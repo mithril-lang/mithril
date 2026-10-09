@@ -1,0 +1,9 @@
+(mithril/native-js-module :name "namespace.leaf" :imports ["rootNs"]
+ :bindings [(rdf/node :name "count" :mutable true :value (mithril/literal :datatype "js-value" :value 1))]
+ :functions [(mithril/function :name "readView" :params [] :returns "js-value"
+ :body (mithril/host-get :object (mithril/host-import :name "rootNs") :key (mithril/literal :datatype "js-value" :value "view")))
+ (mithril/function :name "inc" :params [] :returns "js-value"
+  :body (mithril/local-set :name "count" :value (mithril/host-binary :operator "+" :left (mithril/local :name "count") :right (mithril/literal :datatype "js-value" :value 1))))]
+ :exports [(rdf/node :name "count" :value (mithril/local :name "count"))
+           (rdf/node :name "inc" :function "inc") "readView"
+           (rdf/node :name "default" :value (mithril/literal :datatype "js-value" :value "local"))])

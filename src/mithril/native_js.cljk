@@ -1233,7 +1233,7 @@
   (emit-checked (check-document doc) factory false false))
 
 (defn compile-esm-document
-  "Emit a checked native module with real named ESM imports/exports. Link paths
+  "Emit a checked native module with real named/namespace ESM imports and exports. Link paths
    are inert generated local basenames or explicitly declared external specifiers;
    declarations remain engine-owned."
   ([doc links dependencies] (compile-esm-document doc links dependencies []))
@@ -1252,7 +1252,7 @@
         _ (doseq [path dependencies] (path! path)) _ (unique! dependencies)
         _ (doseq [link links]
             (shape! link ["import" "source" "export"])
-            (name! (get link "import")) (name! (get link "export")) (path! (get link "source"))
+            (name! (get link "import")) (when-not (= "*" (get link "export")) (name! (get link "export"))) (path! (get link "source"))
             (when-not (and (some #{(get link "import")} (:imports checked))
                            (some #{(get link "source")} dependencies))
               (fail! :mithril.native-js/link "Unknown linked import or unordered dependency")))
@@ -1293,9 +1293,13 @@
         env (into {} (map #(vector (:name %) (:name %)) (:bindings checked)))
         dependency-source (apply str
                              (map (fn [path]
-                                    (let [imports (filter #(= path (get % "source")) links)]
+                                    (let [imports (filter #(= path (get % "source")) links)
+                                          named (remove #(= "*" (get % "export")) imports)
+                                          namespaces (filter #(= "*" (get % "export")) imports)]
                                       (if (seq imports)
-                                        (str "import {" (str/join "," (map #(str (quoted (get % "export")) " as " (get link-symbols (get % "import"))) imports)) "} from " (quoted path) ";\n")
+                                        (str (when (seq named)
+                                               (str "import {" (str/join "," (map #(str (quoted (get % "export")) " as " (get link-symbols (get % "import"))) named)) "} from " (quoted path) ";\n"))
+                                             (apply str (map #(str "import * as " (get link-symbols (get % "import")) " from " (quoted path) ";\n") namespaces)))
                                         (str "import " (quoted path) ";\n")))) dependencies))
         function-source (apply str
                            (map (fn [f]
