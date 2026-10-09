@@ -18,6 +18,7 @@
    (case kind
     "call" ""
     "construct" "new "
+    "index-signature" (str "[" (get m "name") ": " (emit-type (get m "key")) "]")
     ("computed-property" "computed-method") (str "[" (get m "name") "]")
     (quote-value (get m "name")))
    (when (get m "optional") "?")

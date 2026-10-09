@@ -1,0 +1,130 @@
+(mithril/native-js-declarations :name "cordis.leaves"
+:runtime-source "native-js-cordis-type-leaves-esm.mith"
+:ambient-types []
+:ambient-values []
+:declarations [(rdf/node :kind "interface"
+:name "StringMap"
+:exported true
+:type-params [(rdf/node :name "T"
+:constraint nil
+:default (rdf/node :op "keyword"
+:name "unknown"))]
+:extends []
+:members [(rdf/node :kind "index-signature"
+:name "key"
+:key (rdf/node :op "keyword"
+:name "string")
+:readonly false
+:datatype (rdf/node :op "name"
+:name "T"
+:args []))])
+(rdf/node :kind "interface"
+:name "NumberMap"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "index-signature"
+:name "key"
+:key (rdf/node :op "keyword"
+:name "number")
+:readonly true
+:datatype (rdf/node :op "keyword"
+:name "number"))])
+(rdf/node :kind "interface"
+:name "SymbolMap"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "index-signature"
+:name "key"
+:key (rdf/node :op "keyword"
+:name "symbol")
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "boolean"))])
+(rdf/node :kind "interface"
+:name "MixedMap"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "index-signature"
+:name "key"
+:key (rdf/node :op "keyword"
+:name "string")
+:readonly false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "keyword"
+:name "number")
+(rdf/node :op "keyword"
+:name "string")]))
+(rdf/node :kind "index-signature"
+:name "index"
+:key (rdf/node :op "keyword"
+:name "number")
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "number"))
+(rdf/node :kind "property"
+:name "known"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "number"))])
+(rdf/node :kind "alias"
+:name "Inline"
+:exported true
+:type-params []
+:datatype (rdf/node :op "object"
+:members [(rdf/node :kind "index-signature"
+:name "key"
+:key (rdf/node :op "keyword"
+:name "string")
+:readonly true
+:datatype (rdf/node :op "object"
+:members [(rdf/node :kind "property"
+:name "value"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "number"))]))]))
+(rdf/node :kind "interface"
+:name "Augmented"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "index-signature"
+:name "key"
+:key (rdf/node :op "keyword"
+:name "string")
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "unknown"))])
+(rdf/node :kind "interface"
+:name "Augmented"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "value"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "number"))])
+(rdf/node :kind "interface"
+:name "KeyNamed"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "index-signature"
+:name "key"
+:key (rdf/node :op "keyword"
+:name "string")
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:name "key"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "string"))])])

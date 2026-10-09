@@ -119,8 +119,10 @@
           {"name" (first names) "constraint" (first constraints) "default" (first defaults)})) (range size))]
   (arity params) params))
 (defn- member-identity [m]
- (if (contains? #{"call" "construct"} (get m "kind")) [(get m "kind")]
-  [(if (str/starts-with? (get m "kind" "") "computed-") "computed" "name") (get m "name")]))
+ (cond
+  (= "index-signature" (get m "kind")) ["index-signature" (get m "key")]
+  (contains? #{"call" "construct"} (get m "kind")) [(get m "kind")]
+  :else [(if (str/starts-with? (get m "kind" "") "computed-") "computed" "name") (get m "name")]))
 (defn- merged-members! [interfaces klass]
  (let [members (vec (mapcat #(get % "members") interfaces))]
   (vector! members 256)
@@ -129,9 +131,10 @@
                                              [m (if-let [owner (when (contains? #{"computed-property" "computed-method"} (get m "kind")) (get (::computed-owners (meta d)) (get m "name")))]
                                                   [:computed owner] (member-identity m))]) (get d "members"))) interfaces))
           :let [ms (mapv first entries)] :when (> (count ms) 1)]
-   (when-not (or (apply = (map #(dissoc % "name") ms))
+   (when-not (and (not-any? #(= "index-signature" (get % "kind")) ms)
+              (or (apply = (map #(dissoc % "name") ms))
                  (and (every? #(contains? #{"method" "computed-method" "call" "construct"} (get % "kind")) ms)
-                      (= 1 (count (set (map #(select-keys % ["kind" "optional"]) ms))))))
+                      (= 1 (count (set (map #(select-keys % ["kind" "optional"]) ms)))))))
     (fail! :mithril.native-declarations/duplicate "Incompatible merged interface member")))
   (when klass
    (doseq [m (get klass "members") :when (and (not (get m "static")) (not= "constructor" (get m "kind")))
@@ -429,21 +432,28 @@
    (fail! :mithril.native-declarations/type "Unknown type operation"))))
 (defn- check-members! [members env values mode depth budget registry scope]
  (vector! members 256)
- (doseq [[_ ms] (group-by #(if (contains? #{"call" "construct"} (get % "kind")) [(get % "kind")]
-                            [(if (str/starts-with? (get % "kind" "") "computed-") "computed" "name") (get % "name")]) members)
+ (doseq [[_ ms] (group-by member-identity members)
          :when (> (count ms) 1)]
   (when-not (and (every? #(contains? #{"method" "computed-method" "call" "construct"} (get % "kind")) ms)
                  (= 1 (count (set (map #(select-keys % ["kind" "optional"]) ms)))))
    (fail! :mithril.native-declarations/duplicate "Interface/object overload or member collision")))
  (reduce into #{} (map (fn [m]
   (charge! budget (inc depth))
-  (when-not (contains? #{"call" "construct"} (get m "kind"))
+  (when-not (contains? #{"call" "construct" "index-signature"} (get m "kind"))
    (text! (get m "name")) (flag! (get m "optional")))
   (when (contains? #{"computed-property" "computed-method"} (get m "kind"))
    (qualified! (get m "name"))
    (when-not (value-known? registry scope env values (get m "name"))
     (fail! :mithril.native-declarations/scope "Unknown computed type member value")))
   (case (get m "kind")
+   "index-signature" (do
+    (shape! m ["kind" "name" "key" "readonly" "datatype"])
+    (identifier! (get m "name")) (flag! (get m "readonly"))
+    (when-not (and (= "keyword" (get-in m ["key" "op"]))
+                  (contains? #{"string" "number" "symbol"} (get-in m ["key" "name"])))
+     (fail! :mithril.native-declarations/type "Index signature keys require string, number or symbol"))
+    (into (check-type! (get m "key") env values mode (inc depth) budget registry scope nil)
+          (check-type! (get m "datatype") env values mode (inc depth) budget registry scope nil)))
    ("property" "computed-property") (do (shape! m ["kind" "name" "optional" "readonly" "datatype"]) (flag! (get m "readonly")) (check-type! (get m "datatype") env values mode (inc depth) budget registry scope nil))
    ("method" "computed-method") (do (shape! m ["kind" "name" "optional" "type-params" "params" "returns"]) (signature! m env values mode (inc depth) budget registry scope false))
    ("call" "construct") (do (shape! m ["kind" "type-params" "params" "returns"]) (signature! m env values mode (inc depth) budget registry scope (= "construct" (get m "kind"))))
