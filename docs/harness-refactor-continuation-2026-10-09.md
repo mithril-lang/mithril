@@ -693,3 +693,28 @@ original metadata and cached factory behavior against the complete pinned Zod
 runtime. Generated public types, third-party runtime-host admission in typed
 composition, streaming/cancellation and complete Session/Harness API/plugin
 parity remain pending. No new System One inference or performance gain is claimed.
+
+## Independent generated subpath checkpoint (2026-10-10)
+
+Identifier PR #109 exact head `bad71d1550ce17c092f117c553425737008d2f27`
+passed source 85/415, package 40 exports/seven frozen leaves and all 36 local
+stages. Complete branch CodeGraph/HTTP logs are audited; Native branch CI and
+merge/current-main delivery are still pending at this checkpoint.
+
+The complete generated host/remote runtime and declaration source exposes the
+next native package refusal: independent public subpaths are not reachable from
+the original LLM index. A separate v2 entry-package manifest admits explicit
+source subpath roots without adding index exports or dependencies. Stage 37
+installs real published runtime/type routes and compares independent ECMAScript
+and strict original-paired NodeNext consumers. Full qualification and delivery
+remain separate gates.
+
+The actual complete 66-export LLM root loads without Zod; requesting the
+admitted generated host subpath requires its real Zod dependency. Original
+package-relative attribution metadata is retained through a package/native
+publication layout. Standalone host types preserve the original `unknown` export
+on both execution labels with 2 positive/2 negative exact-code consumers. All
+43 existing complete Core/LLM declaration files retain their prior bytes after
+identifier admission. Typed generated composition now refuses unbound Zod;
+a versioned runtime-only host contract and remote Protocol augmentation consumers
+remain next. No new System One inference or performance gain is claimed.

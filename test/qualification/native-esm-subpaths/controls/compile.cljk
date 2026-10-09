@@ -1,0 +1,33 @@
+(ns compile-subpaths
+ (:require [mithril.native-esm :as esm] [mithril.native-declaration-emit :as emit] [mithril.native-declaration-program :as program]
+           [clojure.string :as str] ["node:fs" :as fs] ["node:os" :as os] ["node:child_process" :as child]))
+(defn ensure [p label] (when-not p (throw (js/Error. label))))
+(def engine (.-MITHRIL_DECLARATIONS_ENGINE js/process.env))
+(def dir (fs/mkdtempSync (str (os/tmpdir) "/mithril-subpaths-")))
+(def config (str dir "/offline.edn"))
+(fs/writeFileSync config (str "{:paths [" (js/JSON.stringify (fs/realpathSync "src")) "]}"))
+(def env (into {} (map #(vector % (aget js/process.env %)) (js/Object.keys js/process.env))))
+(defn result [args env] (child/spawnSync js/process.execPath (clj->js args) (clj->js {:encoding "utf8" :timeout 120000 :maxBuffer 4194304 :env env})))
+(defn run [args env] (let [r (result args env)] (ensure (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r))))
+(try
+ (run [engine "--config" config "-cp" "src" "test/qualification/native-esm-subpaths/controls/admission.cljk"] (assoc env "MITHRIL_SUBPATH_FIXTURES" dir))
+ (let [text (fs/readFileSync (str dir "/manifest.mith") "utf8") source (into {} (map #(vector % (fs/readFileSync (str dir "/" %) "utf8")) (esm/source-basenames text)))
+       runtime (esm/check-text text source) expected (esm/compile-text text source)
+       type-text (fs/readFileSync (str dir "/program.mith") "utf8") type-source (into {} (map #(vector % (fs/readFileSync (str dir "/" %) "utf8")) (:sources (program/read-plan type-text))))
+       typed (program/compile-text type-text type-source runtime)]
+  (doseq [target ["js" "js-browser"]]
+   (let [output (str dir "/" target) type-output (str output "-types")]
+    (run [engine "--config" config "-cp" "src" "bin/mithril-native-esm.cljk" (str dir "/manifest.mith") "--target" target "--output-directory" output] env)
+    (run [engine "--config" config "-cp" "src" "bin/mithril-native-declaration-program.cljk" (str dir "/program.mith") "--target" target "--output-directory" type-output] env)
+    (doseq [[file bytes] (:files expected)] (ensure (= bytes (fs/readFileSync (str output "/" file) "utf8")) "Exact actual independent-entry runtime artifact"))
+    (doseq [[file bytes] (:files typed)] (ensure (= bytes (fs/readFileSync (str type-output "/" file) "utf8")) "Exact actual source-owned declaration artifact"))
+    (let [single (str type-output "/single.d.mts") single-text (fs/readFileSync (str dir "/single-types.mith") "utf8")]
+     (run [engine "--config" config "-cp" "src" "bin/mithril-native-declarations.cljk" (str dir "/single-types.mith") "--target" target "--output" single] env)
+     (ensure (= (:source (emit/compile-text single-text runtime)) (fs/readFileSync single "utf8")) "Single declaration CLI actual v2 bytes"))
+    (fs/writeFileSync (str output "/metadata.json") (js/JSON.stringify (clj->js (dissoc expected :files))))
+    (fs/writeFileSync (str type-output "/metadata.json") (js/JSON.stringify (clj->js (dissoc typed :files))))
+    (run ["test/qualification/native-esm-subpaths/controls/check.mjs" output type-output (.-MITHRIL_DECLARATIONS_TYPESCRIPT js/process.env)] env)
+    (let [refused (str output "-refused") r (result [engine "--config" config "-cp" "src" "bin/mithril-native-esm.cljk" (str dir "/invalid-runtime.mith") "--target" target "--output-directory" refused] env)]
+     (ensure (= 65 (.-status r)) "Unknown subpath CLI status") (ensure (str/starts-with? (.-stderr r) "REFUSE\tlink\t") "Exact unknown subpath refusal") (ensure (not (fs/existsSync refused)) "Pre-write independent entry admission")))))
+ (println "Subpath CLI: both Node execution labels, exact runtime/declaration bytes, independent ECMAScript/NodeNext consumers and pre-write unknown-entry refusal passed.")
+ (finally (fs/rmSync dir #js {:recursive true :force true})))

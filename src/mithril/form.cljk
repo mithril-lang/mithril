@@ -40,6 +40,7 @@
    'mithril/native-js-module "NativeJsModule"
    'mithril/native-js-package "NativeJsPackage"
    'mithril/native-js-esm-package "NativeJsEsmPackage"
+   'mithril/native-js-esm-entry-package "NativeJsEsmEntryPackage"
    'mithril/native-js-declarations "NativeJsDeclarations"
    'mithril/native-js-declaration-module "NativeJsDeclarationModule"
    'mithril/native-js-declaration-program "NativeJsDeclarationProgram"
@@ -508,6 +509,8 @@
                                 "https://mithril.fund/context/native-js-package/v1"
                                 (= tag 'mithril/native-js-esm-package)
                                 "https://mithril.fund/context/native-js-esm-package/v1"
+                                (= tag 'mithril/native-js-esm-entry-package)
+                                "https://mithril.fund/context/native-js-esm-package/v2"
                                 (= tag 'mithril/native-js-declarations)
                                 "https://mithril.fund/context/native-js-declarations/v1"
                                 (= tag 'mithril/native-js-declaration-module)

@@ -2649,3 +2649,9 @@ Literal dollar and Unicode runtime/declaration identifiers retain their original
 spelling and normalization distinctions. The internal global declaration registry
 cannot collide with a real `$global` namespace. See [identifier qualification](test/qualification/native-js-identifiers/README.md)
 for independent JavaScript and strict original-paired TypeScript controls.
+
+The explicit v2 native ESM entry-package manifest admits independent public
+subpath roots while preserving the original index export and initialization
+behavior. Returned subpath filenames are actual source-owned routes; declaration
+programs and the single declaration CLI retain their existing owner checks.
+See [independent subpath qualification](test/qualification/native-esm-subpaths/README.md).

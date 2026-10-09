@@ -46,6 +46,7 @@ try{
   ['native-declaration-symbol-spaces','compile.cljk'],
   ['native-declaration-composition','compile.cljk'],
   ['native-js-identifiers','compile.cljk'],
+  ['native-esm-subpaths','compile.cljk'],
  ];
  for(const [name,control] of stages){
   console.log(`Declaration qualification stage: ${name}`);
