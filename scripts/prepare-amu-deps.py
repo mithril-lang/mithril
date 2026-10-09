@@ -16,9 +16,11 @@ if not entries or len(entries)!=lock.count(':coordinate '):raise ValueError('uns
 for coordinate,url,sha in entries:
     if not re.fullmatch(r'io\.github\.kotoba-lang/[a-z0-9-]+',coordinate) or not re.fullmatch(r'https://github\.com/kotoba-lang/[a-z0-9-]+\.git',url):raise ValueError('unexpected dependency owner')
     path=a.gitlibs/'libs'/coordinate/sha
-    if path.exists():raise ValueError('use a fresh dependency directory: '+str(path))
-    path.mkdir(parents=True)
     def git(*args):return subprocess.run(['git','-C',str(path),*args],check=True,text=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=180).stdout.strip()
+    if path.exists():
+        if git('rev-parse','HEAD')!=sha:raise ValueError('existing dependency revision mismatch')
+        continue
+    path.mkdir(parents=True)
     git('init','--quiet')
     git('fetch','--quiet',url,sha)
     git('checkout','--quiet','--detach',sha)
