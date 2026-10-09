@@ -573,3 +573,40 @@ independent SDK tests do not alone prove that composition. System One's scoped
 authentication, trusted Docker verifier, bounded whole-source transport and
 independent diagnostic publication are still required before another model trial
 or any performance-gain claim.
+
+## Tagged templates and complete LLM source checkpoint (2026-10-10 JST)
+
+Attachment PR #105 merged to `421e565e81865a40e4a75bb385af163de730282c`.
+All 47 changed files and the complete Git tree match qualified head
+`8ea3dab3a925e95bb563518a8a5e13c8a32f7cfb`. Sealed local and complete branch
+source/package/all-32-stage qualification passed. Exact-main CodeGraph
+37984972908 succeeded and its complete test/HTTP log was audited; Native
+37984972916 remains a separate pending gate at this source checkpoint.
+
+The next compiler prerequisite admits bounded raw template parts and checked
+substitutions, emitting native tagged JavaScript syntax. Stage 33 passes seven
+admissions, 17 exact-code malformed/lexical/budget refusals and 31 independent
+native-JavaScript-paired groups per actual CLI label. The controls preserve
+TemplateStringsArray descriptors/freezing/site identity, exact receivers,
+getter/substitution order, uncoerced values, Unicode, invalid cooked escapes,
+line continuations and exception identity. Both labels execute under Node.
+Full sealed regression and branch/main delivery remain separate gates.
+
+All 13 pinned LLM original sources have been retained in an isolated complete
+Mithril runtime proposal, with zero diagnostics for full strict original
+public declaration re-emission. The inline 39-module composition exceeds the
+unchanged 1 MiB source limit. Existing bounded bare-package externals admit
+25 shared native core modules and 14 LLM/Schema modules, retaining canonical
+Cordis/CosmoKit/Brand owners. Both source collections stay within the limit.
+The complete original runtime oracle confirms all 66 public runtime export
+names and function signatures, named/default LlmRuntime identity, actual
+canonical Protocol/Cordis inheritance, Context/service proxy construction and
+adapter registration/replacement/conflict rollback/disposal. A missing local
+named re-export was caught by this independent oracle and corrected in the
+operator authoring utility. Complete LLM public declaration, unchanged upstream,
+streaming/provider/cancellation and package/type-owner parity are still open.
+
+Continue those LLM gates, then Session/Agent/Tools and full boot/plugin/profile
+and API parity. Actual scoped System One authentication, trusted Docker
+verification, bounded whole-source transport and independent diagnostic
+publication remain necessary for a new model trial or a performance claim.

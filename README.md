@@ -2621,3 +2621,9 @@ canonical class owners. The
 [exported namespace qualification](test/qualification/native-exported-namespace/README.md)
 ports the original YAML public ESM type wrapper and resolves Include to own native
 YAML declarations, with original-paired strict consumers and actual package checks.
+
+Native host expressions support `mithril/host-tagged-template` with checked raw
+parts and substitution expressions. Native tagged syntax preserves template
+array identity, raw/cooked values, receivers and evaluation order. See
+[tagged template qualification](test/qualification/native-tagged-templates/README.md)
+for admission boundaries and independent runtime comparisons.
