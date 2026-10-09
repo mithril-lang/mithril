@@ -109,3 +109,10 @@ qualification before claiming full Loader equivalence. Include, full Harness
 API/plugin/profile/Session, actual browser/native/Q9 execution and release remain
 pending. Operator authored; no new System One model trial, adoption or performance
 gain is claimed. This branch is a local checkpoint, not PR/main/production delivery.
+
+Strict consumers use separate original/candidate TypeScript programs. Each case
+is a distinct virtual module within its program, so its local bindings stay
+isolated while dependency declarations are checked once. Diagnostic ownership,
+all eight positive/seven negative results and exact rejection codes remain
+mandatory, together with complete public symbol-space equality. This avoids
+rechecking the same dependency graph for every case without skipLibCheck.

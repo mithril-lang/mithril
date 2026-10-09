@@ -19,7 +19,7 @@ substitute for this objective.
 
 | Item | Location / identity | State |
 | --- | --- | --- |
-| Compiler checkout | `/Users/junkawasaki/github/mithril-lang/mithril-harness-language` | `codex/loader-lifecycle`, based on merged main `0ebbba72ef76a06dd4b03d48bfc02b406f4805f1` |
+| Compiler checkout | `/Users/junkawasaki/github/mithril-lang/mithril-harness-language` | `codex/native-index-signatures`, based on merged main `b4ff673c6abb738a44aaf7ab75e73ee1746634f9` |
 | Saved work checkpoint | `82bd71fbfbf27e4ed3e08ba03898eb9a01a31ed4` | WIP committed and pushed before the requested pause |
 | Schema SDK | https://github.com/mithril-lang/mithril/pull/79 | Merged at `34ca28d6524c27a6c11e24c01bddeca9da35763d`; head `b211a8d076bdb85f77859a2563ba3f79ee5e433f` qualified |
 | Schema branch CI | `37894254763`, job `113701855514` | Terminal success; full source/package/all 14 declaration stages audited |
@@ -138,10 +138,44 @@ replacement resolver does not establish identical module semantics.
    artifacts, all 18 declaration stages, 25 paired runtime groups per label,
    8 positive/7 negative strict consumers per label and CodeGraph 33/239 plus
    its HTTP contract. Evidence: `loader-sdk-main-ci-audit.json`.
-   The next `codex/loader-lifecycle` branch extends paired runtime controls from
+   PR #89 extends paired runtime controls from
    25 to 40 groups per label with actual Node imports/file plugins, self-disposal,
    service providers, local/shared realms and inject dependencies. It preserves
    an original store-transfer/disposer-key quirk rather than changing behavior.
+   It merged at `b4ff673c6abb738a44aaf7ab75e73ee1746634f9`; branch and main
+   Native JS/CodeGraph CI succeeded. Full main logs confirm all 18 stages,
+   81/409 source, 40-export/7-frozen package, 40 paired runtime groups per label,
+   strict 8 positive/7 negative type groups per label and CodeGraph 33/239 with
+   HTTP contracts. All four changed files match main. Evidence:
+   `loader-lifecycle-main-ci-audit.json`, `loader-lifecycle-main-file-match.json`.
+   An external operator probe also passes 42 paired groups per label with real
+   Node 26.7.0 `--expose-internals`, v2 shape classification, relative module
+   resolution and load-cache namespace identity. This is not v1/HMR qualification.
+   The complete Include body is authored and admitted as native Mithril; staged
+   runtime probes pass 24 paired groups per label, including real YAML/JSON
+   files, patch composition, invalid refresh retention, readonly refusal, actual
+   rename failure and queued recovery. YAML remains the pinned external 4.2.0
+   dependency in these probes. Pinned @types/js-yaml 4.0.9 matches original lock
+   integrity; complete original Include declaration emission has zero diagnostics.
+   Native string/number/symbol index signatures now remove the PatchOptions
+   representation prerequisite. Dedicated strict consumers pass 8 positive/
+   9 negative groups and eleven exact-code AST refusals on both actual CLI labels;
+   stage 19 is registered. Both actual Include CLI SDKs reach 25 own runtime/19
+   type modules, with 4 runtime/3 type exports. Their finite original-paired
+   controls pass 24 runtime groups and 6 positive/8 negative strict consumer
+   groups per label, exact rejection codes and public type/value symbol spaces,
+   without skipLibCheck. These are staged operator artifacts outside the repo;
+   YAML runtime/types are explicitly external pinned dependencies. Evidence:
+   `include-sdk-staged-qualification.json`. Register and deliver the full source,
+   provenance, controls and declarations before treating Include as delivered.
+   Source regression retry passes 81/409 and package checks pass 40/7.
+   Declaration stages 1–17 passed in the broad run, but repeated dependency
+   checking timed out at Loader stage 18. Its consumers now retain separate
+   original/candidate programs and isolated case modules while checking the
+   shared dependencies once; the actual SDK stage 18 passes 40 runtime and
+   8 positive/7 negative strict groups per label. Stage 19 passes separately.
+   These are separate local runs; complete-suite CI and index-signature PR
+   delivery remain pending. The timed-out runs are not successful runs.
    Qualify remaining module-loader internals/HMR, persistence failures and lifecycle paths;
    register qualification and complete PR/current-main CI. Then port Include by
    complete source and public type closure.
