@@ -1,0 +1,7 @@
+(mithril/native-js-declaration-program :name "loader.leaves" :runtime-source "native-js-loader-leaves-esm.mith"
+ :modules [(rdf/node :name "loader.utils" :source "native-js-loader-utils-types.mith")
+           (rdf/node :name "loader.diff" :source "native-js-loader-diff-types.mith")
+           (rdf/node :name "loader.leaves" :source "native-js-loader-leaves-types.mith")]
+ :externals [(rdf/node :name "cordis" :specifier "@deepseek-ai/cordis"
+  :types [(rdf/node :name "Plugin.Runtime" :min 0 :max 0)] :values [])]
+ :entry "loader.leaves")
