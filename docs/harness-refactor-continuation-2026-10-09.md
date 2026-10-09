@@ -542,3 +542,34 @@ LLM files before Session, Agent, Tools and boot/plugin/profile parity. System On
 still requires scoped authentication, trusted Docker verification, bounded
 whole-source transport and independent diagnostic publication. No new inference,
 adopted model proposal or measured model gain is claimed by this source port.
+
+## Complete Attachment source and abstract property prerequisite (2026-10-10 JST)
+
+Protocol PR #104 merged to `e7caabeabfa03585402710a951f0ac6b29fad4e6` after
+all 31 local stages and both complete branch CI logs passed. All 41 changed
+files and the complete Git tree match the qualified branch. Exact-main Native
+37981042459 and CodeGraph 37981042589 are independent delivery gates; preserve
+and audit those runs rather than restarting them.
+
+The next reverse dependency-order change preserves Attachment's complete six
+source files, 11 runtime exports including default, 24 public types and all 33
+original declarations. It resolves the observed refusal of
+`abstract readonly imageLimits` by permitting a bounded, optional boolean
+abstract property flag and validating abstract/public-or-protected/instance
+context. No field is removed or weakened to obtain admission. The existing
+emitter already supports the modifier; source/AST/package budgets remain fixed.
+
+Stage 32 checks complete native Cordis/Brand owners, actual node:buffer,
+independent abstract-property semantics and refusals, complete original strict
+re-emission and declaration structure, 12 positive/17 negative SDK consumers,
+208 runtime comparisons, 27 unchanged upstream groups and real NodeNext
+self-reference and version identity. Both CLI labels execute under Node. Sealed
+full regression, branch CI and actual main verification remain separate gates.
+
+Continue all thirteen LLM files and their actual Attachment type dependency,
+then Session, Agent, Tools and full boot/plugin/profile/API parity. Full Harness
+composition must retain one canonical Cordis constructor/type owner across SDKs;
+independent SDK tests do not alone prove that composition. System One's scoped
+authentication, trusted Docker verifier, bounded whole-source transport and
+independent diagnostic publication are still required before another model trial
+or any performance-gain claim.

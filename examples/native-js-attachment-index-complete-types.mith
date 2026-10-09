@@ -1,0 +1,484 @@
+(mithril/native-js-declaration-module :name "attachment.index"
+:runtime "attachment.index"
+:ambient-types [(rdf/node :name "AsyncIterable"
+:min 1
+:max 3)
+(rdf/node :name "Promise"
+:min 1
+:max 1)
+(rdf/node :name "AbortSignal"
+:min 0
+:max 0)
+(rdf/node :name "Uint8Array"
+:min 0
+:max 1)]
+:ambient-values ["Error"
+"Symbol.dispose"]
+:imports [(rdf/node :module "cordis.index"
+:type-only false
+:names [(rdf/node :import "Context"
+:local "Context")])
+(rdf/node :module "cordis.index"
+:type-only false
+:names [(rdf/node :import "Service"
+:local "Service")])
+(rdf/node :module "attachment.error"
+:type-only false
+:names [(rdf/node :import "AttachmentError"
+:local "AttachmentError")])
+(rdf/node :module "attachment.types"
+:type-only true
+:names [(rdf/node :import "AdmittedPromptContentPart"
+:local "AdmittedPromptContentPart")])
+(rdf/node :module "attachment.types"
+:type-only true
+:names [(rdf/node :import "AttachmentAdmissionPart"
+:local "AttachmentAdmissionPart")])
+(rdf/node :module "attachment.types"
+:type-only true
+:names [(rdf/node :import "EncodedFileAttachment"
+:local "EncodedFileAttachment")])
+(rdf/node :module "attachment.types"
+:type-only true
+:names [(rdf/node :import "FileAttachmentRef"
+:local "FileAttachmentRef")])
+(rdf/node :module "attachment.types"
+:type-only true
+:names [(rdf/node :import "ImageAttachmentLimits"
+:local "ImageAttachmentLimits")])
+(rdf/node :module "attachment.types"
+:type-only true
+:names [(rdf/node :import "ImageAttachmentRef"
+:local "ImageAttachmentRef")])
+(rdf/node :module "attachment.types"
+:type-only true
+:names [(rdf/node :import "ImageRequestTarget"
+:local "ImageRequestTarget")])
+(rdf/node :module "attachment.types"
+:type-only true
+:names [(rdf/node :import "RequestImageAttachment"
+:local "RequestImageAttachment")])
+(rdf/node :module "attachment.types"
+:type-only true
+:names [(rdf/node :import "SaveFileAttachment"
+:local "SaveFileAttachment")])
+(rdf/node :module "attachment.types"
+:type-only true
+:names [(rdf/node :import "SaveFileStreamAttachment"
+:local "SaveFileStreamAttachment")])
+(rdf/node :module "attachment.types"
+:type-only true
+:names [(rdf/node :import "SaveImageAttachment"
+:local "SaveImageAttachment")])
+(rdf/node :module "attachment.types"
+:type-only true
+:names [(rdf/node :import "StoredImageAttachment"
+:local "StoredImageAttachment")])]
+:declarations [(rdf/node :kind "class"
+:name "AttachmentStore"
+:exported true
+:abstract true
+:type-params []
+:extends (rdf/node :op "name"
+:name "Service"
+:args [])
+:implements []
+:members [(rdf/node :kind "constructor"
+:visibility "public"
+:params [(rdf/node :name "ctx"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "Context"
+:args []))])
+(rdf/node :kind "property"
+:key (rdf/node :kind "name"
+:name "imageLimits")
+:visibility "public"
+:static false
+:abstract true
+:readonly true
+:optional false
+:datatype (rdf/node :op "name"
+:name "ImageAttachmentLimits"
+:args []))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "validateImage")
+:visibility "public"
+:static false
+:abstract true
+:optional false
+:type-params []
+:params [(rdf/node :name "input"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "SaveImageAttachment"
+:args []))]
+:returns (rdf/node :op "name"
+:name "Promise"
+:args [(rdf/node :op "keyword"
+:name "void")]))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "validateImageBatch")
+:visibility "protected"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "inputs"
+:optional false
+:rest false
+:datatype (rdf/node :op "readonly"
+:datatype (rdf/node :op "array"
+:item (rdf/node :op "name"
+:name "SaveImageAttachment"
+:args []))))]
+:returns (rdf/node :op "keyword"
+:name "void"))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "saveImages")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "inputs"
+:optional false
+:rest false
+:datatype (rdf/node :op "readonly"
+:datatype (rdf/node :op "array"
+:item (rdf/node :op "name"
+:name "SaveImageAttachment"
+:args []))))]
+:returns (rdf/node :op "name"
+:name "Promise"
+:args [(rdf/node :op "readonly"
+:datatype (rdf/node :op "array"
+:item (rdf/node :op "name"
+:name "ImageAttachmentRef"
+:args [])))]))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "admitPromptContent")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "content"
+:optional false
+:rest false
+:datatype (rdf/node :op "readonly"
+:datatype (rdf/node :op "array"
+:item (rdf/node :op "name"
+:name "AttachmentAdmissionPart"
+:args []))))]
+:returns (rdf/node :op "name"
+:name "Promise"
+:args [(rdf/node :op "array"
+:item (rdf/node :op "name"
+:name "AdmittedPromptContentPart"
+:args []))]))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "admitEncodedFile")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "input"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "EncodedFileAttachment"
+:args []))]
+:returns (rdf/node :op "name"
+:name "Promise"
+:args [(rdf/node :op "name"
+:name "FileAttachmentRef"
+:args [])]))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "isAttachmentError")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "error"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "unknown"))]
+:returns (rdf/node :op "predicate"
+:name "error"
+:datatype (rdf/node :op "name"
+:name "AttachmentError"
+:args [])))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "saveImage")
+:visibility "public"
+:static false
+:abstract true
+:optional false
+:type-params []
+:params [(rdf/node :name "input"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "SaveImageAttachment"
+:args []))]
+:returns (rdf/node :op "name"
+:name "Promise"
+:args [(rdf/node :op "name"
+:name "ImageAttachmentRef"
+:args [])]))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "readImage")
+:visibility "public"
+:static false
+:abstract true
+:optional false
+:type-params []
+:params [(rdf/node :name "ref"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "ImageAttachmentRef"
+:args []))
+(rdf/node :name "signal"
+:optional true
+:rest false
+:datatype (rdf/node :op "name"
+:name "AbortSignal"
+:args []))]
+:returns (rdf/node :op "name"
+:name "Promise"
+:args [(rdf/node :op "name"
+:name "StoredImageAttachment"
+:args [])]))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "imageHostPath")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "ref"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "ImageAttachmentRef"
+:args []))]
+:returns (rdf/node :op "union"
+:items [(rdf/node :op "keyword"
+:name "string")
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "saveFile")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "input"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "SaveFileAttachment"
+:args []))]
+:returns (rdf/node :op "name"
+:name "Promise"
+:args [(rdf/node :op "name"
+:name "FileAttachmentRef"
+:args [])]))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "saveFileStream")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "input"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "SaveFileStreamAttachment"
+:args []))]
+:returns (rdf/node :op "name"
+:name "Promise"
+:args [(rdf/node :op "name"
+:name "FileAttachmentRef"
+:args [])]))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "readFileStream")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "ref"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "FileAttachmentRef"
+:args []))
+(rdf/node :name "signal"
+:optional true
+:rest false
+:datatype (rdf/node :op "name"
+:name "AbortSignal"
+:args []))]
+:returns (rdf/node :op "name"
+:name "AsyncIterable"
+:args [(rdf/node :op "name"
+:name "Uint8Array"
+:args [])]))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "fileHostPath")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "ref"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "FileAttachmentRef"
+:args []))]
+:returns (rdf/node :op "union"
+:items [(rdf/node :op "keyword"
+:name "string")
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "readImageRequest")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "ref"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "ImageAttachmentRef"
+:args []))
+(rdf/node :name "target"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "ImageRequestTarget"
+:args []))
+(rdf/node :name "signal"
+:optional true
+:rest false
+:datatype (rdf/node :op "name"
+:name "AbortSignal"
+:args []))]
+:returns (rdf/node :op "name"
+:name "Promise"
+:args [(rdf/node :op "name"
+:name "RequestImageAttachment"
+:args [])]))])]
+:reexports [(rdf/node :module "attachment.brand"
+:type-only false
+:names [(rdf/node :import "AttachmentId"
+:export "AttachmentId")
+(rdf/node :import "ImageVariantId"
+:export "ImageVariantId")])
+(rdf/node :module "attachment.error"
+:type-only false
+:names [(rdf/node :import "AttachmentError"
+:export "AttachmentError")
+(rdf/node :import "isAttachmentError"
+:export "isAttachmentError")
+(rdf/node :import "isImageAdmissionError"
+:export "isImageAdmissionError")])
+(rdf/node :module "attachment.error"
+:type-only true
+:names [(rdf/node :import "AttachmentErrorCode"
+:export "AttachmentErrorCode")
+(rdf/node :import "ImageAdmissionErrorCode"
+:export "ImageAdmissionErrorCode")])
+(rdf/node :module "attachment.admission"
+:type-only false
+:names [(rdf/node :import "admitEncodedFile"
+:export "admitEncodedFile")
+(rdf/node :import "admitEncodedImages"
+:export "admitEncodedImages")])
+(rdf/node :module "attachment.request_projection"
+:type-only false
+:names [(rdf/node :import "longEdgeDimensions"
+:export "longEdgeDimensions")
+(rdf/node :import "requestImageDimensions"
+:export "requestImageDimensions")])
+(rdf/node :module "attachment.request_projection"
+:type-only true
+:names [(rdf/node :import "ProjectedDimensions"
+:export "ProjectedDimensions")])
+(rdf/node :module "attachment.types"
+:type-only true
+:names [(rdf/node :import "AttachmentId"
+:export "AttachmentIdType")
+(rdf/node :import "AdmittedPromptContentPart"
+:export "AdmittedPromptContentPart")
+(rdf/node :import "AttachmentAdmissionPart"
+:export "AttachmentAdmissionPart")
+(rdf/node :import "EncodedFileAttachment"
+:export "EncodedFileAttachment")
+(rdf/node :import "EncodedImageAttachment"
+:export "EncodedImageAttachment")
+(rdf/node :import "FileAttachmentRef"
+:export "FileAttachmentRef")
+(rdf/node :import "ImageAttachmentLimits"
+:export "ImageAttachmentLimits")
+(rdf/node :import "ImageAttachmentRef"
+:export "ImageAttachmentRef")
+(rdf/node :import "ImageRequestTarget"
+:export "ImageRequestTarget")
+(rdf/node :import "ImageMediaType"
+:export "ImageMediaType")
+(rdf/node :import "PromptContentPart"
+:export "PromptContentPart")
+(rdf/node :import "RequestImageAttachment"
+:export "RequestImageAttachment")
+(rdf/node :import "SaveFileAttachment"
+:export "SaveFileAttachment")
+(rdf/node :import "SaveFileStreamAttachment"
+:export "SaveFileStreamAttachment")
+(rdf/node :import "SaveImageAttachment"
+:export "SaveImageAttachment")
+(rdf/node :import "StoredImageAttachment"
+:export "StoredImageAttachment")])]
+:augmentations [(rdf/node :module "cordis.index"
+:declarations [(rdf/node :kind "interface"
+:name "Context"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "attachments"
+:optional false
+:readonly false
+:datatype (rdf/node :op "name"
+:name "AttachmentStore"
+:args []))])])]
+:local-exports [(rdf/node :local "AttachmentStore"
+:export "default"
+:type-only false)])

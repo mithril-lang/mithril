@@ -1,0 +1,23 @@
+(mithril/native-js-module :name "attachment.brand"
+:ambient_imports []
+:imports []
+:functions [(mithril/function :name "AttachmentId"
+:params [(rdf/node :name "value"
+:datatype "js-value")]
+:returns "js-value"
+:body (mithril/sequence :expressions [(mithril/host-return :value (mithril/local :name "value"))
+(mithril/host-undefined )])
+:statements true)
+(mithril/function :name "ImageVariantId"
+:params [(rdf/node :name "value"
+:datatype "js-value")]
+:returns "js-value"
+:body (mithril/sequence :expressions [(mithril/host-return :value (mithril/local :name "value"))
+(mithril/host-undefined )])
+:statements true)]
+:bindings []
+:exports [(rdf/node :name "AttachmentId"
+:function "AttachmentId")
+(rdf/node :name "ImageVariantId"
+:function "ImageVariantId")]
+:lexical_bindings true)

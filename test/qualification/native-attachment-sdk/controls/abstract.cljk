@@ -1,0 +1,32 @@
+(ns qualify-abstract-property
+ (:require [mithril.native-declarations :as declarations] [mithril.native-declaration-emit :as emit]
+           [mithril.native-esm :as esm] ["node:fs" :as fs]))
+(defn ensure [p label] (when-not p (throw (js/Error. label))))
+(def runtime-text (fs/readFileSync "examples/native-js-brand-esm.mith" "utf8"))
+(def sources (into {} (map #(vector % (fs/readFileSync (str "examples/" %) "utf8")) (esm/source-basenames runtime-text))))
+(def checked (esm/check-text runtime-text sources))
+(def property {"kind" "property" "key" {"kind" "name" "name" "value"} "visibility" "public" "static" false "readonly" true "optional" false "abstract" true "datatype" {"op" "keyword" "name" "number"}})
+(def klass {"kind" "class" "name" "AbstractProbe" "exported" false "abstract" true "type-params" [] "extends" nil "implements" [] "members" [property]})
+(def base {"@context" "https://mithril.fund/context/native-js-declarations/v1" "@type" "NativeJsDeclarations" "name" "brand" "runtime-source" "native-js-brand-esm.mith" "ambient-types" [] "ambient-values" [] "runtime-only-exports" ["brandString" "brandNumber"] "declarations" [klass {"kind" "alias" "name" "ProbeClass" "exported" true "type-params" [] "datatype" {"op" "typeof" "name" "AbstractProbe"}}]})
+(defn compile-doc [p k] (emit/compile-document (assoc-in base ["declarations" 0] (assoc k "members" [p])) checked))
+(def positive (compile-doc property klass))
+(ensure (re-find #"abstract readonly \"value\": number" (:source positive)) "Actual abstract readonly property emission")
+(doseq [p [(assoc property "visibility" "protected") (assoc property "readonly" false) (assoc property "optional" true)]] (compile-doc p klass))
+(def failures [[(assoc property "abstract" nil) klass :mithril.native-declarations/shape]
+               [(assoc property "abstract" "true") klass :mithril.native-declarations/shape]
+               [(assoc property "abstract" 1) klass :mithril.native-declarations/shape]
+               [property (assoc klass "abstract" false) :mithril.native-declarations/type]
+               [(assoc property "static" true) klass :mithril.native-declarations/type]
+               [(assoc property "visibility" "private") klass :mithril.native-declarations/type]
+               [(assoc property "extra" true) klass :mithril.native-declarations/shape]
+               [(assoc property "kind" "opaque") klass :mithril.native-declarations/shape]
+               [(assoc property "kind" "getter") klass :mithril.native-declarations/shape]
+               [(assoc property "kind" "constructor") klass :mithril.native-declarations/shape]])
+(doseq [[p k code] failures]
+ (let [actual (try (compile-doc p k) nil (catch :default error (:mithril/error (ex-data error))))]
+  (ensure (= code actual) (str "Exact refusal " code " vs " actual))))
+(def old (compile-doc (dissoc property "abstract") (assoc klass "abstract" false)))
+(def explicit-false (compile-doc (assoc property "abstract" false) (assoc klass "abstract" false)))
+(ensure (= old explicit-false) "Absent/false property flag preserves all old declaration artifact bytes")
+(fs/writeFileSync (.-MITHRIL_ABSTRACT_PROPERTY_PROBE js/process.env) (:source positive))
+(print "Abstract property admission: 4 admissions, 10 exact-code refusals, absent/false artifact identity, unchanged compiler budgets.\n")

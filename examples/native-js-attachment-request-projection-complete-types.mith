@@ -1,0 +1,70 @@
+(mithril/native-js-declaration-module :name "attachment.request_projection"
+:runtime "attachment.request_projection"
+:ambient-types []
+:ambient-values ["Error"
+"Symbol.dispose"]
+:imports []
+:declarations [(rdf/node :kind "interface"
+:name "ProjectedDimensions"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "width"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "number"))
+(rdf/node :kind "property"
+:name "height"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "number"))])
+(rdf/node :kind "function"
+:name "requestImageDimensions"
+:exported true
+:type-params []
+:params [(rdf/node :name "width"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "number"))
+(rdf/node :name "height"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "number"))
+(rdf/node :name "maxPixels"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "number"))]
+:returns (rdf/node :op "name"
+:name "ProjectedDimensions"
+:args []))
+(rdf/node :kind "function"
+:name "longEdgeDimensions"
+:exported true
+:type-params []
+:params [(rdf/node :name "width"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "number"))
+(rdf/node :name "height"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "number"))
+(rdf/node :name "longEdge"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "number"))]
+:returns (rdf/node :op "name"
+:name "ProjectedDimensions"
+:args []))]
+:reexports []
+:augmentations []
+:local-exports [])

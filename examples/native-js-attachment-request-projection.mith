@@ -1,0 +1,242 @@
+(mithril/native-js-module :name "attachment.request_projection"
+:ambient_imports ["Math"]
+:imports ["Math"]
+:functions [(mithril/function :name "requestImageDimensions"
+:params [(rdf/node :name "width"
+:datatype "js-value")
+(rdf/node :name "height"
+:datatype "js-value")
+(rdf/node :name "maxPixels"
+:datatype "js-value")]
+:returns "js-value"
+:body (mithril/host-binding-let :bindings [(rdf/node :pattern "scale"
+:value (mithril/host-method :object (mithril/host-import :name "Math")
+:key (mithril/literal :datatype "js-value"
+:value "min")
+:args [(mithril/literal :datatype "js-value"
+:value 1)
+(mithril/host-method :object (mithril/host-import :name "Math")
+:key (mithril/literal :datatype "js-value"
+:value "sqrt")
+:args [(mithril/host-binary :operator "/"
+:left (mithril/local :name "maxPixels")
+:right (mithril/host-binary :operator "*"
+:left (mithril/local :name "width")
+:right (mithril/local :name "height")))])]))]
+:body (mithril/sequence :expressions [(mithril/if :condition (mithril/host-binary :operator "==="
+:left (mithril/local :name "scale")
+:right (mithril/literal :datatype "js-value"
+:value 1))
+:then (mithril/host-return :value (mithril/host-object :entries [(rdf/node :key (mithril/literal :datatype "js-value"
+:value "width")
+:value (mithril/local :name "width"))
+(rdf/node :key (mithril/literal :datatype "js-value"
+:value "height")
+:value (mithril/local :name "height"))]))
+:else (mithril/host-undefined ))
+(mithril/sequence :expressions [(mithril/if :condition (mithril/host-binary :operator ">="
+:left (mithril/local :name "width")
+:right (mithril/local :name "height"))
+:then (mithril/host-binding-let :bindings [(rdf/node :pattern "blockBinding691_projectedWidth"
+:value (mithril/host-method :object (mithril/host-import :name "Math")
+:key (mithril/literal :datatype "js-value"
+:value "max")
+:args [(mithril/literal :datatype "js-value"
+:value 1)
+(mithril/host-method :object (mithril/host-import :name "Math")
+:key (mithril/literal :datatype "js-value"
+:value "floor")
+:args [(mithril/host-binary :operator "*"
+:left (mithril/local :name "width")
+:right (mithril/local :name "scale"))])])
+:mutable true)
+(rdf/node :pattern "blockBinding760_projectedHeight"
+:value (mithril/host-method :object (mithril/host-import :name "Math")
+:key (mithril/literal :datatype "js-value"
+:value "max")
+:args [(mithril/literal :datatype "js-value"
+:value 1)
+(mithril/host-method :object (mithril/host-import :name "Math")
+:key (mithril/literal :datatype "js-value"
+:value "round")
+:args [(mithril/host-binary :operator "/"
+:left (mithril/host-binary :operator "*"
+:left (mithril/local :name "blockBinding691_projectedWidth")
+:right (mithril/local :name "height"))
+:right (mithril/local :name "width"))])])
+:mutable true)]
+:body (mithril/sequence :expressions [(mithril/host-while :condition (mithril/host-logical :operator "&&"
+:left (mithril/host-binary :operator ">"
+:left (mithril/host-binary :operator "*"
+:left (mithril/local :name "blockBinding691_projectedWidth")
+:right (mithril/local :name "blockBinding760_projectedHeight"))
+:right (mithril/local :name "maxPixels"))
+:right (mithril/host-binary :operator ">"
+:left (mithril/local :name "blockBinding691_projectedWidth")
+:right (mithril/literal :datatype "js-value"
+:value 1)))
+:body (mithril/sequence :expressions [(mithril/local-set :name "blockBinding691_projectedWidth"
+:value (mithril/host-binary :operator "-"
+:left (mithril/local :name "blockBinding691_projectedWidth")
+:right (mithril/literal :datatype "js-value"
+:value 1)))
+(mithril/sequence :expressions [(mithril/local-set :name "blockBinding760_projectedHeight"
+:value (mithril/host-method :object (mithril/host-import :name "Math")
+:key (mithril/literal :datatype "js-value"
+:value "max")
+:args [(mithril/literal :datatype "js-value"
+:value 1)
+(mithril/host-method :object (mithril/host-import :name "Math")
+:key (mithril/literal :datatype "js-value"
+:value "round")
+:args [(mithril/host-binary :operator "/"
+:left (mithril/host-binary :operator "*"
+:left (mithril/local :name "blockBinding691_projectedWidth")
+:right (mithril/local :name "height"))
+:right (mithril/local :name "width"))])]))
+(mithril/host-undefined )])])
+:result (mithril/host-undefined ))
+(mithril/sequence :expressions [(mithril/host-return :value (mithril/host-object :entries [(rdf/node :key (mithril/literal :datatype "js-value"
+:value "width")
+:value (mithril/local :name "blockBinding691_projectedWidth"))
+(rdf/node :key (mithril/literal :datatype "js-value"
+:value "height")
+:value (mithril/local :name "blockBinding760_projectedHeight"))]))
+(mithril/host-undefined )])]))
+:else (mithril/host-undefined ))
+(mithril/host-binding-let :bindings [(rdf/node :pattern "projectedHeight"
+:value (mithril/host-method :object (mithril/host-import :name "Math")
+:key (mithril/literal :datatype "js-value"
+:value "max")
+:args [(mithril/literal :datatype "js-value"
+:value 1)
+(mithril/host-method :object (mithril/host-import :name "Math")
+:key (mithril/literal :datatype "js-value"
+:value "floor")
+:args [(mithril/host-binary :operator "*"
+:left (mithril/local :name "height")
+:right (mithril/local :name "scale"))])])
+:mutable true)
+(rdf/node :pattern "projectedWidth"
+:value (mithril/host-method :object (mithril/host-import :name "Math")
+:key (mithril/literal :datatype "js-value"
+:value "max")
+:args [(mithril/literal :datatype "js-value"
+:value 1)
+(mithril/host-method :object (mithril/host-import :name "Math")
+:key (mithril/literal :datatype "js-value"
+:value "round")
+:args [(mithril/host-binary :operator "/"
+:left (mithril/host-binary :operator "*"
+:left (mithril/local :name "projectedHeight")
+:right (mithril/local :name "width"))
+:right (mithril/local :name "height"))])])
+:mutable true)]
+:body (mithril/sequence :expressions [(mithril/host-while :condition (mithril/host-logical :operator "&&"
+:left (mithril/host-binary :operator ">"
+:left (mithril/host-binary :operator "*"
+:left (mithril/local :name "projectedWidth")
+:right (mithril/local :name "projectedHeight"))
+:right (mithril/local :name "maxPixels"))
+:right (mithril/host-binary :operator ">"
+:left (mithril/local :name "projectedHeight")
+:right (mithril/literal :datatype "js-value"
+:value 1)))
+:body (mithril/sequence :expressions [(mithril/local-set :name "projectedHeight"
+:value (mithril/host-binary :operator "-"
+:left (mithril/local :name "projectedHeight")
+:right (mithril/literal :datatype "js-value"
+:value 1)))
+(mithril/sequence :expressions [(mithril/local-set :name "projectedWidth"
+:value (mithril/host-method :object (mithril/host-import :name "Math")
+:key (mithril/literal :datatype "js-value"
+:value "max")
+:args [(mithril/literal :datatype "js-value"
+:value 1)
+(mithril/host-method :object (mithril/host-import :name "Math")
+:key (mithril/literal :datatype "js-value"
+:value "round")
+:args [(mithril/host-binary :operator "/"
+:left (mithril/host-binary :operator "*"
+:left (mithril/local :name "projectedHeight")
+:right (mithril/local :name "width"))
+:right (mithril/local :name "height"))])]))
+(mithril/host-undefined )])])
+:result (mithril/host-undefined ))
+(mithril/sequence :expressions [(mithril/host-return :value (mithril/host-object :entries [(rdf/node :key (mithril/literal :datatype "js-value"
+:value "width")
+:value (mithril/local :name "projectedWidth"))
+(rdf/node :key (mithril/literal :datatype "js-value"
+:value "height")
+:value (mithril/local :name "projectedHeight"))]))
+(mithril/host-undefined )])]))])]))
+:statements true)
+(mithril/function :name "longEdgeDimensions"
+:params [(rdf/node :name "width"
+:datatype "js-value")
+(rdf/node :name "height"
+:datatype "js-value")
+(rdf/node :name "longEdge"
+:datatype "js-value")]
+:returns "js-value"
+:body (mithril/sequence :expressions [(mithril/if :condition (mithril/host-binary :operator ">="
+:left (mithril/local :name "longEdge")
+:right (mithril/host-method :object (mithril/host-import :name "Math")
+:key (mithril/literal :datatype "js-value"
+:value "max")
+:args [(mithril/local :name "width")
+(mithril/local :name "height")]))
+:then (mithril/host-return :value (mithril/host-object :entries [(rdf/node :key (mithril/literal :datatype "js-value"
+:value "width")
+:value (mithril/local :name "width"))
+(rdf/node :key (mithril/literal :datatype "js-value"
+:value "height")
+:value (mithril/local :name "height"))]))
+:else (mithril/host-undefined ))
+(mithril/sequence :expressions [(mithril/host-return :value (mithril/if :condition (mithril/host-binary :operator ">="
+:left (mithril/local :name "width")
+:right (mithril/local :name "height"))
+:then (mithril/host-object :entries [(rdf/node :key (mithril/literal :datatype "js-value"
+:value "width")
+:value (mithril/local :name "longEdge"))
+(rdf/node :key (mithril/literal :datatype "js-value"
+:value "height")
+:value (mithril/host-method :object (mithril/host-import :name "Math")
+:key (mithril/literal :datatype "js-value"
+:value "max")
+:args [(mithril/literal :datatype "js-value"
+:value 1)
+(mithril/host-method :object (mithril/host-import :name "Math")
+:key (mithril/literal :datatype "js-value"
+:value "round")
+:args [(mithril/host-binary :operator "/"
+:left (mithril/host-binary :operator "*"
+:left (mithril/local :name "longEdge")
+:right (mithril/local :name "height"))
+:right (mithril/local :name "width"))])]))])
+:else (mithril/host-object :entries [(rdf/node :key (mithril/literal :datatype "js-value"
+:value "width")
+:value (mithril/host-method :object (mithril/host-import :name "Math")
+:key (mithril/literal :datatype "js-value"
+:value "max")
+:args [(mithril/literal :datatype "js-value"
+:value 1)
+(mithril/host-method :object (mithril/host-import :name "Math")
+:key (mithril/literal :datatype "js-value"
+:value "round")
+:args [(mithril/host-binary :operator "/"
+:left (mithril/host-binary :operator "*"
+:left (mithril/local :name "longEdge")
+:right (mithril/local :name "width"))
+:right (mithril/local :name "height"))])]))
+(rdf/node :key (mithril/literal :datatype "js-value"
+:value "height")
+:value (mithril/local :name "longEdge"))])))
+(mithril/host-undefined )])])
+:statements true)]
+:bindings []
+:exports [(rdf/node :name "requestImageDimensions"
+:function "requestImageDimensions")
+(rdf/node :name "longEdgeDimensions"
+:function "longEdgeDimensions")]
+:lexical_bindings true)
