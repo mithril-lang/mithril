@@ -365,7 +365,7 @@
       "HostBinary"
       (do (shape! expr ["@type" "operator" "left" "right"])
           (let [operator (get expr "operator")]
-            (when-not (contains? #{"===" "!==" ">=" ">" "in" "instanceof" "+" "-" "%" "<" "<=" "*" "/" "<<" ">>" ">>>" "&" "|" "^"} operator)
+            (when-not (contains? #{"==" "!=" "===" "!==" ">=" ">" "in" "instanceof" "+" "-" "%" "<" "<=" "*" "/" "<<" ">>" ">>>" "&" "|" "^"} operator)
               (fail! :mithril.native-js/operator "Unsupported native binary operator"))
             {:op :binary :operator operator :left (check (get expr "left"))
              :right (check (get expr "right"))}))
