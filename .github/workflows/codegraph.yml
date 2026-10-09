@@ -19,6 +19,7 @@ jobs:
       - uses: DeLaGuardo/setup-clojure@13.7.0
         with:
           cli: 1.12.5.1654
+          bb: 1.12.218
       - run: npm install --global nbb@1.5.212
       - run: node scripts/run-sci.mjs test/run_codegraph.cljk
       - run: node scripts/test-codegraph-web.mjs
