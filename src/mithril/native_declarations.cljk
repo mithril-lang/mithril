@@ -402,7 +402,7 @@
     (flag! (get x "query")) (vector! (get x "args") 32)
     (when-not (contains? (:module-tables registry) (get x "module")) (fail! :mithril.native-declarations/link "Unknown inline import module"))
     (let [b (program-type-binding (:module-tables registry) (get x "module") (get x "name")) a (:types b)]
-     (when-not (if (get x "query") (and (:values b) (empty? (get x "args")))
+     (when-not (if (get x "query") (and (or (:values b) (get-in b [:namespaces :value?])) (empty? (get x "args")))
                   (and a (<= (:min a) (count (get x "args")) (:max a))))
       (fail! :mithril.native-declarations/arity "Unknown imported type/value or wrong arity"))
      (reduce into #{} (map check (get x "args")))))
@@ -697,6 +697,23 @@
   (when (and (not export?) (some #(= "*" (get % "import")) names) (not= 1 (count names)))
    (fail! :mithril.native-declarations/link "Namespace import must be its own group"))
   (unique! (mapv #(get % (if export? "export" "local")) names))))
+(defn- namespace-export-binding [doc e documents prefixes runtime tables]
+ (let [local (get e "local")
+       group (first (filter (fn [g] (and (not (get g "type-only"))
+                           (= [{"import" "*" "local" local}] (get g "names")))) (get doc "imports")))
+       source (first (filter #(= (get group "module") (get % "name")) documents))
+       native (get source "runtime") target (get tables (get group "module")) export (get e "runtime-export")]
+  (when-not (and group native target)
+   (fail! :mithril.native-declarations/export "Namespace export requires a value namespace import from an internal native module"))
+  (when-not (some #{export} (:exports (get-in runtime [:modules native])))
+   (fail! :mithril.native-declarations/surface "Namespace export requires an actual source runtime export"))
+  (let [children (vec (mapcat
+                       (fn [[name b]]
+                        (concat (map (fn [[space metadata]] [[space name] metadata]) (select-keys b [:types :values :namespaces]))
+                                (map (fn [[[space suffix] metadata]] [[space (str name "." suffix)] metadata]) (:children b)))) target))]
+   (vector! children 16384)
+   {:namespaces {:value? true :scope "" :canonical (str/replace (get prefixes (get source "name")) #"\.$" "") :exported true}
+    :children (into {} children) :origin {:module native :export export}})))
 (defn- augmentation-targets [documents]
  ;; Resolve exports before augmentations introduce new names. Keep all origins
  ;; so ambiguous stars cannot accidentally choose a class to augment.
@@ -733,7 +750,7 @@
  (let [registry (atom {:types {} :values {} :namespaces {} :blocks {}})
        names (mapv #(get % "name") modules) indexes (zipmap names (range)) prefixes (zipmap names (map #(str "D" % ".") (range)))
        documents (mapv (fn [doc]
-                   (shape! doc (cond-> ["@context" "@type" "name" "runtime" "ambient-types" "ambient-values" "imports" "reexports" "declarations"] (contains? doc "augmentations") (conj "augmentations") (contains? doc "local-exports") (conj "local-exports") (contains? doc "globals") (conj "globals") (contains? doc "umd-namespace") (conj "umd-namespace") (contains? doc "runtime-only-exports") (conj "runtime-only-exports")))
+                   (shape! doc (cond-> ["@context" "@type" "name" "runtime" "ambient-types" "ambient-values" "imports" "reexports" "declarations"] (contains? doc "augmentations") (conj "augmentations") (contains? doc "local-exports") (conj "local-exports") (contains? doc "globals") (conj "globals") (contains? doc "umd-namespace") (conj "umd-namespace") (contains? doc "runtime-only-exports") (conj "runtime-only-exports") (contains? doc "namespace-exports") (conj "namespace-exports")))
                    (when-not (and (= "NativeJsDeclarationModule" (get doc "@type")) (= "https://mithril.fund/context/native-js-declaration-module/v1" (get doc "@context")))
                     (fail! :mithril.native-declarations/context "Expected checked declaration module"))
                    (when (contains? doc "umd-namespace") (identifier! (get doc "umd-namespace")))
@@ -760,6 +777,12 @@
                     (doseq [e (get doc "local-exports")]
                      (shape! e ["local" "export" "type-only"]) (identifier! (get e "local")) (export-name! (get e "export")) (flag! (get e "type-only")))
                     (unique! (mapv #(get % "export") (get doc "local-exports"))))
+                   (when (contains? doc "namespace-exports")
+                    (vector! (get doc "namespace-exports") 128)
+                    (doseq [e (get doc "namespace-exports")]
+                     (shape! e ["local" "export" "runtime-export"])
+                     (identifier! (get e "local")) (export-name! (get e "export")) (export-name! (get e "runtime-export")))
+                    (unique! (mapv #(get % "export") (get doc "namespace-exports"))))
                    (when (some #(= "export-alias" (get % "kind")) (get doc "declarations"))
                     (fail! :mithril.native-declarations/link "Program exports use explicit checked reexport groups")) doc) modules)
        targets (augmentation-targets documents)
@@ -847,7 +870,12 @@
    (loop [round 0]
     (when (> round 64) (fail! :mithril.native-declarations/budget "Declaration reexport graph budget"))
     (let [next (reduce (fn [all doc]
-                         (let [name (get doc "name") initial (get own name)
+                         (let [name (get doc "name")
+                               initial (reduce (fn [table e]
+                                                  (when (contains? table (get e "export"))
+                                                   (fail! :mithril.native-declarations/duplicate "Namespace export collides with own export"))
+                                                  (assoc table (get e "export") (namespace-export-binding doc e documents prefixes runtime @tables)))
+                                                (get own name) (get doc "namespace-exports"))
                                groups (get doc "reexports")
                                explicit (into (set (keys initial)) (mapcat #(map (fn [n] (get n "export")) (get % "names")) groups))
                                ordered (concat (filter #(get % "names") groups) (remove #(get % "names") groups))

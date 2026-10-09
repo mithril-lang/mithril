@@ -19,7 +19,7 @@ substitute for this objective.
 
 | Item | Location / identity | State |
 | --- | --- | --- |
-| Compiler checkout | `/Users/junkawasaki/github/mithril-lang/mithril-harness-language` | `codex/native-runtime-only-declarations`; UMD support merged in PR #95 at `e0a756ed6d273ae096e8818f2ee3bd3d323546e0` |
+| Compiler checkout | `/Users/junkawasaki/github/mithril-lang/mithril-harness-language` | `codex/native-exported-namespace`; runtime-only exports and YAML named declarations merged in PR #96 at `46556d1829176e97f115db507ffd0c4cec8f55ad` |
 | Saved work checkpoint | `82bd71fbfbf27e4ed3e08ba03898eb9a01a31ed4` | WIP committed and pushed before the requested pause |
 | Schema SDK | https://github.com/mithril-lang/mithril/pull/79 | Merged at `34ca28d6524c27a6c11e24c01bddeca9da35763d`; head `b211a8d076bdb85f77859a2563ba3f79ee5e433f` qualified |
 | Schema branch CI | `37894254763`, job `113701855514` | Terminal success; full source/package/all 14 declaration stages audited |
@@ -261,13 +261,20 @@ replacement resolver does not establish identical module semantics.
    UMD namespace emission now has explicit admission and output support with
    single/program CLI strict consumer controls. This isolates one prerequisite;
    UMD PR #95 passed all 22 stages on its exact branch head and merged to
-   `e0a756ed6d273ae096e8818f2ee3bd3d323546e0`; main CI remains pending.
+   `e0a756ed6d273ae096e8818f2ee3bd3d323546e0`; main CI passed all 22 stages and both workflows, fully audited.
    Explicit runtime-only export accounting and all 18 original YAML declarations
    now pass local portable controls with 11 positive/12 negative strict named
    API consumers. The source-derived view preserves 10 named typed values and
    15 actual runtime exports. It is not yet the complete default import facade.
-   Native YAML types still require a default alias retaining both value and
-   type namespace members, then actual Include composition and full CI delivery.
+   PR #96 passed all 23 stages on its exact head and merged to
+   `46556d1829176e97f115db507ffd0c4cec8f55ad`; main CI remains pending.
+   The native exported namespace now preserves the complete original public ESM
+   default alias and conditional UMD globals. Local controls pass 13 positive/11
+   negative strict default consumers, 20 exact admission refusals, all 304 paired
+   YAML groups and all 32 Include groups per label. Include uses own native YAML
+   declarations in both paired consumers and real NodeNext package resolution,
+   preserving canonical Context/Loader owners. Full regression/CI delivery remain
+   pending. Other package modes and actual browser/native/Q9 remain unqualified.
    Preserve the four original mutable schema declarations and do not invent
    typed safe-load functions or an object-only default facade.
    Evidence: `yaml-source-audit.json`, `yaml-source-frontier.json`,

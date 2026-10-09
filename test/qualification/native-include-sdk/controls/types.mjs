@@ -3,7 +3,7 @@ import {readFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 import {createRequire} from 'node:module';
 import {fileURLToPath} from 'node:url';
-const repo=fileURLToPath(new URL('../../../../',import.meta.url)),fixture=join(repo,'test/fixtures/include-sdk'),[compiler,typeRoots,directory]=process.argv.slice(2),ts=createRequire(import.meta.url)(resolve(compiler));
+const repo=fileURLToPath(new URL('../../../../',import.meta.url)),fixture=join(repo,'test/fixtures/include-sdk'),[compiler,typeRoots,directory,nativeYamlDirectory]=process.argv.slice(2),ts=createRequire(import.meta.url)(resolve(compiler));
 assert.equal(ts.version,'6.0.3');
 const {createHash}=await import('node:crypto'),proof=JSON.parse(readFileSync(join(fixture,'provenance.json'),'utf8'));
 for(const [file,sha]of Object.entries(proof.fixtures))assert.equal(createHash('sha256').update(readFileSync(join(fixture,file))).digest('hex'),sha);
@@ -11,6 +11,7 @@ const candidate=resolve(directory),meta=JSON.parse(readFileSync(candidate+'.log'
 const originalRoot=join(fixture,'declarations/index.d.ts'),candidateRoot=join(candidate,'index.d.mts');
 const originalMapping={'@qualification/include':originalRoot,'@deepseek-ai/cordis-plugin-loader':join(repo,'test/fixtures/loader-sdk/declarations/index.d.ts'),'@deepseek-ai/cordis':join(repo,'test/fixtures/cordis-declarations/program/index.d.ts'),'@deepseek-ai/cosmokit':join(repo,'test/fixtures/cosmokit-declarations/index.d.ts'),'@standard-schema/spec':join(repo,'test/fixtures/cordis-declarations/standard-schema/index.d.ts'),'js-yaml':join(fixture,'yaml-types/index.d.ts')};
 const mapping={...originalMapping,'@qualification/include':candidateRoot,'@mithril/native-yaml':join(fixture,'yaml-types/index.d.ts')};
+if(nativeYamlDirectory){mapping['@mithril/native-yaml']=join(resolve(nativeYamlDirectory),'index.d.mts');mapping['js-yaml']=mapping['@mithril/native-yaml'];}
 for(const [pkg,id]of [['@deepseek-ai/cordis-plugin-loader','loader.index'],['@deepseek-ai/cordis','cordis.index'],['@deepseek-ai/cosmokit','cosmokit'],['@standard-schema/spec','standard.schema']])mapping[pkg]=join(candidate,meta['module-files'][id]);
 const groups=[
  ['constructor and merged Config namespace','const config:Include.Config={path:"./x.yaml",patches:[{id:"row",group:null,custom:true}]};const i=new Include(new Context(),config);const same:typeof Include=DefaultInclude;',true],
@@ -43,4 +44,4 @@ function check(mapping,root){
 const original=check(originalMapping,originalRoot),actual=check(mapping,candidateRoot);
 for(let i=0;i<groups.length;i++){assert.equal(original.codes[i].length===0,groups[i][2],groups[i][0]);assert.deepEqual(actual.codes[i],original.codes[i],groups[i][0])}
 assert.deepEqual(actual.exports,original.exports);
-console.log('Include SDK types: 6 positive/8 negative strict original-paired groups, exact diagnostic codes and public symbol spaces; no skipLibCheck; pinned external YAML types.');
+console.log(nativeYamlDirectory?'Include native YAML types: 6 positive/8 negative strict original-paired groups, exact diagnostic codes and public symbol spaces; complete own native YAML declarations.':'Include SDK types: 6 positive/8 negative strict original-paired groups, exact diagnostic codes and public symbol spaces; no skipLibCheck; pinned external YAML types.');
