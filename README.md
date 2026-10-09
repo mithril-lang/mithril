@@ -2290,6 +2290,15 @@ The [declaration qualification](test/qualification/native-js-declarations/README
 
 `mithril/native-function` emits checked native normal function syntax with optional name, js-value parameters/defaults, optional rest binding and body. `mithril/host-this` and `mithril/host-new-target` read the current source normal function context; nested NativeLambda and compiler arrow wrappers preserve lexical capture. Initializers and top-level arrows cannot read an absent function context. Anonymous names, arity, native construction and prototype descriptors are retained.
 
+`mithril/host-arguments` reads that source function's actual strict-mode arguments
+object. It preserves object identity, indexed values, native descriptors and
+iteration; parameter assignment and indexed argument assignment remain separate.
+Default parameter expressions can read it, nested arrows capture it, and nested
+normal functions own a new object. Module initializers and top-level arrows
+refuse this form because they have no source function context. Both CLI targets
+have 24 original-paired Node groups; actual browser-host execution remains pending.
+
+
 The [normal function qualification](test/qualification/native-js-normal-functions/README.md) contains the exact admission rules, receiver/rest constructor example, 19 JS reference groups and both actual CLI targets. This supplies callable-function prerequisites for Cordis/Schemastery; generator/async/cyclic-linking and whole Harness parity remain open. Native class prerequisites and the complete DisposableList source port are covered by the [class qualification](test/qualification/native-js-classes/README.md).
 
 The [catch and error-composition qualification](test/qualification/native-js-catch/README.md) covers checked catch scopes, optional property access, explicit normal module function statement bodies and the complete original Cordis composeError/buildOuterStack/isObject source port. Both actual CLI outputs preserve the tested real stack frames, custom thenables and native Promise rejection controls. Generator/async-generator syntax, complete utils/logger, cyclic linking and full Harness parity remain pending.

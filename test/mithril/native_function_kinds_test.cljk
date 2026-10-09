@@ -1,5 +1,5 @@
 (ns mithril.native-function-kinds-test
- (:require [cljs.test :refer [deftest is]] [mithril.native-js :as native] [mithril.form :as form]
+ (:require [cljs.test :refer [deftest is]] [clojure.string :as str] [mithril.native-js :as native] [mithril.form :as form]
            ["node:fs" :as fs] ["node:os" :as os] ["node:path" :as path] ["node:child_process" :as child]))
 (defn lit [x] {"@type" "Literal" "datatype" "js-value" "value" x})
 (defn local [x] {"@type" "Local" "name" x})
@@ -47,5 +47,60 @@
               #js {:encoding "utf8" :timeout 30000})]
       (when-not (= 0 (.-status r)) (throw (js/Error. (str (.-stdout r) (.-stderr r))))))))
    (let [r (child/spawnSync js/process.execPath (clj->js ["test/fixtures/native-function-kinds-contract.mjs" dir]) #js {:encoding "utf8" :timeout 30000})]
+    (is (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r)))
+   (finally (fs/rmSync dir #js {:recursive true :force true})))))
+
+(def arguments-object {"@type" "HostArguments"})
+(defn arguments-function [params body]
+ {"@type" "NativeFunction" "name" nil "params" params "rest" nil "body" body})
+(deftest arguments-object-shape-and-source-context
+ (let [cases [[arguments-object :mithril.native-js/scope]
+              [(assoc arguments-object "source" "arguments") :mithril.native-js/shape]
+              [{"@type" "NativeLambda" "params" [] "rest" nil "body" arguments-object} :mithril.native-js/scope]
+              [{"@type" "NativeLambda" "params" [{"name" "x" "default" arguments-object}] "rest" nil "body" (lit 0)} :mithril.native-js/scope]]]
+  (is (= (mapv second cases)
+         (mapv (fn [[value _]] (try (native/check-document (doc value [])) :admitted
+                           (catch :default e (:mithril/error (ex-data e))))) cases)))
+  (is (= arguments-object (form/parse "(mithril/host-arguments)")))))
+(defn arguments-form-text [x]
+ (cond
+  (map? x) (str "(" (if-let [tag (get x "@type")]
+                      (str "mithril/" (subs (str/replace tag #"[A-Z]" #(str "-" (str/lower-case %))) 1)) "rdf/node")
+                (apply str (for [[k v] x :when (not (contains? #{"@type" "@context"} k))]
+                             (str " :" k " " (arguments-form-text v)))) ")")
+  (vector? x) (str "[" (str/join " " (map arguments-form-text x)) "]")
+  :else (pr-str x)))
+(deftest actual-arguments-object-identity-and-lexical-capture
+ (let [p (fn [name] {"name" name "datatype" "js-value"})
+       read-args (arguments-function [(p "first") (p "second")] (arr arguments-object arguments-object (local "first")))
+       mutate (arguments-function [(assoc (p "first") "mutable" true) (p "second")]
+                {"@type" "Sequence" "expressions"
+                 [{"@type" "LocalSet" "name" "first" "value" (lit 91)}
+                  {"@type" "HostSet" "object" arguments-object "key" (lit 1) "value" (lit 92)}
+                  (arr arguments-object (local "first") (local "second"))]})
+       defaulted (assoc (arguments-function [(assoc (p "first") "default" {"@type" "HostGet" "object" arguments-object "key" (lit 1)})]
+                            (arr arguments-object (local "first") (local "tail"))) "rest" "tail")
+       arrow (arguments-function [(p "outer")]
+               {"@type" "NativeLambda" "params" ["ignored"] "rest" nil "body" arguments-object})
+       nested (arguments-function [(p "outer")]
+                (arguments-function [(p "inner")] arguments-object))
+       variants {"readArgs" read-args "mutate" mutate "defaulted" defaulted "arrow" arrow "nested" nested
+                 "generator" (assoc read-args "generator" true)
+                 "asyncFn" (assoc read-args "async" true)
+                 "asyncGenerator" (assoc read-args "async" true "generator" true)}
+       module (assoc (doc (lit nil) []) "exports" (mapv (fn [[name value]] {"name" name "value" value}) variants))
+       dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-arguments-object-"))]
+  (try
+   (fs/writeFileSync (path/join dir "module.mith") (arguments-form-text module))
+   (let [engine (.-MITHRIL_NATIVE_ENGINE js/process.env) config (path/join dir "offline.edn")]
+    (fs/writeFileSync config "{:paths [\"src\"]}\n")
+    (doseq [target ["js" "js-browser"]]
+     (let [r (child/spawnSync js/process.execPath
+                (clj->js [engine "--config" config "-cp" "src" "bin/mithril-native-js.cljk"
+                          (path/join dir "module.mith") "--target" target "--output" (path/join dir (str target ".mjs"))])
+                #js {:encoding "utf8" :timeout 30000})]
+      (when-not (= 0 (.-status r)) (throw (js/Error. (str (.-stdout r) (.-stderr r))))))))
+   (let [r (child/spawnSync js/process.execPath (clj->js ["test/fixtures/native-arguments-object-contract.mjs" dir])
+                           #js {:encoding "utf8" :timeout 30000})]
     (is (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r)))
    (finally (fs/rmSync dir #js {:recursive true :force true})))))

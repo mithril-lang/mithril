@@ -315,6 +315,11 @@
                                            "HostMethodItems entries need exactly value or spread"))) items)}))
       "HostUndefined"
       (do (shape! expr ["@type"]) {:op :undefined})
+      "HostArguments"
+      (do (shape! expr ["@type"])
+          (when-not (context? args-length :function)
+            (fail! :mithril.native-js/scope "HostArguments requires a source normal function context"))
+          {:op :arguments})
       "HostArgumentsLength"
       (do (shape! expr ["@type"])
           (when-not (context? args-length :function)
@@ -971,6 +976,7 @@
       :undefined "(void 0)"
       :await (str "(await " (emit (:value expr)) ")")
       :yield (str "(yield" (when (:delegate expr) "*") " " (emit (:value expr)) ")")
+      :arguments "arguments"
       :arguments-length "arguments.length"
       :this "this"
       :new-target "new.target"
