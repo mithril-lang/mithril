@@ -1,7 +1,7 @@
 (ns mithril.native-package
   "Checked acyclic native Mithril module packages, with explicit host grants."
   (:require [clojure.string :as str] [mithril.form :as form]
-            [mithril.module :as module] [mithril.native-js :as native]))
+            [mithril.module :as module] [mithril.native-js :as native] [mithril.js-identifier :as identifier]))
 (defn- fail! [code message] (throw (ex-info message {:mithril/error code})))
 (defn- shape! [v fields]
   (when-not (and (map? v) (= (set fields) (set (keys v))))
@@ -13,7 +13,7 @@
   (when-not (= (count names) (count (set names)))
     (fail! :mithril.native-package/duplicate "Duplicate package declaration")))
 (defn- identifier! [s]
-  (when-not (and (string? s) (re-matches #"[A-Za-z_][A-Za-z0-9_]*" s))
+  (when-not (identifier/valid? s)
     (fail! :mithril.native-package/name "Invalid host grant name")))
 (defn- name! [s]
   (when-not (and (string? s) (re-matches #"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*" s))

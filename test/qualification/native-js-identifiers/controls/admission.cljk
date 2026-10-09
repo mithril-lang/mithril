@@ -1,0 +1,46 @@
+(ns identifier-boundaries
+ (:require [mithril.native-esm :as esm] [mithril.native-declaration-program :as program]
+           [mithril.native-declaration-composition :as composition] ["node:fs" :as fs]))
+(defn ensure [p label] (when-not p (throw (js/Error. label))))
+(defn data-form [v] (cond (map? v) (cons 'rdf/node (mapcat (fn [[k x]] [(keyword k) (data-form x)]) v)) (vector? v) (mapv data-form v) :else v))
+(defn text [tag v] (pr-str (cons tag (mapcat (fn [[k x]] [(keyword k) (data-form x)]) v))))
+(def names ["$schema" "Σ" "𝒟" "é" "join‌" "join‍" "Å" "Å"])
+(def number-type {"op" "keyword" "name" "number"})
+(def string-type {"op" "keyword" "name" "string"})
+(defn ref [name] {"op" "name" "name" name "args" []})
+(defn alias [name datatype] {"kind" "alias" "name" name "exported" true "type-params" [] "datatype" datatype})
+(defn leaf [ns]
+ (pr-str (list 'mithril/native-js-module :name "identifier.probe" :imports [] :functions
+  (mapv (fn [index n] (list 'mithril/function :name n :params [(list 'rdf/node :name "$arg" :datatype "js-value")] :returns "js-value" :body
+   (list 'mithril/host-binary :operator "+" :left (list 'mithril/local :name "$arg") :right (list 'mithril/literal :datatype "js-value" :value (inc index))))) (range) ns)
+  :exports (mapv (fn [n] (list 'rdf/node :name n :function n)) ns))))
+(def manifest (text 'mithril/native-js-esm-package {"name" "identifier.probe" "imports" [] "modules" [{"name" "identifier.probe" "source" "leaf.mith" "dependencies" [] "links" []}] "reexports" ["identifier.probe"]}))
+(def sources {"leaf.mith" (leaf names)})
+(def runtime (esm/check-text manifest sources))
+(def document {"name" "$global" "runtime" "identifier.probe" "ambient-types" [] "ambient-values" [] "imports" [] "reexports" []
+ "declarations" (vec (concat
+  (map (fn [n] {"kind" "function" "name" n "exported" true "type-params" [] "params" [{"name" "$arg" "datatype" number-type "optional" false "rest" false}] "returns" number-type}) names)
+  [{"kind" "namespace" "name" "$global" "exported" true "declarations" [(alias "Shared" string-type)]}
+   (alias "UsesGlobal" (ref "Shared")) (alias "UsesLocal" (ref "$global.Shared"))
+   {"kind" "alias" "name" "$Type" "exported" true "type-params" [{"name" "$Value" "constraint" nil "default" nil}] "datatype" (ref "$Value")}]))
+ "globals" [{"declarations" [(assoc (alias "Shared" number-type) "exported" false)]}]})
+(def plan (text 'mithril/native-js-declaration-program {"name" "identifier.probe" "runtime-source" "runtime.mith" "modules" [{"name" "$global" "source" "types.mith"}] "externals" [] "entry" "$global"}))
+(def types (text 'mithril/native-js-declaration-module document))
+(def artifact (program/compile-text plan {"types.mith" types} runtime))
+(ensure (= (sort names) (:exports artifact)) "Literal identifier export names")
+(ensure (= ["$Type" "UsesGlobal" "UsesLocal"] (:type-exports artifact)) "Global/source/type-generic identities")
+(def refusals (atom 0))
+(doseq [name ["" "0x" "a-b" "x;throw Error()" "\\u0061" "🐱" "́x" "‌x" "‍x" "a\n" "a\u2028" "\ud800"]]
+ (let [code (try (esm/check-text manifest {"leaf.mith" (leaf [name])}) :admitted (catch :default e (:mithril/error (ex-data e))))]
+  (ensure (= :mithril.native-js/name code) (str "Invalid literal binding: " (pr-str name) " got " code)) (swap! refusals inc)))
+(doseq [[bad code] [[(assoc-in document ["declarations" 0 "name"] "x;bad") :mithril.native-declarations/name]
+                   [(assoc-in document ["declarations" 9 "datatype"] (ref "#global.Shared")) :mithril.native-declarations/name]
+                   [(assoc-in document ["declarations" 9 "name"] (apply str (repeat 129 "$"))) :mithril.native-declarations/name]]]
+ (ensure (= code (try (program/compile-text plan {"types.mith" (text 'mithril/native-js-declaration-module bad)} runtime) :admitted (catch :default e (:mithril/error (ex-data e))))) "Exact declaration refusal")
+ (swap! refusals inc))
+(def dir (.-MITHRIL_IDENTIFIER_FIXTURES js/process.env))
+(when dir
+ (doseq [[file bytes] (assoc sources "runtime.mith" manifest "types.mith" types "program.mith" plan)] (fs/writeFileSync (str dir "/" file) bytes))
+ (fs/writeFileSync (str dir "/invalid-leaf.mith") (leaf ["x;bad"]))
+ (fs/writeFileSync (str dir "/invalid-runtime.mith") (.replace manifest "leaf.mith" "invalid-leaf.mith")))
+(println (str "ECMAScript identifiers: eight dollar/Unicode spellings, preserved normalization distinctions, global/source isolation and generic declarations; " @refusals " exact refusals."))

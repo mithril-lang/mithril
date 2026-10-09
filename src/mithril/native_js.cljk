@@ -4,7 +4,8 @@
    word ABI or runtime fuel ledger and is not the restricted Amu guest profile."
   (:require [clojure.string :as str]
             [mithril.form :as form]
-            [mithril.module :as module]))
+            [mithril.module :as module]
+            [mithril.js-identifier :as identifier]))
 
 (def ^:private reserved
   #{"await" "break" "case" "catch" "class" "const" "continue" "debugger"
@@ -45,7 +46,7 @@
           :else (recur (inc i))))))
   part)
 (defn- name! [name]
-  (when-not (and (string? name) (re-matches #"[A-Za-z_][A-Za-z0-9_]*" name))
+  (when-not (identifier/valid? name)
     (fail! :mithril.native-js/name "Invalid native JS identifier"))
   name)
 (defn- unique! [names]

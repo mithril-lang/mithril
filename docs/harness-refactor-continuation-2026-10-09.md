@@ -671,3 +671,25 @@ Session/Agent/Tools and full Harness API/plugin/profile/boot parity. System One
 still needs owner authentication, the trusted isolated runner and a bounded
 refactor transport before a new measured inference trial; no performance gain
 is established by these operator-authored compiler and SDK probes.
+
+PR #108 exact main `4ae87cb1f42ae9d84c6d8874cf076037a22c1ea5` passed
+Native `37999221464` and CodeGraph `37999221385`. Complete logs were audited
+for all 35 stages, source 85/415, package 40 exports/seven frozen leaves,
+and the complete CodeGraph HTTP controls.
+
+## Generated API identifier checkpoint (2026-10-10)
+
+The pinned original Typert generator emitted complete LLM host and remote-client
+artifacts after each of ten original project owners passed its own unchanged
+compiler options with zero own-source and external-library diagnostics. The
+operator-authored complete runtime ports exposed the compiler refusal of literal
+`$schema` names. Stage 36 adds actual runtime/package/declaration identifier
+admission and source/global namespace collision controls without raising limits.
+Targeted CLI controls pass both Node execution labels. Full qualification and
+branch/current-main delivery are still separate gates at this checkpoint.
+
+The host/client bodies compile through the actual Mithril ESM CLI and preserve
+original metadata and cached factory behavior against the complete pinned Zod
+runtime. Generated public types, third-party runtime-host admission in typed
+composition, streaming/cancellation and complete Session/Harness API/plugin
+parity remain pending. No new System One inference or performance gain is claimed.
