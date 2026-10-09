@@ -1,0 +1,72 @@
+(ns compile-mutable-declarations
+ (:require [mithril.native-declaration-program :as program] [mithril.native-declarations :as declarations]
+           [mithril.native-declaration-emit :as emit] [mithril.native-esm :as esm] [mithril.native-package :as package]
+           [mithril.form :as form] [clojure.string :as str] ["node:fs" :as fs] ["node:os" :as os] ["node:child_process" :as child]))
+(defn ensure [p msg] (when-not p (throw (js/Error. msg))))
+(def engine (.-MITHRIL_DECLARATIONS_ENGINE js/process.env))
+(def compiler (.-MITHRIL_DECLARATIONS_TYPESCRIPT js/process.env))
+(def roots (.-MITHRIL_DECLARATIONS_TYPE_ROOTS js/process.env))
+(defn read-example [n] (fs/readFileSync (str "examples/" n) "utf8"))
+(defn sources [text] (into {} (map #(vector % (read-example %)) (esm/source-basenames text))))
+(def rt-text (read-example "native-js-mutable-direct-esm.mith"))
+(def rt (esm/check-text rt-text (sources rt-text)))
+(def da (declarations/parse-text (read-example "native-js-mutable-a-types.mith")))
+(def db (declarations/parse-text (read-example "native-js-mutable-b-types.mith")))
+(def de (declarations/parse-text (read-example "native-js-mutable-entry-types.mith")))
+(def legacy (declarations/parse-text (read-example "native-js-mutable-legacy-types.mith")))
+(def kw {"op" "keyword" "name" "number"})
+(def variable {"kind" "let" "name" "Hidden" "exported" false "datatype" kw})
+(defn refuse [f code] (try (f) (throw (js/Error. "Invalid mutable declaration admitted")) (catch :default e (ensure (= code (:mithril/error (ex-data e))) (str "Wrong refusal: " e)))))
+(def bads [[(assoc variable "datatype" {"op" "unique-symbol"}) :mithril.native-declarations/type]
+ [(assoc variable "datatype" {"op" "name" "name" "Missing" "args" []}) :mithril.native-declarations/arity]
+ [(assoc variable "name" "let") :mithril.native-declarations/name]
+ [(assoc variable "name" "x;payload") :mithril.native-declarations/name]
+ [(assoc variable "exported" "true") :mithril.native-declarations/shape]
+ [(assoc variable "initializer" 1) :mithril.native-declarations/shape]
+ [(assoc variable "source" "raw JS") :mithril.native-declarations/shape]
+ [(dissoc variable "datatype") :mithril.native-declarations/shape]
+ [(assoc variable "datatype" (nth (iterate #(hash-map "op" "array" "item" %) kw) 66)) :mithril.native-declarations/budget]])
+(doseq [[d code] bads] (refuse #(declarations/check-module-program [(update da "declarations" conj d)] [] rt "mutable.a") code))
+(doseq [other [variable (assoc variable "kind" "const")
+              {"kind" "function" "name" "Hidden" "exported" false "type-params" [] "params" [] "returns" kw}
+              {"kind" "class" "name" "Hidden" "exported" false "abstract" false "type-params" [] "extends" nil "implements" [] "members" []}
+              {"kind" "namespace" "name" "Hidden" "exported" false "declarations" [(assoc variable "name" "slot" "exported" true)]}]]
+ (refuse #(declarations/check-module-program [(update da "declarations" into [variable other])] [] rt "mutable.a") :mithril.native-declarations/duplicate))
+(refuse #(declarations/check-module-program [(assoc da "declarations" (vec (repeat 257 variable)))] [] rt "mutable.a") :mithril.native-declarations/budget)
+(refuse #(declarations/check-module-program [(update da "declarations" conj {"kind" "namespace" "name" "TooDeep" "exported" false "declarations" [(assoc variable "datatype" {"op" "unique-symbol"})]})] [] rt "mutable.a") :mithril.native-declarations/type)
+(def native-doc (form/parse rt-text))
+(def immutable-doc (assoc-in native-doc ["modules" 0 "source"] "native-js-mutable-immutable-a.mith"))
+(def immutable (esm/check-document immutable-doc {"native-js-mutable-immutable-a.mith" (read-example "native-js-mutable-immutable-a.mith")}))
+(refuse #(declarations/check-module-program [da] [] immutable "mutable.a") :mithril.native-declarations/surface)
+(refuse #(emit/compile-document legacy immutable) :mithril.native-declarations/surface)
+(def snapshot-doc (assoc native-doc "@type" "NativeJsPackage" "@context" "https://mithril.fund/context/native-js-package/v1" "modules" (mapv #(dissoc % "dependencies") (get native-doc "modules"))))
+(def snapshot (package/check-document snapshot-doc (sources rt-text)))
+(refuse #(emit/compile-document legacy snapshot) :mithril.native-declarations/surface)
+(def linked-rt-text (read-example "native-js-mutable-esm.mith"))
+(def linked-rt (esm/check-text linked-rt-text (sources linked-rt-text)))
+(refuse #(declarations/check-module-program [da (update db "declarations" conj {"kind" "alias" "name" "Leak" "exported" true "type-params" [] "datatype" {"op" "typeof" "name" "globalThis.__schemastery_index__"}}) de] [] linked-rt "mutable.entry") :mithril.native-declarations/scope)
+(println "Mutable declaration admission:20 exact-code unique-symbol/shape/name/scope/duplicate/native-origin/snapshot/collection/depth refusals.")
+(def dir (fs/mkdtempSync (str (os/tmpdir) "/mithril-mutable-declarations-")))
+(def config (str dir "/offline.edn"))
+(fs/writeFileSync config (str "{:paths [" (js/JSON.stringify (fs/realpathSync "src")) "]}"))
+(defn run [args] (let [r (child/spawnSync js/process.execPath (clj->js args) #js {:encoding "utf8" :timeout 240000})] (ensure (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r))))
+(def items (atom []))
+(try
+ (doseq [target ["js" "js-browser"] profile ["program" "direct" "function"]]
+  (let [name (str "native-js-mutable-" profile "-types.mith") text (read-example name) plan (program/read-plan text)
+        runtime-text (read-example (:runtime-source plan)) runtime (esm/check-text runtime-text (sources runtime-text))
+        artifact (program/compile-text text (into {} (map #(vector % (read-example %)) (:sources plan))) runtime)
+        out (str dir "/" target "-" profile) type-out (str out "-types")]
+   (run [engine "--config" config "-cp" "src" "bin/mithril-native-esm.cljk" (str "examples/" (:runtime-source plan)) "--target" target "--output-directory" out])
+   (run [engine "--config" config "-cp" "src" "bin/mithril-native-declaration-program.cljk" (str "examples/" name) "--target" target "--output-directory" type-out])
+   (doseq [[file source] (:files artifact)] (ensure (= source (fs/readFileSync (str type-out "/" file) "utf8")) "Mutable declaration CLI bytes differ"))
+   (swap! items conj {"profile" profile "types" (str type-out "/index.d.mts") "runtime" (str out "/index.mjs") "target" target})
+   (when (= profile "direct")
+    (let [output (str dir "/" target "-legacy.d.mts") artifact (emit/compile-document legacy runtime)]
+     (run [engine "--config" config "-cp" "src" "bin/mithril-native-declarations.cljk" "examples/native-js-mutable-legacy-types.mith" "--target" target "--output" output])
+     (ensure (= (:source artifact) (fs/readFileSync output "utf8")) "Mutable legacy CLI bytes differ")
+     (swap! items conj {"profile" "legacy" "types" output "runtime" (str out "/index.mjs") "target" target})))))
+ (let [manifest (str dir "/manifest.json")]
+  (fs/writeFileSync manifest (js/JSON.stringify (clj->js @items)))
+  (run ["test/qualification/native-mutable-declarations/controls/contract.mjs" manifest compiler roots]))
+ (finally (fs/rmSync dir #js {:recursive true :force true})))

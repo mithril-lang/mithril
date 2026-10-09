@@ -1,0 +1,11 @@
+import assert from'node:assert/strict';import{pathToFileURL}from'node:url';import{resolve}from'node:path';
+const[entry,profile]=process.argv.slice(2);const api=await import(pathToFileURL(resolve(entry))),keys=['OnlyMutable','State','alias','bump','count','globalState',...(profile==='program'?['forwarded']:[])].sort();
+assert.deepEqual(Object.keys(api).sort(),keys);assert.equal(api.count,0);assert.equal(api.alias,0);if(profile==='program')assert.equal(api.forwarded,0);
+assert.equal(api.OnlyMutable.slot,1);api.OnlyMutable.slot=19;assert.equal(api.OnlyMutable.slot,19);assert.equal(api.State.count,0);assert.equal(api.State.refs,undefined);assert.equal(api.State.fixed,11);assert.equal(globalThis.__schemastery_index__,0);assert.equal(globalThis.__schemastery_refs__,undefined);
+assert.equal(api.bump(),1);assert.equal(api.count,1);assert.equal(api.alias,1);if(profile==='program')assert.equal(api.forwarded,1);
+assert.equal(api.bump(),2);assert.equal(api.count,2);assert.equal(api.alias,2);if(profile==='program')assert.equal(api.forwarded,2);
+api.State.count=9;assert.equal(api.State.count,9);const refs={4:{value:17}};api.State.refs=refs;assert.equal(api.State.refs,refs);
+const first=api.globalState(refs);assert.deepEqual(first,[1,refs]);assert.equal(first[1],refs);assert.equal(globalThis.__schemastery_index__,1);assert.equal(globalThis.__schemastery_refs__,refs);
+const second=api.globalState(undefined);assert.deepEqual(second,[2,undefined]);assert.equal(globalThis.__schemastery_refs__,undefined);assert.equal(globalThis.__schemastery_index__,2);
+assert.throws(()=>{api.count=99},TypeError);assert.equal(api.count,2);assert.equal(api.alias,2);assert.equal(Object.prototype.toString.call(api),'[object Module]');
+console.log(JSON.stringify({keys,count:api.count,alias:api.alias,forwarded:profile==='program'?api.forwarded:null,only_mutable_slot:api.OnlyMutable.slot,namespace_count:api.State.count,namespace_refs_identity:api.State.refs===refs,fixed:api.State.fixed,global_counter:globalThis.__schemastery_index__,global_refs_erased:globalThis.__schemastery_refs__===undefined,global_return_refs_identity:first[1]===refs,namespace_readonly:true,module_tag:Object.prototype.toString.call(api)}));

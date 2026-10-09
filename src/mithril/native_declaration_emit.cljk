@@ -75,7 +75,7 @@
        ambient (when top? "declare ") generic (generic-text (get d "type-params"))]
   (case kind
    "function" (str prefix ambient "function " name generic "(" (params-text (get d "params")) "): " (emit-type (get d "returns")) ";\n")
-   "const" (str prefix ambient "const " name ": " (emit-type (get d "datatype")) ";\n")
+   ("const" "let") (str prefix ambient kind " " name ": " (emit-type (get d "datatype")) ";\n")
    "const-enum" (str prefix ambient "const enum " name " {\n"
                      (str/join ",\n" (map #(str (get % "name") " = " (quote-value (get % "value"))) (get d "members"))) "\n}\n")
    "alias" (str prefix "type " name generic " = " (emit-type (get d "datatype")) ";\n")
