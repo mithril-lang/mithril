@@ -1,152 +1,148 @@
-# Mithril Harness / System One：保存地点と再開マップ
+# Mithril Harness and System One continuation map
 
-保存日：2026-10-09（JST）。これは作業の区切りであり、全体完了の宣言ではない。
-作業 goal は一時停止。既に開始した PR CI はそのまま動作し、停止時点では未完了。
-再開時はこの記録より実 checkout、remote main、CI、公開 status を優先する。
+Updated: 2026-10-09 (JST). This is a continuation record, not a completion claim.
+Verify the current checkout, remote main, CI and public status before relying on
+recorded state. Repository documentation uses English; conversation and original
+evidence retain their selected language.
 
-## 最終的に実現すること
+## Complete objective
 
-元の mithril-lang org DeepSeek Harness を、実際の Mithril 言語による
-Mithril Harness に移す。元の API、plugin、profile、Session と動作を同じ範囲で
-維持し、実 browser/native/Q9 まで検証する。その refactor に
-code.mithril.fund の System One Coding を実際に使い、固定した入力・変更前後の
-チェック・実 receipt に基づいて性能評価と改善調査を行う。
-名前の置換、観測 helper、有限ケースの合格だけで、この目的を完了扱いにしない。
+Refactor the original mithril-lang organization DeepSeek Harness into a genuine
+Mithril-language Harness with the same API, plugin, profile and Session behavior.
+Verify actual browser/native/Q9 behavior and delivery to the intended repository.
+Use code.mithril.fund's System One Coding for actual refactor work, then measure
+and investigate improvements using fixed inputs, baseline/candidate checks and
+real receipts. Renaming, observation helpers or finite passing groups cannot
+substitute for this objective.
 
-## 保存した場所
+## Locations and saved state
 
-| 項目 | 保存先・識別子 | 状態 |
+| Item | Location / identity | State |
 | --- | --- | --- |
-| 言語/compiler checkout | `/Users/junkawasaki/github/mithril-lang/mithril-harness-language` | 現在の branch は `codex/native-module-operations`。下記未完了変更を保存 |
-| 完了した Schema SDK commit | `b211a8d076bdb85f77859a2563ba3f79ee5e433f` | PR #79 に push 済み |
-| Schema SDK PR | https://github.com/mithril-lang/mithril/pull/79 | OPEN。CI `37894254763` / job `113701855514` が停止直前には実行中 |
-| System One checkout | `/Users/junkawasaki/github/mithril-lang/mithril-system-one-refactor` | PR #893 merged、保存した qualification source は `cc8d1bfb6dcbe30c302d24cbec214c07141e42e7` |
-| 検証ログ・引継ぎ receipt | `/Users/junkawasaki/github/mithril-lang/mithril-harness-evaluation-2026-10-07` | 独立した operator evidence。元実装を candidate に委譲しない |
-| 元 Harness snapshot | 上記 evidence 配下 `reference-harness-441416` | readonly reference、commit `441416c0048aa4281bffe59c1c7b5e13e08a9ec1` |
+| Compiler checkout | `/Users/junkawasaki/github/mithril-lang/mithril-harness-language` | `codex/native-module-operations` |
+| Saved work checkpoint | `82bd71fbfbf27e4ed3e08ba03898eb9a01a31ed4` | WIP committed and pushed before the requested pause |
+| Schema SDK | https://github.com/mithril-lang/mithril/pull/79 | Merged at `34ca28d6524c27a6c11e24c01bddeca9da35763d`; head `b211a8d076bdb85f77859a2563ba3f79ee5e433f` qualified |
+| Schema branch CI | `37894254763`, job `113701855514` | Terminal success; full source/package/all 14 declaration stages audited |
+| Schema main CI | `37895861420` | Terminal success; all 14 stages audited, exact branch/main tree verified |
+| System One checkout | `/Users/junkawasaki/github/mithril-lang/mithril-system-one-refactor` | PR #893 merged; qualified exact source `cc8d1bfb6dcbe30c302d24cbec214c07141e42e7` |
+| Operator evidence | `/Users/junkawasaki/github/mithril-lang/mithril-harness-evaluation-2026-10-07` | Logs, receipts and readonly reference |
+| Original Harness | Evidence directory's `reference-harness-441416` | Snapshot `441416c0048aa4281bffe59c1c7b5e13e08a9ec1` |
 
-実際の移行先 Harness repository は再確認が必要。現在見えた repo catalog だけで
-org 全体に存在しないとは断定しない。移行先を決めずに別 repository を作成しない。
+The intended destination Harness repository still requires confirmation. The
+accessible catalog does not prove organization-wide absence. Do not create a
+substitute repository without resolving the destination.
 
-## 全体の依存マップ
+## Dependency map
 
-矢印は「前提 → それに依存する作業」。依存先を進めるために、前提から解消する。
+Arrows mean prerequisite to dependent work. Resolve prerequisites before using
+results to qualify their dependents.
 
 ```mermaid
 flowchart TD
-  A[Native source/compiler の基礎] --> B[CosmoKit / Cordis の実 source と型]
-  A --> S[Schema 実 runtime + 完全な型 + default SDK]
+  A[Native source/compiler foundations] --> B[CosmoKit and Cordis source/types]
+  A --> S[Schema runtime, full types and actual default SDK]
   B --> S
-  S --> L[Loader / Include と Node module semantics]
+  S --> L[Loader / Include and Node module semantics]
   B --> L
   L --> H[Harness API / plugin / profile / Session]
-  H --> Q[実 browser / native / Q9 の同一動作検証]
-  Q --> P[移行先 repository・リリース・利用者の実動作確認]
-  C[System One 汎用 refactor と診断の実装] --> D[Code 専用 CI owner と本番公開]
-  D --> E[固定 task による System One 実 refactor・比較評価]
+  H --> Q[Actual browser / native / Q9 parity]
+  Q --> P[Destination release and user-visible read-back]
+  C[System One generic refactor and diagnostics] --> D[Code publication owner and release]
+  D --> E[Sealed System One refactor trials]
   A --> E
   E --> H
-  E --> F[性能評価・改善調査の実測報告]
-  P --> Z[全体完了の監査]
+  E --> F[Measured performance and improvement investigation]
+  P --> Z[Requirement-by-requirement completion audit]
   F --> Z
 ```
 
-System One 側の公開 gate と言語側の依存解消は独立して進められる。
-Code の owner が未確定でも、言語側の作業全体を blocked にしない。
+Code publication and native-language work have independent paths. The missing
+Code owner is not a reason to stop meaningful compiler/dependency work.
 
-## どこまで検証したか
+## Qualified evidence and remaining gates
 
-| 領域 | authoritative evidence | 残る条件 |
+| Area | Evidence | Remaining gate |
 | --- | --- | --- |
-| Native 数値 literal | PR #77 merged、main `4106e9e08132bfbbbb04d2d5aa79add20f264250`、main CI `37889375930` terminal success を監査済み | 整数表記 `-0` は reader が 0 に正規化。負ゼロは `-0.0` / `-0e0` |
-| callback 内の ambient references | PR #78 merged、main `92a27a8e1eedbe2e1352f4a30c770ff8227172d3`、main CI `37891594652` terminal success / 全ログ監査済み | 任意の callback 全体の等価性を有限テストから推定しない |
-| Schema SDK | PR #79 head `b211a8d…`。ローカル全14宣言 stage 成功。両実 CLI target で型54正常/21拒否、runtime26群、serialized Date、全 own static/prototype descriptors を元実装と比較 | PR CI、通常 merge、merged main CI の確認が必要。実 browser は未検証 |
-| System One 汎用 refactor | PR #893 merged。選択ソース、全置換・局所編集、baseline/candidate Docker 検証、固定 refusal detail、durable receipt、Code 専用 signed CI/CD | 追加診断の本番公開、実 model 比較評価 |
-| Code exact-main qualification | `cc8d1bfb…` で Code93/quota34/Python8/CI-release12/hold24/実Docker2/Todo17ほかを成功、署名/source/676 assets を確認 | 現在 main が進んでいるので公開前には exact current-main で再実行。旧 receipt を流用しない |
-| Code 公開 status | 保存直前の GET `/api/status` は `fca16aec22fc0207ec7d91e863d3384aa92e161e`、ready=true、repository_refactor_proposals=true、durable_refactor_receipts=true | 新しい診断は未公開。arbitrary_repository_execution=false を維持 |
+| Native finite numeric literals | PR #77/main `4106e9e…`, main CI `37889375930` audited success | Reader normalizes integer `-0`; use `-0.0` or `-0e0` for negative zero |
+| Ambient callback references | PR #78/main `92a27a8e…`, main CI `37891594652` audited success | Finite checks are not universal callback equivalence |
+| Schema SDK | PR #79; local 14 stages and branch CI succeeded; both actual CLI targets; 54 positive/21 negative type groups, 26 runtime groups, serialized Date and full own static/prototype descriptors | Actual browser behavior and broader inputs |
+| Native module operations | First resumed standalone CLI and original-paired contract passed after fixture corrections | PR and main delivery; local 74/306 native, 40-export/7-frozen package and all 14 declaration stages passed |
+| System One generic refactor | PR #893 merged; selected-source replacement/local edits, baseline/candidate Docker checks, fixed refusal detail, durable receipts, signed Code CI/CD | New diagnostics publication and actual model evaluation |
+| Code qualification | Exact `cc8d1bfb…`: Code93/quota34/Python8/CI-release12/hold24/real Docker2/Todo17 plus browser fixtures; verified signature/source/676 assets | Main has advanced; rerun on exact current main before release |
+| Public Code | Most recent read: `fca16aec22fc0207ec7d91e863d3384aa92e161e`, ready=true, repository_refactor_proposals=true, durable_refactor_receipts=true | New diagnostics unpublished; arbitrary_repository_execution=false |
 
-`js-browser` target の Node 上実行と、実 browser の動作確認は別証拠。
-complete type graph と、あらゆる入力に対する runtime 同一性も別証拠。
+Node execution of a `js-browser` artifact and actual browser testing are separate
+evidence. Complete type declarations and universal runtime equivalence are also
+separate. Candidate runtime cannot delegate to original Schema or dependency code.
 
-## 未完了の変更を保存した内容
+## Current source change
 
-`codex/native-module-operations` は Schema SDK head を土台にした WIP branch。
-この branch 自体は未 qualification・未 PR・未 merge として扱う。
+The saved WIP adds `host-import-meta` and `host-dynamic-import` form tags, bounded
+AST admission and direct native emission, with standalone/ESM/package fixtures.
+The first pre-pause probe refused an unregistered `mithril/param` fixture tag.
+It was corrected to `rdf/node`; resumed compilation succeeds. The comparison
+fixture now uses actual filesystem paths on macOS. A second fixture correction
+uses direct exports for package-library output, retaining explicit factory mode
+as a separate tested case.
 
-- `src/mithril/form.cljk`：`host-import-meta` / `host-dynamic-import` tag を追加。
-- `src/mithril/native_js.cljk`：形状を検査する AST と、直接の `import.meta` /
-  `import(source[, options])` emission を追加。
-- `examples/native-js-module-operations*.mith`：standalone / ESM / package の fixture。
-- `test/fixtures/native-module-operations-contract.mjs`：独立した元 JS と candidate を
-  比較する契約の途中。module URL/resolve、cache、namespace、TLA、coercion、
-  import attributes、拒否、serialized meta callback を対象にしている。
+New admission and actual CLI tests cover both target labels and all four output
+forms. Local validation passed: 74 native tests / 306 assertions, the 40-export /
+seven-frozen-artifact package contract and all 14 declaration stages. PR and
+main delivery remain separate gates. See `test/qualification/native-module-operations/README.md`.
 
-最初の実 CLI probe は fixture の未登録 tag `mithril/param` で REFUSE した。
-保存前に既存の `rdf/node` param 表現へ訂正したが、訂正後の CLI/runtime はまだ
-実行していない。JS syntax check と `git diff --check` は成功。
-新しい admission/negative tests、suite 登録、件数の更新、全回帰検証は未実施。
-「追加済み」を「対応完了」と読み替えない。
+Original dependency sites:
 
-元コードの必要箇所：
+- `vendor/loader/src/internal.ts:109`: `createRequire(import.meta.url)`.
+- `vendor/loader/src/config/tree.ts:124,126`: URL/specifier dynamic import.
+- `vendor/include/src/index.ts:222`: filename dynamic import.
 
-- `vendor/loader/src/internal.ts:109`：`createRequire(import.meta.url)`。
-- `vendor/loader/src/config/tree.ts:124,126`：相対 URL / specifier の動的 import。
-- `vendor/include/src/index.ts:222`：filename の動的 import。
+Retain Node internal-loader v1/v2 classification, no-internals fallback, actual
+host capabilities, YAML dialect and config persistence contracts. A fixed URL or
+replacement resolver does not establish identical module semantics.
 
-Node internal loader の v1/v2 分類、no-internals fallback、実 host capability、
-YAML 方言・config read/write の API は、それぞれ元の契約を維持して検証する。
-固定 URL や別の resolver で代替して同一としない。
+## Next work
 
-## 再開直後の手順
+1. Schema main CI `37895861420` is now audited successfully. Continue from the
+   native module operations qualification; retain exact-main/tree evidence.
+2. Finish native module operations: malformed/scope/depth/guest tests, exact old
+   artifact preservation, both targets/output forms and independent host oracle.
+   Complete source/package/declaration regressions and normal PR/main delivery.
+3. Port Loader/Include by complete source closure, SCC and public type graph.
+   Then port Harness API/plugin/profile/Session and verify actual browser/native/Q9.
+4. Resolve the Code owner, qualify current main, publish through the dedicated
+   guarded CI owner and read back source/status/assets.
+5. Run separately sealed real System One tasks against the current compiler and
+   independent baseline/candidate checks. Record actual attempts, repairs,
+   completion/usage/latency, acceptance and adoption. Investigate measured failures.
+6. Verify the destination release and audit every original requirement before
+   marking the full objective complete.
 
-1. 保存 branch の clean status と commit を確認し、PR #79 / CI `37894254763`
-   の同じ handle を読む。観測 timeout だけで CI を再起動しない。
-2. 成功なら full log が source72/279・package40 exports/7 frozen artifacts・
-   全14 declaration stages と新 SDK 契約を実行したことを監査する。
-   repository policy に従って通常 merge し、merged main の別 CI を確認する。
-3. WIP branch に戻り、訂正した fixture の実 CLI をまず再実行する。
-   Node の元 semantics と、standalone / ESM / package の両 target を比較する。
-   malformed shape、scope、depth/node budget、guest refusal と既存 artifact
-   byte preservation を検証し、native suite に登録する。
-4. native source/package/declaration の必要な回帰 checks を完了し、module
-   operations を別 PR にする。Schema SDK が merge されるまでは二重に含めない。
-5. Loader/Include を元の source closure / SCC / public type graph ごと移す。
-   その後 Harness API/plugin/profile/Session、実 browser/native/Q9 へ進む。
-6. Code owner が判明したら、専用資格・本番公開・公開 read-back を満たし、
-   別に固定した task/check contract で System One 実 trial を行う。
-
-pinned local toolchain：
+Pinned local commands (compiler checkout):
 
 ```sh
-# cwd: /Users/junkawasaki/github/mithril-lang/mithril-harness-language
 node scripts/test-native-js.mjs --engine ../mithril-harness-evaluation-2026-10-07/compiler-image/engine/cli.js
 node scripts/test-native-package.mjs --engine ../mithril-harness-evaluation-2026-10-07/compiler-image/engine/cli.js
 node scripts/test-native-declarations.mjs --engine ../mithril-harness-evaluation-2026-10-07/compiler-image/engine/cli.js --typescript ../mithril-harness-evaluation-2026-10-07/native-js-declarations-system-one/image/typed-deps/node_modules/typescript/lib/typescript.js --type-roots ../mithril-harness-evaluation-2026-10-07/native-js-declarations-system-one/image/typed-deps/node_modules/@types
 ```
 
-主なログ：`schema-sdk-full-declarations.log`、`schema-sdk-canonical-qualification.log`、
-`native-ambient-main-ci.log`、`schema-sdk-qualification.json`、
-`native-ambient-blocker-frontier.json`（すべて evaluation directory 内）。
+Evidence files include `schema-sdk-full-declarations.log`,
+`schema-sdk-branch-ci.log`, `native-ambient-main-ci.log`,
+`schema-sdk-qualification.json` and `native-ambient-blocker-frontier.json`.
 
-## System One 公開 / 評価で必要な入力
+## System One owner and evaluation inputs
 
-Code 専用 deployment owner の host/checkout と、既存の狭い CI credential の
-**参照名**が未確認。credential 値は chat / task / receipt / Git に保存しない。
-`gad` に Docker があることだけで deployment owner と断定しない。
-最後に確認した `MITHRIL_CODE_PUBLISHER` repository variable は未設定（404）。
-実 owner、競合する main jobs の drain、exact clean current main、専用署名 receipt、
-実 compatible rollback、quota namespace、全 migration hold、公開 assets の read-back
-を満たす。Code の公開 guard と Fund `AGENTS.md` / standalone CI の規則を保持する。
+The dedicated Code deployment host/checkout and existing narrow CI credential
+reference remain unknown. Do not put credential values in chat/tasks/receipts/Git.
+Docker on gad does not establish deployment ownership. The last observed
+`MITHRIL_CODE_PUBLISHER` repository variable was absent (404). Retain real owner
+coordination, drained competing main jobs, clean exact live main, Code-specific
+signed receipt, actual compatible rollback, unchanged quota namespace, all
+migration holds and full public asset read-back. Follow Fund's own AGENTS.md and
+standalone publisher contract; another product's receipt cannot publish Code.
 
-旧実 model trial は `chatcmpl-ea230788-d0e3-40a9-93cb-00ee136cbea6`、
-140.266秒、prompt26706/completion5261、1 attempt/0 repair、
-`invalid_refactor_edits`。detail 不明、admitted candidate なし、性能改善なし。
-欠けた detail を推測しない。未知の outcome や古い request を再試行しない。
-次の trial は独立した固定入力・現在 compiler・baseline/candidate checks・
-実 completion/usage/latency の receipt を持ち、必要な修復も測定に含める。
-
-## 最終完了の監査条件
-
-移行 source・全 public API/type/plugin/profile/Session・実 host/browser/native/Q9・
-移行先 release/read-back・System One 実 refactor と評価の各要件に対応する証拠を
-読み返す。未確認・部分検証・fixture のみの要件が一つでも残れば goal は未完了。
-System One の公開 gate だけを理由に、他の独立した作業を止める必要はない。
+Historical real trial: `chatcmpl-ea230788-d0e3-40a9-93cb-00ee136cbea6`,
+140.266 seconds, 26706 prompt / 5261 completion tokens, one attempt, zero repairs,
+`invalid_refactor_edits`, missing detail, no admitted candidate or performance
+gain. Do not infer its missing cause or retry an unknown historical outcome.
+New trials require a separate sealed contract and real receipts; include repairs
+in measurement and distinguish source/CI/publication/live/installed evidence.

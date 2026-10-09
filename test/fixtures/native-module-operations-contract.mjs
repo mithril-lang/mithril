@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
-import {readFileSync,writeFileSync,mkdtempSync,rmSync} from 'node:fs';
+import {realpathSync,writeFileSync,mkdtempSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join,dirname} from 'node:path';
-import {pathToFileURL,fileURLToPath} from 'node:url';
+import {pathToFileURL} from 'node:url';
 const [file,mode]=process.argv.slice(2);
 const dir=mkdtempSync(join(tmpdir(),'mithril-module-oracle-'));
-const leaf='export const value=41;export const token={};';
+const leaf='export const value=41;export const token={};export let count=0;export function bump(){count++}';
 try{
  const original=join(dir,'original.mjs');
  writeFileSync(original,'export function meta(){return import.meta}export function nestedMeta(){return ()=>import.meta}export function load(source){return import(source)}export function loadWith(source,options){return import(source,options)}');
@@ -14,10 +14,11 @@ try{
   writeFileSync(join(directory,'module-operation-await.mjs'),'await new Promise(resolve=>setTimeout(resolve,5));export const ready=true;');
  }
  const candidateModule=await import(pathToFileURL(file));
- const candidate=mode==='standalone'?candidateModule.instantiateMithrilNative({}):mode==='library'?candidateModule.instantiateMithrilNativePackage({}):candidateModule;
+ const candidate=mode==='standalone'?candidateModule.instantiateMithrilNative({}):mode==='explicit-package'?candidateModule.instantiateMithrilNativePackage({}):candidateModule;
  const reference=await import(pathToFileURL(original));
  const sourceFile=mode==='esm'?join(dirname(file),'module-0.mjs'):file;
  async function observe(api,owner){
+  owner=realpathSync(owner);
   const meta=api.meta();assert.equal(meta,api.meta());assert.equal(meta,api.nestedMeta()());
   assert.equal(meta.url,pathToFileURL(owner).href);
   assert.equal(Object.getPrototypeOf(meta),null);
@@ -27,7 +28,7 @@ try{
   const module=await pending;assert.equal(module.value,41);assert.equal(module,await api.load('./module-operation-leaf.mjs'));
   assert.equal(module,await api.loadWith('./module-operation-leaf.mjs',undefined));
   assert.equal(module.token,(await api.load('./module-operation-leaf.mjs')).token);
-  assert.equal(Object.getPrototypeOf(module),null);
+  assert.equal(Object.getPrototypeOf(module),null);module.bump();assert.equal(module.count,1);assert.equal((await api.load('./module-operation-leaf.mjs')).count,1);
   assert.equal((await api.load('./module-operation-await.mjs')).ready,true);
   const order=[];const source={toString(){order.push('coerce');return './module-operation-leaf.mjs'}};
   const options={get with(){order.push('with');return {}}};
