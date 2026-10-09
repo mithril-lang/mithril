@@ -242,19 +242,22 @@
     (case ext
       ("nq" "nt") :nquads
       ("jsonld" "json") :jsonld
+      ("mith" "mithril") :mith
       nil)))
 
 (defn parse-data
-  "Data text -> quads. N-Quads / N-Triples through `nquads.core/parse`;
+  "Data text -> quads. Mithril through its inert source reader; N-Quads / N-Triples through `nquads.core/parse`;
   JSON-LD through the same expansion the compiler uses, with the Mithril
   context supplied and every other remote context refused (never fetched)."
   [path text]
   (case (data-format path)
     :nquads (nq/parse text)
+    :mith (to-rdf/to-rdf (jsonld/expand (compiler/parse-source text)
+                                       {:contexts {compiler/context-uri compiler/context-document}}))
     :jsonld (to-rdf/to-rdf (jsonld/expand (compiler/parse-json text)
                                           {:contexts {compiler/context-uri
                                                       compiler/context-document}}))
-    (refuse! :unknown-data-format {:path path :supported [".nq" ".nt" ".jsonld" ".json"]})))
+    (refuse! :unknown-data-format {:path path :supported [".mith" ".mithril" ".nq" ".nt" ".jsonld" ".json"]})))
 
 ;; ── ontology -> axioms and shapes ────────────────────────────────────────────
 

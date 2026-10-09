@@ -2511,3 +2511,77 @@ Native source supports genuine `import.meta` and dynamic `import(source[, option
 through checked `host-import-meta` / `host-dynamic-import` expressions. Module
 metadata belongs to the emitted ECMAScript module and loading remains the host's
 native module operation. See [module operations qualification](test/qualification/native-module-operations/README.md).
+
+## Mithril's own language kernel and code graph
+
+[`src/mithril/language.mith`](src/mithril/language.mith) declares Mithril's
+source formats, compiler pipeline contract and imported CLI entrypoints. The
+main CLI admits commands through this compiled kernel. `compile` executes its
+ordered pipeline; `compile-trace` records each stage's input/output identities
+and the kernel, library and bootstrap identities. `compile-language` prints its
+IR. The compiler remains based on Amu; CLJK/CLJS supplies the host primitives.
+The `.mith` kernel describes and admits its orchestration. Self-hosting is
+explicitly outside the project goal.
+
+[`src/mithril/codegraph.mith`](src/mithril/codegraph.mith) declares the bounded
+code extraction, resolution, community detection and RDF projection pipeline. Its source-located
+ontology is [`ontology/codegraph-v1.mith`](ontology/codegraph-v1.mith). The local
+Git index parses changed Clojure/CLJK, Mithril, Markdown and text documents,
+extracts Markdown sections and explicit links to code, indexes nested semantic
+entities, invalidates reverse dependents after edits/deletions, reuses per-file
+canonical RDF and unchanged community components, and supports paginated
+name/literal-content search, source retrieval,
+callers/callees, impact and paths. Filesystem queries refresh the index; an MCP
+stdio tool exposes the same bounded API, including file community queries.
+`codegraph ui` exports a standalone offline HTML explorer with a relationship
+map, community filters, source inspection and paths/impact over the exported
+subset. Its coverage and source truncation are visible in the page.
+`codegraph web` starts a loopback explorer over the complete admitted index,
+with source inspection, paginated relationships, communities, revision checks
+and an explicit refresh button. Markdown includes Setext headings and reference
+links; content matches include exact spans and source identities.
+
+```sh
+kbb --backend sci --classpath src bin/mithril.cljk compile-language
+kbb --backend sci --classpath src bin/mithril.cljk compile-trace examples/tender.mith
+kbb --backend sci --classpath src bin/mithril.cljk codegraph index .
+kbb --backend sci --classpath src bin/mithril.cljk codegraph query . \
+  '{"operation":"explore","query":"mithril.compiler/compile-document","limit":5}'
+kbb --backend sci --classpath src bin/mithril.cljk codegraph serve .
+kbb --backend sci --classpath src bin/mithril.cljk codegraph query . \
+  '{"operation":"communities","limit":20}'
+kbb --backend sci --classpath src bin/mithril.cljk codegraph ui . --rebuild
+# SCI compatibility runner when the native kbb checkout is unavailable:
+node scripts/run-sci.mjs bin/mithril-codegraph.cljk web . --rebuild
+node scripts/run-sci.mjs test/run_codegraph.cljk
+node scripts/test-codegraph-web.mjs
+```
+
+The graph and full original source evidence are saved as private `.mith` files in
+`.mithril-codegraph/revisions/<snapshot>/`: `asserted.mith`, `sources.mith`,
+`ontology.mith` and `manifest.mith`. The EDN index is a checked search cache.
+`codegraph reason .` reloads the saved premises and ontology, runs OWL 2 RL/SHACL,
+and writes `reasoned.mith` with separate asserted, entailed and inferred graphs.
+`verify` and CID evidence use the same saved premises. Old caches require
+`codegraph index . --rebuild`. Generic reasoning accepts `.mith` data and
+`--save-mith result.mith`:
+
+```sh
+node scripts/run-sci.mjs bin/mithril.cljk reason \
+  examples/codegraph/natural-language-ontology.mith \
+  examples/codegraph/natural-language.mith --save-mith result.mith
+```
+
+This example keeps the Japanese original and its human-declared interpretation;
+arbitrary prose meaning extraction remains future work. The reader indexes the
+explicit CLJS profile; unresolved names, unsupported scope forms and parse
+failures remain visible diagnostics. File communities use bounded local
+modularity optimization within connected components, with a component/community
+hierarchy and cached unchanged components. They are structural suggestions. Other programming
+language/media parsers and prose-based semantic linking remain future work.
+Open `.mithril-codegraph/explorer.html` in a browser after `codegraph ui`;
+rerun the command to refresh the exported snapshot. See the
+[design and bootstrap boundary](docs/design/codegraph-and-language-bootstrap.md)
+for contracts, APIs and validation; the
+[remaining work map](docs/design/codegraph-remaining-map.md) records the Amu
+host boundary and delivery/expansion gates.

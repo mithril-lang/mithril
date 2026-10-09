@@ -42,7 +42,9 @@
    'mithril/native-js-esm-package "NativeJsEsmPackage"
    'mithril/native-js-declarations "NativeJsDeclarations"
    'mithril/native-js-declaration-module "NativeJsDeclarationModule"
-   'mithril/native-js-declaration-program "NativeJsDeclarationProgram"})
+   'mithril/native-js-declaration-program "NativeJsDeclarationProgram"
+   'mithril/language "LanguageKernel"
+   'mithril/codegraph "CodeGraphApplication"})
 
 (def ^:private nested-tags
   #{'mithril/choice 'mithril/export 'mithril/import 'mithril/route
@@ -317,7 +319,7 @@
   (throw (ex-info detail {:mithril/error code :detail detail})))
 
 (defn source? [text]
-  (str/starts-with? (str/triml (or text "")) "("))
+  (boolean (re-find #"^(?:\s|;[^\n]*(?:\n|$))*\(" (or text ""))))
 
 (defn- key-name [k]
   (when-not (keyword? k)
@@ -423,10 +425,51 @@
 
 (declare lower-tagged)
 
+(defn- rdf-id! [value blank?]
+  (when-not (and (string? value)
+                (not (re-find #"[\s<>\u0000-\u001f]" value))
+                (or (and blank? (re-matches #"_:[A-Za-z0-9_.-]+" value))
+                    (re-find #"^[A-Za-z][A-Za-z0-9+.-]*:" value)))
+    (fail! :mithril.form/invalid-rdf-iri "RDF data requires an absolute IRI or admitted blank node"))
+  value)
+
+(defn- lower-rdf-data [[tag & args]]
+  (let [children! (fn [children expected]
+                    (when-not (every? #(and (list? %) (= expected (first %))) children)
+                      (fail! :mithril.form/invalid-rdf-data (str tag " requires " expected " children")))
+                    (mapv lower-form children))]
+    (case tag
+      rdf/dataset (vec (mapcat (fn [g] (if (get g "@id") [g] (get g "@graph")))
+                              (children! args 'rdf/graph)))
+      rdf/graph (let [[identity & nodes] args]
+                  (when (empty? args) (fail! :mithril.form/invalid-rdf-data "rdf/graph needs a graph identity or nil"))
+                  (cond-> {"@graph" (children! nodes 'rdf/description)}
+                    identity (assoc "@id" (rdf-id! identity true))))
+      rdf/description
+      (let [[identity & properties] args
+            _ (rdf-id! identity true)
+            _ (children! properties 'rdf/property)]
+        (reduce (fn [node [_ predicate & values]]
+                  (let [predicate (rdf-id! predicate false)]
+                    (when (contains? node predicate)
+                      (fail! :mithril.form/invalid-rdf-data "duplicate RDF property"))
+                    (assoc node predicate (mapv lower-form values)))) {"@id" identity} properties))
+      rdf/property
+      (let [[predicate & values] args]
+        (rdf-id! predicate false)
+        (when-not (and (seq values) (every? #(and (list? %) (contains? #{'rdf/iri 'rdf/literal} (first %))) values))
+          (fail! :mithril.form/invalid-rdf-data "rdf/property needs explicit RDF terms"))
+        (mapv lower-form values))
+      rdf/iri (do (when-not (= 1 (count args))
+                    (fail! :mithril.form/invalid-rdf-data "rdf/iri takes exactly one identity"))
+                  {"@id" (rdf-id! (first args) true)}))))
+
 (defn lower-form [form]
   (when-not (and (list? form) (symbol? (first form)))
     (fail! :mithril.form/invalid-form "Mithril source must be one tagged S-expression"))
   (cond
+    (contains? #{'rdf/dataset 'rdf/graph 'rdf/description 'rdf/property 'rdf/iri} (first form))
+    (lower-rdf-data form)
     (contains? path-tags (first form)) (lower-path-form form)
     (= 'rdf/literal (first form)) (lower-literal form)
     :else (lower-tagged form)))

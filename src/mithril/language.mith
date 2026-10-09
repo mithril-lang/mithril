@@ -1,0 +1,22 @@
+(mithril/language
+  :id "https://mithril.fund/id/language/mithril"
+  :ontology "48d9b13cc3d1d359fb35654e676f5b08bd8fd409a4acb737edf1d61c525f27b0"
+  :imports [(mithril/import :library "https://mithril.fund/lib/mithril/bootstrap-v1" :digest "sha256:ac917d1c866a51f029cfd947d4e9c9fd2e00835899e4da6d32e9b0498af52ef5")]
+  :source-formats ["application/vnd.mithril.form" "application/ld+json"]
+  :pipeline ["read-inert" "project-jsonld" "canonicalize-rdf" "admit-vocabulary" "emit-transaction"]
+  :routes [
+    (mithril/route :path "compile-trace" :operation "https://mithril.fund/ns/language/v1#compile-trace")
+    (mithril/route :path "compile-language" :operation "https://mithril.fund/ns/language/v1#compile-language")
+    (mithril/route :path "compile" :operation "https://mithril.fund/ns/language/v1#compile")
+    (mithril/route :path "compile-ontology" :operation "https://mithril.fund/ns/language/v1#compile-ontology")
+    (mithril/route :path "compile-library" :operation "https://mithril.fund/ns/language/v1#compile-library")
+    (mithril/route :path "compile-bot" :operation "https://mithril.fund/ns/language/v1#compile-bot")
+    (mithril/route :path "compile-desktop" :operation "https://mithril.fund/ns/language/v1#compile-desktop")
+    (mithril/route :path "compile-hermes-profile" :operation "https://mithril.fund/ns/language/v1#compile-hermes-profile")
+    (mithril/route :path "emit-desktop" :operation "https://mithril.fund/ns/language/v1#emit-desktop")
+    (mithril/route :path "compile-web" :operation "https://mithril.fund/ns/language/v1#compile-web")
+    (mithril/route :path "request" :operation "https://mithril.fund/ns/language/v1#request")
+    (mithril/route :path "twin" :operation "https://mithril.fund/ns/language/v1#twin")
+    (mithril/route :path "reason" :operation "https://mithril.fund/ns/language/v1#reason")
+    (mithril/route :path "codegraph" :operation "https://mithril.fund/ns/language/v1#codegraph")
+  ])

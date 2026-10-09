@@ -1,0 +1,176 @@
+(ns mithril.codegraph-documents-test
+  (:require [cljs.test :refer [deftest is]]
+            [clojure.string :as str]
+            [cljs.reader :as reader]
+            [mithril.codegraph-test :as fixtures]
+            [mithril.codegraph :as graph]
+            [mithril.codegraph-extract :as extract]
+            [mithril.codegraph-communities :as communities]
+            [mithril.codegraph-contract :as contract]
+            [mithril.codegraph-ui :as ui]
+            [mithril.codegraph-fs :as local]
+            [mithril.codegraph-mcp :as mcp]
+            [mithril.compiler :as compiler]
+            [mithril.reason :as reason]
+            [mithril.reason-rdf :as rdf]))
+
+(def sources
+  {"src/a.cljk" "(ns a)\n(defn run [x] x)\n"
+   "docs/guide.md" "# Guide\nSee `a/run` and [code](../src/a.cljk#a/run).\n## 次の手順\n[Guide](#guide)\n## Guide\n```clojure\n# Fake\n`missing/fake` [fake](fake.cljk)\n```\n[external](https://example.org) [escape](../../secret.txt)\n`[inert](fake.cljk)`\n"
+   "plain.txt" "Plain document, no evaluation."
+   "data.jsonld" "{\"@id\":\"urn:data\",\"@type\":\"Document\",\"@graph\":[{\"@id\":\"urn:entity:a\",\"label\":\"A\",\"peer\":{\"@id\":\"urn:entity:b\"}},{\"@id\":\"urn:entity:b\",\"label\":\"B\"}]}"})
+
+(deftest explicit-document-code-relations-have-honest-locations
+  (let [a (fixtures/artifact) s (:snapshot (graph/sync-index nil sources a "documents"))
+        entry (get-in s [:files "docs/guide.md"])
+        sections (filter #(= :section (:kind %)) (:definitions entry))
+        run-node (first (filter #(= "a/run" (:name %)) (:nodes s)))
+        impact (graph/dispatch s a {:operation "impact" :node "a/run"})]
+    (is (= ["guide" "次の手順" "guide-1"] (mapv :anchor sections)))
+    (is (= "# Guide\nSee `a/run` and [code](../src/a.cljk#a/run)."
+           (:source (graph/dispatch s a {:operation "node" :node "doc:docs/guide.md#guide"}))))
+    (is (not-any? #(= "missing/fake" (:target %)) (:unresolved s)))
+    (is (not-any? #(= "fake.cljk" (:target-path %)) (:unresolved s)))
+    (is (= 2 (count (filter #(and (= :documents (:relation %)) (= (:id run-node) (:target %))) (:edges s)))))
+    (is (some #(= "doc:docs/guide.md" (:name %)) (:nodes impact)))
+    (is (some #(= "docs/guide.md" (:name %)) (:nodes impact)))
+    (is (= #{"urn:entity:a" "urn:entity:b"}
+           (set (map :name (filter #(= :entity (:kind %)) (:nodes s))))))
+    (is (every? #(= :document (:location-precision %)) (filter #(= :entity (:kind %)) (:nodes s))))
+    (is (some #(= :declared-iri (:provenance %)) (:edges s)))
+    (is (= :conforms (:status (reason/reason
+           (compiler/compile-ontology-text contract/ontology-path
+             (.readFileSync (js/require "fs") contract/ontology-path "utf8"))
+           (rdf/quads (graph/rdf-document s))))))))
+
+(deftest unchanged-documents-re-resolve-after-code-change-and-delete
+  (let [a (fixtures/artifact) s (:snapshot (graph/sync-index nil sources a "documents"))
+        renamed (graph/sync-index s (assoc sources "src/a.cljk" "(ns a) (defn renamed [x] x)") a "documents")
+        removed (graph/sync-index (:snapshot renamed) (dissoc sources "src/a.cljk") a "documents")
+        restored (graph/sync-index (:snapshot removed) sources a "documents")]
+    (is (= ["src/a.cljk"] (get-in renamed [:receipt :changed])))
+    (is (= 2 (count (filter #(= "docs/guide.md" (:path %)) (get-in renamed [:snapshot :unresolved])))))
+    (is (= ["src/a.cljk"] (get-in removed [:receipt :deleted])))
+    (is (not-any? #(= :calls (:relation %)) (get-in removed [:snapshot :edges])))
+    (is (empty? (get-in restored [:snapshot :unresolved])))
+    (is (= s (:snapshot restored)))
+    (is (= 0 (get-in (graph/sync-index s sources a "documents") [:receipt :parsed])))))
+
+(defn clustered-snapshot []
+  (let [nodes (mapv (fn [i] {:id (str "f" i) :kind :file :path (str i ".cljk") :name (str i ".cljk")}) (range 7))
+        pairs (concat (for [cluster [[0 1 2] [3 4 5]] a cluster b cluster :when (< a b)
+                            _ (range 10)] [a b]) [[2 3]])]
+    {:project "clusters" :nodes nodes
+     :edges (mapv (fn [[a b]] {:source (str "f" a) :target (str "f" b) :relation :calls}) pairs)}))
+
+(deftest structural-communities-are-deterministic-and-bounded
+  (let [s (clustered-snapshot) ir (:codegraph-ir (fixtures/artifact))
+        result (communities/detect s ir)
+        reordered (communities/detect (update (update s :nodes #(vec (reverse %))) :edges #(vec (reverse %))) ir)]
+    (is (= [3 3 1] (mapv :size (:communities result))))
+    (is (> (:modularity result) 0.45))
+    (is (:converged result))
+    (is (= result reordered))
+    (is (false? (:converged (communities/detect s (assoc ir :max-community-passes 1)))))
+    (is (:truncated (communities/detect s (assoc ir :max-community-edges 1))))
+    (is (= 7 (count (:communities (communities/detect (assoc s :edges []) ir)))))
+    (let [a (fixtures/artifact) index (fixtures/index sources)
+          response (graph/dispatch index a {:operation "communities" :limit 1})
+          c (first (:communities response))
+          detail (graph/dispatch index a {:operation "community" :community (:id c)})]
+      (is (= (:id c) (get-in detail [:community :id])))
+      (is (= (:size c) (count (:nodes detail))))
+      (is (:truncated response))
+      (is (= :unknown-community (fixtures/refusal #(graph/dispatch index a {:operation "community" :community "missing"}))))
+      (is (= (:snapshot-digest index) (:snapshot-digest detail)))
+      (is (contains? (get-in (mcp/tool a) [:inputSchema :properties]) :community)))))
+
+(deftest exported-html-is-inert-and-explicitly-bounded
+  (let [a (fixtures/artifact)
+        malicious "# </script><script>globalThis.pwned=1</script> __SCRIPT__ $&\n`a/run`"
+        s (fixtures/index (assoc sources "unsafe.md" malicious))
+        html (ui/render s a)
+        raw (second (re-find #"<script type=\"application/json\" id=\"graph-data\">([\s\S]*?)</script>" html))
+        parsed (js->clj (js/JSON.parse raw) :keywordize-keys true)]
+    (is (not (str/includes? html "<script>globalThis.pwned")))
+    (is (str/includes? raw "\\u003c/script\\u003e"))
+    (is (some #(= malicious (:source %)) (:nodes parsed)))
+    (is (str/includes? html "connect-src 'none'"))
+    (is (str/includes? html "script-src 'sha256-"))
+    (is (= (:snapshot-digest s) (:snapshot-digest parsed)))
+    (is (= (count (:nodes s)) (count (:nodes parsed))))
+    (let [small (contract/compile-text contract/contract-path
+                  (str/replace (.readFileSync (js/require "fs") contract/contract-path "utf8")
+                               ":max-ui-nodes 2000" ":max-ui-nodes 2")
+                  (compiler/compile-library-text contract/library-path (.readFileSync (js/require "fs") contract/library-path "utf8"))
+                  (compiler/compile-ontology-text contract/ontology-path (.readFileSync (js/require "fs") contract/ontology-path "utf8")))
+          small-index (:snapshot (graph/sync-index nil sources small "small"))]
+      (is (:truncated (ui/payload small-index small)))
+      (is (= 2 (count (:nodes (ui/payload small-index small))))))))
+
+(deftest git-document-refresh-and-atomic-ui-output
+  (let [fs (js/require "fs") path-api (js/require "path")
+        root (.realpathSync fs (.mkdtempSync fs (.join path-api (.tmpdir (js/require "os")) "mithril-docgraph-")))
+        a (fixtures/artifact)]
+    (try
+      (.execFileSync (js/require "child_process") "git" #js ["init" "-q" root])
+      (.writeFileSync fs (.join path-api root "guide.md") "# Guide\n`a/run`")
+      (.writeFileSync fs (.join path-api root "a.cljk") "(ns a) (defn run [] 1)")
+      (let [s (:snapshot (local/sync! root a))
+            result (ui/write! root s a)]
+        (is (= 2 (count (:files s))))
+        (is (.existsSync fs (:path result)))
+        (is (str/includes? (.readFileSync fs (:path result) "utf8") (:snapshot-digest s)))
+        (.writeFileSync fs (.join path-api root "a.cljk") "(ns a) (defn renamed [] 1)")
+        (is (= 1 (:unresolved-count (local/query! root a {:operation "status"}))))
+        (is (= :document-symbol (get-in (local/query! root a {:operation "status"}) [:unresolved 0 :provenance])))
+        (.unlinkSync fs (:path result))
+        (.symlinkSync fs (.join path-api root "guide.md") (:path result))
+        (is (= :mithril.codegraph/ui-path (fixtures/refusal #(ui/write! root s a))))
+        (is (= "# Guide\n`a/run`" (.readFileSync fs (.join path-api root "guide.md") "utf8"))))
+      (finally (.rmSync fs root #js {:recursive true :force true})))))
+
+(deftest reference-links-setext-and-exact-content-evidence
+  (let [a (fixtures/artifact)
+        manifest {"guide.md" "概要\n====\n[コード][CODE] と [code][] と [code]\n[CODE]: src/a.cljk#a/run\n```\n[bad]: missing.cljk\n[hidden][code]\n```\n`[inert][code]`\n二章\n----\n証拠 日本語 日本語\n"
+                  "src/a.cljk" "(ns a) (defn run [] \"日本語\")"}
+        s (:snapshot (graph/sync-index nil manifest a "reference-docs"))
+        entry (get-in s [:files "guide.md"])
+        links (filter #(= :document-link (:provenance %)) (:references entry))
+        search (graph/dispatch s a {:operation "content" :query "日本語" :limit 1})
+        second (graph/dispatch s a {:operation "content" :query "日本語" :limit 1 :offset (:next-offset search)})]
+    (is (= ["概要" "二章"] (mapv :anchor (filter #(= :section (:kind %)) (:definitions entry)))))
+    (is (= 3 (count links)))
+    (is (= 3 (get-in (first links) [:span :start-line])))
+    (is (empty? (:unresolved s)))
+    (is (= {:start-line 12 :end-line 12 :start-column 4 :end-column 7} (-> search :matches first :span)))
+    (is (= 8 (get-in second [:matches 0 :span :start-column])))
+    (is (= "証拠 日本語 日本語" (get-in search [:matches 0 :snippet])))
+    (let [changed (:snapshot (graph/sync-index s (dissoc manifest "guide.md") a "reference-docs"))]
+      (is (= ["src/a.cljk"] (mapv :path (:matches (graph/dispatch changed a {:operation "content" :query "日本語"}))))))))
+
+(deftest component-cache-and-hierarchy-are-stable
+  (let [ir (:codegraph-ir (fixtures/artifact))
+        s (clustered-snapshot) a (communities/detect s ir)
+        changed (update s :nodes conj {:id "extra" :kind :file :path "extra.cljk" :name "extra.cljk"})
+        reused (communities/detect changed ir a) clean (communities/detect changed ir)]
+    (is (= clean reused))
+    (is (= [1 6] (sort (map (comp count :members) (:hierarchy a)))))
+    (is (= 2 (count (filter #(contains? (:component-cache reused) %) (keys (:component-cache a))))))
+    (is (= (set (map :id (:communities a))) (set (mapcat :children (:hierarchy a)))))))
+
+(deftest large-private-index-roundtrips-bounded-compressed-storage
+  (let [fs (js/require "fs") path-api (js/require "path")
+        root (.realpathSync fs (.mkdtempSync fs (.join path-api (.tmpdir (js/require "os")) "mithril-compressed-index-")))
+        a (fixtures/artifact)]
+    (try
+      (.execFileSync (js/require "child_process") "git" #js ["init" "-q" root])
+      (doseq [i (range 4)] (.writeFileSync fs (.join path-api root (str i ".txt")) (apply str (repeat 262144 "x"))))
+      (let [result (local/sync! root a)
+            file (.join path-api root ".mithril-codegraph/index.edn")
+            stored (reader/read-string (.readFileSync fs file "utf8"))]
+        (is (= "mithril.codegraph/gzip-edn-v1" (:storage-format stored)))
+        (is (= (:snapshot result) (local/read-index! root a)))
+        (is (< (.-size (.statSync fs file)) 65536))
+        (is (some? (fixtures/refusal #(local/read-index! root (assoc-in a [:codegraph-ir :max-total-bytes] 4096))))))
+      (finally (.rmSync fs root #js {:recursive true :force true})))))
