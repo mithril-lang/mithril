@@ -19,7 +19,7 @@ substitute for this objective.
 
 | Item | Location / identity | State |
 | --- | --- | --- |
-| Compiler checkout | `/Users/junkawasaki/github/mithril-lang/mithril-harness-language` | `codex/native-arguments-object`; Include SDK merged in PR #91 at `f8c453a27d9358c623b0b268169b91ae04ab19f2` |
+| Compiler checkout | `/Users/junkawasaki/github/mithril-lang/mithril-harness-language` | `codex/native-abstract-equality`; arguments prerequisite merged in PR #92 at `5dfbfcf51d7a80fcf1535f993ef25d1bddbb177c` |
 | Saved work checkpoint | `82bd71fbfbf27e4ed3e08ba03898eb9a01a31ed4` | WIP committed and pushed before the requested pause |
 | Schema SDK | https://github.com/mithril-lang/mithril/pull/79 | Merged at `34ca28d6524c27a6c11e24c01bddeca9da35763d`; head `b211a8d076bdb85f77859a2563ba3f79ee5e433f` qualified |
 | Schema branch CI | `37894254763`, job `113701855514` | Terminal success; full source/package/all 14 declaration stages audited |
@@ -214,10 +214,24 @@ replacement resolver does not establish identical module semantics.
    normal function's arguments object and refuses absent function contexts.
    Both actual CLI labels pass 24 original-paired Node groups; source regression
    passes 83 tests/412 assertions; package qualification retains 40 exports and
-   seven frozen artifacts. PR #92 contains this change; final-head branch CI,
-   merge and main verification remain pending.
-   Resolve native abstract inequality, then qualify the complete YAML source
-   closure and replace Include's external runtime link before full-source claims.
+   seven frozen artifacts. PR #92 passed exact-head Native JS `37936109560` and CodeGraph `37936109602`,
+   with full logs audited: all 20 declaration stages, source 83/412, package 40/7,
+   paired arguments 24 groups per label, Include 32/6+/8-, and CodeGraph 33/239
+   plus HTTP. It merged at `5dfbfcf51d7a80fcf1535f993ef25d1bddbb177c`;
+   main Native JS `37937697382` and CodeGraph `37937697291` remain in progress.
+   Native abstract equality/inequality now passes 2490 original-paired groups
+   per actual CLI label, including coercion order and exact abrupt completion;
+   source regression passes 85 tests/415 assertions and package checks retain
+   40 exports/seven frozen artifacts. Two previous unsupported-`==` tests now
+   retain malformed-operator refusal coverage with `<>`. Its PR/main delivery
+   remains pending. The operator YAML prototype now admits all 29 own modules
+   and 15 original runtime exports through the actual native ESM CLI. This keeps
+   the original character/node budgets: alpha-renamed lexical bindings and
+   immutable primitive literal sharing reduce source size, while 44 original
+   private Loader functions become own native modules with getter-backed captures
+   of their original lexical bindings. Whole-source runtime qualification remains
+   pending; authoring utilities do not establish behavioral parity.
+   Deliver abstract equality, then qualify the complete YAML source closure and replace Include's external runtime link before full-source claims.
    Evidence: `yaml-source-audit.json`, `yaml-source-frontier.json`,
    `yaml-inequality-frontier-before.log`, `native-arguments-source-regression-final.log`.
    Qualify remaining module-loader internals/HMR, persistence failures and lifecycle paths;

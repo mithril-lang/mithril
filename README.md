@@ -2298,6 +2298,13 @@ normal functions own a new object. Module initializers and top-level arrows
 refuse this form because they have no source function context. Both CLI targets
 have 24 original-paired Node groups; actual browser-host execution remains pending.
 
+`mithril/host-binary` accepts `==` and `!=` for native abstract equality and
+inequality. The host operator retains primitive conversion, BigInt/string/number
+comparison, Symbol and object identity, operand evaluation order and abrupt
+completion. `examples/native-js-abstract-equality.mith` has 2490 original-paired
+Node groups per actual CLI label; actual browser-host behavior remains pending.
+
+
 
 The [normal function qualification](test/qualification/native-js-normal-functions/README.md) contains the exact admission rules, receiver/rest constructor example, 19 JS reference groups and both actual CLI targets. This supplies callable-function prerequisites for Cordis/Schemastery; generator/async/cyclic-linking and whole Harness parity remain open. Native class prerequisites and the complete DisposableList source port are covered by the [class qualification](test/qualification/native-js-classes/README.md).
 
