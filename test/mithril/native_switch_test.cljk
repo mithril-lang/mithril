@@ -1,0 +1,64 @@
+(ns mithril.native-switch-test
+ (:require [cljs.test :refer [deftest is]] [mithril.native-js :as native] [mithril.form :as form]
+           [mithril.native-class-test :as c]
+           ["node:fs" :as fs] ["node:os" :as os] ["node:path" :as path] ["node:child_process" :as child]))
+(def switchx {"@type" "HostSwitch" "value" c/undef "clauses" [] "result" c/undef})
+(defn stmt [x] {"expression" x})
+(def brk {"@type" "HostBreak"})
+(def cont {"@type" "HostContinue"})
+(def ret {"@type" "HostReturn" "value" c/undef})
+(def default-clause {"default" true "statements" [(stmt brk)]})
+(def binding {"binding" {"name" "x" "value" c/undef}})
+(defn source [v] (assoc (c/normal v) "statements" true))
+(defn with-statement [v] (assoc switchx "clauses" [{"default" true "statements" [(stmt v)]}]))
+(defn refused? [v] (try (native/check-document (c/document v [])) false (catch :default _ true)))
+(deftest checked-switch-shared-scope-and-control-boundaries
+ (let [bad [(dissoc switchx "value") (assoc switchx "source" "raw JS")
+            (assoc switchx "clauses" '(nil)) (assoc switchx "clauses" [nil])
+            (assoc switchx "clauses" [{"default" false "statements" []}])
+            (assoc switchx "clauses" [{"default" true "test" c/undef "statements" []}])
+            (assoc switchx "clauses" [default-clause default-clause])
+            (assoc switchx "clauses" [{"test" c/undef "statements" [(stmt c/undef) {"binding" {} "expression" c/undef}]}])
+            (assoc switchx "clauses" [{"test" c/undef "statements" [binding binding]}])
+            (assoc switchx "clauses" [{"test" c/undef "statements" [binding (stmt {"@type" "LocalSet" "name" "x" "value" c/undef})]}])
+            (assoc switchx "clauses" [{"test" c/undef "statements" [binding]}] "result" (c/local "x"))
+            (assoc switchx "clauses" [{"test" c/undef "statements" [binding]}] "value" (c/local "x"))
+            {"@type" "Let" "bindings" [{"name" "x" "value" c/undef}] "body" (assoc switchx "clauses" [{"test" c/undef "statements" [binding]}])}
+            (assoc switchx "clauses" [{"default" true "statements" [{"binding" {"name" "x" "value" c/undef "mutable" "yes"}}]}])
+            (assoc switchx "clauses" [{"default" true "statements" [{"binding" {"name" "x" "value" c/undef "recursive" true}}]}])
+            (assoc (source (assoc switchx "clauses" [{"default" true "statements" [{"binding" {"name" "yield" "value" c/undef}}]}])) "generator" true)
+            (assoc switchx "clauses" [{"test" brk "statements" []}])
+            (assoc switchx "clauses" [{"default" true "statements" [{"binding" {"name" "x" "value" brk}}]}])
+            (assoc switchx "clauses" (mapv (fn [i] {"test" (c/lit i) "statements" [{"binding" {"name" (str "x" i) "value" c/undef}} {"binding" {"name" (str "y" i) "value" c/undef}}]}) (range 65)))
+            (with-statement cont) (source (with-statement cont))
+            (source {"@type" "HostForIn" "object" (c/arr) "binding" "k"
+                     "body" (c/arr (with-statement cont)) "result" c/undef})
+            (source (with-statement (c/klass "Nested" nil nil [{"kind" "static-block" "body" brk}]))) (with-statement ret)
+            (source (with-statement (source brk)))
+            (source (with-statement (assoc (c/arrow brk) "statements" true)))
+            (assoc (c/normal (with-statement {"@type" "HostYield" "value" c/undef})) "generator" true)
+            (assoc (c/normal (with-statement {"@type" "HostAwait" "value" c/undef})) "async" true)
+            (assoc switchx "clauses" (vec (repeat 129 default-clause)))
+            (assoc switchx "clauses" [{"default" true "statements" (vec (repeat 129 (stmt c/undef)))}])
+            (assoc switchx "result" (reduce (fn [v _] (assoc switchx "result" v)) c/undef (range 65)))
+            {"@type" "Sequence" "expressions" (vec (repeat 2048 switchx))}]
+       text (fs/readFileSync "examples/native-js-switch.mith" "utf8")]
+  (is (= switchx (form/parse "(mithril/host-switch :value (mithril/host-undefined) :clauses [] :result (mithril/host-undefined))")))
+  (is (every? refused? bad))
+  (is (= (native/compile-text text) (native/compile-document (form/parse text))))
+  (is (not (refused? (assoc switchx "clauses" [default-clause]))))))
+(deftest native-switch-cli
+ (let [dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-switch-"))]
+  (try
+   (let [engine (.-MITHRIL_NATIVE_ENGINE js/process.env) config (path/join dir "offline.edn")]
+    (fs/writeFileSync config "{:paths [\"src\"]}\n")
+    (doseq [target ["js" "js-browser"]
+            [input output] [["native-js-switch.mith" (str "switch-" target)] ["native-js-schema-switch.mith" (str "schema-switch-" target)]]]
+     (let [r (child/spawnSync js/process.execPath
+              (clj->js [engine "--config" config "-cp" "src" "bin/mithril-native-js.cljk" (str "examples/" input) "--target" target "--output" (path/join dir (str output ".mjs"))])
+              #js {:encoding "utf8" :timeout 30000})]
+      (when-not (= 0 (.-status r)) (throw (js/Error. (str (.-stdout r) (.-stderr r))))))))
+   (doseq [contract ["native-switch-contract.mjs" "schema-switch-contract.mjs"]]
+    (let [r (child/spawnSync js/process.execPath (clj->js [(str "test/fixtures/" contract) dir]) #js {:encoding "utf8" :timeout 30000})]
+    (is (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r))))
+   (finally (fs/rmSync dir #js {:recursive true :force true})))))
