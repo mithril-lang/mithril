@@ -1,0 +1,65 @@
+(mithril/native-js-declaration-module :name "loader.diff"
+:runtime "loader.diff"
+:ambient-types [(rdf/node :name "Partial"
+:min 1
+:max 1)
+(rdf/node :name "Omit"
+:min 2
+:max 2)
+(rdf/node :name "Pick"
+:min 2
+:max 2)
+(rdf/node :name "Map"
+:min 2
+:max 2)
+(rdf/node :name "ArrayBuffer"
+:min 0
+:max 0)
+(rdf/node :name "URL"
+:min 0
+:max 0)
+(rdf/node :name "ImportAttributes"
+:min 0
+:max 0)
+(rdf/node :name "NodeJS.Signals"
+:min 0
+:max 0)
+(rdf/node :name "Generator"
+:min 0
+:max 3)
+(rdf/node :name "AsyncGenerator"
+:min 0
+:max 3)]
+:ambient-values []
+:imports [(rdf/node :module "cordis.index"
+:type-only true
+:names [(rdf/node :import "Plugin"
+:local "Plugin")])]
+:declarations [(rdf/node :kind "function"
+:name "equalExceptVolatile"
+:exported true
+:type-params []
+:params [(rdf/node :name "previous"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "unknown"))
+(rdf/node :name "next"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "unknown"))
+(rdf/node :name "schema"
+:optional false
+:rest false
+:datatype (rdf/node :op "index"
+:object (rdf/node :op "name"
+:name "Plugin.Runtime"
+:args [])
+:key (rdf/node :op "literal"
+:value "Config")))]
+:returns (rdf/node :op "keyword"
+:name "boolean"))]
+:reexports []
+:augmentations []
+:local-exports [])

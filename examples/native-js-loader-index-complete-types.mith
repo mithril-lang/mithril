@@ -1,0 +1,419 @@
+(mithril/native-js-declaration-module :name "loader.index"
+:runtime nil
+:ambient-types [(rdf/node :name "Partial"
+:min 1
+:max 1)
+(rdf/node :name "Omit"
+:min 2
+:max 2)
+(rdf/node :name "Pick"
+:min 2
+:max 2)
+(rdf/node :name "Map"
+:min 2
+:max 2)
+(rdf/node :name "ArrayBuffer"
+:min 0
+:max 0)
+(rdf/node :name "URL"
+:min 0
+:max 0)
+(rdf/node :name "ImportAttributes"
+:min 0
+:max 0)
+(rdf/node :name "NodeJS.Signals"
+:min 0
+:max 0)
+(rdf/node :name "Generator"
+:min 0
+:max 3)
+(rdf/node :name "AsyncGenerator"
+:min 0
+:max 3)]
+:ambient-values []
+:imports [(rdf/node :module "cordis.index"
+:type-only false
+:names [(rdf/node :import "Context"
+:local "Context")])
+(rdf/node :module "cordis.index"
+:type-only false
+:names [(rdf/node :import "Service"
+:local "Service")])
+(rdf/node :module "cordis.index"
+:type-only true
+:names [(rdf/node :import "Fiber"
+:local "Fiber")])
+(rdf/node :module "cosmokit"
+:type-only true
+:names [(rdf/node :import "Dict"
+:local "Dict")])
+(rdf/node :module "loader.internal"
+:type-only false
+:names [(rdf/node :import "ModuleLoader"
+:local "ModuleLoader")])
+(rdf/node :module "loader.entry"
+:type-only false
+:names [(rdf/node :import "Entry"
+:local "Entry")])
+(rdf/node :module "loader.entry"
+:type-only true
+:names [(rdf/node :import "EntryOptions"
+:local "EntryOptions")])
+(rdf/node :module "loader.tree"
+:type-only false
+:names [(rdf/node :import "EntryTree"
+:local "EntryTree")])]
+:declarations [(rdf/node :kind "namespace"
+:name "Loader"
+:exported true
+:declarations [(rdf/node :kind "interface"
+:name "Config"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "baseUrl"
+:optional true
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "string"))])
+(rdf/node :kind "interface"
+:name "Intercept"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "await"
+:optional true
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "boolean"))])])
+(rdf/node :kind "class"
+:name "Loader"
+:exported true
+:abstract false
+:type-params []
+:extends (rdf/node :op "name"
+:name "EntryTree"
+:args [])
+:implements []
+:members [(rdf/node :kind "property"
+:key (rdf/node :kind "name"
+:name "config")
+:visibility "public"
+:static false
+:readonly false
+:optional false
+:datatype (rdf/node :op "name"
+:name "Loader.Config"
+:args []))
+(rdf/node :kind "property"
+:key (rdf/node :kind "computed"
+:name "Service.config")
+:visibility "public"
+:static false
+:readonly false
+:optional false
+:datatype (rdf/node :op "name"
+:name "Loader.Intercept"
+:args []))
+(rdf/node :kind "property"
+:key (rdf/node :kind "name"
+:name "envData")
+:visibility "public"
+:static false
+:readonly false
+:optional false
+:datatype (rdf/node :op "keyword"
+:name "any"))
+(rdf/node :kind "property"
+:key (rdf/node :kind "name"
+:name "name")
+:visibility "public"
+:static false
+:readonly false
+:optional false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:key (rdf/node :kind "name"
+:name "internal")
+:visibility "public"
+:static false
+:readonly false
+:optional false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "ModuleLoader"
+:args [])
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "property"
+:key (rdf/node :kind "name"
+:name "builtins")
+:visibility "public"
+:static false
+:readonly false
+:optional false
+:datatype (rdf/node :op "name"
+:name "Dict"
+:args [(rdf/node :op "keyword"
+:name "any")]))
+(rdf/node :kind "constructor"
+:visibility "public"
+:params [(rdf/node :name "ctx"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "Context"
+:args []))
+(rdf/node :name "config"
+:optional true
+:rest false
+:datatype (rdf/node :op "name"
+:name "Loader.Config"
+:args []))])
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "write")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params []
+:returns (rdf/node :op "keyword"
+:name "void"))
+(rdf/node :kind "method"
+:key (rdf/node :kind "computed"
+:name "Service.check")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params []
+:returns (rdf/node :op "keyword"
+:name "boolean"))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "showLog")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "entry"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "Entry"
+:args []))
+(rdf/node :name "type"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))]
+:returns (rdf/node :op "keyword"
+:name "void"))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "locate")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "fiber"
+:optional true
+:rest false
+:datatype (rdf/node :op "name"
+:name "Fiber"
+:args []))]
+:returns (rdf/node :op "union"
+:items [(rdf/node :op "keyword"
+:name "string")
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "exit")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params []
+:returns (rdf/node :op "keyword"
+:name "void"))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "unwrapExports")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "exports"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "any"))]
+:returns (rdf/node :op "keyword"
+:name "any"))])]
+:reexports [(rdf/node :module "loader.entry"
+:type-only false
+:names nil)
+(rdf/node :module "loader.group"
+:type-only false
+:names nil)
+(rdf/node :module "loader.isolate"
+:type-only false
+:names nil)
+(rdf/node :module "loader.tree"
+:type-only false
+:names nil)
+(rdf/node :module "loader.utils"
+:type-only false
+:names nil)
+(rdf/node :module "loader.internal"
+:type-only false
+:names nil)]
+:augmentations [(rdf/node :module "cordis.index"
+:declarations [(rdf/node :kind "interface"
+:name "Events"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "method"
+:name "exit"
+:optional false
+:type-params []
+:params [(rdf/node :name "signal"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "NodeJS.Signals"
+:args []))]
+:returns (rdf/node :op "name"
+:name "Promise"
+:args [(rdf/node :op "keyword"
+:name "void")]))
+(rdf/node :kind "method"
+:name "loader/config-update"
+:optional false
+:type-params []
+:params []
+:returns (rdf/node :op "keyword"
+:name "void"))
+(rdf/node :kind "method"
+:name "loader/entry-init"
+:optional false
+:type-params []
+:params [(rdf/node :name "entry"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "Entry"
+:args []))]
+:returns (rdf/node :op "keyword"
+:name "void"))
+(rdf/node :kind "method"
+:name "loader/partial-dispose"
+:optional false
+:type-params []
+:params [(rdf/node :name "entry"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "Entry"
+:args []))
+(rdf/node :name "legacy"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "Partial"
+:args [(rdf/node :op "name"
+:name "EntryOptions"
+:args [])]))
+(rdf/node :name "active"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "boolean"))]
+:returns (rdf/node :op "keyword"
+:name "void"))
+(rdf/node :kind "method"
+:name "loader/volatile-update"
+:optional false
+:type-params []
+:params [(rdf/node :name "paths"
+:optional false
+:rest false
+:datatype (rdf/node :op "readonly"
+:datatype (rdf/node :op "array"
+:item (rdf/node :op "readonly"
+:datatype (rdf/node :op "array"
+:item (rdf/node :op "keyword"
+:name "string"))))))]
+:returns (rdf/node :op "keyword"
+:name "void"))
+(rdf/node :kind "method"
+:name "loader/patch-context"
+:optional false
+:type-params []
+:params [(rdf/node :name "entry"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "Entry"
+:args []))
+(rdf/node :name "next"
+:optional false
+:rest false
+:datatype (rdf/node :op "function"
+:abstract false
+:type-params []
+:params []
+:returns (rdf/node :op "keyword"
+:name "void")))]
+:returns (rdf/node :op "keyword"
+:name "void"))])
+(rdf/node :kind "interface"
+:name "Context"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "loader"
+:optional false
+:readonly false
+:datatype (rdf/node :op "name"
+:name "Loader"
+:args []))])
+(rdf/node :kind "interface"
+:name "EnvData"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "startTime"
+:optional true
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "number"))])
+(rdf/node :kind "interface"
+:name "Fiber"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "entry"
+:optional true
+:readonly false
+:datatype (rdf/node :op "name"
+:name "Entry"
+:args []))])])]
+:local-exports [(rdf/node :local "Loader"
+:export "default"
+:type-only false)])

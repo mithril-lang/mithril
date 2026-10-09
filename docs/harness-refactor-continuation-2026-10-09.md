@@ -124,8 +124,13 @@ replacement resolver does not establish identical module semantics.
    has zero diagnostics with the pinned Loader options/dependencies. See
    `test/qualification/native-loader-sdk/README.md` for reproducible controls and
    remaining scope. This is a local checkpoint, not delivered Loader parity.
-   Next author the complete native Loader declaration graph and strict positive/
-   negative consumers; qualify extended host/isolation/injection/lifecycle paths;
+   All eight native declaration ASTs are now authored. The actual CLI exposed the
+   next prerequisite: augmenting reexported Context/Fiber through the Cordis
+   barrel hides their runtime class bindings. The full original graph passes
+   3 positive/3 negative strict consumers without skipLibCheck. Fix canonical
+   augmentation-target resolution while preserving lexical scope and exact
+   runtime surface checks, then admit and qualify the complete native graph.
+   Qualify extended host/isolation/injection/lifecycle paths;
    register qualification and complete PR/current-main CI. Then port Include by
    complete source and public type closure.
    Then port Harness API/plugin/profile/Session and verify actual browser/native/Q9.
