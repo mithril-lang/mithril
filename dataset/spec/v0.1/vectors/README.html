@@ -1,0 +1,12 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Reference-v1 conformance vectors</title><style>body{font:17px/1.6 system-ui;max-width:1000px;margin:40px auto;padding:0 24px;color:#182230}a{color:#155ac2}pre{overflow:auto;background:#f2f4f7;padding:18px}code{font-size:.9em}table{border-collapse:collapse}td,th{border:1px solid #ccd3dd;padding:8px;text-align:left}blockquote{border-left:4px solid #ccd3dd;margin-left:0;padding-left:18px}</style><nav><a href="../../../index.html">Mithril Dataset</a> · <a href="https://github.com/mithril-lang/mithril/tree/main/spec">Source and revisions</a></nav><main><h1>Reference-v1 conformance vectors</h1>
+<p><code>*.bundle.json</code> are frozen reader fixtures; <code>*.dataset.json</code> are normalized expected
+envelopes. Compression bytes are not required to match across writer libraries.
+Readers MUST reconstruct the expected envelopes and reject corrupted digests,
+unknown operations/profile IDs, invalid terms, expansion budgets and poisoned
+pruning metadata (negative tests in <code>scripts/test-datalake.mjs</code>).</p>
+<p>The corpus includes empty graphs, named/default graphs, shared blank nodes,
+non-ASCII literals, lexical integer <code>01</code>, regular integer models, exceptions,
+both codecs and empty datasets. Run Node unit tests and Python SDK tests.
+The Python SDK uses the same Node evaluator; these tests are not evidence of
+independent decoder interoperability. JSON Schema validates manifests only;
+semantic validation is mandatory in addition.</p></main></html>

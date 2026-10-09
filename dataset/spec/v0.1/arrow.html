@@ -1,0 +1,31 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Arrow and Parquet interchange profile 0.1</title><style>body{font:17px/1.6 system-ui;max-width:1000px;margin:40px auto;padding:0 24px;color:#182230}a{color:#155ac2}pre{overflow:auto;background:#f2f4f7;padding:18px}code{font-size:.9em}table{border-collapse:collapse}td,th{border:1px solid #ccd3dd;padding:8px;text-align:left}blockquote{border-left:4px solid #ccd3dd;margin-left:0;padding-left:18px}</style><nav><a href="../../index.html">Mithril Dataset</a> · <a href="https://github.com/mithril-lang/mithril/tree/main/spec">Source and revisions</a></nav><main><h1>Arrow and Parquet interchange profile 0.1</h1>
+<p>Status: implemented experimental profile <code>mithril.arrow-quads/reference-v1</code>.
+This is a Mithril projection using Arrow types, not a registered Arrow extension
+or a zero-copy reader for compressed/model-generated data.</p>
+<p>A table MUST have exactly these columns in order: <code>subject</code>, <code>predicate</code>,
+<code>object</code>, <code>graph</code>. All are Arrow UTF-8 string type. Each cell MUST be non-null
+and contain a JSON term as defined by the storage specification. The default
+graph is the four-character string <code>null</code>, not an Arrow null. The fixed schema
+remains present for an empty table.</p>
+<p>Schema metadata MUST contain:</p>
+<ul>
+<li><code>mithril.dataset.profile</code>: UTF-8 <code>mithril.arrow-quads/reference-v1</code>.</li>
+<li><code>mithril.dataset.envelope</code>: UTF-8 JSON object with exactly <code>emptyGraphs</code>, the
+  list of graph terms. Blank-node scope is the complete table and envelope.</li>
+</ul>
+<p>Readers MUST check the schema, metadata, JSON values and RDF-term positions,
+then normalize tuples and empty-graph metadata. Duplicate rows are set duplicates.
+SDK Parquet export uses this schema and metadata with internal Zstd level 6.
+An importer MUST reject missing envelope metadata rather than infer an empty
+list. SQL/DataFrame transformations may discard schema metadata or change term
+strings; their output is not automatically a lossless dataset export.</p>
+<p>This is a generic lossless quad layout. It is not a domain-specific wide table;
+performance comparisons MUST name the projection. A wide business projection
+MUST separately describe datatype, lexical, blank-node and graph losses.
+Stored canonical RDF claims are not propagated as verified identity by this SDK;
+recompute identity after transformations when required.</p>
+<p>The first SDK materializes tuples in Python and evaluates the reference profile
+through Node. Arrow IPC/C Stream, filter/projection pushdown, native zero-copy
+bindings and streaming conversion are future work, not implementation claims.</p>
+<p>See <a href="https://arrow.apache.org/docs/format/Columnar.html">Arrow format</a> and
+<a href="https://parquet.apache.org/docs/file-format/data-pages/compression/">Parquet compression</a>.</p></main></html>

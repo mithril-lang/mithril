@@ -1,0 +1,161 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mithril Dataset specification 0.1</title><style>body{font:17px/1.6 system-ui;max-width:1000px;margin:40px auto;padding:0 24px;color:#182230}a{color:#155ac2}pre{overflow:auto;background:#f2f4f7;padding:18px}code{font-size:.9em}table{border-collapse:collapse}td,th{border:1px solid #ccd3dd;padding:8px;text-align:left}blockquote{border-left:4px solid #ccd3dd;margin-left:0;padding-left:18px}</style><nav><a href="../../index.html">Mithril Dataset</a> · <a href="https://github.com/mithril-lang/mithril/tree/main/spec">Source and revisions</a></nav><main><h1>Mithril Dataset specification 0.1</h1>
+<p>Status: <strong>draft</strong>. Profile: <code>mithril.computable-segments/reference-v1</code>.
+Publication date: 2026-10-09. License: Apache-2.0 (repository LICENSE).</p>
+<p>The key words MUST, MUST NOT, SHOULD and MAY describe requirements of this
+profile. They do not turn proposed lake capabilities into implemented features.
+The schema checks structure; successful evaluation and digest verification are
+also required for conformance.</p>
+<h2>1. Scope</h2>
+<p>This profile stores a finite RDF-term tuple set with optional empty-graph metadata.
+It uses UTF-8 JSON, inline base64 compressed segment payloads, exact exceptions
+and SHA-256. It is an experimental portable reference profile, not the proposed
+future binary container. Readers MUST reject unknown profile identifiers,
+payload kinds, operations and codecs rather than silently reinterpret them.</p>
+<p>The profile accepts an explicitly defined RDF-term subset. It does not claim
+complete admission of every RDF serialization or canonical RDF validation.
+Mithril source parsing and application reasoning are separate operations.</p>
+<h2>2. Terms and dataset envelope</h2>
+<p>A quad is <code>[subject,predicate,object,graph]</code>. Terms are:</p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>["I",iri]</code></td>
+<td>IRI string with absolute scheme</td>
+</tr>
+<tr>
+<td><code>["B",label]</code></td>
+<td>Nonempty dataset-scoped blank-node label</td>
+</tr>
+<tr>
+<td><code>["L",lexical,datatype,language]</code></td>
+<td>Literal preserving exact lexical spelling</td>
+</tr>
+<tr>
+<td><code>null</code></td>
+<td>Default graph, only in graph position</td>
+</tr>
+</tbody>
+</table>
+<p>Subject is IRI or blank; predicate is IRI; object is IRI, blank or literal;
+graph is IRI, blank or null. IRI admission uses an ASCII scheme followed by <code>:</code>,
+then characters excluding whitespace, U+0000–U+0020 and <code>&lt; &gt; " { } | ^</code> and
+backslash. Blank labels are opaque nonempty strings, not N-Quads tokens.
+A language literal MUST use RDF <code>langString</code> and a nonempty language matching
+ASCII letters followed by zero or more hyphen-separated alphanumeric components.
+Other literals MUST have an empty language string and an absolute datatype IRI.
+Language spelling and literal <code>01</code> versus <code>1</code> MUST be retained; no value coercion
+is permitted. All comparisons here are lexical and label-sensitive.</p>
+<p>The logical envelope is <code>{quads,emptyGraphs}</code>. Duplicate quads and duplicate
+empty-graph terms are removed. Quads sort by compact JSON string representation,
+using ECMAScript UTF-16 code-unit order. Empty-graph terms sort the same way.
+<code>emptyGraphs</code> is explicit envelope metadata, including null if an empty default
+graph is being retained. The reference profile retains this list without
+inferring or enforcing graph emptiness. Quadless named graphs otherwise disappear.
+Blank labels have dataset scope across all segments and named graphs.</p>
+<h2>3. Serialization and identities</h2>
+<p>Compact JSON means ECMAScript <code>JSON.stringify</code>: no whitespace, preserved object
+property insertion order, array order unchanged, safe-integer numbers, and its
+string escaping rules. This is not JCS or RDF canonicalization. Implementations
+in other languages MUST reproduce these bytes for hash verification; fixtures
+include non-ASCII strings. JSON numeric fields MUST be safe integers in the
+inclusive range -9007199254740991 to 9007199254740991, with additional field bounds.</p>
+<p>SHA-256 digests have lowercase <code>sha256:</code> followed by 64 lowercase hexadecimal digits.</p>
+<ul>
+<li><code>tupleDigest</code> hashes the UTF-8 compact normalized <code>{quads,emptyGraphs}</code> envelope,
+  in exactly that property order. It is blank-label-sensitive and covers the
+  explicit empty-graph list.</li>
+<li>Segment <code>digest</code> hashes compressed payload bytes, before base64 encoding.</li>
+<li><code>physicalDigest</code> hashes the compact manifest after removing that property,
+  retaining all remaining property order as read. Writers SHOULD use the field
+  order below. Reordering manifest fields can change physical identity.</li>
+<li><code>canonicalGraphDigest</code> is null or a supplied SHA-256 RDF canonicalization claim.
+  The Node runtime and Python SDK do not independently certify that claim.
+  A caller requiring canonical identity MUST recompute it with an explicitly
+  pinned RDF canonicalization algorithm and preserve the empty-graph envelope
+  separately. It MUST NOT treat tupleDigest as that identity.</li>
+</ul>
+<p>A digest detects inconsistency with expected bytes; it is not a signature,
+authenticity proof or assurance that untrusted metadata describes trusted data.</p>
+<h2>4. Manifest and segments</h2>
+<p>The manifest has exactly these fields (writer order shown):
+<code>format</code>, <code>tupleDigest</code>, <code>canonicalGraphDigest</code>, <code>emptyGraphs</code>, <code>count</code>, <code>segments</code>,
+<code>physicalDigest</code>. <code>count</code> is the number of unique normalized quads.
+Each segment has exactly <code>kind</code>, <code>codec</code>, <code>rawBytes</code>, <code>count</code>, <code>min</code>, <code>max</code>,
+<code>subjectRange</code>, <code>digest</code>, <code>bytes</code>. Extra fields are rejected in reference-v1.</p>
+<p><code>bytes</code> is canonical padded base64 of a compressed UTF-8 JSON payload.
+<code>rawBytes</code> is its decompressed byte count. <code>min</code> and <code>max</code> bound compact subject
+term strings inclusively. <code>subjectRange</code> is null or a range domain describing
+exactly the distinct subjects represented by the segment. Segment count is the
+number of decoded unique quads. Summed segment counts MUST equal manifest count;
+full-envelope deduplication MUST still yield that same count.</p>
+<p><code>codec</code> is <code>zstd</code> or <code>gzip</code>, one independently decodable stream per payload.
+Writers in the reference implementation use Zstd level 6 or gzip level 9.
+Levels do not affect logical identity. External Zstd dictionaries and <code>none</code>
+compression are not reference-v1 capabilities. Term dictionaries below are
+unrelated to Zstd trained dictionaries.</p>
+<h2>5. Literal payload</h2>
+<p>A literal payload has exactly <code>{kind:"literal",terms,rows}</code>. <code>terms</code> is a unique
+dictionary of term values, strictly increasing by compact term string order.
+Each row is four zero-based safe-integer dictionary indexes in quad position
+order. Rows are sorted by subject index, then predicate, object and graph index.
+Readers MUST check indexes, term positions and nondecreasing subject index before
+using binary search. Full reconstruction is normalized as a tuple set.</p>
+<h2>6. Finite model payload</h2>
+<p>A model payload has exactly <code>{kind:"model",domain,templates,remove,add}</code>.
+A domain is either <code>{kind:"list",subjects}</code> with unique admitted subject terms,
+or <code>{kind:"range",prefix,start,count}</code>. Range start is a nonnegative safe integer,
+count is positive, and its last value MUST be safe. Range subjects are IRIs
+formed by concatenating prefix with the base-10 integer without leading zeros.</p>
+<p>Each template is <code>[predicate,expression,graph]</code>. Expressions are:</p>
+<ul>
+<li><code>["constant",objectTerm]</code>: use the exact object term.</li>
+<li><code>["ordinal",offset]</code>: the subject MUST be an IRI ending in a nonnegative decimal
+  safe integer without leading zeros, recognized by <code>^(.*?)(0|[1-9][0-9]*)$</code>.
+  Add the safe-integer offset; the result MUST remain safe. Emit its base-10
+  spelling as an XSD integer literal with empty language.</li>
+</ul>
+<p>Generate one quad for each subject/template pair. <code>remove</code> contains distinct
+quads that were actually generated. Subtract them, then union <code>add</code>; additions
+MUST NOT duplicate retained quads or another addition. Normalize the result.
+No host eval, recursion, imports, network, clocks or random values are supported.</p>
+<p>Automatic model discovery is a writer policy, not a decoding requirement.
+The reference writer compares complete serialized segment costs for literal
+and model encodings. Whole-dataset fallback to ordinary Mithril+Zstd or Parquet
+is not automatic in this release.</p>
+<h2>7. Validation, budgets and queries</h2>
+<p>A conforming reader MUST check the profile, fields, counts, safe integers,
+compressed bytes/digests, decompressed sizes, operations, exact generated
+exceptions, decoded subject bounds/ranges and full envelope tupleDigest.
+It MUST enforce finite limits on input bytes, decompressed bytes, subjects,
+quads and model work before using derived data for queries. Resource-limit
+refusal is allowed and MUST be distinguishable from successful empty results.</p>
+<p>Reference defaults: 2,000,000 quads; 500,000 subjects; 256 MiB bytes;
+8,000,000 work units. Work is literal rows or generated subject/template pairs
+plus removals and additions. Total decompressed bytes and work across segments
+are bounded. Process memory and JSON parsing overhead can exceed those limits;
+they are not an OS memory sandbox. SDK subprocess timeout is 120 seconds.</p>
+<p><code>open</code> fully decodes and validates a private bundle copy before admitting subject
+pruning. Subsequent subject queries decompress selected segments and check their
+physical hashes. These are warm, in-process selection operations; <code>fetchedBytes</code>
+is compressed selected payload size, not measured disk/network transfer.
+The Python SDK starts a subprocess per operation and does not retain warm handles.
+Unsigned bounds alone MUST NOT justify skipping validation. Untrusted partial
+reads require a future authenticated/verified-manifest protocol.</p>
+<h2>8. Conformance and evolution</h2>
+<p>Run published vectors, malformed-input tests and exact round-trip tests.
+A library MUST declare supported profile identifiers and optional codecs.
+The format, library and specification publication versions are independent.
+Changes to the meaning or field set of reference-v1 require a new profile ID.
+See the versioning policy and implementation status for stable-format gates.</p>
+<h2>References</h2>
+<ul>
+<li><a href="https://arrow.apache.org/docs/format/Versioning.html">Arrow format versioning</a></li>
+<li><a href="https://iceberg.apache.org/spec/">Iceberg table specification</a></li>
+<li><a href="https://www.rfc-editor.org/rfc/rfc8878">Zstd format RFC 8878</a></li>
+</ul></main></html>

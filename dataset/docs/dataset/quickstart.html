@@ -1,0 +1,48 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mithril Dataset Quickstart</title><style>body{font:17px/1.6 system-ui;max-width:1000px;margin:40px auto;padding:0 24px;color:#182230}a{color:#155ac2}pre{overflow:auto;background:#f2f4f7;padding:18px}code{font-size:.9em}table{border-collapse:collapse}td,th{border:1px solid #ccd3dd;padding:8px;text-align:left}blockquote{border-left:4px solid #ccd3dd;margin-left:0;padding-left:18px}</style><nav><a href="../../index.html">Mithril Dataset</a> · <a href="https://github.com/mithril-lang/mithril/tree/main/spec">Source and revisions</a></nav><main><h1>Mithril Dataset Quickstart</h1>
+<p>Publication 0.1 is an experimental reference profile. It preserves RDF term
+spelling and graphs, compresses finite models with exact exceptions, and exports
+ordinary Arrow/Parquet data. Node.js 24+ and Python 3.10+ are required. There is
+no PyPI package release yet; install from the public repository:</p>
+<pre><code class="language-sh">git clone https://github.com/mithril-lang/mithril.git
+cd mithril
+python -m venv .venv-dataset
+. .venv-dataset/bin/activate
+python -m pip install './sdk/python[arrow]'
+python examples/dataset/quickstart.py
+</code></pre>
+<p>The executable example writes a Zstd bundle, queries a subject, verifies a
+lossless Arrow/Parquet round-trip and prints output sizes. Files are written
+inside <code>dataset-output/</code> in the current directory. All API functions are available:</p>
+<pre><code class="language-python">import mithril_dataset as m
+bundle = m.pack(data, 'devices.mithbundle.json')
+restored = m.unpack(bundle)
+selected = m.query_subject(bundle, ['I', 'urn:device:42'])
+table = m.to_arrow(restored)
+m.to_parquet(restored, 'devices.parquet')
+assert m.from_parquet('devices.parquet') == restored
+</code></pre>
+<p>Here <code>data</code> is <code>{quads: [...], emptyGraphs: [...]}</code> using the specification's
+JSON RDF terms. This SDK does not parse arbitrary Mithril source. <code>query_subject</code>
+fully validates the bundle on each Python call; it is not a retained warm handle.</p>
+<h2>SQL entry point</h2>
+<p>Install DuckDB separately and use the exported Parquet:</p>
+<pre><code class="language-sh">python -m pip install duckdb==1.4.1
+python examples/dataset/query.py
+</code></pre>
+<p>Columns contain JSON term strings. A SQL result that drops metadata is a derived
+view, not a lossless Mithril export. Preserve the Parquet schema metadata for
+empty graphs or use explicit term-aware export.</p>
+<h2>CLI</h2>
+<pre><code class="language-sh">mithril-dataset pack input.dataset.json output.mithbundle.json
+mithril-dataset unpack output.mithbundle.json restored.dataset.json
+mithril-dataset subject output.mithbundle.json urn:device:42
+mithril-dataset to-parquet output.mithbundle.json devices.parquet
+mithril-dataset from-parquet devices.parquet restored.mithbundle.json
+</code></pre>
+<p>The <code>.mithbundle.json</code> suffix is a convention for the existing JSON profile,
+not a stable binary <code>.mithpack</code> declaration. Use <code>codec='gzip'</code> where Node's Zstd
+functions are unavailable. Keep data private and check outputs before sharing.</p>
+<p>Read the <a href="../../spec/v0.1/specification.html">specification</a>,
+<a href="../../spec/v0.1/arrow.html">Arrow profile</a>,
+<a href="../../spec/implementation-status.html">implementation status</a> and
+<a href="../../spec/governance.html">contribution policy</a>.</p></main></html>

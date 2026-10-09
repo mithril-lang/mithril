@@ -1,0 +1,44 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Specification ownership, versioning and contribution policy</title><style>body{font:17px/1.6 system-ui;max-width:1000px;margin:40px auto;padding:0 24px;color:#182230}a{color:#155ac2}pre{overflow:auto;background:#f2f4f7;padding:18px}code{font-size:.9em}table{border-collapse:collapse}td,th{border:1px solid #ccd3dd;padding:8px;text-align:left}blockquote{border-left:4px solid #ccd3dd;margin-left:0;padding-left:18px}</style><nav><a href="../index.html">Mithril Dataset</a> · <a href="https://github.com/mithril-lang/mithril/tree/main/spec">Source and revisions</a></nav><main><h1>Specification ownership, versioning and contribution policy</h1>
+<p>Mithril Dataset is maintained by the Mithril project in this public repository,
+under its Apache-2.0 license. This publication creates no independent standards
+body and claims no endorsement from Apache Arrow or Apache Iceberg.</p>
+<h2>Identifiers and compatibility</h2>
+<ul>
+<li>Specification publication: <code>0.1</code> draft; editorial corrections can be published
+  with a recorded changelog. Historical revision is identified by Git commit.</li>
+<li>Storage profile: <code>mithril.computable-segments/reference-v1</code>; its semantics are
+  frozen when published. Incompatible fields/meaning require a new profile ID.</li>
+<li>Interchange profile: <code>mithril.arrow-quads/reference-v1</code>.</li>
+<li>Python SDK: <code>0.1.0</code>; SDK API versions are independent from stored format IDs.</li>
+</ul>
+<p>Unsupported formats/features MUST cause explicit refusal. Recompression may
+change physical identity without changing tuple identity. Current stored files
+remain test fixtures for subsequent libraries. Pre-1.0 SDK APIs may change;
+there is no promise of a production-stable future binary ABI yet.</p>
+<h2>Change process</h2>
+<ol>
+<li>Open a public issue describing the problem, affected profiles and user impact.</li>
+<li>Submit a PR with normative text, implementation status, migration/compatibility
+   analysis and new positive/negative vectors. Implementation alone is not a
+   specification change; a document alone is not implemented capability.</li>
+<li>Maintainers review correctness, interoperability, security/resource bounds
+   and benchmark evidence. Existing valid vectors must keep working unchanged.</li>
+<li>Merge after checks; update changelog and publish the immutable revision.</li>
+</ol>
+<p>Use public repository issues for non-sensitive defects and RFCs. Follow the
+repository security reporting policy, if present, for sensitive reports;
+do not put private datasets, access credentials or personal evidence in issues.</p>
+<h2>Stable 1.0 gates</h2>
+<p>A stable profile requires two independently implemented readers passing the same
+cross-language corpus; fully specified canonical byte encoding; backwards
+compatibility/migration tests; corruption and expansion-budget tests; and
+representative independent workload measurements. Stable lake claims additionally
+require object-storage range I/O and catalog/crash/retention conformance.</p>
+<p>The current Python SDK wraps the Node evaluator and does <strong>not</strong> count as an
+independent second reader. Dates or download counts do not satisfy these gates.</p>
+<h2>Changelog</h2>
+<ul>
+<li>0.1 / 2026-10-09: draft reference storage specification; JSON Schema; vectors;
+  Python SDK with Arrow and Parquet interchange; proposed lake/Iceberg contract;
+  public Quickstart, announcement, status and staged roadmap.</li>
+</ul></main></html>

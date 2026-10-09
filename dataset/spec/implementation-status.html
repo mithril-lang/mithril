@@ -1,0 +1,84 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Implementation status and adoption roadmap</title><style>body{font:17px/1.6 system-ui;max-width:1000px;margin:40px auto;padding:0 24px;color:#182230}a{color:#155ac2}pre{overflow:auto;background:#f2f4f7;padding:18px}code{font-size:.9em}table{border-collapse:collapse}td,th{border:1px solid #ccd3dd;padding:8px;text-align:left}blockquote{border-left:4px solid #ccd3dd;margin-left:0;padding-left:18px}</style><nav><a href="../index.html">Mithril Dataset</a> · <a href="https://github.com/mithril-lang/mithril/tree/main/spec">Source and revisions</a></nav><main><h1>Implementation status and adoption roadmap</h1>
+<table>
+<thead>
+<tr>
+<th>Capability</th>
+<th>Publication 0.1</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Exact tuple/empty-graph round-trip</td>
+<td>Implemented</td>
+</tr>
+<tr>
+<td>Finite list/range, constants, integer ordinal, exceptions</td>
+<td>Implemented</td>
+</tr>
+<tr>
+<td>Segment term dictionary, Zstd/gzip, SHA-256, work budgets</td>
+<td>Implemented</td>
+</tr>
+<tr>
+<td>Fully verified handle, warm subject selection</td>
+<td>Implemented in Node</td>
+</tr>
+<tr>
+<td>Python source install, CLI and packaged evaluator</td>
+<td>Implemented; requires Node</td>
+</tr>
+<tr>
+<td>Arrow/Parquet lossless quad interchange</td>
+<td>Implemented; materialized</td>
+</tr>
+<tr>
+<td>Independently verified canonical RDF identity</td>
+<td>Not provided by published SDK</td>
+</tr>
+<tr>
+<td>Whole-dataset automatic <code>.mith+Zstd</code>/Parquet fallback</td>
+<td>Proposed</td>
+</tr>
+<tr>
+<td>Stable binary container, external blocks, trained Zstd dictionaries</td>
+<td>Proposed</td>
+</tr>
+<tr>
+<td>S3 range I/O, column/condition pushdown, streaming reader</td>
+<td>Proposed</td>
+</tr>
+<tr>
+<td>Iceberg pinned-snapshot connector, catalog CAS, deltas, leases, GC</td>
+<td>Proposed</td>
+</tr>
+<tr>
+<td>Independent Python/Rust/JVM decoder, Spark/Trino integration</td>
+<td>Proposed</td>
+</tr>
+<tr>
+<td>PyPI distribution and production readiness</td>
+<td>Not released</td>
+</tr>
+</tbody>
+</table>
+<h2>Next acceptance gates</h2>
+<ol>
+<li>Validate the Quickstart and packaged wheel outside the source directory;
+   invite engineers to run their own datasets and report complete costs.</li>
+<li>Implement external segments and a bounded object-storage reader; measure
+   actual cold-open/network performance, corruption and poisoned indexes.</li>
+<li>Implement a pinned-snapshot Iceberg connector using an existing client;
+   test snapshot expiration and Parquet materialization without implicit upgrades.</li>
+<li>Build an independent decoder and compatibility corpus before a stable profile.</li>
+<li>Work with initial users on ingestion, updates, export and recovery. Measure
+   repeat use and workload benefit, not merely installs or synthetic compression.</li>
+</ol>
+<h2>Measured scope</h2>
+<p>The earlier local experiment reconstructed 512,139 quads across six datasets
+and verified canonical RDF round-trips through the existing local Mithril bridge.
+Its regular 300,000-quad fixture used 29,859 bytes versus 192,975 bytes for the
+best ordinary Mithril+Zstd baseline (84.5% smaller). The 12,000-quad CodeGraph
+sample was about 49% larger. These are exploratory workload-specific results,
+not a general Parquet advantage, a published SDK throughput guarantee or proof
+of production lake I/O. Full bundle load/validation preceded warm queries.
+See the published <a href="../docs/benchmarks/computable-datalake-20261009.html">measurement report</a>.</p></main></html>

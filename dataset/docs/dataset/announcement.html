@@ -1,0 +1,25 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Introducing Mithril Dataset specification 0.1</title><style>body{font:17px/1.6 system-ui;max-width:1000px;margin:40px auto;padding:0 24px;color:#182230}a{color:#155ac2}pre{overflow:auto;background:#f2f4f7;padding:18px}code{font-size:.9em}table{border-collapse:collapse}td,th{border:1px solid #ccd3dd;padding:8px;text-align:left}blockquote{border-left:4px solid #ccd3dd;margin-left:0;padding-left:18px}</style><nav><a href="../../index.html">Mithril Dataset</a> · <a href="https://github.com/mithril-lang/mithril/tree/main/spec">Source and revisions</a></nav><main><h1>Introducing Mithril Dataset specification 0.1</h1>
+<p>Mithril Dataset 0.1 is now available as a public draft specification with a
+reference implementation, conformance vectors and a Python Quickstart.
+It preserves RDF term spelling, named/default graphs and explicit empty-graph
+metadata while allowing finite computable models plus exact exceptions.
+Segment payloads use Zstd or gzip, with integrity and evaluation limits.</p>
+<p>Engineers can install the SDK from source, try their own quad datasets and
+export lossless Arrow/Parquet tables for existing analysis workflows.
+No new Mithril source syntax is needed to try the JSON tuple entry point.
+The specification separates format profiles, library API versions and proposed
+lake capabilities so adopters can see exactly what is available.</p>
+<p>Compression benefit depends on the workload. The earlier local experiment's
+regular 300,000-quad fixture was 84.5% smaller than its best ordinary Mithril+Zstd
+baseline; its CodeGraph sample was about 49% larger. The SDK currently materializes
+full datasets and calls a packaged Node evaluator. S3 partial reads, a stable
+binary format, an independent decoder and Iceberg catalog integration are future
+work. This is an experimental project specification, not a production lake
+release or an Apache standard.</p>
+<p>Start with the <a href="quickstart.html">Quickstart</a>, read the
+<a href="../../spec/v0.1/specification.html">specification</a>, and consult the
+<a href="../../spec/implementation-status.html">status and roadmap</a>.
+We welcome reproducible workload reports, compatibility reviews and independent
+reader implementations through <a href="https://github.com/mithril-lang/mithril/issues">issues</a>
+and pull requests. Report file size including metadata, cold-open and query
+latency, peak memory and reconstruction correctness; do not submit private data.</p></main></html>

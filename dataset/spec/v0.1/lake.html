@@ -1,0 +1,36 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Data lake and Iceberg integration contract 0.1</title><style>body{font:17px/1.6 system-ui;max-width:1000px;margin:40px auto;padding:0 24px;color:#182230}a{color:#155ac2}pre{overflow:auto;background:#f2f4f7;padding:18px}code{font-size:.9em}table{border-collapse:collapse}td,th{border:1px solid #ccd3dd;padding:8px;text-align:left}blockquote{border-left:4px solid #ccd3dd;margin-left:0;padding-left:18px}</style><nav><a href="../../index.html">Mithril Dataset</a> · <a href="https://github.com/mithril-lang/mithril/tree/main/spec">Source and revisions</a></nav><main><h1>Data lake and Iceberg integration contract 0.1</h1>
+<p>Status: <strong>proposed; no catalog connector is implemented in this release</strong>.
+This contract guides implementation and prevents accidental interoperability
+claims. It is not an Iceberg table specification amendment.</p>
+<h2>Existing Iceberg as authority</h2>
+<p>An integration MUST pin an exact catalog/table identity, table UUID, metadata
+location and snapshot ID. It MUST record the selected schema, partition spec,
+projection and model dependencies. Mutable table names or <code>latest</code> alone cannot
+identify reproducible input. Expired snapshots and missing source objects MUST
+produce an explicit refusal; they MUST NOT silently read a newer snapshot.
+Credential values MUST NOT be embedded in the exported metadata.</p>
+<p>The initial connector SHOULD use an existing Iceberg client and REST catalog,
+read a pinned snapshot and attach Mithril ontology/constraint/model references
+in a separate versioned envelope. Materialized output MUST be ordinary supported
+Iceberg data files, such as Parquet. A generic Spark/Trino reader cannot evaluate
+reference-v1 model segments merely because they are named in lake metadata.</p>
+<h2>Mithril as authority (future)</h2>
+<p>A snapshot publishes an immutable dependency closure: schemas, admitted models,
+inputs, parameters, exceptions, segment objects, index objects and dictionary
+objects. Object byte hashes and logical identity MUST be distinct. Upload
+and verify dependencies before compare-and-swap of the catalog head. An
+uncommitted upload is not a visible snapshot. Readers retain a snapshot/read
+lease; garbage collection MUST preserve reachable objects and active readers.</p>
+<p>Partition evolution, delta ordering, assertion/derivation boundaries, index
+false-negative prevention, compaction, crash recovery and retention require
+specified behavior and executable tests before a stable lake profile release.
+No binary magic bytes, external-block ABI or cross-catalog atomic transaction
+is standardized by publication 0.1.</p>
+<h2>Physical I/O acceptance gates</h2>
+<p>A production reader MUST demonstrate bounded cold-open cost, actual byte-range
+reads, column/condition selection and integrity checks with object storage.
+Benchmark request counts, transferred bytes, p50/p95 latency, working memory,
+full scans, updates and compaction on representative workloads. Warm in-memory
+segment selection is insufficient evidence for these gates.</p>
+<p>Sources: <a href="https://iceberg.apache.org/spec/">Iceberg table specification</a> and
+<a href="https://iceberg.apache.org/rest-catalog-spec/">REST catalog specification</a>.</p></main></html>
