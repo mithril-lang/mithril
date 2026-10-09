@@ -895,7 +895,8 @@
                                                                   (fail! :mithril.native-declarations/duplicate "Named reexport collides with own export"))
                                                              (add-program-binding t out (erase-binding b (get g "type-only")) false)) t))) table
                                                  (if-let [ns (get g "names")] (map #(vector (get % "export") (get % "import")) ns) (map #(vector % %) (remove #{"default"} (keys target))))))) initial ordered)]
-                          (vector! (vec (keys table)) 128) (assoc all name table))) external documents)]
+                          (doseq [space [:types :values :namespaces]]
+                            (vector! (vec (for [[name binding] table :when (get binding space)] name)) 128)) (assoc all name table))) external documents)]
      (if (= next @tables) nil (do (reset! tables next) (recur (inc round))))))
    (doseq [[index doc] (map-indexed vector documents)]
     (let [id [nil "" index] prefix (get prefixes (get doc "name"))]
@@ -969,6 +970,15 @@
                  (when-not (contains? @tables target) (fail! :mithril.native-declarations/link "Unknown declaration dependency"))
                  (visit target)))))]
      (visit entry)
+     ;; Every module in the checked runtime order is reachable from an actual
+     ;; package root, including roots with no exports and side-effect imports.
+     (let [seen-runtime (atom #{})]
+      (letfn [(visit-runtime [native]
+                (when-not (contains? @seen-runtime native)
+                 (swap! seen-runtime conj native)
+                 (doseq [doc documents :when (= native (get doc "runtime"))] (visit (get doc "name")))
+                 (doseq [dependency (get-in runtime [:modules native :dependencies])] (visit-runtime dependency))))]
+       (doseq [native (:order runtime)] (visit-runtime native))))
      (when-not (every? @visited names) (fail! :mithril.native-declarations/link "Unreachable declaration module"))))
    (when-not (contains? own entry) (fail! :mithril.native-declarations/link "Entry must be an internal declaration module"))
    (let [surface (get @tables entry)

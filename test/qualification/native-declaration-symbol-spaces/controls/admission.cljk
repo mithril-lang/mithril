@@ -1,0 +1,98 @@
+(ns declaration-space-boundaries
+ (:require [mithril.native-esm :as esm] [mithril.native-declarations :as declarations]
+           [mithril.native-declaration-emit :as emit] [mithril.native-declaration-program :as program]
+           ["node:fs" :as fs]))
+(defn ensure [p label] (when-not p (throw (js/Error. label))))
+(def number-type {"op" "keyword" "name" "number"})
+(defn alias [name] {"kind" "alias" "name" name "exported" true "type-params" [] "datatype" number-type})
+(defn space-namespace [name] {"kind" "namespace" "name" name "exported" true "declarations" [(alias "Member")]})
+(defn signature [name] {"kind" "function" "name" name "exported" true "type-params" [] "params" [] "returns" number-type})
+(defn leaf [name exported]
+ (pr-str (list 'mithril/native-js-module :name name :imports [] :functions
+  (mapv (fn [n] (list 'mithril/function :name n :params [] :returns "js-value" :body
+   (list 'mithril/literal :datatype "js-value" :value 1))) exported)
+  :exports (mapv (fn [n] (list 'rdf/node :name n :function n)) exported))))
+(defn checked-runtime [specs]
+ (let [sources (into {} (map (fn [[n names dependencies]] [(str n ".mith") (leaf n names)]) specs))
+       manifest {"@context" "https://mithril.fund/context/native-js-esm-package/v1" "@type" "NativeJsEsmPackage" "name" "probe" "imports" []
+                 "modules" (mapv (fn [[n names dependencies]] {"name" n "source" (str n ".mith") "dependencies" dependencies "links" []}) specs)
+                 "reexports" [(ffirst specs)]}]
+  (esm/check-document manifest sources)))
+(def empty-runtime (checked-runtime [["root" [] []]]))
+(defn doc [name runtime ds reexports]
+ {"@context" "https://mithril.fund/context/native-js-declaration-module/v1" "@type" "NativeJsDeclarationModule"
+  "name" name "runtime" runtime "ambient-types" [] "ambient-values" [] "imports" [] "reexports" reexports "declarations" ds})
+(defn admit [docs runtime] (declarations/check-module-program docs [] runtime "entry"))
+(def admissions (atom 0))
+(def refusals (atom 0))
+(defn positive [docs runtime label]
+ (let [out (admit docs runtime)] (swap! admissions inc) (println (str "PASS " label)) out))
+(defn negative [docs runtime code label]
+ (let [actual (try (admit docs runtime) :admitted (catch :default e (:mithril/error (ex-data e))))]
+  (ensure (= actual code) (str label ": expected " code " got " actual))
+  (swap! refusals inc) (println (str "REFUSE " label " " actual))))
+(doseq [[space make] [["types" alias] ["namespaces" space-namespace]]]
+ (doseq [size [127 128]]
+  (positive [(doc "entry" nil (mapv #(make (str "P" %)) (range size)) [])] empty-runtime (str space " " size)))
+ (negative [(doc "entry" nil (mapv #(make (str "P" %)) (range 129)) [])] empty-runtime :mithril.native-declarations/budget (str space " 129")))
+(defn value-case [size]
+ (let [groups (mapv vec (partition-all 64 (map #(str "V" %) (range size))))
+       specs (mapv (fn [i ns] [(str "values" i) ns (if (zero? i) (mapv #(str "values" %) (range 1 (count groups))) [])]) (range) groups)
+       runtime (checked-runtime (into [["root" [] (mapv first specs)]] specs))
+       ds (mapv (fn [[n names _]] (doc n n (mapv signature names) [])) specs)
+       entry (doc "entry" nil [] (mapv (fn [[n _ _]] {"module" n "names" nil "type-only" true}) specs))]
+  [(into [entry] ds) runtime]))
+(doseq [size [127 128]] (let [[ds rt] (value-case size)] (positive ds rt (str "values " size))))
+(let [[ds rt] (value-case 129)] (negative ds rt :mithril.native-declarations/budget "values 129"))
+(let [[ds rt] (value-case 64)
+      mixed (update-in ds [0 "declarations"] into (concat (map #(alias (str "T" %)) (range 64)) (map #(space-namespace (str "N" %)) (range 64))))
+      checked (positive mixed rt "192 distinct names, 64 in each symbol space")]
+ (ensure (= 192 (count (get-in checked [:tables "entry"]))) "Mixed symbol name count")
+ (ensure (= 64 (count (:type-exports checked))) "Mixed type count")
+ (ensure (empty? (:exports checked)) "Type-only value erasure"))
+(doseq [size [128 129]]
+ (let [ds [(doc "entry" nil (mapv (fn [i] {"kind" "const-enum" "name" (str "E" i) "exported" true "members" [{"name" "Value" "value" i}]}) (range size)) [])]]
+  (if (= size 128) (positive ds empty-runtime "128 dual-space erased const enums")
+   (negative ds empty-runtime :mithril.native-declarations/budget "129 dual-space erased const enums"))))
+(def private-runtime (checked-runtime [["root" ["run"] ["private"]] ["private" [] []]]))
+(def entry (doc "entry" "root" [(signature "run")] []))
+(def private-doc (doc "privateTypes" "private" [(assoc (alias "PrivateState") "exported" false)] []))
+(positive [entry private-doc] private-runtime "Private declaration reached solely by real runtime dependency")
+(negative [entry private-doc (doc "ghost" nil [(alias "Unused")] [])] private-runtime :mithril.native-declarations/link "Unrelated type-only ghost")
+(negative [entry (assoc private-doc "runtime" "missing")] private-runtime :mithril.native-declarations/runtime "Unknown runtime owner")
+(negative [entry (assoc-in private-doc ["declarations" 0 "datatype"] {"op" "name" "name" "MissingType" "args" []})] private-runtime :mithril.native-declarations/arity "Runtime-reachable private declaration still type checked")
+;; Empty and side-effect roots do not appear in the package's public export list.
+(def side-effect-runtime (checked-runtime [["root" [] ["private"]] ["private" [] []]]))
+(positive [(doc "entry" "root" [] []) private-doc] side-effect-runtime "Empty public surface retains actual side-effect dependency declarations")
+(println (str "Declaration symbol-space boundaries: " @admissions " admissions, " @refusals " exact refusals."))
+
+;; Serialize inert test data into actual Mithril inputs for both public CLIs.
+(defn data-form [value]
+ (cond (map? value) (cons 'rdf/node (mapcat (fn [[k v]] [(keyword k) (data-form v)]) value))
+       (vector? value) (mapv data-form value) :else value))
+(defn top-form [tag value]
+ (pr-str (cons tag (mapcat (fn [[k v]] [(keyword k) (data-form v)]) (dissoc value "@type" "@context")))))
+(def dir (.-MITHRIL_SYMBOL_SPACE_FIXTURES js/process.env))
+(when dir
+ (let [[values rt] (value-case 64)
+       root (update (first values) "declarations" into (concat (map #(alias (str "T" %)) (range 64)) (map #(space-namespace (str "N" %)) (range 64))))
+       docs (assoc values 0 root)
+       runtime-doc {"name" "probe" "imports" [] "modules" [{"name" "root" "source" "root.mith" "dependencies" ["values0"] "links" []}
+                                                                  {"name" "values0" "source" "values0.mith" "dependencies" [] "links" []}] "reexports" ["root"]}
+       plan {"name" "probe" "runtime-source" "runtime.mith" "modules" (mapv (fn [d] {"name" (get d "name") "source" (str (get d "name") "-types.mith")}) docs) "externals" [] "entry" "entry"}]
+  (fs/writeFileSync (str dir "/runtime.mith") (top-form 'mithril/native-js-esm-package runtime-doc))
+  (fs/writeFileSync (str dir "/root.mith") (leaf "root" []))
+  (fs/writeFileSync (str dir "/values0.mith") (leaf "values0" (mapv #(str "V" %) (range 64))))
+  (doseq [d docs] (fs/writeFileSync (str dir "/" (get d "name") "-types.mith") (top-form 'mithril/native-js-declaration-module d)))
+  (fs/writeFileSync (str dir "/program.mith") (top-form 'mithril/native-js-declaration-program plan))
+  (fs/writeFileSync (str dir "/invalid-types.mith") (top-form 'mithril/native-js-declaration-module (assoc root "declarations" (mapv #(alias (str "T" %)) (range 129)))))
+  (fs/writeFileSync (str dir "/invalid-program.mith") (top-form 'mithril/native-js-declaration-program (assoc-in plan ["modules" 0 "source"] "invalid-types.mith")))
+  (let [side-doc {"name" "probe" "imports" [] "modules" [{"name" "root" "source" "side-root.mith" "dependencies" ["private"] "links" []}
+                                                             {"name" "private" "source" "private.mith" "dependencies" [] "links" []}] "reexports" ["root"]}
+        side-ds [(doc "entry" "root" [] []) private-doc]
+        side-plan (assoc plan "runtime-source" "side-runtime.mith" "modules" (mapv (fn [d] {"name" (get d "name") "source" (str "side-" (get d "name") "-types.mith")}) side-ds))]
+   (fs/writeFileSync (str dir "/side-runtime.mith") (top-form 'mithril/native-js-esm-package side-doc))
+   (fs/writeFileSync (str dir "/side-root.mith") (leaf "root" []))
+   (fs/writeFileSync (str dir "/private.mith") (leaf "private" []))
+   (doseq [d side-ds] (fs/writeFileSync (str dir "/side-" (get d "name") "-types.mith") (top-form 'mithril/native-js-declaration-module d)))
+   (fs/writeFileSync (str dir "/side-program.mith") (top-form 'mithril/native-js-declaration-program side-plan)))))
