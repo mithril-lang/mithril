@@ -212,6 +212,13 @@
           (when-not (= "js-value" (get expr "datatype"))
             (fail! :mithril.native-js/type "Native literals use js-value"))
           {:op :literal :value (literal! (get expr "value"))})
+      "HostImportMeta"
+      (do (shape! expr ["@type"])
+          {:op :import-meta})
+      "HostDynamicImport"
+      (do (shape! expr (cond-> ["@type" "source"] (contains? expr "options") (conj "options")))
+          (cond-> {:op :dynamic-import :source (check (get expr "source"))}
+            (contains? expr "options") (assoc :options (check (get expr "options")))))
       "Local"
       (do (shape! expr ["@type" "name"])
           (let [name (name! (get expr "name"))]
@@ -925,6 +932,9 @@
         args #(str/join "," (map emit %))]
     (case (:op expr)
       :literal (if (and (number? (:value expr)) (js/Object.is (:value expr) (js/Number "-0"))) "(-0)" (quoted (:value expr)))
+      :import-meta "import.meta"
+      :dynamic-import (str "(import(" (emit (:source expr))
+                           (when (contains? expr :options) (str "," (emit (:options expr)))) "))")
       :local (get env (:name expr))
       :import (get imports (:name expr))
       :function-ref (get functions (:name expr))

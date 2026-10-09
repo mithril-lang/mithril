@@ -1,0 +1,12 @@
+(mithril/native-js-module
+ :name "native.moduleOperations" :imports []
+ :functions [
+  (mithril/function :name "meta" :params [] :returns "js-value"
+   :body (mithril/host-import-meta))
+  (mithril/function :name "nestedMeta" :params [] :returns "js-value"
+   :body (mithril/native-lambda :params [] :body (mithril/host-import-meta)))
+  (mithril/function :name "load" :params [(rdf/node :name "source" :datatype "js-value")]
+   :returns "js-value" :body (mithril/host-dynamic-import :source (mithril/local :name "source")))
+  (mithril/function :name "loadWith" :params [(rdf/node :name "source" :datatype "js-value") (rdf/node :name "options" :datatype "js-value")]
+   :returns "js-value" :body (mithril/host-dynamic-import :source (mithril/local :name "source") :options (mithril/local :name "options")))]
+ :exports ["meta" "nestedMeta" "load" "loadWith"])
