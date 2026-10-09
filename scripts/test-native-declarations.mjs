@@ -34,6 +34,7 @@ try{
   ['native-umd-declarations','compile.cljk'],
   ['native-runtime-only-declarations','compile.cljk'],
   ['native-exported-namespace','compile.cljk'],
+  ['native-scope-core','compile.cljk'],
  ];
  for(const [name,control] of stages){
   console.log(`Declaration qualification stage: ${name}`);
