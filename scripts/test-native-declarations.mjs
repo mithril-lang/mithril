@@ -29,6 +29,7 @@ try{
   ['native-loader-leaves','compile.cljk'],
   ['native-loader-sdk','compile.cljk'],
   ['native-index-signatures','compile.cljk'],
+  ['native-include-sdk','compile.cljk'],
  ];
  for(const [name,control] of stages){
   console.log(`Declaration qualification stage: ${name}`);

@@ -19,7 +19,7 @@ substitute for this objective.
 
 | Item | Location / identity | State |
 | --- | --- | --- |
-| Compiler checkout | `/Users/junkawasaki/github/mithril-lang/mithril-harness-language` | `codex/native-index-signatures`, based on merged main `b4ff673c6abb738a44aaf7ab75e73ee1746634f9` |
+| Compiler checkout | `/Users/junkawasaki/github/mithril-lang/mithril-harness-language` | `codex/include-sdk`; index-signature prerequisite merged in PR #90 at `1d53b68ad4645ec54808fa3933d3f0bcca443630` |
 | Saved work checkpoint | `82bd71fbfbf27e4ed3e08ba03898eb9a01a31ed4` | WIP committed and pushed before the requested pause |
 | Schema SDK | https://github.com/mithril-lang/mithril/pull/79 | Merged at `34ca28d6524c27a6c11e24c01bddeca9da35763d`; head `b211a8d076bdb85f77859a2563ba3f79ee5e433f` qualified |
 | Schema branch CI | `37894254763`, job `113701855514` | Terminal success; full source/package/all 14 declaration stages audited |
@@ -176,6 +176,21 @@ replacement resolver does not establish identical module semantics.
    8 positive/7 negative strict groups per label. Stage 19 passes separately.
    These are separate local runs; complete-suite CI and index-signature PR
    delivery remain pending. The timed-out runs are not successful runs.
+   PR #90 subsequently passed exact-head Native JS and CodeGraph CI with full
+   logs audited: all 19 stages, source 81/409, package 40/7, Loader 40 runtime and
+   8 positive/7 negative type groups per label, new index 8 positive/9 negative
+   groups and eleven refusals, CodeGraph 33/239 plus HTTP contracts. It merged at
+   `1d53b68ad4645ec54808fa3933d3f0bcca443630`; main CI verification is pending.
+   The `codex/include-sdk` change now brings complete Include source/types and
+   pinned original fixtures into the repo. Stage 20 qualifies 25 own runtime/19
+   public declaration modules, 6 positive/8 negative strict consumers, and 32
+   original-paired Node runtime groups per actual CLI label with exact artifact
+   bytes. Extended groups cover class descriptors, root insertion identity,
+   unchanged-path config patch update/removal and actual host rename retries for
+   EACCES/EBUSY/EPERM, real delay progression and eleven-attempt exhaustion.
+   These controls passed locally. Include PR/main delivery remains pending;
+   YAML runtime/types remain pinned external dependencies, and full YAML source
+   closure, further lifecycle/HMR and actual browser/native/Q9 remain unqualified.
    Qualify remaining module-loader internals/HMR, persistence failures and lifecycle paths;
    register qualification and complete PR/current-main CI. Then port Include by
    complete source and public type closure.
