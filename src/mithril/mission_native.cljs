@@ -4,7 +4,7 @@
   (:require [mithril.mission :as mission]))
 
 (def operations
-  #{"plugins" "c2sim-import" "c2sim-project" "msdl-import" "msdl-project" "xml-import" "xml-export" "xml-patch" "xml-project"
+  #{"resolve-library" "library-call" "plugins" "c2sim-import" "c2sim-project" "msdl-import" "msdl-project" "xml-import" "xml-export" "xml-patch" "xml-project"
     "link16-encode" "link16-decode" "link16-loopback"
     "link16-send" "link16-receive" "hla-exercise"})
 
@@ -25,6 +25,8 @@
       (throw (ex-info (or (not-empty (.-stderr result)) "native host failed or timed out")
                       {:mithril/error :mithril.mission/native-refused})))
     (let [value (js->clj (.parse js/JSON (.-stdout result)))]
-      (if (contains? #{"xml-project" "c2sim-project" "msdl-project"} (get request "operation"))
+      (if (contains? #{"xml-project" "c2sim-project" "msdl-project"}
+                   (if (= "library-call" (get request "operation"))
+                     (get request "member") (get request "operation")))
         (assoc value "compiled" (mission/compile-document (get value "model")))
         value))))
