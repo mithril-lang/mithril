@@ -1,5 +1,9 @@
 # Mithril Harness and System One continuation map
 
+> Historical checkpoints below retain their original observation times. Use the
+> [current consolidated map](harness-refactor-map-2026-10-10.md) for current status
+> and next work; earlier pending states may have been superseded.
+
 Updated: 2026-10-09 (JST). This is a continuation record, not a completion claim.
 Verify the current checkout, remote main, CI and public status before relying on
 recorded state. Repository documentation uses English; conversation and original
