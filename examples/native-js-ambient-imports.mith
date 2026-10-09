@@ -1,0 +1,25 @@
+(mithril/native-js-module
+ :name "native.ambientImports"
+ :imports ["Date" "isNaN" "Object" "__mithril_native_grants" "__mithril_esm_globals" "__mithril_package_grants" "__mithril_package_public" "__mithril_package_factory_0" "instantiateMithrilNative" "instantiateMithrilNativePackage"]
+ :ambient_imports ["Date" "isNaN" "__mithril_native_grants" "__mithril_esm_globals" "__mithril_package_grants" "__mithril_package_public" "__mithril_package_factory_0" "instantiateMithrilNative" "instantiateMithrilNativePackage"]
+ :functions [
+  (mithril/function :name "make" :params [] :returns "js-value"
+   :body (mithril/native-lambda :params ["value"]
+    :body (mithril/host-array :items [
+     (mithril/host-construct :constructor (mithril/host-import :name "Date") :args [(mithril/local :name "value")])
+     (mithril/host-invoke :function (mithril/host-import :name "isNaN") :args [
+      (mithril/host-unary :operator "+" :value
+       (mithril/host-construct :constructor (mithril/host-import :name "Date") :args [(mithril/local :name "value")]))])
+     (mithril/host-import :name "__mithril_native_grants")
+     (mithril/host-import :name "__mithril_esm_globals")
+(mithril/host-import :name "__mithril_package_grants")
+(mithril/host-import :name "__mithril_package_public")
+(mithril/host-import :name "__mithril_package_factory_0")
+(mithril/host-import :name "instantiateMithrilNative")
+(mithril/host-import :name "instantiateMithrilNativePackage")])))
+  (mithril/function :name "granted" :params [] :returns "js-value"
+   :body (mithril/native-lambda :params ["value"]
+    :body (mithril/host-method :object (mithril/host-import :name "Object")
+     :key (mithril/literal :datatype "js-value" :value "is")
+     :args [(mithril/local :name "value") (mithril/local :name "value")])))]
+ :exports ["make" "granted"])

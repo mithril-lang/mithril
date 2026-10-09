@@ -113,10 +113,13 @@
                       [(get m "name") (cond-> {:name (:name checked) :source (get m "source")
                                       :document source :imports (:imports checked)
                                       :exports (mapv :name (:exports checked)) :links (get m "links")}
+                                      (seq (:ambient-imports checked)) (assoc :ambient-imports (:ambient-imports checked))
                                       esm? (assoc :dependencies (get m "dependencies") :checked checked))])) decls))
           required (atom #{})]
       (doseq [[_ m] modules]
         (doseq [link (:links m)]
+          (when (some #{(get link "import")} (:ambient-imports m))
+            (fail! :mithril.native-package/link "Ambient imports cannot also be linked imports"))
           (when-not (and (some #{(get link "import")} (:imports m))
                         (some #{(get link "export")} (:exports (get modules (get link "module")))))
             (fail! :mithril.native-package/link "Unknown import, module or export in link")))
@@ -166,9 +169,14 @@
     (let [names (mapv #(get % "source") decls)] (unique! names) names)))
 (defn- quoted [v] (js/JSON.stringify (clj->js v)))
 (defn- emit [checked library?]
-  (let [indexes (zipmap (:order checked) (range))
-        factory #(str "__mithril_package_factory_" (get indexes %))
-        instance #(str "__mithril_package_module_" (get indexes %))
+  (let [ambient (set (mapcat :ambient-imports (vals (:modules checked))))
+        prefix (loop [p "__mithril_package_"]
+                 (if (some #(str/starts-with? % p) ambient) (recur (str p "_")) p))
+        alias-initializer? (contains? ambient "instantiateMithrilNativePackage")
+        initializer-name (if alias-initializer? (str prefix "instantiate") "instantiateMithrilNativePackage")
+        indexes (zipmap (:order checked) (range))
+        factory #(str prefix "factory_" (get indexes %))
+        instance #(str prefix "module_" (get indexes %))
         factories (apply str (map (fn [n] (:source (native/compile-package-factory-document
                                              (:document (get (:modules checked) n)) (factory n)))) (:order checked)))
         statements (apply str (map (fn [n]
@@ -176,28 +184,34 @@
                 grants (map (fn [s]
                          (let [link (get links s) value (if link
                                        (str (instance (get link "module")) "[" (quoted (get link "export")) "]")
-                                       (str "__mithril_package_grants[" (quoted s) "]"))]
+                                       (str prefix "grants[" (quoted s) "]"))]
                            ;; Access remains lazy: reading a host or dependency grant must
                            ;; follow the source operation, never declaration enumeration.
                            (str "get [" (quoted s) "](){return " value ";}"))) (:imports m))]
             (str "const " (instance n) "=" (factory n) "({" (str/join "," grants) "});\n"))) (:order checked)))
-        initializer (str (if library? "" "export ") "function instantiateMithrilNativePackage(__mithril_package_grants){\n"
+        initializer (str (if alias-initializer?
+                           (str "const " initializer-name "={[\"instantiateMithrilNativePackage\"]:function(")
+                           (str (if library? "" "export ") "function instantiateMithrilNativePackage(")) prefix "grants){\n"
                       (when-not library?
-                        (str "if(__mithril_package_grants===null||typeof __mithril_package_grants!=='object')throw new Error('host-grant-mismatch');\n"
-                             "const __mithril_package_keys=Reflect.ownKeys(__mithril_package_grants);\n"
-                             "if(__mithril_package_keys.length!==" (count (:imports checked))
-                             "||__mithril_package_keys.some(k=>!" (quoted (:imports checked)) ".includes(k)))throw new Error('host-grant-mismatch');\n"))
-                      statements "return {" (str/join "," (map #(str "[" (quoted (:name %)) "]:" (instance (:module %)) "[" (quoted (:name %)) "]") (:exports checked))) "};\n}\n")
+                        (str "if(" prefix "grants===null||typeof " prefix "grants!=='object')throw new Error('host-grant-mismatch');\n"
+                             "const " prefix "keys=Reflect.ownKeys(" prefix "grants);\n"
+                             "if(" prefix "keys.length!==" (count (:imports checked))
+                             "||" prefix "keys.some(k=>!" (quoted (:imports checked)) ".includes(k)))throw new Error('host-grant-mismatch');\n"))
+                      statements "return {" (str/join "," (map #(str "[" (quoted (:name %)) "]:" (instance (:module %)) "[" (quoted (:name %)) "]") (:exports checked))) "};\n}"
+                      (if alias-initializer?
+                        (str "}[\"instantiateMithrilNativePackage\"];\n"
+                             (when-not library? (str "export {" initializer-name " as instantiateMithrilNativePackage};\n"))) "\n"))
         public (when library?
-                 (str "const __mithril_package_public=instantiateMithrilNativePackage({"
+                 (str "const " prefix "public=" initializer-name "({"
                       (str/join "," (map #(str "get [" (quoted %) "](){return globalThis[" (quoted %) "];}" ) (:imports checked))) "});\n"
                       (apply str (map-indexed (fn [i e]
-                                  (str "const __mithril_package_export_" i "=__mithril_package_public[" (quoted (:name e)) "];\n"
-                                       "export {__mithril_package_export_" i " as " (quoted (:name e)) "};\n")) (:exports checked)))))]
-    {:format :mithril.native-package/artifact-v1 :runtime :native-js :module (:name checked)
+                                  (str "const " prefix "export_" i "=" prefix "public[" (quoted (:name e)) "];\n"
+                                       "export {" prefix "export_" i " as " (quoted (:name e)) "};\n")) (:exports checked)))))]
+    (cond-> {:format :mithril.native-package/artifact-v1 :runtime :native-js :module (:name checked)
      :required-imports (:imports checked) :module-order (:order checked) :exports (mapv :name (:exports checked))
      :profile (if library? :esm-library :explicit-grants)
-     :source (str "// Compiled checked Mithril package; no delegated JavaScript source.\n" factories initializer public)}))
+     :source (str "// Compiled checked Mithril package; no delegated JavaScript source.\n" factories initializer public)}
+      (seq ambient) (assoc :required-ambient-imports (vec (filter ambient (:imports checked)))))))
 (defn compile-document [doc sources] (emit (check-document doc sources) false))
 (defn compile-text [text sources] (emit (check-text text sources) false))
 (defn compile-library-document [doc sources] (emit (check-document doc sources) true))

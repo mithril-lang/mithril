@@ -2478,3 +2478,8 @@ Native Mithril source now admits finite scalar numbers in `js-value` literals,
 including floating negative zero (`-0.0` / `-0e0`). Both actual standalone CLI
 targets retain exact numeric values; general form fields and guest literals keep
 their existing constraints. See [numeric source qualification](test/qualification/native-js-numeric-literals/README.md).
+
+Native modules can explicitly select `ambient_imports` from their declared
+imports. Native free identifiers survive callback serialization with current-realm
+global lookup; other imports retain injected-grant behavior. See
+[ambient import qualification](test/qualification/native-ambient-imports/README.md).

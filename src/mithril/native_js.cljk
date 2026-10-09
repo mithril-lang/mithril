@@ -759,11 +759,23 @@
            :then (body-check (get expr "then")) :else (body-check (get expr "else"))})
       (fail! :mithril.native-js/expression "Unsupported native JS expression"))))
 
+(defn- ambient-scope! [value ambient shadows]
+  (cond
+    (map? value)
+    (let [self (when (contains? #{:native-function :native-class :local-function} (:op value)) (:name value))
+          shadows (cond-> shadows (some? self) (conj self))]
+      (when (and (= :import (:op value)) (contains? ambient (:name value))
+                 (contains? shadows (:name value)))
+        (fail! :mithril.native-js/scope "Native self binding shadows an ambient import"))
+      (doseq [v (vals value)] (ambient-scope! v ambient shadows)))
+    (coll? value) (doseq [v value] (ambient-scope! v ambient shadows))))
+
 (defn check-document
   "Check a separate native JS context; imports are an explicit host capability list."
   [doc]
   (optional-flag! doc (cond-> ["@context" "@type" "name" "imports" "functions" "exports"]
-                       (contains? doc "bindings") (conj "bindings")) "lexical_bindings")
+                       (contains? doc "bindings") (conj "bindings")
+                       (contains? doc "ambient_imports") (conj "ambient_imports")) "lexical_bindings")
   (when-not (and (= "NativeJsModule" (get doc "@type"))
                 (= "https://mithril.fund/context/native-js-module/v1" (get doc "@context")))
     (fail! :mithril.native-js/context "Expected the native JS module context"))
@@ -773,6 +785,13 @@
       (fail! :mithril.native-js/name "Invalid native JS module name"))
     (vector! imports 128) (vector! functions 128) (vector! exports 128)
     (doseq [import imports] (name! import)) (unique! imports)
+    (when (contains? doc "ambient_imports")
+      (let [ambient (get doc "ambient_imports")]
+        (vector! ambient 128) (unique! ambient)
+        (doseq [name ambient]
+          (name! name)
+          (when (or (contains? reserved name) (not (some #{name} imports)))
+            (fail! :mithril.native-js/import "Ambient imports must be declared nonreserved identifiers")))))
     (let [declarations (mapv (fn [f]
                               (optional-flags! f ["@type" "name" "params" "returns" "body"] ["statements" "mutable"])
                               (when-not (and (= "Function" (get f "@type"))
@@ -829,10 +848,15 @@
                                    (when-not (contains? targets target)
                                      (fail! :mithril.native-js/export "Unknown native JS export"))
                                    {:name name :target target}))))) exports)
-            _ (unique! (mapv :name public))]
+            _ (unique! (mapv :name public))
+            ambient (set (get doc "ambient_imports" []))
+            _ (when (some ambient names)
+                (fail! :mithril.native-js/scope "Module declaration shadows an ambient import"))
+            _ (ambient-scope! [checked-functions (:bindings checked-bindings) public] ambient #{})]
         (cond-> {:format :mithril.native-js/checked-v1 :name name :imports imports :exports public
                  :functions checked-functions}
           (contains? doc "lexical_bindings") (assoc :lexical-bindings (get doc "lexical_bindings"))
+          (contains? doc "ambient_imports") (assoc :ambient-imports (get doc "ambient_imports"))
           (contains? doc "bindings") (assoc :bindings (:bindings checked-bindings)))))))
 
 (defn check-text [text]
@@ -1129,14 +1153,21 @@
       (str (when result? "return ") (emit expr) ";"))))
 
 (defn- emit-checked [checked factory public? check-grants?]
+  (when (and (not public?) (some #{factory} (:ambient-imports checked)))
+    (fail! :mithril.native-js/scope "Native factory binding shadows an ambient import"))
   (let [named-functions (concat (:functions checked)
+                                (map #(hash-map :name %) (:ambient-imports checked))
                                 (filter #(and (map? %) (string? (:name %)) (contains? #{:local-function :native-function :native-class} (:op %)))
                                         (tree-seq coll? seq checked)))
         prefix (loop [p "__mithril_native_"]
                  (if (some #(str/starts-with? (:name %) p) named-functions)
                    (recur (str p "_")) p))
         counter (atom 0) grants (str prefix "grants")
-        imports (into {} (map #(vector % (str grants "[" (quoted %) "]")) (:imports checked)))
+        ambient (set (:ambient-imports checked))
+        alias-factory? (and public? (contains? ambient factory))
+        factory-symbol (if alias-factory? (str prefix "factory") factory)
+        grant-imports (vec (remove ambient (:imports checked)))
+        imports (into {} (map #(vector % (if (contains? ambient %) % (str grants "[" (quoted %) "]"))) (:imports checked)))
         functions (zipmap (map :name (:functions checked)) (map #(str prefix "f" %) (range)))
         lexical-symbols (if (:lexical-bindings checked)
                           (into {} (map #(vector (:name %) (fresh counter prefix)) (:bindings checked))) {})
@@ -1157,23 +1188,27 @@
                                       (emit-body (:body f) imports functions env counter prefix true true)
                                       (str "return " (emit-expression (:body f) imports functions env counter prefix true) ";")) "};\n"))) (:functions checked)))
         source (str "// Mithril native JS host module; explicit grants; native runtime semantics.\n"
-                    (if public? "export " "") "function " factory "(" grants "){\n"
+                    (if alias-factory?
+                      (str "const " factory-symbol "={[" (quoted factory) "]:function(")
+                      (str (if public? "export " "") "function " factory "(")) grants "){\n"
                     (when check-grants?
                       (str
                     "if(" grants "===null||typeof " grants "!=='object')throw new Error('host-grant-mismatch');\n"
                     "const " prefix "keys=Reflect.ownKeys(" grants ");\n"
-                    "if(" prefix "keys.length!==" (count (:imports checked)) "||"
-                    prefix "keys.some(k=>!" (quoted (clj->js (:imports checked))) ".includes(k)))throw new Error('host-grant-mismatch');\n"))
+                    "if(" prefix "keys.length!==" (count grant-imports) "||"
+                    prefix "keys.some(k=>!" (quoted (clj->js grant-imports)) ".includes(k)))throw new Error('host-grant-mismatch');\n"))
                     (if initialize-functions-first? function-source "")
                     (:source module-bindings)
                     (if initialize-functions-first? "" function-source)
                     "return {" (str/join "," (map (fn [e]
                                                    (if (:target e)
                                                      (str "[" (quoted (:name e)) "]:" (get functions (:target e)))
-                                                     (str "[" (quoted (:name e)) "]:" (emit-expression (:value e) imports functions (:env module-bindings) counter prefix false)))) (:exports checked))) "};\n}\n")]
-    {:format :mithril.native-js/artifact-v1 :module (:name checked)
-     :required-imports (:imports checked) :exports (mapv :name (:exports checked))
-     :runtime :native-js :source source}))
+                                                     (str "[" (quoted (:name e)) "]:" (emit-expression (:value e) imports functions (:env module-bindings) counter prefix false)))) (:exports checked))) "};\n}"
+                    (if alias-factory? (str "}[" (quoted factory) "];\nexport {" factory-symbol " as " factory "};\n") "\n"))]
+    (cond-> {:format :mithril.native-js/artifact-v1 :module (:name checked)
+             :required-imports grant-imports :exports (mapv :name (:exports checked))
+             :runtime :native-js :source source}
+      (seq ambient) (assoc :required-ambient-imports (:ambient-imports checked)))))
 
 (defn compile-document [doc] (emit-checked (check-document doc) "instantiateMithrilNative" true true))
 (defn compile-text [text] (emit-checked (check-text text) "instantiateMithrilNative" true true))
@@ -1204,6 +1239,8 @@
                            (some #{(get link "source")} dependencies))
               (fail! :mithril.native-js/link "Unknown linked import or unordered dependency")))
         _ (unique! (mapv #(get % "import") links))
+        _ (when (some (set (:ambient-imports checked)) (map #(get % "import") links))
+            (fail! :mithril.native-js/link "Ambient imports cannot also be linked ESM imports"))
         declared-names (concat (map #(get % "import") links)
                                (map :name (:functions checked)) (map :name (:bindings checked)))
         _ (unique! declared-names)
@@ -1224,7 +1261,7 @@
                         (doseq [v (vals x)] (walk v shadows)))
                       (coll? x) (doseq [v x] (walk v shadows))))]
             (walk checked #{}))
-        names (concat (map :name (:functions checked))
+        names (concat (:ambient-imports checked) (map :name (:functions checked))
                       (keep :name (filter map? (tree-seq coll? seq checked))))
         prefix (loop [p "__mithril_esm_"]
                  (if (some #(and (string? %) (str/starts-with? % p)) names)
@@ -1232,7 +1269,8 @@
         counter (atom 0)
         globals (str prefix "globals")
         link-symbols (into {} (map #(vector (get % "import") (get % "import")) links))
-        imports (into {} (map #(vector % (or (get link-symbols %) (str globals "[" (quoted %) "]"))) (:imports checked)))
+        ambient (set (:ambient-imports checked))
+        imports (into {} (map #(vector % (if (contains? ambient %) % (or (get link-symbols %) (str globals "[" (quoted %) "]")))) (:imports checked)))
         functions (into {} (map #(vector (:name %) (:name %)) (:functions checked)))
         env (into {} (map #(vector (:name %) (:name %)) (:bindings checked)))
         dependency-source (apply str
@@ -1265,12 +1303,13 @@
                                   (str (when-not live
                                          (str "const " symbol "=" (emit-expression value imports functions env counter prefix false) ";\n"))
                                        "export {" symbol " as " (quoted (:name e)) "};\n"))) (:exports checked)))]
-    {:format :mithril.native-esm/module-v1 :runtime :native-js :module (:name checked)
-     :required-imports (vec (remove (set (keys link-symbols)) (:imports checked)))
+    (cond-> {:format :mithril.native-esm/module-v1 :runtime :native-js :module (:name checked)
+     :required-imports (vec (remove #(or (contains? link-symbols %) (contains? ambient %)) (:imports checked)))
      :exports (mapv :name (:exports checked))
      :source (str "// Checked Mithril native ESM; engine-owned live bindings and initialization.\n"
                   ;; Pure host adapter initializes before a source back edge can
                   ;; call this module's hoisted declaration using a capability.
-                  (when (some #(not (contains? link-symbols %)) (:imports checked))
+                  (when (some #(and (not (contains? link-symbols %)) (not (contains? ambient %))) (:imports checked))
                     (str "import {globals as " globals "} from './host-globals.mjs';\n"))
-                  dependency-source function-source binding-source export-source)}))
+                  dependency-source function-source binding-source export-source)}
+      (seq ambient) (assoc :required-ambient-imports (:ambient-imports checked)))))

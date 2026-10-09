@@ -1,0 +1,6 @@
+(mithril/native-js-esm-package
+ :name "native.ambientPackage"
+ :imports ["Date" "isNaN" "Object" "__mithril_native_grants" "__mithril_esm_globals" "__mithril_package_grants" "__mithril_package_public" "__mithril_package_factory_0" "instantiateMithrilNative" "instantiateMithrilNativePackage"]
+ :modules [(rdf/node :name "native.ambientImports" :source "native-js-ambient-imports.mith"
+                    :dependencies [] :links [])]
+ :reexports ["native.ambientImports"])

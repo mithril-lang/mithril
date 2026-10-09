@@ -28,7 +28,8 @@
         (throw (ex-info "Duplicate ESM source read plan" {:mithril/error :mithril.native-esm/source})))
       names)))
 (defn- emit [checked roots]
-  (let [names (mapv :name (vals (:modules checked)))
+  (let [ambient (set (mapcat :ambient-imports (vals (:modules checked))))
+        names (mapv :name (vals (:modules checked)))
         ;; Declared module identity, not DFS order, owns output filenames. Sorting
         ;; is only an artifact naming decision; static dependency order is retained.
         names (vec (sort names)) indexes (zipmap names (range))
@@ -40,7 +41,7 @@
                                                           "export" (get % "export")) (:links m))
                                     deps (mapv #(str "./" (filename %)) (:dependencies m))]
                                 [(filename name) (:source (native/compile-esm-document (:document m) links deps))])) names))]
-    {:format :mithril.native-esm/artifact-v1 :runtime :native-js :profile :native-esm
+    (cond-> {:format :mithril.native-esm/artifact-v1 :runtime :native-js :profile :native-esm
      :module (:name checked) :required-imports (:imports checked)
      :exports (mapv :name (:exports checked)) :entry "index.mjs"
      :module-files (into {} (map #(vector % (filename %)) names))
@@ -48,7 +49,8 @@
                          "index.mjs" (str "// Checked Mithril ESM package entry; ordered native reexports.\n"
                                           (apply str (map #(str "export * from \"./" (filename %) "\";\n") roots))
                                           (apply str (map #(str "export {" (get % "import") " as " (get % "export") "} from \"./"
-                                                                  (filename (get % "module")) "\";\n") (:entry-exports checked)))))}))
+                                                                  (filename (get % "module")) "\";\n") (:entry-exports checked)))))}
+      (seq ambient) (assoc :required-ambient-imports (vec (filter ambient (:imports checked)))))))
 (defn compile-document [doc sources] (emit (check-document doc sources) (get doc "reexports")))
 (defn compile-text [text sources]
   (module/check-source-text! text) (compile-document (form/parse text) sources))
