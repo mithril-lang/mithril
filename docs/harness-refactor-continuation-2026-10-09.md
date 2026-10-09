@@ -19,7 +19,7 @@ substitute for this objective.
 
 | Item | Location / identity | State |
 | --- | --- | --- |
-| Compiler checkout | `/Users/junkawasaki/github/mithril-lang/mithril-harness-language` | `codex/include-sdk`; index-signature prerequisite merged in PR #90 at `1d53b68ad4645ec54808fa3933d3f0bcca443630` |
+| Compiler checkout | `/Users/junkawasaki/github/mithril-lang/mithril-harness-language` | `codex/native-arguments-object`; Include SDK merged in PR #91 at `f8c453a27d9358c623b0b268169b91ae04ab19f2` |
 | Saved work checkpoint | `82bd71fbfbf27e4ed3e08ba03898eb9a01a31ed4` | WIP committed and pushed before the requested pause |
 | Schema SDK | https://github.com/mithril-lang/mithril/pull/79 | Merged at `34ca28d6524c27a6c11e24c01bddeca9da35763d`; head `b211a8d076bdb85f77859a2563ba3f79ee5e433f` qualified |
 | Schema branch CI | `37894254763`, job `113701855514` | Terminal success; full source/package/all 14 declaration stages audited |
@@ -180,7 +180,11 @@ replacement resolver does not establish identical module semantics.
    logs audited: all 19 stages, source 81/409, package 40/7, Loader 40 runtime and
    8 positive/7 negative type groups per label, new index 8 positive/9 negative
    groups and eleven refusals, CodeGraph 33/239 plus HTTP contracts. It merged at
-   `1d53b68ad4645ec54808fa3933d3f0bcca443630`; main CI verification is pending.
+   `1d53b68ad4645ec54808fa3933d3f0bcca443630`; main Native JS CI `37932701284`
+   and CodeGraph CI `37932701102` succeeded. Full logs confirm all 19 stages
+   and unchanged source/package/Loader/index/CodeGraph counts; all eleven changed
+   files match main. Evidence: `index-signatures-main-ci-audit.json` and
+   `index-signatures-main-file-match.json`.
    The `codex/include-sdk` change now brings complete Include source/types and
    pinned original fixtures into the repo. Stage 20 qualifies 25 own runtime/19
    public declaration modules, 6 positive/8 negative strict consumers, and 32
@@ -188,12 +192,37 @@ replacement resolver does not establish identical module semantics.
    bytes. Extended groups cover class descriptors, root insertion identity,
    unchanged-path config patch update/removal and actual host rename retries for
    EACCES/EBUSY/EPERM, real delay progression and eleven-attempt exhaustion.
-   These controls passed locally. Include PR/main delivery remains pending;
+   These controls passed locally and exact-head branch Native JS CI `37933126224`
+   and CodeGraph CI `37933126261` succeeded, with all 20 stages and source 81/409,
+   package 40/7, Include 32 runtime and 6 positive/8 negative types per CLI label
+   audited. PR #91 merged at `f8c453a27d9358c623b0b268169b91ae04ab19f2`;
+   main Native JS CI `37934592393` and CodeGraph `37934592400` succeeded.
+   Full logs confirm all 20 stages, source 81/409, package 40/7, Include 32 runtime
+   and 6 positive/8 negative strict type groups per label, and CodeGraph 33/239
+   plus HTTP contracts. All twenty changed files match main. Evidence:
+   `include-sdk-main-ci-audit.json` and `include-sdk-main-file-match.json`;
    YAML runtime/types remain pinned external dependencies, and full YAML source
    closure, further lifecycle/HMR and actual browser/native/Q9 remain unqualified.
+   The next source dependency is complete pinned YAML 4.2.0. Its monolithic
+   591974-character AST correctly refuses the unchanged 262144-character leaf
+   budget. An operator prototype preserves owner-scoped var allocation, ordered
+   initializer assignments and block function declarations across 26 own source
+   modules; the largest leaf is 256336 characters. This is authoring, not runtime
+   qualification. Actual native admission then refuses the original `!=` operator.
+   Separately, `arguments[index]` originally refused unknown-tag. The new
+   `HostArguments` / `mithril/host-arguments` primitive emits the actual source
+   normal function's arguments object and refuses absent function contexts.
+   Both actual CLI labels pass 24 original-paired Node groups; source regression
+   passes 83 tests/412 assertions; package qualification retains 40 exports and
+   seven frozen artifacts. PR #92 contains this change; final-head branch CI,
+   merge and main verification remain pending.
+   Resolve native abstract inequality, then qualify the complete YAML source
+   closure and replace Include's external runtime link before full-source claims.
+   Evidence: `yaml-source-audit.json`, `yaml-source-frontier.json`,
+   `yaml-inequality-frontier-before.log`, `native-arguments-source-regression-final.log`.
    Qualify remaining module-loader internals/HMR, persistence failures and lifecycle paths;
-   register qualification and complete PR/current-main CI. Then port Include by
-   complete source and public type closure.
+   register qualification and complete PR/current-main CI. Extend the delivered
+   Include source and public type closure with actual YAML source qualification.
    Then port Harness API/plugin/profile/Session and verify actual browser/native/Q9.
 4. Resolve the Code owner, qualify current main, publish through the dedicated
    guarded CI owner and read back source/status/assets.
