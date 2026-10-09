@@ -38,16 +38,57 @@
 (defn- unique! [names]
   (when-not (= (count names) (count (set names)))
     (fail! :mithril.native-js/duplicate "Duplicate native JS declaration")))
+;; Binding patterns are inert data. Their keys/defaults become checked expressions
+;; only after the complete lexical/parameter environment has been established.
+(defn- binding-names [slot] (if (string? slot) [slot] (:names slot)))
+(defn- binding-pattern! [raw]
+  (let [budget (atom 0)]
+  (letfn [(walk [p depth]
+            (when (or (> depth 64) (> (swap! budget inc) 4096)) (fail! :mithril.native-js/budget "Binding pattern depth/node budget exceeded"))
+            (let [child #(walk % (inc depth))]
+              (cond
+                (string? p) {:op :binding-name :name (name! p) :names [p]}
+                (not (map? p)) (fail! :mithril.native-js/shape "Expected a binding pattern")
+                (contains? p "binding")
+                (do (shape! p ["binding" "default"])
+                    (let [target (child (get p "binding"))]
+                      {:op :binding-default :target target :raw-default (get p "default") :names (:names target)}))
+                (contains? p "array")
+                (do (shape! p (cond-> ["array"] (contains? p "rest") (conj "rest")))
+                    (vector! (get p "array") 64)
+                    (let [items (mapv #(when (some? %) (child %)) (get p "array"))
+                          rest (when (contains? p "rest") (child (get p "rest")))]
+                      (when (= :binding-default (:op rest)) (fail! :mithril.native-js/shape "Rest cannot have a default"))
+                      {:op :binding-array :items items :rest rest
+                       :names (vec (concat (mapcat :names items) (:names rest)))}))
+                (contains? p "object")
+                (do (shape! p (cond-> ["object"] (contains? p "rest") (conj "rest")))
+                    (vector! (get p "object") 64)
+                    (let [properties (mapv (fn [entry]
+                                             (optional-flag! entry ["key" "pattern"] "computed")
+                                             {:raw-key (get entry "key") :computed (get entry "computed") :target (child (get entry "pattern"))}) (get p "object"))
+                          rest (when (contains? p "rest") (child (get p "rest")))]
+                      (when (and rest (not= :binding-name (:op rest)))
+                        (fail! :mithril.native-js/shape "Object rest requires a binding identifier"))
+                      {:op :binding-object :properties properties :rest rest
+                       :names (vec (concat (mapcat #(get-in % [:target :names]) properties) (:names rest)))}))
+                :else (fail! :mithril.native-js/shape "Unknown binding pattern"))))]
+    (let [pattern (walk raw 0)]
+      (vector! (:names pattern) 64) (unique! (:names pattern)) pattern))))
 (defn- params! [params]
   (vector! params 64)
   (let [names (mapv (fn [p]
-                     (optional-flag! p (cond-> ["name" "datatype"] (contains? p "default") (conj "default")) "mutable")
+                     (optional-flag! p (cond-> [(if (contains? p "pattern") "pattern" "name") "datatype"] (contains? p "default") (conj "default")) "mutable")
                      (when-not (= "js-value" (get p "datatype"))
                        (fail! :mithril.native-js/type "Native JS parameters use js-value"))
-                     (name! (get p "name"))) params)]
-    (unique! names) names))
+                     (if (contains? p "pattern")
+                       (let [pattern (binding-pattern! (get p "pattern"))]
+                         (when (and (= :binding-default (:op pattern)) (contains? p "default"))
+                           (fail! :mithril.native-js/shape "Duplicate parameter default")) pattern)
+                       (name! (get p "name")))) params)]
+    (unique! (mapcat binding-names names)) names))
 (defn- parameter-env [locals params names rest-name]
-  (cond-> (into locals (map (fn [p name] [name (true? (get p "mutable"))]) params names))
+  (cond-> (into locals (mapcat (fn [p slot] (map #(vector % (true? (get p "mutable"))) (binding-names slot))) params names))
     (some? rest-name) (assoc rest-name false)))
 (defn- literal! [value]
   (when-not (or (nil? value) (string? value) (boolean? value)
@@ -103,19 +144,38 @@
 (defn- loop-context [context]
   (if (context? context :statement) (assoc context :loop true) (value-context context)))
 (declare expression!)
+(defn- check-binding-pattern [pattern imports functions env depth nodes context]
+  (when (or (> depth 64) (> (swap! nodes inc) 4096))
+    (fail! :mithril.native-js/budget "Binding pattern budget exceeded"))
+  (let [child #(check-binding-pattern % imports functions env (inc depth) nodes context)
+        value #(expression! % imports functions env (inc depth) nodes (value-context context))]
+    (case (:op pattern)
+      :binding-name pattern
+      :binding-default (-> pattern (dissoc :raw-default)
+                           (assoc :target (child (:target pattern)) :default (value (:raw-default pattern))))
+      :binding-array (assoc pattern :items (mapv #(when % (child %)) (:items pattern))
+                                   :rest (when (:rest pattern) (child (:rest pattern))))
+      :binding-object (assoc pattern :properties (mapv (fn [p] (let [key (value (:raw-key p))
+                                                                     literal-key? (and (= :literal (:op key)) (or (string? (:value key)) (number? (:value key))))
+                                                                     computed (if (some? (:computed p)) (:computed p) (not literal-key?))]
+                                                                 (when (and (not computed) (not literal-key?)) (fail! :mithril.native-js/shape "Static pattern key must be a literal string or number"))
+                                                                 {:key key :computed computed :target (child (:target p))})) (:properties pattern))
+                                    :rest (when (:rest pattern) (child (:rest pattern)))))))
+(defn- check-parameter-patterns [slots imports functions env depth nodes context]
+  (mapv #(if (string? %) % (check-binding-pattern % imports functions env depth nodes (suspension-context context false false))) slots))
 (defn- class-signature! [member imports functions locals depth nodes context]
   (let [params (get member "params") names (params! params) rest-name (get member "rest")]
     (when (some? rest-name)
       (name! rest-name)
       (when (contains? reserved rest-name) (fail! :mithril.native-js/name "Reserved rest binding")))
-    (let [names-with-rest (cond-> names (some? rest-name) (conj rest-name))
+    (let [names-with-rest (cond-> (vec (mapcat binding-names names)) (some? rest-name) (conj rest-name))
           _ (unique! names-with-rest)
           _ (coroutine-bindings! names-with-rest context)
           env (parameter-env locals params names rest-name)
           defaults (into {} (keep-indexed
                             (fn [i p] (when (contains? p "default")
                                         [i (expression! (get p "default") imports functions env (inc depth) nodes (suspension-context context false false))])) params))]
-      (cond-> {:params names :rest rest-name
+      (cond-> {:params (check-parameter-patterns names imports functions env (inc depth) nodes context) :rest rest-name
                :body (expression! (get member "body") imports functions env (inc depth) nodes (body-context context (get member "statements") true))}
         (seq defaults) (assoc :defaults defaults)
         (contains? member "statements") (assoc :statements (get member "statements"))
@@ -139,7 +199,7 @@
   ;; helper. Direct source statement bodies keep their own coroutine context.
   (let [args-length (if (or (= "LocalFunction" (get expr "@type"))
                            (and (not (context? args-length :statement))
-                                (contains? #{"Let" "HostWhile" "HostDoWhile" "HostForOf" "HostForIn" "HostSwitch" "HostFor" "HostThrow" "HostTryCatch" "HostTryFinally"} (get expr "@type"))))
+                                (contains? #{"Let" "HostWhile" "HostDoWhile" "HostForOf" "HostForIn" "HostSwitch" "HostFor" "HostBindingLet" "HostThrow" "HostTryCatch" "HostTryFinally"} (get expr "@type"))))
                       (suspension-context args-length false false) args-length)
         check #(expression! % imports functions locals (inc depth) nodes (value-context args-length))
         body-check #(expression! % imports functions locals (inc depth) nodes args-length)
@@ -497,14 +557,23 @@
             (when (some? rest-name)
               (name! rest-name)
               (when (contains? reserved rest-name) (fail! :mithril.native-js/name "Reserved arrow rest binding")))
-            (let [patterns (mapv pattern! params)
+            (let [patterns (mapv (fn [p]
+                                  (if (and (map? p) (contains? p "pattern"))
+                                    (do (optional-flag! p (cond-> ["pattern"] (contains? p "default") (conj "default")) "mutable")
+                                        (cond-> (let [pattern (binding-pattern! (get p "pattern"))]
+                                                  (when (and (= :binding-default (:op pattern)) (contains? p "default"))
+                                                    (fail! :mithril.native-js/shape "Duplicate parameter default")) pattern)
+                                          (contains? p "mutable") (assoc :mutable (get p "mutable"))))
+                                    (pattern! p))) params)
                   names (cond-> (vec (mapcat :names patterns)) (some? rest-name) (conj rest-name))
                   env (cond-> (into locals (mapcat (fn [pattern] (map #(vector % (true? (:mutable pattern))) (:names pattern))) patterns))
                         (some? rest-name) (assoc rest-name false))
                   patterns (mapv (fn [pattern p]
+                                   (let [pattern (if (contains? #{:binding-name :binding-default :binding-array :binding-object} (:op pattern))
+                                                   (check-binding-pattern pattern imports functions env (inc depth) nodes (suspension-context args-length false false)) pattern)]
                                    (if (and (map? p) (contains? p "default"))
-                                     (assoc pattern :default (expression! (get p "default") imports functions env (inc depth) nodes (value-context (suspension-context args-length false false))))
-                                     pattern)) patterns params)]
+                                     (assoc pattern (if (contains? p "pattern") :parameter-default :default) (expression! (get p "default") imports functions env (inc depth) nodes (value-context (suspension-context args-length false false))))
+                                     pattern))) patterns params)]
               (unique! names)
               (coroutine-bindings! names (suspension-context args-length (get expr "async") false))
               (cond-> {:op :lambda :params patterns
@@ -520,7 +589,7 @@
               (when (contains? reserved n)
                 (fail! :mithril.native-js/name "Reserved native function binding")))
             (let [names (params! params)
-                  all-names (cond-> names (some? rest-name) (conj rest-name))
+                  all-names (cond-> (vec (mapcat binding-names names)) (some? rest-name) (conj rest-name))
                   _ (unique! all-names)
                   _ (coroutine-bindings! all-names (suspension-context true (get expr "async") (get expr "generator")))
                   self-env (cond-> locals (some? name) (assoc name false))
@@ -529,7 +598,7 @@
                                       (fn [i p]
                                         (when (contains? p "default")
                                           [i (expression! (get p "default") imports functions body-env (inc depth) nodes true)])) params))]
-              (cond-> {:op :native-function :name name :params names :rest rest-name
+              (cond-> {:op :native-function :name name :params (check-parameter-patterns names imports functions body-env (inc depth) nodes true) :rest rest-name
                        :body (expression! (get expr "body") imports functions body-env (inc depth) nodes (body-context (suspension-context true (get expr "async") (get expr "generator")) (get expr "statements") true))}
                 (seq defaults) (assoc :defaults defaults)
                 (contains? expr "async") (assoc :async (get expr "async"))
@@ -573,6 +642,23 @@
                                         (fail! :mithril.native-js/shape "Invalid accessor parameter list"))
                                       (assoc signature :kind (keyword kind) :key key :static (get m "static"))))))))) members)]
               {:op :native-class :name name :extends base :constructor constructor :members checked-members})))
+      "HostBindingLet"
+      (do (shape! expr ["@type" "bindings" "body"])
+          (let [bindings (get expr "bindings")
+                _ (vector! bindings 64)
+                raw (mapv (fn [b]
+                            (optional-flag! b ["pattern" "value"] "mutable")
+                            (let [pattern (binding-pattern! (get b "pattern"))]
+                              (when (= :binding-default (:op pattern)) (fail! :mithril.native-js/shape "Lexical pattern cannot have an outer default"))
+                              {:pattern pattern :raw-value (get b "value") :mutable (true? (get b "mutable"))})) bindings)
+                names (vec (mapcat #(get-in % [:pattern :names]) raw))
+                _ (vector! names 128) _ (unique! names) _ (coroutine-bindings! names args-length)
+                env (into locals (mapcat (fn [b] (map #(vector % (:mutable b)) (get-in b [:pattern :names]))) raw))]
+            {:op :binding-let
+             :bindings (mapv (fn [b] {:pattern (check-binding-pattern (:pattern b) imports functions env (inc depth) nodes args-length)
+                                      :value (expression! (:raw-value b) imports functions env (inc depth) nodes (value-context args-length))
+                                      :mutable (:mutable b)}) raw)
+             :body (expression! (get expr "body") imports functions env (inc depth) nodes args-length)}))
       "Let"
       (do (shape! expr ["@type" "bindings" "body"])
           (let [bindings (get expr "bindings")]
@@ -652,10 +738,13 @@
             (when (contains? locals name)
               (fail! :mithril.native-js/duplicate "LocalFunction binding must be fresh"))
             (vector! params 64)
-            (let [params (mapv name! params) _ (unique! params)
+            (let [raw-params (mapv #(if (string? %) {"name" % "datatype" "js-value"} %) params)
+                  params (params! raw-params)
                   self-env (assoc locals name false)
-                  body-env (into self-env (zipmap params (repeat false)))]
-              {:op :local-function :name name :params params
+                  body-env (parameter-env self-env raw-params params nil)
+                  defaults (into {} (keep-indexed (fn [i p] (when (contains? p "default")
+                                                            [i (expression! (get p "default") imports functions body-env (inc depth) nodes true)])) raw-params))]
+              {:op :local-function :name name :params (check-parameter-patterns params imports functions body-env (inc depth) nodes true) :defaults defaults
                :body (expression! (get expr "body") imports functions body-env (inc depth) nodes true)
                :result (expression! (get expr "result") imports functions self-env (inc depth) nodes (value-context args-length))})))
       "Sequence"
@@ -728,7 +817,7 @@
                                                (when (contains? p "default")
                                                  [i (expression! (get p "default") (set imports) targets env 1 nodes true)]))
                                              (get f "params")))]
-                      (cond-> (assoc d :body (expression! (get f "body") (set imports) targets env 1 nodes (body-context true (get f "statements") true)))
+                      (cond-> (assoc d :params (check-parameter-patterns (:params d) (set imports) targets env 1 nodes true) :body (expression! (get f "body") (set imports) targets env 1 nodes (body-context true (get f "statements") true)))
                         (seq defaults) (assoc :defaults defaults)))) functions declarations)
             public (mapv (fn [e]
                            (let [e (if (string? e) {"name" e "function" e} e)]
@@ -760,14 +849,48 @@
        :env (into env (zipmap names symbols))})))
 
 (declare emit-expression emit-body)
-(defn- emit-class-signature [signature imports functions env counter prefix context]
-  (let [params (mapv (fn [_] (fresh counter prefix)) (:params signature))
+(defn- emit-binding-value [value binding-name imports functions env counter prefix context]
+  ;; Native NamedEvaluation uses the source binding label, not its hygienic symbol.
+  ;; A computed property keeps an inferred anonymous function anonymous internally.
+  (if (and binding-name (contains? #{:lambda :native-function :native-class} (:op value)) (nil? (:name value)))
+    (str "({[" (quoted binding-name) "]:" (emit-expression (assoc value :infer-name true) imports functions env counter prefix context) "})[" (quoted binding-name) "]")
+    (emit-expression value imports functions env counter prefix context)))
+(defn- emit-binding-pattern [pattern imports functions env counter prefix context]
+  (let [child #(emit-binding-pattern % imports functions env counter prefix context)]
+    (case (:op pattern)
+      :binding-name (get env (:name pattern))
+      :binding-default (str (child (:target pattern)) "="
+                            (emit-binding-value (:default pattern) (when (= :binding-name (:op (:target pattern))) (:name (:target pattern))) imports functions env counter prefix context))
+      :binding-array (let [items (:items pattern) rest (:rest pattern)]
+                       (str "[" (str/join "," (map #(if % (child %) "") items))
+                            (when (and (seq items) (nil? (last items)) (nil? rest)) ",")
+                            (when rest (str (when (seq items) ",") "..." (child rest))) "]"))
+      :binding-object (str "{" (str/join "," (concat
+                              (map #(str (if (:computed %)
+                                              (str "[" (emit-expression (:key %) imports functions env counter prefix context) "]")
+                                              (quoted (str (:value (:key %))))) ":" (child (:target %))) (:properties pattern))
+                              (when (:rest pattern) [(str "..." (child (:rest pattern)))]))) "}"))))
+(defn- emit-parameters [signature imports functions env counter prefix context]
+  (let [slots (:params signature) names (vec (mapcat binding-names slots))
+        symbols (mapv (fn [_] (fresh counter prefix)) names)
         rest-symbol (when (some? (:rest signature)) (fresh counter prefix))
-        body-env (cond-> (into env (zipmap (:params signature) params)) rest-symbol (assoc (:rest signature) rest-symbol))
-        param-source (map-indexed
-                      (fn [i symbol] (if (contains? (:defaults signature) i)
-                                       (str symbol "=" (emit-expression (get (:defaults signature) i) imports functions body-env counter prefix context)) symbol)) params)
-        param-source (cond-> (vec param-source) rest-symbol (conj (str "..." rest-symbol)))]
+        body-env (cond-> (into env (zipmap names symbols)) rest-symbol (assoc (:rest signature) rest-symbol))
+        source (map-indexed (fn [i slot]
+                              (str (if (string? slot) (get body-env slot) (emit-binding-pattern slot imports functions body-env counter prefix context))
+                                   (when (contains? (:defaults signature) i)
+                                     (str "=" (if (and (map? slot) (= :binding-name (:op slot)))
+                                                  (emit-binding-value (get (:defaults signature) i) (:name slot) imports functions body-env counter prefix context)
+                                                  (emit-expression (get (:defaults signature) i) imports functions body-env counter prefix context)))))) slots)]
+    {:env body-env :source (cond-> (vec source) rest-symbol (conj (str "..." rest-symbol)))}))
+(defn- emit-binding-block [expr imports functions env counter prefix context result?]
+  (let [names (mapcat #(get-in % [:pattern :names]) (:bindings expr))
+        scope (into env (map #(vector % (fresh counter prefix)) names))]
+    (str (apply str (map (fn [b]
+                          (str (if (:mutable b) "let " "const ") (emit-binding-pattern (:pattern b) imports functions scope counter prefix context) "="
+                               (emit-binding-value (:value b) (when (= :binding-name (:op (:pattern b))) (:name (:pattern b))) imports functions scope counter prefix context) ";")) (:bindings expr)))
+         (emit-body (:body expr) imports functions scope counter prefix context result?))))
+(defn- emit-class-signature [signature imports functions env counter prefix context]
+  (let [{body-env :env param-source :source} (emit-parameters signature imports functions env counter prefix context)]
     (str "(" (str/join "," param-source) "){"
          (if (:statements signature)
            (emit-body (:body signature) imports functions body-env counter prefix context true)
@@ -862,8 +985,12 @@
                     env (cond-> (into env (map vector names symbols)) rest-symbol (assoc (:rest expr) rest-symbol))
                     pattern-source (map (fn [p]
                                           (let [s (map #(get env %) (:names p))
-                                                source (if (= :array (:op p)) (str "[" (str/join "," s) "]") (first s))]
-                                            (str source (when (contains? p :default) (str "=" (emit-expression (:default p) imports functions env counter prefix args-length)))))) patterns)
+                                                source (if (contains? #{:binding-name :binding-default :binding-array :binding-object} (:op p))
+                                                         (emit-binding-pattern p imports functions env counter prefix args-length)
+                                                         (if (= :array (:op p)) (str "[" (str/join "," s) "]") (first s)))]
+                                            (str source (cond
+                                                          (contains? p :parameter-default) (str "=" (emit-binding-value (:parameter-default p) (when (= :binding-name (:op p)) (:name p)) imports functions env counter prefix args-length))
+                                                          (and (not (contains? #{:binding-name :binding-default :binding-array :binding-object} (:op p))) (contains? p :default)) (str "=" (emit-expression (:default p) imports functions env counter prefix args-length)))))) patterns)
                     pattern-source (cond-> (vec pattern-source) rest-symbol (conj (str "..." rest-symbol)))]
                 ;; Always anonymous, including Let initializers; native arrow
                 ;; arity, nonconstructibility and iterator binding are retained.
@@ -875,16 +1002,7 @@
                      (if (:infer-name expr) ")" "))")))
       :native-function
       (let [self-env (cond-> env (some? (:name expr)) (assoc (:name expr) (:name expr)))
-            params (mapv (fn [_] (fresh counter prefix)) (:params expr))
-            rest-symbol (when (some? (:rest expr)) (fresh counter prefix))
-            body-env (cond-> (into self-env (zipmap (:params expr) params))
-                       rest-symbol (assoc (:rest expr) rest-symbol))
-            param-source (map-indexed
-                           (fn [i symbol]
-                             (if (contains? (:defaults expr) i)
-                               (str symbol "=" (emit-expression (get (:defaults expr) i) imports functions body-env counter prefix true))
-                               symbol)) params)
-            param-source (cond-> (vec param-source) rest-symbol (conj (str "..." rest-symbol)))
+            {body-env :env param-source :source} (emit-parameters expr imports functions self-env counter prefix true)
             source (str (when (:async expr) "async ") "function" (when (:generator expr) "*")
                         (when (some? (:name expr)) (str " " (:name expr)))
                         "(" (str/join "," param-source) "){"
@@ -912,6 +1030,7 @@
                                 (str member-prefix (emit-class-signature m imports functions self-env counter prefix method-context)))))) (:members expr))
             source (str header "{" ctor (apply str members) "}")]
         (str (if (:infer-name expr) "(" "(0,(") source (if (:infer-name expr) ")" "))")))
+      :binding-let (str "(()=>{" (emit-binding-block expr imports functions env counter prefix args-length true) "})()")
       :let (loop [todo (:bindings expr) env env statements []]
              (if-let [b (first todo)]
                (let [early-symbol (when (:recursive b) (fresh counter prefix))
@@ -934,8 +1053,7 @@
                         (emit (:finally expr)) ";}})()")
       :local-function (let [symbol (fresh counter prefix)
                             self-env (assoc env (:name expr) symbol)
-                            params (mapv (fn [_] (fresh counter prefix)) (:params expr))
-                            body-env (into self-env (zipmap (:params expr) params))]
+                            {body-env :env params :source} (emit-parameters expr imports functions self-env counter prefix true)]
                         (str "(()=>{const " symbol "=function " (:name expr) "(" (str/join "," params) "){return "
                              (emit-expression (:body expr) imports functions body-env counter prefix true)
                              ";};return " (emit-expression (:result expr) imports functions self-env counter prefix args-length) ";})()"))
@@ -949,6 +1067,7 @@
   (let [emit #(emit-expression % imports functions env counter prefix context)
         body (fn [x e result] (emit-body x imports functions e counter prefix context result))]
     (case (:op expr)
+      :binding-let (str "{" (emit-binding-block expr imports functions env counter prefix context result?) "}")
       :let
       (loop [todo (:bindings expr) e env statements []]
         (if-let [b (first todo)]
@@ -1032,13 +1151,7 @@
                                           (tree-seq coll? seq (:bindings checked)))
         function-source (apply str
                       (map (fn [f]
-                             (let [params (mapv (fn [_] (fresh counter prefix)) (:params f))
-                                   env (into (:env module-bindings) (zipmap (:params f) params))
-                                   param-source (map-indexed
-                                                  (fn [i symbol]
-                                                    (if (contains? (:defaults f) i)
-                                                      (str symbol "=" (emit-expression (get (:defaults f) i) imports functions env counter prefix true))
-                                                      symbol)) params)]
+                             (let [{env :env param-source :source} (emit-parameters f imports functions (:env module-bindings) counter prefix true)]
                                (str (if (:mutable f) "let " "const ") (get functions (:name f)) "=function " (:name f) "(" (str/join "," param-source) "){"
                                     (if (:statements f)
                                       (emit-body (:body f) imports functions env counter prefix true true)
@@ -1094,7 +1207,7 @@
         declared-names (concat (map #(get % "import") links)
                                (map :name (:functions checked)) (map :name (:bindings checked)))
         _ (unique! declared-names)
-        _ (doseq [name (concat declared-names (mapcat :params (:functions checked)))]
+        _ (doseq [name (concat declared-names (mapcat #(mapcat binding-names (:params %)) (:functions checked)))]
             (when (contains? reserved name)
               (fail! :mithril.native-js/name "Reserved native ESM declaration binding")))
         ;; All compiler-owned names avoid native self bindings and source function
@@ -1130,12 +1243,7 @@
                                         (str "import " (quoted path) ";\n")))) dependencies))
         function-source (apply str
                            (map (fn [f]
-                                  (let [params (mapv (fn [_] (fresh counter prefix)) (:params f))
-                                        body-env (into env (zipmap (:params f) params))
-                                        signature (map-indexed
-                                                    (fn [i symbol]
-                                                      (if (contains? (:defaults f) i)
-                                                        (str symbol "=" (emit-expression (get (:defaults f) i) imports functions body-env counter prefix true)) symbol)) params)]
+                                  (let [{body-env :env signature :source} (emit-parameters f imports functions env counter prefix true)]
                                     (str "function " (:name f) "(" (str/join "," signature) "){"
                                          (if (:statements f)
                                            (emit-body (:body f) imports functions body-env counter prefix true true)

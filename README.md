@@ -2426,3 +2426,50 @@ qualification](test/fixtures/schema-classic-for-README.md). The validateVolatile
 helper is explicit; full Schema/volatile validation/serialization/default value
 API and Harness/browser/native/Q9 remain subsequent work. No new System One
 inference/adoption or performance gain is claimed by this operator-authored stage.
+
+### Native binding patterns
+
+`mithril/host-binding-let` introduces a source block with `bindings` entries
+containing `pattern`, `value`, and optional boolean `mutable`, followed by `body`.
+All names in that block are predeclared; native `let`/`const` initialization
+preserves self/forward TDZ and declaration order. Legacy `mithril/let` retains
+its existing sequential checked semantics and artifact bytes.
+
+A pattern is an identifier string, `{:array [...]}` (nil items are holes,
+optional `:rest` is a final nested pattern), or `{:object [...]}` (ordered
+entries with checked expression `:key` and `:pattern`, optional final identifier
+`:rest`). `{:binding pattern :default expression}` adds a native initializer to
+an element or parameter. Object keys default to static literal string/number
+keys; other expressions are computed. Optional boolean `:computed` selects
+computed evaluation explicitly, including a literal computed key. Static keys
+must be literal strings or numbers. Rest has no outer default; object rest must
+be an identifier. A lexical declaration cannot have an outer default.
+
+Normal function, module function, local function, constructor, method and
+accessor parameter records may use `pattern` instead of `name`, with the usual
+`datatype: "js-value"`, optional `default` and boolean `mutable`. Arrow parameter
+records use `pattern` with optional `default`/`mutable`; their existing string,
+name and shallow-array forms remain supported. Default/key expressions see the
+complete parameter scope and retain native TDZ, arity, arguments, this and
+function environment rules. Parameter initializers cannot suspend; source
+async/generator bodies retain their own permissions. Pattern leaves inherit
+mutability from their declaration/parameter. The separate function `rest`
+parameter remains an identifier.
+
+The compiler emits genuine native destructuring, including iterator close,
+ordered property reads/computed keys, symbol/rest exclusions, defaults only for
+undefined, and native inferred function/class names using the original binding
+labels. No index-read or object-copy lowering is used. Pattern depth is at most
+64, each collection and pattern's bound-name list at most64, each lexical block
+at most64 declarations/128 names, and patterns/defaults/keys share the existing
+4096-node module checking budget. Malformed/duplicate bindings, illegal rest,
+unknown keys, readonly mutation and borrowed control/coroutine scopes are refused.
+
+The paired fixtures execute both actual CLI targets under Node. Built-in error
+checks compare native exception classes; their engine diagnostic text can
+contain hygienically generated variable names. Thrown application values are
+checked by identity. Exact original Schema pattern observations cover five
+lexical and23 parameter sites under explicit projection wrappers and a named
+`Schema.resolve` helper; they do not establish complete Schema/Harness runtime
+or actual browser behavior. See
+[test/fixtures/schema-binding-patterns-README.md](test/fixtures/schema-binding-patterns-README.md).
