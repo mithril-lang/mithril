@@ -139,7 +139,7 @@
   ;; helper. Direct source statement bodies keep their own coroutine context.
   (let [args-length (if (or (= "LocalFunction" (get expr "@type"))
                            (and (not (context? args-length :statement))
-                                (contains? #{"Let" "HostWhile" "HostDoWhile" "HostForOf" "HostThrow" "HostTryCatch" "HostTryFinally"} (get expr "@type"))))
+                                (contains? #{"Let" "HostWhile" "HostDoWhile" "HostForOf" "HostForIn" "HostThrow" "HostTryCatch" "HostTryFinally"} (get expr "@type"))))
                       (suspension-context args-length false false) args-length)
         check #(expression! % imports functions locals (inc depth) nodes (value-context args-length))
         body-check #(expression! % imports functions locals (inc depth) nodes args-length)
@@ -374,20 +374,22 @@
       "HostDelete"
       (do (shape! expr ["@type" "object" "key"])
           {:op :delete :object (check (get expr "object")) :key (check (get expr "key"))})
-      "HostForOf"
-      (do (shape! expr ["@type" "iterable" "binding" "body" "result"])
-          (let [raw (get expr "binding")
-                binding (if (string? raw) (name! raw)
-                            (do (shape! raw ["array"]) (pattern! raw)))
-                names (if (string? binding) [binding] (:names binding))]
-            (unique! names)
-            (coroutine-bindings! names args-length)
-            (when (some #(contains? locals %) names)
-              (fail! :mithril.native-js/duplicate "Loop binding must be fresh"))
-            {:op :for-of :binding binding :iterable (check (get expr "iterable"))
-             :body (expression! (get expr "body") imports functions (into locals (zipmap names (repeat false)))
-                                (inc depth) nodes (loop-context args-length))
-             :result (body-check (get expr "result"))}))
+      ("HostForOf" "HostForIn")
+      (let [for-in? (= "HostForIn" (get expr "@type"))
+            field (if for-in? "object" "iterable")]
+        (shape! expr ["@type" field "binding" "body" "result"])
+        (let [raw (get expr "binding")
+              binding (if (string? raw) (name! raw)
+                          (do (shape! raw ["array"]) (pattern! raw)))
+              names (if (string? binding) [binding] (:names binding))]
+          (unique! names)
+          (coroutine-bindings! names args-length)
+          (when (some #(contains? locals %) names)
+            (fail! :mithril.native-js/duplicate "Loop binding must be fresh"))
+          {:op (if for-in? :for-in :for-of) :binding binding :iterable (check (get expr field))
+           :body (expression! (get expr "body") imports functions (into locals (zipmap names (repeat false)))
+                              (inc depth) nodes (loop-context args-length))
+           :result (body-check (get expr "result"))}))
       "HostWhile"
       (do (shape! expr ["@type" "condition" "body" "result"])
           {:op :while :condition (check (get expr "condition"))
@@ -743,10 +745,10 @@
       :update (str "(" (when (:prefix expr) (:operator expr)) "(" (emit (:object expr)) ")[" (emit (:key expr)) "]" (when-not (:prefix expr) (:operator expr)) ")")
       :set (str "((" (emit (:object expr)) ")[" (emit (:key expr)) "]=" (emit (:value expr)) ")")
       :delete (str "(delete (" (emit (:object expr)) ")[" (emit (:key expr)) "])")
-      :for-of (let [binding (emit-loop-binding (:binding expr) env counter prefix)
+      (:for-of :for-in) (let [binding (emit-loop-binding (:binding expr) env counter prefix)
                     body-env (:env binding)]
-                ;; Native for-of supplies IteratorClose and lexical iteration scope.
-                (str "(()=>{for(const " (:source binding) " of " (emit (:iterable expr)) "){"
+                ;; Preserve native iteration/enumeration and per-iteration lexical scope.
+                (str "(()=>{for(const " (:source binding) (if (= :for-in (:op expr)) " in " " of ") (emit (:iterable expr)) "){"
                      (emit-expression (:body expr) imports functions body-env counter prefix args-length)
                      ";}return " (emit (:result expr)) ";})()"))
       :while (str "(()=>{while(" (emit (:condition expr)) "){"
@@ -881,9 +883,9 @@
                   (body (:result expr) env result?))
       :do-while (str "do{" (body (:body expr) env false) "}while(" (emit (:condition expr)) ");"
                      (body (:result expr) env result?))
-      :for-of
+      (:for-of :for-in)
       (let [binding (emit-loop-binding (:binding expr) env counter prefix)]
-        (str "for(const " (:source binding) " of " (emit (:iterable expr)) "){"
+        (str "for(const " (:source binding) (if (= :for-in (:op expr)) " in " " of ") (emit (:iterable expr)) "){"
              (body (:body expr) (:env binding) false) "}"
              (body (:result expr) env result?)))
       (str (when result? "return ") (emit expr) ";"))))
