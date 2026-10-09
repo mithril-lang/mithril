@@ -196,8 +196,11 @@ replacement resolver does not establish identical module semantics.
    and CodeGraph CI `37933126261` succeeded, with all 20 stages and source 81/409,
    package 40/7, Include 32 runtime and 6 positive/8 negative types per CLI label
    audited. PR #91 merged at `f8c453a27d9358c623b0b268169b91ae04ab19f2`;
-   main Native JS CI `37934592393` remains in progress, while CodeGraph
-   `37934592400` succeeded. Full main audit remains pending;
+   main Native JS CI `37934592393` and CodeGraph `37934592400` succeeded.
+   Full logs confirm all 20 stages, source 81/409, package 40/7, Include 32 runtime
+   and 6 positive/8 negative strict type groups per label, and CodeGraph 33/239
+   plus HTTP contracts. All twenty changed files match main. Evidence:
+   `include-sdk-main-ci-audit.json` and `include-sdk-main-file-match.json`;
    YAML runtime/types remain pinned external dependencies, and full YAML source
    closure, further lifecycle/HMR and actual browser/native/Q9 remain unqualified.
    The next source dependency is complete pinned YAML 4.2.0. Its monolithic
@@ -210,7 +213,9 @@ replacement resolver does not establish identical module semantics.
    `HostArguments` / `mithril/host-arguments` primitive emits the actual source
    normal function's arguments object and refuses absent function contexts.
    Both actual CLI labels pass 24 original-paired Node groups; source regression
-   passes 83 tests/412 assertions. Its PR/main delivery remains pending.
+   passes 83 tests/412 assertions; package qualification retains 40 exports and
+   seven frozen artifacts. PR #92 contains this change; final-head branch CI,
+   merge and main verification remain pending.
    Resolve native abstract inequality, then qualify the complete YAML source
    closure and replace Include's external runtime link before full-source claims.
    Evidence: `yaml-source-audit.json`, `yaml-source-frontier.json`,
