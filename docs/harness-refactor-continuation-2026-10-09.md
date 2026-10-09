@@ -19,11 +19,12 @@ substitute for this objective.
 
 | Item | Location / identity | State |
 | --- | --- | --- |
-| Compiler checkout | `/Users/junkawasaki/github/mithril-lang/mithril-harness-language` | `codex/native-module-operations` |
+| Compiler checkout | `/Users/junkawasaki/github/mithril-lang/mithril-harness-language` | `codex/native-esm-externals` |
 | Saved work checkpoint | `82bd71fbfbf27e4ed3e08ba03898eb9a01a31ed4` | WIP committed and pushed before the requested pause |
 | Schema SDK | https://github.com/mithril-lang/mithril/pull/79 | Merged at `34ca28d6524c27a6c11e24c01bddeca9da35763d`; head `b211a8d076bdb85f77859a2563ba3f79ee5e433f` qualified |
 | Schema branch CI | `37894254763`, job `113701855514` | Terminal success; full source/package/all 14 declaration stages audited |
 | Schema main CI | `37895861420` | Terminal success; all 14 stages audited, exact branch/main tree verified |
+| Native module operations | https://github.com/mithril-lang/mithril/pull/80 | Merged at `99981656c7fd026ec0f5c7614bace0bb0dd1d1c7`; main CI `37898609701` terminal success, full log audited |
 | System One checkout | `/Users/junkawasaki/github/mithril-lang/mithril-system-one-refactor` | PR #893 merged; qualified exact source `cc8d1bfb6dcbe30c302d24cbec214c07141e42e7` |
 | Operator evidence | `/Users/junkawasaki/github/mithril-lang/mithril-harness-evaluation-2026-10-07` | Logs, receipts and readonly reference |
 | Original Harness | Evidence directory's `reference-harness-441416` | Snapshot `441416c0048aa4281bffe59c1c7b5e13e08a9ec1` |
@@ -66,7 +67,8 @@ Code owner is not a reason to stop meaningful compiler/dependency work.
 | Native finite numeric literals | PR #77/main `4106e9e…`, main CI `37889375930` audited success | Reader normalizes integer `-0`; use `-0.0` or `-0e0` for negative zero |
 | Ambient callback references | PR #78/main `92a27a8e…`, main CI `37891594652` audited success | Finite checks are not universal callback equivalence |
 | Schema SDK | PR #79; local 14 stages and branch CI succeeded; both actual CLI targets; 54 positive/21 negative type groups, 26 runtime groups, serialized Date and full own static/prototype descriptors | Actual browser behavior and broader inputs |
-| Native module operations | First resumed standalone CLI and original-paired contract passed after fixture corrections | PR and main delivery; local 74/306 native, 40-export/7-frozen package and all 14 declaration stages passed |
+| Native module operations | PR #80 merged; main CI `37898609701` audited success; 74/306 native, 40-export/7-frozen package and all 14 declaration stages passed | Actual browser and full dependent source closure |
+| Explicit external ESM | Real Node builtin and bare-package imports, complete Loader internal runtime, live/default binding contracts; new 2-test/32-assertion qualification passed | 76/338 native and 40-export/seven-frozen package passed; both CLI targets passed strict paired type consumers; full declaration regressions and PR/main delivery pending |
 | System One generic refactor | PR #893 merged; selected-source replacement/local edits, baseline/candidate Docker checks, fixed refusal detail, durable receipts, signed Code CI/CD | New diagnostics publication and actual model evaluation |
 | Code qualification | Exact `cc8d1bfb…`: Code93/quota34/Python8/CI-release12/hold24/real Docker2/Todo17 plus browser fixtures; verified signature/source/676 assets | Main has advanced; rerun on exact current main before release |
 | Public Code | Most recent read: `fca16aec22fc0207ec7d91e863d3384aa92e161e`, ready=true, repository_refactor_proposals=true, durable_refactor_receipts=true | New diagnostics unpublished; arbitrary_repository_execution=false |
@@ -77,18 +79,16 @@ separate. Candidate runtime cannot delegate to original Schema or dependency cod
 
 ## Current source change
 
-The saved WIP adds `host-import-meta` and `host-dynamic-import` form tags, bounded
-AST admission and direct native emission, with standalone/ESM/package fixtures.
-The first pre-pause probe refused an unregistered `mithril/param` fixture tag.
-It was corrected to `rdf/node`; resumed compilation succeeds. The comparison
-fixture now uses actual filesystem paths on macOS. A second fixture correction
-uses direct exports for package-library output, retaining explicit factory mode
-as a separate tested case.
+Native import metadata and dynamic import are delivered through PR #80. The
+current change adds explicitly declared external ESM modules, real Node builtin
+and package resolution, matching external declaration provenance and runtime/type
+artifact naming. Loader's entire original `internal.ts` runtime now has genuine
+Mithril source and uses a real `node:module` import in this qualification. See
+`test/qualification/native-esm-externals/README.md`.
 
-New admission and actual CLI tests cover both target labels and all four output
-forms. Local validation passed: 74 native tests / 306 assertions, the 40-export /
-seven-frozen-artifact package contract and all 14 declaration stages. PR and
-main delivery remain separate gates. See `test/qualification/native-module-operations/README.md`.
+The feature does not yet port the full Loader/Include source or type closure.
+Namespace imports needed by Include's YAML dependency remain a separate compiler
+prerequisite. Preserve the original YAML dialect and host resolution behavior.
 
 Original dependency sites:
 
@@ -102,11 +102,9 @@ replacement resolver does not establish identical module semantics.
 
 ## Next work
 
-1. Schema main CI `37895861420` is now audited successfully. Continue from the
-   native module operations qualification; retain exact-main/tree evidence.
-2. Finish native module operations: malformed/scope/depth/guest tests, exact old
-   artifact preservation, both targets/output forms and independent host oracle.
-   Complete source/package/declaration regressions and normal PR/main delivery.
+1. Schema and native module operations main CI are audited successfully.
+2. Finish explicit external ESM runtime/type qualification, full regressions and
+   normal PR/main delivery, retaining exact source and CI evidence.
 3. Port Loader/Include by complete source closure, SCC and public type graph.
    Then port Harness API/plugin/profile/Session and verify actual browser/native/Q9.
 4. Resolve the Code owner, qualify current main, publish through the dedicated

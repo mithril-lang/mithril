@@ -24,6 +24,7 @@ try{
   ['native-mutable-declarations','compile.cljk'],
   ['native-global-declarations','compile.cljk'],
   ['native-schema-sdk','compile.cljk'],
+  ['native-esm-externals','compile.cljk'],
  ];
  for(const [name,control] of stages){
   console.log(`Declaration qualification stage: ${name}`);

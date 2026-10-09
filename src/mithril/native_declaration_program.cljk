@@ -31,7 +31,7 @@
                         (let [text (get sources (get m "source")) _ (module/check-source-text! text) doc (form/parse text)]
                          (when-not (= (get m "name") (get doc "name")) (fail! :mithril.native-declarations/source "Declaration source identity mismatch")) doc)) (get document "modules"))
         checked (declarations/check-module-program modules (get document "externals") runtime (get document "entry"))
-        runtime-names (vec (sort (keys (:modules runtime)))) runtime-files (zipmap runtime-names (map #(str "module-" %) (range)))
+        runtime-names (vec (sort (keep (fn [[n m]] (when-not (:external m) n)) (:modules runtime)))) runtime-files (zipmap runtime-names (map #(str "module-" %) (range)))
         stems (mapv (fn [index doc] (if-let [n (get doc "runtime")] (get runtime-files n) (if (= (get doc "name") (:entry checked)) "index" (str "declaration-" index)))) (range) modules)
         _ (when-not (= (count stems) (count (set stems))) (fail! :mithril.native-declarations/source "Repeated declaration runtime identity"))
         paths (merge (into {} (map #(vector (get %1 "name") (str "./" %2 ".mjs")) modules stems))
