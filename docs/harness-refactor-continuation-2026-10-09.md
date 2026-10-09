@@ -390,3 +390,36 @@ manifest graph, not a substitute for actual source import and public-contract
 qualification. After Scope, resolve Session's Brand/util-values/LLM prerequisite
 closure (LLM includes util-crypto, timeout, Brand, util-values and typert-protocol),
 then Session, Agent, Tools and the boot/plugin/profile graph.
+
+## Brand prerequisite and current delivery evidence (2026-10-10 JST)
+
+The prior pending CI gates above are now resolved. PR #98 current main
+`78681852ff09059794fffd4ee4cd8d7c763df4e6` passed all 25 stages;
+PR #99 merged to `f99e38deedede6733e9709809106828c456af2ab` and passed
+all 26 stages on branch and main, with all 16 changed files byte-identical.
+The local full Scope SDK run exhausted disk space during stage 16; it is not
+reported as a complete local pass. Exact-head remote CI is the complete gate.
+
+The complete original Brand source now has one own runtime module and one own
+declaration module. Stage 27 compares all five source declarations, five positive
+and nine exact-code negative original-paired strict consumers, 42 runtime
+identity pairs and the unchanged upstream test under both CLI labels. Real
+NodeNext duplicate installs test same-version string/numeric nominal identity,
+distinct-version rejection and actual bare-package runtime imports. The original
+strict declaration emission is reproduced with zero diagnostics. CLI labels are
+executed under Node; actual browser/native/Q9 and publication remain separate.
+
+The next source frontier is util-values' complete two-file source cycle. Its
+PartialArguments class uses 16 actual JavaScript `#private` fields, including
+updates and compound assignments. These require lexical private-name admission
+and native private syntax emission; replacing them with visible properties or
+omitting the parser would change the original public behavior. Continue with
+private-field compiler support and original-paired validation, then complete
+util-values and the LLM prerequisite closure before Session, Agent and Tools.
+
+All of these ports are operator authored. System One's public status advertises
+repository proposals and durable v2 receipts, but arbitrary repository execution
+is false. No new model trial or performance gain is claimed: the current process
+has no configured refactor API token and local Docker preflight has no daemon
+socket. Scoped authentication, trusted verification and Code diagnostic
+publication remain independent evidence gates.

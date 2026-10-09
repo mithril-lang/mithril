@@ -1,0 +1,36 @@
+(mithril/native-js-module
+:name "brand.index"
+:ambient_imports []
+:imports []
+:functions [(mithril/function
+:name "brandString"
+:params [(rdf/node
+:name "value"
+:datatype "js-value")]
+:returns "js-value"
+:body (mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/local
+:name "value"))
+(mithril/host-undefined)])
+:statements true)
+(mithril/function
+:name "brandNumber"
+:params [(rdf/node
+:name "value"
+:datatype "js-value")]
+:returns "js-value"
+:body (mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/local
+:name "value"))
+(mithril/host-undefined)])
+:statements true)]
+:bindings []
+:exports [(rdf/node
+:name "brandString"
+:function "brandString")
+(rdf/node
+:name "brandNumber"
+:function "brandNumber")]
+:lexical_bindings true)
