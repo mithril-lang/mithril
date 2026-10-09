@@ -50,5 +50,5 @@
         (ensure (= expected (fs/readFileSync (str typed "/" file) "utf8")) "Actual Loader declaration CLI bytes"))
       (run ["test/qualification/native-loader-sdk/controls/types.mjs" compiler type-roots typed])
       (run ["test/qualification/native-loader-sdk/controls/runtime.mjs" sdk own-schema compiler])))
-  (println "Loader SDK: complete original public declaration graph, 8 positive/7 negative paired strict consumers with exact diagnostic codes, and 25 paired runtime groups per CLI label. Extended host lifecycle remains pending.")
+  (println "Loader SDK: complete original public declaration graph, 8 positive/7 negative paired strict consumers with exact diagnostic codes, and 40 paired runtime groups per CLI label. Extended host lifecycle remains pending.")
   (finally (fs/rmSync dir #js {:recursive true :force true})))
