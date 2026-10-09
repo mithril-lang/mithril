@@ -98,7 +98,7 @@
   (if statements?
     (assoc (if (map? context) context
                (if (true? context) {:function true :this true :new-target true} {}))
-           :statement true :source-return return? :loop false)
+           :statement true :source-return return? :loop false :switch false)
     (value-context context)))
 (defn- loop-context [context]
   (if (context? context :statement) (assoc context :loop true) (value-context context)))
@@ -139,7 +139,7 @@
   ;; helper. Direct source statement bodies keep their own coroutine context.
   (let [args-length (if (or (= "LocalFunction" (get expr "@type"))
                            (and (not (context? args-length :statement))
-                                (contains? #{"Let" "HostWhile" "HostDoWhile" "HostForOf" "HostForIn" "HostThrow" "HostTryCatch" "HostTryFinally"} (get expr "@type"))))
+                                (contains? #{"Let" "HostWhile" "HostDoWhile" "HostForOf" "HostForIn" "HostSwitch" "HostThrow" "HostTryCatch" "HostTryFinally"} (get expr "@type"))))
                       (suspension-context args-length false false) args-length)
         check #(expression! % imports functions locals (inc depth) nodes (value-context args-length))
         body-check #(expression! % imports functions locals (inc depth) nodes args-length)
@@ -390,6 +390,56 @@
            :body (expression! (get expr "body") imports functions (into locals (zipmap names (repeat false)))
                               (inc depth) nodes (loop-context args-length))
            :result (body-check (get expr "result"))}))
+      "HostSwitch"
+      (do (shape! expr ["@type" "value" "clauses" "result"])
+          (let [clauses (get expr "clauses")
+                _ (vector! clauses 128)
+                raw (mapcat (fn [clause]
+                              (if (contains? clause "default")
+                                (do (shape! clause ["default" "statements"])
+                                    (when-not (true? (get clause "default"))
+                                      (fail! :mithril.native-js/shape "Switch default must be true")))
+                                (shape! clause ["test" "statements"]))
+                              (vector! (get clause "statements") 128)
+                              (get clause "statements")) clauses)
+                _ (when (> (count (filter #(contains? % "default") clauses)) 1)
+                    (fail! :mithril.native-js/duplicate "Duplicate switch default"))
+                _ (when (> (count raw) 4096)
+                    (fail! :mithril.native-js/budget "Switch statement budget exceeded"))
+                declarations (keep (fn [statement]
+                                     (if (contains? statement "binding")
+                                       (do (shape! statement ["binding"])
+                                           (let [binding (get statement "binding")]
+                                             (optional-flag! binding ["name" "value"] "mutable")
+                                             {:name (name! (get binding "name"))
+                                              :mutable (true? (get binding "mutable"))}))
+                                       (do (shape! statement ["expression"]) nil))) raw)
+                _ (when (> (count declarations) 128)
+                    (fail! :mithril.native-js/budget "Switch lexical binding budget exceeded"))
+                names (mapv :name declarations)
+                _ (unique! names)
+                _ (coroutine-bindings! names args-length)
+                _ (when (some #(contains? locals %) names)
+                    (fail! :mithril.native-js/duplicate "Switch bindings must be fresh"))
+                scope (into locals (map (juxt :name :mutable) declarations))
+                context (if (context? args-length :statement)
+                          (assoc args-length :switch true)
+                          (assoc (suspension-context args-length false false)
+                                 :statement true :source-return false :loop false :switch true))
+                scoped #(expression! % imports functions scope (inc depth) nodes %2)]
+            {:op :switch :value (check (get expr "value")) :bindings (vec declarations)
+             :clauses (mapv (fn [clause]
+                              (cond-> {:statements
+                                       (mapv (fn [statement]
+                                               (if-let [binding (get statement "binding")]
+                                                 {:binding {:name (get binding "name")
+                                                            :mutable (true? (get binding "mutable"))
+                                                            :value (scoped (get binding "value") (value-context context))}}
+                                                 {:expression (scoped (get statement "expression") context)}))
+                                             (get clause "statements"))}
+                                (contains? clause "default") (assoc :default true)
+                                (contains? clause "test") (assoc :test (scoped (get clause "test") (value-context context))))) clauses)
+             :result (body-check (get expr "result"))}))
       "HostWhile"
       (do (shape! expr ["@type" "condition" "body" "result"])
           {:op :while :condition (check (get expr "condition"))
@@ -537,8 +587,8 @@
           {:op :continue})
       "HostBreak"
       (do (shape! expr ["@type"])
-          (when-not (and (context? args-length :statement) (context? args-length :loop))
-            (fail! :mithril.native-js/scope "Break requires a source loop statement position"))
+          (when-not (and (context? args-length :statement) (or (context? args-length :loop) (context? args-length :switch)))
+            (fail! :mithril.native-js/scope "Break requires a source loop or switch statement position"))
           {:op :break})
       "HostThrow"
       (do (shape! expr ["@type" "value"])
@@ -751,6 +801,7 @@
                 (str "(()=>{for(const " (:source binding) (if (= :for-in (:op expr)) " in " " of ") (emit (:iterable expr)) "){"
                      (emit-expression (:body expr) imports functions body-env counter prefix args-length)
                      ";}return " (emit (:result expr)) ";})()"))
+      :switch (str "(()=>{" (emit-body expr imports functions env counter prefix args-length true) "})()")
       :while (str "(()=>{while(" (emit (:condition expr)) "){"
                (emit (:body expr)) ";}return " (emit (:result expr)) ";})()")
       :do-while (str "(()=>{do{" (emit (:body expr)) ";}while(" (emit (:condition expr)) ");return " (emit (:result expr)) ";})()")
@@ -879,6 +930,18 @@
              (body (:handler expr) (assoc env (:binding expr) symbol) result?) "}"))
       :try-finally (str "try{" (body (:body expr) env result?) "}finally{"
                         (body (:finally expr) env false) "}")
+      :switch
+      (let [scope (reduce (fn [e binding] (assoc e (:name binding) (fresh counter prefix))) env (:bindings expr))
+            scoped #(emit-expression % imports functions scope counter prefix context)]
+        (str "switch(" (emit (:value expr)) "){"
+             (apply str (map (fn [clause]
+                               (str (if (:default clause) "default:" (str "case " (scoped (:test clause)) ":"))
+                                    (apply str (map (fn [statement]
+                                                      (if-let [binding (:binding statement)]
+                                                        (str (if (:mutable binding) "let " "const ")
+                                                             (get scope (:name binding)) "=" (scoped (:value binding)) ";")
+                                                        (body (:expression statement) scope false))) (:statements clause))))) (:clauses expr)))
+             "}" (body (:result expr) env result?)))
       :while (str "while(" (emit (:condition expr)) "){" (body (:body expr) env false) "}"
                   (body (:result expr) env result?))
       :do-while (str "do{" (body (:body expr) env false) "}while(" (emit (:condition expr)) ");"

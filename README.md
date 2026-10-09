@@ -2408,3 +2408,12 @@ original Schemastery loop nodes. See [enumeration qualification](test/fixtures/s
 The observation helpers are explicit; full Schema runtime/default value API,
 its two switch nodes and dynamic Function serialization remain pending. This
 operator-authored prerequisite makes no new System One inference or gain claim.
+
+Checked `HostSwitch` now emits genuine native switch with ordered case evaluation,
+default/fallthrough, shared CaseBlock let/const TDZ and separate switch-break/loop-
+continue permissions.44 paired mechanics groups and34 observation groups cover both
+actual CLI targets under Node and both exact original Schemastery switches. See
+[switch qualification](test/fixtures/schema-switch-README.md). Explicit Schema/valueMap
+helpers are observations, not the complete runtime or real default value API;
+serialization/Function reconstruction and full Harness/browser/native/Q9 remain
+subsequent work. No new System One request or performance-gain claim in this stage.
