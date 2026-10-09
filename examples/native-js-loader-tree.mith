@@ -17,6 +17,145 @@
 "URL"]
 :functions []
 :bindings [(rdf/node
+:name "__rewriteRelativeImportExtension"
+:value (mithril/host-logical
+:operator "||"
+:left (mithril/host-logical
+:operator "&&"
+:left (mithril/host-undefined)
+:right (mithril/host-get
+:object (mithril/host-undefined)
+:key (mithril/literal
+:datatype "js-value"
+:value "__rewriteRelativeImportExtension")))
+:right (mithril/native-function
+:name nil
+:params [(rdf/node
+:name "path"
+:datatype "js-value")
+(rdf/node
+:name "preserveJsx"
+:datatype "js-value")]
+:rest nil
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-logical
+:operator "&&"
+:left (mithril/host-binary
+:operator "==="
+:left (mithril/host-unary
+:operator "typeof"
+:value (mithril/local
+:name "path"))
+:right (mithril/literal
+:datatype "js-value"
+:value "string"))
+:right (mithril/host-method
+:object (mithril/host-regexp
+:pattern "^\\.\\.?\\/"
+:flags "")
+:key (mithril/literal
+:datatype "js-value"
+:value "test")
+:args [(mithril/local
+:name "path")]))
+:then (mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/host-method
+:object (mithril/local
+:name "path")
+:key (mithril/literal
+:datatype "js-value"
+:value "replace")
+:args [(mithril/host-regexp
+:pattern "\\.(tsx)$|((?:\\.d)?)((?:\\.[^./]+?)?)\\.([cm]?)ts$"
+:flags "i")
+(mithril/native-function
+:name nil
+:params [(rdf/node
+:name "m"
+:datatype "js-value")
+(rdf/node
+:name "tsx"
+:datatype "js-value")
+(rdf/node
+:name "d"
+:datatype "js-value")
+(rdf/node
+:name "ext"
+:datatype "js-value")
+(rdf/node
+:name "cm"
+:datatype "js-value")]
+:rest nil
+:body (mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/if
+:condition (mithril/local
+:name "tsx")
+:then (mithril/if
+:condition (mithril/local
+:name "preserveJsx")
+:then (mithril/literal
+:datatype "js-value"
+:value ".jsx")
+:else (mithril/literal
+:datatype "js-value"
+:value ".js"))
+:else (mithril/if
+:condition (mithril/host-logical
+:operator "&&"
+:left (mithril/local
+:name "d")
+:right (mithril/host-logical
+:operator "||"
+:left (mithril/host-unary
+:operator "!"
+:value (mithril/local
+:name "ext"))
+:right (mithril/host-unary
+:operator "!"
+:value (mithril/local
+:name "cm"))))
+:then (mithril/local
+:name "m")
+:else (mithril/host-binary
+:operator "+"
+:left (mithril/host-binary
+:operator "+"
+:left (mithril/host-binary
+:operator "+"
+:left (mithril/host-binary
+:operator "+"
+:left (mithril/local
+:name "d")
+:right (mithril/local
+:name "ext"))
+:right (mithril/literal
+:datatype "js-value"
+:value "."))
+:right (mithril/host-method
+:object (mithril/local
+:name "cm")
+:key (mithril/literal
+:datatype "js-value"
+:value "toLowerCase")
+:args []))
+:right (mithril/literal
+:datatype "js-value"
+:value "js")))))
+(mithril/host-undefined)])
+:statements true)]))
+(mithril/host-undefined)])
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/local
+:name "path"))
+(mithril/host-undefined)])])
+:statements true))
+:mutable true)
+(rdf/node
 :name "EntryTree"
 :value (mithril/native-class
 :name "EntryTree"
@@ -998,7 +1137,10 @@
 :expressions [(mithril/host-return
 :value (mithril/host-await
 :value (mithril/host-dynamic-import
-:source (mithril/host-get
+:source (mithril/host-invoke
+:function (mithril/local
+:name "__rewriteRelativeImportExtension")
+:args [(mithril/host-get
 :object (mithril/host-construct
 :constructor (mithril/host-import
 :name "URL")
@@ -1015,14 +1157,17 @@
 :value "baseUrl"))])
 :key (mithril/literal
 :datatype "js-value"
-:value "href")))))
+:value "href"))]))))
 (mithril/host-undefined)])
 :else (mithril/sequence
 :expressions [(mithril/host-return
 :value (mithril/host-await
 :value (mithril/host-dynamic-import
-:source (mithril/local
-:name "name"))))
+:source (mithril/host-invoke
+:function (mithril/local
+:name "__rewriteRelativeImportExtension")
+:args [(mithril/local
+:name "name")]))))
 (mithril/host-undefined)])))
 (mithril/host-undefined)])])
 :statements true

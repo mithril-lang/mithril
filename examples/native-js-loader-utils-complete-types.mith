@@ -1,0 +1,96 @@
+(mithril/native-js-declaration-module :name "loader.utils"
+:runtime "loader.utils"
+:ambient-types [(rdf/node :name "Promise" :min 1 :max 1) (rdf/node :name "Partial"
+:min 1
+:max 1)
+(rdf/node :name "Omit"
+:min 2
+:max 2)
+(rdf/node :name "Pick"
+:min 2
+:max 2)
+(rdf/node :name "Map"
+:min 2
+:max 2)
+(rdf/node :name "ArrayBuffer"
+:min 0
+:max 0)
+(rdf/node :name "URL"
+:min 0
+:max 0)
+(rdf/node :name "ImportAttributes"
+:min 0
+:max 0)
+(rdf/node :name "NodeJS.Signals"
+:min 0
+:max 0)
+(rdf/node :name "Generator"
+:min 0
+:max 3)
+(rdf/node :name "AsyncGenerator"
+:min 0
+:max 3)]
+:ambient-values []
+:imports []
+:declarations [(rdf/node :kind "const"
+:name "evaluate"
+:exported true
+:datatype (rdf/node :op "function"
+:abstract false
+:type-params []
+:params [(rdf/node :name "ctx"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "object"))
+(rdf/node :name "expr"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))]
+:returns (rdf/node :op "keyword"
+:name "any")))
+(rdf/node :kind "function"
+:name "interpolate"
+:exported true
+:type-params []
+:params [(rdf/node :name "ctx"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "object"))
+(rdf/node :name "value"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "any"))]
+:returns (rdf/node :op "keyword"
+:name "any"))
+(rdf/node :kind "function"
+:name "isJsExpr"
+:exported true
+:type-params []
+:params [(rdf/node :name "value"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "any"))]
+:returns (rdf/node :op "predicate"
+:name "value"
+:datatype (rdf/node :op "name"
+:name "JsExpr"
+:args [])))
+(rdf/node :kind "interface"
+:name "JsExpr"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "__jsExpr"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "string"))])]
+:reexports []
+:augmentations []
+:local-exports [])

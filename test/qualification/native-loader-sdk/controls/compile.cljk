@@ -1,0 +1,54 @@
+(ns compile-loader-sdk
+  (:require [mithril.native-esm :as esm] [mithril.native-declaration-program :as program]
+            ["node:fs" :as fs] ["node:os" :as os] ["node:child_process" :as child]))
+(defn ensure [p message] (when-not p (throw (js/Error. message))))
+(def engine (.-MITHRIL_DECLARATIONS_ENGINE js/process.env))
+(def compiler (.-MITHRIL_DECLARATIONS_TYPESCRIPT js/process.env))
+(def type-roots (.-MITHRIL_DECLARATIONS_TYPE_ROOTS js/process.env))
+(defn run [args]
+  (let [r (child/spawnSync js/process.execPath (clj->js args)
+            #js {:encoding "utf8" :timeout 240000 :maxBuffer 4194304})]
+    (ensure (= 0 (.-status r)) (str (.-stdout r) (.-stderr r)))
+    (print (.-stdout r)) (.-stdout r)))
+(defn artifact [file]
+  (let [text (fs/readFileSync (str "examples/" file) "utf8")
+        sources (into {} (map #(vector % (fs/readFileSync (str "examples/" %) "utf8"))
+                             (esm/source-basenames text)))]
+    (esm/compile-text text sources)))
+(def loader (artifact "native-js-loader-esm.mith"))
+(def schema (artifact "native-js-schemastery-esm.mith"))
+(def type-text (fs/readFileSync "examples/native-js-loader-program.mith" "utf8"))
+(def type-plan (program/read-plan type-text))
+(def type-sources (into {} (map #(vector % (fs/readFileSync (str "examples/" %) "utf8")) (:sources type-plan))))
+(def runtime-text (fs/readFileSync "examples/native-js-loader-esm.mith" "utf8"))
+(def runtime-sources (into {} (map #(vector % (fs/readFileSync (str "examples/" %) "utf8")) (esm/source-basenames runtime-text))))
+(def types (program/compile-text type-text type-sources (esm/check-text runtime-text runtime-sources)))
+(ensure (= (set (:exports loader)) (set (:exports types))) "Exact Loader runtime and declaration exports")
+(ensure (= 24 (count (:module-files loader))) "Complete Loader runtime module closure")
+(ensure (= #{"Entry" "EntryGroup" "EntryTree" "GlobalRealm" "Group" "Loader"
+             "LocalRealm" "ModuleLoader" "Realm" "default" "evaluate" "interpolate" "isJsExpr"}
+           (set (:exports loader))) "Complete Loader public runtime surface")
+(def dir (fs/mkdtempSync (str (os/tmpdir) "/mithril-loader-sdk-")))
+(def config (str dir "/offline.edn"))
+(fs/writeFileSync config (str "{:paths [" (js/JSON.stringify (fs/realpathSync "src")) "]}"))
+(try
+  (doseq [target ["js" "js-browser"]]
+    (let [sdk (str dir "/" target) own-schema (str sdk "-schema") typed (str sdk "-types")]
+      (doseq [[source output expected]
+              [["native-js-loader-esm.mith" sdk loader]
+               ["native-js-schemastery-esm.mith" own-schema schema]]]
+        (fs/writeFileSync (str output ".log")
+          (run [engine "--config" config "-cp" "src" "bin/mithril-native-esm.cljk"
+                (str "examples/" source) "--target" target "--output-directory" output]))
+        (doseq [[file bytes] (:files expected)]
+          (ensure (= bytes (fs/readFileSync (str output "/" file) "utf8"))
+                  "Complete runtime CLI bytes")))
+      (fs/writeFileSync (str typed ".log")
+        (run [engine "--config" config "-cp" "src" "bin/mithril-native-declaration-program.cljk"
+              "examples/native-js-loader-program.mith" "--target" target "--output-directory" typed]))
+      (doseq [[file expected] (:files types)]
+        (ensure (= expected (fs/readFileSync (str typed "/" file) "utf8")) "Actual Loader declaration CLI bytes"))
+      (run ["test/qualification/native-loader-sdk/controls/types.mjs" compiler type-roots typed])
+      (run ["test/qualification/native-loader-sdk/controls/runtime.mjs" sdk own-schema compiler])))
+  (println "Loader SDK: complete original public declaration graph, 8 positive/7 negative paired strict consumers with exact diagnostic codes, and 25 paired runtime groups per CLI label. Extended host lifecycle remains pending.")
+  (finally (fs/rmSync dir #js {:recursive true :force true})))

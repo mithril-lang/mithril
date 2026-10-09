@@ -1,0 +1,680 @@
+(mithril/native-js-declaration-module :name "loader.internal"
+:runtime "loader.internal"
+:ambient-types [(rdf/node :name "Promise" :min 1 :max 1) (rdf/node :name "Partial"
+:min 1
+:max 1)
+(rdf/node :name "Omit"
+:min 2
+:max 2)
+(rdf/node :name "Pick"
+:min 2
+:max 2)
+(rdf/node :name "Map"
+:min 2
+:max 2)
+(rdf/node :name "ArrayBuffer"
+:min 0
+:max 0)
+(rdf/node :name "URL"
+:min 0
+:max 0)
+(rdf/node :name "ImportAttributes"
+:min 0
+:max 0)
+(rdf/node :name "NodeJS.Signals"
+:min 0
+:max 0)
+(rdf/node :name "Generator"
+:min 0
+:max 3)
+(rdf/node :name "AsyncGenerator"
+:min 0
+:max 3)]
+:ambient-values []
+:imports [(rdf/node :module "node.module"
+:type-only true
+:names [(rdf/node :import "LoadHookContext"
+:local "LoadHookContext")])
+(rdf/node :module "cosmokit"
+:type-only true
+:names [(rdf/node :import "Dict"
+:local "Dict")])]
+:declarations [(rdf/node :kind "alias"
+:name "ModuleFormat"
+:exported true
+:type-params []
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "literal"
+:value "builtin")
+(rdf/node :op "literal"
+:value "commonjs")
+(rdf/node :op "literal"
+:value "json")
+(rdf/node :op "literal"
+:value "module")
+(rdf/node :op "literal"
+:value "wasm")]))
+(rdf/node :kind "alias"
+:name "ModuleSource"
+:exported true
+:type-params []
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "keyword"
+:name "string")
+(rdf/node :op "name"
+:name "ArrayBuffer"
+:args [])]))
+(rdf/node :kind "interface"
+:name "ResolveResult"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "format"
+:optional false
+:readonly false
+:datatype (rdf/node :op "name"
+:name "ModuleFormat"
+:args []))
+(rdf/node :kind "property"
+:name "url"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "string"))])
+(rdf/node :kind "interface"
+:name "LoadResult"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "format"
+:optional false
+:readonly false
+:datatype (rdf/node :op "name"
+:name "ModuleFormat"
+:args []))
+(rdf/node :kind "property"
+:name "source"
+:optional true
+:readonly false
+:datatype (rdf/node :op "name"
+:name "ModuleSource"
+:args []))])
+(rdf/node :kind "alias"
+:name "LoadCacheData"
+:exported false
+:type-params []
+:datatype (rdf/node :op "name"
+:name "ModuleJob"
+:args []))
+(rdf/node :kind "interface"
+:name "LoadCache"
+:exported false
+:type-params []
+:extends [(rdf/node :op "name"
+:name "Omit"
+:args [(rdf/node :op "name"
+:name "Map"
+:args [(rdf/node :op "keyword"
+:name "string")
+(rdf/node :op "name"
+:name "Dict"
+:args [(rdf/node :op "name"
+:name "LoadCacheData"
+:args [])])])
+(rdf/node :op "union"
+:items [(rdf/node :op "literal"
+:value "get")
+(rdf/node :op "literal"
+:value "set")
+(rdf/node :op "literal"
+:value "has")])])]
+:members [(rdf/node :kind "method"
+:name "get"
+:optional false
+:type-params []
+:params [(rdf/node :name "url"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :name "type"
+:optional true
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))]
+:returns (rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "LoadCacheData"
+:args [])
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "method"
+:name "set"
+:optional false
+:type-params []
+:params [(rdf/node :name "url"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :name "type"
+:optional true
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :name "job"
+:optional true
+:rest false
+:datatype (rdf/node :op "name"
+:name "LoadCacheData"
+:args []))]
+:returns (rdf/node :op "this"))
+(rdf/node :kind "method"
+:name "has"
+:optional false
+:type-params []
+:params [(rdf/node :name "url"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :name "type"
+:optional true
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))]
+:returns (rdf/node :op "keyword"
+:name "boolean"))])
+(rdf/node :kind "interface"
+:name "ModuleWrap"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "url"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "method"
+:name "getNamespace"
+:optional false
+:type-params []
+:params []
+:returns (rdf/node :op "keyword"
+:name "any"))])
+(rdf/node :kind "interface"
+:name "ModuleJob"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "url"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:name "loader"
+:optional false
+:readonly false
+:datatype (rdf/node :op "name"
+:name "ModuleLoader"
+:args []))
+(rdf/node :kind "property"
+:name "module"
+:optional true
+:readonly false
+:datatype (rdf/node :op "name"
+:name "ModuleWrap"
+:args []))
+(rdf/node :kind "property"
+:name "importAttributes"
+:optional false
+:readonly false
+:datatype (rdf/node :op "name"
+:name "ImportAttributes"
+:args []))
+(rdf/node :kind "property"
+:name "linked"
+:optional false
+:readonly false
+:datatype (rdf/node :op "name"
+:name "Promise"
+:args [(rdf/node :op "array"
+:item (rdf/node :op "name"
+:name "ModuleJob"
+:args []))]))
+(rdf/node :kind "method"
+:name "instantiate"
+:optional false
+:type-params []
+:params []
+:returns (rdf/node :op "name"
+:name "Promise"
+:args [(rdf/node :op "keyword"
+:name "void")]))
+(rdf/node :kind "method"
+:name "run"
+:optional false
+:type-params []
+:params []
+:returns (rdf/node :op "name"
+:name "Promise"
+:args [(rdf/node :op "object"
+:members [(rdf/node :kind "property"
+:name "module"
+:optional false
+:readonly false
+:datatype (rdf/node :op "name"
+:name "ModuleWrap"
+:args []))])]))])
+(rdf/node :kind "interface"
+:name "ModuleLoaderV1"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "version"
+:optional false
+:readonly false
+:datatype (rdf/node :op "literal"
+:value "v1"))
+(rdf/node :kind "property"
+:name "loadCache"
+:optional false
+:readonly false
+:datatype (rdf/node :op "name"
+:name "LoadCache"
+:args []))
+(rdf/node :kind "method"
+:name "import"
+:optional false
+:type-params []
+:params [(rdf/node :name "specifier"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :name "parentURL"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :name "importAttributes"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "ImportAttributes"
+:args []))]
+:returns (rdf/node :op "name"
+:name "Promise"
+:args [(rdf/node :op "keyword"
+:name "any")]))
+(rdf/node :kind "method"
+:name "register"
+:optional false
+:type-params []
+:params [(rdf/node :name "specifier"
+:optional false
+:rest false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "keyword"
+:name "string")
+(rdf/node :op "name"
+:name "URL"
+:args [])]))
+(rdf/node :name "parentURL"
+:optional true
+:rest false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "keyword"
+:name "string")
+(rdf/node :op "name"
+:name "URL"
+:args [])]))
+(rdf/node :name "data"
+:optional true
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "any"))
+(rdf/node :name "transferList"
+:optional true
+:rest false
+:datatype (rdf/node :op "array"
+:item (rdf/node :op "keyword"
+:name "any")))]
+:returns (rdf/node :op "keyword"
+:name "void"))
+(rdf/node :kind "method"
+:name "getModuleJobForImport"
+:optional false
+:type-params []
+:params [(rdf/node :name "specifier"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :name "parentURL"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :name "importAttributes"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "ImportAttributes"
+:args []))]
+:returns (rdf/node :op "name"
+:name "Promise"
+:args [(rdf/node :op "name"
+:name "ModuleJob"
+:args [])]))
+(rdf/node :kind "method"
+:name "resolve"
+:optional false
+:type-params []
+:params [(rdf/node :name "specifier"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :name "parentURL"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :name "importAttributes"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "ImportAttributes"
+:args []))]
+:returns (rdf/node :op "name"
+:name "Promise"
+:args [(rdf/node :op "name"
+:name "ResolveResult"
+:args [])]))
+(rdf/node :kind "method"
+:name "resolveSync"
+:optional false
+:type-params []
+:params [(rdf/node :name "specifier"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :name "parentURL"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :name "importAttributes"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "ImportAttributes"
+:args []))]
+:returns (rdf/node :op "name"
+:name "ResolveResult"
+:args []))
+(rdf/node :kind "method"
+:name "load"
+:optional false
+:type-params []
+:params [(rdf/node :name "specifier"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :name "context"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "Pick"
+:args [(rdf/node :op "name"
+:name "LoadHookContext"
+:args [])
+(rdf/node :op "union"
+:items [(rdf/node :op "literal"
+:value "format")
+(rdf/node :op "literal"
+:value "importAttributes")])]))]
+:returns (rdf/node :op "name"
+:name "Promise"
+:args [(rdf/node :op "name"
+:name "LoadResult"
+:args [])]))])
+(rdf/node :kind "interface"
+:name "ModuleRequest"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "specifier"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:name "attributes"
+:optional true
+:readonly false
+:datatype (rdf/node :op "name"
+:name "ImportAttributes"
+:args []))
+(rdf/node :kind "property"
+:name "phase"
+:optional true
+:readonly false
+:datatype (rdf/node :op "name"
+:name "ModulePhase"
+:args []))])
+(rdf/node :kind "const-enum"
+:name "ModulePhase"
+:exported true
+:members [(rdf/node :name "Source"
+:value 1)
+(rdf/node :name "Evaluation"
+:value 2)])
+(rdf/node :kind "alias"
+:name "ModuleRequestType"
+:exported true
+:type-params []
+:datatype (rdf/node :op "keyword"
+:name "unknown"))
+(rdf/node :kind "interface"
+:name "ModuleLoaderV2"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "version"
+:optional false
+:readonly false
+:datatype (rdf/node :op "literal"
+:value "v2"))
+(rdf/node :kind "property"
+:name "loadCache"
+:optional false
+:readonly false
+:datatype (rdf/node :op "name"
+:name "LoadCache"
+:args []))
+(rdf/node :kind "method"
+:name "import"
+:optional false
+:type-params []
+:params [(rdf/node :name "specifier"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :name "parentURL"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :name "importAttributes"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "ImportAttributes"
+:args []))
+(rdf/node :name "phase"
+:optional true
+:rest false
+:datatype (rdf/node :op "name"
+:name "ModulePhase"
+:args []))
+(rdf/node :name "isEntryPoint"
+:optional true
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "boolean"))]
+:returns (rdf/node :op "name"
+:name "Promise"
+:args [(rdf/node :op "keyword"
+:name "any")]))
+(rdf/node :kind "method"
+:name "register"
+:optional false
+:type-params []
+:params [(rdf/node :name "specifier"
+:optional false
+:rest false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "keyword"
+:name "string")
+(rdf/node :op "name"
+:name "URL"
+:args [])]))
+(rdf/node :name "parentURL"
+:optional true
+:rest false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "keyword"
+:name "string")
+(rdf/node :op "name"
+:name "URL"
+:args [])]))
+(rdf/node :name "data"
+:optional true
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "any"))
+(rdf/node :name "transferList"
+:optional true
+:rest false
+:datatype (rdf/node :op "array"
+:item (rdf/node :op "keyword"
+:name "any")))
+(rdf/node :name "isInternal"
+:optional true
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "boolean"))]
+:returns (rdf/node :op "keyword"
+:name "void"))
+(rdf/node :kind "method"
+:name "getOrCreateModuleJob"
+:optional false
+:type-params []
+:params [(rdf/node :name "parentURL"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :name "request"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "ModuleRequest"
+:args []))
+(rdf/node :name "requestType"
+:optional true
+:rest false
+:datatype (rdf/node :op "name"
+:name "ModuleRequestType"
+:args []))]
+:returns (rdf/node :op "name"
+:name "Promise"
+:args [(rdf/node :op "name"
+:name "ModuleJob"
+:args [])]))
+(rdf/node :kind "method"
+:name "resolveSync"
+:optional false
+:type-params []
+:params [(rdf/node :name "parentURL"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :name "request"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "ModuleRequest"
+:args []))]
+:returns (rdf/node :op "name"
+:name "ResolveResult"
+:args []))
+(rdf/node :kind "method"
+:name "load"
+:optional false
+:type-params []
+:params [(rdf/node :name "url"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :name "context"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "Pick"
+:args [(rdf/node :op "name"
+:name "LoadHookContext"
+:args [])
+(rdf/node :op "union"
+:items [(rdf/node :op "literal"
+:value "format")
+(rdf/node :op "literal"
+:value "importAttributes")])]))]
+:returns (rdf/node :op "name"
+:name "Promise"
+:args [(rdf/node :op "name"
+:name "LoadResult"
+:args [])]))])
+(rdf/node :kind "alias"
+:name "ModuleLoader"
+:exported true
+:type-params []
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "ModuleLoaderV1"
+:args [])
+(rdf/node :op "name"
+:name "ModuleLoaderV2"
+:args [])]))
+(rdf/node :kind "namespace"
+:name "ModuleLoader"
+:exported true
+:declarations [(rdf/node :kind "function"
+:name "fromInternal"
+:exported true
+:type-params []
+:params []
+:returns (rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "ModuleLoader"
+:args [])
+(rdf/node :op "keyword"
+:name "undefined")]))])]
+:reexports []
+:augmentations []
+:local-exports [])

@@ -175,13 +175,14 @@
            :public root :context-id id)) root)))
 (defn- definition-view [registry metadata] (block-view registry (:context metadata)))
 (defn- block-overlay [registry scope index] (block-view registry [(:context-id registry) scope index]))
+(defn- registration-name [d] (or (::registration-name (meta d)) (get d "name")))
 (defn- register!
  ([decls prefix registry depth] (register! decls prefix registry depth (repeat (count decls) nil)))
  ([decls prefix registry depth contexts] (register! decls prefix registry depth contexts (range (count decls))))
  ([decls prefix registry depth contexts positions]
  (when (> depth 8) (fail! :mithril.native-declarations/budget "Namespace depth budget"))
  (vector! decls 256)
- (doseq [[name entries] (group-by #(get (first %) "name") (map vector decls contexts positions))]
+ (doseq [[name entries] (group-by #(registration-name (first %)) (map vector decls contexts positions))]
   (let [ds (mapv first entries) {:keys [kinds klass types namespaces params]} (group-info! ds) n (str prefix name)
         type-entry (or (first (filter #(= "class" (get (first %) "kind")) entries)) (first (filter #(contains? #{"interface" "alias" "const-enum"} (get (first %) "kind")) entries)))
         class-context (second (first (filter #(= "class" (get (first %) "kind")) entries)))
@@ -673,6 +674,30 @@
   (when (and (not export?) (some #(= "*" (get % "import")) names) (not= 1 (count names)))
    (fail! :mithril.native-declarations/link "Namespace import must be its own group"))
   (unique! (mapv #(get % (if export? "export" "local")) names))))
+(defn- augmentation-targets [documents]
+ ;; Resolve exports before augmentations introduce new names. Keep all origins
+ ;; so ambiguous stars cannot accidentally choose a class to augment.
+ (let [own (into {} (map (fn [doc]
+                          [(get doc "name")
+                           (merge (into {} (for [d (get doc "declarations") :when (get d "exported")]
+                                             [(get d "name") #{[(get doc "name") (get d "name")]}]))
+                                  (into {} (for [e (get doc "local-exports")]
+                                             [(get e "export") #{[(get doc "name") (get e "local")]}])))]) documents))]
+  (loop [tables own round 0]
+   (when (> round 64) (fail! :mithril.native-declarations/budget "Augmentation export graph budget"))
+   (let [next (into {} (for [doc documents
+                            :let [name (get doc "name") initial (get own name)
+                                  groups (get doc "reexports")
+                                  explicit (into (set (keys initial)) (mapcat #(map (fn [n] (get n "export")) (get % "names")) groups))]]
+                        [name (reduce (fn [table g]
+                                        (let [target (get tables (get g "module"))]
+                                         (reduce (fn [t [out in]]
+                                                   (if (or (contains? initial out)
+                                                           (and (nil? (get g "names")) (contains? explicit out))) t
+                                                    (if-let [origins (get target in)] (update t out (fnil into #{}) origins) t))) table
+                                                 (if-let [ns (get g "names")] (map #(vector (get % "export") (get % "import")) ns)
+                                                  (map #(vector % %) (remove #{"default"} (keys target))))))) initial groups)]))]
+    (if (= tables next) tables (recur next (inc round)))))))
 (defn check-module-program
  "Link finite checked module documents and external symbol contracts. No file reads."
  [modules externals runtime entry]
@@ -712,7 +737,14 @@
                     (unique! (mapv #(get % "export") (get doc "local-exports"))))
                    (when (some #(= "export-alias" (get % "kind")) (get doc "declarations"))
                     (fail! :mithril.native-declarations/link "Program exports use explicit checked reexport groups")) doc) modules)
-       augmentations (vec (mapcat (fn [[index doc]] (map #(assoc % :source-index index) (get doc "augmentations"))) (map-indexed vector documents)))
+       targets (augmentation-targets documents)
+       augmentations (vec (mapcat (fn [[index doc]]
+                                    (for [g (get doc "augmentations") d (get g "declarations")
+                                          :let [origins (get-in targets [(get g "module") (get d "name")])
+                                                _ (when (> (count origins) 1) (fail! :mithril.native-declarations/link "Ambiguous augmentation export"))
+                                                [owner local] (or (first origins) [(get g "module") (get d "name")])]]
+                                     (assoc g "module" owner "declarations" [(with-meta d (assoc (meta d) ::registration-name local))]
+                                              :source-index index))) (map-indexed vector documents)))
        wrappers (into (mapv (fn [index doc] {"kind" "namespace" "name" (str "D" index) "exported" true "declarations" (get doc "declarations")}) (range) documents)
                   (map (fn [g] {"kind" "namespace" "name" (str/replace (get prefixes (get g "module")) #"\.$" "") "exported" true "declarations" (get g "declarations")}) augmentations))]
   (register! wrappers "" registry -1)
@@ -733,7 +765,7 @@
      (swap! registry assoc-in [:blocks id :values (str prefix v)] {:kind "ambient" :scope prefix :context id :lexical true}))))
   (let [own (into {} (map (fn [doc]
                       (let [prefix (get prefixes (get doc "name"))
-                            public (distinct (map #(get % "name") (filter #(get % "exported")
+                            public (distinct (map registration-name (filter #(get % "exported")
                                                (concat (get doc "declarations") (mapcat #(get % "declarations") (filter #(= (get doc "name") (get % "module")) augmentations))))))]
                        [(get doc "name")
                         (reduce (fn [table e]
@@ -841,7 +873,17 @@
     (let [source-index (:source-index g) source-prefix (get prefixes (nth names source-index))
           target-prefix (get prefixes (get g "module")) id [nil "" (+ (count documents) offset)]
           source-view (block-view @registry [nil "" source-index])
-          declared (set (map #(get % "name") (get g "declarations")))]
+          declared (set (map registration-name (get g "declarations")))]
+     ;; A renamed reexport augments the same original declaration. Its spelling
+     ;; stays lexical to this block; neither emitted AST nor class owner changes.
+     (doseq [d (get g "declarations")
+             :let [local (registration-name d) name (get d "name")]
+             :when (not= local name)
+             space [:types :values :namespaces]
+             :let [metadata (get-in @registry [space (str target-prefix local)])]
+             :when metadata]
+      (swap! registry assoc-in [:blocks id space (str target-prefix name)]
+             (assoc metadata :canonical (str target-prefix local) :access-scope target-prefix :lexical true)))
      (doseq [space [:types :values :namespaces] [n metadata] (get source-view space)
              :when (str/starts-with? n source-prefix)]
       (let [suffix (subs n (count source-prefix)) root (first (str/split suffix #"\."))]

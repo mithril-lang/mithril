@@ -1,0 +1,356 @@
+(mithril/native-js-declaration-module :name "loader.tree"
+:runtime "loader.tree"
+:ambient-types [(rdf/node :name "Promise" :min 1 :max 1) (rdf/node :name "Partial"
+:min 1
+:max 1)
+(rdf/node :name "Omit"
+:min 2
+:max 2)
+(rdf/node :name "Pick"
+:min 2
+:max 2)
+(rdf/node :name "Map"
+:min 2
+:max 2)
+(rdf/node :name "ArrayBuffer"
+:min 0
+:max 0)
+(rdf/node :name "URL"
+:min 0
+:max 0)
+(rdf/node :name "ImportAttributes"
+:min 0
+:max 0)
+(rdf/node :name "NodeJS.Signals"
+:min 0
+:max 0)
+(rdf/node :name "Generator"
+:min 0
+:max 3)
+(rdf/node :name "AsyncGenerator"
+:min 0
+:max 3)]
+:ambient-values []
+:imports [(rdf/node :module "cordis.index"
+:type-only false
+:names [(rdf/node :import "Context"
+:local "Context")])
+(rdf/node :module "cosmokit"
+:type-only true
+:names [(rdf/node :import "Dict"
+:local "Dict")])
+(rdf/node :module "loader.entry"
+:type-only false
+:names [(rdf/node :import "Entry"
+:local "Entry")])
+(rdf/node :module "loader.entry"
+:type-only true
+:names [(rdf/node :import "EntryOptions"
+:local "EntryOptions")])
+(rdf/node :module "loader.group"
+:type-only false
+:names [(rdf/node :import "EntryGroup"
+:local "EntryGroup")])]
+:declarations [(rdf/node :kind "class"
+:name "EntryTree"
+:exported true
+:abstract true
+:type-params []
+:extends nil
+:implements []
+:members [(rdf/node :kind "property"
+:key (rdf/node :kind "name"
+:name "sep")
+:visibility "public"
+:static true
+:readonly true
+:optional false
+:datatype (rdf/node :op "literal"
+:value ":"))
+(rdf/node :kind "property"
+:key (rdf/node :kind "name"
+:name "ctx")
+:visibility "public"
+:static false
+:readonly false
+:optional false
+:datatype (rdf/node :op "name"
+:name "Context"
+:args []))
+(rdf/node :kind "property"
+:key (rdf/node :kind "name"
+:name "enableLogs")
+:visibility "public"
+:static false
+:readonly false
+:optional true
+:datatype (rdf/node :op "keyword"
+:name "boolean"))
+(rdf/node :kind "property"
+:key (rdf/node :kind "name"
+:name "root")
+:visibility "public"
+:static false
+:readonly false
+:optional false
+:datatype (rdf/node :op "name"
+:name "EntryGroup"
+:args []))
+(rdf/node :kind "property"
+:key (rdf/node :kind "name"
+:name "store")
+:visibility "public"
+:static false
+:readonly false
+:optional false
+:datatype (rdf/node :op "name"
+:name "Dict"
+:args [(rdf/node :op "name"
+:name "Entry"
+:args [])]))
+(rdf/node :kind "constructor"
+:visibility "public"
+:params [(rdf/node :name "ctx"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "Context"
+:args []))])
+(rdf/node :kind "getter"
+:key (rdf/node :kind "name"
+:name "context")
+:visibility "public"
+:static false
+:datatype (rdf/node :op "name"
+:name "Context"
+:args []))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "entries")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params []
+:returns (rdf/node :op "name"
+:name "Generator"
+:args [(rdf/node :op "name"
+:name "Entry"
+:args [])
+(rdf/node :op "keyword"
+:name "void")
+(rdf/node :op "keyword"
+:name "void")]))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "getTasks")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params []
+:returns (rdf/node :op "array"
+:item (rdf/node :op "name"
+:name "Promise"
+:args [(rdf/node :op "keyword"
+:name "void")])))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "await")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params []
+:returns (rdf/node :op "name"
+:name "Promise"
+:args [(rdf/node :op "keyword"
+:name "void")]))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "ensureId")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "options"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "Partial"
+:args [(rdf/node :op "name"
+:name "EntryOptions"
+:args [])]))]
+:returns (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "resolve")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "id"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))]
+:returns (rdf/node :op "name"
+:name "Entry"
+:args []))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "resolveGroup")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "id"
+:optional false
+:rest false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "keyword"
+:name "string")
+(rdf/node :op "literal"
+:value nil)]))]
+:returns (rdf/node :op "name"
+:name "EntryGroup"
+:args []))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "create")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "options"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "Omit"
+:args [(rdf/node :op "name"
+:name "EntryOptions"
+:args [])
+(rdf/node :op "literal"
+:value "id")]))
+(rdf/node :name "parent"
+:optional true
+:rest false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "keyword"
+:name "string")
+(rdf/node :op "literal"
+:value nil)]))
+(rdf/node :name "position"
+:optional true
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "number"))]
+:returns (rdf/node :op "name"
+:name "Promise"
+:args [(rdf/node :op "keyword"
+:name "string")]))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "remove")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "id"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))]
+:returns (rdf/node :op "keyword"
+:name "void"))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "update")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "id"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :name "options"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "Omit"
+:args [(rdf/node :op "name"
+:name "EntryOptions"
+:args [])
+(rdf/node :op "union"
+:items [(rdf/node :op "literal"
+:value "id")
+(rdf/node :op "literal"
+:value "name")])]))
+(rdf/node :name "parent"
+:optional true
+:rest false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "keyword"
+:name "string")
+(rdf/node :op "literal"
+:value nil)]))
+(rdf/node :name "position"
+:optional true
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "number"))]
+:returns (rdf/node :op "name"
+:name "Promise"
+:args [(rdf/node :op "keyword"
+:name "void")]))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "import")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "name"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :name "getOuterStack"
+:optional true
+:rest false
+:datatype (rdf/node :op "function"
+:abstract false
+:type-params []
+:params []
+:returns (rdf/node :op "array"
+:item (rdf/node :op "keyword"
+:name "string"))))]
+:returns (rdf/node :op "keyword"
+:name "any"))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "write")
+:visibility "public"
+:static false
+:abstract true
+:optional false
+:type-params []
+:params []
+:returns (rdf/node :op "keyword"
+:name "void"))])]
+:reexports []
+:augmentations []
+:local-exports [])

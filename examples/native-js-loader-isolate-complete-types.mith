@@ -1,0 +1,231 @@
+(mithril/native-js-declaration-module :name "loader.isolate"
+:runtime "loader.isolate"
+:ambient-types [(rdf/node :name "Promise" :min 1 :max 1) (rdf/node :name "Partial"
+:min 1
+:max 1)
+(rdf/node :name "Omit"
+:min 2
+:max 2)
+(rdf/node :name "Pick"
+:min 2
+:max 2)
+(rdf/node :name "Map"
+:min 2
+:max 2)
+(rdf/node :name "ArrayBuffer"
+:min 0
+:max 0)
+(rdf/node :name "URL"
+:min 0
+:max 0)
+(rdf/node :name "ImportAttributes"
+:min 0
+:max 0)
+(rdf/node :name "NodeJS.Signals"
+:min 0
+:max 0)
+(rdf/node :name "Generator"
+:min 0
+:max 3)
+(rdf/node :name "AsyncGenerator"
+:min 0
+:max 3)]
+:ambient-values []
+:imports [(rdf/node :module "cordis.index"
+:type-only false
+:names [(rdf/node :import "Context"
+:local "Context")])
+(rdf/node :module "cosmokit"
+:type-only true
+:names [(rdf/node :import "Dict"
+:local "Dict")])
+(rdf/node :module "loader.entry"
+:type-only false
+:names [(rdf/node :import "Entry"
+:local "Entry")])]
+:declarations [(rdf/node :kind "class"
+:name "Realm"
+:exported true
+:abstract true
+:type-params []
+:extends nil
+:implements []
+:members [(rdf/node :kind "property"
+:key (rdf/node :kind "name"
+:name "store")
+:visibility "protected"
+:static false
+:readonly false
+:optional false
+:datatype (rdf/node :op "name"
+:name "Dict"
+:args [(rdf/node :op "keyword"
+:name "symbol")]))
+(rdf/node :kind "getter"
+:key (rdf/node :kind "name"
+:name "suffix")
+:visibility "public"
+:static false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "access")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "key"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :name "create"
+:optional true
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "boolean"))]
+:returns (rdf/node :op "keyword"
+:name "symbol"))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "delete")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "key"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))]
+:returns (rdf/node :op "keyword"
+:name "void"))
+(rdf/node :kind "getter"
+:key (rdf/node :kind "name"
+:name "size")
+:visibility "public"
+:static false
+:datatype (rdf/node :op "keyword"
+:name "number"))])
+(rdf/node :kind "class"
+:name "LocalRealm"
+:exported true
+:abstract false
+:type-params []
+:extends (rdf/node :op "name"
+:name "Realm"
+:args [])
+:implements []
+:members [(rdf/node :kind "opaque"
+:key (rdf/node :kind "name"
+:name "entry")
+:visibility "private"
+:static false)
+(rdf/node :kind "constructor"
+:visibility "public"
+:params [(rdf/node :name "entry"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "Entry"
+:args []))])
+(rdf/node :kind "getter"
+:key (rdf/node :kind "name"
+:name "suffix")
+:visibility "public"
+:static false
+:datatype (rdf/node :op "keyword"
+:name "string"))])
+(rdf/node :kind "class"
+:name "GlobalRealm"
+:exported true
+:abstract false
+:type-params []
+:extends (rdf/node :op "name"
+:name "Realm"
+:args [])
+:implements []
+:members [(rdf/node :kind "property"
+:key (rdf/node :kind "name"
+:name "label")
+:visibility "public"
+:static false
+:readonly false
+:optional false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "constructor"
+:visibility "public"
+:params [(rdf/node :name "label"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))])
+(rdf/node :kind "getter"
+:key (rdf/node :kind "name"
+:name "suffix")
+:visibility "public"
+:static false
+:datatype (rdf/node :op "keyword"
+:name "string"))])
+(rdf/node :kind "function"
+:name "isolate"
+:exported false
+:type-params []
+:params [(rdf/node :name "ctx"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "Context"
+:args []))]
+:returns (rdf/node :op "keyword"
+:name "void"))]
+:reexports []
+:augmentations [(rdf/node :module "loader.entry"
+:declarations [(rdf/node :kind "interface"
+:name "EntryOptions"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "intercept"
+:optional true
+:readonly false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "Dict"
+:args [])
+(rdf/node :op "literal"
+:value nil)]))
+(rdf/node :kind "property"
+:name "isolate"
+:optional true
+:readonly false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "Dict"
+:args [(rdf/node :op "union"
+:items [(rdf/node :op "literal"
+:value true)
+(rdf/node :op "keyword"
+:name "string")])])
+(rdf/node :op "literal"
+:value nil)]))])
+(rdf/node :kind "interface"
+:name "Entry"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "realm"
+:optional false
+:readonly false
+:datatype (rdf/node :op "name"
+:name "LocalRealm"
+:args []))])])]
+:local-exports [(rdf/node :local "isolate"
+:export "default"
+:type-only false)])
