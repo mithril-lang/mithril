@@ -22,6 +22,7 @@ try{
   ['native-const-generics','compile.cljk'],
   ['native-default-exports','compile.cljk'],
   ['native-mutable-declarations','compile.cljk'],
+  ['native-global-declarations','compile.cljk'],
  ];
  for(const [name,control] of stages){
   console.log(`Declaration qualification stage: ${name}`);

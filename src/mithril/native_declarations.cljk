@@ -34,7 +34,7 @@
 (defn parse-text [text] (module/check-source-text! text) (form/parse text))
 (defn runtime-basename [text]
  (let [doc (parse-text text)]
-  (shape! doc ["@context" "@type" "name" "runtime-source" "ambient-types" "ambient-values" "declarations"])
+  (shape! doc (cond-> ["@context" "@type" "name" "runtime-source" "ambient-types" "ambient-values" "declarations"] (contains? doc "globals") (conj "globals")))
   (when-not (and (= "NativeJsDeclarations" (get doc "@type")) (= "https://mithril.fund/context/native-js-declarations/v1" (get doc "@context")))
    (fail! :mithril.native-declarations/context "Expected native declaration context"))
   (source! (get doc "runtime-source")) (get doc "runtime-source")))
@@ -124,8 +124,12 @@
 (defn- merged-members! [interfaces klass]
  (let [members (vec (mapcat #(get % "members") interfaces))]
   (vector! members 256)
-  (doseq [[_ ms] (group-by member-identity members) :when (> (count ms) 1)]
-   (when-not (or (apply = ms)
+  (doseq [[_ entries] (group-by second
+                        (mapcat (fn [d] (map (fn [m]
+                                             [m (if-let [owner (when (contains? #{"computed-property" "computed-method"} (get m "kind")) (get (::computed-owners (meta d)) (get m "name")))]
+                                                  [:computed owner] (member-identity m))]) (get d "members"))) interfaces))
+          :let [ms (mapv first entries)] :when (> (count ms) 1)]
+   (when-not (or (apply = (map #(dissoc % "name") ms))
                  (and (every? #(contains? #{"method" "computed-method" "call" "construct"} (get % "kind")) ms)
                       (= 1 (count (set (map #(select-keys % ["kind" "optional"]) ms))))))
     (fail! :mithril.native-declarations/duplicate "Incompatible merged interface member")))
@@ -243,7 +247,8 @@
     ;; same-name binding shadows it in the current namespace block.
     [(or (:canonical metadata) candidate) metadata])))
   (let [parts (vec (remove str/blank? (str/split scope #"\.")))]
-   (map #(when (pos? %) (str (str/join "." (take % parts)) ".")) (range (count parts) -1 -1)))))
+   (distinct (concat (map #(when (pos? %) (str (str/join "." (take % parts)) ".")) (range (count parts) -1 -1))
+                     (when-let [prefix (:global-prefix registry)] [prefix]))))))
 (defn- value-metadata [registry scope name depth]
  (when (> depth 32) (fail! :mithril.native-declarations/budget "Value member query depth"))
  (if-let [entry (resolve-entry registry :values scope name)]
@@ -529,8 +534,57 @@
        binding (first (filter #(= target (:name %)) declarations))]
   (when-not (true? (:mutable binding))
    (fail! :mithril.native-declarations/surface "Mutable declaration requires an actual native mutable binding"))))
+(defn- global-blocks! [groups]
+ (vector! groups 128)
+ (doseq [g groups]
+  (shape! g ["declarations"]) (vector! (get g "declarations") 256)
+  (when (empty? (get g "declarations")) (fail! :mithril.native-declarations/declaration "Empty global block"))))
+(defn- ambient-global-declaration [d source-view source-prefix depth]
+ (when (> depth 8) (fail! :mithril.native-declarations/budget "Global namespace depth budget"))
+ (declaration-shape! d)
+ (when-not (contains? #{"alias" "interface" "namespace"} (get d "kind"))
+  (fail! :mithril.native-declarations/declaration "Global blocks contain type declarations, not invented runtime bindings"))
+ (let [d (assoc d "exported" true)]
+  (case (get d "kind")
+   "namespace" (do (vector! (get d "declarations") 256)
+                    (assoc d "declarations" (mapv #(ambient-global-declaration % source-view source-prefix (inc depth)) (get d "declarations"))))
+   "interface" (do (vector! (get d "members") 256) (with-meta d {::computed-owners
+                             (into {} (for [m (get d "members") :when (contains? #{"computed-property" "computed-method"} (get m "kind"))
+                                            :let [n (get m "name") _ (qualified! n) v (value-metadata source-view source-prefix n 0)]]
+                                        [n (if (= "ambient" (:kind v)) [:ambient n]
+                                             [(or (:canonical v) (str source-prefix n)) (:context v)])]))}))
+   d)))
+(defn- install-global-blocks! [registry sources]
+ (let [groups (vec (mapcat (fn [{:keys [prefix id groups]}]
+                            (global-blocks! groups)
+                            (map #(hash-map :prefix prefix :source-view (block-view @registry id) :group %) groups)) sources))]
+  (vector! groups 128)
+  (when (seq groups)
+   (let [prefix "$global."
+         groups (mapv (fn [index {:keys [group source-view] source-prefix :prefix :as g}]
+                        (assoc g :id [nil :global-block index]
+                                 :declarations (mapv #(ambient-global-declaration % source-view source-prefix 0) (get group "declarations")))) (range) groups)
+         entries (vec (mapcat (fn [{:keys [id declarations]}] (map-indexed #(vector %2 id %1) declarations)) groups))]
+    ;; The synthetic prefix cannot be a source identifier. Global names never enter
+    ;; a module export table, and nil-prefix module-private lookups remain refused.
+    (swap! registry assoc :global-prefix prefix)
+    (register! (mapv first entries) prefix registry 0 (mapv second entries) (mapv #(nth % 2) entries))
+    (doseq [{:keys [id source-view declarations] source-prefix :prefix} groups
+            :let [declared (set (map #(get % "name") declarations))]
+            space [:types :values :namespaces] [n metadata] (get source-view space)
+            :when (str/starts-with? n source-prefix)]
+     (let [suffix (subs n (count source-prefix)) root (first (str/split suffix #"\."))]
+      (when-not (and (contains? declared root) (get-in @registry [space (str prefix root)]))
+       (swap! registry assoc-in [:blocks id space (str prefix suffix)]
+              (assoc metadata :canonical (or (:canonical metadata) n) :access-scope prefix :lexical true))))) groups))))
+(defn- check-global-blocks! [groups budget registry]
+ (doseq [{:keys [id declarations]} groups]
+  (charge! budget 0)
+  (let [view (block-view registry id)]
+   (class-inheritance! view) (interface-inheritance! view)
+   (check-declarations! declarations #{} #{} budget view "$global." 0))))
 (defn check-document [doc runtime]
- (shape! doc ["@context" "@type" "name" "runtime-source" "ambient-types" "ambient-values" "declarations"])
+ (shape! doc (cond-> ["@context" "@type" "name" "runtime-source" "ambient-types" "ambient-values" "declarations"] (contains? doc "globals") (conj "globals")))
  (when-not (and (= "NativeJsDeclarations" (get doc "@type")) (= "https://mithril.fund/context/native-js-declarations/v1" (get doc "@context"))) (fail! :mithril.native-declarations/context "Expected declaration context"))
  (qualified! (get doc "name")) (source! (get doc "runtime-source"))
  (when-not (and (contains? #{:mithril.native-package/checked-v1 :mithril.native-esm/checked-v1} (:format runtime)) (= (get doc "name") (:name runtime)))
@@ -552,9 +606,10 @@
       (when-let [ns (get-in @registry [:namespaces target])] (add! registry :namespaces n (assoc ns :canonical target)))
       (doseq [space [:types :values] [child metadata] (get @registry space) :when (str/starts-with? child (str target "."))]
        (add! registry space (str n (subs child (count target))) (assoc metadata :canonical (or (:canonical metadata) child))))))))
-  (class-inheritance! @registry)
-  (interface-inheritance! @registry)
-  (check-declarations! (get doc "declarations") #{} #{} (atom 0) @registry "" 0)
+  (let [globals (install-global-blocks! registry [{:prefix "" :id nil :groups (get doc "globals" [])}]) budget (atom 0)]
+   (class-inheritance! @registry) (interface-inheritance! @registry)
+   (check-declarations! (get doc "declarations") #{} #{} budget @registry "" 0)
+   (check-global-blocks! globals budget @registry))
   (let [decls (get doc "declarations")
         public? #(or (get % "exported") (= "export-alias" (get % "kind")))
         exports (vec (distinct (map #(get % "name") (filter #(and (public? %) (or (or (contains? #{"function" "const" "let" "class"} (get % "kind")) (and (= "export-alias" (get % "kind")) (and (contains? (:values @registry) (get % "name")) (not (:erased (get-in @registry [:values (get % "name")])))))) (and (= "namespace" (get % "kind")) (namespace-value? %)))) decls))))
@@ -562,8 +617,9 @@
    (when-not (= (set exports) (set (map :name (:exports runtime)))) (fail! :mithril.native-declarations/surface "Public runtime declaration surface mismatch"))
    (doseq [{:keys [name module export]} (:exports runtime) :when (= "let" (get-in @registry [:values name :kind]))]
     (mutable-runtime-export! runtime module (or export name)))
-   {:format :mithril.native-declarations/checked-v1 :name (get doc "name") :runtime-source (get doc "runtime-source")
-    :declarations decls :exports exports :type-exports types})))
+   (cond-> {:format :mithril.native-declarations/checked-v1 :name (get doc "name") :runtime-source (get doc "runtime-source")
+    :declarations decls :exports exports :type-exports types}
+    (contains? doc "globals") (assoc :globals (get doc "globals" []))))))
 (defn check-text [text runtime] (check-document (parse-text text) runtime))
 
 ;; Program linking uses the same checker and lexical ownership as single modules.
@@ -629,7 +685,7 @@
  (let [registry (atom {:types {} :values {} :namespaces {} :blocks {}})
        names (mapv #(get % "name") modules) indexes (zipmap names (range)) prefixes (zipmap names (map #(str "D" % ".") (range)))
        documents (mapv (fn [doc]
-                   (shape! doc (cond-> ["@context" "@type" "name" "runtime" "ambient-types" "ambient-values" "imports" "reexports" "declarations"] (contains? doc "augmentations") (conj "augmentations") (contains? doc "local-exports") (conj "local-exports")))
+                   (shape! doc (cond-> ["@context" "@type" "name" "runtime" "ambient-types" "ambient-values" "imports" "reexports" "declarations"] (contains? doc "augmentations") (conj "augmentations") (contains? doc "local-exports") (conj "local-exports") (contains? doc "globals") (conj "globals")))
                    (when-not (and (= "NativeJsDeclarationModule" (get doc "@type")) (= "https://mithril.fund/context/native-js-declaration-module/v1" (get doc "@context")))
                     (fail! :mithril.native-declarations/context "Expected checked declaration module"))
                    (qualified! (get doc "name"))
@@ -785,8 +841,11 @@
         (swap! registry assoc-in [:blocks id space (str target-prefix suffix)]
                (assoc metadata :canonical (or (:canonical metadata) n) :access-scope target-prefix :lexical true)))))))
    (swap! registry assoc :module-tables @tables)
-   (class-inheritance! @registry) (interface-inheritance! @registry)
-   (check-declarations! wrappers #{} #{} (atom 0) @registry "" -1)
+   (let [globals (install-global-blocks! registry (mapv (fn [index doc] {:prefix (get prefixes (get doc "name")) :id [nil "" index] :groups (get doc "globals" [])}) (range) documents))
+         budget (atom 0)]
+    (class-inheritance! @registry) (interface-inheritance! @registry)
+    (check-declarations! wrappers #{} #{} budget @registry "" -1)
+    (check-global-blocks! globals budget @registry))
    (let [visited (atom #{}) by-name (zipmap names documents)]
     (letfn [(inline-modules [node]
               (cond (map? node) (concat (when (= "import-type" (get node "op")) [(get node "module")]) (mapcat inline-modules (vals node)))
@@ -795,7 +854,7 @@
               (when-not (contains? @visited name)
                (swap! visited conj name)
                (when-let [doc (get by-name name)]
-                (doseq [target (concat (map #(get % "module") (concat (get doc "imports") (get doc "reexports"))) (map #(get % "module") (get doc "augmentations")) (inline-modules (get doc "declarations")) (inline-modules (get doc "augmentations")))]
+                (doseq [target (concat (map #(get % "module") (concat (get doc "imports") (get doc "reexports"))) (map #(get % "module") (get doc "augmentations")) (inline-modules (get doc "declarations")) (inline-modules (get doc "augmentations")) (inline-modules (get doc "globals")))]
                  (when-not (contains? @tables target) (fail! :mithril.native-declarations/link "Unknown declaration dependency"))
                  (visit target)))))]
      (visit entry)

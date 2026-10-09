@@ -1,0 +1,78 @@
+(ns compile-global-declarations
+ (:require [mithril.native-declaration-program :as program] [mithril.native-declarations :as declarations]
+           [mithril.native-declaration-emit :as emit] [mithril.native-esm :as esm] [clojure.string :as str]
+           ["node:fs" :as fs] ["node:os" :as os] ["node:child_process" :as child]))
+(defn ensure [p text] (when-not p (throw (js/Error. text))))
+(def engine (.-MITHRIL_DECLARATIONS_ENGINE js/process.env))
+(def compiler (.-MITHRIL_DECLARATIONS_TYPESCRIPT js/process.env))
+(def type-roots (.-MITHRIL_DECLARATIONS_TYPE_ROOTS js/process.env))
+(defn run [args] (let [r (child/spawnSync js/process.execPath (clj->js args) #js {:encoding "utf8" :timeout 240000})] (ensure (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r))))
+(defn example [name] (fs/readFileSync (str "examples/" name) "utf8"))
+(defn load-case [name]
+ (let [text (example (str "native-js-global-" name "-program.mith")) plan (program/read-plan text)
+       runtime-text (example (:runtime-source plan)) runtime-sources (into {} (map #(vector % (example %)) (esm/source-basenames runtime-text)))
+       runtime (esm/check-text runtime-text runtime-sources) sources (into {} (map #(vector % (example %)) (:sources plan)))
+       artifact (program/compile-text text sources runtime)]
+  (ensure (empty? (:exports artifact)) "Global types invented runtime exports")
+  {:text text :plan plan :runtime runtime :runtime-text runtime-text :runtime-sources runtime-sources :sources sources :artifact artifact}))
+(def schema (load-case "schemastery"))
+(def mechanics (load-case "mechanics"))
+(def legacy-doc (declarations/parse-text (example "native-js-global-mechanics-legacy.mith")))
+(def legacy (emit/compile-document legacy-doc (:runtime mechanics)))
+(ensure (= ["default"] (:type-exports (:artifact schema))) "Erased Schema default surface")
+(ensure (= #{"Left" "Right" "Dependency" "Inline"} (set (:type-exports (:artifact mechanics)))) "Global mechanics public types")
+(ensure (empty? (:exports legacy)) "Legacy globals invented values")
+(defn render [v] (cond (map? v) (str "(" (case (get v "@type") "NativeJsDeclarations" "mithril/native-js-declarations" "rdf/node") " " (str/join " " (for [[k x] v :when (not (str/starts-with? k "@"))] (str ":" k " " (render x)))) ")") (vector? v) (str "[" (str/join " " (map render v)) "]") (nil? v) "nil" :else (js/JSON.stringify v)))
+(defn refuse [doc code]
+ (try (declarations/check-document doc (:runtime mechanics)) (throw (js/Error. "Invalid globals admitted"))
+  (catch :default e (ensure (= code (:mithril/error (ex-data e))) (str "Wrong global refusal: " e)))))
+(def base (assoc legacy-doc "declarations" [] "globals" []))
+(def kw {"op" "keyword" "name" "string"})
+(defn alias [name datatype] {"kind" "alias" "name" name "exported" false "type-params" [] "datatype" datatype})
+(defn block [ds] {"declarations" ds})
+(def bads [[(assoc base "globals" {}) :mithril.native-declarations/budget]
+ [(assoc base "globals" [(assoc (block [(alias "X" kw)]) "raw" "TypeScript")]) :mithril.native-declarations/shape]
+ [(assoc base "globals" [(block [])]) :mithril.native-declarations/declaration]
+ [(assoc base "globals" [(block [{"kind" "const" "name" "X" "exported" true "datatype" kw}])]) :mithril.native-declarations/declaration]
+ [(assoc base "globals" [(block [(assoc (alias "X" kw) "exported" 1)])]) :mithril.native-declarations/shape]
+ [(assoc base "globals" [(block [(alias "X;payload" kw)])]) :mithril.native-declarations/name]
+ [(assoc base "globals" [(block [(alias "X" {"op" "name" "name" "Missing" "args" []})])]) :mithril.native-declarations/arity]
+ [(assoc base "globals" [(block [(alias "X" kw) (alias "X" kw)])]) :mithril.native-declarations/duplicate]
+ [(assoc base "globals" (vec (repeat 129 (block [(alias "X" kw)])))) :mithril.native-declarations/budget]
+ [(assoc base "globals" [(block (mapv #(alias (str "X" %) kw) (range 257)))]) :mithril.native-declarations/budget]
+ [(assoc base "globals" [(block [{"kind" "interface" "name" "I" "exported" false "type-params" [] "extends" [] "members" [{"kind" "computed-property" "name" "Missing" "optional" false "readonly" false "datatype" kw}]}])]) :mithril.native-declarations/scope]])
+(doseq [[doc code] bads] (refuse doc code))
+(def deep-global (reduce (fn [inner index] {"kind" "namespace" "name" (str "N" index) "exported" false "declarations" [inner]}) (alias "Deep" kw) (range 9)))
+(refuse (assoc base "globals" [(block [deep-global])]) :mithril.native-declarations/budget)
+(def wide-type {"op" "union" "items" (vec (repeat 128 kw))})
+(def over-total (mapv (fn [i] (block [(alias (str "WideA" i) wide-type) (alias (str "WideB" i) wide-type)])) (range 128)))
+(refuse (assoc base "globals" over-total) :mithril.native-declarations/budget)
+(let [existing (last (get-in legacy-doc ["globals" 0 "declarations"]))
+      same-key (assoc existing "members" [(assoc (first (get existing "members")) "datatype" kw)])]
+ (refuse (update legacy-doc "globals" conj (block [same-key])) :mithril.native-declarations/duplicate))
+
+(let [without (dissoc base "globals") empty-global base]
+ (ensure (= (declarations/check-document without (:runtime mechanics)) (dissoc (declarations/check-document empty-global (:runtime mechanics)) :globals)) "Missing globals changed checked map")
+ (ensure (= (:source (emit/compile-document without (:runtime mechanics))) (:source (emit/compile-document empty-global (:runtime mechanics)))) "Empty globals changed original emission bytes"))
+(println "Global admission:14 exact shape/declaration/name/arity/duplicate/collection/depth/shared-total/scope/owner refusals; missing/empty globals retain ordinary bytes and checked shape.")
+(def dir (fs/mkdtempSync (str (os/tmpdir) "/mithril-global-declarations-")))
+(def config (str dir "/offline.edn"))
+(fs/writeFileSync config (str "{:paths [" (js/JSON.stringify (fs/realpathSync "src")) "]}"))
+(try
+ (fs/writeFileSync (str dir "/legacy.mith") (render legacy-doc))
+ (doseq [[file source] (assoc (:runtime-sources mechanics) (:runtime-source (:plan mechanics)) (:runtime-text mechanics))] (fs/writeFileSync (str dir "/" file) source))
+ (doseq [target ["js" "js-browser"]]
+  (doseq [[name c] [["schemastery" schema] ["mechanics" mechanics]]]
+   (let [out (str dir "/" target "-" name) runtime-out (str out "-runtime")]
+    (run [engine "--config" config "--classpath" "src" "bin/mithril-native-declaration-program.cljk" (str "examples/native-js-global-" name "-program.mith") "--target" target "--output-directory" out])
+    (doseq [[file source] (:files (:artifact c))] (ensure (= source (fs/readFileSync (str out "/" file) "utf8")) "Global program CLI artifact bytes"))
+    (run (if (= name "schemastery") ["test/qualification/native-global-declarations/controls/contract.mjs" (str out "/index.d.mts") compiler type-roots]
+             ["test/qualification/native-global-declarations/controls/mechanics.mjs" (str out "/index.d.mts") "program" compiler type-roots]))
+    (run [engine "--config" config "--classpath" "src" "bin/mithril-native-esm.cljk" (str "examples/native-js-global-" name "-esm.mith") "--target" target "--output-directory" runtime-out])
+    (run ["--input-type=module" "-e" (str "import assert from 'node:assert/strict';const m=await import(" (js/JSON.stringify (str runtime-out "/index.mjs")) ");assert.deepEqual(Object.keys(m),[]);assert.equal(typeof globalThis.Schemastery,'undefined');assert.equal(typeof globalThis.GlobalModel,'undefined');console.log('Global types: actual empty native root, no fabricated global runtime object.');")])) )
+  (let [out (str dir "/" target "-legacy.d.mts")]
+   (run [engine "--config" config "--classpath" "src" "bin/mithril-native-declarations.cljk" (str dir "/legacy.mith") "--target" target "--output" out])
+   (ensure (= (:source legacy) (fs/readFileSync out "utf8")) "Legacy global CLI bytes")
+   (run ["test/qualification/native-global-declarations/controls/mechanics.mjs" out "legacy" compiler type-roots])))
+ (println "Global qualification:6 declaration CLI artifacts/4 actual native runtime CLI artifacts across js/js-browser; no JVM or production TS delegation.")
+ (finally (fs/rmSync dir #js {:recursive true :force true})))

@@ -2383,3 +2383,19 @@ under an explicit Schema helper. Immutable/snapshot module origins cannot claim 
 let bindings. See [mutable declaration qualification](test/qualification/native-mutable-declarations/README.md).
 Structured declare-global and full Schema/Harness equivalence remain pending; operator
 authored,zero new System One inference or measured gain.
+
+
+Checked global type blocks now preserve the complete original Schemastery private/
+global declaration graph:16 namespace declarations,42 interface members and7 private
+nodes, with actual Mithril CosmoKit/StandardSchema dependencies. Both Node-executed
+CLI targets qualify216 independently compiled original-paired strict groups,14 exact
+refusals,6 declaration artifacts and4 empty native runtime roots. See [global type
+qualification](test/qualification/native-global-declarations/README.md). Schema default
+is deliberately type-only until its real runtime is ported; full value API, Schema
+execution and Harness equivalence remain pending.
+
+A fresh System One emitter trial completed once but its edits were refused before
+candidate compilation:140.266s,26706 input/5261 output tokens,1 attempt/0 repairs.
+The fixed operator candidate passes independently; no model source is adopted or
+performance gain inferred. The [evaluation](test/qualification/native-global-declarations/system-one-evaluation.json)
+records the sealed image, exact input identity and remaining diagnostic investigation.
