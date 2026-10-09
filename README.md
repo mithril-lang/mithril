@@ -2607,3 +2607,10 @@ metadata, emitting TypeScript `export as namespace` with its conditional
 `allowUmdGlobalAccess` behavior. This creates no runtime global. See
 [UMD qualification](test/qualification/native-umd-declarations/README.md) for
 strict original-paired consumers and the remaining YAML type boundaries.
+
+Optional `runtime-only-exports` explicitly accounts for actual runtime symbols
+absent from source public types. Admission still requires exact surface coverage,
+disjoint typed values and valid typed binding origins. The
+[runtime-only qualification](test/qualification/native-runtime-only-declarations/README.md)
+includes all 18 original YAML source declarations and strict named API consumers;
+the complete default namespace facade remains pending.

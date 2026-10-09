@@ -1,0 +1,67 @@
+(ns qualify-runtime-only
+ (:require [mithril.native-declarations :as d] [mithril.native-declaration-emit :as emit]
+           [mithril.native-declaration-program :as program] [mithril.native-esm :as esm]
+           ["node:fs" :as fs] ["node:os" :as os] ["node:child_process" :as child]))
+(defn ensure [p message] (when-not p (throw (js/Error. message))))
+(defn example [file] (fs/readFileSync (str "examples/" file) "utf8"))
+(def rt (example "native-js-umd-esm.mith"))
+(def runtime (esm/check-text rt {"native-js-umd-runtime.mith" (example "native-js-umd-runtime.mith")}))
+(def single (d/parse-text (example "native-js-runtime-only-types.mith")))
+(def api (d/parse-text (example "native-js-runtime-only-module-types.mith")))
+(def entry (d/parse-text (example "native-js-runtime-only-entry-types.mith")))
+(defn refusal [f code]
+ (let [actual (try (f) nil (catch :default e (:mithril/error (ex-data e))))]
+  (ensure (= code actual) (str "Runtime-only refusal expected " code " got " actual))))
+(def cases [[nil :mithril.native-declarations/budget] ["bump" :mithril.native-declarations/budget]
+ [{} :mithril.native-declarations/budget] [(vec (repeat 129 "bump")) :mithril.native-declarations/budget]
+ [["bump" "bump"] :mithril.native-declarations/duplicate] [["bump; injected()"] :mithril.native-declarations/name]
+ [["Missing"] :mithril.native-declarations/surface] [["count" "bump"] :mithril.native-declarations/surface]
+ [[] :mithril.native-declarations/surface]])
+(doseq [[names code] cases]
+ (refusal #(emit/compile-document (assoc single "runtime-only-exports" names) runtime) code)
+ (refusal #(d/check-module-program [(assoc api "runtime-only-exports" names) entry] [] runtime "umd.entry") code))
+(refusal #(emit/compile-document (dissoc single "runtime-only-exports") runtime) :mithril.native-declarations/surface)
+(refusal #(d/check-module-program [(dissoc api "runtime-only-exports") entry] [] runtime "umd.entry") :mithril.native-declarations/surface)
+(refusal #(d/check-module-program [api (dissoc entry "runtime-only-exports")] [] runtime "umd.entry") :mithril.native-declarations/surface)
+(refusal #(d/check-module-program [api (assoc entry "runtime-only-exports" ["Missing"])] [] runtime "umd.entry") :mithril.native-declarations/surface)
+(refusal #(d/check-module-program [api (assoc entry "runtime-only-exports" ["count" "bump"])] [] runtime "umd.entry") :mithril.native-declarations/surface)
+(def type-barrel (assoc entry "name" "umd.types" "declarations" [] "reexports" []))
+(refusal #(d/check-module-program [api type-barrel (update entry "imports" conj {"module" "umd.types" "type-only" false "names" nil})] [] runtime "umd.entry") :mithril.native-declarations/surface)
+(def wrong-origin (assoc entry "reexports" [] "declarations" [{"kind" "let" "name" "count" "exported" true "datatype" {"op" "keyword" "name" "number"}}]))
+(refusal #(d/check-module-program [wrong-origin] [] runtime "umd.entry") :mithril.native-declarations/surface)
+(def ordinary (d/parse-text (example "native-js-umd-types.mith")))
+(ensure (= (:source (emit/compile-document ordinary runtime)) (:source (emit/compile-document (assoc ordinary "runtime-only-exports" []) runtime))) "Empty omission changed emitted bytes")
+(def artifact (emit/compile-document single runtime))
+(ensure (= ["count"] (:exports artifact)) "Runtime-only symbol entered typed exports")
+(def dir (fs/mkdtempSync (str (os/tmpdir) "/mithril-runtime-only-")))
+(defn run [args]
+ (let [r (child/spawnSync js/process.execPath (clj->js args) #js {:encoding "utf8" :timeout 240000})]
+  (ensure (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r))))
+(defn build [manifest target output]
+ (let [text (example manifest) sources (into {} (map #(vector % (example %)) (esm/source-basenames text))) artifact (esm/compile-text text sources)]
+  (run [(.-MITHRIL_DECLARATIONS_ENGINE js/process.env) "--config" (str dir "/offline.edn") "-cp" "src" "bin/mithril-native-esm.cljk" (str "examples/" manifest) "--target" target "--output-directory" output])
+  (doseq [[file source] (:files artifact)] (ensure (= source (fs/readFileSync (str output "/" file) "utf8")) (str "Runtime bytes " file)))))
+(defn build-types [manifest target output]
+ (let [text (example manifest) plan (program/read-plan text) runtime-text (example (:runtime-source plan))
+       runtime-sources (into {} (map #(vector % (example %)) (esm/source-basenames runtime-text)))
+       artifact (program/compile-text text (into {} (map #(vector % (example %)) (:sources plan))) (esm/check-text runtime-text runtime-sources))]
+  (run [(.-MITHRIL_DECLARATIONS_ENGINE js/process.env) "--config" (str dir "/offline.edn") "-cp" "src" "bin/mithril-native-declaration-program.cljk" (str "examples/" manifest) "--target" target "--output-directory" output])
+  (doseq [[file source] (:files artifact)] (ensure (= source (fs/readFileSync (str output "/" file) "utf8")) (str "Declaration bytes " file)))
+  artifact))
+(try
+ (fs/writeFileSync (str dir "/offline.edn") "{:paths [\"src\"]}")
+ (doseq [target ["js" "js-browser"]]
+  (let [single-file (str dir "/" target ".d.mts") types (str dir "/" target "-types") runtime-out (str dir "/" target "-runtime")
+        yaml-types (str dir "/" target "-yaml-types") yaml-runtime (str dir "/" target "-yaml-runtime")]
+   (run [(.-MITHRIL_DECLARATIONS_ENGINE js/process.env) "--config" (str dir "/offline.edn") "-cp" "src" "bin/mithril-native-declarations.cljk" "examples/native-js-runtime-only-types.mith" "--target" target "--output" single-file])
+   (ensure (= (:source artifact) (fs/readFileSync single-file "utf8")) "Single declaration bytes")
+   (build-types "native-js-runtime-only-program.mith" target types)
+   (build "native-js-umd-esm.mith" target runtime-out)
+   (let [a (build-types "native-js-yaml-api-program.mith" target yaml-types)]
+    (ensure (= 10 (count (:exports a))) "Original YAML named typed values"))
+   (build "native-js-yaml-esm.mith" target yaml-runtime)
+   (run ["test/qualification/native-runtime-only-declarations/controls/types.mjs" single-file (str types "/index.d.mts")
+         (str runtime-out "/index.mjs") (str yaml-types "/module-6.d.mts") (str yaml-runtime "/index.mjs")
+         (.-MITHRIL_DECLARATIONS_TYPESCRIPT js/process.env)])))
+ (println "Runtime-only exports: 25 exact-code refusals; actual single/program CLI, exact runtime/declaration bytes, original 18 YAML declarations and 10 named typed values; default namespace wrapper remains pending.")
+ (finally (fs/rmSync dir #js {:recursive true :force true})))
