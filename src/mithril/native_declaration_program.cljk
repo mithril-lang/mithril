@@ -41,4 +41,7 @@
     :module-files (into {} (map #(vector (get %1 "name") (str %2 ".d.mts")) modules stems))
     :exports (:exports checked) :type-exports (:type-exports checked)
     :files (if (contains? files "index.d.mts") files
-             (assoc files "index.d.mts" (str "// Checked Mithril declaration entry.\nexport * from " (js/JSON.stringify (get paths (:entry checked))) ";\n")))})))
+             (assoc files "index.d.mts" (str "// Checked Mithril declaration entry.\nexport * from " (js/JSON.stringify (get paths (:entry checked))) ";\n"
+                             (when-let [b (get-in checked [:tables (:entry checked) "default"])]
+                              (str "export " (when (or (:type-only-value b) (and (not (:values b)) (not (get-in b [:namespaces :value?])))) "type ")
+                                   "{default} from " (js/JSON.stringify (get paths (:entry checked))) ";\n")))))})))

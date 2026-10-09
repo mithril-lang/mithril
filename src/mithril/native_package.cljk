@@ -21,6 +21,13 @@
 (defn- filename! [s]
   (when-not (and (string? s) (re-matches #"[A-Za-z0-9][A-Za-z0-9_-]*\.mith" s))
     (fail! :mithril.native-package/source "Expected a local Mithril source basename")))
+(defn check-entry-exports [doc]
+ (let [explicit (get doc "entry-exports" [])]
+    (when (contains? doc "entry-exports")
+      (vector! explicit 128)
+      (doseq [e explicit] (shape! e ["module" "import" "export"]) (name! (get e "module")) (identifier! (get e "import")) (identifier! (get e "export")))
+      (unique! (mapv #(get % "export") explicit)))
+  explicit))
 (defn- binding-origin [modules module-name public-name seen]
  (let [key [module-name public-name]]
   (when (contains? seen key)
@@ -44,32 +51,39 @@
                 (some #{public-name} (:exports (get-in runtime [:modules module-name]))))
   (fail! :mithril.native-package/link "Unknown checked ESM export origin"))
  (binding-origin (:modules runtime) module-name public-name #{}))
-(defn- esm-public-exports [modules roots]
+(defn- esm-public-exports [modules roots explicit]
   (let [origin #(binding-origin modules %1 %2 %3)]
     ;; Every explicit alias must resolve, including private/default exports not
     ;; visible through the root stars. Native linking rejects originless cycles.
     (doseq [[n m] modules e (:exports m)] (origin n e #{}))
     ;; Native export * excludes default, merges repeated paths to one binding,
     ;; and suppresses distinct binding origins with the same exported name.
-    (let [candidates (vec (mapcat (fn [n] (map #(hash-map :name % :module n)
+    (let [selected (mapv (fn [e]
+                            (let [n (get e "module") target (get e "import") out (get e "export")]
+                             (when-not (some #{target} (:exports (get modules n)))
+                              (fail! :mithril.native-package/link "Unknown explicit entry module/export"))
+                             {:name out :module n :export target})) explicit)
+          selected-names (set (map :name selected))
+          candidates (vec (mapcat (fn [n] (map #(hash-map :name % :module n)
                                               (remove #{"default"} (:exports (get modules n))))) roots))
           grouped (group-by :name candidates)
           admitted (set (keep (fn [[name entries]]
                                 (when (= 1 (count (set (map #(origin (:module %) name #{}) entries)))) name)) grouped))]
-      (loop [todo candidates seen #{} result []]
+      (loop [todo candidates seen selected-names result selected]
         (if-let [e (first todo)]
           (if (and (contains? admitted (:name e)) (not (contains? seen (:name e))))
             (recur (next todo) (conj seen (:name e)) (conj result e))
             (recur (next todo) seen result)) result)))))
 (defn- check-graph [doc sources esm?]
-  (shape! doc ["@context" "@type" "name" "imports" "modules" "reexports"])
+  (shape! doc (cond-> ["@context" "@type" "name" "imports" "modules" "reexports"] (and esm? (contains? doc "entry-exports")) (conj "entry-exports")))
   (when-not (and (= (if esm? "NativeJsEsmPackage" "NativeJsPackage") (get doc "@type"))
                 (= (if esm? "https://mithril.fund/context/native-js-esm-package/v1" "https://mithril.fund/context/native-js-package/v1") (get doc "@context")))
     (fail! :mithril.native-package/context "Expected native package context"))
   (name! (get doc "name"))
-  (let [decls (get doc "modules") host (get doc "imports") roots (get doc "reexports")]
+  (let [decls (get doc "modules") host (get doc "imports") roots (get doc "reexports") explicit (get doc "entry-exports" [])]
     (vector! decls 64) (vector! host 128) (vector! roots 64)
-    (when (or (empty? decls) (empty? roots)) (fail! :mithril.native-package/shape "Empty package"))
+    (check-entry-exports doc)
+    (when (or (empty? decls) (and (empty? roots) (empty? explicit))) (fail! :mithril.native-package/shape "Empty package"))
     (doseq [s host] (identifier! s)) (unique! host) (unique! roots)
     (doseq [m decls]
       (shape! m (if esm? ["name" "source" "dependencies" "links"] ["name" "source" "links"]))
@@ -119,16 +133,17 @@
                     (do (swap! states assoc n :visiting)
                         (doseq [dependency (if esm? (:dependencies (get modules n)) (map #(get % "module") (:links (get modules n))))] (visit dependency))
                         (swap! states assoc n :done) (swap! order conj n))))]
-          (doseq [n roots] (visit n)))
+          (doseq [n (concat roots (map #(get % "module") explicit))] (visit n)))
         (when-not (= (set @order) (set (keys modules)))
           (fail! :mithril.native-package/link "Unreachable package module"))
-        (let [exports (if esm? (esm-public-exports modules roots)
+        (let [exports (if esm? (esm-public-exports modules roots explicit)
                           (vec (mapcat (fn [n] (map #(hash-map :name % :module n) (:exports (get modules n)))) roots)))]
           (vector! exports 128)
           (when-not (= (count exports) (count (set (map :name exports))))
             (fail! :mithril.native-package/ambiguous "Ambiguous star reexports"))
-          {:format (if esm? :mithril.native-esm/checked-v1 :mithril.native-package/checked-v1) :name (get doc "name") :imports host
-           :modules modules :order @order :exports exports})))))
+          (cond-> {:format (if esm? :mithril.native-esm/checked-v1 :mithril.native-package/checked-v1) :name (get doc "name") :imports host
+           :modules modules :order @order :exports exports}
+           (contains? doc "entry-exports") (assoc :entry-exports explicit)))))))
 (defn check-document [doc sources] (check-graph doc sources false))
 (defn check-esm-document
   "Separate native multi-file ESM profile; engine linking owns cycles and TDZ."

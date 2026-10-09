@@ -14,7 +14,7 @@
     ;; Reject nonlocal/duplicate leaf reads before touching source files. Complete
     ;; collection, graph, link and capability admission follows before emission.
     (when-not (and (map? doc)
-                   (= (set (keys doc)) #{"@context" "@type" "name" "imports" "modules" "reexports"})
+                   (= (set (keys doc)) (cond-> #{"@context" "@type" "name" "imports" "modules" "reexports"} (contains? doc "entry-exports") (conj "entry-exports")))
                    (= "NativeJsEsmPackage" (get doc "@type"))
                    (= "https://mithril.fund/context/native-js-esm-package/v1" (get doc "@context"))
                    (vector? decls) (<= 1 (count decls) 64)
@@ -22,6 +22,7 @@
                                  (string? (get % "source"))
                                  (re-matches #"[A-Za-z0-9][A-Za-z0-9_-]*\.mith" (get % "source"))) decls))
       (throw (ex-info "Invalid bounded local ESM source read plan" {:mithril/error :mithril.native-esm/source})))
+    (package/check-entry-exports doc)
     (let [names (mapv #(get % "source") decls)]
       (when-not (= (count names) (count (set names)))
         (throw (ex-info "Duplicate ESM source read plan" {:mithril/error :mithril.native-esm/source})))
@@ -45,7 +46,9 @@
      :module-files (into {} (map #(vector % (filename %)) names))
      :files (assoc files "host-globals.mjs" "// Native host global adapter; no delegated source.\nconst globals=globalThis;\nexport {globals};\n"
                          "index.mjs" (str "// Checked Mithril ESM package entry; ordered native reexports.\n"
-                                          (apply str (map #(str "export * from \"./" (filename %) "\";\n") roots))))}))
+                                          (apply str (map #(str "export * from \"./" (filename %) "\";\n") roots))
+                                          (apply str (map #(str "export {" (get % "import") " as " (get % "export") "} from \"./"
+                                                                  (filename (get % "module")) "\";\n") (:entry-exports checked)))))}))
 (defn compile-document [doc sources] (emit (check-document doc sources) (get doc "reexports")))
 (defn compile-text [text sources]
   (module/check-source-text! text) (compile-document (form/parse text) sources))
