@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="__CSP__"><title>Mithril · Code & Knowledge Explorer</title><style>__STYLE__</style></head>
+<body>
+<header><div class="brand"><span class="brand-mark">M</span><div>MITHRIL <small>CODE & KNOWLEDGE</small></div></div><span class="offline">● OFFLINE SNAPSHOT</span></header>
+<main>
+<div class="intro"><div><p class="eyebrow">REPOSITORY ATLAS</p><h1>Explore connections between code and knowledge.</h1><p id="project" class="muted"></p></div><button id="reset" class="secondary">Reset view</button></div>
+<div id="metrics" class="metrics"></div>
+<div id="scope" class="notice" role="status"></div>
+<div class="controls"><label class="search"><span>⌕</span><input id="search" type="search" placeholder="Search functions, documents and files" aria-label="Search functions, documents and files"></label><label>Community <select id="community"><option value="">All</option></select></label><label>Kind <select id="kind"><option value="">All</option><option value="function">Function</option><option value="document">Documents</option><option value="section">Section</option><option value="entity">Entity</option><option value="file">Files</option><option value="test">Test</option><option value="macro">Macro</option></select></label></div>
+<div class="workspace">
+<section class="map panel"><div class="panel-heading"><h2>Relationship map</h2><span id="map-count" class="muted"></span></div><svg id="graph" viewBox="0 0 760 460" role="img" aria-label="File relationship map"><g id="viewport"></g></svg><div class="map-footer"><span><i class="dot code"></i> Code <i class="dot doc"></i> Documents</span><span>Click to select · Drag to pan · Scroll to zoom</span></div><p id="analysis" class="muted small"></p></section>
+<section class="results panel"><div class="panel-heading"><h2>Index</h2><span id="result-count" class="muted"></span></div><div id="results" class="result-list"></div></section>
+<aside class="inspector panel"><div class="panel-heading"><h2>Source and relationships</h2><span id="selection-kind" class="tag">No selection</span></div><div id="empty" class="empty"><span>◇</span><h3>Select a node</h3><p>Inspect source locations and references<br>for functions, documents and files.</p></div><div id="detail" hidden><h3 id="selection-name"></h3><p id="location" class="muted small"></p><div class="actions"><button id="impact">Impact</button><button id="pin" class="secondary">Set path start</button><button id="path" class="secondary">Path to this node</button></div><p id="walk-result" class="small" role="status"></p><p id="source-status" class="small muted"></p><pre id="source"></pre><h4>Related nodes</h4><div id="neighbors"></div><h4>Exploration API request</h4><pre id="request"></pre></div></aside>
+</div>
+<details class="panel diagnostics"><summary id="diagnostic-summary">Coverage and diagnostics</summary><p>Shows explicit links and statically resolved references. Communities are structural candidates. Unresolved references and unsupported syntax can leave gaps. Paths and impact use the subgraph included in this HTML.</p><pre id="diagnostics"></pre></details>
+<footer><span>Generated from the local index · No external requests</span><code id="revision"></code></footer>
+</main><script type="application/json" id="graph-data">__DATA__</script><script>__SCRIPT__</script>
+</body></html>

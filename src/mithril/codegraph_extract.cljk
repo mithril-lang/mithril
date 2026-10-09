@@ -1,0 +1,279 @@
+(ns mithril.codegraph-extract
+  "Inert, location-aware extraction. No macro expansion or source evaluation."
+  (:require [clojure.string :as str]
+            [edamame.core :as reader]
+            [mithril.compiler :as compiler]
+            [mithril.codegraph-documents :as documents]
+            [mithril.execution :as execution]))
+
+(def parser-profile "mithril.codegraph/extractor-v3-cljs-scopes")
+(def core-symbols
+  ;; An explicit profile catalog, not a runtime namespace lookup or call proof.
+  (set (str/split
+    "+ - * / = not= < > <= >= inc dec max min mod rem quot abs zero? pos? neg? even? odd? identity constantly complement comp partial juxt fnil apply map mapv mapcat reduce reduce-kv reductions filter filterv remove keep keep-indexed map-indexed some every? not-any? not-every? take drop take-while drop-while take-last drop-last partition partition-all partition-by group-by frequencies distinct dedupe sort sort-by compare reverse shuffle range repeat repeatedly iterate interpose interleave concat into empty conj disj assoc assoc-in dissoc update update-in get get-in contains? find keys vals select-keys merge merge-with zipmap set hash-set sorted-set vector vec list hash-map sorted-map seq first second last next rest nth nthnext nnext ffirst count empty? seq? coll? sequential? vector? map? set? list? string? number? integer? boolean? keyword? symbol? fn? nil? some? true? false? int long double float str pr-str prn println print format name namespace keyword symbol subs re-find re-matches re-seq re-pattern atom deref swap! reset! compare-and-set! volatile! vswap! vreset! delay force realized? ex-info ex-data ex-message array-seq js->clj clj->js to-array alength aget aset object-array if-not when when-not cond condp case and or not doall dorun lazy-seq lazy-cat -> ->> some-> some->> cond-> cond->> doto assert comment defn defn- defmacro defonce declare letfn for doseq if-let when-let if-some when-some as-> binding with-open let loop fn new set! throw try catch finally recur type instance? satisfies? meta with-meta vary-meta boolean char char? rand rand-int rand-nth gensym trampoline memoize transduce sequence eduction count bounded-count peek pop transient persistent! conj! assoc! dissoc! disj!"
+    #" ")))
+
+(def extensions #{"clj" "cljs" "cljc" "cljk" "mith" "mithril" "jsonld" "md" "markdown" "txt"})
+(def definition-tags #{'def 'defonce 'defn 'defn- 'defmacro 'deftest})
+(def special-tags
+  #{'if 'do 'throw 'try 'catch 'finally 'recur 'new 'set! 'quote 'var
+    'let 'let* 'loop 'loop* 'fn 'fn* 'letfn 'binding 'with-open
+    'if-let 'when-let 'if-some 'when-some 'for 'doseq 'as->})
+
+(defn sha256 [text]
+  (str "sha256:" (.digest (.update (.createHash (js/require "crypto") "sha256") text "utf8") "hex")))
+(defn digest [value] (sha256 (execution/canonical-text value)))
+(defn source-digest [text] (digest text))
+(defn id [kind value]
+  (str "urn:mithril:code:" (name kind) ":" (subs (digest value) 7)))
+
+(defn safe-path! [path]
+  (when-not (and (string? path) (seq path)
+                 (not (str/starts-with? path "/"))
+                 (not (str/includes? path "\\"))
+                 (not (re-find #"[\u0000-\u001f]" path))
+                 (every? #(not (contains? #{"" "." ".."} %)) (str/split path #"/")))
+    (throw (ex-info "codegraph requires a relative source path"
+                    {:mithril/error :mithril.codegraph/invalid-path :path path})))
+  path)
+
+(defn span [form]
+  (let [{:keys [row col end-row end-col]} (meta form)]
+    {:start-line (or row 1) :start-column (or col 1)
+     :end-line (or end-row row 1) :end-column (or end-col col 1)}))
+
+(defn- parse [text]
+  ;; Reader eval and custom tags are rejected. cljs is an explicit profile;
+  ;; a clj conditional branch is not silently presented as indexed code.
+  (reader/parse-string-all text
+                          {:all true :read-eval false :read-cond :allow
+                           :features #{:cljs} :auto-resolve name
+                           :location? (constantly true)}))
+
+(defn- bindings [form]
+  (cond
+    (symbol? form) #{(str form)}
+    (vector? form) (into #{} (mapcat bindings) (remove #{'&} form))
+    (map? form)
+    (reduce (fn [out [k v]]
+              (cond
+                (contains? #{:keys :syms :strs} k)
+                (into out (map #(name %) v))
+                (= k :as) (into out (bindings v))
+                (= k :or) out
+                ;; Namespaced :foo/keys has the same local binding names.
+                (and (keyword? k) (= "keys" (name k)))
+                (into out (map name v))
+                :else (into out (bindings k)))) #{} form)
+    :else #{}))
+
+(defn- ns-info [forms]
+  (let [ns-forms (vec (filter #(and (seq? %) (= 'ns (first %))) forms))
+        _ (when (> (count ns-forms) 1)
+            (throw (ex-info "multiple namespace declarations need a separate extractor profile"
+                            {:mithril/error :mithril.codegraph/multiple-namespaces})))
+        form (first ns-forms)
+        specs (mapcat rest (filter #(and (seq? %) (contains? #{:require :use} (first %)))
+                                  (drop 2 form)))]
+    (reduce
+     (fn [result spec]
+       (if (and (vector? spec) (symbol? (first spec)))
+         (let [target (str (first spec)) opts (apply hash-map (rest spec))
+               alias (some-> (or (:as opts) (:as-alias opts)) str)
+               referred (:refer opts)
+               renamed (:rename opts)
+               unsupported? (or (some #(not (contains? #{:as :as-alias :refer :rename} %)) (keys opts))
+                                (and renamed (not (map? renamed)))
+                                (= :all referred))]
+           (cond-> (update result :imports conj
+                           {:target target :span (span spec) :relation :imports})
+             (and alias (not unsupported?)) (assoc-in [:aliases alias] target)
+             (and (vector? referred) (not unsupported?))
+             (update :refers merge (into {} (map (fn [sym] [(str (get renamed sym sym)) (str target "/" sym)]) referred)))
+             unsupported? (update :diagnostics conj {:reason :unsupported-require-options :span (span spec)})))
+         (update result :diagnostics conj {:reason :unsupported-require :span (span spec)})))
+     {:namespace (some-> (second form) str) :aliases {} :refers {} :imports []
+      :diagnostics []} specs)))
+
+(defn- target-name [sym {:keys [namespace aliases refers]}]
+  (let [s (str sym)]
+    (if-let [n (clojure.core/namespace sym)]
+      (str (get aliases n n) "/" (name sym))
+      (or (get refers s) (when namespace (str namespace "/" s))))))
+
+(defn- references [forms info]
+  (let [out (atom []) diagnostics (atom [])]
+    (letfn [(record! [sym owner locals head?]
+              (when (and (symbol? sym) (not (contains? locals (str sym)))
+                         (not (contains? special-tags sym))
+                         (not (str/starts-with? (str sym) ".")))
+                (swap! out conj {:owner owner :target (target-name sym info)
+                                 :core-candidate (and (contains? core-symbols (name sym))
+                                                      (or (and (nil? (namespace sym)) (not (contains? (:refers info) (str sym))))
+                                                          (contains? #{"cljs.core" "clojure.core"} (namespace sym))))
+                                 :spelling (str sym) :span (span sym)
+                                 :relation (if head? :invokes :references)})))
+            (walk-bindings! [pairs body owner locals]
+              (loop [pairs (seq (partition 2 pairs)) locals locals]
+                (if-let [[pattern init] (first pairs)]
+                  (do (walk! init owner locals)
+                      (walk-defaults! pattern owner locals)
+                      (recur (next pairs) (into locals (bindings pattern))))
+                  (doseq [f body] (walk! f owner locals)))))
+            (walk-defaults! [pattern owner locals]
+              (cond
+                (map? pattern)
+                (let [defaults (:or pattern)
+                      patterns (mapcat (fn [[k v]]
+                                         (cond (contains? #{:or :as} k) []
+                                               (and (keyword? k) (contains? #{"keys" "strs" "syms"} (name k)))
+                                               (map #(symbol (name %)) v)
+                                               :else [k])) pattern)]
+                  (reduce (fn [scope p]
+                            (when (and (symbol? p) (contains? defaults p))
+                              (walk! (get defaults p) owner scope))
+                            (when (coll? p) (walk-defaults! p owner scope))
+                            (into scope (bindings p)))
+                          (into locals (bindings (:as pattern))) patterns))
+                (vector? pattern)
+                (reduce (fn [scope p]
+                          (walk-defaults! p owner scope) (into scope (bindings p))) locals pattern)))
+            (walk-comprehension! [pairs body owner locals]
+              (loop [pairs (seq pairs) locals locals]
+                (if-let [tag (first pairs)]
+                  (let [value (second pairs)]
+                    (cond
+                      (= :let tag)
+                      (let [next-locals (reduce (fn [env [p init]]
+                                                (walk! init owner env) (walk-defaults! p owner env)
+                                                (into env (bindings p))) locals (partition 2 value))]
+                        (recur (nnext pairs) next-locals))
+                      (contains? #{:when :while} tag)
+                      (do (walk! value owner locals) (recur (nnext pairs) locals))
+                      (keyword? tag)
+                      (swap! diagnostics conj {:reason :unsupported-binding-form :form (str tag) :owner owner})
+                      :else (do (walk! value owner locals) (walk-defaults! tag owner locals)
+                                (recur (nnext pairs) (into locals (bindings tag))))))
+                  (doseq [f body] (walk! f owner locals)))))
+            (walk-fn! [tail owner locals]
+              (let [tail (if (symbol? (first tail)) (rest tail) tail)
+                    arities (if (vector? (first tail)) [tail] tail)]
+                (doseq [arity arities :when (sequential? arity)]
+                  (let [params (first arity)]
+                    (when (vector? params)
+                      ;; Bare formal parameters exist before destructuring. A
+                      ;; destructured name is not in scope in its own initializer.
+                      (reduce (fn [scope pattern]
+                                (walk-defaults! pattern owner scope)
+                                (into scope (bindings pattern)))
+                              (into locals (map str (filter symbol? params))) params)
+                      (doseq [f (rest arity)]
+                        (walk! f owner (into locals (bindings params)))))))))
+            (walk! [f owner locals]
+              (cond
+                (symbol? f) (record! f owner locals false)
+                (seq? f)
+                (let [head (first f)
+                      tag (if (and (symbol? head) (contains? #{"clojure.core" "cljs.core"} (namespace head)))
+                            (symbol (name head)) head)]
+                  (cond
+                    (contains? #{'quote 'clojure.core/quote 'var} tag) nil
+                    (contains? #{'fn 'fn*} tag)
+                    (walk-fn! (rest f) owner
+                              (cond-> locals (symbol? (second f)) (conj (str (second f)))))
+                    (contains? #{'let 'let* 'loop 'loop* 'with-open} tag)
+                    (walk-bindings! (second f) (drop 2 f) owner locals)
+                    (= 'binding tag)
+                    (do (doseq [[p init] (partition 2 (second f))]
+                          (record! p owner locals false) (walk! init owner locals))
+                        (doseq [x (drop 2 f)] (walk! x owner locals)))
+                    (= 'letfn tag)
+                    (let [decls (second f) scope (into locals (map (comp str first) decls))]
+                      (doseq [decl decls] (walk-fn! (rest decl) owner scope))
+                      (doseq [x (drop 2 f)] (walk! x owner scope)))
+                    (contains? #{'for 'doseq} tag)
+                    (walk-comprehension! (second f) (drop 2 f) owner locals)
+                    (= 'as-> tag)
+                    (do (walk! (second f) owner locals)
+                        (doseq [x (drop 3 f)] (walk! x owner (conj locals (str (nth f 2))))))
+                    (contains? #{'if-let 'if-some 'when-let 'when-some} tag)
+                    (let [[p init] (second f) scope (into locals (bindings p))]
+                      (walk! init owner locals) (walk-defaults! p owner locals)
+                      (if (contains? #{'if-let 'if-some} tag)
+                        (do (walk! (nth f 2 nil) owner scope) (walk! (nth f 3 nil) owner locals))
+                        (doseq [x (drop 2 f)] (walk! x owner scope))))
+                    (= 'catch tag)
+                    (doseq [x (drop 3 f)] (walk! x owner (conj locals (str (nth f 2)))))
+                    :else
+                    (do (record! tag owner locals true)
+                        (doseq [x (rest f)] (walk! x owner locals)))))
+                (map? f) (doseq [[k v] f] (walk! k owner locals) (walk! v owner locals))
+                (coll? f) (doseq [x f] (walk! x owner locals))))]
+      (doseq [form forms :when (and (seq? form) (contains? definition-tags (first form)))]
+        (let [tag (first form) owner (str (:namespace info) "/" (second form))
+              tail (drop 2 form)
+              tail (if (string? (first tail)) (rest tail) tail)
+              tail (if (map? (first tail)) (rest tail) tail)]
+          (if (contains? #{'defn 'defn- 'defmacro} tag)
+            (walk-fn! tail owner #{})
+            (doseq [f tail] (walk! f owner #{})))))
+      {:references (vec (sort-by pr-str @out)) :diagnostics @diagnostics})))
+
+(defn- extract-clojure [path text]
+  (let [forms (parse text) info (ns-info forms)
+        definitions (for [form forms
+                          :when (and (seq? form) (contains? definition-tags (first form))
+                                     (symbol? (second form)))]
+                      {:name (str (:namespace info) "/" (second form))
+                       :label (str (second form))
+                       :kind (cond (contains? #{'defn 'defn-} (first form)) :function
+                                   (= 'defmacro (first form)) :macro
+                                   (= 'deftest (first form)) :test
+                                   :else :var)
+                       :span (span form)})
+        refs (references forms info)]
+    (when-not (:namespace info)
+      (throw (ex-info "Clojure source must declare a namespace"
+                      {:mithril/error :mithril.codegraph/missing-namespace :path path})))
+    (merge (select-keys info [:namespace :aliases :refers :imports]) refs
+           {:definitions (vec definitions)
+            :diagnostics (vec (concat (:diagnostics info) (:diagnostics refs)
+                                      (for [form forms
+                                            :when (and (seq? form)
+                                                       (not (contains? (conj definition-tags 'ns) (first form))))]
+                                        {:reason :unsupported-top-level :span (span form)})))})))
+
+(defn- extract-mithril [path text]
+  (let [doc (compiler/parse-source text)
+        form (when-not (str/starts-with? (str/trim text) "{") (first (parse text)))
+        root (or (get doc "@id") (str "file:" path))
+        location (if form (span form)
+                     ;; JSON reader does not provide a node token span. State
+                     ;; the whole document span explicitly, never invent one.
+                     {:start-line 1 :start-column 1
+                      :end-line (count (str/split-lines text))
+                      :end-column (inc (count (last (str/split-lines text))))})
+        entities (documents/extract-entities doc root location)]
+    {:namespace root :aliases {} :refers {}
+     :definitions (into [{:name root :label root :kind :document :span location
+                          :location-precision (if form :form :document)}] (:definitions entities))
+     :imports (mapv (fn [x] {:target (get x "library") :span location :relation :imports})
+                    (get doc "imports" []))
+     :references (:references entities) :diagnostics []
+     :document-type (get doc "@type") :semantic-document doc
+     :location-precision (if form :form :document)}))
+
+(defn extract [path text]
+  (safe-path! path)
+  (when-not (contains? extensions (compiler/extension path))
+    (throw (ex-info "unsupported codegraph source extension"
+                    {:mithril/error :mithril.codegraph/unsupported-language :path path})))
+  (assoc (if (contains? #{"md" "markdown" "txt"} (compiler/extension path))
+           (documents/extract-text path text (not= "txt" (compiler/extension path)))
+           (if (contains? compiler/source-extensions (compiler/extension path))
+           (extract-mithril path text)
+           (if (= "jsonld" (compiler/extension path))
+             (extract-mithril path text)
+             (extract-clojure path text))))
+         :path path :source text :source-digest (source-digest text)
+         :parser-profile parser-profile))

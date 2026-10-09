@@ -1,0 +1,5 @@
+(mithril/ontology
+  :id "https://mithril.fund/ontology/natural-language-example-v1"
+  :profile ["https://www.w3.org/TR/rdf11-concepts/" "https://www.w3.org/TR/owl2-profiles/#OWL_2_RL" "https://www.w3.org/TR/shacl/"]
+  :graph [(owl/class :id "urn:example:Animal")
+          (owl/class :id "urn:example:Cat" :rdfs/sub-class-of "urn:example:Animal")])

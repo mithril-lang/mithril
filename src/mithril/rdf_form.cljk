@@ -1,0 +1,55 @@
+(ns mithril.rdf-form
+  "Lossless inert Mithril Form serialization of an RDF Dataset."
+  (:require [clojure.string :as str]
+            [mithril.form :as form]
+            [mithril.reason-rdf :as rdf]))
+
+(defn- identity-of [term]
+  (case (:type term) :iri (:value term) :blank (str "_:" (:value term)) (:default nil) nil))
+
+(defn- term-form [term]
+  (case (:type term)
+    (:iri :blank) (list 'rdf/iri (identity-of term))
+    :literal (apply list 'rdf/literal (:value term)
+                    (cond (:language term) [:language (:language term)]
+                          (:datatype term) [:datatype (:datatype term)] :else []))
+    (throw (ex-info "unsupported RDF dataset term" {:mithril/error :mithril.rdf-form/term}))))
+
+(defn write-quads
+  ([quads] (write-quads quads []))
+  ([quads empty-graphs]
+  (let [graphs (merge (zipmap empty-graphs (repeat [])) (group-by #(identity-of (:graph %)) quads))]
+    (str "(rdf/dataset\n"
+         (str/join "\n"
+           (for [[graph statements] (sort-by (comp pr-str key) graphs)]
+             (str "  (rdf/graph " (pr-str graph) "\n"
+                  (str/join "\n"
+                    (for [[subject statements] (sort-by (comp pr-str key) (group-by #(identity-of (:subject %)) statements))]
+                      (str "    (rdf/description " (pr-str subject) "\n"
+                           (str/join "\n"
+                             (for [[predicate statements] (sort-by key (group-by #(get-in % [:predicate :value]) statements))]
+                               (str "      " (pr-str (apply list 'rdf/property predicate
+                                                           (map term-form (sort-by pr-str (distinct (map :object statements)))))))))
+                           ")"))) ")"))) "\n)\n"))))
+
+(defn write [document]
+  (write-quads (rdf/quads document)
+               (keep #(when (and (map? %) (contains? % "@graph") (get % "@id")) (get % "@id"))
+                     (if (vector? document) document [document]))))
+(defn read [text] (form/parse text))
+
+(defn reason-document
+  "Named RDF layers plus lossless quotations of OWL non-RDF rule facts."
+  [result ontology-digest data-digest query-type]
+  (let [base "https://mithril.fund/ns/reason-output/v1#"
+        quoted (for [layer [:asserted :entailed :inferred] fact (get result layer)
+                     :when (map? (:s fact))
+                     :let [text (pr-str fact)
+                           hash (.digest (.update (.createHash (js/require "crypto") "sha256")
+                                                   (pr-str [layer fact]) "utf8") "hex")]]
+                 {"@id" (str "urn:mithril:quoted-rule-fact:" hash)
+                  (str base "layer") [{"@value" (name layer)}]
+                  (str base "fact") [{"@value" text}]
+                  (str base "provenance") [{"@value" "owl2-rl-rule-fact"}]})]
+    (cond-> (rdf/document result ontology-digest data-digest query-type)
+      (seq quoted) (conj {"@id" "urn:mithril:reason:quoted-rule-facts" "@graph" (vec quoted)}))))

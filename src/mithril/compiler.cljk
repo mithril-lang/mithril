@@ -383,6 +383,39 @@
      :graph-digest (str "sha256:" graph-digest)
      :transaction [:oak.transaction/v1 goal ontology choices]}))
 
+(def compiler-stages
+  {"read-inert" {:inputs #{:path :source} :outputs #{:document :source-format}}
+   "project-jsonld" {:inputs #{:document} :outputs #{:dataset}}
+   "canonicalize-rdf" {:inputs #{:dataset} :outputs #{:graph-digest}}
+   "admit-vocabulary" {:inputs #{:document} :outputs #{:goal :ontology :choices}}
+   "emit-transaction" {:inputs #{:graph-digest :goal :ontology :choices} :outputs #{:artifact}}})
+
+(defn run-compiler-stage
+  "Execute one closed bootstrap primitive; the .mith kernel supplies ordering."
+  [stage facts]
+  (case stage
+    "read-inert"
+    (let [doc (parse-source (:source facts))]
+      (require-source! (:path facts) doc)
+      {:document doc :source-format (if (form/source? (:source facts)) form-media-type media-type)})
+    "project-jsonld"
+    {:dataset (to-rdf/to-rdf (jsonld/expand (:document facts)
+                                          {:contexts {context-uri context-document}}))}
+    "canonicalize-rdf"
+    {:graph-digest (str "sha256:" (rdf-canon/canonical-hash (:dataset facts)))}
+    "admit-vocabulary"
+    (let [doc (:document facts) goal-iri (get doc "goal")
+          _ (when-not (contains? goals goal-iri)
+              (fail! :mithril/unknown-goal "goal is outside the v1 catalog"))
+          choices (ordered-choices (get doc "choices")) ontology (get doc "ontology")]
+      (require-ontology! ontology)
+      {:goal (short-id goal-iri) :ontology ontology :choices choices})
+    "emit-transaction"
+    {:artifact {:format "https://mithril.fund/artifact/v1" :media-type media-type
+                :graph-digest (:graph-digest facts)
+                :transaction [:oak.transaction/v1 (:goal facts) (:ontology facts) (:choices facts)]}}
+    (fail! :mithril/unknown-compiler-stage "unknown bootstrap compiler stage")))
+
 (defn- compile-export [entry]
   (when-not (and (map? entry) (= export-keys (set (keys entry))))
     (fail! :mithril/invalid-export "library export contains an unknown or missing key"))

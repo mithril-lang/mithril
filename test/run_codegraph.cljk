@@ -1,0 +1,9 @@
+(ns test.run-codegraph
+  (:require [cljs.test :as t]
+            [mithril.codegraph-test]
+            [mithril.language-test]
+            [mithril.codegraph-documents-test]
+            [mithril.rdf-form-test]))
+
+(let [result (t/run-tests 'mithril.codegraph-test 'mithril.language-test 'mithril.codegraph-documents-test 'mithril.rdf-form-test)]
+  (when (pos? (+ (:fail result) (:error result))) (js/process.exit 1)))

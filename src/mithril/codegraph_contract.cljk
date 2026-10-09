@@ -1,0 +1,88 @@
+(ns mithril.codegraph-contract
+  "Bootstrap admission adapter for Mithril's own .mith codegraph contract."
+  (:require [mithril.compiler :as compiler]
+            [mithril.codegraph-extract :as extract]
+            [json-ld-api.core :as jsonld]
+            [json-ld-api.to-rdf :as to-rdf]
+            [rdf-canon.core :as canon]))
+
+(def format-id "https://mithril.fund/artifact/codegraph-v1")
+(def base "https://mithril.fund/ns/codegraph/v1#")
+(def contract-path "src/mithril/codegraph.mith")
+(def ontology-path "ontology/codegraph-v1.mith")
+(def library-path "lib/codegraph/operations-v1.mith")
+(def package-root (.resolve (js/require "path")
+                            (.dirname (js/require "path") *file*) "../.."))
+(def bootstrap-digest
+  (extract/digest
+   (mapv #(.readFileSync (js/require "fs") (.resolve (js/require "path") package-root %) "utf8")
+         ["src/mithril/codegraph_extract.cljk" "src/mithril/codegraph_documents.cljk"
+          "src/mithril/codegraph_communities.cljk" "src/mithril/codegraph.cljk"
+          "src/mithril/rdf_form.cljk" "src/mithril/codegraph_store.cljs" "src/mithril/form.cljk"])))
+(def operations #{"search" "node" "callers" "callees" "impact" "path" "explore" "status" "rdf" "communities" "community" "catalog" "content" "neighbors"})
+(def contract-keys
+  #{"@context" "@id" "@type" "ontology" "imports" "parser-profile"
+    "extensions" "pipeline" "queries" "max-files" "max-file-bytes"
+    "max-total-bytes" "max-results" "max-depth" "max-visited" "max-source-chars"
+    "max-community-edges" "max-community-passes" "max-ui-nodes" "max-ui-edges" "max-ui-bytes"})
+
+(defn- refuse! [detail]
+  (throw (ex-info detail {:mithril/error :mithril.codegraph/invalid-contract})))
+
+(defn compile-text [path text library ontology]
+  (let [doc (compiler/parse-source text)
+        imports (get doc "imports")
+        exports (set (map :symbol (get-in library [:library :exports])))
+        ontology-digest (:graph-digest ontology)]
+    (when-not (and (compiler/source-path? path)
+                   (= contract-keys (set (keys doc)))
+                   (= compiler/context-uri (get doc "@context"))
+                   (= "CodeGraphApplication" (get doc "@type"))
+                   (= "https://mithril.fund/id/codegraph/mithril" (get doc "@id"))
+                   (= ontology-digest (str "sha256:" (get doc "ontology")))
+                   (= (get doc "ontology") (get-in library [:library :ontology]))
+                   (= [{"library" (get-in library [:library :id])
+                        "digest" (:graph-digest library)}] imports)
+                   (= extract/parser-profile (get doc "parser-profile"))
+                   (= ["extract" "resolve" "detect-communities" "project"] (get doc "pipeline"))
+                   (= (count (get doc "queries")) (count (set (get doc "queries"))))
+                   (seq (get doc "queries"))
+                   (every? operations (get doc "queries"))
+                   (seq (get doc "extensions"))
+                   (every? extract/extensions (get doc "extensions")))
+      (refuse! "codegraph source does not match the admitted ontology, library or pipeline"))
+    (doseq [op (concat (get doc "pipeline") (get doc "queries"))]
+      (when-not (contains? exports (str base op))
+        (refuse! (str "operation is not imported: " op))))
+    (doseq [[field maximum] [["max-files" 10000] ["max-file-bytes" 1048576]
+                             ["max-total-bytes" 67108864] ["max-results" 200]
+                             ["max-community-edges" 200000] ["max-community-passes" 32]
+                             ["max-ui-nodes" 10000] ["max-ui-edges" 20000] ["max-ui-bytes" 16777216]
+                             ["max-depth" 16] ["max-visited" 10000] ["max-source-chars" 65536]]]
+      (let [n (get doc field)]
+        (when-not (and (integer? n) (<= 1 n maximum))
+          (refuse! (str "invalid codegraph budget: " field)))))
+    ;; A dedicated inline context binds EVERY operational field without
+    ;; extending the shared v1 context or changing old program digests.
+    (let [context (merge (into {} (for [k (remove #{"@context" "@id" "@type"} contract-keys)]
+                                   [k (str base k)]))
+                         {"CodeGraphApplication" (str base "Application")
+                          "library" {"@id" (str base "library") "@type" "@id"}
+                          "digest" (str base "digest")
+                          "pipeline" {"@id" (str base "pipeline") "@container" "@list"}})
+          semantic (assoc doc "@context" context)
+          dataset (to-rdf/to-rdf (jsonld/expand semantic))]
+      {:format format-id
+       :bootstrap-digest bootstrap-digest
+       :graph-digest (str "sha256:" (canon/canonical-hash dataset))
+       :ontology-digest ontology-digest
+       :library-digest (:graph-digest library)
+       :codegraph-ir (into {} (for [[k v] (dissoc doc "@context" "@id" "@type")]
+                                  [(keyword k) v]))})))
+
+(defn load! []
+  (let [read-text #(.readFileSync (js/require "fs")
+                                 (.resolve (js/require "path") package-root %) "utf8")]
+    (compile-text contract-path (read-text contract-path)
+                  (compiler/compile-library-text library-path (read-text library-path))
+                  (compiler/compile-ontology-text ontology-path (read-text ontology-path)))))

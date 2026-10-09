@@ -1,0 +1,25 @@
+name: Mithril CodeGraph conformance
+on:
+  pull_request:
+    paths: ['src/mithril/**', 'bin/**', 'ontology/**', 'lib/**', 'resources/codegraph/**', 'test/**', 'scripts/run-sci.mjs', 'scripts/test-codegraph-web.mjs', 'deps.edn', '.github/workflows/codegraph.yml']
+  push:
+    branches: [main]
+    paths: ['src/mithril/**', 'bin/**', 'ontology/**', 'lib/**', 'resources/codegraph/**', 'test/**', 'scripts/run-sci.mjs', 'scripts/test-codegraph-web.mjs', 'deps.edn', '.github/workflows/codegraph.yml']
+permissions:
+  contents: read
+jobs:
+  codegraph:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: DeLaGuardo/setup-clojure@13.7.0
+        with:
+          cli: 1.12.5.1654
+          bb: 1.12.218
+      - run: npm install --global nbb@1.5.212
+      - run: node scripts/run-sci.mjs test/run_codegraph.cljk
+      - run: node scripts/test-codegraph-web.mjs

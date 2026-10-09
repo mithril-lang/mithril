@@ -1,0 +1,10 @@
+; Explicitly declared interpretation, not an automatic language-model extraction.
+; The original Japanese text and its provenance stay alongside the assertion.
+(rdf/dataset
+  (rdf/graph "urn:example:declared-claims"
+    (rdf/description "urn:example:tama"
+      (rdf/property "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
+        (rdf/iri "urn:example:Cat"))
+      (rdf/property "urn:example:sourceText" (rdf/literal "たまは猫である。" :language "ja"))
+      (rdf/property "urn:example:provenance" (rdf/literal "human-declared"))
+      (rdf/property "urn:example:startLine" (rdf/literal "1" :datatype "http://www.w3.org/2001/XMLSchema#integer")))))
