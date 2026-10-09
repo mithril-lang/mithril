@@ -87,7 +87,7 @@
 (defn- declaration-shape! [d]
  (case (get d "kind")
   "function" (shape! d ["kind" "name" "exported" "type-params" "params" "returns"])
-  "const" (shape! d ["kind" "name" "exported" "datatype"])
+  ("const" "let") (shape! d ["kind" "name" "exported" "datatype"])
   "const-enum" (do (shape! d ["kind" "name" "exported" "members"])
                     (vector! (get d "members") 128)
                     (doseq [m (get d "members")]
@@ -146,11 +146,11 @@
  (let [by-kind (group-by #(get % "kind") ds) kinds (set (keys by-kind))
        klass (first (get by-kind "class")) aliases (get by-kind "alias") interfaces (get by-kind "interface")
        types (filterv #(contains? #{"class" "interface" "alias" "const-enum"} (get % "kind")) ds)
-       values (filterv #(or (contains? #{"class" "function" "const" "const-enum"} (get % "kind")) (and (= "namespace" (get % "kind")) (namespace-value? %))) ds)
+       values (filterv #(or (contains? #{"class" "function" "const" "let" "const-enum"} (get % "kind")) (and (= "namespace" (get % "kind")) (namespace-value? %))) ds)
        namespaces (get by-kind "namespace")]
-  (when (or (> (count aliases) 1) (> (count (get by-kind "class")) 1) (> (count (get by-kind "const")) 1)
+  (when (or (> (count aliases) 1) (> (count (get by-kind "class")) 1) (> (+ (count (get by-kind "const")) (count (get by-kind "let"))) 1)
             (and aliases (or klass (seq interfaces)))
-            (and (contains? kinds "const") (or klass (contains? kinds "function") (some namespace-value? namespaces)))
+            (and (some kinds ["const" "let"]) (or klass (contains? kinds "function") (some namespace-value? namespaces)))
             (and (contains? kinds "export-alias") (> (count ds) 1))
             (and (contains? kinds "const-enum") (not= kinds #{"const-enum"})))
    (fail! :mithril.native-declarations/duplicate "Incompatible declaration merge"))
@@ -191,11 +191,11 @@
                                  :base (get klass "extends") :heritage heritage :context (second type-entry)
                                  :scope prefix :exported (get (first types) "exported"))))
    (when-let [[v context] (or (first (filter #(= "class" (get (first %) "kind")) entries))
-                            (first (filter #(contains? #{"function" "const" "const-enum"} (get (first %) "kind")) entries)))]
+                            (first (filter #(contains? #{"function" "const" "let" "const-enum"} (get (first %) "kind")) entries)))]
     (add! registry :values n (cond-> {:kind (get v "kind") :context context :scope prefix :exported (get v "exported")}
                              klass (assoc :class-name n)
                              (= "const-enum" (get v "kind")) (assoc :erased true)
-                             (= "const" (get v "kind")) (assoc :datatype (get v "datatype")))))
+                             (contains? #{"const" "let"} (get v "kind")) (assoc :datatype (get v "datatype")))))
    (when (contains? kinds "const-enum")
     (let [members (vec (mapcat #(get % "members") ds)) context (second (first entries)) exported (get (first ds) "exported")]
      (add! registry :namespaces n {:value? false :scope prefix :context context :exported exported :erased true})
@@ -507,6 +507,7 @@
     "function" (signature! d env values :normal depth budget registry scope false)
     "const-enum" (doseq [_ (get d "members")] (charge! budget (inc depth)))
     "const" (check-type! (get d "datatype") env values :unique (inc depth) budget registry scope nil)
+    "let" (check-type! (get d "datatype") env values :normal (inc depth) budget registry scope nil)
     "alias" (let [e (generic-env! (get d "type-params") env values :normal depth budget registry scope false)] (check-type! (get d "datatype") e values :normal (inc depth) budget registry scope nil))
     "interface" (let [e (generic-env! (get d "type-params") env values :normal depth budget registry scope false)]
                   (doseq [base (get d "extends")]
@@ -519,7 +520,15 @@
                   (check-declarations! (get d "declarations") env values budget r (str scope (get d "name") ".") (inc depth)))
     "export-alias" (do (identifier! (get d "target")) (when-not (or (contains? (:values registry) (get d "target")) (contains? (:types registry) (get d "target"))) (fail! :mithril.native-declarations/export "Unknown alias target")))))))
 (defn- namespace-value? [d]
- (some #(or (contains? #{"function" "const" "class"} (get % "kind")) (and (= "namespace" (get % "kind")) (namespace-value? %))) (get d "declarations")))
+ (some #(or (contains? #{"function" "const" "let" "class"} (get % "kind")) (and (= "namespace" (get % "kind")) (namespace-value? %))) (get d "declarations")))
+(defn- mutable-runtime-export! [runtime module-name public-name]
+ (when-not (= :mithril.native-esm/checked-v1 (:format runtime))
+  (fail! :mithril.native-declarations/surface "Mutable module exports require native ESM live bindings"))
+ (let [[owner kind target] (package/export-origin runtime module-name public-name)
+       declarations (get-in runtime [:modules owner :checked (case kind :binding :bindings :function :functions nil)])
+       binding (first (filter #(= target (:name %)) declarations))]
+  (when-not (true? (:mutable binding))
+   (fail! :mithril.native-declarations/surface "Mutable declaration requires an actual native mutable binding"))))
 (defn check-document [doc runtime]
  (shape! doc ["@context" "@type" "name" "runtime-source" "ambient-types" "ambient-values" "declarations"])
  (when-not (and (= "NativeJsDeclarations" (get doc "@type")) (= "https://mithril.fund/context/native-js-declarations/v1" (get doc "@context"))) (fail! :mithril.native-declarations/context "Expected declaration context"))
@@ -548,9 +557,11 @@
   (check-declarations! (get doc "declarations") #{} #{} (atom 0) @registry "" 0)
   (let [decls (get doc "declarations")
         public? #(or (get % "exported") (= "export-alias" (get % "kind")))
-        exports (vec (distinct (map #(get % "name") (filter #(and (public? %) (or (or (contains? #{"function" "const" "class"} (get % "kind")) (and (= "export-alias" (get % "kind")) (and (contains? (:values @registry) (get % "name")) (not (:erased (get-in @registry [:values (get % "name")])))))) (and (= "namespace" (get % "kind")) (namespace-value? %)))) decls))))
+        exports (vec (distinct (map #(get % "name") (filter #(and (public? %) (or (or (contains? #{"function" "const" "let" "class"} (get % "kind")) (and (= "export-alias" (get % "kind")) (and (contains? (:values @registry) (get % "name")) (not (:erased (get-in @registry [:values (get % "name")])))))) (and (= "namespace" (get % "kind")) (namespace-value? %)))) decls))))
         types (vec (distinct (map #(get % "name") (filter #(and (public? %) (or (contains? #{"alias" "interface" "class" "const-enum"} (get % "kind")) (and (= "export-alias" (get % "kind")) (contains? (:types @registry) (get % "name"))))) decls))))]
    (when-not (= (set exports) (set (map :name (:exports runtime)))) (fail! :mithril.native-declarations/surface "Public runtime declaration surface mismatch"))
+   (doseq [{:keys [name module export]} (:exports runtime) :when (= "let" (get-in @registry [:values name :kind]))]
+    (mutable-runtime-export! runtime module (or export name)))
    {:format :mithril.native-declarations/checked-v1 :name (get doc "name") :runtime-source (get doc "runtime-source")
     :declarations decls :exports exports :type-exports types})))
 (defn check-text [text runtime] (check-document (parse-text text) runtime))
@@ -752,7 +763,8 @@
       (when native
        (when-not (= values expected) (fail! :mithril.native-declarations/surface "Declaration module runtime surface mismatch"))
        (doseq [name values]
-        (let [origin (:origin (get-in @tables [(get doc "name") name]))]
+        (let [binding (get-in @tables [(get doc "name") name]) origin (:origin binding)]
+         (when (= "let" (get-in binding [:values :kind])) (mutable-runtime-export! runtime native name))
          (when-not (and (:module origin)
                         (= (package/export-origin runtime native name) (package/export-origin runtime (:module origin) (:export origin))))
           (fail! :mithril.native-declarations/surface "Declaration module binding origin mismatch")))))

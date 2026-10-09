@@ -1,0 +1,1 @@
+(mithril/native-js-esm-package :name "mutable" :imports ["globalThis"] :modules [(rdf/node :name "mutable.a" :source "native-js-mutable-a.mith" :dependencies [] :links []) (rdf/node :name "mutable.b" :source "native-js-mutable-b.mith" :dependencies ["mutable.a"] :links [(rdf/node :import "Count" :module "mutable.a" :export "count")])] :reexports ["mutable.a" "mutable.b"])

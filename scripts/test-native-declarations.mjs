@@ -21,6 +21,7 @@ try{
   ['native-variadic-tuples','compile.cljk'],
   ['native-const-generics','compile.cljk'],
   ['native-default-exports','compile.cljk'],
+  ['native-mutable-declarations','compile.cljk'],
  ];
  for(const [name,control] of stages){
   console.log(`Declaration qualification stage: ${name}`);

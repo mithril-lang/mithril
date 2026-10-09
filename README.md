@@ -2374,3 +2374,12 @@ owners, live updates and unchanged old star semantics/bytes. See [default export
 qualification](test/qualification/native-default-exports/README.md). This mechanics
 fixture does not prove full Schema/global namespace/Harness parity. Operator authored,
 zero new System One inference or measured gain.
+
+Mutable ambient let declarations now retain private lexical scope, namespace values,
+queries and genuine native ESM alias/reexport origins. Both Node-executed CLI targets
+qualify260 paired strict groups,8 fresh-process paired runtime scenarios and20 exact
+refusals, including the two original Schemastery globalThis mutable declaration shapes
+under an explicit Schema helper. Immutable/snapshot module origins cannot claim live
+let bindings. See [mutable declaration qualification](test/qualification/native-mutable-declarations/README.md).
+Structured declare-global and full Schema/Harness equivalence remain pending; operator
+authored,zero new System One inference or measured gain.
