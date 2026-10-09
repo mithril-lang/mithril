@@ -45,4 +45,4 @@ Finite model compression substantially reduces regular generated data. Irregular
 
 This experiment supports model compression as an optional codec. It does not establish a production data lake, arbitrary Jsonnet evaluation, native Amu execution, cross-host publication, full SPARQL indexing, or an Iceberg commit.
 
-Raw measurements, implementation hashes, canonical receipts and additional baselines: [computable-datalake-20261009.json](computable-datalake-20261009.json). Reproduction commands and implementation limitations: [reference implementation](../../spec/implementation-status.md).
+Raw measurements, implementation hashes, canonical receipts and additional baselines: [computable-datalake-20261009.json](computable-datalake-20261009.json). Published implementation boundaries: [implementation status](../../spec/implementation-status.md).
