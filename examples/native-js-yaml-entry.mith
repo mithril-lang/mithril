@@ -1,0 +1,739 @@
+; Derived from pinned js-yaml 4.2.0 full source. MIT; see test/qualification/native-yaml-source/LICENSE.
+(mithril/native-js-module
+:name "yaml.entry"
+:ambient_imports ["Error"]
+:imports ["yamlRoot___toESM"
+"yamlRoot___commonJSMin"
+"yamlRoot_require_loader"
+"yamlRoot_require_dumper"
+"yamlRoot_require_type"
+"yamlRoot_require_schema"
+"yamlRoot_require_failsafe"
+"yamlRoot_require_json"
+"yamlRoot_require_core"
+"yamlRoot_require_default"
+"yamlRoot_require_exception"
+"yamlRoot_require_binary"
+"yamlRoot_require_float"
+"yamlRoot_require_map"
+"yamlRoot_require_null"
+"yamlRoot_require_pairs"
+"yamlRoot_require_set"
+"yamlRoot_require_timestamp"
+"yamlRoot_require_bool"
+"yamlRoot_require_int"
+"yamlRoot_require_merge"
+"yamlRoot_require_omap"
+"yamlRoot_require_seq"
+"yamlRoot_require_str"
+"Error"]
+:functions []
+:bindings [(rdf/node
+:name "yC0"
+:value (mithril/literal
+:datatype "js-value"
+:value "exports"))
+(rdf/node
+:name "yC1"
+:value (mithril/literal
+:datatype "js-value"
+:value "load"))
+(rdf/node
+:name "yC2"
+:value (mithril/literal
+:datatype "js-value"
+:value "loadAll"))
+(rdf/node
+:name "yC3"
+:value (mithril/literal
+:datatype "js-value"
+:value "dump"))
+(rdf/node
+:name "yC4"
+:value (mithril/literal
+:datatype "js-value"
+:value "safeLoad"))
+(rdf/node
+:name "yC5"
+:value (mithril/literal
+:datatype "js-value"
+:value "safeLoadAll"))
+(rdf/node
+:name "yC6"
+:value (mithril/literal
+:datatype "js-value"
+:value "safeDump"))
+(rdf/node
+:name "yamlRoot_import_js_yaml"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:name "yamlRoot_Type"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:name "yamlRoot_Schema"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:name "yamlRoot_FAILSAFE_SCHEMA"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:name "yamlRoot_JSON_SCHEMA"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:name "yamlRoot_CORE_SCHEMA"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:name "yamlRoot_DEFAULT_SCHEMA"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:name "yamlRoot_load"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:name "yamlRoot_loadAll"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:name "yamlRoot_dump"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:name "yamlRoot_YAMLException"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:name "yamlRoot_types"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:name "yamlRoot_safeLoad"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:name "yamlRoot_safeLoadAll"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:name "yamlRoot_safeDump"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:name "yamlRoot_index_vite_proxy_tmp_default"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:name "yamlInit34"
+:value (mithril/local-set
+:name "yamlRoot_import_js_yaml"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot___toESM")
+:args [(mithril/host-invoke
+:function (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot___commonJSMin")
+:args [(mithril/native-lambda
+:params ["yL877"
+"yL878"]
+:rest nil
+:body (mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "yL879"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:pattern "yL880"
+:value (mithril/host-undefined)
+:mutable true)]
+:body (mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "yL881"
+:value (mithril/native-function
+:name "renamed"
+:params [(rdf/node
+:name "yL882"
+:datatype "js-value")
+(rdf/node
+:name "yL883"
+:datatype "js-value")]
+:rest nil
+:body (mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/sequence
+:expressions [(mithril/host-throw
+:value (mithril/host-construct
+:constructor (mithril/host-import
+:name "Error")
+:args [(mithril/host-binary
+:operator "+"
+:left (mithril/host-binary
+:operator "+"
+:left (mithril/host-binary
+:operator "+"
+:left (mithril/host-binary
+:operator "+"
+:left (mithril/literal
+:datatype "js-value"
+:value "Function yaml.")
+:right (mithril/local
+:name "yL882"))
+:right (mithril/literal
+:datatype "js-value"
+:value " is removed in js-yaml 4. Use yaml."))
+:right (mithril/local
+:name "yL883"))
+:right (mithril/literal
+:datatype "js-value"
+:value " instead, which is now safe by default."))]))
+(mithril/host-undefined)])
+:statements true))
+(mithril/host-undefined)])
+:statements true))]
+:body (mithril/sequence
+:expressions [(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL879"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot_require_loader")
+:args []))])
+(mithril/sequence
+:expressions [(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL880"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot_require_dumper")
+:args []))])
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/host-get
+:object (mithril/local
+:name "yL878")
+:key (mithril/local
+:name "yC0"))
+:key (mithril/literal
+:datatype "js-value"
+:value "Type")
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot_require_type")
+:args []))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/host-get
+:object (mithril/local
+:name "yL878")
+:key (mithril/local
+:name "yC0"))
+:key (mithril/literal
+:datatype "js-value"
+:value "Schema")
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot_require_schema")
+:args []))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/host-get
+:object (mithril/local
+:name "yL878")
+:key (mithril/local
+:name "yC0"))
+:key (mithril/literal
+:datatype "js-value"
+:value "FAILSAFE_SCHEMA")
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot_require_failsafe")
+:args []))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/host-get
+:object (mithril/local
+:name "yL878")
+:key (mithril/local
+:name "yC0"))
+:key (mithril/literal
+:datatype "js-value"
+:value "JSON_SCHEMA")
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot_require_json")
+:args []))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/host-get
+:object (mithril/local
+:name "yL878")
+:key (mithril/local
+:name "yC0"))
+:key (mithril/literal
+:datatype "js-value"
+:value "CORE_SCHEMA")
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot_require_core")
+:args []))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/host-get
+:object (mithril/local
+:name "yL878")
+:key (mithril/local
+:name "yC0"))
+:key (mithril/literal
+:datatype "js-value"
+:value "DEFAULT_SCHEMA")
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot_require_default")
+:args []))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/host-get
+:object (mithril/local
+:name "yL878")
+:key (mithril/local
+:name "yC0"))
+:key (mithril/local
+:name "yC1")
+:value (mithril/host-get
+:object (mithril/local
+:name "yL879")
+:key (mithril/local
+:name "yC1")))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/host-get
+:object (mithril/local
+:name "yL878")
+:key (mithril/local
+:name "yC0"))
+:key (mithril/local
+:name "yC2")
+:value (mithril/host-get
+:object (mithril/local
+:name "yL879")
+:key (mithril/local
+:name "yC2")))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/host-get
+:object (mithril/local
+:name "yL878")
+:key (mithril/local
+:name "yC0"))
+:key (mithril/local
+:name "yC3")
+:value (mithril/host-get
+:object (mithril/local
+:name "yL880")
+:key (mithril/local
+:name "yC3")))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/host-get
+:object (mithril/local
+:name "yL878")
+:key (mithril/local
+:name "yC0"))
+:key (mithril/literal
+:datatype "js-value"
+:value "YAMLException")
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot_require_exception")
+:args []))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/host-get
+:object (mithril/local
+:name "yL878")
+:key (mithril/local
+:name "yC0"))
+:key (mithril/literal
+:datatype "js-value"
+:value "types")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "binary")
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot_require_binary")
+:args []))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "float")
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot_require_float")
+:args []))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "map")
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot_require_map")
+:args []))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "null")
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot_require_null")
+:args []))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "pairs")
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot_require_pairs")
+:args []))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "set")
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot_require_set")
+:args []))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "timestamp")
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot_require_timestamp")
+:args []))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "bool")
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot_require_bool")
+:args []))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "int")
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot_require_int")
+:args []))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "merge")
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot_require_merge")
+:args []))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "omap")
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot_require_omap")
+:args []))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "seq")
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot_require_seq")
+:args []))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "str")
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot_require_str")
+:args []))]))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/host-get
+:object (mithril/local
+:name "yL878")
+:key (mithril/local
+:name "yC0"))
+:key (mithril/local
+:name "yC4")
+:value (mithril/host-invoke
+:function (mithril/local
+:name "yL881")
+:args [(mithril/local
+:name "yC4")
+(mithril/local
+:name "yC1")]))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/host-get
+:object (mithril/local
+:name "yL878")
+:key (mithril/local
+:name "yC0"))
+:key (mithril/local
+:name "yC5")
+:value (mithril/host-invoke
+:function (mithril/local
+:name "yL881")
+:args [(mithril/local
+:name "yC5")
+(mithril/local
+:name "yC2")]))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/host-get
+:object (mithril/local
+:name "yL878")
+:key (mithril/local
+:name "yC0"))
+:key (mithril/local
+:name "yC6")
+:value (mithril/host-invoke
+:function (mithril/local
+:name "yL881")
+:args [(mithril/local
+:name "yC6")
+(mithril/local
+:name "yC3")]))
+(mithril/host-undefined)])])])])])])])])])])])])])])])])))
+:statements true)])
+:args [])
+(mithril/literal
+:datatype "js-value"
+:value 1)])))
+(rdf/node
+:name "yamlDestructure35"
+:value (mithril/host-get
+:object (mithril/local
+:name "yamlRoot_import_js_yaml")
+:key (mithril/literal
+:datatype "js-value"
+:value "default")))
+(rdf/node
+:name "yamlInit36"
+:value (mithril/local-set
+:name "yamlRoot_Type"
+:value (mithril/host-get
+:object (mithril/local
+:name "yamlDestructure35")
+:key (mithril/literal
+:datatype "js-value"
+:value "Type"))))
+(rdf/node
+:name "yamlInit37"
+:value (mithril/local-set
+:name "yamlRoot_Schema"
+:value (mithril/host-get
+:object (mithril/local
+:name "yamlDestructure35")
+:key (mithril/literal
+:datatype "js-value"
+:value "Schema"))))
+(rdf/node
+:name "yamlInit38"
+:value (mithril/local-set
+:name "yamlRoot_FAILSAFE_SCHEMA"
+:value (mithril/host-get
+:object (mithril/local
+:name "yamlDestructure35")
+:key (mithril/literal
+:datatype "js-value"
+:value "FAILSAFE_SCHEMA"))))
+(rdf/node
+:name "yamlInit39"
+:value (mithril/local-set
+:name "yamlRoot_JSON_SCHEMA"
+:value (mithril/host-get
+:object (mithril/local
+:name "yamlDestructure35")
+:key (mithril/literal
+:datatype "js-value"
+:value "JSON_SCHEMA"))))
+(rdf/node
+:name "yamlInit40"
+:value (mithril/local-set
+:name "yamlRoot_CORE_SCHEMA"
+:value (mithril/host-get
+:object (mithril/local
+:name "yamlDestructure35")
+:key (mithril/literal
+:datatype "js-value"
+:value "CORE_SCHEMA"))))
+(rdf/node
+:name "yamlInit41"
+:value (mithril/local-set
+:name "yamlRoot_DEFAULT_SCHEMA"
+:value (mithril/host-get
+:object (mithril/local
+:name "yamlDestructure35")
+:key (mithril/literal
+:datatype "js-value"
+:value "DEFAULT_SCHEMA"))))
+(rdf/node
+:name "yamlInit42"
+:value (mithril/local-set
+:name "yamlRoot_load"
+:value (mithril/host-get
+:object (mithril/local
+:name "yamlDestructure35")
+:key (mithril/local
+:name "yC1"))))
+(rdf/node
+:name "yamlInit43"
+:value (mithril/local-set
+:name "yamlRoot_loadAll"
+:value (mithril/host-get
+:object (mithril/local
+:name "yamlDestructure35")
+:key (mithril/local
+:name "yC2"))))
+(rdf/node
+:name "yamlInit44"
+:value (mithril/local-set
+:name "yamlRoot_dump"
+:value (mithril/host-get
+:object (mithril/local
+:name "yamlDestructure35")
+:key (mithril/local
+:name "yC3"))))
+(rdf/node
+:name "yamlInit45"
+:value (mithril/local-set
+:name "yamlRoot_YAMLException"
+:value (mithril/host-get
+:object (mithril/local
+:name "yamlDestructure35")
+:key (mithril/literal
+:datatype "js-value"
+:value "YAMLException"))))
+(rdf/node
+:name "yamlInit46"
+:value (mithril/local-set
+:name "yamlRoot_types"
+:value (mithril/host-get
+:object (mithril/local
+:name "yamlDestructure35")
+:key (mithril/literal
+:datatype "js-value"
+:value "types"))))
+(rdf/node
+:name "yamlInit47"
+:value (mithril/local-set
+:name "yamlRoot_safeLoad"
+:value (mithril/host-get
+:object (mithril/local
+:name "yamlDestructure35")
+:key (mithril/local
+:name "yC4"))))
+(rdf/node
+:name "yamlInit48"
+:value (mithril/local-set
+:name "yamlRoot_safeLoadAll"
+:value (mithril/host-get
+:object (mithril/local
+:name "yamlDestructure35")
+:key (mithril/local
+:name "yC5"))))
+(rdf/node
+:name "yamlInit49"
+:value (mithril/local-set
+:name "yamlRoot_safeDump"
+:value (mithril/host-get
+:object (mithril/local
+:name "yamlDestructure35")
+:key (mithril/local
+:name "yC6"))))
+(rdf/node
+:name "yamlInit50"
+:value (mithril/local-set
+:name "yamlRoot_index_vite_proxy_tmp_default"
+:value (mithril/host-get
+:object (mithril/local
+:name "yamlRoot_import_js_yaml")
+:key (mithril/literal
+:datatype "js-value"
+:value "default"))))]
+:exports [(rdf/node
+:name "CORE_SCHEMA"
+:value (mithril/local
+:name "yamlRoot_CORE_SCHEMA"))
+(rdf/node
+:name "DEFAULT_SCHEMA"
+:value (mithril/local
+:name "yamlRoot_DEFAULT_SCHEMA"))
+(rdf/node
+:name "FAILSAFE_SCHEMA"
+:value (mithril/local
+:name "yamlRoot_FAILSAFE_SCHEMA"))
+(rdf/node
+:name "JSON_SCHEMA"
+:value (mithril/local
+:name "yamlRoot_JSON_SCHEMA"))
+(rdf/node
+:name "Schema"
+:value (mithril/local
+:name "yamlRoot_Schema"))
+(rdf/node
+:name "Type"
+:value (mithril/local
+:name "yamlRoot_Type"))
+(rdf/node
+:name "YAMLException"
+:value (mithril/local
+:name "yamlRoot_YAMLException"))
+(rdf/node
+:name "default"
+:value (mithril/local
+:name "yamlRoot_index_vite_proxy_tmp_default"))
+(rdf/node
+:name "dump"
+:value (mithril/local
+:name "yamlRoot_dump"))
+(rdf/node
+:name "load"
+:value (mithril/local
+:name "yamlRoot_load"))
+(rdf/node
+:name "loadAll"
+:value (mithril/local
+:name "yamlRoot_loadAll"))
+(rdf/node
+:name "safeDump"
+:value (mithril/local
+:name "yamlRoot_safeDump"))
+(rdf/node
+:name "safeLoad"
+:value (mithril/local
+:name "yamlRoot_safeLoad"))
+(rdf/node
+:name "safeLoadAll"
+:value (mithril/local
+:name "yamlRoot_safeLoadAll"))
+(rdf/node
+:name "types"
+:value (mithril/local
+:name "yamlRoot_types"))]
+:lexical_bindings true)

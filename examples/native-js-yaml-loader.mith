@@ -1,0 +1,2224 @@
+; Derived from pinned js-yaml 4.2.0 full source. MIT; see test/qualification/native-yaml-source/LICENSE.
+(mithril/native-js-module
+:name "yaml.loader"
+:ambient_imports ["Object"
+"String"
+"Array"
+"Set"
+"decodeURIComponent"
+"parseInt"]
+:imports ["yamlRoot___commonJSMin"
+"yamlRoot_require_common"
+"yamlRoot_require_exception"
+"yamlRoot_require_snippet"
+"yamlRoot_require_default"
+"Object"
+"String"
+"Array"
+"Set"
+"decodeURIComponent"
+"parseInt"
+"yamlLoaderFactory0"
+"yamlLoaderFactory1"
+"yamlLoaderFactory2"
+"yamlLoaderFactory3"
+"yamlLoaderFactory4"
+"yamlLoaderFactory5"
+"yamlLoaderFactory6"
+"yamlLoaderFactory7"
+"yamlLoaderFactory8"
+"yamlLoaderFactory9"
+"yamlLoaderFactory10"
+"yamlLoaderFactory11"
+"yamlLoaderFactory12"
+"yamlLoaderFactory13"
+"yamlLoaderFactory14"
+"yamlLoaderFactory15"
+"yamlLoaderFactory16"
+"yamlLoaderFactory17"
+"yamlLoaderFactory18"
+"yamlLoaderFactory19"
+"yamlLoaderFactory20"
+"yamlLoaderFactory21"
+"yamlLoaderFactory22"
+"yamlLoaderFactory23"
+"yamlLoaderFactory24"
+"yamlLoaderFactory25"
+"yamlLoaderFactory26"
+"yamlLoaderFactory27"
+"yamlLoaderFactory28"
+"yamlLoaderFactory29"
+"yamlLoaderFactory30"
+"yamlLoaderFactory31"
+"yamlLoaderFactory32"
+"yamlLoaderFactory33"
+"yamlLoaderFactory34"
+"yamlLoaderFactory35"
+"yamlLoaderFactory36"
+"yamlLoaderFactory37"
+"yamlLoaderFactory38"
+"yamlLoaderFactory39"
+"yamlLoaderFactory40"
+"yamlLoaderFactory41"
+"yamlLoaderFactory42"
+"yamlLoaderFactory43"]
+:functions []
+:bindings [(rdf/node
+:name "yC0"
+:value (mithril/literal
+:datatype "js-value"
+:value nil))
+(rdf/node
+:name "yC1"
+:value (mithril/literal
+:datatype "js-value"
+:value "get"))
+(rdf/node
+:name "yC2"
+:value (mithril/literal
+:datatype "js-value"
+:value "set"))
+(rdf/node
+:name "yC3"
+:value (mithril/literal
+:datatype "js-value"
+:value 1))
+(rdf/node
+:name "yC4"
+:value (mithril/literal
+:datatype "js-value"
+:value 2))
+(rdf/node
+:name "yC5"
+:value (mithril/literal
+:datatype "js-value"
+:value 256))
+(rdf/node
+:name "yC6"
+:value (mithril/literal
+:datatype "js-value"
+:value 0))
+(rdf/node
+:name "yamlRoot_require_loader"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:name "initialize_yamlRoot_require_loader"
+:value (mithril/local-set
+:name "yamlRoot_require_loader"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot___commonJSMin")
+:args [(mithril/native-lambda
+:params ["yL311"
+"yL312"]
+:rest nil
+:body (mithril/host-binding-let
+:bindings [(rdf/node
+:pattern (rdf/node
+:array ["yL313"
+"yL314"
+"yL315"
+"yL316"
+"yL317"
+"yL318"
+"yL319"
+"yL320"
+"yL321"
+"yL322"
+"yL323"
+"yL324"
+"yL325"
+"yL326"
+"yL327"
+"yL328"
+"yL329"
+"yL330"
+"yL331"
+"yL332"])
+:value (mithril/host-array
+:items [(mithril/host-undefined)
+(mithril/host-undefined)
+(mithril/host-undefined)
+(mithril/host-undefined)
+(mithril/host-undefined)
+(mithril/host-undefined)
+(mithril/host-undefined)
+(mithril/host-undefined)
+(mithril/host-undefined)
+(mithril/host-undefined)
+(mithril/host-undefined)
+(mithril/host-undefined)
+(mithril/host-undefined)
+(mithril/host-undefined)
+(mithril/host-undefined)
+(mithril/host-undefined)
+(mithril/host-undefined)
+(mithril/host-undefined)
+(mithril/host-undefined)
+(mithril/host-undefined)])
+:mutable true)
+(rdf/node
+:pattern "yamlCapturedScope"
+:value (mithril/host-method
+:object (mithril/host-import
+:name "Object")
+:key (mithril/literal
+:datatype "js-value"
+:value "create")
+:args [(mithril/local
+:name "yC0")
+(mithril/host-object
+:entries [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL313")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL313")))
+(rdf/node
+:key (mithril/local
+:name "yC2")
+:value (mithril/native-function
+:name nil
+:params [(rdf/node
+:name "yamlCaptureValue"
+:datatype "js-value")]
+:rest nil
+:body (mithril/local-set
+:name "yL313"
+:value (mithril/local
+:name "yamlCaptureValue"))))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL314")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL314")))
+(rdf/node
+:key (mithril/local
+:name "yC2")
+:value (mithril/native-function
+:name nil
+:params [(rdf/node
+:name "yamlCaptureValue"
+:datatype "js-value")]
+:rest nil
+:body (mithril/local-set
+:name "yL314"
+:value (mithril/local
+:name "yamlCaptureValue"))))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL315")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL315")))
+(rdf/node
+:key (mithril/local
+:name "yC2")
+:value (mithril/native-function
+:name nil
+:params [(rdf/node
+:name "yamlCaptureValue"
+:datatype "js-value")]
+:rest nil
+:body (mithril/local-set
+:name "yL315"
+:value (mithril/local
+:name "yamlCaptureValue"))))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL316")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL316")))
+(rdf/node
+:key (mithril/local
+:name "yC2")
+:value (mithril/native-function
+:name nil
+:params [(rdf/node
+:name "yamlCaptureValue"
+:datatype "js-value")]
+:rest nil
+:body (mithril/local-set
+:name "yL316"
+:value (mithril/local
+:name "yamlCaptureValue"))))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL317")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL317")))
+(rdf/node
+:key (mithril/local
+:name "yC2")
+:value (mithril/native-function
+:name nil
+:params [(rdf/node
+:name "yamlCaptureValue"
+:datatype "js-value")]
+:rest nil
+:body (mithril/local-set
+:name "yL317"
+:value (mithril/local
+:name "yamlCaptureValue"))))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL318")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL318")))
+(rdf/node
+:key (mithril/local
+:name "yC2")
+:value (mithril/native-function
+:name nil
+:params [(rdf/node
+:name "yamlCaptureValue"
+:datatype "js-value")]
+:rest nil
+:body (mithril/local-set
+:name "yL318"
+:value (mithril/local
+:name "yamlCaptureValue"))))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL319")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL319")))
+(rdf/node
+:key (mithril/local
+:name "yC2")
+:value (mithril/native-function
+:name nil
+:params [(rdf/node
+:name "yamlCaptureValue"
+:datatype "js-value")]
+:rest nil
+:body (mithril/local-set
+:name "yL319"
+:value (mithril/local
+:name "yamlCaptureValue"))))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL320")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL320")))
+(rdf/node
+:key (mithril/local
+:name "yC2")
+:value (mithril/native-function
+:name nil
+:params [(rdf/node
+:name "yamlCaptureValue"
+:datatype "js-value")]
+:rest nil
+:body (mithril/local-set
+:name "yL320"
+:value (mithril/local
+:name "yamlCaptureValue"))))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL321")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL321")))
+(rdf/node
+:key (mithril/local
+:name "yC2")
+:value (mithril/native-function
+:name nil
+:params [(rdf/node
+:name "yamlCaptureValue"
+:datatype "js-value")]
+:rest nil
+:body (mithril/local-set
+:name "yL321"
+:value (mithril/local
+:name "yamlCaptureValue"))))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL322")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL322")))
+(rdf/node
+:key (mithril/local
+:name "yC2")
+:value (mithril/native-function
+:name nil
+:params [(rdf/node
+:name "yamlCaptureValue"
+:datatype "js-value")]
+:rest nil
+:body (mithril/local-set
+:name "yL322"
+:value (mithril/local
+:name "yamlCaptureValue"))))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL323")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL323")))
+(rdf/node
+:key (mithril/local
+:name "yC2")
+:value (mithril/native-function
+:name nil
+:params [(rdf/node
+:name "yamlCaptureValue"
+:datatype "js-value")]
+:rest nil
+:body (mithril/local-set
+:name "yL323"
+:value (mithril/local
+:name "yamlCaptureValue"))))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL324")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL324")))
+(rdf/node
+:key (mithril/local
+:name "yC2")
+:value (mithril/native-function
+:name nil
+:params [(rdf/node
+:name "yamlCaptureValue"
+:datatype "js-value")]
+:rest nil
+:body (mithril/local-set
+:name "yL324"
+:value (mithril/local
+:name "yamlCaptureValue"))))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL325")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL325")))
+(rdf/node
+:key (mithril/local
+:name "yC2")
+:value (mithril/native-function
+:name nil
+:params [(rdf/node
+:name "yamlCaptureValue"
+:datatype "js-value")]
+:rest nil
+:body (mithril/local-set
+:name "yL325"
+:value (mithril/local
+:name "yamlCaptureValue"))))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL326")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL326")))
+(rdf/node
+:key (mithril/local
+:name "yC2")
+:value (mithril/native-function
+:name nil
+:params [(rdf/node
+:name "yamlCaptureValue"
+:datatype "js-value")]
+:rest nil
+:body (mithril/local-set
+:name "yL326"
+:value (mithril/local
+:name "yamlCaptureValue"))))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL327")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL327")))
+(rdf/node
+:key (mithril/local
+:name "yC2")
+:value (mithril/native-function
+:name nil
+:params [(rdf/node
+:name "yamlCaptureValue"
+:datatype "js-value")]
+:rest nil
+:body (mithril/local-set
+:name "yL327"
+:value (mithril/local
+:name "yamlCaptureValue"))))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL328")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL328")))
+(rdf/node
+:key (mithril/local
+:name "yC2")
+:value (mithril/native-function
+:name nil
+:params [(rdf/node
+:name "yamlCaptureValue"
+:datatype "js-value")]
+:rest nil
+:body (mithril/local-set
+:name "yL328"
+:value (mithril/local
+:name "yamlCaptureValue"))))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL329")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL329")))
+(rdf/node
+:key (mithril/local
+:name "yC2")
+:value (mithril/native-function
+:name nil
+:params [(rdf/node
+:name "yamlCaptureValue"
+:datatype "js-value")]
+:rest nil
+:body (mithril/local-set
+:name "yL329"
+:value (mithril/local
+:name "yamlCaptureValue"))))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL330")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL330")))
+(rdf/node
+:key (mithril/local
+:name "yC2")
+:value (mithril/native-function
+:name nil
+:params [(rdf/node
+:name "yamlCaptureValue"
+:datatype "js-value")]
+:rest nil
+:body (mithril/local-set
+:name "yL330"
+:value (mithril/local
+:name "yamlCaptureValue"))))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL331")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL331")))
+(rdf/node
+:key (mithril/local
+:name "yC2")
+:value (mithril/native-function
+:name nil
+:params [(rdf/node
+:name "yamlCaptureValue"
+:datatype "js-value")]
+:rest nil
+:body (mithril/local-set
+:name "yL331"
+:value (mithril/local
+:name "yamlCaptureValue"))))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL332")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL332")))
+(rdf/node
+:key (mithril/local
+:name "yC2")
+:value (mithril/native-function
+:name nil
+:params [(rdf/node
+:name "yamlCaptureValue"
+:datatype "js-value")]
+:rest nil
+:body (mithril/local-set
+:name "yL332"
+:value (mithril/local
+:name "yamlCaptureValue"))))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL333")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL333")))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL334")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL334")))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL335")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL335")))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL336")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL336")))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL337")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL337")))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL338")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL338")))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL339")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL339")))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL340")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL340")))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL341")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL341")))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL342")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL342")))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL343")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL343")))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL344")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL344")))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL345")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL345")))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL346")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL346")))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL347")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL347")))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL348")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL348")))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL349")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL349")))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL350")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL350")))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL351")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL351")))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL352")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL352")))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL353")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL353")))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL354")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL354")))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL355")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL355")))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL356")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL356")))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL357")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL357")))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL358")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL358")))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL359")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL359")))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL360")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL360")))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL361")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL361")))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL362")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL362")))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL363")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL363")))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL364")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL364")))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL365")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL365")))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL366")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL366")))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL367")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL367")))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL368")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL368")))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL369")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL369")))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL370")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL370")))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL371")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL371")))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL372")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL372")))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL373")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL373")))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL374")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL374")))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL375")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL375")))]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "yL376")
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC1")
+:value (mithril/native-function
+:name nil
+:params []
+:rest nil
+:body (mithril/local
+:name "yL376")))]))])]))
+(rdf/node
+:pattern "yL333"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlLoaderFactory0")
+:args [(mithril/local
+:name "yamlCapturedScope")]))
+(rdf/node
+:pattern "yL334"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlLoaderFactory1")
+:args [(mithril/local
+:name "yamlCapturedScope")]))
+(rdf/node
+:pattern "yL335"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlLoaderFactory2")
+:args [(mithril/local
+:name "yamlCapturedScope")]))
+(rdf/node
+:pattern "yL336"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlLoaderFactory3")
+:args [(mithril/local
+:name "yamlCapturedScope")]))
+(rdf/node
+:pattern "yL337"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlLoaderFactory4")
+:args [(mithril/local
+:name "yamlCapturedScope")]))
+(rdf/node
+:pattern "yL338"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlLoaderFactory5")
+:args [(mithril/local
+:name "yamlCapturedScope")]))
+(rdf/node
+:pattern "yL339"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlLoaderFactory6")
+:args [(mithril/local
+:name "yamlCapturedScope")]))
+(rdf/node
+:pattern "yL340"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlLoaderFactory7")
+:args [(mithril/local
+:name "yamlCapturedScope")]))
+(rdf/node
+:pattern "yL341"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlLoaderFactory8")
+:args [(mithril/local
+:name "yamlCapturedScope")]))
+(rdf/node
+:pattern "yL342"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlLoaderFactory9")
+:args [(mithril/local
+:name "yamlCapturedScope")]))
+(rdf/node
+:pattern "yL343"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlLoaderFactory10")
+:args [(mithril/local
+:name "yamlCapturedScope")]))
+(rdf/node
+:pattern "yL344"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlLoaderFactory11")
+:args [(mithril/local
+:name "yamlCapturedScope")]))
+(rdf/node
+:pattern "yL345"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlLoaderFactory12")
+:args [(mithril/local
+:name "yamlCapturedScope")]))
+(rdf/node
+:pattern "yL346"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlLoaderFactory13")
+:args [(mithril/local
+:name "yamlCapturedScope")]))
+(rdf/node
+:pattern "yL347"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlLoaderFactory14")
+:args [(mithril/local
+:name "yamlCapturedScope")]))
+(rdf/node
+:pattern "yL348"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlLoaderFactory15")
+:args [(mithril/local
+:name "yamlCapturedScope")]))
+(rdf/node
+:pattern "yL349"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlLoaderFactory16")
+:args [(mithril/local
+:name "yamlCapturedScope")]))
+(rdf/node
+:pattern "yL350"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlLoaderFactory17")
+:args [(mithril/local
+:name "yamlCapturedScope")]))
+(rdf/node
+:pattern "yL351"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlLoaderFactory18")
+:args [(mithril/local
+:name "yamlCapturedScope")]))
+(rdf/node
+:pattern "yL352"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlLoaderFactory19")
+:args [(mithril/local
+:name "yamlCapturedScope")]))
+(rdf/node
+:pattern "yL353"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlLoaderFactory20")
+:args [(mithril/local
+:name "yamlCapturedScope")]))
+(rdf/node
+:pattern "yL354"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlLoaderFactory21")
+:args [(mithril/local
+:name "yamlCapturedScope")]))
+(rdf/node
+:pattern "yL355"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlLoaderFactory22")
+:args [(mithril/local
+:name "yamlCapturedScope")]))
+(rdf/node
+:pattern "yL356"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlLoaderFactory23")
+:args [(mithril/local
+:name "yamlCapturedScope")]))
+(rdf/node
+:pattern "yL357"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlLoaderFactory24")
+:args [(mithril/local
+:name "yamlCapturedScope")]))
+(rdf/node
+:pattern "yL358"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlLoaderFactory25")
+:args [(mithril/local
+:name "yamlCapturedScope")]))
+(rdf/node
+:pattern "yL359"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlLoaderFactory26")
+:args [(mithril/local
+:name "yamlCapturedScope")]))
+(rdf/node
+:pattern "yL360"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlLoaderFactory27")
+:args [(mithril/local
+:name "yamlCapturedScope")]))
+(rdf/node
+:pattern "yL361"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlLoaderFactory28")
+:args [(mithril/local
+:name "yamlCapturedScope")]))
+(rdf/node
+:pattern "yL362"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlLoaderFactory29")
+:args [(mithril/local
+:name "yamlCapturedScope")]))
+(rdf/node
+:pattern "yL363"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlLoaderFactory30")
+:args [(mithril/local
+:name "yamlCapturedScope")]))
+(rdf/node
+:pattern "yL364"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlLoaderFactory31")
+:args [(mithril/local
+:name "yamlCapturedScope")]))
+(rdf/node
+:pattern "yL365"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlLoaderFactory32")
+:args [(mithril/local
+:name "yamlCapturedScope")]))
+(rdf/node
+:pattern "yL366"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlLoaderFactory33")
+:args [(mithril/local
+:name "yamlCapturedScope")]))
+(rdf/node
+:pattern "yL367"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlLoaderFactory34")
+:args [(mithril/local
+:name "yamlCapturedScope")]))
+(rdf/node
+:pattern "yL368"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlLoaderFactory35")
+:args [(mithril/local
+:name "yamlCapturedScope")]))
+(rdf/node
+:pattern "yL369"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlLoaderFactory36")
+:args [(mithril/local
+:name "yamlCapturedScope")]))
+(rdf/node
+:pattern "yL370"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlLoaderFactory37")
+:args [(mithril/local
+:name "yamlCapturedScope")]))
+(rdf/node
+:pattern "yL371"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlLoaderFactory38")
+:args [(mithril/local
+:name "yamlCapturedScope")]))
+(rdf/node
+:pattern "yL372"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlLoaderFactory39")
+:args [(mithril/local
+:name "yamlCapturedScope")]))
+(rdf/node
+:pattern "yL373"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlLoaderFactory40")
+:args [(mithril/local
+:name "yamlCapturedScope")]))
+(rdf/node
+:pattern "yL374"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlLoaderFactory41")
+:args [(mithril/local
+:name "yamlCapturedScope")]))
+(rdf/node
+:pattern "yL375"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlLoaderFactory42")
+:args [(mithril/local
+:name "yamlCapturedScope")]))
+(rdf/node
+:pattern "yL376"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlLoaderFactory43")
+:args [(mithril/local
+:name "yamlCapturedScope")]))]
+:body (mithril/sequence
+:expressions [(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL313"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot_require_common")
+:args []))])
+(mithril/sequence
+:expressions [(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL314"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot_require_exception")
+:args []))])
+(mithril/sequence
+:expressions [(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL315"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot_require_snippet")
+:args []))])
+(mithril/sequence
+:expressions [(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL316"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot_require_default")
+:args []))])
+(mithril/sequence
+:expressions [(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL317"
+:value (mithril/host-get
+:object (mithril/host-get
+:object (mithril/host-import
+:name "Object")
+:key (mithril/literal
+:datatype "js-value"
+:value "prototype"))
+:key (mithril/literal
+:datatype "js-value"
+:value "hasOwnProperty")))])
+(mithril/sequence
+:expressions [(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL318"
+:value (mithril/local
+:name "yC3"))])
+(mithril/sequence
+:expressions [(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL319"
+:value (mithril/local
+:name "yC4"))])
+(mithril/sequence
+:expressions [(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL320"
+:value (mithril/literal
+:datatype "js-value"
+:value 3))])
+(mithril/sequence
+:expressions [(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL321"
+:value (mithril/literal
+:datatype "js-value"
+:value 4))])
+(mithril/sequence
+:expressions [(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL322"
+:value (mithril/local
+:name "yC3"))])
+(mithril/sequence
+:expressions [(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL323"
+:value (mithril/local
+:name "yC4"))])
+(mithril/sequence
+:expressions [(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL324"
+:value (mithril/literal
+:datatype "js-value"
+:value 3))])
+(mithril/sequence
+:expressions [(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL325"
+:value (mithril/host-regexp
+:pattern "[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F\\x7F-\\x84\\x86-\\x9F\\uFFFE\\uFFFF]|[\\uD800-\\uDBFF](?![\\uDC00-\\uDFFF])|(?:[^\\uD800-\\uDBFF]|^)[\\uDC00-\\uDFFF]"
+:flags ""))])
+(mithril/sequence
+:expressions [(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL326"
+:value (mithril/host-regexp
+:pattern "[\\x85\\u2028\\u2029]"
+:flags ""))])
+(mithril/sequence
+:expressions [(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL327"
+:value (mithril/host-regexp
+:pattern "[,\\[\\]{}]"
+:flags ""))])
+(mithril/sequence
+:expressions [(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL328"
+:value (mithril/host-regexp
+:pattern "^(?:!|!!|![0-9A-Za-z-]+!)$"
+:flags ""))])
+(mithril/sequence
+:expressions [(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL329"
+:value (mithril/host-regexp
+:pattern "^(?:!|[^,\\[\\]{}])(?:%[0-9a-f]{2}|[0-9a-z\\-#;/?:@&=+$,_.!~*'()\\[\\]])*$"
+:flags "i"))])
+(mithril/sequence
+:expressions [(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL330"
+:value (mithril/host-construct
+:constructor (mithril/host-import
+:name "Array")
+:args [(mithril/local
+:name "yC5")]))])
+(mithril/sequence
+:expressions [(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL331"
+:value (mithril/host-construct
+:constructor (mithril/host-import
+:name "Array")
+:args [(mithril/local
+:name "yC5")]))])
+(mithril/sequence
+:expressions [(mithril/host-for
+:initializer (rdf/node
+:bindings [(rdf/node
+:name "yL612"
+:value (mithril/local
+:name "yC6")
+:mutable true)])
+:condition (mithril/host-binary
+:operator "<"
+:left (mithril/local
+:name "yL612")
+:right (mithril/local
+:name "yC5"))
+:update (mithril/host-local-update
+:name "yL612"
+:operator "++"
+:prefix false)
+:body (mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/local
+:name "yL330")
+:key (mithril/local
+:name "yL612")
+:value (mithril/if
+:condition (mithril/host-invoke
+:function (mithril/local
+:name "yL341")
+:args [(mithril/local
+:name "yL612")])
+:then (mithril/local
+:name "yC3")
+:else (mithril/local
+:name "yC6")))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/local
+:name "yL331")
+:key (mithril/local
+:name "yL612")
+:value (mithril/host-invoke
+:function (mithril/local
+:name "yL341")
+:args [(mithril/local
+:name "yL612")]))
+(mithril/host-undefined)])])
+:result (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL332"
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "YAML")
+:value (mithril/native-function
+:name "handleYamlDirective"
+:params [(rdf/node
+:name "yL613"
+:datatype "js-value")
+(rdf/node
+:name "yL614"
+:datatype "js-value")
+(rdf/node
+:name "yL615"
+:datatype "js-value")]
+:rest nil
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "!=="
+:left (mithril/host-get
+:object (mithril/local
+:name "yL613")
+:key (mithril/literal
+:datatype "js-value"
+:value "version"))
+:right (mithril/local
+:name "yC0"))
+:then (mithril/host-invoke
+:function (mithril/local
+:name "yL346")
+:args [(mithril/local
+:name "yL613")
+(mithril/literal
+:datatype "js-value"
+:value "duplication of %YAML directive")])
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "!=="
+:left (mithril/host-get
+:object (mithril/local
+:name "yL615")
+:key (mithril/literal
+:datatype "js-value"
+:value "length"))
+:right (mithril/local
+:name "yC3"))
+:then (mithril/host-invoke
+:function (mithril/local
+:name "yL346")
+:args [(mithril/local
+:name "yL613")
+(mithril/literal
+:datatype "js-value"
+:value "YAML directive accepts exactly one argument")])
+:else (mithril/host-undefined))
+(mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "yL616"
+:value (mithril/host-method
+:object (mithril/host-regexp
+:pattern "^([0-9]+)\\.([0-9]+)$"
+:flags "")
+:key (mithril/literal
+:datatype "js-value"
+:value "exec")
+:args [(mithril/host-get
+:object (mithril/local
+:name "yL615")
+:key (mithril/local
+:name "yC6"))]))]
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "yL616")
+:right (mithril/local
+:name "yC0"))
+:then (mithril/host-invoke
+:function (mithril/local
+:name "yL346")
+:args [(mithril/local
+:name "yL613")
+(mithril/literal
+:datatype "js-value"
+:value "ill-formed argument of the YAML directive")])
+:else (mithril/host-undefined))
+(mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "yL617"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "parseInt")
+:args [(mithril/host-get
+:object (mithril/local
+:name "yL616")
+:key (mithril/local
+:name "yC3"))
+(mithril/literal
+:datatype "js-value"
+:value 10)]))
+(rdf/node
+:pattern "yL618"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "parseInt")
+:args [(mithril/host-get
+:object (mithril/local
+:name "yL616")
+:key (mithril/local
+:name "yC4"))
+(mithril/literal
+:datatype "js-value"
+:value 10)]))]
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "!=="
+:left (mithril/local
+:name "yL617")
+:right (mithril/local
+:name "yC3"))
+:then (mithril/host-invoke
+:function (mithril/local
+:name "yL346")
+:args [(mithril/local
+:name "yL613")
+(mithril/literal
+:datatype "js-value"
+:value "unacceptable YAML version of the document")])
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/local
+:name "yL613")
+:key (mithril/literal
+:datatype "js-value"
+:value "version")
+:value (mithril/host-get
+:object (mithril/local
+:name "yL615")
+:key (mithril/local
+:name "yC6")))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/local
+:name "yL613")
+:key (mithril/literal
+:datatype "js-value"
+:value "checkLineBreaks")
+:value (mithril/host-binary
+:operator "<"
+:left (mithril/local
+:name "yL618")
+:right (mithril/local
+:name "yC4")))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-logical
+:operator "&&"
+:left (mithril/host-binary
+:operator "!=="
+:left (mithril/local
+:name "yL618")
+:right (mithril/local
+:name "yC3"))
+:right (mithril/host-binary
+:operator "!=="
+:left (mithril/local
+:name "yL618")
+:right (mithril/local
+:name "yC4")))
+:then (mithril/host-invoke
+:function (mithril/local
+:name "yL347")
+:args [(mithril/local
+:name "yL613")
+(mithril/literal
+:datatype "js-value"
+:value "unsupported YAML version of the document")])
+:else (mithril/host-undefined))
+(mithril/host-undefined)])])])]))]))])])
+:statements true))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "TAG")
+:value (mithril/native-function
+:name "handleTagDirective"
+:params [(rdf/node
+:name "yL619"
+:datatype "js-value")
+(rdf/node
+:name "yL620"
+:datatype "js-value")
+(rdf/node
+:name "yL621"
+:datatype "js-value")]
+:rest nil
+:body (mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "yL622"
+:value (mithril/host-undefined)
+:mutable true)]
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "!=="
+:left (mithril/host-get
+:object (mithril/local
+:name "yL621")
+:key (mithril/literal
+:datatype "js-value"
+:value "length"))
+:right (mithril/local
+:name "yC4"))
+:then (mithril/host-invoke
+:function (mithril/local
+:name "yL346")
+:args [(mithril/local
+:name "yL619")
+(mithril/literal
+:datatype "js-value"
+:value "TAG directive accepts exactly two arguments")])
+:else (mithril/host-undefined))
+(mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "yL623"
+:value (mithril/host-get
+:object (mithril/local
+:name "yL621")
+:key (mithril/local
+:name "yC6")))]
+:body (mithril/sequence
+:expressions [(mithril/local-set
+:name "yL622"
+:value (mithril/host-get
+:object (mithril/local
+:name "yL621")
+:key (mithril/local
+:name "yC3")))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-unary
+:operator "!"
+:value (mithril/host-method
+:object (mithril/local
+:name "yL328")
+:key (mithril/literal
+:datatype "js-value"
+:value "test")
+:args [(mithril/local
+:name "yL623")]))
+:then (mithril/host-invoke
+:function (mithril/local
+:name "yL346")
+:args [(mithril/local
+:name "yL619")
+(mithril/literal
+:datatype "js-value"
+:value "ill-formed tag handle (first argument) of the TAG directive")])
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-method
+:object (mithril/local
+:name "yL317")
+:key (mithril/literal
+:datatype "js-value"
+:value "call")
+:args [(mithril/host-get
+:object (mithril/local
+:name "yL619")
+:key (mithril/literal
+:datatype "js-value"
+:value "tagMap"))
+(mithril/local
+:name "yL623")])
+:then (mithril/host-invoke
+:function (mithril/local
+:name "yL346")
+:args [(mithril/local
+:name "yL619")
+(mithril/host-binary
+:operator "+"
+:left (mithril/host-binary
+:operator "+"
+:left (mithril/literal
+:datatype "js-value"
+:value "there is a previously declared suffix for \"")
+:right (mithril/local
+:name "yL623"))
+:right (mithril/literal
+:datatype "js-value"
+:value "\" tag handle"))])
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-unary
+:operator "!"
+:value (mithril/host-method
+:object (mithril/local
+:name "yL329")
+:key (mithril/literal
+:datatype "js-value"
+:value "test")
+:args [(mithril/local
+:name "yL622")]))
+:then (mithril/host-invoke
+:function (mithril/local
+:name "yL346")
+:args [(mithril/local
+:name "yL619")
+(mithril/literal
+:datatype "js-value"
+:value "ill-formed tag prefix (second argument) of the TAG directive")])
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/host-try-catch
+:body (mithril/sequence
+:expressions [(mithril/local-set
+:name "yL622"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "decodeURIComponent")
+:args [(mithril/local
+:name "yL622")]))
+(mithril/host-undefined)])
+:binding "yL624"
+:handler (mithril/sequence
+:expressions [(mithril/host-invoke
+:function (mithril/local
+:name "yL346")
+:args [(mithril/local
+:name "yL619")
+(mithril/host-binary
+:operator "+"
+:left (mithril/literal
+:datatype "js-value"
+:value "tag prefix is malformed: ")
+:right (mithril/local
+:name "yL622"))])
+(mithril/host-undefined)]))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/host-get
+:object (mithril/local
+:name "yL619")
+:key (mithril/literal
+:datatype "js-value"
+:value "tagMap"))
+:key (mithril/local
+:name "yL623")
+:value (mithril/local
+:name "yL622"))
+(mithril/host-undefined)])])])])])]))]))
+:statements true))]))])
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/host-get
+:object (mithril/local
+:name "yL312")
+:key (mithril/literal
+:datatype "js-value"
+:value "exports"))
+:key (mithril/literal
+:datatype "js-value"
+:value "loadAll")
+:value (mithril/local
+:name "yL375"))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/host-get
+:object (mithril/local
+:name "yL312")
+:key (mithril/literal
+:datatype "js-value"
+:value "exports"))
+:key (mithril/literal
+:datatype "js-value"
+:value "load")
+:value (mithril/local
+:name "yL376"))
+(mithril/host-undefined)])])])])])])])])])])])])])])])])])])])])])])]))
+:statements true)])))]
+:exports [(rdf/node
+:name "yamlRoot_require_loader"
+:value (mithril/local
+:name "yamlRoot_require_loader"))]
+:lexical_bindings true)

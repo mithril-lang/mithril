@@ -1,0 +1,614 @@
+; Derived from pinned js-yaml 4.2.0 full source. MIT; see test/qualification/native-yaml-source/LICENSE.
+(mithril/native-js-module
+:name "yaml.float"
+:ambient_imports ["Number"
+"parseFloat"
+"NaN"
+"isNaN"
+"Object"
+"RegExp"]
+:imports ["yamlRoot___commonJSMin"
+"yamlRoot_require_common"
+"yamlRoot_require_type"
+"Number"
+"parseFloat"
+"NaN"
+"isNaN"
+"Object"
+"RegExp"]
+:functions []
+:bindings [(rdf/node
+:name "yC0"
+:value (mithril/literal
+:datatype "js-value"
+:value "test"))
+(rdf/node
+:name "yC1"
+:value (mithril/literal
+:datatype "js-value"
+:value 10))
+(rdf/node
+:name "yC2"
+:value (mithril/literal
+:datatype "js-value"
+:value 0))
+(rdf/node
+:name "yC3"
+:value (mithril/literal
+:datatype "js-value"
+:value 1))
+(rdf/node
+:name "yC4"
+:value (mithril/literal
+:datatype "js-value"
+:value "lowercase"))
+(rdf/node
+:name "yC5"
+:value (mithril/literal
+:datatype "js-value"
+:value "uppercase"))
+(rdf/node
+:name "yC6"
+:value (mithril/literal
+:datatype "js-value"
+:value "camelcase"))
+(rdf/node
+:name "yamlRoot_require_float"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:name "initialize_yamlRoot_require_float"
+:value (mithril/local-set
+:name "yamlRoot_require_float"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot___commonJSMin")
+:args [(mithril/native-lambda
+:params ["yL181"
+"yL182"]
+:rest nil
+:body (mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "yL183"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:pattern "yL184"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:pattern "yL185"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:pattern "yL186"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:pattern "yL187"
+:value (mithril/host-undefined)
+:mutable true)]
+:body (mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "yL188"
+:value (mithril/native-function
+:name "resolveYamlFloat"
+:params [(rdf/node
+:name "yL192"
+:datatype "js-value")]
+:rest nil
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "yL192")
+:right (mithril/literal
+:datatype "js-value"
+:value nil))
+:then (mithril/host-return
+:value (mithril/literal
+:datatype "js-value"
+:value false))
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-unary
+:operator "!"
+:value (mithril/host-method
+:object (mithril/local
+:name "yL185")
+:key (mithril/local
+:name "yC0")
+:args [(mithril/local
+:name "yL192")]))
+:then (mithril/host-return
+:value (mithril/literal
+:datatype "js-value"
+:value false))
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-method
+:object (mithril/host-import
+:name "Number")
+:key (mithril/literal
+:datatype "js-value"
+:value "isFinite")
+:args [(mithril/host-invoke
+:function (mithril/host-import
+:name "parseFloat")
+:args [(mithril/local
+:name "yL192")
+(mithril/local
+:name "yC1")])])
+:then (mithril/host-return
+:value (mithril/literal
+:datatype "js-value"
+:value true))
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/host-method
+:object (mithril/local
+:name "yL186")
+:key (mithril/local
+:name "yC0")
+:args [(mithril/local
+:name "yL192")]))
+(mithril/host-undefined)])])])])
+:statements true))
+(rdf/node
+:pattern "yL189"
+:value (mithril/native-function
+:name "constructYamlFloat"
+:params [(rdf/node
+:name "yL193"
+:datatype "js-value")]
+:rest nil
+:body (mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "yL194"
+:value (mithril/host-method
+:object (mithril/local
+:name "yL193")
+:key (mithril/literal
+:datatype "js-value"
+:value "toLowerCase")
+:args [])
+:mutable true)
+(rdf/node
+:pattern "yL195"
+:value (mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/host-get
+:object (mithril/local
+:name "yL194")
+:key (mithril/local
+:name "yC2"))
+:right (mithril/literal
+:datatype "js-value"
+:value "-"))
+:then (mithril/host-unary
+:operator "-"
+:value (mithril/local
+:name "yC3"))
+:else (mithril/local
+:name "yC3")))]
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator ">="
+:left (mithril/host-method
+:object (mithril/literal
+:datatype "js-value"
+:value "+-")
+:key (mithril/literal
+:datatype "js-value"
+:value "indexOf")
+:args [(mithril/host-get
+:object (mithril/local
+:name "yL194")
+:key (mithril/local
+:name "yC2"))])
+:right (mithril/local
+:name "yC2"))
+:then (mithril/local-set
+:name "yL194"
+:value (mithril/host-method
+:object (mithril/local
+:name "yL194")
+:key (mithril/literal
+:datatype "js-value"
+:value "slice")
+:args [(mithril/local
+:name "yC3")]))
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "yL194")
+:right (mithril/literal
+:datatype "js-value"
+:value ".inf"))
+:then (mithril/host-return
+:value (mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "yL195")
+:right (mithril/local
+:name "yC3"))
+:then (mithril/host-get
+:object (mithril/host-import
+:name "Number")
+:key (mithril/literal
+:datatype "js-value"
+:value "POSITIVE_INFINITY"))
+:else (mithril/host-get
+:object (mithril/host-import
+:name "Number")
+:key (mithril/literal
+:datatype "js-value"
+:value "NEGATIVE_INFINITY"))))
+:else (mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "yL194")
+:right (mithril/literal
+:datatype "js-value"
+:value ".nan"))
+:then (mithril/host-return
+:value (mithril/host-import
+:name "NaN"))
+:else (mithril/host-undefined)))
+(mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/host-binary
+:operator "*"
+:left (mithril/local
+:name "yL195")
+:right (mithril/host-invoke
+:function (mithril/host-import
+:name "parseFloat")
+:args [(mithril/local
+:name "yL194")
+(mithril/local
+:name "yC1")])))
+(mithril/host-undefined)])])]))
+:statements true))
+(rdf/node
+:pattern "yL190"
+:value (mithril/native-function
+:name "representYamlFloat"
+:params [(rdf/node
+:name "yL196"
+:datatype "js-value")
+(rdf/node
+:name "yL197"
+:datatype "js-value")]
+:rest nil
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-invoke
+:function (mithril/host-import
+:name "isNaN")
+:args [(mithril/local
+:name "yL196")])
+:then (mithril/host-switch
+:value (mithril/local
+:name "yL197")
+:clauses [(rdf/node
+:test (mithril/local
+:name "yC4")
+:statements [(rdf/node
+:expression (mithril/host-return
+:value (mithril/literal
+:datatype "js-value"
+:value ".nan")))])
+(rdf/node
+:test (mithril/local
+:name "yC5")
+:statements [(rdf/node
+:expression (mithril/host-return
+:value (mithril/literal
+:datatype "js-value"
+:value ".NAN")))])
+(rdf/node
+:test (mithril/local
+:name "yC6")
+:statements [(rdf/node
+:expression (mithril/host-return
+:value (mithril/literal
+:datatype "js-value"
+:value ".NaN")))])]
+:result (mithril/host-undefined))
+:else (mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/host-get
+:object (mithril/host-import
+:name "Number")
+:key (mithril/literal
+:datatype "js-value"
+:value "POSITIVE_INFINITY"))
+:right (mithril/local
+:name "yL196"))
+:then (mithril/host-switch
+:value (mithril/local
+:name "yL197")
+:clauses [(rdf/node
+:test (mithril/local
+:name "yC4")
+:statements [(rdf/node
+:expression (mithril/host-return
+:value (mithril/literal
+:datatype "js-value"
+:value ".inf")))])
+(rdf/node
+:test (mithril/local
+:name "yC5")
+:statements [(rdf/node
+:expression (mithril/host-return
+:value (mithril/literal
+:datatype "js-value"
+:value ".INF")))])
+(rdf/node
+:test (mithril/local
+:name "yC6")
+:statements [(rdf/node
+:expression (mithril/host-return
+:value (mithril/literal
+:datatype "js-value"
+:value ".Inf")))])]
+:result (mithril/host-undefined))
+:else (mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/host-get
+:object (mithril/host-import
+:name "Number")
+:key (mithril/literal
+:datatype "js-value"
+:value "NEGATIVE_INFINITY"))
+:right (mithril/local
+:name "yL196"))
+:then (mithril/host-switch
+:value (mithril/local
+:name "yL197")
+:clauses [(rdf/node
+:test (mithril/local
+:name "yC4")
+:statements [(rdf/node
+:expression (mithril/host-return
+:value (mithril/literal
+:datatype "js-value"
+:value "-.inf")))])
+(rdf/node
+:test (mithril/local
+:name "yC5")
+:statements [(rdf/node
+:expression (mithril/host-return
+:value (mithril/literal
+:datatype "js-value"
+:value "-.INF")))])
+(rdf/node
+:test (mithril/local
+:name "yC6")
+:statements [(rdf/node
+:expression (mithril/host-return
+:value (mithril/literal
+:datatype "js-value"
+:value "-.Inf")))])]
+:result (mithril/host-undefined))
+:else (mithril/if
+:condition (mithril/host-method
+:object (mithril/local
+:name "yL183")
+:key (mithril/literal
+:datatype "js-value"
+:value "isNegativeZero")
+:args [(mithril/local
+:name "yL196")])
+:then (mithril/host-return
+:value (mithril/literal
+:datatype "js-value"
+:value "-0.0"))
+:else (mithril/host-undefined)))))
+(mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "yL198"
+:value (mithril/host-method
+:object (mithril/local
+:name "yL196")
+:key (mithril/literal
+:datatype "js-value"
+:value "toString")
+:args [(mithril/local
+:name "yC1")]))]
+:body (mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/if
+:condition (mithril/host-method
+:object (mithril/local
+:name "yL187")
+:key (mithril/local
+:name "yC0")
+:args [(mithril/local
+:name "yL198")])
+:then (mithril/host-method
+:object (mithril/local
+:name "yL198")
+:key (mithril/literal
+:datatype "js-value"
+:value "replace")
+:args [(mithril/literal
+:datatype "js-value"
+:value "e")
+(mithril/literal
+:datatype "js-value"
+:value ".e")])
+:else (mithril/local
+:name "yL198")))
+(mithril/host-undefined)]))])
+:statements true))
+(rdf/node
+:pattern "yL191"
+:value (mithril/native-function
+:name "isFloat"
+:params [(rdf/node
+:name "yL199"
+:datatype "js-value")]
+:rest nil
+:body (mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/host-logical
+:operator "&&"
+:left (mithril/host-binary
+:operator "==="
+:left (mithril/host-method
+:object (mithril/host-get
+:object (mithril/host-get
+:object (mithril/host-import
+:name "Object")
+:key (mithril/literal
+:datatype "js-value"
+:value "prototype"))
+:key (mithril/literal
+:datatype "js-value"
+:value "toString"))
+:key (mithril/literal
+:datatype "js-value"
+:value "call")
+:args [(mithril/local
+:name "yL199")])
+:right (mithril/literal
+:datatype "js-value"
+:value "[object Number]"))
+:right (mithril/host-logical
+:operator "||"
+:left (mithril/host-binary
+:operator "!=="
+:left (mithril/host-binary
+:operator "%"
+:left (mithril/local
+:name "yL199")
+:right (mithril/local
+:name "yC3"))
+:right (mithril/local
+:name "yC2"))
+:right (mithril/host-method
+:object (mithril/local
+:name "yL183")
+:key (mithril/literal
+:datatype "js-value"
+:value "isNegativeZero")
+:args [(mithril/local
+:name "yL199")]))))
+(mithril/host-undefined)])
+:statements true))]
+:body (mithril/sequence
+:expressions [(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL183"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot_require_common")
+:args []))])
+(mithril/sequence
+:expressions [(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL184"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot_require_type")
+:args []))])
+(mithril/sequence
+:expressions [(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL185"
+:value (mithril/host-construct
+:constructor (mithril/host-import
+:name "RegExp")
+:args [(mithril/literal
+:datatype "js-value"
+:value "^(?:[-+]?(?:[0-9]+)(?:\\.[0-9]*)?(?:[eE][-+]?[0-9]+)?|\\.[0-9]+(?:[eE][-+]?[0-9]+)?|[-+]?\\.(?:inf|Inf|INF)|\\.(?:nan|NaN|NAN))$")]))])
+(mithril/sequence
+:expressions [(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL186"
+:value (mithril/host-construct
+:constructor (mithril/host-import
+:name "RegExp")
+:args [(mithril/literal
+:datatype "js-value"
+:value "^(?:[-+]?\\.(?:inf|Inf|INF)|\\.(?:nan|NaN|NAN))$")]))])
+(mithril/sequence
+:expressions [(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL187"
+:value (mithril/host-regexp
+:pattern "^[-+]?[0-9]+e"
+:flags ""))])
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/local
+:name "yL182")
+:key (mithril/literal
+:datatype "js-value"
+:value "exports")
+:value (mithril/host-construct
+:constructor (mithril/local
+:name "yL184")
+:args [(mithril/literal
+:datatype "js-value"
+:value "tag:yaml.org,2002:float")
+(mithril/host-object
+:entries [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "kind")
+:value (mithril/literal
+:datatype "js-value"
+:value "scalar"))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "resolve")
+:value (mithril/local
+:name "yL188"))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "construct")
+:value (mithril/local
+:name "yL189"))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "predicate")
+:value (mithril/local
+:name "yL191"))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "represent")
+:value (mithril/local
+:name "yL190"))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "defaultStyle")
+:value (mithril/local
+:name "yC4"))])]))
+(mithril/host-undefined)])])])])])])))
+:statements true)])))]
+:exports [(rdf/node
+:name "yamlRoot_require_float"
+:value (mithril/local
+:name "yamlRoot_require_float"))]
+:lexical_bindings true)

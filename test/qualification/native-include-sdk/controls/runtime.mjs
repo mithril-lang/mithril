@@ -100,7 +100,7 @@ if(process.argv[2]==='case'){
  check('Include owner drains and releases registry',()=>assert.equal(root.registry.size,0));
  console.log(JSON.stringify({groups,observations}));
 }else{
- const [candidate]=process.argv.slice(2);
+ const [candidate,nativeYaml]=process.argv.slice(2);
  const {mkdtempSync,mkdirSync,copyFileSync,symlinkSync,rmSync}=await import('node:fs'),{tmpdir}=await import('node:os'),{createHash}=await import('node:crypto');
  const dir=mkdtempSync(join(tmpdir(),'mithril-loader-sdk-oracle-'));
  const hash=path=>createHash('sha256').update(readFileSync(path)).digest('hex');
@@ -125,16 +125,18 @@ if(process.argv[2]==='case'){
   const yamlDir=join(dir,'node_modules/js-yaml');mkdirSync(yamlDir,{recursive:true});execFileSync('tar',['-xzf',join(repo,'test/fixtures/native-esm-namespaces/js-yaml-4.2.0.tar.gz'),'-C',yamlDir,'--strip-components=1']);
   assert.equal(JSON.parse(readFileSync(join(yamlDir,'package.json'),'utf8')).version,'4.2.0');
   const yamlEntry=join(yamlDir,'dist/js-yaml.mjs');
-  function run(kind,entry,core,loaderEntry){const r=spawnSync(process.execPath,[fileURLToPath(import.meta.url),'case',kind,entry,core,loaderEntry,yamlEntry],{encoding:'utf8',timeout:30000,env:{...process.env,CORDIS_SHARED:'{"startTime":0}'}});assert.equal(r.status,0,r.stdout+r.stderr);return JSON.parse(r.stdout)}
+  function run(kind,entry,core,loaderEntry,yamlRuntime=yamlEntry){const r=spawnSync(process.execPath,[fileURLToPath(import.meta.url),'case',kind,entry,core,loaderEntry,yamlRuntime],{encoding:'utf8',timeout:30000,env:{...process.env,CORDIS_SHARED:'{"startTime":0}'}});assert.equal(r.status,0,r.stdout+r.stderr);return JSON.parse(r.stdout)}
   const expected=run('original',original,join(dir,'node_modules/@deepseek-ai/cordis/index.mjs'),join(loader,'index.js'));
   const meta=JSON.parse(readFileSync(candidate+'.log','utf8'));
+  assert.equal(meta['external-modules']['js.yaml'],nativeYaml?'@mithril/native-yaml':'js-yaml');
+  if(nativeYaml){const yamlMeta=JSON.parse(readFileSync(nativeYaml+'.log','utf8'));assert.equal(Object.keys(yamlMeta['module-files']).length,29);assert.equal(yamlMeta.exports.length,15);assert.equal(yamlMeta['external-modules'],undefined);}
   const candidateModules=join(candidate,'node_modules');mkdirSync(candidateModules,{recursive:true});
-  const {unlinkSync}=await import('node:fs');const yamlLink=join(candidateModules,'js-yaml');symlinkSync(yamlDir,yamlLink);
+  const {unlinkSync}=await import('node:fs');const yamlLink=join(candidateModules,nativeYaml?'@mithril/native-yaml':'js-yaml');mkdirSync(dirname(yamlLink),{recursive:true});symlinkSync(nativeYaml||yamlDir,yamlLink);
   let actual;
-  try{actual=run('candidate-sdk',join(candidate,'index.mjs'),join(candidate,meta['module-files'].cordis),join(candidate,meta['module-files']['loader.index']))}finally{unlinkSync(yamlLink)}
+  try{actual=run('candidate-sdk',join(candidate,'index.mjs'),join(candidate,meta['module-files'].cordis),join(candidate,meta['module-files']['loader.index']),nativeYaml?join(nativeYaml,'index.mjs'):yamlEntry)}finally{unlinkSync(yamlLink)}
 
   assert.deepEqual(actual,expected);
   assert.equal(actual.groups.length,32,'Full Include runtime group coverage');
-  console.log('Include SDK runtime: '+actual.groups.length+' paired full-source groups; own Loader/Cordis, pinned external YAML, Node execution only.');
+  console.log('Include SDK runtime: '+actual.groups.length+' paired full-source groups; own Loader/Cordis, '+(nativeYaml?'own checked YAML runtime':'pinned external YAML')+', Node execution only.');
  }finally{rmSync(dir,{recursive:true,force:true})}
 }

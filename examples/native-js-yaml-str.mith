@@ -1,0 +1,80 @@
+; Derived from pinned js-yaml 4.2.0 full source. MIT; see test/qualification/native-yaml-source/LICENSE.
+(mithril/native-js-module
+:name "yaml.str"
+:ambient_imports []
+:imports ["yamlRoot___commonJSMin"
+"yamlRoot_require_type"]
+:functions []
+:bindings [(rdf/node
+:name "yamlRoot_require_str"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:name "initialize_yamlRoot_require_str"
+:value (mithril/local-set
+:name "yamlRoot_require_str"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot___commonJSMin")
+:args [(mithril/native-lambda
+:params ["yL119"
+"yL120"]
+:rest nil
+:body (mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/local
+:name "yL120")
+:key (mithril/literal
+:datatype "js-value"
+:value "exports")
+:value (mithril/host-construct
+:constructor (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot_require_type")
+:args [])
+:args [(mithril/literal
+:datatype "js-value"
+:value "tag:yaml.org,2002:str")
+(mithril/host-object
+:entries [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "kind")
+:value (mithril/literal
+:datatype "js-value"
+:value "scalar"))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "construct")
+:value (mithril/native-function
+:name nil
+:params [(rdf/node
+:name "yL121"
+:datatype "js-value")]
+:rest nil
+:body (mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/if
+:condition (mithril/host-binary
+:operator "!=="
+:left (mithril/local
+:name "yL121")
+:right (mithril/literal
+:datatype "js-value"
+:value nil))
+:then (mithril/local
+:name "yL121")
+:else (mithril/literal
+:datatype "js-value"
+:value "")))
+(mithril/host-undefined)])
+:statements true)
+:infer_name true)])]))
+(mithril/host-undefined)])
+:statements true)])))]
+:exports [(rdf/node
+:name "yamlRoot_require_str"
+:value (mithril/local
+:name "yamlRoot_require_str"))]
+:lexical_bindings true)

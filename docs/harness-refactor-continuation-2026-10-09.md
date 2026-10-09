@@ -19,7 +19,7 @@ substitute for this objective.
 
 | Item | Location / identity | State |
 | --- | --- | --- |
-| Compiler checkout | `/Users/junkawasaki/github/mithril-lang/mithril-harness-language` | `codex/native-abstract-equality`; arguments prerequisite merged in PR #92 at `5dfbfcf51d7a80fcf1535f993ef25d1bddbb177c` |
+| Compiler checkout | `/Users/junkawasaki/github/mithril-lang/mithril-harness-language` | `codex/native-yaml-source`; abstract equality merged in PR #93 at `ac01dec12611b83275db09ebab6063502f9139bd` |
 | Saved work checkpoint | `82bd71fbfbf27e4ed3e08ba03898eb9a01a31ed4` | WIP committed and pushed before the requested pause |
 | Schema SDK | https://github.com/mithril-lang/mithril/pull/79 | Merged at `34ca28d6524c27a6c11e24c01bddeca9da35763d`; head `b211a8d076bdb85f77859a2563ba3f79ee5e433f` qualified |
 | Schema branch CI | `37894254763`, job `113701855514` | Terminal success; full source/package/all 14 declaration stages audited |
@@ -218,19 +218,44 @@ replacement resolver does not establish identical module semantics.
    with full logs audited: all 20 declaration stages, source 83/412, package 40/7,
    paired arguments 24 groups per label, Include 32/6+/8-, and CodeGraph 33/239
    plus HTTP. It merged at `5dfbfcf51d7a80fcf1535f993ef25d1bddbb177c`;
-   main Native JS `37937697382` and CodeGraph `37937697291` remain in progress.
+   main Native JS `37937697382` and CodeGraph `37937697291` succeeded.
+   Full 20-stage logs, source 83/412, package 40/7, paired feature/runtime/type
+   groups and CodeGraph 33/239 plus HTTP were audited; all eight files match
+   main. Evidence: `native-arguments-main-ci-audit.json` and
+   `native-arguments-main-file-match.json`.
    Native abstract equality/inequality now passes 2490 original-paired groups
    per actual CLI label, including coercion order and exact abrupt completion;
    source regression passes 85 tests/415 assertions and package checks retain
    40 exports/seven frozen artifacts. Two previous unsupported-`==` tests now
    retain malformed-operator refusal coverage with `<>`. Its PR/main delivery
-   remains pending. The operator YAML prototype now admits all 29 own modules
+   passed all 20 branch stages and merged in PR #93 at
+   `ac01dec12611b83275db09ebab6063502f9139bd`. Main Native JS `37939630145`
+   and CodeGraph `37939630106` succeeded, with full log audit and all ten files
+   matching main. Source 85/415, package 40/7, paired equality 2490 groups per
+   label, all existing SDK stages and CodeGraph 33/239/HTTP were retained.
+   Evidence: `native-abstract-equality-main-ci-audit.json` and
+   `native-abstract-equality-main-file-match.json`.
+   The operator YAML prototype now admits all 29 own modules
    and 15 original runtime exports through the actual native ESM CLI. This keeps
    the original character/node budgets: alpha-renamed lexical bindings and
    immutable primitive literal sharing reduce source size, while 44 original
    private Loader functions become own native modules with getter-backed captures
-   of their original lexical bindings. Whole-source runtime qualification remains
-   pending; authoring utilities do not establish behavioral parity.
+   of their original lexical bindings. Fresh actual CLI controls now pass 304
+   original-paired YAML groups per label, including full export aliases/metadata,
+   four schemas, anchors/merge/cycles, dump options, custom Type/Schema and exact
+   error marks. The whole source and portable qualification are in the repo as
+   stage 21. Include's 25-module source and YAML's 29-module source exceed the
+   unchanged 1 MiB bound if put in one package, so each is compiled independently
+   and the own YAML artifact is imported as `@mithril/native-yaml`. Both actual
+   Include runtime/declaration CLIs pass exact artifact bytes, all 32 original
+   Include groups and 6 positive/8 negative strict consumers per label. The full
+   pinned original YAML type facade is shipped separately and qualifies actual
+   NodeNext default namespace/class resolution plus exact rejection codes; it is
+   not native YAML type closure. These portable controls pass locally. New source,
+   stage 21 and integration PR/current-main delivery remain pending. Evidence:
+   `yaml-source-include-facade-repo-qualification.log`. Next qualify the complete
+   original YAML declaration graph, default namespace alias, omitted runtime-only
+   symbols and UMD namespace semantics without inventing public types.
    Deliver abstract equality, then qualify the complete YAML source closure and replace Include's external runtime link before full-source claims.
    Evidence: `yaml-source-audit.json`, `yaml-source-frontier.json`,
    `yaml-inequality-frontier-before.log`, `native-arguments-source-regression-final.log`.

@@ -1,0 +1,489 @@
+; Derived from pinned js-yaml 4.2.0 full source. MIT; see test/qualification/native-yaml-source/LICENSE.
+(mithril/native-js-module
+:name "yaml.helpers"
+:ambient_imports ["Object"]
+:imports ["Object"]
+:functions []
+:bindings [(rdf/node
+:name "yC0"
+:value (mithril/literal
+:datatype "js-value"
+:value "exports"))
+(rdf/node
+:name "yC1"
+:value (mithril/literal
+:datatype "js-value"
+:value nil))
+(rdf/node
+:name "yC2"
+:value (mithril/literal
+:datatype "js-value"
+:value "enumerable"))
+(rdf/node
+:name "yamlRoot___create"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:name "yamlRoot___defProp"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:name "yamlRoot___getOwnPropDesc"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:name "yamlRoot___getOwnPropNames"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:name "yamlRoot___getProtoOf"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:name "yamlRoot___hasOwnProp"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:name "yamlRoot___commonJSMin"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:name "yamlRoot___copyProps"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:name "yamlRoot___toESM"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:name "initialize_yamlRoot___create"
+:value (mithril/local-set
+:name "yamlRoot___create"
+:value (mithril/host-get
+:object (mithril/host-import
+:name "Object")
+:key (mithril/literal
+:datatype "js-value"
+:value "create"))))
+(rdf/node
+:name "initialize_yamlRoot___defProp"
+:value (mithril/local-set
+:name "yamlRoot___defProp"
+:value (mithril/host-get
+:object (mithril/host-import
+:name "Object")
+:key (mithril/literal
+:datatype "js-value"
+:value "defineProperty"))))
+(rdf/node
+:name "initialize_yamlRoot___getOwnPropDesc"
+:value (mithril/local-set
+:name "yamlRoot___getOwnPropDesc"
+:value (mithril/host-get
+:object (mithril/host-import
+:name "Object")
+:key (mithril/literal
+:datatype "js-value"
+:value "getOwnPropertyDescriptor"))))
+(rdf/node
+:name "initialize_yamlRoot___getOwnPropNames"
+:value (mithril/local-set
+:name "yamlRoot___getOwnPropNames"
+:value (mithril/host-get
+:object (mithril/host-import
+:name "Object")
+:key (mithril/literal
+:datatype "js-value"
+:value "getOwnPropertyNames"))))
+(rdf/node
+:name "initialize_yamlRoot___getProtoOf"
+:value (mithril/local-set
+:name "yamlRoot___getProtoOf"
+:value (mithril/host-get
+:object (mithril/host-import
+:name "Object")
+:key (mithril/literal
+:datatype "js-value"
+:value "getPrototypeOf"))))
+(rdf/node
+:name "initialize_yamlRoot___hasOwnProp"
+:value (mithril/local-set
+:name "yamlRoot___hasOwnProp"
+:value (mithril/host-get
+:object (mithril/host-get
+:object (mithril/host-import
+:name "Object")
+:key (mithril/literal
+:datatype "js-value"
+:value "prototype"))
+:key (mithril/literal
+:datatype "js-value"
+:value "hasOwnProperty"))))
+(rdf/node
+:name "initialize_yamlRoot___commonJSMin"
+:value (mithril/local-set
+:name "yamlRoot___commonJSMin"
+:value (mithril/host-get
+:object (mithril/host-object
+:entries [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "__commonJSMin")
+:value (mithril/native-lambda
+:params [(rdf/node
+:name "yL0"
+:mutable true)
+(rdf/node
+:name "yL1"
+:mutable true)]
+:rest nil
+:body (mithril/native-lambda
+:params []
+:rest nil
+:body (mithril/sequence
+:expressions [(mithril/host-logical
+:operator "||"
+:left (mithril/local
+:name "yL1")
+:right (mithril/sequence
+:expressions [(mithril/host-invoke
+:function (mithril/local
+:name "yL0")
+:args [(mithril/host-get
+:object (mithril/local-set
+:name "yL1"
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "yC0")
+:value (mithril/host-object
+:entries []))]))
+:key (mithril/local
+:name "yC0"))
+(mithril/local
+:name "yL1")])
+(mithril/local-set
+:name "yL0"
+:value (mithril/local
+:name "yC1"))]))
+(mithril/host-get
+:object (mithril/local
+:name "yL1")
+:key (mithril/local
+:name "yC0"))])))
+:infer_name true)])
+:key (mithril/literal
+:datatype "js-value"
+:value "__commonJSMin"))))
+(rdf/node
+:name "initialize_yamlRoot___copyProps"
+:value (mithril/local-set
+:name "yamlRoot___copyProps"
+:value (mithril/host-get
+:object (mithril/host-object
+:entries [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "__copyProps")
+:value (mithril/native-lambda
+:params ["yL2"
+"yL3"
+"yL4"
+(rdf/node
+:name "yL5"
+:mutable true)]
+:rest nil
+:body (mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "yL6"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:pattern "yL7"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:pattern "yL8"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:pattern "yL9"
+:value (mithril/host-undefined)
+:mutable true)]
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-logical
+:operator "||"
+:left (mithril/host-logical
+:operator "&&"
+:left (mithril/local
+:name "yL3")
+:right (mithril/host-binary
+:operator "==="
+:left (mithril/host-unary
+:operator "typeof"
+:value (mithril/local
+:name "yL3"))
+:right (mithril/literal
+:datatype "js-value"
+:value "object")))
+:right (mithril/host-binary
+:operator "==="
+:left (mithril/host-unary
+:operator "typeof"
+:value (mithril/local
+:name "yL3"))
+:right (mithril/literal
+:datatype "js-value"
+:value "function")))
+:then (mithril/host-for
+:initializer (rdf/node
+:expression (mithril/sequence
+:expressions [(mithril/local-set
+:name "yL6"
+:value (mithril/host-invoke
+:function (mithril/local
+:name "yamlRoot___getOwnPropNames")
+:args [(mithril/local
+:name "yL3")]))
+(mithril/local-set
+:name "yL7"
+:value (mithril/literal
+:datatype "js-value"
+:value 0))
+(mithril/local-set
+:name "yL8"
+:value (mithril/host-get
+:object (mithril/local
+:name "yL6")
+:key (mithril/literal
+:datatype "js-value"
+:value "length")))]))
+:condition (mithril/host-binary
+:operator "<"
+:left (mithril/local
+:name "yL7")
+:right (mithril/local
+:name "yL8"))
+:update (mithril/host-local-update
+:name "yL7"
+:operator "++"
+:prefix false)
+:body (mithril/sequence
+:expressions [(mithril/local-set
+:name "yL9"
+:value (mithril/host-get
+:object (mithril/local
+:name "yL6")
+:key (mithril/local
+:name "yL7")))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-logical
+:operator "&&"
+:left (mithril/host-unary
+:operator "!"
+:value (mithril/host-method
+:object (mithril/local
+:name "yamlRoot___hasOwnProp")
+:key (mithril/literal
+:datatype "js-value"
+:value "call")
+:args [(mithril/local
+:name "yL2")
+(mithril/local
+:name "yL9")]))
+:right (mithril/host-binary
+:operator "!=="
+:left (mithril/local
+:name "yL9")
+:right (mithril/local
+:name "yL4")))
+:then (mithril/host-invoke
+:function (mithril/local
+:name "yamlRoot___defProp")
+:args [(mithril/local
+:name "yL2")
+(mithril/local
+:name "yL9")
+(mithril/host-object
+:entries [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "get")
+:value (mithril/host-method
+:object (mithril/native-lambda
+:params ["yL10"]
+:rest nil
+:body (mithril/host-get
+:object (mithril/local
+:name "yL3")
+:key (mithril/local
+:name "yL10")))
+:key (mithril/literal
+:datatype "js-value"
+:value "bind")
+:args [(mithril/local
+:name "yC1")
+(mithril/local
+:name "yL9")]))
+(rdf/node
+:key (mithril/local
+:name "yC2")
+:value (mithril/host-logical
+:operator "||"
+:left (mithril/host-unary
+:operator "!"
+:value (mithril/local-set
+:name "yL5"
+:value (mithril/host-invoke
+:function (mithril/local
+:name "yamlRoot___getOwnPropDesc")
+:args [(mithril/local
+:name "yL3")
+(mithril/local
+:name "yL9")])))
+:right (mithril/host-get
+:object (mithril/local
+:name "yL5")
+:key (mithril/local
+:name "yC2"))))])])
+:else (mithril/host-undefined))
+(mithril/host-undefined)])])
+:result (mithril/host-undefined))
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/local
+:name "yL2"))
+(mithril/host-undefined)])]))
+:statements true)
+:infer_name true)])
+:key (mithril/literal
+:datatype "js-value"
+:value "__copyProps"))))
+(rdf/node
+:name "initialize_yamlRoot___toESM"
+:value (mithril/local-set
+:name "yamlRoot___toESM"
+:value (mithril/host-get
+:object (mithril/host-object
+:entries [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "__toESM")
+:value (mithril/native-lambda
+:params ["yL11"
+"yL12"
+(rdf/node
+:name "yL13"
+:mutable true)]
+:rest nil
+:body (mithril/sequence
+:expressions [(mithril/local-set
+:name "yL13"
+:value (mithril/if
+:condition (mithril/host-binary
+:operator "!="
+:left (mithril/local
+:name "yL11")
+:right (mithril/local
+:name "yC1"))
+:then (mithril/host-invoke
+:function (mithril/local
+:name "yamlRoot___create")
+:args [(mithril/host-invoke
+:function (mithril/local
+:name "yamlRoot___getProtoOf")
+:args [(mithril/local
+:name "yL11")])])
+:else (mithril/host-object
+:entries [])))
+(mithril/host-invoke
+:function (mithril/local
+:name "yamlRoot___copyProps")
+:args [(mithril/if
+:condition (mithril/host-logical
+:operator "||"
+:left (mithril/host-logical
+:operator "||"
+:left (mithril/local
+:name "yL12")
+:right (mithril/host-unary
+:operator "!"
+:value (mithril/local
+:name "yL11")))
+:right (mithril/host-unary
+:operator "!"
+:value (mithril/host-get
+:object (mithril/local
+:name "yL11")
+:key (mithril/literal
+:datatype "js-value"
+:value "__esModule"))))
+:then (mithril/host-invoke
+:function (mithril/local
+:name "yamlRoot___defProp")
+:args [(mithril/local
+:name "yL13")
+(mithril/literal
+:datatype "js-value"
+:value "default")
+(mithril/host-object
+:entries [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "value")
+:value (mithril/local
+:name "yL11"))
+(rdf/node
+:key (mithril/local
+:name "yC2")
+:value (mithril/literal
+:datatype "js-value"
+:value true))])])
+:else (mithril/local
+:name "yL13"))
+(mithril/local
+:name "yL11")])]))
+:infer_name true)])
+:key (mithril/literal
+:datatype "js-value"
+:value "__toESM"))))]
+:exports [(rdf/node
+:name "yamlRoot___create"
+:value (mithril/local
+:name "yamlRoot___create"))
+(rdf/node
+:name "yamlRoot___defProp"
+:value (mithril/local
+:name "yamlRoot___defProp"))
+(rdf/node
+:name "yamlRoot___getOwnPropDesc"
+:value (mithril/local
+:name "yamlRoot___getOwnPropDesc"))
+(rdf/node
+:name "yamlRoot___getOwnPropNames"
+:value (mithril/local
+:name "yamlRoot___getOwnPropNames"))
+(rdf/node
+:name "yamlRoot___getProtoOf"
+:value (mithril/local
+:name "yamlRoot___getProtoOf"))
+(rdf/node
+:name "yamlRoot___hasOwnProp"
+:value (mithril/local
+:name "yamlRoot___hasOwnProp"))
+(rdf/node
+:name "yamlRoot___commonJSMin"
+:value (mithril/local
+:name "yamlRoot___commonJSMin"))
+(rdf/node
+:name "yamlRoot___copyProps"
+:value (mithril/local
+:name "yamlRoot___copyProps"))
+(rdf/node
+:name "yamlRoot___toESM"
+:value (mithril/local
+:name "yamlRoot___toESM"))]
+:lexical_bindings true)
