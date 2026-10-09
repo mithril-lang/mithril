@@ -37,6 +37,7 @@ try{
   ['native-scope-core','compile.cljk'],
   ['native-scope-sdk','compile.cljk'],
   ['native-brand-sdk','compile.cljk'],
+  ['native-private-fields','compile.cljk'],
  ];
  for(const [name,control] of stages){
   console.log(`Declaration qualification stage: ${name}`);

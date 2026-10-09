@@ -190,6 +190,42 @@
                        :else (fail! :mithril.native-js/shape "Super call item requires value or spread"))]
             {:kind kind :value (expression! (get item (name kind)) imports functions locals (inc depth) nodes (value-context context))})) items))
 
+(def ^:private private-identifier
+  (js/RegExp. "^(?:[$_]|\\p{ID_Start})(?:[$\\u200c\\u200d]|\\p{ID_Continue})*$" "u"))
+(defn- private-name! [name]
+  (when-not (and (string? name) (.test private-identifier name) (not= "constructor" name))
+    (fail! :mithril.native-js/name "Invalid native private identifier"))
+  name)
+(defn- property-key! [raw check context]
+  (let [key (check (get raw "key"))]
+    (if (true? (get raw "private"))
+      (let [name (when (= :literal (:op key)) (:value key))]
+        (private-name! name)
+        (when-not (contains? (:private-names context) name)
+          (fail! :mithril.native-js/scope "Undeclared native private name"))
+        {:op :private-key :name name})
+      key)))
+(defn- class-private-names! [members]
+  (let [entries (reduce (fn [seen m]
+                         (when-not (map? m) (fail! :mithril.native-js/shape "Expected a class member"))
+                         (when (and (contains? m "private") (not (boolean? (get m "private"))))
+                           (fail! :mithril.native-js/shape "Private member flag must be boolean"))
+                         (if (true? (get m "private"))
+                           (let [key (get m "key") kind (get m "kind")
+                                 _ (when-not (and (contains? #{"field" "method" "get" "set"} kind) (boolean? (get m "static")))
+                                     (fail! :mithril.native-js/shape "Invalid private class member"))
+                                 name (when (and (= "Literal" (get key "@type")) (= "js-value" (get key "datatype")))
+                                        (get key "value"))
+                                 _ (private-name! name)
+                                 old (get seen name)]
+                             (when (and old (not (and (= (:static old) (get m "static"))
+                                                      (= #{"get" "set"} (conj (:kinds old) kind))
+                                                      (= 1 (count (:kinds old))))))
+                               (fail! :mithril.native-js/duplicate "Duplicate private class member"))
+                             (assoc seen name {:static (get m "static") :kinds (conj (:kinds old #{}) kind)}))
+                           seen)) {} members)]
+    (set (keys entries))))
+
 (defn- expression! [expr imports functions locals depth nodes args-length]
   (when (or (> depth 64) (> (swap! nodes inc) 4096))
     (fail! :mithril.native-js/budget "Native JS expression budget exceeded"))
@@ -254,8 +290,8 @@
             ;; function values are neither inspected nor prevalidated.
             {:op :call :name name :args args}))
       "HostOptionalGet"
-      (do (shape! expr ["@type" "object" "key"])
-          {:op :optional-get :object (check (get expr "object")) :key (check (get expr "key"))})
+      (do (optional-flag! expr ["@type" "object" "key"] "private")
+          {:op :optional-get :object (check (get expr "object")) :key (property-key! expr check args-length)})
       "HostOptionalChain"
       (do (shape! expr ["@type" "base" "steps"])
           (let [steps (get expr "steps")]
@@ -267,15 +303,15 @@
                             (when-not (boolean? (get step "optional"))
                               (fail! :mithril.native-js/shape "Optional chain step flag must be boolean"))
                             (case (get step "kind")
-                              "get" (do (shape! step ["kind" "optional" "key"])
-                                        {:kind :get :optional (get step "optional") :key (check (get step "key"))})
+                              "get" (do (optional-flag! step ["kind" "optional" "key"] "private")
+                                        {:kind :get :optional (get step "optional") :key (property-key! step check args-length)})
                               "call" (do (shape! step ["kind" "optional" "items"])
                                          {:kind :call :optional (get step "optional")
                                           :items (class-items! (get step "items") imports functions locals depth nodes args-length)})
                               (fail! :mithril.native-js/shape "Unknown optional chain step"))) steps)}))
       "HostGet"
-      (do (shape! expr ["@type" "object" "key"])
-          {:op :get :object (check (get expr "object")) :key (check (get expr "key"))})
+      (do (optional-flag! expr ["@type" "object" "key"] "private")
+          {:op :get :object (check (get expr "object")) :key (property-key! expr check args-length)})
       "HostInvoke"
       (do (shape! expr ["@type" "function" "args"])
           {:op :invoke :function (check (get expr "function")) :args (args! (get expr "args"))})
@@ -293,18 +329,18 @@
           {:op :optional-invoke-items :function (check (get expr "function"))
            :items (class-items! (get expr "items") imports functions locals depth nodes args-length)})
       "HostMethod"
-      (do (shape! expr ["@type" "object" "key" "args"])
-          {:op :method :object (check (get expr "object")) :key (check (get expr "key"))
+      (do (optional-flag! expr ["@type" "object" "key" "args"] "private")
+          {:op :method :object (check (get expr "object")) :key (property-key! expr check args-length)
            :args (args! (get expr "args"))})
       "HostRegExp"
       (do (shape! expr ["@type" "pattern" "flags"])
           (regexp! (get expr "pattern") (get expr "flags")))
       "HostMethodItems"
-      (do (shape! expr ["@type" "object" "key" "items"])
+      (do (optional-flag! expr ["@type" "object" "key" "items"] "private")
           (let [items (get expr "items")]
             (vector! items 64)
             {:op :method-items :object (check (get expr "object"))
-             :key (check (get expr "key"))
+             :key (property-key! expr check args-length)
              :items (mapv (fn [item]
                             (cond
                               (and (map? item) (= #{"value"} (set (keys item))))
@@ -397,16 +433,16 @@
             {:op :logical :operator operator :left (check (get expr "left"))
              :right (check (get expr "right"))}))
       "HostCompoundAssign"
-      (do (shape! expr ["@type" "object" "key" "value" "operator"])
+      (do (optional-flag! expr ["@type" "object" "key" "value" "operator"] "private")
           (when-not (contains? #{"+=" "-=" "*=" "/=" "%=" "**=" "<<=" ">>=" ">>>=" "&=" "|=" "^="} (get expr "operator"))
             (fail! :mithril.native-js/operator "Unsupported native property compound assignment"))
-          {:op :compound-assign :object (check (get expr "object")) :key (check (get expr "key"))
+          {:op :compound-assign :object (check (get expr "object")) :key (property-key! expr check args-length)
            :value (check (get expr "value")) :operator (get expr "operator")})
       "HostLogicalAssign"
-      (do (shape! expr ["@type" "object" "key" "value" "operator"])
+      (do (optional-flag! expr ["@type" "object" "key" "value" "operator"] "private")
           (when-not (contains? #{"??=" "&&=" "||="} (get expr "operator"))
             (fail! :mithril.native-js/operator "Unsupported native property logical assignment"))
-          {:op :logical-assign :object (check (get expr "object")) :key (check (get expr "key"))
+          {:op :logical-assign :object (check (get expr "object")) :key (property-key! expr check args-length)
            :value (check (get expr "value")) :operator (get expr "operator")})
       "HostObject"
       (do (shape! expr ["@type" "entries"])
@@ -419,7 +455,8 @@
                                            (when-not (= "method" (get entry "kind"))
                                              (fail! :mithril.native-js/shape "Object method entry requires method kind"))
                                            (let [key (check (get entry "key"))
-                                                 context (suspension-context {:function true :this true :new-target true :super-property true}
+                                                 context (suspension-context {:function true :this true :new-target true :super-property true
+                                                                             :private-names (:private-names args-length)}
                                                                              (get entry "async") (get entry "generator"))]
                                              (assoc (class-signature! entry imports functions locals (inc depth) nodes context)
                                                     :kind :method :key key)))
@@ -440,14 +477,14 @@
             (vector! values 4096)
             {:op :object-spreads :values (mapv check values)}))
       "HostUpdate"
-      (do (shape! expr ["@type" "object" "key" "operator" "prefix"])
+      (do (optional-flag! expr ["@type" "object" "key" "operator" "prefix"] "private")
           (when-not (and (contains? #{"++" "--"} (get expr "operator")) (boolean? (get expr "prefix")))
             (fail! :mithril.native-js/shape "Invalid native property update"))
-          {:op :update :object (check (get expr "object")) :key (check (get expr "key"))
+          {:op :update :object (check (get expr "object")) :key (property-key! expr check args-length)
            :operator (get expr "operator") :prefix (get expr "prefix")})
       "HostSet"
-      (do (shape! expr ["@type" "object" "key" "value"])
-          {:op :set :object (check (get expr "object")) :key (check (get expr "key"))
+      (do (optional-flag! expr ["@type" "object" "key" "value"] "private")
+          {:op :set :object (check (get expr "object")) :key (property-key! expr check args-length)
            :value (check (get expr "value"))})
       "HostDelete"
       (do (shape! expr ["@type" "object" "key"])
@@ -609,15 +646,16 @@
             (let [names (params! params)
                   all-names (cond-> (vec (mapcat binding-names names)) (some? rest-name) (conj rest-name))
                   _ (unique! all-names)
-                  _ (coroutine-bindings! all-names (suspension-context true (get expr "async") (get expr "generator")))
+                  context {:function true :this true :new-target true :private-names (:private-names args-length)}
+                  _ (coroutine-bindings! all-names (suspension-context context (get expr "async") (get expr "generator")))
                   self-env (cond-> locals (some? name) (assoc name false))
                   body-env (parameter-env self-env params names rest-name)
                   defaults (into {} (keep-indexed
                                       (fn [i p]
                                         (when (contains? p "default")
-                                          [i (expression! (get p "default") imports functions body-env (inc depth) nodes true)])) params))]
-              (cond-> {:op :native-function :name name :params (check-parameter-patterns names imports functions body-env (inc depth) nodes true) :rest rest-name
-                       :body (expression! (get expr "body") imports functions body-env (inc depth) nodes (body-context (suspension-context true (get expr "async") (get expr "generator")) (get expr "statements") true))}
+                                          [i (expression! (get p "default") imports functions body-env (inc depth) nodes context)])) params))]
+              (cond-> {:op :native-function :name name :params (check-parameter-patterns names imports functions body-env (inc depth) nodes context) :rest rest-name
+                       :body (expression! (get expr "body") imports functions body-env (inc depth) nodes (body-context (suspension-context context (get expr "async") (get expr "generator")) (get expr "statements") true))}
                 (seq defaults) (assoc :defaults defaults)
                 (contains? expr "async") (assoc :async (get expr "async"))
                 (contains? expr "generator") (assoc :generator (get expr "generator"))
@@ -630,8 +668,12 @@
               (when (contains? reserved name) (fail! :mithril.native-js/name "Reserved class name")))
             (vector! members 128)
             (let [self-env (cond-> locals (some? name) (assoc name false))
-                  method-context {:function true :this true :new-target true :super-property true}
-                  field-context {:this true :new-target true :super-property true}
+                  private-names (into (or (:private-names args-length) #{}) (class-private-names! members))
+                  key-context (assoc (if (map? args-length) args-length
+                                       (if (true? args-length) {:function true :this true :new-target true} {}))
+                                     :private-names private-names)
+                  method-context {:function true :this true :new-target true :super-property true :private-names private-names}
+                  field-context {:this true :new-target true :super-property true :private-names private-names}
                   constructor-context (assoc method-context :super-call (some? heritage))
                   base (when (some? heritage) (expression! heritage imports functions self-env (inc depth) nodes (value-context args-length)))
                   constructor (when (some? ctor)
@@ -644,14 +686,14 @@
                                 {:kind :static-block :body (expression! (get m "body") imports functions self-env (inc depth) nodes (body-context field-context true false))})
                             (do
                           (when-not (boolean? (get m "static")) (fail! :mithril.native-js/shape "Class static flag must be boolean"))
-                              (let [kind (get m "kind") key (expression! (get m "key") imports functions self-env (inc depth) nodes (value-context args-length))]
+                              (let [kind (get m "kind") key (property-key! m #(expression! % imports functions self-env (inc depth) nodes (value-context key-context)) key-context)]
                                 (if (= kind "field")
-                                  (do (shape! m ["kind" "key" "static" "value"])
+                                  (do (optional-flag! m ["kind" "key" "static" "value"] "private")
                                       {:kind :field :key key :static (get m "static")
                                        :value (expression! (get m "value") imports functions self-env (inc depth) nodes field-context)})
                                   (do
                                     (when-not (contains? #{"method" "get" "set"} kind) (fail! :mithril.native-js/shape "Unknown class member kind"))
-                                    (optional-flags! m ["kind" "key" "static" "params" "rest" "body"] ["statements" "async" "generator"])
+                                    (optional-flags! m ["kind" "key" "static" "params" "rest" "body"] ["statements" "async" "generator" "private"])
                                     (when (and (not= kind "method") (or (true? (get m "async")) (true? (get m "generator"))))
                                       (fail! :mithril.native-js/shape "Accessors cannot be async or generator methods"))
                                     (let [signature (class-signature! m imports functions self-env (inc depth) nodes (suspension-context method-context (get m "async") (get m "generator")))]
@@ -760,10 +802,11 @@
                   params (params! raw-params)
                   self-env (assoc locals name false)
                   body-env (parameter-env self-env raw-params params nil)
+                  context {:function true :this true :new-target true :private-names (:private-names args-length)}
                   defaults (into {} (keep-indexed (fn [i p] (when (contains? p "default")
-                                                            [i (expression! (get p "default") imports functions body-env (inc depth) nodes true)])) raw-params))]
-              {:op :local-function :name name :params (check-parameter-patterns params imports functions body-env (inc depth) nodes true) :defaults defaults
-               :body (expression! (get expr "body") imports functions body-env (inc depth) nodes true)
+                                                            [i (expression! (get p "default") imports functions body-env (inc depth) nodes context)])) raw-params))]
+              {:op :local-function :name name :params (check-parameter-patterns params imports functions body-env (inc depth) nodes context) :defaults defaults
+               :body (expression! (get expr "body") imports functions body-env (inc depth) nodes context)
                :result (expression! (get expr "result") imports functions self-env (inc depth) nodes (value-context args-length))})))
       "Sequence"
       (do (shape! expr ["@type" "expressions"])
@@ -938,6 +981,10 @@
            (emit-body (:body signature) imports functions body-env counter prefix context true)
            (str "return " (emit-expression (:body signature) imports functions body-env counter prefix context) ";")) "}")))
 
+(defn- property-suffix [key emit optional?]
+  (if (= :private-key (:op key))
+    (str (if optional? "?." ".") "#" (:name key))
+    (str (if optional? "?.[" "[") (emit key) "]")))
 (defn- emit-expression [expr imports functions env counter prefix args-length]
   (let [emit #(emit-expression % imports functions env counter prefix args-length)
         args #(str/join "," (map emit %))]
@@ -951,24 +998,24 @@
       :function-ref (get functions (:name expr))
       :function-set (str "(" (get functions (:name expr)) "=" (emit (:value expr)) ")")
       :call (str (get functions (:name expr)) "(" (args (:args expr)) ")")
-      :optional-get (str "(" (emit (:object expr)) ")?.[" (emit (:key expr)) "]")
+      :optional-get (str "(" (emit (:object expr)) ")" (property-suffix (:key expr) emit true))
       :optional-chain
       (str "((0," (emit (:base expr)) ")"
            (apply str (map (fn [step]
                              (case (:kind step)
-                               :get (str (if (:optional step) "?.[" "[") (emit (:key step)) "]")
+                               :get (property-suffix (:key step) emit (:optional step))
                                :call (str (when (:optional step) "?.") "("
                                           (str/join "," (map #(str (when (= :spread (:kind %)) "...") (emit (:value %))) (:items step))) ")"))) (:steps expr))) ")")
-      :get (str "(" (emit (:object expr)) ")[" (emit (:key expr)) "]")
+      :get (str "(" (emit (:object expr)) ")" (property-suffix (:key expr) emit false))
       ;; The comma expression makes a value call, never a Reference call with
       ;; an accidental receiver (e.g. when the callee is a HostGet).
       :invoke (str "(0," (emit (:function expr)) ")(" (args (:args expr)) ")")
       :optional-invoke (str "(0," (emit (:function expr)) ")?.(" (args (:args expr)) ")")
       :invoke-items (str "(0," (emit (:function expr)) ")(" (str/join "," (map #(str (when (= :spread (:kind %)) "...") (emit (:value %))) (:items expr))) ")")
       :optional-invoke-items (str "(0," (emit (:function expr)) ")?.(" (str/join "," (map #(str (when (= :spread (:kind %)) "...") (emit (:value %))) (:items expr))) ")")
-      :method (str "(" (emit (:object expr)) ")[" (emit (:key expr)) "](" (args (:args expr)) ")")
+      :method (str "(" (emit (:object expr)) ")" (property-suffix (:key expr) emit false) "(" (args (:args expr)) ")")
       :regexp (str "(/" (:source expr) "/" (:flags expr) ")")
-      :method-items (str "(" (emit (:object expr)) ")[" (emit (:key expr)) "]("
+      :method-items (str "(" (emit (:object expr)) ")" (property-suffix (:key expr) emit false) "("
                          (str/join "," (map (fn [item]
                                               (if (= :spread (:kind item))
                                                 (str "..." (emit (:value item)))
@@ -990,8 +1037,8 @@
                      (str " " (:operator expr) " ") (:operator expr))
                    (emit (:right expr)) ")")
       :logical (str "(" (emit (:left expr)) (:operator expr) (emit (:right expr)) ")")
-      :compound-assign (str "((" (emit (:object expr)) ")[" (emit (:key expr)) "]" (:operator expr) (emit (:value expr)) ")")
-      :logical-assign (str "((" (emit (:object expr)) ")[" (emit (:key expr)) "]" (:operator expr) (emit (:value expr)) ")")
+      :compound-assign (str "((" (emit (:object expr)) ")" (property-suffix (:key expr) emit false) (:operator expr) (emit (:value expr)) ")")
+      :logical-assign (str "((" (emit (:object expr)) ")" (property-suffix (:key expr) emit false) (:operator expr) (emit (:value expr)) ")")
       ;; Computed properties avoid the special object-literal __proto__ setter.
       :object (str "({" (str/join "," (map (fn [entry]
                                              (let [key (emit (:key entry))]
@@ -1003,8 +1050,8 @@
                                            (:entries expr))) "})")
       :spread (str "({..." (emit (:value expr)) "})")
       :object-spreads (str "({" (str/join "," (map #(str "..." (emit %)) (:values expr))) "})")
-      :update (str "(" (when (:prefix expr) (:operator expr)) "(" (emit (:object expr)) ")[" (emit (:key expr)) "]" (when-not (:prefix expr) (:operator expr)) ")")
-      :set (str "((" (emit (:object expr)) ")[" (emit (:key expr)) "]=" (emit (:value expr)) ")")
+      :update (str "(" (when (:prefix expr) (:operator expr)) "(" (emit (:object expr)) ")" (property-suffix (:key expr) emit false) (when-not (:prefix expr) (:operator expr)) ")")
+      :set (str "((" (emit (:object expr)) ")" (property-suffix (:key expr) emit false) "=" (emit (:value expr)) ")")
       :delete (str "(delete (" (emit (:object expr)) ")[" (emit (:key expr)) "])")
       (:for-of :for-in) (let [binding (emit-loop-binding (:binding expr) env counter prefix)
                     body-env (:env binding)]
@@ -1070,8 +1117,10 @@
             members (mapv (fn [m]
                           (if (= :static-block (:kind m))
                             (str "static{" (emit-body (:body m) imports functions self-env counter prefix field-context false) "}")
-                            (let [key (emit-expression (:key m) imports functions self-env counter prefix args-length)
-                                  member-prefix (str (when (:static m) "static ") (when (:async m) "async ") (when (:generator m) "*") (when (contains? #{:get :set} (:kind m)) (str (name (:kind m)) " ")) "[" key "]")]
+                            (let [key (if (= :private-key (:op (:key m)))
+                                        (str "#" (:name (:key m)))
+                                        (str "[" (emit-expression (:key m) imports functions self-env counter prefix args-length) "]"))
+                                  member-prefix (str (when (:static m) "static ") (when (:async m) "async ") (when (:generator m) "*") (when (contains? #{:get :set} (:kind m)) (str (name (:kind m)) " ")) key)]
                               (if (= :field (:kind m))
                                 (str member-prefix "=" (emit-expression (:value m) imports functions self-env counter prefix field-context) ";")
                                 (str member-prefix (emit-class-signature m imports functions self-env counter prefix method-context)))))) (:members expr))

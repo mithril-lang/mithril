@@ -423,3 +423,33 @@ is false. No new model trial or performance gain is claimed: the current process
 has no configured refactor API token and local Docker preflight has no daemon
 socket. Scoped authentication, trusted verification and Code diagnostic
 publication remain independent evidence gates.
+
+## Native private fields and util-values source (2026-10-10 JST)
+
+Brand PR #100 passed all 27 branch stages on exact head
+`5ff39ed828f9a225a4ae60fe0bce3076128d8a20` and merged to
+`eb81ab2029521657e64a49984daa16aa6ff845f5`. Exact-main Native CI passed
+all 27 stages; all 14 changed files and the complete Git tree match the qualified
+branch. Main CodeGraph did not trigger because the final merge commit had an
+empty parent diff after GitHub merge finalization recovery. Its branch run on
+the identical full Git tree passed 33 tests/239 assertions plus HTTP conformance;
+no fresh exact-main CodeGraph run is claimed.
+
+The concrete private-field compiler blocker is now implemented with native
+`#name` syntax and lexical private-name validation. Stage 28 has 36 exact-code
+refusals, 26 independent native-JavaScript-paired runtime groups, legacy nested
+function/default controls and actual CLI no-artifact refusal checks. The entire
+original util-values two-file cycle, seven runtime exports and 16 private fields
+compile within unchanged budgets and pass 102 unchanged upstream groups under
+both CLI labels. Public source/type SDK parity and branch/main delivery remain
+separate gates; the complete values declarations and independent JSON utility
+coverage are next, rather than replacing the parser or narrowing its API.
+
+The complete original LLM source has 13 files. Actual public source imports add
+the Attachment type owner even though Attachment is a manifest devDependency
+excluded from the runtime manifest graph. Six original Attachment source files
+are verified. Preserve these public types and canonical Brand/Cordis owners;
+track runtime and declaration dependency graphs separately. Then resolve the
+remaining LLM prerequisites before Session, Agent, Tools and boot/plugin/profile
+parity. System One authentication/trusted verification/publication remain the
+independent gates above; no new inference attempt or performance gain is claimed.

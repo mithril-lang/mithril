@@ -1,0 +1,96 @@
+(ns compile-private-fields
+  (:require [clojure.string :as str] [mithril.form :as form]
+            [mithril.native-js :as native] [mithril.native-esm :as esm]
+            ["node:fs" :as fs] ["node:os" :as os] ["node:child_process" :as child]))
+(defn ensure [p message] (when-not p (throw (js/Error. message))))
+(def engine (.-MITHRIL_DECLARATIONS_ENGINE js/process.env))
+(def compiler (.-MITHRIL_DECLARATIONS_TYPESCRIPT js/process.env))
+(defn lit [value] {"@type" "Literal" "datatype" "js-value" "value" value})
+(def this {"@type" "HostThis"})
+(def field {"kind" "field" "key" (lit "x") "private" true "static" false "value" (lit 1)})
+(def access {"@type" "HostGet" "object" this "key" (lit "x") "private" true})
+(def method {"kind" "method" "key" (lit "read") "static" false "params" [] "rest" nil "body" access})
+(def klass {"@type" "NativeClass" "name" "Counter" "extends" nil "constructor" nil "members" [field method]})
+(def doc {"@context" "https://mithril.fund/context/native-js-module/v1" "@type" "NativeJsModule" "name" "private.guards"
+          "imports" [] "functions" [{"@type" "Function" "name" "make" "params" [] "returns" "js-value" "body" klass}]
+          "exports" [{"name" "make" "function" "make"}]})
+(native/check-document doc)
+(def body-path ["functions" 0 "body"])
+(def member-path (conj body-path "members"))
+(defn with-members [members] (assoc-in doc member-path members))
+(def refusals (atom 0))
+(defn refused [candidate expected]
+  (let [actual (try (native/check-document candidate) nil (catch :default e (:mithril/error (ex-data e))))]
+    (ensure (= expected actual) (str "Exact private-field refusal " @refusals ": expected " expected ", received " actual)))
+  (swap! refusals inc))
+(doseq [v [nil 1 "true" [] {}]]
+  (refused (with-members [(assoc field "private" v) method]) :mithril.native-js/shape)
+  (refused (with-members [field (assoc method "body" (assoc access "private" v))]) :mithril.native-js/shape))
+(doseq [name [nil 1 "" "#x" "a.b" "constructor" "x;throw"]]
+  (refused (with-members [(assoc field "key" (lit name)) method]) :mithril.native-js/name))
+(refused (with-members [(assoc field "key" {"@type" "HostUndefined"}) method]) :mithril.native-js/name)
+(refused (with-members [field (assoc method "body" (assoc access "key" (lit "missing")))]) :mithril.native-js/scope)
+(refused (assoc-in doc body-path access) :mithril.native-js/scope)
+(refused (assoc-in doc (conj body-path "extends") access) :mithril.native-js/scope)
+(refused (with-members [method]) :mithril.native-js/scope)
+(doseq [other [field (assoc field "static" true)
+              (assoc method "private" true "key" (lit "x"))]]
+  (refused (with-members [field other method]) :mithril.native-js/duplicate))
+(def getter (assoc method "kind" "get" "private" true "key" (lit "x") "body" (lit 1)))
+(def setter (assoc getter "kind" "set" "params" [{"name" "value" "datatype" "js-value"}]))
+(native/check-document (with-members [getter setter]))
+(doseq [members [[getter getter] [getter (assoc setter "static" true)] [getter setter getter]]]
+  (refused (with-members members) :mithril.native-js/duplicate))
+(doseq [member [(assoc getter "async" true) (assoc setter "generator" true)
+               (assoc field "typo" true) {"kind" "static-block" "private" true "body" (lit 1)}]]
+  (refused (with-members [member]) :mithril.native-js/shape))
+(doseq [body [{"@type" "HostDelete" "object" this "key" (lit "x") "private" true}
+             {"@type" "HostSuperGet" "key" (lit "x") "private" true}]]
+  (refused (with-members [field (assoc method "body" body)]) :mithril.native-js/shape))
+(refused (assoc-in doc body-path {"@type" "PrivateKey" "name" "x"}) :mithril.native-js/expression)
+(refused (with-members [1]) :mithril.native-js/shape)
+(def legacy-access (assoc access "object" {"@type" "Local" "name" "o"}))
+(def legacy-method (assoc method "body"
+  {"@type" "LocalFunction" "name" "nested"
+   "params" [{"name" "o" "datatype" "js-value"}
+             {"name" "v" "datatype" "js-value" "default" legacy-access}]
+   "body" {"@type" "HostBinary" "operator" "+" "left" legacy-access "right" {"@type" "Local" "name" "v"}}
+   "result" {"@type" "HostInvoke" "function" {"@type" "Local" "name" "nested"} "args" [this]}}))
+(def legacy (native/compile-document (with-members [field legacy-method])))
+(def public-doc (with-members [(dissoc field "private") (assoc method "body" (dissoc access "private"))]))
+(def false-doc (with-members [(assoc field "private" false) (assoc method "body" (assoc access "private" false))]))
+(ensure (= (native/compile-document public-doc) (native/compile-document false-doc)) "Absent/false private flags preserve ordinary emitted bytes")
+(println (str "Private-field admission: " @refusals " exact-code flag/name/scope/duplicate/accessor/extra-field refusals; absent/false ordinary bytes preserved."))
+(def controls-text (fs/readFileSync "examples/native-js-private-fields-controls.mith" "utf8"))
+(def controls (native/compile-text controls-text))
+(def runtime-text (fs/readFileSync "examples/native-js-values-esm.mith" "utf8"))
+(def runtime-sources (into {} (map #(vector % (fs/readFileSync (str "examples/" %) "utf8")) (esm/source-basenames runtime-text))))
+(def runtime (esm/compile-text runtime-text runtime-sources))
+(ensure (= 2 (count (:module-files runtime))) "Complete original values source cycle")
+(ensure (= #{"assertNever" "snapshotJsonValue" "isJsonValue" "deepEqualJson" "deepFreeze" "WeakMapWithValues" "PartialArguments"} (set (:exports runtime))) "All seven original values exports")
+(def dir (fs/mkdtempSync (str (os/tmpdir) "/mithril-private-fields-")))
+(def config (str dir "/offline.edn"))
+(fs/writeFileSync config (str "{:paths [" (js/JSON.stringify (fs/realpathSync "src")) "]}"))
+(defn run [args]
+  (let [r (child/spawnSync js/process.execPath (clj->js args) #js {:encoding "utf8" :timeout 240000 :maxBuffer 4194304})]
+    (ensure (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r)) (.-stdout r)))
+(try
+  (doseq [target ["js" "js-browser"]]
+    (let [control-output (str dir "/" target "-controls.mjs") output (str dir "/" target)]
+      (run [engine "--config" config "-cp" "src" "bin/mithril-native-js.cljk" "examples/native-js-private-fields-controls.mith" "--target" target "--output" control-output])
+      (ensure (= (:source controls) (fs/readFileSync control-output "utf8")) "Exact private control CLI bytes")
+      (run ["test/qualification/native-private-fields/controls/private.mjs" control-output])
+      (let [legacy-output (str dir "/" target "-legacy.mjs")]
+        (fs/writeFileSync legacy-output (:source legacy))
+        (run ["--input-type=module" "-e"
+              (str "import assert from 'node:assert/strict';import{pathToFileURL}from'node:url';const api=(await import(pathToFileURL(" (js/JSON.stringify legacy-output) "))).instantiateMithrilNative({});const C=api.make();assert.equal(new C().read(),2);assert.throws(()=>C.prototype.read.call({}),TypeError);")]))
+      (fs/writeFileSync (str output ".log") (run [engine "--config" config "-cp" "src" "bin/mithril-native-esm.cljk" "examples/native-js-values-esm.mith" "--target" target "--output-directory" output]))
+      (doseq [[file bytes] (:files runtime)] (ensure (= bytes (fs/readFileSync (str output "/" file) "utf8")) "Exact complete values CLI bytes"))
+      (run ["test/qualification/native-private-fields/controls/runtime.mjs" output compiler])
+      (let [invalid (str dir "/invalid.mith") refused-output (str dir "/" target "-refused.mjs")]
+        (fs/writeFileSync invalid (str/replace-first controls-text ":private true" ":private 1"))
+        (let [r (child/spawnSync js/process.execPath #js [engine "--config" config "-cp" "src" "bin/mithril-native-js.cljk" invalid "--target" target "--output" refused-output] #js {:encoding "utf8" :timeout 30000})]
+          (ensure (= 65 (.-status r)) "Invalid private source CLI refusal status")
+          (ensure (str/starts-with? (.-stderr r) "REFUSE\tshape\t") "Exact invalid private source CLI code")
+          (ensure (not (fs/existsSync refused-output)) "Complete private admission precedes the first artifact write")))))
+  (finally (fs/rmSync dir #js {:recursive true :force true})))
