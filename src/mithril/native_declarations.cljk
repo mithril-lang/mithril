@@ -13,6 +13,15 @@
  (when-not (and (string? s) (<= (count s) 128) (re-matches #"[A-Za-z_][A-Za-z0-9_]*" s) (not (contains? reserved s)))
   (fail! :mithril.native-declarations/name "Invalid declaration identifier")) s)
 (defn- export-name! [s] (if (= "default" s) s (identifier! s)))
+(defn- runtime-only-shape! [doc]
+ (when (contains? doc "runtime-only-exports")
+  (vector! (get doc "runtime-only-exports") 128)
+  (doseq [name (get doc "runtime-only-exports")] (export-name! name))
+  (unique! (get doc "runtime-only-exports"))))
+(defn- runtime-surface! [values expected omitted detail]
+ (let [values (set values) expected (set expected) omitted (set omitted)]
+  (when-not (and (not-any? values omitted) (= expected (into values omitted)))
+   (fail! :mithril.native-declarations/surface detail))))
 (defn- reference-name! [s default-head?]
  (when-not (and (string? s) (<= (count s) 256) (seq s)) (fail! :mithril.native-declarations/name "Invalid reference name"))
  (doseq [[i part] (map-indexed vector (str/split s #"\." -1))]
@@ -34,7 +43,7 @@
 (defn parse-text [text] (module/check-source-text! text) (form/parse text))
 (defn runtime-basename [text]
  (let [doc (parse-text text)]
-  (shape! doc (cond-> ["@context" "@type" "name" "runtime-source" "ambient-types" "ambient-values" "declarations"] (contains? doc "globals") (conj "globals") (contains? doc "umd-namespace") (conj "umd-namespace")))
+  (shape! doc (cond-> ["@context" "@type" "name" "runtime-source" "ambient-types" "ambient-values" "declarations"] (contains? doc "globals") (conj "globals") (contains? doc "umd-namespace") (conj "umd-namespace") (contains? doc "runtime-only-exports") (conj "runtime-only-exports")))
   (when-not (and (= "NativeJsDeclarations" (get doc "@type")) (= "https://mithril.fund/context/native-js-declarations/v1" (get doc "@context")))
    (fail! :mithril.native-declarations/context "Expected native declaration context"))
   (source! (get doc "runtime-source")) (get doc "runtime-source")))
@@ -595,9 +604,10 @@
    (class-inheritance! view) (interface-inheritance! view)
    (check-declarations! declarations #{} #{} budget view "$global." 0))))
 (defn check-document [doc runtime]
- (shape! doc (cond-> ["@context" "@type" "name" "runtime-source" "ambient-types" "ambient-values" "declarations"] (contains? doc "globals") (conj "globals") (contains? doc "umd-namespace") (conj "umd-namespace")))
+ (shape! doc (cond-> ["@context" "@type" "name" "runtime-source" "ambient-types" "ambient-values" "declarations"] (contains? doc "globals") (conj "globals") (contains? doc "umd-namespace") (conj "umd-namespace") (contains? doc "runtime-only-exports") (conj "runtime-only-exports")))
  (when-not (and (= "NativeJsDeclarations" (get doc "@type")) (= "https://mithril.fund/context/native-js-declarations/v1" (get doc "@context"))) (fail! :mithril.native-declarations/context "Expected declaration context"))
  (when (contains? doc "umd-namespace") (identifier! (get doc "umd-namespace")))
+ (runtime-only-shape! doc)
  (qualified! (get doc "name")) (source! (get doc "runtime-source"))
  (when-not (and (contains? #{:mithril.native-package/checked-v1 :mithril.native-esm/checked-v1} (:format runtime)) (= (get doc "name") (:name runtime)))
   (fail! :mithril.native-declarations/runtime "Matching checked runtime package required"))
@@ -626,13 +636,14 @@
         public? #(or (get % "exported") (= "export-alias" (get % "kind")))
         exports (vec (distinct (map #(get % "name") (filter #(and (public? %) (or (or (contains? #{"function" "const" "let" "class"} (get % "kind")) (and (= "export-alias" (get % "kind")) (and (contains? (:values @registry) (get % "name")) (not (:erased (get-in @registry [:values (get % "name")])))))) (and (= "namespace" (get % "kind")) (namespace-value? %)))) decls))))
         types (vec (distinct (map #(get % "name") (filter #(and (public? %) (or (contains? #{"alias" "interface" "class" "const-enum"} (get % "kind")) (and (= "export-alias" (get % "kind")) (contains? (:types @registry) (get % "name"))))) decls))))]
-   (when-not (= (set exports) (set (map :name (:exports runtime)))) (fail! :mithril.native-declarations/surface "Public runtime declaration surface mismatch"))
+   (runtime-surface! exports (map :name (:exports runtime)) (get doc "runtime-only-exports" []) "Public runtime declaration surface mismatch")
    (doseq [{:keys [name module export]} (:exports runtime) :when (= "let" (get-in @registry [:values name :kind]))]
     (mutable-runtime-export! runtime module (or export name)))
    (cond-> {:format :mithril.native-declarations/checked-v1 :name (get doc "name") :runtime-source (get doc "runtime-source")
     :declarations decls :exports exports :type-exports types}
     (contains? doc "globals") (assoc :globals (get doc "globals" []))
-    (contains? doc "umd-namespace") (assoc :umd-namespace (get doc "umd-namespace"))))))
+    (contains? doc "umd-namespace") (assoc :umd-namespace (get doc "umd-namespace"))
+    (contains? doc "runtime-only-exports") (assoc :runtime-only-exports (get doc "runtime-only-exports"))))))
 (defn check-text [text runtime] (check-document (parse-text text) runtime))
 
 ;; Program linking uses the same checker and lexical ownership as single modules.
@@ -722,10 +733,11 @@
  (let [registry (atom {:types {} :values {} :namespaces {} :blocks {}})
        names (mapv #(get % "name") modules) indexes (zipmap names (range)) prefixes (zipmap names (map #(str "D" % ".") (range)))
        documents (mapv (fn [doc]
-                   (shape! doc (cond-> ["@context" "@type" "name" "runtime" "ambient-types" "ambient-values" "imports" "reexports" "declarations"] (contains? doc "augmentations") (conj "augmentations") (contains? doc "local-exports") (conj "local-exports") (contains? doc "globals") (conj "globals") (contains? doc "umd-namespace") (conj "umd-namespace")))
+                   (shape! doc (cond-> ["@context" "@type" "name" "runtime" "ambient-types" "ambient-values" "imports" "reexports" "declarations"] (contains? doc "augmentations") (conj "augmentations") (contains? doc "local-exports") (conj "local-exports") (contains? doc "globals") (conj "globals") (contains? doc "umd-namespace") (conj "umd-namespace") (contains? doc "runtime-only-exports") (conj "runtime-only-exports")))
                    (when-not (and (= "NativeJsDeclarationModule" (get doc "@type")) (= "https://mithril.fund/context/native-js-declaration-module/v1" (get doc "@context")))
                     (fail! :mithril.native-declarations/context "Expected checked declaration module"))
                    (when (contains? doc "umd-namespace") (identifier! (get doc "umd-namespace")))
+                   (runtime-only-shape! doc)
                    (qualified! (get doc "name"))
                    (when-let [n (get doc "runtime")] (qualified! n) (when-not (get-in runtime [:modules n]) (fail! :mithril.native-declarations/runtime "Unknown runtime module")))
                    (doseq [field ["imports" "reexports"]]
@@ -870,13 +882,15 @@
                             :when (and (not (:type-only-value b)) (not (:erased-value b)) (or (:values b) (get-in b [:namespaces :value?])))] name))
            native (get doc "runtime") expected (set (:exports (get-in runtime [:modules native])))]
       (when native
-       (when-not (= values expected) (fail! :mithril.native-declarations/surface "Declaration module runtime surface mismatch"))
+       (runtime-surface! values expected (get doc "runtime-only-exports" []) "Declaration module runtime surface mismatch")
        (doseq [name values]
         (let [binding (get-in @tables [(get doc "name") name]) origin (:origin binding)]
          (when (= "let" (get-in binding [:values :kind])) (mutable-runtime-export! runtime native name))
          (when-not (and (:module origin)
                         (= (package/export-origin runtime native name) (package/export-origin runtime (:module origin) (:export origin))))
           (fail! :mithril.native-declarations/surface "Declaration module binding origin mismatch")))))
+      (when (and (nil? native) (not= entry (get doc "name")) (seq (get doc "runtime-only-exports")))
+       (fail! :mithril.native-declarations/surface "Runtime-only exports require actual native module or program entry identity"))
       (when (and (nil? native) (not= entry (get doc "name")) (seq values))
        (fail! :mithril.native-declarations/surface "Value barrel requires actual native module identity")))))
    ;; An augmentation owns declarations in the target module, but its type
@@ -925,8 +939,8 @@
    (when-not (contains? own entry) (fail! :mithril.native-declarations/link "Entry must be an internal declaration module"))
    (let [surface (get @tables entry)
          values (set (for [[name b] surface :when (and (not (:type-only-value b)) (not (:erased-value b)) (or (:values b) (get-in b [:namespaces :value?])))] name))]
-    (when-not (= values (set (map :name (:exports runtime)))) (fail! :mithril.native-declarations/surface "Program root runtime surface mismatch"))
-    (doseq [{:keys [name module export]} (:exports runtime)]
+    (runtime-surface! values (map :name (:exports runtime)) (get (first (filter #(= entry (get % "name")) documents)) "runtime-only-exports" []) "Program root runtime surface mismatch")
+    (doseq [{:keys [name module export]} (:exports runtime) :when (contains? values name)]
      (let [origin (:origin (get surface name))]
       (when-not (and (:module origin)
                      (= (package/export-origin runtime module (or export name)) (package/export-origin runtime (:module origin) (:export origin))))

@@ -32,6 +32,7 @@ try{
   ['native-include-sdk','compile.cljk'],
   ['native-yaml-source','compile.cljk'],
   ['native-umd-declarations','compile.cljk'],
+  ['native-runtime-only-declarations','compile.cljk'],
  ];
  for(const [name,control] of stages){
   console.log(`Declaration qualification stage: ${name}`);
