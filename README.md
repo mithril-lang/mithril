@@ -2633,3 +2633,14 @@ spaces separately. Complete private declarations may also be reached through
 the actual checked runtime graph, including empty export and side-effect roots.
 See [symbol-space qualification](test/qualification/native-declaration-symbol-spaces/README.md)
 for independent limits, strict TypeScript consumers and both actual CLI controls.
+
+The source-owned declaration composition CLI accepts complete producer and
+consumer native ESM/declaration programs, binds actual package entry exports,
+and emits each owner's declarations once. Published cross-owner routes and
+versions are explicit source data. See
+[composition qualification](test/qualification/native-declaration-composition/README.md)
+for the bounded contract, three-package independent fixture and CLI controls.
+The actual 30-module Core / 14-module LLM–Schema probe now resolves all 146 public
+names through installed NodeNext packages, with zero strict errors and exact
+original-paired consumer diagnostics. Full original public subpaths, generated
+APIs and behavioral SDK parity remain separate qualification work.

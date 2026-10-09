@@ -1,0 +1,32 @@
+(ns mithril.native-declaration-composition-cli
+ (:require [mithril.native-declaration-composition :as composition] [mithril.native-declaration-program :as program]
+           ["node:fs" :as fs] ["node:path" :as path]))
+(defn read-file [file]
+ (let [stat (fs/lstatSync file)]
+  (when-not (and (.isFile stat) (not (.isSymbolicLink stat)) (<= (.-size stat) 1048576))
+   (throw (ex-info "Expected bounded regular composition Mithril source" {:mithril/error :mithril.native-declarations/source})))
+  (fs/readFileSync file "utf8")))
+(let [[source flag target out-flag output & extra] *command-line-args* created? (atom false)]
+ (when-not (and source (= flag "--target") (= out-flag "--output-directory") output (empty? extra))
+  (js/console.error "usage: mithril-native-declaration-composition <composition.mith> --target js|js-browser --output-directory <new-directory>") (js/process.exit 64))
+ (when-not (contains? #{"js" "js-browser"} target)
+  (js/console.error "REFUSE\tnative-declarations-target\tNative declarations require target js or js-browser") (js/process.exit 65))
+ (try
+  (let [text (read-file source) {:keys [program-sources]} (composition/read-plan text) directory (path/dirname (path/resolve source))
+        programs (into {} (map #(vector % (read-file (path/join directory %))) program-sources))
+        plans (mapv #(program/read-plan (get programs %)) program-sources)
+        manifests (into {} (map #(vector (:runtime-source %) (read-file (path/join directory (:runtime-source %)))) plans))
+        read-plan (composition/read-source-plan text programs manifests)
+        known (merge programs manifests)
+        sources (into {} (map #(vector % (or (get known %) (read-file (path/join directory %)))) (:sources read-plan)))
+        artifact (composition/compile-text text sources)]
+   ;; Full graph/owner/budget admission precedes the first write. Only our new
+   ;; output is removed if writing fails; existing directories are never owned.
+   (fs/mkdirSync output) (reset! created? true)
+   (doseq [[file contents] (:files artifact)]
+    (fs/mkdirSync (path/dirname (path/join output file)) #js {:recursive true})
+    (fs/writeFileSync (path/join output file) contents #js {:flag "wx"}))
+   (println (js/JSON.stringify (clj->js (assoc (dissoc artifact :files) :target target :output-directory output)))))
+  (catch :default e
+   (when @created? (fs/rmSync output #js {:recursive true :force true}))
+   (js/console.error (str "REFUSE\t" (or (some-> e ex-data :mithril/error name) "compile-error") "\t" (.-message e))) (js/process.exit 65))))

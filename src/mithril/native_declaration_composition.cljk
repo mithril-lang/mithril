@@ -1,0 +1,219 @@
+(ns mithril.native-declaration-composition
+ "Bounded source-owned declaration packages with actual producer entry bindings."
+ (:require [clojure.string :as str] [mithril.form :as form] [mithril.module :as module]
+           [mithril.native-esm :as esm] [mithril.native-package :as package]
+           [mithril.native-declaration-program :as program]
+           [mithril.native-declarations :as declarations] [mithril.native-declaration-emit :as emit]))
+(defn- fail! [code message] (throw (ex-info message {:mithril/error code})))
+(defn- shape! [value fields]
+ (when-not (and (map? value) (= (set fields) (set (keys value))))
+  (fail! :mithril.native-declarations/shape "Unexpected declaration composition fields")))
+(defn- bounded! [values limit]
+ (when-not (and (vector? values) (<= (count values) limit)) (fail! :mithril.native-declarations/budget "Declaration composition collection budget")))
+(defn- unique! [values]
+ (when-not (= (count values) (count (set values))) (fail! :mithril.native-declarations/duplicate "Duplicate declaration composition identity")))
+(defn- basename! [value]
+ (when-not (and (string? value) (re-matches #"[A-Za-z0-9][A-Za-z0-9_-]*\.mith" value))
+  (fail! :mithril.native-declarations/source "Expected local composition Mithril basename")))
+(defn- package! [value]
+ (when-not (and (string? value) (<= (count value) 128) (re-matches #"(?:@[A-Za-z0-9_-]+/)?[A-Za-z0-9][A-Za-z0-9_.-]*" value))
+  (fail! :mithril.native-declarations/source "Expected bounded package identity")))
+(defn- version! [value]
+ (when-not (and (string? value) (<= (count value) 64) (re-matches #"[0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9][A-Za-z0-9.-]*)?" value))
+  (fail! :mithril.native-declarations/source "Expected bounded package version")))
+(defn read-plan [text]
+ (module/check-source-text! text)
+ (let [doc (form/parse text) producers (get doc "producers")]
+  (shape! doc ["@context" "@type" "name" "consumer-program" "consumer-package" "consumer-version" "consumer-entries" "producers"])
+  (when-not (and (= "NativeJsDeclarationComposition" (get doc "@type"))
+                (= "https://mithril.fund/context/native-js-declaration-composition/v1" (get doc "@context")))
+   (fail! :mithril.native-declarations/context "Expected declaration composition context"))
+  (basename! (get doc "consumer-program")) (package! (get doc "consumer-package")) (version! (get doc "consumer-version"))
+  (bounded! producers 8)
+  (when (empty? producers) (fail! :mithril.native-declarations/link "Declaration composition requires actual producers"))
+  (doseq [producer (into [{"package" (get doc "consumer-package") "version" (get doc "consumer-version") "program" (get doc "consumer-program") "entries" (get doc "consumer-entries")}] producers)]
+   (shape! producer ["package" "version" "program" "entries"])
+   (package! (get producer "package")) (version! (get producer "version")) (basename! (get producer "program"))
+   (bounded! (get producer "entries") 64)
+   (doseq [entry (get producer "entries")]
+    (shape! entry ["module" "specifier"])
+    (when-not (and (string? (get entry "module")) (<= 1 (count (get entry "module")) 256))
+     (fail! :mithril.native-declarations/name "Expected producer declaration module identity"))
+    (package/external-specifier! (get entry "specifier"))
+    (when-not (or (= (get producer "package") (get entry "specifier"))
+                  (str/starts-with? (get entry "specifier") (str (get producer "package") "/")))
+     (fail! :mithril.native-declarations/source "Producer entry requires its exact package identity")))
+   (unique! (mapv #(get % "module") (get producer "entries")))
+   (unique! (mapv #(get % "specifier") (get producer "entries"))))
+  (unique! (into [(get doc "consumer-package")] (map #(get % "package") producers)))
+  (let [sources (into [(get doc "consumer-program")] (map #(get % "program") producers))]
+   (unique! sources) {:document doc :program-sources sources})))
+(defn read-source-plan
+ "Validate all manifests/read plans before reading any runtime or declaration leaf."
+ [text programs runtime-manifests]
+ (let [{:keys [document program-sources]} (read-plan text)]
+  (when-not (= (set program-sources) (set (keys programs))) (fail! :mithril.native-declarations/source "Exact composition program source set required"))
+  (let [plans (mapv #(program/read-plan (get programs %)) program-sources)
+        runtime-sources (mapv :runtime-source plans)]
+   (unique! runtime-sources)
+   (when-not (= (set runtime-sources) (set (keys runtime-manifests))) (fail! :mithril.native-declarations/source "Exact composition runtime manifest set required"))
+   (let [runtime-leaves (mapv #(esm/source-basenames (get runtime-manifests %)) runtime-sources)
+         declarations (mapv :sources plans)
+         all (vec (concat program-sources runtime-sources (mapcat identity runtime-leaves) (mapcat identity declarations)))]
+    (when (> (reduce + (map count runtime-leaves)) 64) (fail! :mithril.native-declarations/budget "Composition runtime source module budget"))
+    (when (> (reduce + (map count declarations)) 64) (fail! :mithril.native-declarations/budget "Composition declaration module budget"))
+    (unique! all)
+    {:document document :plans plans :runtime-leaves runtime-leaves :declaration-leaves declarations :sources all}))))
+(defn- source-set! [names sources limit]
+ (when-not (and (= (set names) (set (keys sources))) (every? string? (vals sources)) (<= (reduce + (map count (vals sources))) limit))
+  (fail! :mithril.native-declarations/source "Exact bounded composition source set required")))
+(defn- entry-view
+ "Derive binding references for the actual emitted ESM package entry; no body or runtime facade is emitted."
+ [runtime identity]
+ (let [exports (:exports runtime)]
+  {:name identity :exports (mapv :name exports) :dependencies (vec (distinct (map :module exports)))
+   :links (mapv (fn [index e] {"import" (str "entry" index) "module" (:module e) "export" (or (:export e) (:name e))}) (range) exports)
+   :checked {:exports (mapv (fn [index e] {:name (:name e) :value {:op :import :name (str "entry" index)}}) (range) exports)}}))
+(defn- module-documents [plan sources]
+ (mapv (fn [entry]
+         (let [source (get sources (get entry "source")) _ (module/check-source-text! source) doc (form/parse source)]
+          (when-not (= (get entry "name") (get doc "name")) (fail! :mithril.native-declarations/source "Composition declaration source identity mismatch")) doc))
+       (get (:document plan) "modules")))
+(defn- own-artifact [owner checked]
+ (let [docs (:documents owner) runtime (:runtime owner) entry (get-in owner [:plan :document "entry"])
+       native-names (vec (sort (keep (fn [[name m]] (when-not (:external m) name)) (:modules runtime))))
+       native-files (zipmap native-names (map #(str "module-" % ".mjs") (range)))
+       stems (mapv (fn [index doc]
+                     (if-let [native (get doc "runtime")]
+                      (str/replace (get native-files native) #"\.mjs$" "")
+                      (if (= entry (get doc "name")) "index" (str "declaration-" index)))) (range) docs)]
+  (unique! stems)
+  {:module-files (into {} (map #(vector (get %1 "name") (str %2 ".d.mts")) docs stems))
+   :paths (into {} (map #(vector (get %1 "name") (str "./" %2 ".mjs")) docs stems))
+   :entry entry :native-files native-files :documents docs :checked checked}))
+(defn compile-text
+ "Admit exact source-owned packages, bind actual bare entries, then emit each owner's declarations once."
+ [text source-map]
+ (let [{:keys [document program-sources]} (read-plan text)
+       program-texts (select-keys source-map program-sources)
+       plans (mapv #(program/read-plan (get program-texts %)) program-sources)
+       manifests (select-keys source-map (map :runtime-source plans))
+       read-plan (read-source-plan text program-texts manifests)
+       _ (source-set! (:sources read-plan) source-map 4194304)
+       _ (when (> (reduce + (map #(count (get source-map %)) (mapcat identity (:runtime-leaves read-plan)))) 2097152)
+           (fail! :mithril.native-declarations/source "Composition aggregate runtime source budget"))
+       _ (when (> (reduce + (map #(count (get source-map %)) (mapcat identity (:declaration-leaves read-plan)))) 1048576)
+           (fail! :mithril.native-declarations/source "Composition aggregate declaration source budget"))
+       identities (into [{"package" (get document "consumer-package") "version" (get document "consumer-version") "entries" (get document "consumer-entries")}]
+                        (get document "producers"))
+       owners (mapv (fn [slot identity plan runtime-leaves]
+                      (let [runtime (esm/check-text (get source-map (:runtime-source plan)) (select-keys source-map runtime-leaves))
+                            docs (module-documents plan source-map)]
+                       (when-not (= (get-in plan [:document "name"]) (:name runtime)) (fail! :mithril.native-declarations/runtime "Composition program and actual runtime identities differ"))
+                       (when (seq (get-in plan [:document "externals"])) (fail! :mithril.native-declarations/link "Composition type owners require complete source declarations"))
+                       (doseq [doc docs :when (get doc "runtime")]
+                        (when-not (and (get-in runtime [:modules (get doc "runtime")]) (not (get-in runtime [:modules (get doc "runtime") :external])))
+                         (fail! :mithril.native-declarations/runtime "Declaration requires its own actual source module")))
+                       {:slot slot :identity identity :plan plan :runtime runtime :documents docs}))
+                    (range) identities plans (:runtime-leaves read-plan))
+       _ (when-not (= (get document "name") (:name (:runtime (first owners)))) (fail! :mithril.native-declarations/runtime "Composition consumer identity mismatch"))
+       owned-native (mapcat #(remove (fn [[_ m]] (:external m)) (:modules (:runtime %))) owners)
+       _ (unique! (mapv first owned-native))
+       _ (unique! (vec (mapcat #(map (fn [d] (get d "name")) (:documents %)) owners)))
+       base-modules (into {} owned-native)
+       all-names (set (mapcat #(keys (:modules (:runtime %))) owners))
+       fresh-name (fn [index] (loop [n index] (let [candidate (str "_mithril_composition_entry" n)] (if (contains? all-names candidate) (recur (+ n 9)) candidate))))
+       package-entries (mapv #(fresh-name %) (range (count owners)))
+       entry-modules (into {} (map #(vector %1 (entry-view (:runtime %2) %1)) package-entries owners))
+       entries (vec (mapcat (fn [owner]
+                              (for [entry (get-in owner [:identity "entries"])
+                                    :let [doc (first (filter #(= (get entry "module") (get % "name")) (:documents owner)))
+                                          _ (when-not doc (fail! :mithril.native-declarations/link "Unknown producer declaration entry"))
+                                          root? (= (get doc "name") (get-in owner [:plan :document "entry"]))
+                                          native (if root? (get package-entries (:slot owner)) (get doc "runtime"))]]
+                               (assoc entry :slot (:slot owner) :native native))) owners))
+       _ (unique! (mapv #(get % "specifier") entries))
+       external-modules (atom {})
+       graph-modules (atom (merge base-modules entry-modules))]
+  ;; Every package external binds to an actual source-owned published entry.
+  ;; Host node: capabilities retain their already checked external contracts.
+  (doseq [owner owners [name external] (:external-modules (:runtime owner))]
+   (if (str/starts-with? (:specifier external) "node:")
+    (do (when-let [old (get @graph-modules name)]
+          (when-not (= old external) (fail! :mithril.native-declarations/link "Conflicting host external identity")))
+        (swap! graph-modules assoc name external) (swap! external-modules assoc name external))
+    (let [matches (filter #(= (:specifier external) (get % "specifier")) entries)
+          _ (when-not (= 1 (count matches)) (fail! :mithril.native-declarations/link "Unbound actual producer package entry"))
+          entry (first matches) target (:native entry)
+          _ (when-not target (fail! :mithril.native-declarations/runtime "Type-only producer entry cannot satisfy a runtime import"))
+          target-module (get @graph-modules target)]
+     (when-not (= (set (:exports external)) (set (:exports target-module))) (fail! :mithril.native-declarations/surface "Producer entry and external runtime export sets differ"))
+     (when-not (= name target)
+      (when (contains? base-modules name) (fail! :mithril.native-declarations/link "External binding collides with an actual source owner"))
+      (let [view (entry-view {:exports (mapv #(hash-map :name % :module target) (:exports target-module))} name)]
+       (when-let [old (get @graph-modules name)]
+        (when-not (= old view) (fail! :mithril.native-declarations/link "Ambiguous external source owner")))
+       (swap! graph-modules assoc name view))))))
+  (let [docs (vec (mapcat (fn [owner]
+                            (map (fn [doc]
+                                   (if (and (= (get doc "name") (get-in owner [:plan :document "entry"])) (nil? (get doc "runtime")))
+                                    (assoc doc "runtime" (get package-entries (:slot owner))) doc)) (:documents owner))) owners))
+        graph (assoc (:runtime (first owners)) :modules @graph-modules :external-modules @external-modules :order (vec (keys @graph-modules)))
+        checked (declarations/check-module-program docs [] graph (get-in owners [0 :plan :document "entry"]))
+        artifacts (mapv #(own-artifact % checked) owners)
+        entry-by-module (into {} (map #(vector (get % "module") (get % "specifier")) entries))
+        owner-by-module (into {} (mapcat (fn [owner] (map #(vector (get % "name") (:slot owner)) (:documents owner))) owners))
+        files (atom {})]
+   ;; Validate every producer root against its actual runtime, not the consumer's
+   ;; projected surface. Derived package entries preserve aliases/default origins.
+   (doseq [owner owners]
+    (let [entry (get-in owner [:plan :document "entry"]) surface (get-in checked [:tables entry])
+          doc (first (filter #(= entry (get % "name")) (:documents owner)))
+          values (set (for [[name binding] surface :when (and (not (:type-only-value binding)) (not (:erased-value binding))
+                                                             (or (:values binding) (get-in binding [:namespaces :value?])))] name))
+          omitted (set (get doc "runtime-only-exports" []))]
+     (when-not (and (not-any? values omitted) (= (set (map :name (:exports (:runtime owner)))) (into values omitted)))
+      (fail! :mithril.native-declarations/surface "Composition owner root runtime surface mismatch"))
+     (doseq [export (:exports (:runtime owner)) :when (contains? values (:name export))]
+      (let [origin (:origin (get surface (:name export)))]
+       (when-not (= (package/export-origin graph (:module export) (or (:export export) (:name export)))
+                    (package/export-origin graph (:module origin) (:export origin)))
+        (fail! :mithril.native-declarations/surface "Composition owner root binding origin mismatch"))))))
+   (letfn [(references [node]
+             (cond (map? node) (concat (when (and (contains? #{"import-type"} (get node "op")) (get node "module")) [(get node "module")]) (mapcat references (vals node)))
+                   (vector? node) (mapcat references node) :else []))]
+    (doseq [owner owners doc (:documents owner)
+            target (concat (map #(get % "module") (concat (get doc "imports") (get doc "reexports") (get doc "augmentations")))
+                           (references (get doc "declarations")) (references (get doc "augmentations")) (references (get doc "globals")))
+            :when (not= (:slot owner) (get owner-by-module target))]
+     (when-not (contains? entry-by-module target) (fail! :mithril.native-declarations/link "Cross-owner declaration requires a published entry"))))
+   (doseq [[owner artifact] (map vector owners artifacts)]
+    (let [paths (merge entry-by-module (:paths artifact))
+          directory (if (zero? (:slot owner)) "consumer" (str "producer-" (dec (:slot owner))))]
+     (doseq [doc (:documents owner)]
+      (swap! files assoc (str directory "/" (get (:module-files artifact) (get doc "name"))) (emit/emit-module doc paths)))
+     (when-not (some #{"index.d.mts"} (vals (:module-files artifact)))
+      (let [binding (get-in checked [:tables (:entry artifact) "default"])]
+       (swap! files assoc (str directory "/index.d.mts")
+        (str "// Checked Mithril declaration composition entry.\nexport * from " (js/JSON.stringify (get paths (:entry artifact))) ";\n"
+             (when binding (str "export " (when (or (:type-only-value binding) (and (not (:values binding)) (not (get-in binding [:namespaces :value?])))) "type ")
+                                "{default} from " (js/JSON.stringify (get paths (:entry artifact))) ";\n"))))))))
+   (when (or (> (count @files) 73) (> (reduce + (map count (vals @files))) 8388608)) (fail! :mithril.native-declarations/budget "Composition declaration output budget"))
+   {:format :mithril.native-declarations/composition-artifact-v1 :module (get document "name")
+    :entry "consumer/index.d.mts" :exports (:exports checked) :type-exports (:type-exports checked)
+    :packages (mapv (fn [owner artifact]
+                     {:package (get-in owner [:identity "package"]) :version (get-in owner [:identity "version"])
+                      :directory (if (zero? (:slot owner)) "consumer" (str "producer-" (dec (:slot owner))))
+                      :entry "index.d.mts" :module-files (:module-files artifact) :runtime-files (:native-files artifact)
+                      :entries (mapv (fn [e]
+                                       (let [doc (first (filter #(= (get e "module") (get % "name")) (:documents owner)))
+                                             root? (= (get doc "name") (:entry artifact))
+                                             native (or (get doc "runtime")
+                                                        (when (and (contains? (:native-files artifact) (get doc "name"))
+                                                                   (empty? (get-in owner [:runtime :modules (get doc "name") :exports])))
+                                                         (get doc "name")))]
+                                        {:module (get e "module") :specifier (get e "specifier")
+                                         :declarations (get (:module-files artifact) (get e "module"))
+                                         :runtime (if root? "index.mjs" (get (:native-files artifact) native))}))
+                                     (get-in owner [:identity "entries"]))}) owners artifacts)
+    :files @files})))

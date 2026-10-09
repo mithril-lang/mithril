@@ -645,3 +645,29 @@ original root and subpaths (`types`, `brand`, `message`, `assistant-stream`,
 host/client APIs, all source types, upstream behavior, streams and cancellation.
 Then advance to Session/Agent/Tools and full API/plugin/profile/boot parity.
 No new System One inference or model performance gain is established here.
+
+## Declaration composition checkpoint (2026-10-10)
+
+PR #107 is merged at `a5be91c6151d259ab585bdde8c35510bf25edec6`.
+Main Native JS `37994027443` and CodeGraph `37994027460` succeeded;
+complete logs verify all 34 declaration stages and the CodeGraph/HTTP controls.
+
+The next compiler contract is now implemented as
+`mithril/native-js-declaration-composition` and its actual CLI. Stage 35 covers
+three separately installed packages, two chained producers, root/named/default
+binding origins, standalone producer byte identity, twenty exact refusals and
+pre-write graph/symlink/output controls under both Node execution labels.
+The complete Core/LLM probe passed actual installed NodeNext checks with 42
+declaration documents, all 146 names/92 types/66 values, zero strict diagnostics,
+12 positive/15 negative original-paired consumers and 2 same-owner/2
+different-version checks. No candidate resolution hook or copied producer
+class declaration is used. These are local probe results; compiler branch/main
+CI and full original public SDK qualification remain independent gates.
+
+Next finish compiler delivery, then publish the original LLM root/subpath map
+from complete source contracts and qualify generated `typert`/`remote`, `src/*`,
+`package.json`, upstream streaming and cancellation. Continue through
+Session/Agent/Tools and full Harness API/plugin/profile/boot parity. System One
+still needs owner authentication, the trusted isolated runner and a bounded
+refactor transport before a new measured inference trial; no performance gain
+is established by these operator-authored compiler and SDK probes.
