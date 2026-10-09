@@ -2473,3 +2473,8 @@ lexical and23 parameter sites under explicit projection wrappers and a named
 `Schema.resolve` helper; they do not establish complete Schema/Harness runtime
 or actual browser behavior. See
 [test/fixtures/schema-binding-patterns-README.md](test/fixtures/schema-binding-patterns-README.md).
+
+Native Mithril source now admits finite scalar numbers in `js-value` literals,
+including floating negative zero (`-0.0` / `-0e0`). Both actual standalone CLI
+targets retain exact numeric values; general form fields and guest literals keep
+their existing constraints. See [numeric source qualification](test/qualification/native-js-numeric-literals/README.md).

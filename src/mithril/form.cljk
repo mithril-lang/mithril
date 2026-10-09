@@ -342,16 +342,21 @@
 ;; explicit value objects; the RDF -- and so every graph digest -- is the
 ;; same either way at this pin, checked by form_test.)
 
-(defn- fields [xs]
-  (when (odd? (count xs))
-    (fail! :mithril.form/field-arity "Mithril forms require keyword/value pairs"))
-  (let [pairs (partition 2 xs)
-        names (map (comp key-name first) pairs)]
-    (when-not (= (count names) (count (set names)))
-      (fail! :mithril.form/duplicate-field "Mithril form fields must be unique"))
-    (into {} (map (fn [[k v]]
-                    [(key-name k) (lower-value v)])
-                  pairs))))
+(defn- fields
+  ([xs] (fields xs false))
+  ([xs js-value-literal?]
+   (when (odd? (count xs))
+     (fail! :mithril.form/field-arity "Mithril forms require keyword/value pairs"))
+   (let [pairs (partition 2 xs)
+         names (map (comp key-name first) pairs)]
+     (when-not (= (count names) (count (set names)))
+       (fail! :mithril.form/duplicate-field "Mithril form fields must be unique"))
+     (into {} (map (fn [[k v]]
+                     (let [name (key-name k)]
+                       [name (if (and js-value-literal? (= name "value") (number? v))
+                               (if (js/Number.isFinite v) v
+                                   (fail! :mithril.form/unsupported-value "Native JS numeric literals must be finite"))
+                               (lower-value v))])) pairs)))))
 
 (def ^:private path-tags
   "SHACL property path sub-syntax (SHACL §2.3.1). Positional, not keyword
@@ -426,7 +431,11 @@
 
 (defn- lower-tagged [form]
   (let [tag (first form)
-        body (fields (rest form))
+        ;; Only this typed literal's scalar value admits native finite doubles.
+        ;; General fields, guest numeric datatypes and RDF/policy forms stay inert
+        ;; and integer-only; the native backend still checks context/type/shape.
+        body (fields (rest form) (and (= tag 'mithril/literal)
+                                     (some #(= [:datatype "js-value"] (vec %)) (partition 2 (rest form)))))
         types (let [t (get body "@type")] (if (vector? t) t [t]))]
     (when-let [bad (some not-owl2-rl-types types)]
       (fail! :mithril.form/not-owl2-rl
