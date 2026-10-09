@@ -1,0 +1,303 @@
+(mithril/native-js-declaration-module :name "scope.index"
+:runtime "scope.index"
+:ambient-types [(rdf/node :name "IterableIterator"
+:min 1
+:max 1)
+(rdf/node :name "Error"
+:min 0
+:max 0)
+(rdf/node :name "Promise"
+:min 1
+:max 1)
+(rdf/node :name "Partial"
+:min 1
+:max 1)
+(rdf/node :name "Omit"
+:min 2
+:max 2)
+(rdf/node :name "Pick"
+:min 2
+:max 2)
+(rdf/node :name "Map"
+:min 2
+:max 2)
+(rdf/node :name "ArrayBuffer"
+:min 0
+:max 0)
+(rdf/node :name "URL"
+:min 0
+:max 0)
+(rdf/node :name "ImportAttributes"
+:min 0
+:max 0)
+(rdf/node :name "NodeJS.Signals"
+:min 0
+:max 0)
+(rdf/node :name "Generator"
+:min 0
+:max 3)
+(rdf/node :name "AsyncGenerator"
+:min 0
+:max 3)]
+:ambient-values []
+:imports [(rdf/node :module "cordis.index"
+:type-only true
+:names [(rdf/node :import "Context"
+:local "Context")])]
+:declarations [(rdf/node :kind "alias"
+:name "ScopeKey"
+:exported true
+:type-params []
+:datatype (rdf/node :op "keyword"
+:name "object"))
+(rdf/node :kind "const"
+:name "ScopedBrand"
+:exported false
+:datatype (rdf/node :op "unique-symbol"))
+(rdf/node :kind "alias"
+:name "Scoped"
+:exported true
+:type-params [(rdf/node :name "T"
+:constraint (rdf/node :op "keyword"
+:name "object")
+:default nil)]
+:datatype (rdf/node :op "intersection"
+:items [(rdf/node :op "keyword"
+:name "object")
+(rdf/node :op "object"
+:members [(rdf/node :kind "computed-property"
+:name "ScopedBrand"
+:optional false
+:readonly true
+:datatype (rdf/node :op "name"
+:name "T"
+:args []))])]))
+(rdf/node :kind "interface"
+:name "ScopeParentBinding"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "method"
+:name "rebind"
+:optional false
+:type-params []
+:params [(rdf/node :name "parent"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "ScopeKey"
+:args []))]
+:returns (rdf/node :op "keyword"
+:name "void"))])
+(rdf/node :kind "function"
+:name "bindScopeParent"
+:exported true
+:type-params []
+:params [(rdf/node :name "key"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "ScopeKey"
+:args []))
+(rdf/node :name "parent"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "ScopeKey"
+:args []))]
+:returns (rdf/node :op "name"
+:name "ScopeParentBinding"
+:args []))
+(rdf/node :kind "function"
+:name "scopeParentOf"
+:exported true
+:type-params []
+:params [(rdf/node :name "key"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "ScopeKey"
+:args []))]
+:returns (rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "ScopeKey"
+:args [])
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "function"
+:name "scopeChainOf"
+:exported true
+:type-params []
+:params [(rdf/node :name "key"
+:optional false
+:rest false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "ScopeKey"
+:args [])
+(rdf/node :op "keyword"
+:name "undefined")]))]
+:returns (rdf/node :op "array"
+:item (rdf/node :op "name"
+:name "ScopeKey"
+:args [])))
+(rdf/node :kind "interface"
+:name "Scope"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "ctx"
+:optional false
+:readonly false
+:datatype (rdf/node :op "name"
+:name "Context"
+:args []))
+(rdf/node :kind "property"
+:name "rawDispose"
+:optional false
+:readonly false
+:datatype (rdf/node :op "function"
+:abstract false
+:type-params []
+:params []
+:returns (rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "Promise"
+:args [(rdf/node :op "keyword"
+:name "void")])
+(rdf/node :op "keyword"
+:name "void")])))
+(rdf/node :kind "method"
+:name "dispose"
+:optional false
+:type-params []
+:params []
+:returns (rdf/node :op "name"
+:name "Promise"
+:args [(rdf/node :op "keyword"
+:name "void")]))])
+(rdf/node :kind "interface"
+:name "CreateScopeOptions"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "parent"
+:optional true
+:readonly false
+:datatype (rdf/node :op "name"
+:name "ScopeKey"
+:args []))])
+(rdf/node :kind "function"
+:name "createScope"
+:exported true
+:type-params []
+:params [(rdf/node :name "ctx"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "Context"
+:args []))
+(rdf/node :name "key"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "ScopeKey"
+:args []))
+(rdf/node :name "options"
+:optional true
+:rest false
+:datatype (rdf/node :op "name"
+:name "CreateScopeOptions"
+:args []))]
+:returns (rdf/node :op "name"
+:name "Scope"
+:args []))
+(rdf/node :kind "function"
+:name "scopeOf"
+:exported true
+:type-params []
+:params [(rdf/node :name "ctx"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "Context"
+:args []))]
+:returns (rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "ScopeKey"
+:args [])
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "function"
+:name "scopeTarget"
+:exported true
+:type-params [(rdf/node :name "T"
+:constraint (rdf/node :op "keyword"
+:name "object")
+:default nil)]
+:params [(rdf/node :name "base"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "T"
+:args []))
+(rdf/node :name "key"
+:optional false
+:rest false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "ScopeKey"
+:args [])
+(rdf/node :op "keyword"
+:name "undefined")]))]
+:returns (rdf/node :op "name"
+:name "Scoped"
+:args [(rdf/node :op "name"
+:name "T"
+:args [])]))
+(rdf/node :kind "function"
+:name "isScopeCarrier"
+:exported true
+:type-params []
+:params [(rdf/node :name "value"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "unknown"))]
+:returns (rdf/node :op "predicate"
+:name "value"
+:datatype (rdf/node :op "name"
+:name "Scoped"
+:args [(rdf/node :op "keyword"
+:name "object")])))
+(rdf/node :kind "function"
+:name "carrierKeyOf"
+:exported true
+:type-params []
+:params [(rdf/node :name "value"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "unknown"))]
+:returns (rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "ScopeKey"
+:args [])
+(rdf/node :op "keyword"
+:name "undefined")]))]
+:reexports [(rdf/node :module "scope.store"
+:type-only false
+:names [(rdf/node :import "AnonymousEntries"
+:export "AnonymousEntries")
+(rdf/node :import "NamedEntries"
+:export "NamedEntries")
+(rdf/node :import "ScopedLayers"
+:export "ScopedLayers")])
+(rdf/node :module "scope.store"
+:type-only true
+:names [(rdf/node :import "ScopeLayer"
+:export "ScopeLayer")])]
+:augmentations []
+:local-exports [])
