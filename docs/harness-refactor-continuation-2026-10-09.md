@@ -19,7 +19,7 @@ substitute for this objective.
 
 | Item | Location / identity | State |
 | --- | --- | --- |
-| Compiler checkout | `/Users/junkawasaki/github/mithril-lang/mithril-harness-language` | `codex/loader-leaves` |
+| Compiler checkout | `/Users/junkawasaki/github/mithril-lang/mithril-harness-language` | `codex/native-property-compound` |
 | Saved work checkpoint | `82bd71fbfbf27e4ed3e08ba03898eb9a01a31ed4` | WIP committed and pushed before the requested pause |
 | Schema SDK | https://github.com/mithril-lang/mithril/pull/79 | Merged at `34ca28d6524c27a6c11e24c01bddeca9da35763d`; head `b211a8d076bdb85f77859a2563ba3f79ee5e433f` qualified |
 | Schema branch CI | `37894254763`, job `113701855514` | Terminal success; full source/package/all 14 declaration stages audited |
@@ -27,7 +27,7 @@ substitute for this objective.
 | Native module operations | https://github.com/mithril-lang/mithril/pull/80 | Merged at `99981656c7fd026ec0f5c7614bace0bb0dd1d1c7`; main CI `37898609701` terminal success, full log audited |
 | Explicit external ESM | https://github.com/mithril-lang/mithril/pull/82 | Merged at `bbf79e27753e40880453af55af5c0b926c6bd64c`; main CI `37903790058` succeeded, 76 tests/338 assertions, package 40/7 and all 15 declaration stages audited |
 | Native namespace imports | https://github.com/mithril-lang/mithril/pull/83 | Merged at `bab21a5def4fca240fc26c87e3acd6f6f7e29eaf`; branch CI `37907239872` and main CI `37908420359` succeeded, full logs and changed-file identities audited |
-| Loader config leaves | `examples/native-js-loader-leaves-program.mith` | Complete utils/diff runtime/public declarations, both CLI labels, 8 positive/10 negative type consumers and 19 runtime groups passed locally; full regressions and delivery in progress |
+| Loader config leaves | `examples/native-js-loader-leaves-program.mith` | PR #86 merged at `eb05e8e…`; current main `1ff0695…` CI `37914082934` and all 17 stages audited, all 20 changed files match |
 | System One checkout | `/Users/junkawasaki/github/mithril-lang/mithril-system-one-refactor` | PR #893 merged; qualified exact source `cc8d1bfb6dcbe30c302d24cbec214c07141e42e7` |
 | Operator evidence | `/Users/junkawasaki/github/mithril-lang/mithril-harness-evaluation-2026-10-07` | Logs, receipts and readonly reference |
 | Original Harness | Evidence directory's `reference-harness-441416` | Snapshot `441416c0048aa4281bffe59c1c7b5e13e08a9ec1` |
@@ -83,14 +83,14 @@ separate. Candidate runtime cannot delegate to original Schema or dependency cod
 
 ## Current source change
 
-Native import metadata/dynamic import (PR #80), explicit external ESM (PR #82)
-and real namespace imports (PR #83) are delivered through audited main CI. The
-current change ports complete Loader config utils/diff runtime and all public
-declarations to Mithril, with nine own runtime modules and independent complete
-Cordis/CosmoKit/Schema type graphs. The dynamic expression evaluator retains its
-original API and behavior. See `test/qualification/native-loader-leaves/README.md`.
-Focused stage 17 passed both labels locally. Full regressions and normal PR/main
-delivery remain in progress at this record update.
+Native import metadata/dynamic import (PR #80), explicit external ESM (PR #82),
+namespace imports (PR #83) and complete Loader utils/diff runtime/public types
+(PR #86) are delivered through audited main CI. The current change adds checked
+property compound assignment using native JavaScript reference semantics. The
+actual refusal in complete Loader tree source at `info.offset += 3` is removed.
+Four output forms and both CLI target labels have passed 1664 paired operation
+groups locally; full regressions and PR/main delivery remain in progress.
+See `test/qualification/native-property-compound/README.md`.
 
 The full Loader/Include source and type closure remains pending. The original
 source graph has nine files. Prerequisite-first runtime SCCs are `internal`,
@@ -113,8 +113,8 @@ replacement resolver does not establish identical module semantics.
 
 1. Schema and native module operations, external ESM and namespace imports main
    CI are audited successfully.
-2. Finish Loader utils/diff full runtime/type qualification, all 17 declaration
-   stages and normal PR/main delivery, retaining exact source and CI evidence.
+2. Finish property compound source/package/all 17 declaration regressions and
+   normal PR/main delivery, retaining exact source and CI evidence.
 3. Port the five-file Loader SCC, then Include, by complete source and public type
    closure.
    Then port Harness API/plugin/profile/Session and verify actual browser/native/Q9.
