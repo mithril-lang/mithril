@@ -93,6 +93,8 @@
 (defn- emit-globals [groups]
  (binding [*global-ambient* true]
   (apply str (map #(str "declare global {\n" (apply str (map (fn [d] (emit-declaration d false)) (get % "declarations"))) "}\n") groups))))
+(defn- emit-umd [name]
+ (when name (str "export as namespace " name ";\n")))
 (defn compile-document [doc runtime]
  (let [checked (declarations/check-document doc runtime)
        enums (set (map #(get % "name") (filter #(= "const-enum" (get % "kind")) (:declarations checked))))]
@@ -101,7 +103,7 @@
    :source (str "// Compiled checked Mithril declaration AST; no TypeScript source delegation.\n"
     (apply str (map #(if (and (= "export-alias" (get % "kind")) (contains? enums (get % "target")) (not= "default" (get % "name")))
                        (str "export import " (get % "name") " = " (get % "target") ";\n")
-                       (emit-declaration % true)) (:declarations checked))) (emit-globals (:globals checked)) "export {};\n")}))
+                       (emit-declaration % true)) (:declarations checked))) (emit-globals (:globals checked)) (emit-umd (:umd-namespace checked)) "export {};\n")}))
 (defn compile-text [text runtime]
  (compile-document (declarations/parse-text text) runtime))
 
@@ -119,6 +121,7 @@
                      (quote-value (get paths (get g "module"))) ";\n")) (get doc "imports")))
    (apply str (map #(emit-declaration % true) (get doc "declarations")))
    (emit-globals (get doc "globals"))
+   (emit-umd (get doc "umd-namespace"))
    (apply str (map #(str "export " (when (get % "type-only") "type ") "{" (get % "local") " as " (get % "export") "};\n") (get doc "local-exports")))
    (apply str (map (fn [g]
                     (str "declare module " (quote-value (get paths (get g "module"))) " {\n"

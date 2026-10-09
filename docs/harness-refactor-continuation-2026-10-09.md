@@ -19,7 +19,7 @@ substitute for this objective.
 
 | Item | Location / identity | State |
 | --- | --- | --- |
-| Compiler checkout | `/Users/junkawasaki/github/mithril-lang/mithril-harness-language` | `codex/native-yaml-source`; abstract equality merged in PR #93 at `ac01dec12611b83275db09ebab6063502f9139bd` |
+| Compiler checkout | `/Users/junkawasaki/github/mithril-lang/mithril-harness-language` | `codex/native-yaml-type-frontier`; YAML source merged in PR #94 at `ff21a958fd7e3b756c385497a6d90609ff67d395` |
 | Saved work checkpoint | `82bd71fbfbf27e4ed3e08ba03898eb9a01a31ed4` | WIP committed and pushed before the requested pause |
 | Schema SDK | https://github.com/mithril-lang/mithril/pull/79 | Merged at `34ca28d6524c27a6c11e24c01bddeca9da35763d`; head `b211a8d076bdb85f77859a2563ba3f79ee5e433f` qualified |
 | Schema branch CI | `37894254763`, job `113701855514` | Terminal success; full source/package/all 14 declaration stages audited |
@@ -251,12 +251,18 @@ replacement resolver does not establish identical module semantics.
    Include groups and 6 positive/8 negative strict consumers per label. The full
    pinned original YAML type facade is shipped separately and qualifies actual
    NodeNext default namespace/class resolution plus exact rejection codes; it is
-   not native YAML type closure. These portable controls pass locally. New source,
-   stage 21 and integration PR/current-main delivery remain pending. Evidence:
+   not native YAML type closure. These portable controls passed locally and on the exact PR #94 head; all
+   21 declaration stages passed before merge to main
+   `ff21a958fd7e3b756c385497a6d90609ff67d395`. Current-main CI is being audited. Evidence:
    `yaml-source-include-facade-repo-qualification.log`. Next qualify the complete
    original YAML declaration graph, default namespace alias, omitted runtime-only
    symbols and UMD namespace semantics without inventing public types.
-   Deliver abstract equality, then qualify the complete YAML source closure and replace Include's external runtime link before full-source claims.
+   UMD namespace emission now has explicit admission and output support with
+   single/program CLI strict consumer controls. This isolates one prerequisite;
+   native YAML types still require explicit runtime-only export accounting and
+   a default alias that retains both value and type namespace members.
+   Preserve the four original mutable schema declarations and do not invent
+   typed safe-load functions or an object-only default facade.
    Evidence: `yaml-source-audit.json`, `yaml-source-frontier.json`,
    `yaml-inequality-frontier-before.log`, `native-arguments-source-regression-final.log`.
    Qualify remaining module-loader internals/HMR, persistence failures and lifecycle paths;

@@ -34,7 +34,7 @@
 (defn parse-text [text] (module/check-source-text! text) (form/parse text))
 (defn runtime-basename [text]
  (let [doc (parse-text text)]
-  (shape! doc (cond-> ["@context" "@type" "name" "runtime-source" "ambient-types" "ambient-values" "declarations"] (contains? doc "globals") (conj "globals")))
+  (shape! doc (cond-> ["@context" "@type" "name" "runtime-source" "ambient-types" "ambient-values" "declarations"] (contains? doc "globals") (conj "globals") (contains? doc "umd-namespace") (conj "umd-namespace")))
   (when-not (and (= "NativeJsDeclarations" (get doc "@type")) (= "https://mithril.fund/context/native-js-declarations/v1" (get doc "@context")))
    (fail! :mithril.native-declarations/context "Expected native declaration context"))
   (source! (get doc "runtime-source")) (get doc "runtime-source")))
@@ -595,8 +595,9 @@
    (class-inheritance! view) (interface-inheritance! view)
    (check-declarations! declarations #{} #{} budget view "$global." 0))))
 (defn check-document [doc runtime]
- (shape! doc (cond-> ["@context" "@type" "name" "runtime-source" "ambient-types" "ambient-values" "declarations"] (contains? doc "globals") (conj "globals")))
+ (shape! doc (cond-> ["@context" "@type" "name" "runtime-source" "ambient-types" "ambient-values" "declarations"] (contains? doc "globals") (conj "globals") (contains? doc "umd-namespace") (conj "umd-namespace")))
  (when-not (and (= "NativeJsDeclarations" (get doc "@type")) (= "https://mithril.fund/context/native-js-declarations/v1" (get doc "@context"))) (fail! :mithril.native-declarations/context "Expected declaration context"))
+ (when (contains? doc "umd-namespace") (identifier! (get doc "umd-namespace")))
  (qualified! (get doc "name")) (source! (get doc "runtime-source"))
  (when-not (and (contains? #{:mithril.native-package/checked-v1 :mithril.native-esm/checked-v1} (:format runtime)) (= (get doc "name") (:name runtime)))
   (fail! :mithril.native-declarations/runtime "Matching checked runtime package required"))
@@ -630,7 +631,8 @@
     (mutable-runtime-export! runtime module (or export name)))
    (cond-> {:format :mithril.native-declarations/checked-v1 :name (get doc "name") :runtime-source (get doc "runtime-source")
     :declarations decls :exports exports :type-exports types}
-    (contains? doc "globals") (assoc :globals (get doc "globals" []))))))
+    (contains? doc "globals") (assoc :globals (get doc "globals" []))
+    (contains? doc "umd-namespace") (assoc :umd-namespace (get doc "umd-namespace"))))))
 (defn check-text [text runtime] (check-document (parse-text text) runtime))
 
 ;; Program linking uses the same checker and lexical ownership as single modules.
@@ -720,9 +722,10 @@
  (let [registry (atom {:types {} :values {} :namespaces {} :blocks {}})
        names (mapv #(get % "name") modules) indexes (zipmap names (range)) prefixes (zipmap names (map #(str "D" % ".") (range)))
        documents (mapv (fn [doc]
-                   (shape! doc (cond-> ["@context" "@type" "name" "runtime" "ambient-types" "ambient-values" "imports" "reexports" "declarations"] (contains? doc "augmentations") (conj "augmentations") (contains? doc "local-exports") (conj "local-exports") (contains? doc "globals") (conj "globals")))
+                   (shape! doc (cond-> ["@context" "@type" "name" "runtime" "ambient-types" "ambient-values" "imports" "reexports" "declarations"] (contains? doc "augmentations") (conj "augmentations") (contains? doc "local-exports") (conj "local-exports") (contains? doc "globals") (conj "globals") (contains? doc "umd-namespace") (conj "umd-namespace")))
                    (when-not (and (= "NativeJsDeclarationModule" (get doc "@type")) (= "https://mithril.fund/context/native-js-declaration-module/v1" (get doc "@context")))
                     (fail! :mithril.native-declarations/context "Expected checked declaration module"))
+                   (when (contains? doc "umd-namespace") (identifier! (get doc "umd-namespace")))
                    (qualified! (get doc "name"))
                    (when-let [n (get doc "runtime")] (qualified! n) (when-not (get-in runtime [:modules n]) (fail! :mithril.native-declarations/runtime "Unknown runtime module")))
                    (doseq [field ["imports" "reexports"]]
