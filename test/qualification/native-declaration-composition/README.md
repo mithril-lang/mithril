@@ -14,7 +14,9 @@ producer root with no direct runtime module, a differently named external
 binding and a consumer. Ordinary strict NodeNext resolution admits the positive
 consumer and returns exactly TS2345 for the negative consumer. Six independently
 written JavaScript observations compare behavior. Standalone producer `.d.mts`
-bytes match the existing declaration-program compiler exactly.
+bytes match the existing declaration-program compiler exactly. An additional
+source-backed empty subpath probe verifies that its runtime route admits a real
+side-effect import while retaining its complete type declarations.
 
 Twenty exact admission refusals cover traversal, versions, entry identities,
 unknown/unbound/unpublished entries, duplicate owners/programs, missing/extra

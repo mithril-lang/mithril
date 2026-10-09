@@ -79,6 +79,12 @@
          (let [source (get sources (get entry "source")) _ (module/check-source-text! source) doc (form/parse source)]
           (when-not (= (get entry "name") (get doc "name")) (fail! :mithril.native-declarations/source "Composition declaration source identity mismatch")) doc))
        (get (:document plan) "modules")))
+(defn- source-entry-native [owner doc]
+ (or (get doc "runtime")
+     (let [name (get doc "name") native (get-in owner [:runtime :modules name])]
+      ;; A type-only document may describe a real empty source module. Its
+      ;; runtime route is valid only for that owner and an empty actual surface.
+      (when (and native (not (:external native)) (empty? (:exports native))) name))))
 (defn- own-artifact [owner checked]
  (let [docs (:documents owner) runtime (:runtime owner) entry (get-in owner [:plan :document "entry"])
        native-names (vec (sort (keep (fn [[name m]] (when-not (:external m) name)) (:modules runtime))))
@@ -130,7 +136,7 @@
                                     :let [doc (first (filter #(= (get entry "module") (get % "name")) (:documents owner)))
                                           _ (when-not doc (fail! :mithril.native-declarations/link "Unknown producer declaration entry"))
                                           root? (= (get doc "name") (get-in owner [:plan :document "entry"]))
-                                          native (if root? (get package-entries (:slot owner)) (get doc "runtime"))]]
+                                          native (if root? (get package-entries (:slot owner)) (source-entry-native owner doc))]]
                                (assoc entry :slot (:slot owner) :native native))) owners))
        _ (unique! (mapv #(get % "specifier") entries))
        external-modules (atom {})
@@ -208,10 +214,7 @@
                       :entries (mapv (fn [e]
                                        (let [doc (first (filter #(= (get e "module") (get % "name")) (:documents owner)))
                                              root? (= (get doc "name") (:entry artifact))
-                                             native (or (get doc "runtime")
-                                                        (when (and (contains? (:native-files artifact) (get doc "name"))
-                                                                   (empty? (get-in owner [:runtime :modules (get doc "name") :exports])))
-                                                         (get doc "name")))]
+                                             native (source-entry-native owner doc)]
                                         {:module (get e "module") :specifier (get e "specifier")
                                          :declarations (get (:module-files artifact) (get e "module"))
                                          :runtime (if root? "index.mjs" (get (:native-files artifact) native))}))

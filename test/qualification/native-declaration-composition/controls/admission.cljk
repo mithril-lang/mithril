@@ -46,6 +46,21 @@
 (let [rt (esm/check-text (get @sources "base-runtime.mith") (select-keys @sources ["base.mith"]))
       out (program/compile-text (get @sources "base-program.mith") (select-keys @sources ["base-root.mith" "base-types.mith"]) rt)]
  (doseq [[file bytes] (:files out)] (ensure (= bytes (get-in artifact [:files (str "producer-0/" file)])) "Standalone producer declaration byte identity")))
+;; A real empty runtime submodule can publish complete type-only declarations.
+;; Its route must behave consistently when another actual package imports it.
+(let [empty-leaf (pr-str '(mithril/native-js-module :name "empty.types" :imports [] :functions [] :exports []))
+      empty-doc (doc "empty.types" nil [{"kind" "alias" "name" "EmptyValue" "exported" true "type-params" [] "datatype" number-type}] [])
+      base-runtime {"name" "base.package" "imports" [] "modules" [{"name" "base" "source" "base.mith" "dependencies" ["empty.types"] "links" []} {"name" "empty.types" "source" "empty.mith" "dependencies" [] "links" []}] "reexports" ["base"] "entry-exports" [{"module" "base" "import" "default" "export" "default"}]}
+      consumer-runtime {"name" "consumer.package" "imports" [] "externals" [{"name" "bridgeAlias" "specifier" "@probe/bridge" "exports" ["inc" "default"]} {"name" "emptyAlias" "specifier" "@probe/base/empty" "exports" []}]
+       "modules" [{"name" "consumer" "source" "consumer.mith" "dependencies" ["bridgeAlias" "emptyAlias"] "links" [{"import" "inc" "module" "bridgeAlias" "export" "inc"} {"import" "defaultValue" "module" "bridgeAlias" "export" "default"}]}] "reexports" ["consumer"] "entry-exports" [{"module" "consumer" "import" "default" "export" "default"}]}
+      base-program {"name" "base.package" "runtime-source" "base-runtime.mith" "modules" [{"name" "base.root" "source" "base-root.mith"} {"name" "base.types" "source" "base-types.mith"} {"name" "empty.types" "source" "empty-types.mith"}] "externals" [] "entry" "base.root"}
+      consumer-doc (doc "consumer.types" "consumer" [] [(named "bridge.types") {"module" "empty.types" "type-only" true "names" nil}])
+      input (assoc @sources "empty.mith" empty-leaf "empty-types.mith" (text 'mithril/native-js-declaration-module empty-doc)
+       "base-runtime.mith" (text 'mithril/native-js-esm-package base-runtime) "base-program.mith" (text 'mithril/native-js-declaration-program base-program)
+       "consumer-runtime.mith" (text 'mithril/native-js-esm-package consumer-runtime) "consumer-types.mith" (text 'mithril/native-js-declaration-module consumer-doc))
+      out (compile (update-in plan ["producers" 0 "entries"] conj {"module" "empty.types" "specifier" "@probe/base/empty"}) input)]
+ (ensure (= ["EmptyValue"] (:type-exports out)) "Actual empty source subpath retains type declarations")
+ (ensure (= "module-1.mjs" (get-in out [:packages 1 :entries 1 :runtime])) "Actual empty module route"))
 (def refusals (atom 0))
 (defn refuse [p s code label]
  (let [actual (try (compile p s) :admitted (catch :default e (:mithril/error (ex-data e))))]
