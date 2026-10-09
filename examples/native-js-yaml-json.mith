@@ -1,0 +1,70 @@
+; Derived from pinned js-yaml 4.2.0 full source. MIT; see test/qualification/native-yaml-source/LICENSE.
+(mithril/native-js-module
+:name "yaml.json"
+:ambient_imports []
+:imports ["yamlRoot___commonJSMin"
+"yamlRoot_require_failsafe"
+"yamlRoot_require_null"
+"yamlRoot_require_bool"
+"yamlRoot_require_int"
+"yamlRoot_require_float"]
+:functions []
+:bindings [(rdf/node
+:name "yamlRoot_require_json"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:name "initialize_yamlRoot_require_json"
+:value (mithril/local-set
+:name "yamlRoot_require_json"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot___commonJSMin")
+:args [(mithril/native-lambda
+:params ["yL200"
+"yL201"]
+:rest nil
+:body (mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/local
+:name "yL201")
+:key (mithril/literal
+:datatype "js-value"
+:value "exports")
+:value (mithril/host-method
+:object (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot_require_failsafe")
+:args [])
+:key (mithril/literal
+:datatype "js-value"
+:value "extend")
+:args [(mithril/host-object
+:entries [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "implicit")
+:value (mithril/host-array
+:items [(mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot_require_null")
+:args [])
+(mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot_require_bool")
+:args [])
+(mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot_require_int")
+:args [])
+(mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot_require_float")
+:args [])]))])]))
+(mithril/host-undefined)])
+:statements true)])))]
+:exports [(rdf/node
+:name "yamlRoot_require_json"
+:value (mithril/local
+:name "yamlRoot_require_json"))]
+:lexical_bindings true)

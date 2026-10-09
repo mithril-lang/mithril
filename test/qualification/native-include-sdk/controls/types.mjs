@@ -10,7 +10,7 @@ for(const [file,sha]of Object.entries(proof.fixtures))assert.equal(createHash('s
 const candidate=resolve(directory),meta=JSON.parse(readFileSync(candidate+'.log','utf8'));
 const originalRoot=join(fixture,'declarations/index.d.ts'),candidateRoot=join(candidate,'index.d.mts');
 const originalMapping={'@qualification/include':originalRoot,'@deepseek-ai/cordis-plugin-loader':join(repo,'test/fixtures/loader-sdk/declarations/index.d.ts'),'@deepseek-ai/cordis':join(repo,'test/fixtures/cordis-declarations/program/index.d.ts'),'@deepseek-ai/cosmokit':join(repo,'test/fixtures/cosmokit-declarations/index.d.ts'),'@standard-schema/spec':join(repo,'test/fixtures/cordis-declarations/standard-schema/index.d.ts'),'js-yaml':join(fixture,'yaml-types/index.d.ts')};
-const mapping={...originalMapping,'@qualification/include':candidateRoot};
+const mapping={...originalMapping,'@qualification/include':candidateRoot,'@mithril/native-yaml':join(fixture,'yaml-types/index.d.ts')};
 for(const [pkg,id]of [['@deepseek-ai/cordis-plugin-loader','loader.index'],['@deepseek-ai/cordis','cordis.index'],['@deepseek-ai/cosmokit','cosmokit'],['@standard-schema/spec','standard.schema']])mapping[pkg]=join(candidate,meta['module-files'][id]);
 const groups=[
  ['constructor and merged Config namespace','const config:Include.Config={path:"./x.yaml",patches:[{id:"row",group:null,custom:true}]};const i=new Include(new Context(),config);const same:typeof Include=DefaultInclude;',true],

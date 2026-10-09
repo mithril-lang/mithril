@@ -1,0 +1,48 @@
+(ns compile-yaml-source
+ (:require [mithril.native-esm :as esm] [mithril.native-declaration-program :as program] ["node:fs" :as fs] ["node:os" :as os] ["node:child_process" :as child]))
+(defn ensure [p message] (when-not p (throw (js/Error. message))))
+(def text (fs/readFileSync "examples/native-js-yaml-esm.mith" "utf8"))
+(def sources (into {} (map #(vector % (fs/readFileSync (str "examples/" %) "utf8")) (esm/source-basenames text))))
+(def artifact (esm/compile-text text sources))
+(ensure (= artifact (esm/compile-text text sources)) "Deterministic whole YAML source package")
+(ensure (= 29 (count (:module-files artifact))) "Complete own YAML source module closure")
+(ensure (= #{"default" "CORE_SCHEMA" "DEFAULT_SCHEMA" "FAILSAFE_SCHEMA" "JSON_SCHEMA" "Schema" "Type" "YAMLException" "dump" "load" "loadAll" "safeDump" "safeLoad" "safeLoadAll" "types"} (set (:exports artifact))) "Exact original YAML runtime surface")
+(ensure (empty? (:external-modules artifact)) "No original YAML runtime dependency")
+(def include-text (fs/readFileSync "examples/native-js-include-native-yaml-esm.mith" "utf8"))
+(def include-sources (into {} (map #(vector % (fs/readFileSync (str "examples/" %) "utf8")) (esm/source-basenames include-text))))
+(def include-artifact (esm/compile-text include-text include-sources))
+(ensure (= "@mithril/native-yaml" (get (:external-modules include-artifact) "js.yaml")) "Include links the own YAML artifact package")
+(def type-text (fs/readFileSync "examples/native-js-include-native-yaml-program.mith" "utf8"))
+(def type-sources (into {} (map #(vector % (fs/readFileSync (str "examples/" %) "utf8")) (:sources (program/read-plan type-text)))))
+(def types (program/compile-text type-text type-sources (esm/check-text include-text include-sources)))
+(ensure (= 19 (count (:module-files types))) "Complete Include declaration graph with original YAML type facade")
+(def compiler (.-MITHRIL_DECLARATIONS_TYPESCRIPT js/process.env))
+(def type-roots (.-MITHRIL_DECLARATIONS_TYPE_ROOTS js/process.env))
+(def engine (.-MITHRIL_DECLARATIONS_ENGINE js/process.env))
+(def dir (fs/mkdtempSync (str (os/tmpdir) "/mithril-yaml-source-")))
+(def config (str dir "/offline.edn"))
+(fs/writeFileSync config (str "{:paths [" (js/JSON.stringify (fs/realpathSync "src")) "]}"))
+(defn run [args]
+ (let [r (child/spawnSync js/process.execPath (clj->js args) #js {:encoding "utf8" :timeout 120000 :maxBuffer 4194304})]
+  (ensure (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r)) (.-stdout r)))
+(try
+ (doseq [target ["js" "js-browser"]]
+  (let [sdk (str dir "/" target)]
+   (fs/writeFileSync (str sdk ".log") (run [engine "--config" config "-cp" "src" "bin/mithril-native-esm.cljk" "examples/native-js-yaml-esm.mith" "--target" target "--output-directory" sdk]))
+   (doseq [[file bytes] (:files artifact)] (ensure (= bytes (fs/readFileSync (str sdk "/" file) "utf8")) "Actual full-source YAML CLI artifact bytes"))
+   (run ["test/qualification/native-yaml-source/controls/runtime.mjs" sdk])
+   ;; The whole original type facade remains explicit until native YAML public
+   ;; declarations and UMD namespace semantics are independently qualified.
+   (doseq [file ["index.d.ts" "index.d.mts"]]
+    (fs/copyFileSync (str "test/fixtures/include-sdk/yaml-types/" file) (str sdk "/" file)))
+   (fs/writeFileSync (str sdk "/package.json") "{\"name\":\"@mithril/native-yaml\",\"types\":\"./index.d.ts\",\"exports\":{\".\":{\"types\":{\"import\":\"./index.d.mts\",\"default\":\"./index.d.ts\"},\"default\":\"./index.mjs\"}}}")
+   (run ["test/qualification/native-yaml-source/controls/type-facade.mjs" compiler sdk])
+   (let [include-sdk (str sdk "-include") typed (str include-sdk "-types")]
+    (fs/writeFileSync (str include-sdk ".log") (run [engine "--config" config "-cp" "src" "bin/mithril-native-esm.cljk" "examples/native-js-include-native-yaml-esm.mith" "--target" target "--output-directory" include-sdk]))
+    (doseq [[file bytes] (:files include-artifact)] (ensure (= bytes (fs/readFileSync (str include-sdk "/" file) "utf8")) "Actual Include CLI artifact bytes with own YAML package"))
+    (fs/writeFileSync (str typed ".log") (run [engine "--config" config "-cp" "src" "bin/mithril-native-declaration-program.cljk" "examples/native-js-include-native-yaml-program.mith" "--target" target "--output-directory" typed]))
+    (doseq [[file bytes] (:files types)] (ensure (= bytes (fs/readFileSync (str typed "/" file) "utf8")) "Actual Include type CLI artifact bytes"))
+    (run ["test/qualification/native-include-sdk/controls/types.mjs" compiler type-roots typed])
+    (run ["test/qualification/native-include-sdk/controls/runtime.mjs" include-sdk sdk]))))
+ (finally (fs/rmSync dir #js {:recursive true :force true})))
+(println "YAML source: 29 own runtime modules, 15 original exports and 304 paired groups per actual CLI label; original runtime is oracle only, public type closure and actual browser/native/Q9 remain pending.")

@@ -1,0 +1,4440 @@
+; Derived from pinned js-yaml 4.2.0 full source. MIT; see test/qualification/native-yaml-source/LICENSE.
+(mithril/native-js-module
+:name "yaml.loader.functions1"
+:imports ["Object"
+"decodeURIComponent"]
+:ambient_imports ["Object"
+"decodeURIComponent"]
+:functions []
+:bindings [(rdf/node
+:name "yC0"
+:value (mithril/literal
+:datatype "js-value"
+:value true))
+(rdf/node
+:name "yC1"
+:value (mithril/literal
+:datatype "js-value"
+:value "tag"))
+(rdf/node
+:name "yC2"
+:value (mithril/literal
+:datatype "js-value"
+:value "anchor"))
+(rdf/node
+:name "yC3"
+:value (mithril/literal
+:datatype "js-value"
+:value nil))
+(rdf/node
+:name "yC4"
+:value (mithril/literal
+:datatype "js-value"
+:value "input"))
+(rdf/node
+:name "yC5"
+:value (mithril/literal
+:datatype "js-value"
+:value "charCodeAt"))
+(rdf/node
+:name "yC6"
+:value (mithril/literal
+:datatype "js-value"
+:value "position"))
+(rdf/node
+:name "yC7"
+:value (mithril/literal
+:datatype "js-value"
+:value false))
+(rdf/node
+:name "yC8"
+:value (mithril/literal
+:datatype "js-value"
+:value "yL348"))
+(rdf/node
+:name "yC9"
+:value (mithril/literal
+:datatype "js-value"
+:value 0))
+(rdf/node
+:name "yC10"
+:value (mithril/literal
+:datatype "js-value"
+:value "yL358"))
+(rdf/node
+:name "yC11"
+:value (mithril/literal
+:datatype "js-value"
+:value "kind"))
+(rdf/node
+:name "yC12"
+:value (mithril/literal
+:datatype "js-value"
+:value "mapping"))
+(rdf/node
+:name "yC13"
+:value (mithril/literal
+:datatype "js-value"
+:value "result"))
+(rdf/node
+:name "yC14"
+:value (mithril/literal
+:datatype "js-value"
+:value "yL346"))
+(rdf/node
+:name "yC15"
+:value (mithril/literal
+:datatype "js-value"
+:value 63))
+(rdf/node
+:name "yC16"
+:value (mithril/literal
+:datatype "js-value"
+:value "yL336"))
+(rdf/node
+:name "yC17"
+:value (mithril/literal
+:datatype "js-value"
+:value 1))
+(rdf/node
+:name "yC18"
+:value (mithril/literal
+:datatype "js-value"
+:value "line"))
+(rdf/node
+:name "yC19"
+:value (mithril/literal
+:datatype "js-value"
+:value "lineStart"))
+(rdf/node
+:name "yC20"
+:value (mithril/literal
+:datatype "js-value"
+:value "yL372"))
+(rdf/node
+:name "yC21"
+:value (mithril/literal
+:datatype "js-value"
+:value 58))
+(rdf/node
+:name "yC22"
+:value (mithril/literal
+:datatype "js-value"
+:value "yL356"))
+(rdf/node
+:name "yC23"
+:value (mithril/literal
+:datatype "js-value"
+:value "push"))
+(rdf/node
+:name "yC24"
+:value (mithril/literal
+:datatype "js-value"
+:value "yL322"))
+(rdf/node
+:name "yC25"
+:value (mithril/literal
+:datatype "js-value"
+:value "yL335"))
+(rdf/node
+:name "yC26"
+:value (mithril/literal
+:datatype "js-value"
+:value "yL334"))
+(rdf/node
+:name "yC27"
+:value (mithril/literal
+:datatype "js-value"
+:value "lineIndent"))
+(rdf/node
+:name "yC28"
+:value (mithril/literal
+:datatype "js-value"
+:value "yL313"))
+(rdf/node
+:name "yC29"
+:value (mithril/literal
+:datatype "js-value"
+:value "repeat"))
+(rdf/node
+:name "yC30"
+:value (mithril/literal
+:datatype "js-value"
+:value "\n"))
+(rdf/node
+:name "yC31"
+:value (mithril/literal
+:datatype "js-value"
+:value "firstTabInLine"))
+(rdf/node
+:name "yC32"
+:value (mithril/literal
+:datatype "js-value"
+:value 33))
+(rdf/node
+:name "yC33"
+:value (mithril/literal
+:datatype "js-value"
+:value "!"))
+(rdf/node
+:name "yC34"
+:value (mithril/literal
+:datatype "js-value"
+:value "slice"))
+(rdf/node
+:name "yC35"
+:value (mithril/literal
+:datatype "js-value"
+:value "test"))
+(rdf/node
+:name "yamlLoaderFactory31"
+:value (mithril/native-function
+:name nil
+:params [(rdf/node
+:name "yamlCapturedScope"
+:datatype "js-value")]
+:rest nil
+:body (mithril/native-function
+:name "readFlowCollection"
+:params [(rdf/node
+:name "yL492"
+:datatype "js-value")
+(rdf/node
+:name "yL493"
+:datatype "js-value")]
+:rest nil
+:body (mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "yL494"
+:value (mithril/local
+:name "yC0")
+:mutable true)
+(rdf/node
+:pattern "yL495"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:pattern "yL496"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:pattern "yL497"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:pattern "yL498"
+:value (mithril/host-get
+:object (mithril/local
+:name "yL492")
+:key (mithril/local
+:name "yC1")))
+(rdf/node
+:pattern "yL499"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:pattern "yL500"
+:value (mithril/host-get
+:object (mithril/local
+:name "yL492")
+:key (mithril/local
+:name "yC2")))
+(rdf/node
+:pattern "yL501"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:pattern "yL502"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:pattern "yL503"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:pattern "yL504"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:pattern "yL505"
+:value (mithril/host-method
+:object (mithril/host-import
+:name "Object")
+:key (mithril/literal
+:datatype "js-value"
+:value "create")
+:args [(mithril/local
+:name "yC3")]))
+(rdf/node
+:pattern "yL506"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:pattern "yL507"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:pattern "yL508"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:pattern "yL509"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yL492")
+:key (mithril/local
+:name "yC4"))
+:key (mithril/local
+:name "yC5")
+:args [(mithril/host-get
+:object (mithril/local
+:name "yL492")
+:key (mithril/local
+:name "yC6"))])
+:mutable true)]
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "yL509")
+:right (mithril/literal
+:datatype "js-value"
+:value 91))
+:then (mithril/sequence
+:expressions [(mithril/local-set
+:name "yL501"
+:value (mithril/literal
+:datatype "js-value"
+:value 93))
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL504"
+:value (mithril/local
+:name "yC7"))
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL499"
+:value (mithril/host-array
+:items []))
+(mithril/host-undefined)])])])
+:else (mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "yL509")
+:right (mithril/literal
+:datatype "js-value"
+:value 123))
+:then (mithril/sequence
+:expressions [(mithril/local-set
+:name "yL501"
+:value (mithril/literal
+:datatype "js-value"
+:value 125))
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL504"
+:value (mithril/local
+:name "yC0"))
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL499"
+:value (mithril/host-object
+:entries []))
+(mithril/host-undefined)])])])
+:else (mithril/host-return
+:value (mithril/local
+:name "yC7"))))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "!=="
+:left (mithril/host-get
+:object (mithril/local
+:name "yL492")
+:key (mithril/local
+:name "yC2"))
+:right (mithril/local
+:name "yC3"))
+:then (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC8"))
+:args [(mithril/local
+:name "yL492")
+(mithril/host-get
+:object (mithril/local
+:name "yL492")
+:key (mithril/local
+:name "yC2"))
+(mithril/local
+:name "yL499")])
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL509"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yL492")
+:key (mithril/local
+:name "yC4"))
+:key (mithril/local
+:name "yC5")
+:args [(mithril/host-update
+:object (mithril/local
+:name "yL492")
+:key (mithril/local
+:name "yC6")
+:operator "++"
+:prefix true)]))
+(mithril/sequence
+:expressions [(mithril/host-while
+:condition (mithril/host-binary
+:operator "!=="
+:left (mithril/local
+:name "yL509")
+:right (mithril/local
+:name "yC9"))
+:body (mithril/sequence
+:expressions [(mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC10"))
+:args [(mithril/local
+:name "yL492")
+(mithril/local
+:name "yC0")
+(mithril/local
+:name "yL493")])
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL509"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yL492")
+:key (mithril/local
+:name "yC4"))
+:key (mithril/local
+:name "yC5")
+:args [(mithril/host-get
+:object (mithril/local
+:name "yL492")
+:key (mithril/local
+:name "yC6"))]))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "yL509")
+:right (mithril/local
+:name "yL501"))
+:then (mithril/sequence
+:expressions [(mithril/host-update
+:object (mithril/local
+:name "yL492")
+:key (mithril/local
+:name "yC6")
+:operator "++"
+:prefix false)
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/local
+:name "yL492")
+:key (mithril/local
+:name "yC1")
+:value (mithril/local
+:name "yL498"))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/local
+:name "yL492")
+:key (mithril/local
+:name "yC2")
+:value (mithril/local
+:name "yL500"))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/local
+:name "yL492")
+:key (mithril/local
+:name "yC11")
+:value (mithril/if
+:condition (mithril/local
+:name "yL504")
+:then (mithril/local
+:name "yC12")
+:else (mithril/literal
+:datatype "js-value"
+:value "sequence")))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/local
+:name "yL492")
+:key (mithril/local
+:name "yC13")
+:value (mithril/local
+:name "yL499"))
+(mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/local
+:name "yC0"))
+(mithril/host-undefined)])])])])])])
+:else (mithril/if
+:condition (mithril/host-unary
+:operator "!"
+:value (mithril/local
+:name "yL494"))
+:then (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC14"))
+:args [(mithril/local
+:name "yL492")
+(mithril/literal
+:datatype "js-value"
+:value "missed comma between flow collection entries")])
+:else (mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "yL509")
+:right (mithril/literal
+:datatype "js-value"
+:value 44))
+:then (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC14"))
+:args [(mithril/local
+:name "yL492")
+(mithril/literal
+:datatype "js-value"
+:value "expected the node content, but found ','")])
+:else (mithril/host-undefined))))
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL507"
+:value (mithril/local-set
+:name "yL506"
+:value (mithril/local-set
+:name "yL508"
+:value (mithril/local
+:name "yC3"))))
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL502"
+:value (mithril/local-set
+:name "yL503"
+:value (mithril/local
+:name "yC7")))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "yL509")
+:right (mithril/local
+:name "yC15"))
+:then (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC16"))
+:args [(mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yL492")
+:key (mithril/local
+:name "yC4"))
+:key (mithril/local
+:name "yC5")
+:args [(mithril/host-binary
+:operator "+"
+:left (mithril/host-get
+:object (mithril/local
+:name "yL492")
+:key (mithril/local
+:name "yC6"))
+:right (mithril/local
+:name "yC17"))])])
+:then (mithril/sequence
+:expressions [(mithril/local-set
+:name "yL502"
+:value (mithril/local-set
+:name "yL503"
+:value (mithril/local
+:name "yC0")))
+(mithril/sequence
+:expressions [(mithril/host-update
+:object (mithril/local
+:name "yL492")
+:key (mithril/local
+:name "yC6")
+:operator "++"
+:prefix false)
+(mithril/sequence
+:expressions [(mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC10"))
+:args [(mithril/local
+:name "yL492")
+(mithril/local
+:name "yC0")
+(mithril/local
+:name "yL493")])
+(mithril/host-undefined)])])])
+:else (mithril/host-undefined))
+(mithril/host-undefined)])
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL495"
+:value (mithril/host-get
+:object (mithril/local
+:name "yL492")
+:key (mithril/local
+:name "yC18")))
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL496"
+:value (mithril/host-get
+:object (mithril/local
+:name "yL492")
+:key (mithril/local
+:name "yC19")))
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL497"
+:value (mithril/host-get
+:object (mithril/local
+:name "yL492")
+:key (mithril/local
+:name "yC6")))
+(mithril/sequence
+:expressions [(mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC20"))
+:args [(mithril/local
+:name "yL492")
+(mithril/local
+:name "yL493")
+(mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/literal
+:datatype "js-value"
+:value "yL318"))
+(mithril/local
+:name "yC7")
+(mithril/local
+:name "yC0")])
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL507"
+:value (mithril/host-get
+:object (mithril/local
+:name "yL492")
+:key (mithril/local
+:name "yC1")))
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL506"
+:value (mithril/host-get
+:object (mithril/local
+:name "yL492")
+:key (mithril/local
+:name "yC13")))
+(mithril/sequence
+:expressions [(mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC10"))
+:args [(mithril/local
+:name "yL492")
+(mithril/local
+:name "yC0")
+(mithril/local
+:name "yL493")])
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL509"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yL492")
+:key (mithril/local
+:name "yC4"))
+:key (mithril/local
+:name "yC5")
+:args [(mithril/host-get
+:object (mithril/local
+:name "yL492")
+:key (mithril/local
+:name "yC6"))]))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-logical
+:operator "&&"
+:left (mithril/host-logical
+:operator "||"
+:left (mithril/local
+:name "yL503")
+:right (mithril/host-binary
+:operator "==="
+:left (mithril/host-get
+:object (mithril/local
+:name "yL492")
+:key (mithril/local
+:name "yC18"))
+:right (mithril/local
+:name "yL495")))
+:right (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "yL509")
+:right (mithril/local
+:name "yC21")))
+:then (mithril/sequence
+:expressions [(mithril/local-set
+:name "yL502"
+:value (mithril/local
+:name "yC0"))
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL509"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yL492")
+:key (mithril/local
+:name "yC4"))
+:key (mithril/local
+:name "yC5")
+:args [(mithril/host-update
+:object (mithril/local
+:name "yL492")
+:key (mithril/local
+:name "yC6")
+:operator "++"
+:prefix true)]))
+(mithril/sequence
+:expressions [(mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC10"))
+:args [(mithril/local
+:name "yL492")
+(mithril/local
+:name "yC0")
+(mithril/local
+:name "yL493")])
+(mithril/sequence
+:expressions [(mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC20"))
+:args [(mithril/local
+:name "yL492")
+(mithril/local
+:name "yL493")
+(mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/literal
+:datatype "js-value"
+:value "yL318"))
+(mithril/local
+:name "yC7")
+(mithril/local
+:name "yC0")])
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL508"
+:value (mithril/host-get
+:object (mithril/local
+:name "yL492")
+:key (mithril/local
+:name "yC13")))
+(mithril/host-undefined)])])])])])
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/local
+:name "yL504")
+:then (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC22"))
+:args [(mithril/local
+:name "yL492")
+(mithril/local
+:name "yL499")
+(mithril/local
+:name "yL505")
+(mithril/local
+:name "yL507")
+(mithril/local
+:name "yL506")
+(mithril/local
+:name "yL508")
+(mithril/local
+:name "yL495")
+(mithril/local
+:name "yL496")
+(mithril/local
+:name "yL497")])
+:else (mithril/if
+:condition (mithril/local
+:name "yL502")
+:then (mithril/host-method
+:object (mithril/local
+:name "yL499")
+:key (mithril/local
+:name "yC23")
+:args [(mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC22"))
+:args [(mithril/local
+:name "yL492")
+(mithril/local
+:name "yC3")
+(mithril/local
+:name "yL505")
+(mithril/local
+:name "yL507")
+(mithril/local
+:name "yL506")
+(mithril/local
+:name "yL508")
+(mithril/local
+:name "yL495")
+(mithril/local
+:name "yL496")
+(mithril/local
+:name "yL497")])])
+:else (mithril/host-method
+:object (mithril/local
+:name "yL499")
+:key (mithril/local
+:name "yC23")
+:args [(mithril/local
+:name "yL506")])))
+(mithril/sequence
+:expressions [(mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC10"))
+:args [(mithril/local
+:name "yL492")
+(mithril/local
+:name "yC0")
+(mithril/local
+:name "yL493")])
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL509"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yL492")
+:key (mithril/local
+:name "yC4"))
+:key (mithril/local
+:name "yC5")
+:args [(mithril/host-get
+:object (mithril/local
+:name "yL492")
+:key (mithril/local
+:name "yC6"))]))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "yL509")
+:right (mithril/literal
+:datatype "js-value"
+:value 44))
+:then (mithril/sequence
+:expressions [(mithril/local-set
+:name "yL494"
+:value (mithril/local
+:name "yC0"))
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL509"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yL492")
+:key (mithril/local
+:name "yC4"))
+:key (mithril/local
+:name "yC5")
+:args [(mithril/host-update
+:object (mithril/local
+:name "yL492")
+:key (mithril/local
+:name "yC6")
+:operator "++"
+:prefix true)]))
+(mithril/host-undefined)])])
+:else (mithril/local-set
+:name "yL494"
+:value (mithril/local
+:name "yC7")))
+(mithril/host-undefined)])])])])])])])])])])])])])])])])])])])
+:result (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC14"))
+:args [(mithril/local
+:name "yL492")
+(mithril/literal
+:datatype "js-value"
+:value "unexpected end of the stream within a flow collection")])
+(mithril/host-undefined)])])])])]))
+:statements true)))
+(rdf/node
+:name "yamlLoaderFactory32"
+:value (mithril/native-function
+:name nil
+:params [(rdf/node
+:name "yamlCapturedScope"
+:datatype "js-value")]
+:rest nil
+:body (mithril/native-function
+:name "readBlockScalar"
+:params [(rdf/node
+:name "yL510"
+:datatype "js-value")
+(rdf/node
+:name "yL511"
+:datatype "js-value")]
+:rest nil
+:body (mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "yL512"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:pattern "yL513"
+:value (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC24"))
+:mutable true)
+(rdf/node
+:pattern "yL514"
+:value (mithril/local
+:name "yC7")
+:mutable true)
+(rdf/node
+:pattern "yL515"
+:value (mithril/local
+:name "yC7")
+:mutable true)
+(rdf/node
+:pattern "yL516"
+:value (mithril/local
+:name "yL511")
+:mutable true)
+(rdf/node
+:pattern "yL517"
+:value (mithril/local
+:name "yC9")
+:mutable true)
+(rdf/node
+:pattern "yL518"
+:value (mithril/local
+:name "yC7")
+:mutable true)
+(rdf/node
+:pattern "yL519"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:pattern "yL520"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yL510")
+:key (mithril/local
+:name "yC4"))
+:key (mithril/local
+:name "yC5")
+:args [(mithril/host-get
+:object (mithril/local
+:name "yL510")
+:key (mithril/local
+:name "yC6"))])
+:mutable true)]
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "yL520")
+:right (mithril/literal
+:datatype "js-value"
+:value 124))
+:then (mithril/local-set
+:name "yL512"
+:value (mithril/local
+:name "yC7"))
+:else (mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "yL520")
+:right (mithril/literal
+:datatype "js-value"
+:value 62))
+:then (mithril/local-set
+:name "yL512"
+:value (mithril/local
+:name "yC0"))
+:else (mithril/host-return
+:value (mithril/local
+:name "yC7"))))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/local
+:name "yL510")
+:key (mithril/local
+:name "yC11")
+:value (mithril/literal
+:datatype "js-value"
+:value "scalar"))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/local
+:name "yL510")
+:key (mithril/local
+:name "yC13")
+:value (mithril/literal
+:datatype "js-value"
+:value ""))
+(mithril/sequence
+:expressions [(mithril/host-while
+:condition (mithril/host-binary
+:operator "!=="
+:left (mithril/local
+:name "yL520")
+:right (mithril/local
+:name "yC9"))
+:body (mithril/sequence
+:expressions [(mithril/local-set
+:name "yL520"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yL510")
+:key (mithril/local
+:name "yC4"))
+:key (mithril/local
+:name "yC5")
+:args [(mithril/host-update
+:object (mithril/local
+:name "yL510")
+:key (mithril/local
+:name "yC6")
+:operator "++"
+:prefix true)]))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-logical
+:operator "||"
+:left (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "yL520")
+:right (mithril/literal
+:datatype "js-value"
+:value 43))
+:right (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "yL520")
+:right (mithril/literal
+:datatype "js-value"
+:value 45)))
+:then (mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC24"))
+:right (mithril/local
+:name "yL513"))
+:then (mithril/local-set
+:name "yL513"
+:value (mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "yL520")
+:right (mithril/literal
+:datatype "js-value"
+:value 43))
+:then (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/literal
+:datatype "js-value"
+:value "yL324"))
+:else (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/literal
+:datatype "js-value"
+:value "yL323"))))
+:else (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC14"))
+:args [(mithril/local
+:name "yL510")
+(mithril/literal
+:datatype "js-value"
+:value "repeat of a chomping mode identifier")]))
+:else (mithril/if
+:condition (mithril/host-binary
+:operator ">="
+:left (mithril/local-set
+:name "yL519"
+:value (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/literal
+:datatype "js-value"
+:value "yL340"))
+:args [(mithril/local
+:name "yL520")]))
+:right (mithril/local
+:name "yC9"))
+:then (mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "yL519")
+:right (mithril/local
+:name "yC9"))
+:then (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC14"))
+:args [(mithril/local
+:name "yL510")
+(mithril/literal
+:datatype "js-value"
+:value "bad explicit indentation width of a block scalar; it cannot be less than one")])
+:else (mithril/if
+:condition (mithril/host-unary
+:operator "!"
+:value (mithril/local
+:name "yL515"))
+:then (mithril/sequence
+:expressions [(mithril/local-set
+:name "yL516"
+:value (mithril/host-binary
+:operator "-"
+:left (mithril/host-binary
+:operator "+"
+:left (mithril/local
+:name "yL511")
+:right (mithril/local
+:name "yL519"))
+:right (mithril/local
+:name "yC17")))
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL515"
+:value (mithril/local
+:name "yC0"))
+(mithril/host-undefined)])])
+:else (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC14"))
+:args [(mithril/local
+:name "yL510")
+(mithril/literal
+:datatype "js-value"
+:value "repeat of an indentation width identifier")])))
+:else (mithril/host-break)))
+(mithril/host-undefined)])])
+:result (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC25"))
+:args [(mithril/local
+:name "yL520")])
+:then (mithril/sequence
+:expressions [(mithril/host-do-while
+:condition (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC25"))
+:args [(mithril/local
+:name "yL520")])
+:body (mithril/local-set
+:name "yL520"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yL510")
+:key (mithril/local
+:name "yC4"))
+:key (mithril/local
+:name "yC5")
+:args [(mithril/host-update
+:object (mithril/local
+:name "yL510")
+:key (mithril/local
+:name "yC6")
+:operator "++"
+:prefix true)]))
+:result (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "yL520")
+:right (mithril/literal
+:datatype "js-value"
+:value 35))
+:then (mithril/host-do-while
+:condition (mithril/host-logical
+:operator "&&"
+:left (mithril/host-unary
+:operator "!"
+:value (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC26"))
+:args [(mithril/local
+:name "yL520")]))
+:right (mithril/host-binary
+:operator "!=="
+:left (mithril/local
+:name "yL520")
+:right (mithril/local
+:name "yC9")))
+:body (mithril/local-set
+:name "yL520"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yL510")
+:key (mithril/local
+:name "yC4"))
+:key (mithril/local
+:name "yC5")
+:args [(mithril/host-update
+:object (mithril/local
+:name "yL510")
+:key (mithril/local
+:name "yC6")
+:operator "++"
+:prefix true)]))
+:result (mithril/host-undefined))
+:else (mithril/host-undefined))
+(mithril/host-undefined)])])
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/host-while
+:condition (mithril/host-binary
+:operator "!=="
+:left (mithril/local
+:name "yL520")
+:right (mithril/local
+:name "yC9"))
+:body (mithril/sequence
+:expressions [(mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/literal
+:datatype "js-value"
+:value "yL357"))
+:args [(mithril/local
+:name "yL510")])
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/local
+:name "yL510")
+:key (mithril/local
+:name "yC27")
+:value (mithril/local
+:name "yC9"))
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL520"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yL510")
+:key (mithril/local
+:name "yC4"))
+:key (mithril/local
+:name "yC5")
+:args [(mithril/host-get
+:object (mithril/local
+:name "yL510")
+:key (mithril/local
+:name "yC6"))]))
+(mithril/sequence
+:expressions [(mithril/host-while
+:condition (mithril/host-logical
+:operator "&&"
+:left (mithril/host-logical
+:operator "||"
+:left (mithril/host-unary
+:operator "!"
+:value (mithril/local
+:name "yL515"))
+:right (mithril/host-binary
+:operator "<"
+:left (mithril/host-get
+:object (mithril/local
+:name "yL510")
+:key (mithril/local
+:name "yC27"))
+:right (mithril/local
+:name "yL516")))
+:right (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "yL520")
+:right (mithril/literal
+:datatype "js-value"
+:value 32)))
+:body (mithril/sequence
+:expressions [(mithril/host-update
+:object (mithril/local
+:name "yL510")
+:key (mithril/local
+:name "yC27")
+:operator "++"
+:prefix false)
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL520"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yL510")
+:key (mithril/local
+:name "yC4"))
+:key (mithril/local
+:name "yC5")
+:args [(mithril/host-update
+:object (mithril/local
+:name "yL510")
+:key (mithril/local
+:name "yC6")
+:operator "++"
+:prefix true)]))
+(mithril/host-undefined)])])
+:result (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-logical
+:operator "&&"
+:left (mithril/host-unary
+:operator "!"
+:value (mithril/local
+:name "yL515"))
+:right (mithril/host-binary
+:operator ">"
+:left (mithril/host-get
+:object (mithril/local
+:name "yL510")
+:key (mithril/local
+:name "yC27"))
+:right (mithril/local
+:name "yL516")))
+:then (mithril/local-set
+:name "yL516"
+:value (mithril/host-get
+:object (mithril/local
+:name "yL510")
+:key (mithril/local
+:name "yC27")))
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC26"))
+:args [(mithril/local
+:name "yL520")])
+:then (mithril/sequence
+:expressions [(mithril/host-local-update
+:name "yL517"
+:operator "++"
+:prefix false)
+(mithril/sequence
+:expressions [(mithril/host-continue)
+(mithril/host-undefined)])])
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-logical
+:operator "&&"
+:left (mithril/host-unary
+:operator "!"
+:value (mithril/local
+:name "yL515"))
+:right (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "yL516")
+:right (mithril/local
+:name "yC9")))
+:then (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC14"))
+:args [(mithril/local
+:name "yL510")
+(mithril/literal
+:datatype "js-value"
+:value "missing indentation for block scalar")])
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "<"
+:left (mithril/host-get
+:object (mithril/local
+:name "yL510")
+:key (mithril/local
+:name "yC27"))
+:right (mithril/local
+:name "yL516"))
+:then (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "yL513")
+:right (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/literal
+:datatype "js-value"
+:value "yL324")))
+:then (mithril/host-compound-assign
+:object (mithril/local
+:name "yL510")
+:key (mithril/local
+:name "yC13")
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC28"))
+:key (mithril/local
+:name "yC29")
+:args [(mithril/local
+:name "yC30")
+(mithril/if
+:condition (mithril/local
+:name "yL514")
+:then (mithril/host-binary
+:operator "+"
+:left (mithril/local
+:name "yC17")
+:right (mithril/local
+:name "yL517"))
+:else (mithril/local
+:name "yL517"))])
+:operator "+=")
+:else (mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "yL513")
+:right (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC24")))
+:then (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/local
+:name "yL514")
+:then (mithril/host-compound-assign
+:object (mithril/local
+:name "yL510")
+:key (mithril/local
+:name "yC13")
+:value (mithril/local
+:name "yC30")
+:operator "+=")
+:else (mithril/host-undefined))
+(mithril/host-undefined)])
+:else (mithril/host-undefined)))
+(mithril/sequence
+:expressions [(mithril/host-break)
+(mithril/host-undefined)])])
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/local
+:name "yL512")
+:then (mithril/if
+:condition (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC25"))
+:args [(mithril/local
+:name "yL520")])
+:then (mithril/sequence
+:expressions [(mithril/local-set
+:name "yL518"
+:value (mithril/local
+:name "yC0"))
+(mithril/sequence
+:expressions [(mithril/host-compound-assign
+:object (mithril/local
+:name "yL510")
+:key (mithril/local
+:name "yC13")
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC28"))
+:key (mithril/local
+:name "yC29")
+:args [(mithril/local
+:name "yC30")
+(mithril/if
+:condition (mithril/local
+:name "yL514")
+:then (mithril/host-binary
+:operator "+"
+:left (mithril/local
+:name "yC17")
+:right (mithril/local
+:name "yL517"))
+:else (mithril/local
+:name "yL517"))])
+:operator "+=")
+(mithril/host-undefined)])])
+:else (mithril/if
+:condition (mithril/local
+:name "yL518")
+:then (mithril/sequence
+:expressions [(mithril/local-set
+:name "yL518"
+:value (mithril/local
+:name "yC7"))
+(mithril/sequence
+:expressions [(mithril/host-compound-assign
+:object (mithril/local
+:name "yL510")
+:key (mithril/local
+:name "yC13")
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC28"))
+:key (mithril/local
+:name "yC29")
+:args [(mithril/local
+:name "yC30")
+(mithril/host-binary
+:operator "+"
+:left (mithril/local
+:name "yL517")
+:right (mithril/local
+:name "yC17"))])
+:operator "+=")
+(mithril/host-undefined)])])
+:else (mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "yL517")
+:right (mithril/local
+:name "yC9"))
+:then (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/local
+:name "yL514")
+:then (mithril/host-compound-assign
+:object (mithril/local
+:name "yL510")
+:key (mithril/local
+:name "yC13")
+:value (mithril/literal
+:datatype "js-value"
+:value " ")
+:operator "+=")
+:else (mithril/host-undefined))
+(mithril/host-undefined)])
+:else (mithril/host-compound-assign
+:object (mithril/local
+:name "yL510")
+:key (mithril/local
+:name "yC13")
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC28"))
+:key (mithril/local
+:name "yC29")
+:args [(mithril/local
+:name "yC30")
+(mithril/local
+:name "yL517")])
+:operator "+="))))
+:else (mithril/host-compound-assign
+:object (mithril/local
+:name "yL510")
+:key (mithril/local
+:name "yC13")
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC28"))
+:key (mithril/local
+:name "yC29")
+:args [(mithril/local
+:name "yC30")
+(mithril/if
+:condition (mithril/local
+:name "yL514")
+:then (mithril/host-binary
+:operator "+"
+:left (mithril/local
+:name "yC17")
+:right (mithril/local
+:name "yL517"))
+:else (mithril/local
+:name "yL517"))])
+:operator "+="))
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL514"
+:value (mithril/local
+:name "yC0"))
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL515"
+:value (mithril/local
+:name "yC0"))
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL517"
+:value (mithril/local
+:name "yC9"))
+(mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "yL521"
+:value (mithril/host-get
+:object (mithril/local
+:name "yL510")
+:key (mithril/local
+:name "yC6")))]
+:body (mithril/sequence
+:expressions [(mithril/host-while
+:condition (mithril/host-logical
+:operator "&&"
+:left (mithril/host-unary
+:operator "!"
+:value (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC26"))
+:args [(mithril/local
+:name "yL520")]))
+:right (mithril/host-binary
+:operator "!=="
+:left (mithril/local
+:name "yL520")
+:right (mithril/local
+:name "yC9")))
+:body (mithril/local-set
+:name "yL520"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yL510")
+:key (mithril/local
+:name "yC4"))
+:key (mithril/local
+:name "yC5")
+:args [(mithril/host-update
+:object (mithril/local
+:name "yL510")
+:key (mithril/local
+:name "yC6")
+:operator "++"
+:prefix true)]))
+:result (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/literal
+:datatype "js-value"
+:value "yL354"))
+:args [(mithril/local
+:name "yL510")
+(mithril/local
+:name "yL521")
+(mithril/host-get
+:object (mithril/local
+:name "yL510")
+:key (mithril/local
+:name "yC6"))
+(mithril/local
+:name "yC7")])
+(mithril/host-undefined)])]))])])])])])])])])])])])])
+:result (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/local
+:name "yC0"))
+(mithril/host-undefined)])])])])])])]))
+:statements true)))
+(rdf/node
+:name "yamlLoaderFactory33"
+:value (mithril/native-function
+:name nil
+:params [(rdf/node
+:name "yamlCapturedScope"
+:datatype "js-value")]
+:rest nil
+:body (mithril/native-function
+:name "readBlockSequence"
+:params [(rdf/node
+:name "yL522"
+:datatype "js-value")
+(rdf/node
+:name "yL523"
+:datatype "js-value")]
+:rest nil
+:body (mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "yL524"
+:value (mithril/host-get
+:object (mithril/local
+:name "yL522")
+:key (mithril/local
+:name "yC1")))
+(rdf/node
+:pattern "yL525"
+:value (mithril/host-get
+:object (mithril/local
+:name "yL522")
+:key (mithril/local
+:name "yC2")))
+(rdf/node
+:pattern "yL526"
+:value (mithril/host-array
+:items []))
+(rdf/node
+:pattern "yL527"
+:value (mithril/local
+:name "yC7")
+:mutable true)]
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "!=="
+:left (mithril/host-get
+:object (mithril/local
+:name "yL522")
+:key (mithril/local
+:name "yC31"))
+:right (mithril/host-unary
+:operator "-"
+:value (mithril/local
+:name "yC17")))
+:then (mithril/host-return
+:value (mithril/local
+:name "yC7"))
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "!=="
+:left (mithril/host-get
+:object (mithril/local
+:name "yL522")
+:key (mithril/local
+:name "yC2"))
+:right (mithril/local
+:name "yC3"))
+:then (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC8"))
+:args [(mithril/local
+:name "yL522")
+(mithril/host-get
+:object (mithril/local
+:name "yL522")
+:key (mithril/local
+:name "yC2"))
+(mithril/local
+:name "yL526")])
+:else (mithril/host-undefined))
+(mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "yL528"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yL522")
+:key (mithril/local
+:name "yC4"))
+:key (mithril/local
+:name "yC5")
+:args [(mithril/host-get
+:object (mithril/local
+:name "yL522")
+:key (mithril/local
+:name "yC6"))])
+:mutable true)]
+:body (mithril/sequence
+:expressions [(mithril/host-while
+:condition (mithril/host-binary
+:operator "!=="
+:left (mithril/local
+:name "yL528")
+:right (mithril/local
+:name "yC9"))
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "!=="
+:left (mithril/host-get
+:object (mithril/local
+:name "yL522")
+:key (mithril/local
+:name "yC31"))
+:right (mithril/host-unary
+:operator "-"
+:value (mithril/local
+:name "yC17")))
+:then (mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/local
+:name "yL522")
+:key (mithril/local
+:name "yC6")
+:value (mithril/host-get
+:object (mithril/local
+:name "yL522")
+:key (mithril/local
+:name "yC31")))
+(mithril/sequence
+:expressions [(mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC14"))
+:args [(mithril/local
+:name "yL522")
+(mithril/literal
+:datatype "js-value"
+:value "tab characters must not be used in indentation")])
+(mithril/host-undefined)])])
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "!=="
+:left (mithril/local
+:name "yL528")
+:right (mithril/literal
+:datatype "js-value"
+:value 45))
+:then (mithril/host-break)
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-unary
+:operator "!"
+:value (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC16"))
+:args [(mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yL522")
+:key (mithril/local
+:name "yC4"))
+:key (mithril/local
+:name "yC5")
+:args [(mithril/host-binary
+:operator "+"
+:left (mithril/host-get
+:object (mithril/local
+:name "yL522")
+:key (mithril/local
+:name "yC6"))
+:right (mithril/local
+:name "yC17"))])]))
+:then (mithril/host-break)
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL527"
+:value (mithril/local
+:name "yC0"))
+(mithril/sequence
+:expressions [(mithril/host-update
+:object (mithril/local
+:name "yL522")
+:key (mithril/local
+:name "yC6")
+:operator "++"
+:prefix false)
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC10"))
+:args [(mithril/local
+:name "yL522")
+(mithril/local
+:name "yC0")
+(mithril/host-unary
+:operator "-"
+:value (mithril/local
+:name "yC17"))])
+:then (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "<="
+:left (mithril/host-get
+:object (mithril/local
+:name "yL522")
+:key (mithril/local
+:name "yC27"))
+:right (mithril/local
+:name "yL523"))
+:then (mithril/sequence
+:expressions [(mithril/host-method
+:object (mithril/local
+:name "yL526")
+:key (mithril/local
+:name "yC23")
+:args [(mithril/local
+:name "yC3")])
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL528"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yL522")
+:key (mithril/local
+:name "yC4"))
+:key (mithril/local
+:name "yC5")
+:args [(mithril/host-get
+:object (mithril/local
+:name "yL522")
+:key (mithril/local
+:name "yC6"))]))
+(mithril/sequence
+:expressions [(mithril/host-continue)
+(mithril/host-undefined)])])])
+:else (mithril/host-undefined))
+(mithril/host-undefined)])
+:else (mithril/host-undefined))
+(mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "yL529"
+:value (mithril/host-get
+:object (mithril/local
+:name "yL522")
+:key (mithril/local
+:name "yC18")))]
+:body (mithril/sequence
+:expressions [(mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC20"))
+:args [(mithril/local
+:name "yL522")
+(mithril/local
+:name "yL523")
+(mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/literal
+:datatype "js-value"
+:value "yL320"))
+(mithril/local
+:name "yC7")
+(mithril/local
+:name "yC0")])
+(mithril/sequence
+:expressions [(mithril/host-method
+:object (mithril/local
+:name "yL526")
+:key (mithril/local
+:name "yC23")
+:args [(mithril/host-get
+:object (mithril/local
+:name "yL522")
+:key (mithril/local
+:name "yC13"))])
+(mithril/sequence
+:expressions [(mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC10"))
+:args [(mithril/local
+:name "yL522")
+(mithril/local
+:name "yC0")
+(mithril/host-unary
+:operator "-"
+:value (mithril/local
+:name "yC17"))])
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL528"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yL522")
+:key (mithril/local
+:name "yC4"))
+:key (mithril/local
+:name "yC5")
+:args [(mithril/host-get
+:object (mithril/local
+:name "yL522")
+:key (mithril/local
+:name "yC6"))]))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-logical
+:operator "&&"
+:left (mithril/host-logical
+:operator "||"
+:left (mithril/host-binary
+:operator "==="
+:left (mithril/host-get
+:object (mithril/local
+:name "yL522")
+:key (mithril/local
+:name "yC18"))
+:right (mithril/local
+:name "yL529"))
+:right (mithril/host-binary
+:operator ">"
+:left (mithril/host-get
+:object (mithril/local
+:name "yL522")
+:key (mithril/local
+:name "yC27"))
+:right (mithril/local
+:name "yL523")))
+:right (mithril/host-binary
+:operator "!=="
+:left (mithril/local
+:name "yL528")
+:right (mithril/local
+:name "yC9")))
+:then (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC14"))
+:args [(mithril/local
+:name "yL522")
+(mithril/literal
+:datatype "js-value"
+:value "bad indentation of a sequence entry")])
+:else (mithril/if
+:condition (mithril/host-binary
+:operator "<"
+:left (mithril/host-get
+:object (mithril/local
+:name "yL522")
+:key (mithril/local
+:name "yC27"))
+:right (mithril/local
+:name "yL523"))
+:then (mithril/host-break)
+:else (mithril/host-undefined)))
+(mithril/host-undefined)])])])])]))])])])])])])
+:result (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/local
+:name "yL527")
+:then (mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/local
+:name "yL522")
+:key (mithril/local
+:name "yC1")
+:value (mithril/local
+:name "yL524"))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/local
+:name "yL522")
+:key (mithril/local
+:name "yC2")
+:value (mithril/local
+:name "yL525"))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/local
+:name "yL522")
+:key (mithril/local
+:name "yC11")
+:value (mithril/literal
+:datatype "js-value"
+:value "sequence"))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/local
+:name "yL522")
+:key (mithril/local
+:name "yC13")
+:value (mithril/local
+:name "yL526"))
+(mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/local
+:name "yC0"))
+(mithril/host-undefined)])])])])])
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/local
+:name "yC7"))
+(mithril/host-undefined)])])]))])]))
+:statements true)))
+(rdf/node
+:name "yamlLoaderFactory34"
+:value (mithril/native-function
+:name nil
+:params [(rdf/node
+:name "yamlCapturedScope"
+:datatype "js-value")]
+:rest nil
+:body (mithril/native-function
+:name "readBlockMapping"
+:params [(rdf/node
+:name "yL530"
+:datatype "js-value")
+(rdf/node
+:name "yL531"
+:datatype "js-value")
+(rdf/node
+:name "yL532"
+:datatype "js-value")]
+:rest nil
+:body (mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "yL533"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:pattern "yL534"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:pattern "yL535"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:pattern "yL536"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:pattern "yL537"
+:value (mithril/host-get
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC1")))
+(rdf/node
+:pattern "yL538"
+:value (mithril/host-get
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC2")))
+(rdf/node
+:pattern "yL539"
+:value (mithril/host-object
+:entries []))
+(rdf/node
+:pattern "yL540"
+:value (mithril/host-method
+:object (mithril/host-import
+:name "Object")
+:key (mithril/literal
+:datatype "js-value"
+:value "create")
+:args [(mithril/local
+:name "yC3")]))
+(rdf/node
+:pattern "yL541"
+:value (mithril/local
+:name "yC3")
+:mutable true)
+(rdf/node
+:pattern "yL542"
+:value (mithril/local
+:name "yC3")
+:mutable true)
+(rdf/node
+:pattern "yL543"
+:value (mithril/local
+:name "yC3")
+:mutable true)
+(rdf/node
+:pattern "yL544"
+:value (mithril/local
+:name "yC7")
+:mutable true)
+(rdf/node
+:pattern "yL545"
+:value (mithril/local
+:name "yC7")
+:mutable true)]
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "!=="
+:left (mithril/host-get
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC31"))
+:right (mithril/host-unary
+:operator "-"
+:value (mithril/local
+:name "yC17")))
+:then (mithril/host-return
+:value (mithril/local
+:name "yC7"))
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "!=="
+:left (mithril/host-get
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC2"))
+:right (mithril/local
+:name "yC3"))
+:then (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC8"))
+:args [(mithril/local
+:name "yL530")
+(mithril/host-get
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC2"))
+(mithril/local
+:name "yL539")])
+:else (mithril/host-undefined))
+(mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "yL546"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC4"))
+:key (mithril/local
+:name "yC5")
+:args [(mithril/host-get
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC6"))])
+:mutable true)]
+:body (mithril/sequence
+:expressions [(mithril/host-while
+:condition (mithril/host-binary
+:operator "!=="
+:left (mithril/local
+:name "yL546")
+:right (mithril/local
+:name "yC9"))
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-logical
+:operator "&&"
+:left (mithril/host-unary
+:operator "!"
+:value (mithril/local
+:name "yL544"))
+:right (mithril/host-binary
+:operator "!=="
+:left (mithril/host-get
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC31"))
+:right (mithril/host-unary
+:operator "-"
+:value (mithril/local
+:name "yC17"))))
+:then (mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC6")
+:value (mithril/host-get
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC31")))
+(mithril/sequence
+:expressions [(mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC14"))
+:args [(mithril/local
+:name "yL530")
+(mithril/literal
+:datatype "js-value"
+:value "tab characters must not be used in indentation")])
+(mithril/host-undefined)])])
+:else (mithril/host-undefined))
+(mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "yL547"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC4"))
+:key (mithril/local
+:name "yC5")
+:args [(mithril/host-binary
+:operator "+"
+:left (mithril/host-get
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC6"))
+:right (mithril/local
+:name "yC17"))]))
+(rdf/node
+:pattern "yL548"
+:value (mithril/host-get
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC18")))]
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-logical
+:operator "&&"
+:left (mithril/host-logical
+:operator "||"
+:left (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "yL546")
+:right (mithril/local
+:name "yC15"))
+:right (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "yL546")
+:right (mithril/local
+:name "yC21")))
+:right (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC16"))
+:args [(mithril/local
+:name "yL547")]))
+:then (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "yL546")
+:right (mithril/local
+:name "yC15"))
+:then (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/local
+:name "yL544")
+:then (mithril/sequence
+:expressions [(mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC22"))
+:args [(mithril/local
+:name "yL530")
+(mithril/local
+:name "yL539")
+(mithril/local
+:name "yL540")
+(mithril/local
+:name "yL541")
+(mithril/local
+:name "yL542")
+(mithril/local
+:name "yC3")
+(mithril/local
+:name "yL534")
+(mithril/local
+:name "yL535")
+(mithril/local
+:name "yL536")])
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL541"
+:value (mithril/local-set
+:name "yL542"
+:value (mithril/local-set
+:name "yL543"
+:value (mithril/local
+:name "yC3"))))
+(mithril/host-undefined)])])
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL545"
+:value (mithril/local
+:name "yC0"))
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL544"
+:value (mithril/local
+:name "yC0"))
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL533"
+:value (mithril/local
+:name "yC0"))
+(mithril/host-undefined)])])])])
+:else (mithril/if
+:condition (mithril/local
+:name "yL544")
+:then (mithril/sequence
+:expressions [(mithril/local-set
+:name "yL544"
+:value (mithril/local
+:name "yC7"))
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL533"
+:value (mithril/local
+:name "yC0"))
+(mithril/host-undefined)])])
+:else (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC14"))
+:args [(mithril/local
+:name "yL530")
+(mithril/literal
+:datatype "js-value"
+:value "incomplete explicit mapping pair; a key node is missed; or followed by a non-tabulated empty line")])))
+(mithril/sequence
+:expressions [(mithril/host-compound-assign
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC6")
+:value (mithril/local
+:name "yC17")
+:operator "+=")
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL546"
+:value (mithril/local
+:name "yL547"))
+(mithril/host-undefined)])])])
+:else (mithril/sequence
+:expressions [(mithril/local-set
+:name "yL534"
+:value (mithril/host-get
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC18")))
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL535"
+:value (mithril/host-get
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC19")))
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL536"
+:value (mithril/host-get
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC6")))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-unary
+:operator "!"
+:value (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC20"))
+:args [(mithril/local
+:name "yL530")
+(mithril/local
+:name "yL532")
+(mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/literal
+:datatype "js-value"
+:value "yL319"))
+(mithril/local
+:name "yC7")
+(mithril/local
+:name "yC0")]))
+:then (mithril/host-break)
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/host-get
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC18"))
+:right (mithril/local
+:name "yL548"))
+:then (mithril/sequence
+:expressions [(mithril/local-set
+:name "yL546"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC4"))
+:key (mithril/local
+:name "yC5")
+:args [(mithril/host-get
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC6"))]))
+(mithril/sequence
+:expressions [(mithril/host-while
+:condition (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC25"))
+:args [(mithril/local
+:name "yL546")])
+:body (mithril/local-set
+:name "yL546"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC4"))
+:key (mithril/local
+:name "yC5")
+:args [(mithril/host-update
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC6")
+:operator "++"
+:prefix true)]))
+:result (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "yL546")
+:right (mithril/local
+:name "yC21"))
+:then (mithril/sequence
+:expressions [(mithril/local-set
+:name "yL546"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC4"))
+:key (mithril/local
+:name "yC5")
+:args [(mithril/host-update
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC6")
+:operator "++"
+:prefix true)]))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-unary
+:operator "!"
+:value (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC16"))
+:args [(mithril/local
+:name "yL546")]))
+:then (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC14"))
+:args [(mithril/local
+:name "yL530")
+(mithril/literal
+:datatype "js-value"
+:value "a whitespace character is expected after the key-value separator within a block mapping")])
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/local
+:name "yL544")
+:then (mithril/sequence
+:expressions [(mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC22"))
+:args [(mithril/local
+:name "yL530")
+(mithril/local
+:name "yL539")
+(mithril/local
+:name "yL540")
+(mithril/local
+:name "yL541")
+(mithril/local
+:name "yL542")
+(mithril/local
+:name "yC3")
+(mithril/local
+:name "yL534")
+(mithril/local
+:name "yL535")
+(mithril/local
+:name "yL536")])
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL541"
+:value (mithril/local-set
+:name "yL542"
+:value (mithril/local-set
+:name "yL543"
+:value (mithril/local
+:name "yC3"))))
+(mithril/host-undefined)])])
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL545"
+:value (mithril/local
+:name "yC0"))
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL544"
+:value (mithril/local
+:name "yC7"))
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL533"
+:value (mithril/local
+:name "yC7"))
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL541"
+:value (mithril/host-get
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC1")))
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL542"
+:value (mithril/host-get
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC13")))
+(mithril/host-undefined)])])])])])])])])
+:else (mithril/if
+:condition (mithril/local
+:name "yL545")
+:then (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC14"))
+:args [(mithril/local
+:name "yL530")
+(mithril/literal
+:datatype "js-value"
+:value "can not read an implicit mapping pair; a colon is missed")])
+:else (mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC1")
+:value (mithril/local
+:name "yL537"))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC2")
+:value (mithril/local
+:name "yL538"))
+(mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/local
+:name "yC0"))
+(mithril/host-undefined)])])])))
+(mithril/host-undefined)])])])
+:else (mithril/if
+:condition (mithril/local
+:name "yL545")
+:then (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC14"))
+:args [(mithril/local
+:name "yL530")
+(mithril/literal
+:datatype "js-value"
+:value "can not read a block mapping entry; a multiline key may not be an implicit key")])
+:else (mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC1")
+:value (mithril/local
+:name "yL537"))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC2")
+:value (mithril/local
+:name "yL538"))
+(mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/local
+:name "yC0"))
+(mithril/host-undefined)])])])))
+(mithril/host-undefined)])])])])]))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-logical
+:operator "||"
+:left (mithril/host-binary
+:operator "==="
+:left (mithril/host-get
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC18"))
+:right (mithril/local
+:name "yL548"))
+:right (mithril/host-binary
+:operator ">"
+:left (mithril/host-get
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC27"))
+:right (mithril/local
+:name "yL531")))
+:then (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/local
+:name "yL544")
+:then (mithril/sequence
+:expressions [(mithril/local-set
+:name "yL534"
+:value (mithril/host-get
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC18")))
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL535"
+:value (mithril/host-get
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC19")))
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL536"
+:value (mithril/host-get
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC6")))
+(mithril/host-undefined)])])])
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC20"))
+:args [(mithril/local
+:name "yL530")
+(mithril/local
+:name "yL531")
+(mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/literal
+:datatype "js-value"
+:value "yL321"))
+(mithril/local
+:name "yC0")
+(mithril/local
+:name "yL533")])
+:then (mithril/if
+:condition (mithril/local
+:name "yL544")
+:then (mithril/local-set
+:name "yL542"
+:value (mithril/host-get
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC13")))
+:else (mithril/local-set
+:name "yL543"
+:value (mithril/host-get
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC13"))))
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-unary
+:operator "!"
+:value (mithril/local
+:name "yL544"))
+:then (mithril/sequence
+:expressions [(mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC22"))
+:args [(mithril/local
+:name "yL530")
+(mithril/local
+:name "yL539")
+(mithril/local
+:name "yL540")
+(mithril/local
+:name "yL541")
+(mithril/local
+:name "yL542")
+(mithril/local
+:name "yL543")
+(mithril/local
+:name "yL534")
+(mithril/local
+:name "yL535")
+(mithril/local
+:name "yL536")])
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL541"
+:value (mithril/local-set
+:name "yL542"
+:value (mithril/local-set
+:name "yL543"
+:value (mithril/local
+:name "yC3"))))
+(mithril/host-undefined)])])
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC10"))
+:args [(mithril/local
+:name "yL530")
+(mithril/local
+:name "yC0")
+(mithril/host-unary
+:operator "-"
+:value (mithril/local
+:name "yC17"))])
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL546"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC4"))
+:key (mithril/local
+:name "yC5")
+:args [(mithril/host-get
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC6"))]))
+(mithril/host-undefined)])])])])])
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-logical
+:operator "&&"
+:left (mithril/host-logical
+:operator "||"
+:left (mithril/host-binary
+:operator "==="
+:left (mithril/host-get
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC18"))
+:right (mithril/local
+:name "yL548"))
+:right (mithril/host-binary
+:operator ">"
+:left (mithril/host-get
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC27"))
+:right (mithril/local
+:name "yL531")))
+:right (mithril/host-binary
+:operator "!=="
+:left (mithril/local
+:name "yL546")
+:right (mithril/local
+:name "yC9")))
+:then (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC14"))
+:args [(mithril/local
+:name "yL530")
+(mithril/literal
+:datatype "js-value"
+:value "bad indentation of a mapping entry")])
+:else (mithril/if
+:condition (mithril/host-binary
+:operator "<"
+:left (mithril/host-get
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC27"))
+:right (mithril/local
+:name "yL531"))
+:then (mithril/host-break)
+:else (mithril/host-undefined)))
+(mithril/host-undefined)])])]))])
+:result (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/local
+:name "yL544")
+:then (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC22"))
+:args [(mithril/local
+:name "yL530")
+(mithril/local
+:name "yL539")
+(mithril/local
+:name "yL540")
+(mithril/local
+:name "yL541")
+(mithril/local
+:name "yL542")
+(mithril/local
+:name "yC3")
+(mithril/local
+:name "yL534")
+(mithril/local
+:name "yL535")
+(mithril/local
+:name "yL536")])
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/local
+:name "yL545")
+:then (mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC1")
+:value (mithril/local
+:name "yL537"))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC2")
+:value (mithril/local
+:name "yL538"))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC11")
+:value (mithril/local
+:name "yC12"))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/local
+:name "yL530")
+:key (mithril/local
+:name "yC13")
+:value (mithril/local
+:name "yL539"))
+(mithril/host-undefined)])])])])
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/local
+:name "yL545"))
+(mithril/host-undefined)])])])]))])]))
+:statements true)))
+(rdf/node
+:name "yamlLoaderFactory35"
+:value (mithril/native-function
+:name nil
+:params [(rdf/node
+:name "yamlCapturedScope"
+:datatype "js-value")]
+:rest nil
+:body (mithril/native-function
+:name "readTagProperty"
+:params [(rdf/node
+:name "yL549"
+:datatype "js-value")]
+:rest nil
+:body (mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "yL550"
+:value (mithril/local
+:name "yC7")
+:mutable true)
+(rdf/node
+:pattern "yL551"
+:value (mithril/local
+:name "yC7")
+:mutable true)
+(rdf/node
+:pattern "yL552"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:pattern "yL553"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:pattern "yL554"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yL549")
+:key (mithril/local
+:name "yC4"))
+:key (mithril/local
+:name "yC5")
+:args [(mithril/host-get
+:object (mithril/local
+:name "yL549")
+:key (mithril/local
+:name "yC6"))])
+:mutable true)]
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "!=="
+:left (mithril/local
+:name "yL554")
+:right (mithril/local
+:name "yC32"))
+:then (mithril/host-return
+:value (mithril/local
+:name "yC7"))
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "!=="
+:left (mithril/host-get
+:object (mithril/local
+:name "yL549")
+:key (mithril/local
+:name "yC1"))
+:right (mithril/local
+:name "yC3"))
+:then (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC14"))
+:args [(mithril/local
+:name "yL549")
+(mithril/literal
+:datatype "js-value"
+:value "duplication of a tag property")])
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL554"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yL549")
+:key (mithril/local
+:name "yC4"))
+:key (mithril/local
+:name "yC5")
+:args [(mithril/host-update
+:object (mithril/local
+:name "yL549")
+:key (mithril/local
+:name "yC6")
+:operator "++"
+:prefix true)]))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "yL554")
+:right (mithril/literal
+:datatype "js-value"
+:value 60))
+:then (mithril/sequence
+:expressions [(mithril/local-set
+:name "yL550"
+:value (mithril/local
+:name "yC0"))
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL554"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yL549")
+:key (mithril/local
+:name "yC4"))
+:key (mithril/local
+:name "yC5")
+:args [(mithril/host-update
+:object (mithril/local
+:name "yL549")
+:key (mithril/local
+:name "yC6")
+:operator "++"
+:prefix true)]))
+(mithril/host-undefined)])])
+:else (mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "yL554")
+:right (mithril/local
+:name "yC32"))
+:then (mithril/sequence
+:expressions [(mithril/local-set
+:name "yL551"
+:value (mithril/local
+:name "yC0"))
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL552"
+:value (mithril/literal
+:datatype "js-value"
+:value "!!"))
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL554"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yL549")
+:key (mithril/local
+:name "yC4"))
+:key (mithril/local
+:name "yC5")
+:args [(mithril/host-update
+:object (mithril/local
+:name "yL549")
+:key (mithril/local
+:name "yC6")
+:operator "++"
+:prefix true)]))
+(mithril/host-undefined)])])])
+:else (mithril/local-set
+:name "yL552"
+:value (mithril/local
+:name "yC33"))))
+(mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "yL555"
+:value (mithril/host-get
+:object (mithril/local
+:name "yL549")
+:key (mithril/local
+:name "yC6"))
+:mutable true)]
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/local
+:name "yL550")
+:then (mithril/sequence
+:expressions [(mithril/host-do-while
+:condition (mithril/host-logical
+:operator "&&"
+:left (mithril/host-binary
+:operator "!=="
+:left (mithril/local
+:name "yL554")
+:right (mithril/local
+:name "yC9"))
+:right (mithril/host-binary
+:operator "!=="
+:left (mithril/local
+:name "yL554")
+:right (mithril/literal
+:datatype "js-value"
+:value 62)))
+:body (mithril/local-set
+:name "yL554"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yL549")
+:key (mithril/local
+:name "yC4"))
+:key (mithril/local
+:name "yC5")
+:args [(mithril/host-update
+:object (mithril/local
+:name "yL549")
+:key (mithril/local
+:name "yC6")
+:operator "++"
+:prefix true)]))
+:result (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "<"
+:left (mithril/host-get
+:object (mithril/local
+:name "yL549")
+:key (mithril/local
+:name "yC6"))
+:right (mithril/host-get
+:object (mithril/local
+:name "yL549")
+:key (mithril/literal
+:datatype "js-value"
+:value "length")))
+:then (mithril/sequence
+:expressions [(mithril/local-set
+:name "yL553"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yL549")
+:key (mithril/local
+:name "yC4"))
+:key (mithril/local
+:name "yC34")
+:args [(mithril/local
+:name "yL555")
+(mithril/host-get
+:object (mithril/local
+:name "yL549")
+:key (mithril/local
+:name "yC6"))]))
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL554"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yL549")
+:key (mithril/local
+:name "yC4"))
+:key (mithril/local
+:name "yC5")
+:args [(mithril/host-update
+:object (mithril/local
+:name "yL549")
+:key (mithril/local
+:name "yC6")
+:operator "++"
+:prefix true)]))
+(mithril/host-undefined)])])
+:else (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC14"))
+:args [(mithril/local
+:name "yL549")
+(mithril/literal
+:datatype "js-value"
+:value "unexpected end of the stream within a verbatim tag")]))
+(mithril/host-undefined)])])
+:else (mithril/sequence
+:expressions [(mithril/host-while
+:condition (mithril/host-logical
+:operator "&&"
+:left (mithril/host-binary
+:operator "!=="
+:left (mithril/local
+:name "yL554")
+:right (mithril/local
+:name "yC9"))
+:right (mithril/host-unary
+:operator "!"
+:value (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC16"))
+:args [(mithril/local
+:name "yL554")])))
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "yL554")
+:right (mithril/local
+:name "yC32"))
+:then (mithril/if
+:condition (mithril/host-unary
+:operator "!"
+:value (mithril/local
+:name "yL551"))
+:then (mithril/sequence
+:expressions [(mithril/local-set
+:name "yL552"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yL549")
+:key (mithril/local
+:name "yC4"))
+:key (mithril/local
+:name "yC34")
+:args [(mithril/host-binary
+:operator "-"
+:left (mithril/local
+:name "yL555")
+:right (mithril/local
+:name "yC17"))
+(mithril/host-binary
+:operator "+"
+:left (mithril/host-get
+:object (mithril/local
+:name "yL549")
+:key (mithril/local
+:name "yC6"))
+:right (mithril/local
+:name "yC17"))]))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-unary
+:operator "!"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/literal
+:datatype "js-value"
+:value "yL328"))
+:key (mithril/local
+:name "yC35")
+:args [(mithril/local
+:name "yL552")]))
+:then (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC14"))
+:args [(mithril/local
+:name "yL549")
+(mithril/literal
+:datatype "js-value"
+:value "named tag handle cannot contain such characters")])
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL551"
+:value (mithril/local
+:name "yC0"))
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL555"
+:value (mithril/host-binary
+:operator "+"
+:left (mithril/host-get
+:object (mithril/local
+:name "yL549")
+:key (mithril/local
+:name "yC6"))
+:right (mithril/local
+:name "yC17")))
+(mithril/host-undefined)])])])])
+:else (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC14"))
+:args [(mithril/local
+:name "yL549")
+(mithril/literal
+:datatype "js-value"
+:value "tag suffix cannot contain exclamation marks")]))
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL554"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yL549")
+:key (mithril/local
+:name "yC4"))
+:key (mithril/local
+:name "yC5")
+:args [(mithril/host-update
+:object (mithril/local
+:name "yL549")
+:key (mithril/local
+:name "yC6")
+:operator "++"
+:prefix true)]))
+(mithril/host-undefined)])])
+:result (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL553"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yL549")
+:key (mithril/local
+:name "yC4"))
+:key (mithril/local
+:name "yC34")
+:args [(mithril/local
+:name "yL555")
+(mithril/host-get
+:object (mithril/local
+:name "yL549")
+:key (mithril/local
+:name "yC6"))]))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/literal
+:datatype "js-value"
+:value "yL327"))
+:key (mithril/local
+:name "yC35")
+:args [(mithril/local
+:name "yL553")])
+:then (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC14"))
+:args [(mithril/local
+:name "yL549")
+(mithril/literal
+:datatype "js-value"
+:value "tag suffix cannot contain flow indicator characters")])
+:else (mithril/host-undefined))
+(mithril/host-undefined)])])]))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-logical
+:operator "&&"
+:left (mithril/local
+:name "yL553")
+:right (mithril/host-unary
+:operator "!"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/literal
+:datatype "js-value"
+:value "yL329"))
+:key (mithril/local
+:name "yC35")
+:args [(mithril/local
+:name "yL553")])))
+:then (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC14"))
+:args [(mithril/local
+:name "yL549")
+(mithril/host-binary
+:operator "+"
+:left (mithril/literal
+:datatype "js-value"
+:value "tag name cannot contain such characters: ")
+:right (mithril/local
+:name "yL553"))])
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/host-try-catch
+:body (mithril/sequence
+:expressions [(mithril/local-set
+:name "yL553"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "decodeURIComponent")
+:args [(mithril/local
+:name "yL553")]))
+(mithril/host-undefined)])
+:binding "yL556"
+:handler (mithril/sequence
+:expressions [(mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC14"))
+:args [(mithril/local
+:name "yL549")
+(mithril/host-binary
+:operator "+"
+:left (mithril/literal
+:datatype "js-value"
+:value "tag name is malformed: ")
+:right (mithril/local
+:name "yL553"))])
+(mithril/host-undefined)]))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/local
+:name "yL550")
+:then (mithril/host-set
+:object (mithril/local
+:name "yL549")
+:key (mithril/local
+:name "yC1")
+:value (mithril/local
+:name "yL553"))
+:else (mithril/if
+:condition (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/literal
+:datatype "js-value"
+:value "yL317"))
+:key (mithril/literal
+:datatype "js-value"
+:value "call")
+:args [(mithril/host-get
+:object (mithril/local
+:name "yL549")
+:key (mithril/literal
+:datatype "js-value"
+:value "tagMap"))
+(mithril/local
+:name "yL552")])
+:then (mithril/host-set
+:object (mithril/local
+:name "yL549")
+:key (mithril/local
+:name "yC1")
+:value (mithril/host-binary
+:operator "+"
+:left (mithril/host-get
+:object (mithril/host-get
+:object (mithril/local
+:name "yL549")
+:key (mithril/literal
+:datatype "js-value"
+:value "tagMap"))
+:key (mithril/local
+:name "yL552"))
+:right (mithril/local
+:name "yL553")))
+:else (mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "yL552")
+:right (mithril/local
+:name "yC33"))
+:then (mithril/host-set
+:object (mithril/local
+:name "yL549")
+:key (mithril/local
+:name "yC1")
+:value (mithril/host-binary
+:operator "+"
+:left (mithril/local
+:name "yC33")
+:right (mithril/local
+:name "yL553")))
+:else (mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "yL552")
+:right (mithril/literal
+:datatype "js-value"
+:value "!!"))
+:then (mithril/host-set
+:object (mithril/local
+:name "yL549")
+:key (mithril/local
+:name "yC1")
+:value (mithril/host-binary
+:operator "+"
+:left (mithril/literal
+:datatype "js-value"
+:value "tag:yaml.org,2002:")
+:right (mithril/local
+:name "yL553")))
+:else (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC14"))
+:args [(mithril/local
+:name "yL549")
+(mithril/host-binary
+:operator "+"
+:left (mithril/host-binary
+:operator "+"
+:left (mithril/literal
+:datatype "js-value"
+:value "undeclared tag handle \"")
+:right (mithril/local
+:name "yL552"))
+:right (mithril/literal
+:datatype "js-value"
+:value "\""))])))))
+(mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/local
+:name "yC0"))
+(mithril/host-undefined)])])])])]))])])])]))
+:statements true)))
+(rdf/node
+:name "yamlLoaderFactory36"
+:value (mithril/native-function
+:name nil
+:params [(rdf/node
+:name "yamlCapturedScope"
+:datatype "js-value")]
+:rest nil
+:body (mithril/native-function
+:name "readAnchorProperty"
+:params [(rdf/node
+:name "yL557"
+:datatype "js-value")]
+:rest nil
+:body (mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "yL558"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yL557")
+:key (mithril/local
+:name "yC4"))
+:key (mithril/local
+:name "yC5")
+:args [(mithril/host-get
+:object (mithril/local
+:name "yL557")
+:key (mithril/local
+:name "yC6"))])
+:mutable true)]
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "!=="
+:left (mithril/local
+:name "yL558")
+:right (mithril/literal
+:datatype "js-value"
+:value 38))
+:then (mithril/host-return
+:value (mithril/local
+:name "yC7"))
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "!=="
+:left (mithril/host-get
+:object (mithril/local
+:name "yL557")
+:key (mithril/local
+:name "yC2"))
+:right (mithril/local
+:name "yC3"))
+:then (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC14"))
+:args [(mithril/local
+:name "yL557")
+(mithril/literal
+:datatype "js-value"
+:value "duplication of an anchor property")])
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL558"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yL557")
+:key (mithril/local
+:name "yC4"))
+:key (mithril/local
+:name "yC5")
+:args [(mithril/host-update
+:object (mithril/local
+:name "yL557")
+:key (mithril/local
+:name "yC6")
+:operator "++"
+:prefix true)]))
+(mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "yL559"
+:value (mithril/host-get
+:object (mithril/local
+:name "yL557")
+:key (mithril/local
+:name "yC6")))]
+:body (mithril/sequence
+:expressions [(mithril/host-while
+:condition (mithril/host-logical
+:operator "&&"
+:left (mithril/host-logical
+:operator "&&"
+:left (mithril/host-binary
+:operator "!=="
+:left (mithril/local
+:name "yL558")
+:right (mithril/local
+:name "yC9"))
+:right (mithril/host-unary
+:operator "!"
+:value (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC16"))
+:args [(mithril/local
+:name "yL558")])))
+:right (mithril/host-unary
+:operator "!"
+:value (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/literal
+:datatype "js-value"
+:value "yL337"))
+:args [(mithril/local
+:name "yL558")])))
+:body (mithril/local-set
+:name "yL558"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yL557")
+:key (mithril/local
+:name "yC4"))
+:key (mithril/local
+:name "yC5")
+:args [(mithril/host-update
+:object (mithril/local
+:name "yL557")
+:key (mithril/local
+:name "yC6")
+:operator "++"
+:prefix true)]))
+:result (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/host-get
+:object (mithril/local
+:name "yL557")
+:key (mithril/local
+:name "yC6"))
+:right (mithril/local
+:name "yL559"))
+:then (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC14"))
+:args [(mithril/local
+:name "yL557")
+(mithril/literal
+:datatype "js-value"
+:value "name of an anchor node must contain at least one character")])
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/local
+:name "yL557")
+:key (mithril/local
+:name "yC2")
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yL557")
+:key (mithril/local
+:name "yC4"))
+:key (mithril/local
+:name "yC34")
+:args [(mithril/local
+:name "yL559")
+(mithril/host-get
+:object (mithril/local
+:name "yL557")
+:key (mithril/local
+:name "yC6"))]))
+(mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/local
+:name "yC0"))
+(mithril/host-undefined)])])])]))])])]))
+:statements true)))
+(rdf/node
+:name "yamlLoaderFactory37"
+:value (mithril/native-function
+:name nil
+:params [(rdf/node
+:name "yamlCapturedScope"
+:datatype "js-value")]
+:rest nil
+:body (mithril/native-function
+:name "readAlias"
+:params [(rdf/node
+:name "yL560"
+:datatype "js-value")]
+:rest nil
+:body (mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "yL561"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yL560")
+:key (mithril/local
+:name "yC4"))
+:key (mithril/local
+:name "yC5")
+:args [(mithril/host-get
+:object (mithril/local
+:name "yL560")
+:key (mithril/local
+:name "yC6"))])
+:mutable true)]
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "!=="
+:left (mithril/local
+:name "yL561")
+:right (mithril/literal
+:datatype "js-value"
+:value 42))
+:then (mithril/host-return
+:value (mithril/local
+:name "yC7"))
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL561"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yL560")
+:key (mithril/local
+:name "yC4"))
+:key (mithril/local
+:name "yC5")
+:args [(mithril/host-update
+:object (mithril/local
+:name "yL560")
+:key (mithril/local
+:name "yC6")
+:operator "++"
+:prefix true)]))
+(mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "yL562"
+:value (mithril/host-get
+:object (mithril/local
+:name "yL560")
+:key (mithril/local
+:name "yC6")))]
+:body (mithril/sequence
+:expressions [(mithril/host-while
+:condition (mithril/host-logical
+:operator "&&"
+:left (mithril/host-logical
+:operator "&&"
+:left (mithril/host-binary
+:operator "!=="
+:left (mithril/local
+:name "yL561")
+:right (mithril/local
+:name "yC9"))
+:right (mithril/host-unary
+:operator "!"
+:value (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC16"))
+:args [(mithril/local
+:name "yL561")])))
+:right (mithril/host-unary
+:operator "!"
+:value (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/literal
+:datatype "js-value"
+:value "yL337"))
+:args [(mithril/local
+:name "yL561")])))
+:body (mithril/local-set
+:name "yL561"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yL560")
+:key (mithril/local
+:name "yC4"))
+:key (mithril/local
+:name "yC5")
+:args [(mithril/host-update
+:object (mithril/local
+:name "yL560")
+:key (mithril/local
+:name "yC6")
+:operator "++"
+:prefix true)]))
+:result (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/host-get
+:object (mithril/local
+:name "yL560")
+:key (mithril/local
+:name "yC6"))
+:right (mithril/local
+:name "yL562"))
+:then (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC14"))
+:args [(mithril/local
+:name "yL560")
+(mithril/literal
+:datatype "js-value"
+:value "name of an alias node must contain at least one character")])
+:else (mithril/host-undefined))
+(mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "yL563"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yL560")
+:key (mithril/local
+:name "yC4"))
+:key (mithril/local
+:name "yC34")
+:args [(mithril/local
+:name "yL562")
+(mithril/host-get
+:object (mithril/local
+:name "yL560")
+:key (mithril/local
+:name "yC6"))]))]
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-unary
+:operator "!"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/literal
+:datatype "js-value"
+:value "yL317"))
+:key (mithril/literal
+:datatype "js-value"
+:value "call")
+:args [(mithril/host-get
+:object (mithril/local
+:name "yL560")
+:key (mithril/literal
+:datatype "js-value"
+:value "anchorMap"))
+(mithril/local
+:name "yL563")]))
+:then (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC14"))
+:args [(mithril/local
+:name "yL560")
+(mithril/host-binary
+:operator "+"
+:left (mithril/host-binary
+:operator "+"
+:left (mithril/literal
+:datatype "js-value"
+:value "unidentified alias \"")
+:right (mithril/local
+:name "yL563"))
+:right (mithril/literal
+:datatype "js-value"
+:value "\""))])
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/local
+:name "yL560")
+:key (mithril/local
+:name "yC13")
+:value (mithril/host-get
+:object (mithril/host-get
+:object (mithril/local
+:name "yL560")
+:key (mithril/literal
+:datatype "js-value"
+:value "anchorMap"))
+:key (mithril/local
+:name "yL563")))
+(mithril/sequence
+:expressions [(mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/local
+:name "yC10"))
+:args [(mithril/local
+:name "yL560")
+(mithril/local
+:name "yC0")
+(mithril/host-unary
+:operator "-"
+:value (mithril/local
+:name "yC17"))])
+(mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/local
+:name "yC0"))
+(mithril/host-undefined)])])])]))])]))])]))
+:statements true)))
+(rdf/node
+:name "yamlLoaderFactory38"
+:value (mithril/native-function
+:name nil
+:params [(rdf/node
+:name "yamlCapturedScope"
+:datatype "js-value")]
+:rest nil
+:body (mithril/native-function
+:name "tryReadBlockMappingFromProperty"
+:params [(rdf/node
+:name "yL564"
+:datatype "js-value")
+(rdf/node
+:name "yL565"
+:datatype "js-value")
+(rdf/node
+:name "yL566"
+:datatype "js-value")
+(rdf/node
+:name "yL567"
+:datatype "js-value")]
+:rest nil
+:body (mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "yL568"
+:value (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/literal
+:datatype "js-value"
+:value "yL352"))
+:args [(mithril/local
+:name "yL564")]))]
+:body (mithril/sequence
+:expressions [(mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/literal
+:datatype "js-value"
+:value "yL349"))
+:args [(mithril/local
+:name "yL564")])
+(mithril/sequence
+:expressions [(mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/literal
+:datatype "js-value"
+:value "yL353"))
+:args [(mithril/local
+:name "yL564")
+(mithril/local
+:name "yL565")])
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/local
+:name "yL564")
+:key (mithril/local
+:name "yC1")
+:value (mithril/local
+:name "yC3"))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/local
+:name "yL564")
+:key (mithril/local
+:name "yC2")
+:value (mithril/local
+:name "yC3"))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/local
+:name "yL564")
+:key (mithril/local
+:name "yC11")
+:value (mithril/local
+:name "yC3"))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/local
+:name "yL564")
+:key (mithril/local
+:name "yC13")
+:value (mithril/local
+:name "yC3"))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-logical
+:operator "&&"
+:left (mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/literal
+:datatype "js-value"
+:value "yL367"))
+:args [(mithril/local
+:name "yL564")
+(mithril/local
+:name "yL566")
+(mithril/local
+:name "yL567")])
+:right (mithril/host-binary
+:operator "==="
+:left (mithril/host-get
+:object (mithril/local
+:name "yL564")
+:key (mithril/local
+:name "yC11"))
+:right (mithril/local
+:name "yC12")))
+:then (mithril/sequence
+:expressions [(mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/literal
+:datatype "js-value"
+:value "yL350"))
+:args [(mithril/local
+:name "yL564")])
+(mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/local
+:name "yC0"))
+(mithril/host-undefined)])])
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/literal
+:datatype "js-value"
+:value "yL351"))
+:args [(mithril/local
+:name "yL564")])
+(mithril/sequence
+:expressions [(mithril/host-invoke
+:function (mithril/host-get
+:object (mithril/local
+:name "yamlCapturedScope")
+:key (mithril/literal
+:datatype "js-value"
+:value "yL353"))
+:args [(mithril/local
+:name "yL564")
+(mithril/local
+:name "yL568")])
+(mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/local
+:name "yC7"))
+(mithril/host-undefined)])])])])])])])])])]))
+:statements true)))]
+:exports [(rdf/node
+:name "yamlLoaderFactory31"
+:value (mithril/local
+:name "yamlLoaderFactory31"))
+(rdf/node
+:name "yamlLoaderFactory32"
+:value (mithril/local
+:name "yamlLoaderFactory32"))
+(rdf/node
+:name "yamlLoaderFactory33"
+:value (mithril/local
+:name "yamlLoaderFactory33"))
+(rdf/node
+:name "yamlLoaderFactory34"
+:value (mithril/local
+:name "yamlLoaderFactory34"))
+(rdf/node
+:name "yamlLoaderFactory35"
+:value (mithril/local
+:name "yamlLoaderFactory35"))
+(rdf/node
+:name "yamlLoaderFactory36"
+:value (mithril/local
+:name "yamlLoaderFactory36"))
+(rdf/node
+:name "yamlLoaderFactory37"
+:value (mithril/local
+:name "yamlLoaderFactory37"))
+(rdf/node
+:name "yamlLoaderFactory38"
+:value (mithril/local
+:name "yamlLoaderFactory38"))]
+:lexical_bindings true)
