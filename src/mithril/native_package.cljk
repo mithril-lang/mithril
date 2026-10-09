@@ -62,7 +62,10 @@
     (= :local (:op value)) [module-name :binding (:name value)]
     (= :import (:op value))
     (if-let [link (first (filter #(= (:name value) (get % "import")) (:links m)))]
-     (binding-origin modules (get link "module") (get link "export") (conj seen key))
+     (if (= "*" (get link "export"))
+      (let [target (get modules (get link "module"))]
+       [(if (:external target) (:specifier target) (get link "module")) :namespace "*"])
+      (binding-origin modules (get link "module") (get link "export") (conj seen key)))
      [module-name :export public-name])
     :else [module-name :export public-name]))))
 (defn export-origin
@@ -118,7 +121,7 @@
       (doseq [link (get m "links")]
         (shape! link ["import" "module" "export"])
         (identifier! (get link "import")) (name! (get link "module"))
-        (identifier! (get link "export")))
+        (when-not (and esm? (= "*" (get link "export"))) (identifier! (get link "export"))))
       (unique! (mapv #(get % "import") (get m "links")))
       (when (and esm? (some #(not (some #{(get % "module")} (get m "dependencies"))) (get m "links")))
         (fail! :mithril.native-package/link "Named links must occur in the ordered dependency list")))
@@ -144,7 +147,9 @@
           (when (some #{(get link "import")} (:ambient-imports m))
             (fail! :mithril.native-package/link "Ambient imports cannot also be linked imports"))
           (when-not (and (some #{(get link "import")} (:imports m))
-                        (some #{(get link "export")} (:exports (get modules (get link "module")))))
+                        (contains? modules (get link "module"))
+                        (or (and esm? (= "*" (get link "export")))
+                            (some #{(get link "export")} (:exports (get modules (get link "module"))))))
             (fail! :mithril.native-package/link "Unknown import, module or export in link")))
         (doseq [n (:imports m)]
           (when-not (some #(= n (get % "import")) (:links m)) (swap! required conj n))))

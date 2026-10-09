@@ -1,0 +1,14 @@
+(mithril/native-js-esm-package :name "namespace.root" :imports []
+ :externals [(rdf/node :name "external.fixture" :specifier "fixture.external" :exports ["count" "inc" "default"])
+             (rdf/node :name "external.cjs" :specifier "fixture.cjs" :exports [])
+             (rdf/node :name "external.yaml" :specifier "js-yaml" :exports [])]
+ :modules [(rdf/node :name "namespace.root" :source "root.mith"
+  :dependencies ["external.fixture" "external.cjs" "external.yaml" "namespace.leaf"]
+  :links [(rdf/node :import "ns" :module "external.fixture" :export "*")
+          (rdf/node :import "again" :module "external.fixture" :export "*")
+          (rdf/node :import "count" :module "external.fixture" :export "count")
+          (rdf/node :import "cjs" :module "external.cjs" :export "*")
+          (rdf/node :import "yaml" :module "external.yaml" :export "*")
+          (rdf/node :import "leaf" :module "namespace.leaf" :export "*")])
+          (rdf/node :name "namespace.leaf" :source "leaf.mith" :dependencies ["namespace.root"] :links [(rdf/node :import "rootNs" :module "namespace.root" :export "*")])]
+ :reexports ["namespace.root"])

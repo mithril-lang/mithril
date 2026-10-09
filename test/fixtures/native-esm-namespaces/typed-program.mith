@@ -1,0 +1,4 @@
+(mithril/native-js-declaration-program :name "namespace.typed" :runtime-source "typed-esm.mith"
+ :modules [(rdf/node :name "namespace.typed" :source "typed-types.mith")]
+ :externals [(rdf/node :name "external.fixture" :specifier "fixture.external" :types [] :values ["count" "inc" "default"])]
+ :entry "namespace.typed")
