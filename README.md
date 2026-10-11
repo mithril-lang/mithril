@@ -10,6 +10,8 @@ compression, Zstd/gzip, exact RDF-term reconstruction and Arrow/Parquet intercha
 - [Published specification site](https://mithril-lang.github.io/mithril/dataset/)
 - [Versioned specification and conformance vectors](spec/README.md)
 - [Python Quickstart](docs/dataset/quickstart.md)
+- [Data lake comparison article](docs/dataset/comparison.md)
+- [Formats, catalogs and engines reference](docs/dataset/catalog-engine-reference.md)
 - [Implementation status and roadmap](spec/implementation-status.md)
 - [Release announcement](docs/dataset/announcement.md)
 

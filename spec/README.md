@@ -14,6 +14,8 @@ lake catalog have not been released.
 - [Versioning and contributions](governance.md).
 - [Implementation status](implementation-status.md).
 - [Quickstart](../docs/dataset/quickstart.md).
+- [Where Mithril fits in a modern data lake](../docs/dataset/comparison.md).
+- [Formats, catalogs and engines comparison](../docs/dataset/catalog-engine-reference.md).
 - [Release announcement](../docs/dataset/announcement.md).
 - [JSON Schema](v0.1/bundle.schema.json) and [test vectors](v0.1/vectors/README.md).
 
