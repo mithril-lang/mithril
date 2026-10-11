@@ -1,0 +1,314 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Data lake formats, catalogs and engines: an engineering comparison</title><style>body{font:17px/1.6 system-ui;max-width:1000px;margin:40px auto;padding:0 24px;color:#182230}a{color:#155ac2}pre{overflow:auto;background:#f2f4f7;padding:18px}code{font-size:.9em}table{border-collapse:collapse}td,th{border:1px solid #ccd3dd;padding:8px;text-align:left}blockquote{border-left:4px solid #ccd3dd;margin-left:0;padding-left:18px}</style><nav><a href="../../index.html">Mithril Dataset</a> · <a href="https://github.com/mithril-lang/mithril/tree/main/spec">Source and revisions</a></nav><main><h1>Data lake formats, catalogs and engines: an engineering comparison</h1>
+<p>Scope: Mithril Dataset publication 0.1, source-checked on 2026-10-11.
+This is an advisory guide, not a conformance specification or a performance
+ranking. External <code>latest</code>/<code>current</code> documentation links may change; pin exact
+versions and enabled features before validating a deployment. No catalog or
+distributed-engine integration was executed for this comparison.</p>
+<p>Read <a href="comparison.html">the introductory article</a> for the architecture and
+<a href="../../spec/implementation-status.html">implementation status</a> for release boundaries.</p>
+<h2>Representations and table formats</h2>
+<table>
+<thead>
+<tr>
+<th>Technology</th>
+<th>Main responsibility</th>
+<th>Relevant behavior</th>
+<th>Relationship to Mithril</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://parquet.apache.org/docs/overview/">Parquet</a></td>
+<td>Columnar data files</td>
+<td>Column-oriented storage and encodings; no table commit service by itself</td>
+<td>Implemented materialized export/import using the Mithril quad profile</td>
+</tr>
+<tr>
+<td><a href="https://arrow.apache.org/docs/format/Columnar.html">Arrow</a></td>
+<td>Columnar memory and interchange</td>
+<td>Typed arrays and serialization/transport contracts</td>
+<td>Implemented UTF-8 quad table; no compressed-model zero-copy reader</td>
+</tr>
+<tr>
+<td><a href="https://iceberg.apache.org/spec/">Iceberg</a></td>
+<td>Versioned analytic tables</td>
+<td>Snapshots, manifests, schema and partition evolution over data files</td>
+<td>Proposed pinned-snapshot sidecar and materialized output; no connector</td>
+</tr>
+<tr>
+<td><a href="https://github.com/delta-io/delta/blob/master/PROTOCOL.html">Delta Lake</a></td>
+<td>Transactional table protocol</td>
+<td>Versioned transaction log, snapshots and feature-dependent reader/writer requirements</td>
+<td>No Delta adapter; a Parquet export alone is not a Delta table</td>
+</tr>
+<tr>
+<td><a href="https://hudi.apache.org/docs/overview/">Hudi</a></td>
+<td>Mutable lake tables and ingestion</td>
+<td>Updates and incremental processing; <a href="https://hudi.apache.org/docs/table_types/">Copy-on-Write/Merge-on-Read</a> tradeoffs</td>
+<td>No Hudi adapter; a Parquet export alone is not a Hudi table</td>
+</tr>
+<tr>
+<td><a href="../../spec/v0.1/specification.html">Mithril Dataset</a></td>
+<td>Finite RDF-term storage representation</td>
+<td>Model/literal segments, exact exceptions, Zstd/gzip and checked digests</td>
+<td>Experimental reference SDK; transaction/catalog/remote-reader features proposed</td>
+</tr>
+</tbody>
+</table>
+<p>Use Parquet for a file requirement and a table format for a committed table
+requirement. Evaluate table formats using your update pattern, retention policy
+and verified engine support. Mithril's current comparison axis is representation
+and semantic preservation, not production transactional parity.</p>
+<h3>Compression and indexes</h3>
+<table>
+<thead>
+<tr>
+<th>Mechanism</th>
+<th>Mithril 0.1</th>
+<th>Operational implication</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Structural compression</td>
+<td>Finite model operations and exact exceptions</td>
+<td>Benefit depends on regularity; irregular data can be larger</td>
+</tr>
+<tr>
+<td>Byte compression</td>
+<td>Independent Zstd or gzip stream per inline segment</td>
+<td>Count base64, manifests and hashes in stored bytes</td>
+</tr>
+<tr>
+<td>Term dictionary</td>
+<td>Implemented per literal segment</td>
+<td>Distinct from a trained codec dictionary</td>
+</tr>
+<tr>
+<td>Subject pruning</td>
+<td>Verified Node handle selects segments; Python revalidates per call</td>
+<td>Warm selection is not a cold remote query</td>
+</tr>
+<tr>
+<td>Remote or general query index</td>
+<td>S3 range reads and condition/column pushdown proposed</td>
+<td>No demonstrated network-byte reduction or general SPARQL index</td>
+</tr>
+<tr>
+<td>Automatic whole-dataset fallback</td>
+<td>Proposed</td>
+<td>Current segment selection can still lose to whole-source Zstd</td>
+</tr>
+</tbody>
+</table>
+<p>Parquet encodings and internal codecs are separate choices from table metadata
+and engine query planning. Do not wrap a whole Parquet file in external Zstd
+and assume ordinary Parquet readers retain their seek behavior. The SDK uses
+Parquet's internal Zstd level 6.
+<a href="https://parquet.apache.org/docs/file-format/data-pages/compression/">Codec documentation</a>.</p>
+<h2>Catalogs: identify the authority you need</h2>
+<p>“Catalog” can mean a table lookup/commit API, a governed asset service, a discovery
+index, or an engine's named connector configuration. These roles can coexist.
+The entries below compare responsibilities, not equivalent feature packages.</p>
+<table>
+<thead>
+<tr>
+<th>System</th>
+<th>Role and documented focus</th>
+<th>Integration consideration</th>
+<th>Mithril support</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://iceberg.apache.org/rest-catalog-spec/">Iceberg REST Catalog API</a></td>
+<td>Protocol for table metadata and catalog operations</td>
+<td>Select an implementation, authentication and supported API features</td>
+<td>Proposed integration target; no client</td>
+</tr>
+<tr>
+<td><a href="https://polaris.apache.org/">Apache Polaris</a></td>
+<td>Open Iceberg catalog implementing the REST API</td>
+<td>Candidate when a shared Iceberg catalog is required; validate engine and access configuration</td>
+<td>No tested connector</td>
+</tr>
+<tr>
+<td><a href="https://projectnessie.org/">Project Nessie</a></td>
+<td>Transactional catalog with branches, tags and commits</td>
+<td>Pin catalog reference/hash as well as table snapshot; distinguish catalog versions from table versions</td>
+<td>No tested connector</td>
+</tr>
+<tr>
+<td><a href="https://docs.aws.amazon.com/glue/latest/dg/catalog-and-crawler.html">AWS Glue Data Catalog</a></td>
+<td>Managed metadata catalog integrated with AWS analytics and Lake Formation</td>
+<td>Evaluate AWS identity, storage permissions and the exact table/client integration</td>
+<td>No tested connector</td>
+</tr>
+<tr>
+<td><a href="https://docs.databricks.com/aws/en/data-governance/unity-catalog">Databricks Unity Catalog</a></td>
+<td>Governed data and AI assets, access control, lineage and auditing</td>
+<td>This row describes Databricks; the open-source implementation has a separate capability boundary</td>
+<td>No tested connector</td>
+</tr>
+<tr>
+<td><a href="https://trino.io/docs/current/object-storage/metastores.html">Hive metastore through an Iceberg connector</a></td>
+<td>Table/metastore integration option</td>
+<td>Confirm the table format and client commit protocol, rather than relying on a table name alone</td>
+<td>No tested connector</td>
+</tr>
+<tr>
+<td><a href="https://github.com/datahub-project/datahub">DataHub OSS</a></td>
+<td>Discovery, metadata graph, lineage and governance context</td>
+<td>For this design, ingest descriptive metadata while the table system retains commit authority</td>
+<td>No metadata ingestion connector</td>
+</tr>
+<tr>
+<td>Mithril lake authority</td>
+<td>Proposed immutable dependency closure and catalog-head compare-and-swap</td>
+<td>Needs concurrency, leases, garbage collection and recovery tests</td>
+<td>Not implemented</td>
+</tr>
+</tbody>
+</table>
+<p>Nessie catalog branching should not be conflated with branching one Iceberg
+table. A discovery graph should not be assumed to perform that table's commits.
+Trino's <code>catalog</code> configuration identifies a connector; the connector can then
+use an external metastore/catalog. These distinctions determine which service
+must enforce a proposed Mithril integration's consistency rules.
+<a href="https://trino.io/docs/current/connector/iceberg.html">Trino Iceberg connector</a>.</p>
+<h2>Engines: query the representation they actually understand</h2>
+<table>
+<thead>
+<tr>
+<th>Engine</th>
+<th>Documented execution focus</th>
+<th>Path from Mithril today</th>
+<th>Unimplemented boundary</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://duckdb.org/docs/current/data/parquet/overview">DuckDB</a></td>
+<td>SQL over Parquet with projection/filter pushdown</td>
+<td>SDK export followed by local Parquet query; repository example available</td>
+<td>No native model-segment SQL scan; exported pushdown does not imply bundle pushdown</td>
+</tr>
+<tr>
+<td><a href="https://spark.apache.org/docs/latest/streaming/index.html">Spark</a></td>
+<td>Distributed processing with Structured Streaming over Spark SQL</td>
+<td>Materialize ordinary data, then use a configured standard ingestion path</td>
+<td>No Mithril DataSource or distributed model evaluator</td>
+</tr>
+<tr>
+<td><a href="https://trino.io/docs/current/connector/iceberg.html">Trino</a></td>
+<td>SQL through an Iceberg connector, supported files and catalogs</td>
+<td>Commit materialized data using an existing lake writer, then query the table</td>
+<td>No Mithril connector; no direct bundle reader</td>
+</tr>
+<tr>
+<td><a href="https://nightlies.apache.org/flink/flink-docs-stable/docs/concepts/overview/">Flink</a></td>
+<td>Stateful stream/batch processing, Table API and SQL</td>
+<td>A separately implemented pipeline could supply ordinary records</td>
+<td>No Mithril source/sink, streaming decoder or tested checkpoint integration</td>
+</tr>
+<tr>
+<td>Mithril reference runtime</td>
+<td>Profile validation, reconstruction and subject selection</td>
+<td>Node evaluator; Python SDK delegates to Node</td>
+<td>No distributed SQL optimizer or general SPARQL endpoint in this SDK</td>
+</tr>
+</tbody>
+</table>
+<p>The existing DuckDB demo uses version 1.4.1. Other rows describe architectural
+paths, not verified adapters. Engine support for a table format varies with the
+connector version and table features; check reads and writes separately. No
+relative throughput or latency claim is made here.</p>
+<h2>Integration recipes and maturity</h2>
+<h3>1. Local RDF-to-Parquet pilot: available now</h3>
+<p>Install the source SDK and follow <a href="quickstart.html">Quickstart</a>. Use <code>pack</code>/<code>unpack</code>
+to check the bundle, <code>to_parquet</code>/<code>from_parquet</code> to check the term-preserving
+projection, then run <code>examples/dataset/query.py</code> for SQL. Node.js 24+ is required;
+Python delegates to its evaluator. This is not an independent Python decoder.</p>
+<p>The four string columns are <code>subject</code>, <code>predicate</code>, <code>object</code>, <code>graph</code>. The default
+graph cell is the JSON string <code>null</code>, not SQL NULL. Preserve schema metadata
+<code>mithril.dataset.profile</code> and <code>mithril.dataset.envelope</code> for lossless import.
+Generic SQL output may discard it. See the
+<a href="../../spec/v0.1/arrow.html">Arrow/Parquet contract</a>.</p>
+<h3>2. Existing Iceberg with a semantic sidecar: proposed</h3>
+<p>Keep the existing catalog and Iceberg client authoritative. Pin catalog/table
+identity, table UUID, metadata location, snapshot ID, schema, partition spec,
+projection and model dependencies. For a versioned catalog, pin its reference
+and commit too. Define row-to-RDF mapping and preserve source identifiers.</p>
+<p>Store a versioned sidecar separately; its shape is not standardized by the
+published SDK. Materialize output to supported files and commit with an existing
+Iceberg writer. Missing or expired inputs must fail rather than silently read
+<code>latest</code>. Treat output commits as separate transactions; the proposed contract
+does not provide atomicity across tables, sidecars or catalogs.
+<a href="../../spec/v0.1/lake.html">Lake contract</a>.</p>
+<h3>3. Mithril-owned lake snapshots: future design</h3>
+<p>Upload and verify immutable dependencies before publishing a head through
+compare-and-swap. Define reader leases, garbage collection, compaction, update
+ordering and corruption behavior before deployment. A digest detects changed
+bytes; it is not authentication, authorization or a verified RDF canonicalization
+receipt. None of these future operations is an SDK catalog service today.</p>
+<h2>Evaluation worksheet</h2>
+<p>Record the workload and acceptance thresholds before running a pilot. Use the
+same input snapshot and distinguish a lossless quad projection from a typed
+business projection. The existing
+<a href="../benchmarks/computable-datalake-20261009.html">benchmark report</a> is historical
+evidence, not a catalog/engine benchmark suite shipped with this guide.</p>
+<table>
+<thead>
+<tr>
+<th>Dimension</th>
+<th>Record or exercise</th>
+<th>Acceptance evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Environment</td>
+<td>Hardware, runtime/SDK/engine versions, codec levels, concurrency, dataset digest and projection</td>
+<td>Reproducible run manifest</td>
+</tr>
+<tr>
+<td>Correctness</td>
+<td>Lexical literals, languages, blank-node scope, named/default graphs, empty-graph metadata, duplicate normalization</td>
+<td>Exact normalized envelope round-trip; separately pinned canonicalization if required</td>
+</tr>
+<tr>
+<td>Capacity</td>
+<td>Source + Zstd; models on/off; quad Parquet + Zstd; typed projection separately</td>
+<td>Total bytes including manifests, dictionaries, indexes, sidecars and retained dependencies</td>
+</tr>
+<tr>
+<td>Read cost</td>
+<td>Cold open, warm subject lookup, filters, full scans, conversion</td>
+<td>Repeated p50/p95, CPU and per-process memory; state cache/warmup conditions</td>
+</tr>
+<tr>
+<td>Object storage</td>
+<td>Request counts, transferred bytes, corrupted/truncated objects, stale indexes</td>
+<td>Actual remote reader evidence; mark Mithril 0.1 unsupported</td>
+</tr>
+<tr>
+<td>Transactions</td>
+<td>Conflicting writers, retries, partial upload, expiration, reader retention, compaction</td>
+<td>Exact-version integration tests; mark Mithril catalog unsupported</td>
+</tr>
+<tr>
+<td>Security</td>
+<td>Catalog denial, storage denial, credential handling, untrusted payload budgets</td>
+<td>Existing platform policies plus bounded decode; no credentials in sidecars</td>
+</tr>
+<tr>
+<td>Economics</td>
+<td>Storage, retained history, egress, compute, maintenance</td>
+<td>Measured workload cost; no generic winner</td>
+</tr>
+</tbody>
+</table>
+<p>Choose Mithril for a bounded experiment when exact RDF-term reconstruction or
+regular model structure matters. Choose an established lake stack for current
+production transaction and distributed execution requirements. Proceed to a
+Mithril lake connector pilot only after its missing acceptance gates are met.</p></main></html>

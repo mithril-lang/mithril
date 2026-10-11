@@ -1,0 +1,199 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Where Mithril Dataset fits in a modern data lake</title><style>body{font:17px/1.6 system-ui;max-width:1000px;margin:40px auto;padding:0 24px;color:#182230}a{color:#155ac2}pre{overflow:auto;background:#f2f4f7;padding:18px}code{font-size:.9em}table{border-collapse:collapse}td,th{border:1px solid #ccd3dd;padding:8px;text-align:left}blockquote{border-left:4px solid #ccd3dd;margin-left:0;padding-left:18px}</style><nav><a href="../../index.html">Mithril Dataset</a> · <a href="https://github.com/mithril-lang/mithril/tree/main/spec">Source and revisions</a></nav><main><h1>Where Mithril Dataset fits in a modern data lake</h1>
+<p>An engineering introduction, checked on 2026-10-11 against Mithril Dataset
+publication 0.1 and the primary sources linked below. This article is explanatory;
+the <a href="../../spec/v0.1/specification.html">versioned specification</a> is authoritative.</p>
+<p>Mithril Dataset offers an experimental way to preserve RDF terms and store
+repeated, finite structure as models plus exact exceptions. Engineers can use
+its reference SDK to reconstruct a dataset and export Arrow or Parquet. The
+practical adoption path is to evaluate that representation alongside an existing
+lake, while keeping established catalogs and engines responsible for production
+transactions and queries.</p>
+<h2>Start by separating the layers</h2>
+<p>“Data lake format” can describe several different responsibilities. Comparing
+products across these boundaries creates misleading feature checklists.</p>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Question it answers</th>
+<th>Examples</th>
+<th>Mithril Dataset 0.1</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Logical meaning</td>
+<td>What do these entities, terms and graphs mean?</td>
+<td>RDF vocabulary, application ontology</td>
+<td>Preserves admitted RDF terms and explicit graph metadata</td>
+</tr>
+<tr>
+<td>Stored representation</td>
+<td>How are values encoded?</td>
+<td>Parquet; Mithril model/literal segments</td>
+<td>JSON bundle with compressed inline segment payloads</td>
+</tr>
+<tr>
+<td>In-memory interchange</td>
+<td>How do libraries exchange columns?</td>
+<td>Arrow</td>
+<td>Materialized four-column Arrow projection</td>
+</tr>
+<tr>
+<td>Table state</td>
+<td>Which files belong to a committed table version?</td>
+<td>Iceberg, Delta Lake, Hudi</td>
+<td>Proposed lake contract; no released transaction layer</td>
+</tr>
+<tr>
+<td>Catalog and governance</td>
+<td>Where is a table, and who can use it?</td>
+<td>Polaris, Nessie, Glue, Unity Catalog</td>
+<td>No implemented catalog connector or permission service</td>
+</tr>
+<tr>
+<td>Execution</td>
+<td>Who plans and runs the query?</td>
+<td>Spark, Trino, Flink, DuckDB</td>
+<td>Reference evaluator and subject selection; SQL uses exported data</td>
+</tr>
+<tr>
+<td>Discovery</td>
+<td>How do people find assets and their context?</td>
+<td>DataHub</td>
+<td>Possible future metadata mapping; no connector</td>
+</tr>
+</tbody>
+</table>
+<p>Parquet defines columnar files, while Arrow defines columnar memory and transport
+representations. Neither specification alone supplies a lake transaction service.
+Iceberg adds table metadata and snapshots around data files. Its REST catalog
+API is a protocol for catalog operations, rather than a query engine.
+Sources: <a href="https://parquet.apache.org/docs/overview/">Parquet overview</a>,
+<a href="https://arrow.apache.org/docs/format/Columnar.html">Arrow format</a>,
+<a href="https://iceberg.apache.org/spec/">Iceberg table spec</a> and
+<a href="https://iceberg.apache.org/rest-catalog-spec/">REST catalog spec</a>.</p>
+<p>The <a href="catalog-engine-reference.html">engineering reference</a> compares individual
+formats, catalogs and engines and provides a workload evaluation plan.</p>
+<h2>What model compression contributes</h2>
+<p>Suppose a dataset contains many numbered devices, the same type assertion for
+each device, and a predictable ordinal value. A finite range and a value rule
+can represent that repeated structure. Explicit exceptions retain the records
+that differ. The decoder reconstructs the exact admitted tuples instead of
+approximating their values.</p>
+<p>The published profile admits finite lists/ranges, constants, integer ordinals,
+term dictionaries and exceptions. It is a bounded storage model, not arbitrary
+Jsonnet execution. Packing does not run arbitrary Mithril application source,
+access remote services or infer new RDF facts. Ontology reasoning and source
+parsing belong to separate Mithril components. See the
+<a href="../../spec/v0.1/specification.html">storage profile</a>.</p>
+<p>Zstd then compresses each model or literal payload. Structure reduction and byte
+compression serve different purposes: the model avoids spelling every repeated
+tuple; Zstd compresses the remaining bytes. Parquet also supports internal Zstd
+compression. Compare <code>Mithril model + Zstd</code> with a clearly specified
+<code>Parquet layout + Zstd</code>, including metadata, rather than comparing a compressed
+artifact with an uncompressed export.
+<a href="https://parquet.apache.org/docs/file-format/data-pages/compression/">Parquet compression reference</a>.</p>
+<p>Mithril term dictionaries are not trained Zstd dictionaries. External trained
+Zstd dictionaries and a stable binary Mithril container remain proposed.
+The current <code>.mithbundle.json</code> profile includes base64 and manifest overhead.</p>
+<h2>What the existing measurements show</h2>
+<p>The <a href="../benchmarks/computable-datalake-20261009.html">2026-10-09 local experiment</a>
+demonstrated workload dependence:</p>
+<table>
+<thead>
+<tr>
+<th>Workload</th>
+<th style="text-align: right;">Quads</th>
+<th style="text-align: right;">Whole-source Mithril + Zstd</th>
+<th style="text-align: right;">Selected segments</th>
+<th>Observation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Regular generated entities</td>
+<td style="text-align: right;">300,000</td>
+<td style="text-align: right;">188.45 KiB</td>
+<td style="text-align: right;">29.16 KiB</td>
+<td>84.5% smaller</td>
+</tr>
+<tr>
+<td>Irregular observations</td>
+<td style="text-align: right;">80,000</td>
+<td style="text-align: right;">878.06 KiB</td>
+<td style="text-align: right;">1,022.27 KiB</td>
+<td>16.4% larger</td>
+</tr>
+<tr>
+<td>CodeGraph sample</td>
+<td style="text-align: right;">12,000</td>
+<td style="text-align: right;">94.57 KiB</td>
+<td style="text-align: right;">140.85 KiB</td>
+<td>48.9% larger</td>
+</tr>
+</tbody>
+</table>
+<p>These are historical measurements of the experimental harness, not new results
+from the published SDK. The report also contains Parquet baselines using a
+lossless RDF string-term quad layout. Those numbers do not predict the size or
+query speed of a typed, wide business table.</p>
+<p>For the regular 300,000-quad fixture, initial validated open took about 8.36
+seconds; subsequent warm subject lookup had a 0.082 ms median. The complete JSON
+bundle had already been loaded and validated. No network I/O was measured.
+Python <code>query_subject</code> starts validation on each call and does not retain that
+warm Node handle. These results establish neither remote partial-read latency
+nor superiority over Spark, Trino or another lake engine.</p>
+<h2>The first integration is materialization</h2>
+<p>Today an engineer can run the
+<a href="quickstart.html">Quickstart</a>, pack a dataset with Zstd, reconstruct it, export
+Parquet and query that file with DuckDB. The exported columns contain JSON RDF
+term strings. The Arrow/Parquet profile carries envelope metadata for empty
+graphs, which a generic SQL transformation may discard.</p>
+<p>This gives two deliberately different outputs: a term-preserving interchange
+artifact and an application-specific analytical view. A business view can decode
+values into typed columns for convenient SQL, but must document its treatment of
+literal spelling, blank nodes, graph identity and empty graphs. Such a view is
+not automatically a lossless round-trip artifact. See the
+<a href="../../spec/v0.1/arrow.html">interchange contract</a>.</p>
+<p>For an existing lake, the next proposed path is:</p>
+<pre><code class="language-text">Existing catalog -&gt; pinned Iceberg snapshot -&gt; existing Iceberg client
+                                               |
+                                    Mithril semantic/model sidecar
+                                               |
+                                     materialized Parquet output
+                                               |
+                              existing writer -&gt; Iceberg -&gt; SQL engines
+</code></pre>
+<p>This is a design, not an available connector. Iceberg stays responsible for table
+commits. A separate versioned sidecar would record ontology/model dependencies,
+the exact source snapshot and projection. Exported data would be committed by
+an ordinary Iceberg writer; placing Parquet files in a bucket alone does not
+create an Iceberg table. Generic readers cannot execute Mithril model segments
+because a catalog names them. The
+<a href="../../spec/v0.1/lake.html">proposed lake contract</a> defines this boundary.</p>
+<h2>Ontology complements catalog context</h2>
+<p>A governed catalog can already contain schema, ownership, lineage and business
+definitions. Databricks Unity Catalog provides governance of data and AI assets;
+DataHub provides metadata discovery and context. Mithril should not claim that
+these systems lack semantics.
+Sources: <a href="https://docs.databricks.com/aws/en/data-governance/unity-catalog">Unity Catalog</a>
+and <a href="https://github.com/datahub-project/datahub">DataHub</a>.</p>
+<p>Mithril's narrower contribution is an explicit term-preserving dataset and a
+finite, reconstructible storage representation. A future mapping could connect
+catalog assets to vocabulary IRIs and versioned model dependencies. That mapping
+would still need identity rules, synchronization and authorization tests.
+An ontology assertion in a bundle does not grant permission to read its source
+objects or prove that a constraint has been enforced.</p>
+<h2>Choose a bounded pilot</h2>
+<p>Choose representative RDF data where lexical identity or graph boundaries matter
+and where repeated structure might repay model evaluation. Keep the existing
+lake as the source of truth, retain a conventional compressed baseline and
+measure total storage, conversion time, cold-open cost and memory.</p>
+<p>For an immediate production requirement involving concurrent lake writers,
+streaming ingestion, native distributed SQL or remote range reads, use a tested
+table format/catalog/engine combination. Mithril 0.1 is an experimental adjunct
+for evaluating semantic preservation and storage models. Its next adoption
+gates are bounded object-storage reads, a pinned-snapshot connector and an
+independent decoder, as listed in the
+<a href="../../spec/implementation-status.html">implementation roadmap</a>.</p></main></html>
