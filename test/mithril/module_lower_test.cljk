@@ -85,10 +85,27 @@
     (is (= :mithril.program/amu-native-source-v1 (:format result)))
     (is (= (pr-str (:transaction artifact)) (:transaction-edn result)))
     (is (= [{:name "transaction_edn" :symbol "__mithril_f0"
-             :params [] :returns :string}]
+             :params [] :returns :string}
+            {:name "admit_edn" :symbol "__mithril_admit_edn"
+             :params [:string] :returns :bool}]
            (:abi result)))
-    (is (= (str "(ns mithril.generated.mithril.oak_program (:export [__mithril_f0]))\n"
-                "(defn __mithril_f0 [] :string " (pr-str (:transaction-edn result)) ")\n")
+    (is (= [{:export "admit_edn" :args [(:transaction-edn result)] :expected 1}
+            {:export "admit_edn"
+             :args [(pr-str (assoc (:transaction artifact) 0 :oak.transaction/v2))]
+             :expected 0}
+            {:export "admit_edn" :args [(pr-str (subvec (:transaction artifact) 0 3))]
+             :expected 0}]
+           (:native-execution-cases result)))
+    (is (= (str "(ns mithril.generated.mithril.oak_program "
+                "(:export [__mithril_f0 __mithril_admit_edn]))\n"
+                "(defn __mithril_f0 [] :string " (pr-str (:transaction-edn result)) ")\n"
+                "(defn __mithril_admit_edn [__mithril_input :string] :bool "
+                "(let [__mithril_tx (document-edn-read __mithril_input) "
+                "__mithril_version (option-value-of [:option :document] "
+                "(document-vector-at __mithril_tx 0) (document-null))] "
+                "(and (= (document-count __mithril_tx) 4) "
+                "(document-equal? __mithril_version "
+                "(document-keyword :oak.transaction/v1)))))\n")
            (:source result)))))
 
 (deftest native-amu-profile-lowers-transaction-runtime-abi

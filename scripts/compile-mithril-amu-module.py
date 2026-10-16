@@ -243,7 +243,7 @@ def main():
             raise SystemExit("integer execution results must be signed 64-bit values")
         if isinstance(case["expected"], str) and len(case["expected"]) > 1_048_576:
             raise SystemExit("string execution result exceeds the case budget")
-        case_specs.append((case, False))
+        case_specs.append((case, False, False))
 
     # A JSON-LD Program becomes a string-returning native OaK module. Compile a
     # separate equality harness and execute it so the loader can verify the
@@ -253,10 +253,12 @@ def main():
         if not isinstance(transaction_edn, str):
             raise SystemExit("Mithril Program lowering did not return transaction EDN")
         case_specs.append(({"export": "transaction_edn", "args": [],
-                            "expected": transaction_edn}, True))
+                            "expected": transaction_edn}, True, False))
+        for case in lower_result.get("native-execution-cases", []):
+            case_specs.append((case, False, True))
 
     case_results = []
-    for index, (case, string_check) in enumerate(case_specs):
+    for index, (case, string_check, redact_args) in enumerate(case_specs):
         string_result_check = string_check or isinstance(case["expected"], str)
         abi = abi_by_export.get(case["export"])
         if abi is None:
@@ -353,7 +355,14 @@ def main():
                                  "actual": "match", "codeSHA256": sha256(code_path),
                                  "caseModuleSHA256": sha256(case_artifact)})
         else:
-            case_results.append({**case, "actual": int(actual), "codeSHA256": sha256(code_path)})
+            result = {**case, "actual": int(actual), "codeSHA256": sha256(code_path)}
+            if redact_args:
+                result["argsSHA256"] = [
+                    hashlib.sha256(value.encode("utf-8")).hexdigest()
+                    if isinstance(value, str) else value
+                    for value in result.pop("args")
+                ]
+            case_results.append(result)
 
     if sha256(producer) != producer_before or sha256(loader) != loader_before:
         raise SystemExit("native compiler or trusted loader changed during compilation")

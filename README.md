@@ -2542,7 +2542,8 @@ and the kernel, library and bootstrap identities. `compile-language` prints its
 IR. `bin/mithril-amu.cljk` adds a native Amu path for both JSON-LD `.mith`
 Programs and typed `(mithril/module ...)` sources. Programs pass through the
 existing OaK compiler; the checked transaction is embedded as an EDN string
-export and compiled to an `aarch64-macos` `.kseed` by Amu G3. Typed modules
+export, and `admit_edn(string)` parses and checks the native v1/four-field
+envelope. Amu G3 compiles both to an `aarch64-macos` `.kseed`. Typed modules
 lower directly to Kotoba. `scripts/compile-mithril-amu-module.py` rebuilds the
 pinned three-generation selfhost compiler and can execute scalar exports with
 `--case` checks. The native module profile admits `i64`, `bool`, `string`,

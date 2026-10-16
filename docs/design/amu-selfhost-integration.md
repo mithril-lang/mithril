@@ -7,12 +7,12 @@ G3 compiler then emits an `aarch64-macos` `.kseed` artifact.
 
 For a JSON-LD Program, Mithril's existing compiler first produces the checked
 `oak.transaction/v1` vector. The native module exposes that vector as the
-canonical, inert EDN string returned by `transaction_edn`. The build driver
-compiles a separate native string-equality harness and executes it against the
-transaction string from the Mithril frontend. The native Amu ABI does not
-export Mithril's `:document` type directly, so this boundary is an EDN string.
-The downstream OaK reader remains responsible for parsing and re-admitting the
-transaction before effects.
+canonical, inert EDN string returned by `transaction_edn`. It also exports
+`admit_edn(string)`: Amu parses that bounded EDN string into its internal
+`:document` value and checks the v1 tag and four-field envelope. The native ABI
+does not pass `:document` across its entry boundary, so it uses EDN as the
+serialized input. The downstream OaK path still repeats the complete goal,
+ontology, choice, authority and digest checks before effects.
 
 Typed `mithril/module` forms use a separate native-safe profile. It accepts
 `i64`, `bool`, and `string` values, `add`, `sub`, `mul`, `eq`, and `not`, plus
@@ -20,13 +20,9 @@ local calls, `let`, sequences, and conditionals. It rejects `js-value`, JS host
 intrinsics, and guest callables before emission. Those host-facing modules
 continue to use their existing targets.
 
-`src/mithril/runtime.kotoba` keeps its document-based OaK API. Amu's native
-export boundary currently cannot accept a `:document`, so
-`examples/modules/amu-transaction-runtime.mith` provides an explicit scalar
-adapter for callers that already decoded the envelope: it checks the
-`oak.transaction/v1` version and four top-level fields. The host still parses
-and fully admits the OaK transaction; this small native check does not replace
-that validation.
+`src/mithril/runtime.kotoba` keeps its host-neutral document API. The Program
+lowerer adds the equivalent EDN-string entrypoint to the generated native
+artifact without changing that public API.
 
 The Mithril frontend itself still runs on KBB/SCI. This integration uses Amu's
 selfhosted compiler for native artifact generation; it does not claim that the
@@ -76,13 +72,15 @@ python3 scripts/compile-mithril-amu-module.py \
   --case '{"export":"admit","args":["oak.transaction/v2",4],"expected":0}'
 ```
 
-The Program path automatically runs an exact string check of the native
-`transaction_edn` export. For either form, output directories must be new and
-outside both repositories. The build receipt records the Amu compiler and
-container hashes, Mithril frontend hashes, KBB/SCI and Node hashes, source and
-generated Kotoba hashes, `.kseed` hash, target, and native execution results.
-Later builds can use `--selfhost-output` to reuse a verified G3 image and
-loader while writing to a separate new output directory.
+The Program path automatically compares the native `transaction_edn` export
+with Mithril's output, then calls `admit_edn` with the valid transaction, a
+wrong-version transaction, and a wrong-cardinality transaction. For either
+form, output directories must be new and outside both repositories. The build
+receipt records the Amu compiler and container hashes, Mithril frontend hashes,
+KBB/SCI and Node hashes, source and generated Kotoba hashes, `.kseed` hash,
+target, and native execution results. Later builds can use
+`--selfhost-output` to reuse a verified G3 image and loader while writing to a
+separate new output directory.
 
 `examples/modules/conditional.mith` is intentionally rejected by the native
 module profile because it uses `js-value`. That is an ABI boundary, not a
