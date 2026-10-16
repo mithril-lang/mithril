@@ -1,6 +1,7 @@
 (ns mithril.amu-cli
   "Validate and lower Mithril .mith sources for Amu's native selfhost compiler."
   (:require [mithril.module-lower :as lower]
+            [mithril.program-lower :as program-lower]
             [mithril.form :as form]
             ["node:fs" :as fs]))
 
@@ -16,7 +17,7 @@
     (let [text (fs/readFileSync source "utf8")
           result (if (form/source? text)
                    (lower/lower-native-text text)
-                   (lower/lower-native-program-text source text))]
+                   (program-lower/lower-native-program-text source text))]
       (fs/writeFileSync output (:source result))
       (println (js/JSON.stringify
                  (clj->js {:format (str (namespace (:format result)) "/" (name (:format result)))

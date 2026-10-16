@@ -2,7 +2,8 @@
   (:require [cljs.test :refer [deftest is]]
             [clojure.string :as str]
             [mithril.module-lower :as lower]
-            [mithril.compiler :as compiler]))
+            [mithril.compiler :as compiler]
+            [mithril.program-lower :as program-lower]))
 (defn read-text [path]
   (.readFileSync (js/require "fs") path "utf8"))
 (defn literal [type value] {"@type" "Literal" "datatype" type "value" value})
@@ -81,7 +82,7 @@
   (let [path "examples/tender.mith"
         text (read-text path)
         artifact (compiler/compile-text path text)
-        result (lower/lower-native-program-text path text)]
+        result (program-lower/lower-native-program-text path text)]
     (is (= :mithril.program/amu-native-source-v1 (:format result)))
     (is (= (pr-str (:transaction artifact)) (:transaction-edn result)))
     (is (= [{:name "transaction_edn" :symbol "__mithril_f0"
