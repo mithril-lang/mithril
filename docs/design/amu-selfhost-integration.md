@@ -1,57 +1,93 @@
-# Mithril typed modules on Amu native selfhost
+# Mithril `.mith` artifacts on Amu native selfhost
 
-Mithril's typed `mithril/module` source now has an explicit path through Amu's
-adopted native selfhost compiler. The Mithril frontend validates and lowers a
-`.mith`/`.mithril` module to Kotoba source; Amu G3 compiles that source to an
-`aarch64-macos` `.kseed` artifact. Optional `--case` arguments extract and run
-exported scalar functions through the pinned native loader.
+Mithril accepts two `.mith` source forms in this path: JSON-LD Programs such
+as `examples/tender.mith`, and inert `(mithril/module ...)` forms. The
+frontend validates each form and lowers it to Kotoba source; the adopted Amu
+G3 compiler then emits an `aarch64-macos` `.kseed` artifact.
 
-This is a target-specific module path. It does not make the main Mithril
-compiler or all Mithril `.mith` source forms self-hosted. The frontend is still
-hosted by the project's KBB/SCI `.cljk` runtime. The Amu native profile accepts
-`i64`, `bool`, and `string` values, with `add`, `sub`, `mul`, `eq`, and `not`
-intrinsics plus calls, locals, `let`, sequences, and conditionals. It rejects
-opaque `js-value`, JavaScript host intrinsics, and guest callables before
-writing generated source. Those host-facing modules continue to use their
-existing targets.
+For a JSON-LD Program, Mithril's existing compiler first produces the checked
+`oak.transaction/v1` vector. The native module exposes that vector as the
+canonical, inert EDN string returned by `transaction_edn`. The build driver
+compiles a separate native string-equality harness and executes it against the
+transaction string from the Mithril frontend. The native Amu ABI does not
+export Mithril's `:document` type directly, so this boundary is an EDN string.
+The downstream OaK reader remains responsible for parsing and re-admitting the
+transaction before effects.
+
+Typed `mithril/module` forms use a separate native-safe profile. It accepts
+`i64`, `bool`, and `string` values, `add`, `sub`, `mul`, `eq`, and `not`, plus
+local calls, `let`, sequences, and conditionals. It rejects `js-value`, JS host
+intrinsics, and guest callables before emission. Those host-facing modules
+continue to use their existing targets.
+
+`src/mithril/runtime.kotoba` keeps its document-based OaK API. Amu's native
+export boundary currently cannot accept a `:document`, so
+`examples/modules/amu-transaction-runtime.mith` provides an explicit scalar
+adapter for callers that already decoded the envelope: it checks the
+`oak.transaction/v1` version and four top-level fields. The host still parses
+and fully admits the OaK transaction; this small native check does not replace
+that validation.
+
+The Mithril frontend itself still runs on KBB/SCI. This integration uses Amu's
+selfhosted compiler for native artifact generation; it does not claim that the
+entire Mithril frontend has been ported to Kotoba.
 
 ## Reproducible build and execution checks
 
-The build script pins Amu to adoption commit
-[`dd332a30f47a93909e55b7f1b2f6c1bda3dfcd8f`](https://github.com/kotoba-lang/amu/commit/dd332a30f47a93909e55b7f1b2f6c1bda3dfcd8f),
-which carries the native fixed-point compiler. It rebuilds G1, G2, and G3 and
-checks that all three compiler images and the bootstrap container match their
-recorded SHA-256 values. The trusted C loader is retained as the native image
-entrypoint; JVM, Node, and Graal are not compiler fallbacks.
+The build script pins Amu to current main commit
+[`8af3a09e547e38885ed30f7bf674ed79f9144fff`](https://github.com/kotoba-lang/amu/commit/8af3a09e547e38885ed30f7bf674ed79f9144fff).
+It rebuilds G1, G2, and G3 and checks their native image hashes and the
+bootstrap container hash. The trusted C loader is the artifact entrypoint;
+JVM, Node, and Graal are not compiler fallbacks.
 
 On Apple Silicon, with a clean Amu checkout at that commit and KBB installed,
-run:
+compile the typed module and execute its scalar cases:
 
 ```sh
 python3 scripts/compile-mithril-amu-module.py \
   --amu-root /absolute/path/to/amu \
   --source examples/modules/amu-native.mith \
-  --output /absolute/new/build-directory \
+  --output /absolute/new/module-build \
   --case '{"export":"increment","args":[41],"expected":42}' \
   --case '{"export":"choose","args":[1],"expected":7}' \
-  --case '{"export":"choose","args":[0],"expected":0}'
+  --case '{"export":"choose","args":[0],"expected":0}' \
+  --case '{"export":"is_zero","args":[0],"expected":1}' \
+  --case '{"export":"is_zero","args":[9],"expected":0}'
 ```
 
-The output directory must be new and outside both repositories. The script
-records the Amu compiler and container hashes, the Mithril frontend source
-hashes, the KBB launcher and SCI engine hashes, the input `.mith` hash, the
-generated Kotoba hash, the `.kseed` hash, and each requested execution result
-in `mithril-amu-build.json`. Without `--case`, the script compiles the module
-but does not execute its exports. `bin/mithril-amu.cljk` can also be used
-directly to validate and lower a module to a new `.kotoba` output file. Later
-modules can pass `--selfhost-output /path/to/the/first/build` to reuse its
-verified G3 image and loader while writing each module to a separate new output
-directory.
+Compile the JSON-LD Program source with the same selfhost compiler:
 
-`examples/modules/conditional.mith` is intentionally rejected by this native
-profile because it uses `js-value`. This is a typed incompatibility with the
-native ABI, not a failed general Mithril compile. No type erasure or JS host
-emulation is applied to get it through Amu.
+```sh
+python3 scripts/compile-mithril-amu-module.py \
+  --amu-root /absolute/path/to/amu \
+  --source examples/tender.mith \
+  --output /absolute/new/program-build
+```
+
+Compile and execute the scalar transaction-envelope adapter:
+
+```sh
+python3 scripts/compile-mithril-amu-module.py \
+  --amu-root /absolute/path/to/amu \
+  --source examples/modules/amu-transaction-runtime.mith \
+  --output /absolute/new/runtime-build \
+  --case '{"export":"admit","args":["oak.transaction/v1",4],"expected":1}' \
+  --case '{"export":"admit","args":["oak.transaction/v1",3],"expected":0}' \
+  --case '{"export":"admit","args":["oak.transaction/v2",4],"expected":0}'
+```
+
+The Program path automatically runs an exact string check of the native
+`transaction_edn` export. For either form, output directories must be new and
+outside both repositories. The build receipt records the Amu compiler and
+container hashes, Mithril frontend hashes, KBB/SCI and Node hashes, source and
+generated Kotoba hashes, `.kseed` hash, target, and native execution results.
+Later builds can use `--selfhost-output` to reuse a verified G3 image and
+loader while writing to a separate new output directory.
+
+`examples/modules/conditional.mith` is intentionally rejected by the native
+module profile because it uses `js-value`. That is an ABI boundary, not a
+failed general Mithril compile. No type erasure or JavaScript host emulation is
+applied to get it through Amu.
 
 ## Embench-derived evidence
 
@@ -63,12 +99,12 @@ both Kotoba and C matched all 19 workloads.
 
 Amu PR [#1318](https://github.com/kotoba-lang/amu/pull/1318) reports a second,
 separate full-19 cycle on an Apple M4 Mac mini (Mac16,10, 16 GB, macOS 26.3.1)
-with ratio `0.7877703355587422`; its C side used Apple Clang 21.0.0. The two
-host results are not averaged.
+with ratio `0.7877703355587422`; its C side used Apple Clang 21.0.0. The host
+results are not averaged.
 
-These are Amu's Embench-derived translated-port time comparisons, not official
-or certified Embench scores. A ratio below one favors Kotoba under the
-reported formula; it does not mean every workload was faster. The comparisons
-measure neither Mithril nor compiler speed, and do not show that selfhosting
-caused the runtime results. The M1 Max attempt in PR #1318 was unqualified and
-has no score or geometric mean.
+These are Amu's Embench-derived translated-port time ratios, not official or
+certified Embench scores. A ratio below one favors Kotoba under the reported
+formula; it does not mean every workload was faster. The measurements cover
+neither Mithril nor compiler speed and do not show that selfhosting caused the
+runtime results. The M1 Max attempt in PR #1318 was unqualified and has no
+score or geometric mean.

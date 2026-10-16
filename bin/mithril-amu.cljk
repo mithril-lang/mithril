@@ -1,21 +1,32 @@
 (ns mithril.amu-cli
-  "Validate and lower a Mithril module for Amu's native selfhost compiler."
+  "Validate and lower Mithril .mith sources for Amu's native selfhost compiler."
   (:require [mithril.module-lower :as lower]
+            [mithril.form :as form]
             ["node:fs" :as fs]))
 
 (let [[source output & extra] *command-line-args*]
   (when-not (and source output (empty? extra))
-    (js/console.error "usage: mithril-amu <module.mith|module.mithril> <new-output.kotoba>")
+    (js/console.error "usage: mithril-amu <source.mith|source.mithril> <new-output.kotoba>")
     (js/process.exit 64))
   (when (fs/existsSync output)
     (js/console.error "REFUSE\toutput-exists\tOutput path already exists")
     (js/process.exit 65))
   (try
     ;; Admission and lowering complete before the first output write.
-    (let [result (lower/lower-native-text (fs/readFileSync source "utf8"))]
+    (let [text (fs/readFileSync source "utf8")
+          result (if (form/source? text)
+                   (lower/lower-native-text text)
+                   (lower/lower-native-program-text source text))]
       (fs/writeFileSync output (:source result))
       (println (js/JSON.stringify
-                 (clj->js {:format "mithril.module/amu-native-source-v1"
+                 (clj->js {:format (str (namespace (:format result)) "/" (name (:format result)))
+                           :source-kind (if (= :mithril/program (:source-kind result))
+                                          "mithril/program" "mithril/module")
+                           :program-format (when (:program-format result)
+                                             (str (namespace (:program-format result))
+                                                  "/" (name (:program-format result))))
+                           :graph-digest (:graph-digest result)
+                           :transaction-edn (:transaction-edn result)
                            :name (:name result)
                            :exports (:exports result)
                            :abi (:abi result)

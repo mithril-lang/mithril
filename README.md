@@ -2539,17 +2539,19 @@ source formats, compiler pipeline contract and imported CLI entrypoints. The
 main CLI admits commands through this compiled kernel. `compile` executes its
 ordered pipeline; `compile-trace` records each stage's input/output identities
 and the kernel, library and bootstrap identities. `compile-language` prints its
-IR. `bin/mithril-amu.cljk` adds a native Amu path for typed
-`mithril/module` sources: it rechecks and lowers a `.mith` or `.mithril` module,
-then the adopted Amu G3 selfhost compiler emits an `aarch64-macos` `.kseed`
-artifact. `scripts/compile-mithril-amu-module.py` runs the pinned three-stage
-selfhost build and can extract and execute exported scalar functions when
-passed `--case` checks. This native profile admits `i64`, `bool`, `string`,
+IR. `bin/mithril-amu.cljk` adds a native Amu path for both JSON-LD `.mith`
+Programs and typed `(mithril/module ...)` sources. Programs pass through the
+existing OaK compiler; the checked transaction is embedded as an EDN string
+export and compiled to an `aarch64-macos` `.kseed` by Amu G3. Typed modules
+lower directly to Kotoba. `scripts/compile-mithril-amu-module.py` rebuilds the
+pinned three-generation selfhost compiler and can execute scalar exports with
+`--case` checks. The native module profile admits `i64`, `bool`, `string`,
 arithmetic/equality/boolean intrinsics, local calls, `let`, sequences and
 conditionals. It refuses `js-value`, JS host intrinsics and guest callables
 before emission; those remain on their existing host target. The Mithril
-compiler and general `.mith` orchestration are still hosted by CLJK/CLJS.
-See the [Amu selfhost integration and benchmark evidence](docs/design/amu-selfhost-integration.md).
+frontend remains hosted by KBB/SCI; this integrates Amu's selfhost compiler at
+the native artifact stage. See the
+[Amu selfhost integration and benchmark evidence](docs/design/amu-selfhost-integration.md).
 
 Amu's corrected full-19 Embench-derived translated-port comparisons report
 Kotoba/C time geometric-mean ratios of `0.8213` and `0.78777` on two separate

@@ -2,6 +2,10 @@
   (:export [transaction-version transaction-goal transaction-ontology
             transaction-choices transaction-shape-valid? admit main]))
 
+;; This host-neutral API accepts OaK documents. Amu's native export ABI does
+;; not admit :document parameters; the scalar adapter in
+;; examples/modules/amu-transaction-runtime.mith illustrates that boundary.
+
 (defn at [d :document i :i64] :document
   (option-or (document-vector-at d i) (document-null)))
 

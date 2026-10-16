@@ -1,6 +1,7 @@
 (ns mithril.module-lower
-  "Lower checked Mithril modules to deterministic Amu Kotoba source."
+  "Lower checked Mithril source to deterministic Amu Kotoba source."
   (:require [mithril.module :as module]
+            [mithril.compiler :as compiler]
             [clojure.string :as str]))
 
 (defn- amu-namespace [name]
@@ -201,6 +202,28 @@
   "Lower a checked scalar Mithril module text for Amu's native selfhost compiler."
   [text]
   (native-amu-result (module/check-text text)))
+
+(defn lower-native-program-text
+  "Compile a JSON-LD Mithril Program to an Amu-native OaK transaction module.
+
+  The checked transaction crosses the native boundary as inert EDN text."
+  [path text]
+  (let [artifact (compiler/compile-text path text)
+        transaction-edn (pr-str (:transaction artifact))
+        literal (pr-str transaction-edn)
+        module-text (str
+                     "(mithril/module :name \"mithril.oak_program\" "
+                     ":exports [\"transaction_edn\"] :functions ["
+                     "(mithril/function :name \"transaction_edn\" :params [] "
+                     ":returns \"string\" :body (mithril/literal "
+                     ":datatype \"string\" :value " literal "))])")
+        lowered (lower-native-text module-text)]
+    (assoc lowered
+           :format :mithril.program/amu-native-source-v1
+           :source-kind :mithril/program
+           :program-format (:format artifact)
+           :transaction-edn transaction-edn
+           :graph-digest (:graph-digest artifact))))
 
 (defn- library-fail! [code detail]
   (throw (ex-info detail {:mithril/error code :detail detail})))

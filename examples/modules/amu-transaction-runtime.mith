@@ -1,0 +1,16 @@
+(mithril/module :name "mithril.amu_transaction_runtime"
+  :exports ["admit"]
+  :functions
+  [(mithril/function :name "admit"
+     :params [(rdf/node :name "version" :datatype "string")
+              (rdf/node :name "field_count" :datatype "i64")]
+     :returns "bool"
+     :body (mithril/if
+             :condition (mithril/call :name "eq"
+                         :args [(mithril/local :name "version")
+                                (mithril/literal :datatype "string"
+                                  :value "oak.transaction/v1")])
+             :then (mithril/call :name "eq"
+                     :args [(mithril/local :name "field_count")
+                            (mithril/literal :datatype "i64" :value "4")])
+             :else (mithril/literal :datatype "bool" :value false)))] )

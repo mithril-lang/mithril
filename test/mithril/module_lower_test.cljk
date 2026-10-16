@@ -1,7 +1,10 @@
 (ns mithril.module-lower-test
   (:require [cljs.test :refer [deftest is]]
             [clojure.string :as str]
-            [mithril.module-lower :as lower]))
+            [mithril.module-lower :as lower]
+            [mithril.compiler :as compiler]))
+(defn read-text [path]
+  (.readFileSync (js/require "fs") path "utf8"))
 (defn literal [type value] {"@type" "Literal" "datatype" type "value" value})
 (defn local [name] {"@type" "Local" "name" name})
 (defn call [name args] {"@type" "Call" "name" name "args" args})
@@ -73,6 +76,30 @@
                                   "js-value" (local "value"))] []))
            nil
            (catch :default error (:mithril/error (ex-data error)))))))
+
+(deftest native-amu-profile-lowers-jsonld-program-transaction
+  (let [path "examples/tender.mith"
+        text (read-text path)
+        artifact (compiler/compile-text path text)
+        result (lower/lower-native-program-text path text)]
+    (is (= :mithril.program/amu-native-source-v1 (:format result)))
+    (is (= (pr-str (:transaction artifact)) (:transaction-edn result)))
+    (is (= [{:name "transaction_edn" :symbol "__mithril_f0"
+             :params [] :returns :string}]
+           (:abi result)))
+    (is (= (str "(ns mithril.generated.mithril.oak_program (:export [__mithril_f0]))\n"
+                "(defn __mithril_f0 [] :string " (pr-str (:transaction-edn result)) ")\n")
+           (:source result)))))
+
+(deftest native-amu-profile-lowers-transaction-runtime-abi
+  (let [result (lower/lower-native-text
+                 (read-text "examples/modules/amu-transaction-runtime.mith"))]
+    (is (= [{:name "admit" :symbol "__mithril_f0"
+             :params [:string :i64] :returns :bool}]
+           (:abi result)))
+    (is (str/includes? (:source result)
+                       "(defn __mithril_f0 [__mithril_p0 :string __mithril_p1 :i64] :bool"))
+    (is (str/includes? (:source result) "(= __mithril_p0 \"oak.transaction/v1\")"))))
 
 (def opaque-module-text
   "(mithril/module :name \"host.values\" :exports [\"keep\"]

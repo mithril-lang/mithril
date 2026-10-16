@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Lower a scalar Mithril module and compile it with Amu's native selfhost compiler."""
+"""Compile a Mithril module or OaK Program with Amu's native selfhost compiler."""
 
 import argparse
 import hashlib
@@ -15,10 +15,10 @@ from pathlib import Path
 
 
 MITHRIL_ROOT = Path(__file__).resolve().parents[1]
-AMU_COMMIT = "dd332a30f47a93909e55b7f1b2f6c1bda3dfcd8f"
-AMU_SOURCE_UNITY_SHA256 = "01abc96f46279e3958a0df8f704ef0648d7d011497d1c621d524c6fe1b9e34e9"
-AMU_NATIVE_COMPILER_SHA256 = "510599927df88117d22809f751593c6f38e8afbc4bb8881e0ce989549aae2e94"
-AMU_BOOTSTRAP_CONTAINER_SHA256 = "ace5b839b5ce32da21fd19bc8c1e20a26c124fc4b3a0283bf044f251685a8bd0"
+AMU_COMMIT = "8af3a09e547e38885ed30f7bf674ed79f9144fff"
+AMU_SOURCE_UNITY_SHA256 = "4d941a063ca8098aee861ed0ddc3ef59db2e2bd44e9e93189e7b15438849f256"
+AMU_NATIVE_COMPILER_SHA256 = "6b158aa8654706743462b8a730f189072ba05f364b00af28a3f6d23045add2eb"
+AMU_BOOTSTRAP_CONTAINER_SHA256 = "e419658b76bce0e30febd9bd22270e23209ec03770b474ebc51bd25f8e36cd02"
 AMU_REMOTE = "https://github.com/kotoba-lang/amu.git"
 
 
@@ -87,7 +87,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--amu-root", required=True, type=Path)
     parser.add_argument("--source", required=True, type=Path,
-                        help="a Mithril typed module source ending in .mith or .mithril")
+                        help="a Mithril module or JSON-LD Program ending in .mith or .mithril")
     parser.add_argument("--output", required=True, type=Path,
                         help="new, empty build directory outside both checkouts")
     parser.add_argument("--selfhost-output", type=Path,
@@ -226,8 +226,8 @@ def main():
             cwd=artifacts, env=env, stdout=stdout, stderr=stderr)
 
     abi_by_export = {entry["name"]: entry for entry in lower_result.get("abi", [])}
-    case_results = []
-    for index, encoded_case in enumerate(args.case):
+    case_specs = []
+    for encoded_case in args.case:
         try:
             case = json.loads(encoded_case)
         except json.JSONDecodeError as error:
@@ -237,26 +237,92 @@ def main():
                 or not isinstance(case["export"], str)
                 or not isinstance(case["args"], list)
                 or isinstance(case["expected"], bool)
-                or not isinstance(case["expected"], int)):
-            raise SystemExit("--case requires export, integer args, and integer expected")
+                or not (isinstance(case["expected"], int) or isinstance(case["expected"], str))):
+            raise SystemExit("--case requires export, args, and an integer or string expected value")
+        if isinstance(case["expected"], int) and not -(1 << 63) <= case["expected"] < (1 << 63):
+            raise SystemExit("integer execution results must be signed 64-bit values")
+        if isinstance(case["expected"], str) and len(case["expected"]) > 1_048_576:
+            raise SystemExit("string execution result exceeds the case budget")
+        case_specs.append((case, False))
+
+    # A JSON-LD Program becomes a string-returning native OaK module. Compile a
+    # separate equality harness and execute it so the loader can verify the
+    # native string result without treating a string handle as its contents.
+    if lower_result.get("source-kind") == "mithril/program":
+        transaction_edn = lower_result.get("transaction-edn")
+        if not isinstance(transaction_edn, str):
+            raise SystemExit("Mithril Program lowering did not return transaction EDN")
+        case_specs.append(({"export": "transaction_edn", "args": [],
+                            "expected": transaction_edn}, True))
+
+    case_results = []
+    for index, (case, string_check) in enumerate(case_specs):
+        string_result_check = string_check or isinstance(case["expected"], str)
         abi = abi_by_export.get(case["export"])
         if abi is None:
             raise SystemExit("--case names an export not present in the Mithril module")
-        if (len(case["args"]) != len(abi["params"])
-                or any(type(value) is not int or not -(1 << 63) <= value < (1 << 63)
-                       for value in case["args"])):
-            raise SystemExit("--case args must match export arity and be signed 64-bit integers")
-        if any(type_name not in {"i64", "bool"} for type_name in abi["params"]):
-            raise SystemExit("execution checks currently accept only i64 or bool parameters")
-        if abi["returns"] not in {"i64", "bool"}:
-            raise SystemExit("execution checks currently accept only i64 or bool results")
+        if string_result_check:
+            if (abi["returns"] != "string" or case["args"]
+                    or len(abi["params"]) != 0):
+                raise SystemExit("string execution checks currently require a zero-argument string export")
+            case_symbol = "__mithril_case_" + str(index)
+            case_source_path = artifacts / ("mithril-case-" + str(index) + ".kotoba")
+            case_artifact = artifacts / ("mithril-case-" + str(index) + ".kseed")
+            source_text = module_source.read_text()
+            header_end = source_text.find("\n")
+            header = source_text[:header_end + 1]
+            export_start = header.find("(:export [")
+            export_end = header.find("])", export_start)
+            if header_end < 0 or export_start < 0 or export_end < 0:
+                raise SystemExit("Mithril Kotoba output has an invalid export header")
+            header = header[:export_end] + " " + case_symbol + header[export_end:]
+            case_literal = json.dumps(case["expected"], ensure_ascii=True)
+            case_source = (header + source_text[header_end + 1:]
+                           + "\n(defn " + case_symbol + " [] :i64 (if (= ("
+                           + abi["symbol"] + ") " + case_literal + ") 1 0))\n")
+            if case_source_path.exists() or case_artifact.exists():
+                raise SystemExit("Mithril string-check output path already exists")
+            case_source_path.write_text(case_source)
+            with (output_dir / ("mithril-case-" + str(index) + ".stdout")).open("wb") as stdout, \
+                    (output_dir / ("mithril-case-" + str(index) + ".stderr")).open("wb") as stderr:
+                run([loader, producer, "0", "0", "aarch64", "35,37,38,39", "--",
+                     "compile", case_source_path.name, "--target", "aarch64-macos",
+                     "--output", case_artifact.name],
+                    cwd=artifacts, env=env, stdout=stdout, stderr=stderr)
+            artifact_to_extract = case_artifact.name
+            symbol_to_extract = case_symbol
+            expected_value = "1"
+        else:
+            if len(case["args"]) != len(abi["params"]):
+                raise SystemExit("--case args must match export arity")
+            if abi["returns"] not in {"i64", "bool"}:
+                raise SystemExit("execution checks currently accept only i64 or bool results")
+            encoded_args = []
+            for type_name, value in zip(abi["params"], case["args"]):
+                if type_name == "string":
+                    if not isinstance(value, str):
+                        raise SystemExit("string execution arguments must be JSON strings")
+                    encoded_args.append("s:" + value.encode("utf-8").hex())
+                elif type_name in {"i64", "bool"}:
+                    if type(value) is not int or not -(1 << 63) <= value < (1 << 63):
+                        raise SystemExit("i64/bool execution arguments must be signed 64-bit integers")
+                    if type_name == "bool" and value not in {0, 1}:
+                        raise SystemExit("bool execution arguments must be 0 or 1")
+                    encoded_args.append(str(value))
+                else:
+                    raise SystemExit("execution checks do not support parameter type " + type_name)
+            if abi["returns"] == "bool" and case["expected"] not in {0, 1}:
+                raise SystemExit("bool execution results must be 0 or 1")
+            artifact_to_extract = module_artifact.name
+            symbol_to_extract = abi["symbol"]
+            expected_value = str(case["expected"])
 
         code_path = artifacts / ("mithril-case-" + str(index) + ".bin")
         if code_path.exists():
             raise SystemExit("Mithril execution case output path already exists")
         extraction = output(
             [loader, producer, "0", "0", "aarch64", "35,37,38,39", "--",
-             "extract-native", module_artifact.name, "--symbol", abi["symbol"],
+             "extract-native", artifact_to_extract, "--symbol", symbol_to_extract,
              "--output", code_path.name],
             cwd=artifacts, env=env)
         offset_match = re.search(r":offset\s+(\d+)", extraction)
@@ -265,17 +331,29 @@ def main():
             raise SystemExit("Amu extract-native did not report the exported function ABI")
         offset = int(offset_match.group(1))
         arity = int(arity_match.group(1))
-        if arity != len(case["args"]):
+        expected_arity = 0 if string_result_check else len(case["args"])
+        if arity != expected_arity:
             raise SystemExit("Amu export arity does not match Mithril's checked signature")
         call_env = dict(env)
         call_env.pop("KEXE_COMMAND", None)
-        call_env["KEXE_RESULT_TYPE"] = abi["returns"]
-        actual = output([loader, code_path, offset, arity, "aarch64", "-", *case["args"]],
+        # Amu's native ABI represents :bool as the same 0/1 word as :i64;
+        # the loader has no distinct bool result codec.
+        call_env["KEXE_RESULT_TYPE"] = "i64"
+        if case["args"] and not string_result_check:
+            call_env["KEXE_ARG_TYPES"] = ",".join(abi["params"])
+        call_args = [] if string_result_check else encoded_args
+        actual = output([loader, code_path, offset, arity, "aarch64", "-", *call_args],
                         cwd=artifacts, env=call_env)
-        if actual != str(case["expected"]):
+        if actual != expected_value:
             raise SystemExit("native Mithril call returned " + actual + ", expected "
-                             + str(case["expected"]) + " for " + case["export"])
-        case_results.append({**case, "actual": int(actual), "codeSHA256": sha256(code_path)})
+                             + expected_value + " for " + case["export"])
+        if string_result_check:
+            case_results.append({"export": case["export"], "args": [],
+                                 "expectedSHA256": hashlib.sha256(case["expected"].encode()).hexdigest(),
+                                 "actual": "match", "codeSHA256": sha256(code_path),
+                                 "caseModuleSHA256": sha256(case_artifact)})
+        else:
+            case_results.append({**case, "actual": int(actual), "codeSHA256": sha256(code_path)})
 
     if sha256(producer) != producer_before or sha256(loader) != loader_before:
         raise SystemExit("native compiler or trusted loader changed during compilation")
@@ -286,9 +364,12 @@ def main():
 
     frontend_files = [
         "bin/mithril-amu.cljk",
+        "src/mithril/compiler.cljk",
+        "src/mithril/form.cljk",
         "src/mithril/module.cljk",
         "src/mithril/module_lower.cljk",
-        "src/mithril/form.cljk",
+        "deps.edn",
+        "nbb.edn",
     ]
     receipt = {
         "schema": "mithril.amu-native-module-build.v1",
@@ -311,6 +392,12 @@ def main():
         "nodeExecutableSHA256": sha256(node_executable),
         "source": source_copy.name,
         "sourceSHA256": source_hash,
+        "sourceKind": lower_result.get("source-kind"),
+        "nativeSourceFormat": lower_result.get("format"),
+        "programFormat": lower_result.get("program-format"),
+        "programGraphDigest": lower_result.get("graph-digest"),
+        "transactionEdnSHA256": (hashlib.sha256(lower_result["transaction-edn"].encode()).hexdigest()
+                                 if isinstance(lower_result.get("transaction-edn"), str) else None),
         "loweredKotobaSHA256": sha256(module_source),
         "target": "aarch64-macos",
         "artifact": "artifacts/mithril-module.kseed",
