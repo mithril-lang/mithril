@@ -1,0 +1,28 @@
+(ns mithril.amu-cli
+  "Validate and lower a Mithril module for Amu's native selfhost compiler."
+  (:require [mithril.module-lower :as lower]
+            ["node:fs" :as fs]))
+
+(let [[source output & extra] *command-line-args*]
+  (when-not (and source output (empty? extra))
+    (js/console.error "usage: mithril-amu <module.mith|module.mithril> <new-output.kotoba>")
+    (js/process.exit 64))
+  (when (fs/existsSync output)
+    (js/console.error "REFUSE\toutput-exists\tOutput path already exists")
+    (js/process.exit 65))
+  (try
+    ;; Admission and lowering complete before the first output write.
+    (let [result (lower/lower-native-text (fs/readFileSync source "utf8"))]
+      (fs/writeFileSync output (:source result))
+      (println (js/JSON.stringify
+                 (clj->js {:format "mithril.module/amu-native-source-v1"
+                           :name (:name result)
+                           :exports (:exports result)
+                           :abi (:abi result)
+                           :output output}))))
+    (catch :default error
+      (js/console.error (str "REFUSE\t"
+                             (or (some-> error ex-data :mithril/error name)
+                                 "compile-error")
+                             "\t" (.-message error)))
+      (js/process.exit 65))))

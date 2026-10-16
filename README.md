@@ -2539,9 +2539,23 @@ source formats, compiler pipeline contract and imported CLI entrypoints. The
 main CLI admits commands through this compiled kernel. `compile` executes its
 ordered pipeline; `compile-trace` records each stage's input/output identities
 and the kernel, library and bootstrap identities. `compile-language` prints its
-IR. The compiler remains based on Amu; CLJK/CLJS supplies the host primitives.
-The `.mith` kernel describes and admits its orchestration. Self-hosting is
-explicitly outside the project goal.
+IR. `bin/mithril-amu.cljk` adds a native Amu path for typed
+`mithril/module` sources: it rechecks and lowers a `.mith` or `.mithril` module,
+then the adopted Amu G3 selfhost compiler emits an `aarch64-macos` `.kseed`
+artifact. `scripts/compile-mithril-amu-module.py` runs the pinned three-stage
+selfhost build and can extract and execute exported scalar functions when
+passed `--case` checks. This native profile admits `i64`, `bool`, `string`,
+arithmetic/equality/boolean intrinsics, local calls, `let`, sequences and
+conditionals. It refuses `js-value`, JS host intrinsics and guest callables
+before emission; those remain on their existing host target. The Mithril
+compiler and general `.mith` orchestration are still hosted by CLJK/CLJS.
+See the [Amu selfhost integration and benchmark evidence](docs/design/amu-selfhost-integration.md).
+
+Amu's corrected full-19 Embench-derived translated-port comparisons report
+Kotoba/C time geometric-mean ratios of `0.8213` and `0.78777` on two separate
+Apple M4 cycles. Ratios below one favor Kotoba under the reported formula.
+These are not official Embench scores, compiler-speed measurements, or
+Mithril performance claims.
 
 [`src/mithril/codegraph.mith`](src/mithril/codegraph.mith) declares the bounded
 code extraction, resolution, community detection and RDF projection pipeline. Its source-located

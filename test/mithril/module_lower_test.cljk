@@ -49,6 +49,31 @@
   (let [result (lower/lower-text "(mithril/module :name \"text\" :exports [\"main\"] :functions [(mithril/function :name \"main\" :params [] :returns \"bool\" :body (mithril/call :name \"not\" :args [(mithril/literal :datatype \"bool\" :value false)]))])")]
     (is (= "(ns mithril.generated.text (:export [__mithril_f0]))\n(defn __mithril_f0 [] :bool (not false))\n" (:source result)))))
 
+(deftest native-amu-profile-lowers-scalar-module-source
+  (let [result (lower/lower-native-text
+                 (str "(mithril/module :name \"native.scalar\" :exports [\"increment\"] "
+                      ":functions [(mithril/function :name \"increment\" "
+                      ":params [(rdf/node :name \"value\" :datatype \"i64\")] "
+                      ":returns \"i64\" :body (mithril/call :name \"add\" :args ["
+                      "(mithril/local :name \"value\") "
+                      "(mithril/literal :datatype \"i64\" :value \"1\")]))])"))]
+    (is (= :mithril.module/amu-native-source-v1 (:format result)))
+    (is (= [{:name "increment" :symbol "__mithril_f0"
+             :params [:i64] :returns :i64}]
+           (:abi result)))
+    (is (= (str "(ns mithril.generated.native.scalar (:export [__mithril_f0]))\n"
+                "(defn __mithril_f0 [__mithril_p0 :i64] :i64 (+ __mithril_p0 1))\n")
+           (:source result)))))
+
+(deftest native-amu-profile-refuses-host-values-before-emission
+  (is (= :mithril.module/amu-native-type
+         (try
+           (lower/lower-native-document
+             (document [(function "keep" [{"name" "value" "datatype" "js-value"}]
+                                  "js-value" (local "value"))] []))
+           nil
+           (catch :default error (:mithril/error (ex-data error)))))))
+
 (def opaque-module-text
   "(mithril/module :name \"host.values\" :exports [\"keep\"]
      :functions [(mithril/function :name \"keep\"
