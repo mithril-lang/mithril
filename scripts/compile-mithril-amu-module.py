@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compile Mithril module, Program, or static WebApplication sources with Amu's native selfhost compiler."""
+"""Compile admitted Mithril source types to artifacts with Amu's native selfhost compiler."""
 
 import argparse
 import hashlib
@@ -87,7 +87,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--amu-root", required=True, type=Path)
     parser.add_argument("--source", required=True, type=Path,
-                        help="a Mithril Module, Program, or WebApplication source")
+                        help="a Mithril source admitted by bin/mithril-amu.cljk")
     parser.add_argument("--library", action="append", default=[], type=Path,
                         help="a Library source required by a WebApplication; may be repeated")
     parser.add_argument("--output", required=True, type=Path,

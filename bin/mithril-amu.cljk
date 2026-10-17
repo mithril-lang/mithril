@@ -5,6 +5,7 @@
             [mithril.web-lower :as web-lower]
             [mithril.artifact-lower :as artifact-lower]
             [mithril.compiler :as compiler]
+            [mithril.native-js :as native-js]
             [mithril.bot :as bot]
             [mithril.desktop :as desktop]
             [mithril.hermes-fleet :as fleet]
@@ -25,6 +26,13 @@
         (throw (ex-info "Expected repeated --library <library.mith> options"
                         {:mithril/error :mithril/amu-cli-arguments}))))))
 
+(defn- format-value [value]
+  (if (keyword? value)
+    (if-let [space (namespace value)]
+      (str space "/" (name value))
+      (name value))
+    value))
+
 (defn- lower-source [source text library-paths]
   (let [doc (compiler/parse-source text)
         source-type (get doc "@type")
@@ -41,6 +49,11 @@
                  (no-libraries!)
                  (assoc (lower/lower-native-document doc)
                         :source-kind :mithril/module))
+      "NativeJsModule" (do
+                         (no-libraries!)
+                         (artifact-lower/lower-native-artifact
+                          :mithril/native-js-module
+                          (native-js/compile-document doc)))
       "Program" (do
                   (no-libraries!)
                   (program-lower/lower-native-program-text source text))
@@ -126,7 +139,7 @@
                            :source-kind (str (namespace (:source-kind result)) "/"
                                              (name (:source-kind result)))
                            :program-format (:program-format result)
-                           :artifact-format (:artifact-format result)
+                           :artifact-format (format-value (:artifact-format result))
                            :graph-digest (:graph-digest result)
                            :transaction-edn (:transaction-edn result)
                            :artifact-edn (:artifact-edn result)
