@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compile a Mithril module or OaK Program with Amu's native selfhost compiler."""
+"""Compile Mithril module, Program, or static WebApplication sources with Amu's native selfhost compiler."""
 
 import argparse
 import hashlib
@@ -87,7 +87,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--amu-root", required=True, type=Path)
     parser.add_argument("--source", required=True, type=Path,
-                        help="a Mithril module or JSON-LD Program ending in .mith or .mithril")
+                        help="a Mithril Module, Program, or WebApplication source")
+    parser.add_argument("--library", action="append", default=[], type=Path,
+                        help="a Library source required by a WebApplication; may be repeated")
     parser.add_argument("--output", required=True, type=Path,
                         help="new, empty build directory outside both checkouts")
     parser.add_argument("--selfhost-output", type=Path,
@@ -105,6 +107,13 @@ def main():
     if source.suffix not in {".mith", ".mithril"} or not source.is_file():
         raise SystemExit("--source must be a .mith or .mithril module file")
     source_bytes = source.read_bytes()
+    libraries = [path.expanduser().resolve(strict=True) for path in args.library]
+    if any(path.suffix not in {".mith", ".mithril"} or not path.is_file()
+           for path in libraries):
+        raise SystemExit("--library values must be .mith or .mithril source files")
+    if len(libraries) != len(set(libraries)) or source in libraries:
+        raise SystemExit("source and library inputs must be unique")
+    library_bytes = [path.read_bytes() for path in libraries]
     output_dir = args.output.expanduser()
     if not output_dir.is_absolute():
         raise SystemExit("--output must be an absolute path")
@@ -137,6 +146,7 @@ def main():
     node_executable = Path(node_command).resolve(strict=True)
     node_version = output([node_executable, "--version"], cwd=MITHRIL_ROOT)
     source_hash = hashlib.sha256(source_bytes).hexdigest()
+    library_hashes = [hashlib.sha256(data).hexdigest() for data in library_bytes]
     classpath = os.pathsep.join(str(MITHRIL_ROOT / name)
                                 for name in ("src", "resources", "lib", "examples", "ontology"))
 
@@ -149,15 +159,30 @@ def main():
         source_copy.write_bytes(source_bytes)
         lower_command = [kbb, "--backend", "sci", "--classpath", classpath,
                          MITHRIL_ROOT / "bin/mithril-amu.cljk", source_copy, lowered]
+        for index, (library, data) in enumerate(zip(libraries, library_bytes)):
+            library_copy = temp / ("library-" + str(index) + library.suffix)
+            library_copy.write_bytes(data)
+            lower_command.extend(["--library", library_copy])
         lower_process = subprocess.run([str(item) for item in lower_command],
                                        cwd=MITHRIL_ROOT, env=clean_environment(),
                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                        text=True)
         if lower_process.returncode:
             sys.stderr.write(lower_process.stderr or lower_process.stdout)
-            raise SystemExit("Mithril native module admission failed")
+            raise SystemExit("Mithril native source admission failed")
         lower_result = json.loads(lower_process.stdout)
         lowered_bytes = lowered.read_bytes()
+        dependency_names = lower_result.get("dependency-files") or []
+        if (not isinstance(dependency_names, list)
+                or any(not isinstance(name, str) for name in dependency_names)
+                or len(dependency_names) != len(set(dependency_names))):
+            raise SystemExit("Mithril native lowering returned an invalid dependency list")
+        dependency_paths = []
+        for name in dependency_names:
+            dependency = (MITHRIL_ROOT / name).resolve(strict=True)
+            if MITHRIL_ROOT not in dependency.parents or not dependency.is_file():
+                raise SystemExit("Mithril native dependency must be a file inside the checkout")
+            dependency_paths.append((name, dependency, sha256(dependency)))
 
     if not args.selfhost_output:
         output_dir.parent.mkdir(parents=True, exist_ok=True)
@@ -198,6 +223,13 @@ def main():
 
     source_copy = output_dir / ("module" + source.suffix)
     source_copy.write_bytes(source_bytes)
+    library_copies = []
+    for index, (library, data) in enumerate(zip(libraries, library_bytes)):
+        library_copy = output_dir / ("library-" + str(index) + library.suffix)
+        if library_copy.exists():
+            raise SystemExit("Mithril library output path already exists: " + library_copy.name)
+        library_copy.write_bytes(data)
+        library_copies.append(library_copy)
     module_source = artifacts / "mithril-module.kotoba"
     module_artifact = artifacts / "mithril-module.kseed"
     module_source.write_bytes(lowered_bytes)
@@ -254,8 +286,14 @@ def main():
             raise SystemExit("Mithril Program lowering did not return transaction EDN")
         case_specs.append(({"export": "transaction_edn", "args": [],
                             "expected": transaction_edn}, True, False))
-        for case in lower_result.get("native-execution-cases", []):
-            case_specs.append((case, False, True))
+    artifact_edn = lower_result.get("artifact-edn")
+    if artifact_edn is not None:
+        if not isinstance(artifact_edn, str):
+            raise SystemExit("Mithril artifact lowering did not return artifact EDN")
+        case_specs.append(({"export": "artifact_edn", "args": [],
+                            "expected": artifact_edn}, True, False))
+    for case in lower_result.get("native-execution-cases") or []:
+        case_specs.append((case, isinstance(case.get("expected"), str), True))
 
     case_results = []
     for index, (case, string_check, redact_args) in enumerate(case_specs):
@@ -264,9 +302,12 @@ def main():
         if abi is None:
             raise SystemExit("--case names an export not present in the Mithril module")
         if string_result_check:
-            if (abi["returns"] != "string" or case["args"]
-                    or len(abi["params"]) != 0):
-                raise SystemExit("string execution checks currently require a zero-argument string export")
+            if abi["returns"] != "string" or len(case["args"]) != len(abi["params"]):
+                raise SystemExit("string execution checks require a string export with matching arguments")
+            if any(type_name != "string" or not isinstance(value, str)
+                   or len(value) > 1_048_576
+                   for type_name, value in zip(abi["params"], case["args"])):
+                raise SystemExit("string-result execution checks currently accept string arguments only")
             case_symbol = "__mithril_case_" + str(index)
             case_source_path = artifacts / ("mithril-case-" + str(index) + ".kotoba")
             case_artifact = artifacts / ("mithril-case-" + str(index) + ".kseed")
@@ -279,9 +320,12 @@ def main():
                 raise SystemExit("Mithril Kotoba output has an invalid export header")
             header = header[:export_end] + " " + case_symbol + header[export_end:]
             case_literal = json.dumps(case["expected"], ensure_ascii=True)
+            call_arguments = "".join(" " + json.dumps(value, ensure_ascii=True)
+                                      for value in case["args"])
             case_source = (header + source_text[header_end + 1:]
                            + "\n(defn " + case_symbol + " [] :i64 (if (= ("
-                           + abi["symbol"] + ") " + case_literal + ") 1 0))\n")
+                           + abi["symbol"] + call_arguments + ") "
+                           + case_literal + ") 1 0))\n")
             if case_source_path.exists() or case_artifact.exists():
                 raise SystemExit("Mithril string-check output path already exists")
             case_source_path.write_text(case_source)
@@ -350,18 +394,23 @@ def main():
             raise SystemExit("native Mithril call returned " + actual + ", expected "
                              + expected_value + " for " + case["export"])
         if string_result_check:
-            case_results.append({"export": case["export"], "args": [],
+            case_results.append({"export": case["export"],
+                                 "argsSHA256": [hashlib.sha256(value.encode()).hexdigest()
+                                                for value in case["args"]],
                                  "expectedSHA256": hashlib.sha256(case["expected"].encode()).hexdigest(),
                                  "actual": "match", "codeSHA256": sha256(code_path),
                                  "caseModuleSHA256": sha256(case_artifact)})
         else:
-            result = {**case, "actual": int(actual), "codeSHA256": sha256(code_path)}
-            if redact_args:
+            result = {"export": case["export"],
+                      "actual": int(actual), "codeSHA256": sha256(code_path)}
+            if redact_args or any(isinstance(value, str) for value in case["args"]):
                 result["argsSHA256"] = [
                     hashlib.sha256(value.encode("utf-8")).hexdigest()
                     if isinstance(value, str) else value
-                    for value in result.pop("args")
+                    for value in case["args"]
                 ]
+            else:
+                result["args"] = case["args"]
             case_results.append(result)
 
     if sha256(producer) != producer_before or sha256(loader) != loader_before:
@@ -370,6 +419,15 @@ def main():
         raise SystemExit("Mithril source changed during compilation")
     if sha256(source_copy) != source_hash:
         raise SystemExit("Mithril source copy changed during compilation")
+    for index, (library, library_hash, copy_path) in enumerate(
+            zip(libraries, library_hashes, library_copies)):
+        if hashlib.sha256(library.read_bytes()).hexdigest() != library_hash:
+            raise SystemExit("Mithril library source changed during compilation")
+        if sha256(copy_path) != library_hash:
+            raise SystemExit("Mithril library source copy changed during compilation")
+    for _, dependency, digest in dependency_paths:
+        if sha256(dependency) != digest:
+            raise SystemExit("Mithril native dependency changed during compilation")
 
     frontend_files = [
         "bin/mithril-amu.cljk",
@@ -377,6 +435,27 @@ def main():
         "src/mithril/form.cljk",
         "src/mithril/module.cljk",
         "src/mithril/module_lower.cljk",
+        "src/mithril/program_lower.cljk",
+        "src/mithril/web.cljk",
+        "src/mithril/web_lower.cljk",
+        "src/mithril/artifact_lower.cljk",
+        "src/mithril/bot.cljk",
+        "src/mithril/bpmn.cljk",
+        "src/mithril/desktop.cljk",
+        "src/mithril/hermes_fleet.cljk",
+        "src/mithril/growth.cljk",
+        "src/mithril/mission.cljk",
+        "src/mithril/app.cljk",
+        "src/mithril/graph.cljk",
+        "src/mithril/language.cljk",
+        "src/mithril/codegraph_contract.cljk",
+        "src/mithril/codegraph_extract.cljk",
+        "src/mithril/codegraph_documents.cljk",
+        "src/mithril/codegraph_communities.cljk",
+        "src/mithril/codegraph.cljk",
+        "src/mithril/rdf_form.cljk",
+        "src/mithril/codegraph_store.cljs",
+        "src/mithril/execution.cljk",
         "deps.edn",
         "nbb.edn",
     ]
@@ -401,12 +480,20 @@ def main():
         "nodeExecutableSHA256": sha256(node_executable),
         "source": source_copy.name,
         "sourceSHA256": source_hash,
+        "libraries": [{"source": str(path), "sourceCopy": copy_path.name,
+                       "sourceSHA256": digest}
+                      for path, copy_path, digest in zip(libraries, library_copies, library_hashes)],
+        "dependencies": [{"path": name, "sourceSHA256": digest}
+                         for name, _, digest in dependency_paths],
         "sourceKind": lower_result.get("source-kind"),
         "nativeSourceFormat": lower_result.get("format"),
         "programFormat": lower_result.get("program-format"),
-        "programGraphDigest": lower_result.get("graph-digest"),
+        "artifactFormat": lower_result.get("artifact-format"),
+        "graphDigest": lower_result.get("graph-digest"),
         "transactionEdnSHA256": (hashlib.sha256(lower_result["transaction-edn"].encode()).hexdigest()
                                  if isinstance(lower_result.get("transaction-edn"), str) else None),
+        "artifactEdnSHA256": (hashlib.sha256(artifact_edn.encode()).hexdigest()
+                               if isinstance(artifact_edn, str) else None),
         "loweredKotobaSHA256": sha256(module_source),
         "target": "aarch64-macos",
         "artifact": "artifacts/mithril-module.kseed",

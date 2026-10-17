@@ -2,30 +2,135 @@
   "Validate and lower Mithril .mith sources for Amu's native selfhost compiler."
   (:require [mithril.module-lower :as lower]
             [mithril.program-lower :as program-lower]
-            [mithril.form :as form]
+            [mithril.web-lower :as web-lower]
+            [mithril.artifact-lower :as artifact-lower]
+            [mithril.compiler :as compiler]
+            [mithril.bot :as bot]
+            [mithril.desktop :as desktop]
+            [mithril.hermes-fleet :as fleet]
+            [mithril.growth :as growth]
+            [mithril.mission :as mission]
+            [mithril.app :as app]
+            [mithril.graph :as graph]
+            [mithril.language :as language]
+            [mithril.codegraph-contract :as codegraph-contract]
             ["node:fs" :as fs]))
 
+(defn- library-arguments [args]
+  (loop [args args result []]
+    (if (empty? args)
+      result
+      (if (and (= "--library" (first args)) (second args))
+        (recur (nnext args) (conj result (second args)))
+        (throw (ex-info "Expected repeated --library <library.mith> options"
+                        {:mithril/error :mithril/amu-cli-arguments}))))))
+
+(defn- lower-source [source text library-paths]
+  (let [doc (compiler/parse-source text)
+        source-type (get doc "@type")
+        libraries (mapv (fn [path]
+                          (compiler/compile-library-text path
+                            (fs/readFileSync path "utf8")))
+                        library-paths)
+        no-libraries! (fn []
+                        (when (seq library-paths)
+                          (throw (ex-info (str source-type " does not accept --library")
+                                          {:mithril/error :mithril/amu-cli-arguments}))))]
+    (case source-type
+      "Module" (do
+                 (no-libraries!)
+                 (assoc (lower/lower-native-document doc)
+                        :source-kind :mithril/module))
+      "Program" (do
+                  (no-libraries!)
+                  (program-lower/lower-native-program-text source text))
+      "WebApplication"
+      (web-lower/lower-native-document source doc libraries)
+      "Library" (do
+                  (no-libraries!)
+                  (artifact-lower/lower-native-artifact
+                   :mithril/library (compiler/compile-library-document source doc)))
+      "Ontology" (do
+                   (no-libraries!)
+                   (artifact-lower/lower-native-artifact
+                    :mithril/ontology (compiler/compile-ontology-document source doc)))
+      "BotProfile" (do
+                     (no-libraries!)
+                     (artifact-lower/lower-native-artifact
+                      :mithril/bot-profile (bot/compile-document source doc)))
+      "DesktopApplication" (do
+                             (no-libraries!)
+                             (artifact-lower/lower-native-artifact
+                              :mithril/desktop-application (desktop/compile-document source doc)))
+      "HermesProfile" (do
+                       (no-libraries!)
+                       (artifact-lower/lower-native-artifact
+                        :mithril/hermes-profile (fleet/compile-document source doc)))
+      "GrowthProfile" (do
+                       (no-libraries!)
+                       (artifact-lower/lower-native-artifact
+                        :mithril/growth-profile (growth/compile-document source doc)))
+      "MissionModel" (do
+                      (no-libraries!)
+                      (artifact-lower/lower-native-artifact
+                       :mithril/mission-model (mission/compile-document doc)))
+      "AppAgentApplication"
+      (artifact-lower/lower-native-artifact
+       :mithril/app-agent (app/compile-document source doc libraries))
+      "GraphAgentApplication"
+      (artifact-lower/lower-native-artifact
+       :mithril/graph-agent (graph/compile-document source doc libraries))
+      "LanguageKernel"
+      (do
+        (no-libraries!)
+        (assoc
+         (artifact-lower/lower-native-artifact
+          :mithril/language-kernel
+          (language/compile-text
+           text (compiler/compile-library-text "lib/mithril/bootstrap-v1.mith"
+                                               (fs/readFileSync "lib/mithril/bootstrap-v1.mith" "utf8"))))
+         :dependency-files ["lib/mithril/bootstrap-v1.mith"]))
+      "CodeGraphApplication"
+      (do
+        (no-libraries!)
+        (assoc
+         (artifact-lower/lower-native-artifact
+          :mithril/codegraph-application
+          (codegraph-contract/compile-text
+           source text
+           (compiler/compile-library-text "lib/codegraph/operations-v1.mith"
+                                          (fs/readFileSync "lib/codegraph/operations-v1.mith" "utf8"))
+           (compiler/compile-ontology-text "ontology/codegraph-v1.mith"
+                                           (fs/readFileSync "ontology/codegraph-v1.mith" "utf8"))))
+         :dependency-files ["lib/codegraph/operations-v1.mith"
+                            "ontology/codegraph-v1.mith"]))
+      (throw (ex-info (str "Source type is not yet admitted by the Amu native profile: " source-type)
+                      {:mithril/error :mithril/amu-unsupported-source-type
+                       :source-type source-type})))))
+
 (let [[source output & extra] *command-line-args*]
-  (when-not (and source output (empty? extra))
-    (js/console.error "usage: mithril-amu <source.mith|source.mithril> <new-output.kotoba>")
+  (when-not (and source output)
+    (js/console.error "usage: mithril-amu <source.mith|source.mithril> <new-output.kotoba> [--library <library.mith|library.mithril> ...]")
     (js/process.exit 64))
   (when (fs/existsSync output)
     (js/console.error "REFUSE\toutput-exists\tOutput path already exists")
     (js/process.exit 65))
   (try
     ;; Admission and lowering complete before the first output write.
-    (let [text (fs/readFileSync source "utf8")
-          result (if (form/source? text)
-                   (lower/lower-native-text text)
-                   (program-lower/lower-native-program-text source text))]
+    (let [library-paths (library-arguments extra)
+          text (fs/readFileSync source "utf8")
+          result (lower-source source text library-paths)]
       (fs/writeFileSync output (:source result))
       (println (js/JSON.stringify
                  (clj->js {:format (str (namespace (:format result)) "/" (name (:format result)))
-                           :source-kind (if (= :mithril/program (:source-kind result))
-                                          "mithril/program" "mithril/module")
+                           :source-kind (str (namespace (:source-kind result)) "/"
+                                             (name (:source-kind result)))
                            :program-format (:program-format result)
+                           :artifact-format (:artifact-format result)
                            :graph-digest (:graph-digest result)
                            :transaction-edn (:transaction-edn result)
+                           :artifact-edn (:artifact-edn result)
+                           :dependency-files (:dependency-files result)
                            :native-execution-cases (:native-execution-cases result)
                            :name (:name result)
                            :exports (:exports result)

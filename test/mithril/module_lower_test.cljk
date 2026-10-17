@@ -3,7 +3,10 @@
             [clojure.string :as str]
             [mithril.module-lower :as lower]
             [mithril.compiler :as compiler]
-            [mithril.program-lower :as program-lower]))
+            [mithril.program-lower :as program-lower]
+            [mithril.web-lower :as web-lower]
+            [mithril.artifact-lower :as artifact-lower]
+            [mithril.web :as web]))
 (defn read-text [path]
   (.readFileSync (js/require "fs") path "utf8"))
 (defn literal [type value] {"@type" "Literal" "datatype" type "value" value})
@@ -84,6 +87,7 @@
         artifact (compiler/compile-text path text)
         result (program-lower/lower-native-program-text path text)]
     (is (= :mithril.program/amu-native-source-v1 (:format result)))
+    (is (= (:format artifact) (:artifact-format result)))
     (is (= (pr-str (:transaction artifact)) (:transaction-edn result)))
     (is (= [{:name "transaction_edn" :symbol "__mithril_f0"
              :params [] :returns :string}
@@ -118,6 +122,42 @@
     (is (str/includes? (:source result)
                        "(defn __mithril_f0 [__mithril_p0 :string __mithril_p1 :i64] :bool"))
     (is (str/includes? (:source result) "(= __mithril_p0 \"oak.transaction/v1\")"))))
+
+(deftest native-amu-profile-executes-static-web-dispatch
+  (let [path "examples/hello-web.mith"
+        doc (compiler/parse-source (read-text path))
+        library-path "lib/web/v1.mith"
+        library (compiler/compile-library-text library-path (read-text library-path))
+        artifact (compiler/compile-web-document path doc [library])
+        result (web-lower/lower-native-document path doc [library])
+        cases (:native-execution-cases result)
+        unmatched (last cases)]
+    (is (= [:mithril.web/amu-native-source-v1 :mithril/web-application]
+           [(:format result) (:source-kind result)]))
+    (is (= [{:name "dispatch_edn" :symbol "__mithril_f0"
+             :params [:string :string] :returns :string}]
+           (:abi result)))
+    (is (and (= ["GET" "HEAD" "GET"] (mapv #(first (:args %)) cases))
+             (= ["/hello" "/hello"] (mapv #(second (:args %)) (take 2 cases)))
+             (string? (second (:args unmatched)))))
+    (is (= (mapv (fn [{[method path] :args}]
+                   (pr-str (web/dispatch artifact {:method method :path path})))
+                 cases)
+           (mapv :expected cases)))
+    (is (str/includes? (:source result) "(defn __mithril_f0 [__mithril_p0 :string __mithril_p1 :string] :string"))))
+
+(deftest native-amu-profile-preserves-compiled-library-artifact
+  (let [path "lib/web/v1.mith"
+        artifact (compiler/compile-library-text path (read-text path))
+        result (artifact-lower/lower-native-artifact :mithril/library artifact)]
+    (is (= [:mithril.artifact/amu-native-source-v1 :mithril/library]
+           [(:format result) (:source-kind result)]))
+    (is (= (:format artifact) (:artifact-format result)))
+    (is (= [{:name "artifact_edn" :symbol "__mithril_f0"
+             :params [] :returns :string}]
+           (:abi result)))
+    (is (= (pr-str artifact) (:artifact-edn result)))
+    (is (str/includes? (:source result) (pr-str (:artifact-edn result))))))
 
 (def opaque-module-text
   "(mithril/module :name \"host.values\" :exports [\"keep\"]

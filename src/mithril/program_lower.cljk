@@ -45,6 +45,7 @@
            :source source
            :exports (conj (:exports lowered)
                           {:name "admit_edn" :symbol "__mithril_admit_edn"})
+           :artifact-format (:format artifact)
            :abi (conj (:abi lowered)
                       {:name "admit_edn" :symbol "__mithril_admit_edn"
                        :params [:string] :returns :bool})

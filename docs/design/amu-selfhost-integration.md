@@ -1,9 +1,8 @@
 # Mithril `.mith` artifacts on Amu native selfhost
 
-Mithril accepts two `.mith` source forms in this path: JSON-LD Programs such
-as `examples/tender.mith`, and inert `(mithril/module ...)` forms. The
-frontend validates each form and lowers it to Kotoba source; the adopted Amu
-G3 compiler then emits an `aarch64-macos` `.kseed` artifact.
+The Amu native CLI routes checked `.mith` sources through their existing
+Mithril compiler, then lowers the resulting program or artifact to Kotoba. The
+adopted Amu G3 compiler emits an `aarch64-macos` `.kseed` artifact.
 
 For a JSON-LD Program, Mithril's existing compiler first produces the checked
 `oak.transaction/v1` vector. The native module exposes that vector as the
@@ -20,13 +19,33 @@ local calls, `let`, sequences, and conditionals. It rejects `js-value`, JS host
 intrinsics, and guest callables before emission. Those host-facing modules
 continue to use their existing targets.
 
+Static `WebApplication` sources lower their finite route table to an actual
+native `dispatch_edn(method, path)` function. The lowerer derives each route
+response by calling the existing `mithril.web/dispatch` implementation, then
+emits Amu conditions for the admitted method/path pairs and the 404 fallback.
+The build driver compiles and executes those exports for every route, GET's
+HEAD behavior, and an unmatched path. A repeated `--library` option supplies
+the checked Library artifacts required by a WebApplication.
+
+The CLI also admits Library, Ontology, BotProfile, DesktopApplication,
+HermesProfile, GrowthProfile, MissionModel, AppAgentApplication,
+GraphAgentApplication, LanguageKernel, and CodeGraphApplication sources.
+Their existing Mithril compilers validate and produce the artifacts; the
+native module exports the complete artifact as an inert EDN string. Internal
+bootstrap libraries and ontologies are pinned as build dependencies and
+recorded in the receipt. This packages checked data in a native artifact. It
+does not port those artifacts' host runtimes or grant their effects to Amu.
+Native JavaScript modules and declarations, synthesized applications, and the other
+source kinds still need their existing targets or a dedicated native lowering;
+the CLI rejects unsupported source types before emitting output.
+
 `src/mithril/runtime.kotoba` keeps its host-neutral document API. The Program
 lowerer adds the equivalent EDN-string entrypoint to the generated native
 artifact without changing that public API.
 
 The Mithril frontend itself still runs on KBB/SCI. This integration uses Amu's
 selfhosted compiler for native artifact generation; it does not claim that the
-entire Mithril frontend has been ported to Kotoba.
+entire Mithril frontend or every `.mith` source kind has been ported to Kotoba.
 
 ## Reproducible build and execution checks
 
@@ -60,6 +79,28 @@ python3 scripts/compile-mithril-amu-module.py \
   --output /absolute/new/program-build
 ```
 
+Compile a static WebApplication and execute its native route table. Library
+inputs are checked against the application's pinned graph digests:
+
+```sh
+python3 scripts/compile-mithril-amu-module.py \
+  --amu-root /absolute/path/to/amu \
+  --source examples/hello-web.mith \
+  --library lib/web/v1.mith \
+  --output /absolute/new/web-build
+```
+
+Compile a checked Library or other admitted data artifact. The native module's
+`artifact_edn()` export is compared byte-for-byte with Mithril's compiled
+artifact:
+
+```sh
+python3 scripts/compile-mithril-amu-module.py \
+  --amu-root /absolute/path/to/amu \
+  --source lib/web/v1.mith \
+  --output /absolute/new/library-build
+```
+
 Compile and execute the scalar transaction-envelope adapter:
 
 ```sh
@@ -74,11 +115,12 @@ python3 scripts/compile-mithril-amu-module.py \
 
 The Program path automatically compares the native `transaction_edn` export
 with Mithril's output, then calls `admit_edn` with the valid transaction, a
-wrong-version transaction, and a wrong-cardinality transaction. For either
-form, output directories must be new and outside both repositories. The build
-receipt records the Amu compiler and container hashes, Mithril frontend hashes,
-KBB/SCI and Node hashes, source and generated Kotoba hashes, `.kseed` hash,
-target, and native execution results. Later builds can use
+wrong-version transaction, and a wrong-cardinality transaction. Output
+directories must be new and outside both repositories. The build receipt
+records the Amu compiler and container hashes, Mithril frontend hashes, KBB/SCI
+and Node hashes, source and supplied Library hashes, generated Kotoba and
+`.kseed` hashes, target, and native execution results. String inputs and
+outputs are SHA-256 recorded in the receipt. Later builds can use
 `--selfhost-output` to reuse a verified G3 image and loader while writing to a
 separate new output directory.
 

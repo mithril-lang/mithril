@@ -2539,19 +2539,26 @@ source formats, compiler pipeline contract and imported CLI entrypoints. The
 main CLI admits commands through this compiled kernel. `compile` executes its
 ordered pipeline; `compile-trace` records each stage's input/output identities
 and the kernel, library and bootstrap identities. `compile-language` prints its
-IR. `bin/mithril-amu.cljk` adds a native Amu path for both JSON-LD `.mith`
-Programs and typed `(mithril/module ...)` sources. Programs pass through the
-existing OaK compiler; the checked transaction is embedded as an EDN string
-export, and `admit_edn(string)` parses and checks the native v1/four-field
-envelope. Amu G3 compiles both to an `aarch64-macos` `.kseed`. Typed modules
-lower directly to Kotoba. `scripts/compile-mithril-amu-module.py` rebuilds the
-pinned three-generation selfhost compiler and can execute scalar exports with
-`--case` checks. The native module profile admits `i64`, `bool`, `string`,
-arithmetic/equality/boolean intrinsics, local calls, `let`, sequences and
-conditionals. It refuses `js-value`, JS host intrinsics and guest callables
-before emission; those remain on their existing host target. The Mithril
-frontend remains hosted by KBB/SCI; this integrates Amu's selfhost compiler at
-the native artifact stage. See the
+IR. `bin/mithril-amu.cljk` adds a native Amu path for JSON-LD Programs, static
+WebApplications, and typed `(mithril/module ...)` sources. Programs pass
+through the existing OaK compiler; the checked transaction is embedded as an
+EDN string export, and `admit_edn(string)` checks the native v1/four-field
+envelope. WebApplications lower their finite GET/HEAD route table to an Amu
+`dispatch_edn(method,path)` function. Amu G3 compiles these to an
+`aarch64-macos` `.kseed`. Library, Ontology, BotProfile, DesktopApplication,
+HermesProfile, GrowthProfile, MissionModel, AppAgentApplication,
+GraphAgentApplication, LanguageKernel, and CodeGraphApplication sources can
+also be validated by their Mithril compiler and packaged as native
+`artifact_edn()` exports; their host-specific effects still need their owning
+runtime. `scripts/compile-mithril-amu-module.py`
+rebuilds the pinned three-generation selfhost compiler and executes generated
+native exports against checked cases. The scalar module profile admits `i64`,
+`bool`, `string`, arithmetic/equality/boolean intrinsics, local calls, `let`,
+sequences and conditionals. JavaScript host modules, declaration packages,
+synthesis inputs and other source kinds remain on their existing paths or are
+refused until they have a native lowering. The Mithril frontend remains hosted
+by KBB/SCI; this integrates Amu's selfhost compiler at the native artifact
+stage. See the
 [Amu selfhost integration and benchmark evidence](docs/design/amu-selfhost-integration.md).
 
 Amu's corrected full-19 Embench-derived translated-port comparisons report
