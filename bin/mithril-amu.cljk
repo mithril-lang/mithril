@@ -5,6 +5,7 @@
             [mithril.web-lower :as web-lower]
             [mithril.artifact-lower :as artifact-lower]
             [mithril.compiler :as compiler]
+            [mithril.reason :as reason]
             [mithril.form :as form]
             [mithril.native-js :as native-js]
             [mithril.native-package :as native-package]
@@ -398,6 +399,14 @@
                    (no-libraries!)
                    (artifact-lower/lower-native-artifact
                     :mithril/ontology (compiler/compile-ontology-document source doc)))
+      "http://www.w3.org/2002/07/owl#Ontology"
+      (do
+        (no-libraries!)
+        (let [artifact (compiler/compile-raw-owl-ontology-document source doc)]
+          ;; Raw OWL ontology documents use the pinned JSON-LD context, then
+          ;; pass the same closed OWL 2 RL / SHACL checks as reasoner inputs.
+          (reason/compile-ontology artifact)
+          (artifact-lower/lower-native-artifact :mithril/ontology artifact)))
       "BotProfile" (do
                      (no-libraries!)
                      (artifact-lower/lower-native-artifact

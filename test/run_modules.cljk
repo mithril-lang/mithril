@@ -14,7 +14,7 @@
             [mithril.native-misc-test]
             [mithril.native-array-test] [mithril.native-volatile-test] [mithril.native-types-test] [mithril.native-blocks-test] [mithril.native-spreads-test] [mithril.native-types-module-test] [mithril.native-string-time-test] [mithril.native-string-module-test] [mithril.native-module-init-test] [mithril.native-time-module-test]))
 (defmethod t/report [::t/default :end-run-tests] [m]
-  (when (or (not= 100 (:test m)) (not= 503 (:pass m))
+  (when (or (not= 101 (:test m)) (not= 504 (:pass m))
             (pos? (+ (:fail m) (:error m))))
     (js/process.exit 1)))
 (t/run-tests 'mithril.module-test 'mithril.module-lower-test 'mithril.form-test

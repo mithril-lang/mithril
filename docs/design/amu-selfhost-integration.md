@@ -35,6 +35,11 @@ native module exports the complete artifact as an inert EDN string. Internal
 bootstrap libraries and ontologies are pinned as build dependencies and
 recorded in the receipt. This packages checked data in a native artifact. It
 does not port those artifacts' host runtimes or grant their effects to Amu.
+Raw JSON-LD `owl:Ontology` documents are also admitted: Mithril expands them
+with its pinned local context, checks the closed OWL 2 RL and SHACL profile,
+then packages the source dataset as the native ontology artifact. Its optional
+`owl:imports` IRI is preserved as a reference in that dataset and is not
+fetched or resolved.
 Native JavaScript modules, acyclic packages, multi-file ESM packages, checked
 declaration modules and declaration programs pass through Mithril's existing
 complete checkers and emitters. The resulting JavaScript, ESM and TypeScript

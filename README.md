@@ -2555,8 +2555,10 @@ declaration modules/programs, components, assemblies, stacks, clusters, and
 twins use the existing bounded checkers and dependency hashes. A Hermes
 scheduler contract supplies its checked BotProfile with `--bot-profile`; a
 synthesis request may supply its Library sources with repeated `--library`
-options. The resulting synthesis artifact is a checked question plan; it does
-not invent a model result. `scripts/compile-mithril-amu-module.py`
+options. Raw JSON-LD `owl:Ontology` documents also pass the pinned OWL 2 RL and
+SHACL checks before native packaging; an admitted `owl:imports` IRI is retained
+as a reference and is not fetched. The resulting synthesis artifact is a checked
+question plan; it does not invent a model result. `scripts/compile-mithril-amu-module.py`
 rebuilds the pinned three-generation selfhost compiler and executes generated
 native exports against checked cases. The scalar module profile admits `i64`,
 `bool`, `string`, arithmetic/equality/boolean intrinsics, local calls, `let`,
