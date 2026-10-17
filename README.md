@@ -2547,16 +2547,23 @@ envelope. WebApplications lower their finite GET/HEAD route table to an Amu
 `dispatch_edn(method,path)` function. Amu G3 compiles these to an
 `aarch64-macos` `.kseed`. Library, Ontology, BotProfile, DesktopApplication,
 HermesProfile, GrowthProfile, MissionModel, AppAgentApplication,
-GraphAgentApplication, LanguageKernel, and CodeGraphApplication sources can
-also be validated by their Mithril compiler and packaged as native
-`artifact_edn()` exports; their host-specific effects still need their owning
-runtime. `scripts/compile-mithril-amu-module.py`
+GraphAgentApplication, LanguageKernel, CodeGraphApplication, checked synthesis
+request plans, and bot-bound Hermes scheduler contracts can also be validated
+by their Mithril compiler and packaged as native `artifact_edn()` exports;
+their host-specific effects still need their owning runtime. ESM packages,
+declaration modules/programs, components, assemblies, stacks, clusters, and
+twins use the existing bounded checkers and dependency hashes. A Hermes
+scheduler contract supplies its checked BotProfile with `--bot-profile`; a
+synthesis request may supply its Library sources with repeated `--library`
+options. The resulting synthesis artifact is a checked question plan; it does
+not invent a model result. `scripts/compile-mithril-amu-module.py`
 rebuilds the pinned three-generation selfhost compiler and executes generated
 native exports against checked cases. The scalar module profile admits `i64`,
 `bool`, `string`, arithmetic/equality/boolean intrinsics, local calls, `let`,
-sequences and conditionals. JavaScript host modules, declaration packages,
-synthesis inputs and other source kinds remain on their existing paths or are
-refused until they have a native lowering. The Mithril frontend remains hosted
+sequences and conditionals. JavaScript host modules and declaration packages
+are carried as inert checked artifacts; Amu does not execute JavaScript or
+acquire their host imports. Model decisions, durable runtime-state transitions,
+and other process actions still require their owning runtime. The Mithril frontend remains hosted
 by KBB/SCI; this integrates Amu's selfhost compiler at the native artifact
 stage. See the
 [Amu selfhost integration and benchmark evidence](docs/design/amu-selfhost-integration.md).

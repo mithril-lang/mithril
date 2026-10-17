@@ -89,7 +89,11 @@ def main():
     parser.add_argument("--source", required=True, type=Path,
                         help="a Mithril source admitted by bin/mithril-amu.cljk")
     parser.add_argument("--library", action="append", default=[], type=Path,
-                        help="a Library source required by a WebApplication; may be repeated")
+                        help="a checked Library source for a WebApplication or synthesis request; may be repeated")
+    parser.add_argument("--source-root", type=Path,
+                        help="checkout directory containing manifest-declared local Mithril sources")
+    parser.add_argument("--bot-profile", type=Path,
+                        help="checked BotProfile input required by a Hermes scheduler contract")
     parser.add_argument("--output", required=True, type=Path,
                         help="new, empty build directory outside both checkouts")
     parser.add_argument("--selfhost-output", type=Path,
@@ -107,13 +111,23 @@ def main():
     if source.suffix not in {".mith", ".mithril"} or not source.is_file():
         raise SystemExit("--source must be a .mith or .mithril module file")
     source_bytes = source.read_bytes()
+    source_root = args.source_root.expanduser().resolve(strict=True) if args.source_root else source.parent
+    if not source_root.is_dir():
+        raise SystemExit("--source-root must name a directory")
     libraries = [path.expanduser().resolve(strict=True) for path in args.library]
     if any(path.suffix not in {".mith", ".mithril"} or not path.is_file()
            for path in libraries):
         raise SystemExit("--library values must be .mith or .mithril source files")
-    if len(libraries) != len(set(libraries)) or source in libraries:
-        raise SystemExit("source and library inputs must be unique")
+    bot_profile = (args.bot_profile.expanduser().resolve(strict=True)
+                   if args.bot_profile else None)
+    if (bot_profile and (bot_profile.suffix not in {".mith", ".mithril"}
+                         or not bot_profile.is_file())):
+        raise SystemExit("--bot-profile must be a .mith or .mithril source file")
+    all_inputs = libraries + ([bot_profile] if bot_profile else [])
+    if len(all_inputs) != len(set(all_inputs)) or source in all_inputs:
+        raise SystemExit("source, Library, and BotProfile inputs must be unique")
     library_bytes = [path.read_bytes() for path in libraries]
+    bot_profile_bytes = bot_profile.read_bytes() if bot_profile else None
     output_dir = args.output.expanduser()
     if not output_dir.is_absolute():
         raise SystemExit("--output must be an absolute path")
@@ -159,10 +173,18 @@ def main():
         source_copy.write_bytes(source_bytes)
         lower_command = [kbb, "--backend", "sci", "--classpath", classpath,
                          MITHRIL_ROOT / "bin/mithril-amu.cljk", source_copy, lowered]
+        lower_command.extend(["--source-root", source_root])
         for index, (library, data) in enumerate(zip(libraries, library_bytes)):
             library_copy = temp / ("library-" + str(index) + library.suffix)
             library_copy.write_bytes(data)
             lower_command.extend(["--library", library_copy])
+        lower_bot_profile_copy = None
+        bot_profile_hash = None
+        if bot_profile is not None:
+            lower_bot_profile_copy = temp / ("bot-profile" + bot_profile.suffix)
+            lower_bot_profile_copy.write_bytes(bot_profile_bytes)
+            lower_command.extend(["--bot-profile", lower_bot_profile_copy])
+            bot_profile_hash = hashlib.sha256(bot_profile_bytes).hexdigest()
         lower_process = subprocess.run([str(item) for item in lower_command],
                                        cwd=MITHRIL_ROOT, env=clean_environment(),
                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -171,6 +193,8 @@ def main():
             sys.stderr.write(lower_process.stderr or lower_process.stdout)
             raise SystemExit("Mithril native source admission failed")
         lower_result = json.loads(lower_process.stdout)
+        if lower_result.get("bot-profile-sha256") != bot_profile_hash:
+            raise SystemExit("Mithril lowering did not bind the supplied BotProfile input")
         lowered_bytes = lowered.read_bytes()
         dependency_names = lower_result.get("dependency-files") or []
         if (not isinstance(dependency_names, list)
@@ -178,11 +202,18 @@ def main():
                 or len(dependency_names) != len(set(dependency_names))):
             raise SystemExit("Mithril native lowering returned an invalid dependency list")
         dependency_paths = []
+        dependency_hashes = lower_result.get("dependency-hashes") or {}
+        if not isinstance(dependency_hashes, dict):
+            raise SystemExit("Mithril native lowering returned invalid dependency hashes")
         for name in dependency_names:
             dependency = (MITHRIL_ROOT / name).resolve(strict=True)
             if MITHRIL_ROOT not in dependency.parents or not dependency.is_file():
                 raise SystemExit("Mithril native dependency must be a file inside the checkout")
-            dependency_paths.append((name, dependency, sha256(dependency)))
+            digest = sha256(dependency)
+            expected_digest = dependency_hashes.get(name)
+            if expected_digest is not None and expected_digest != digest:
+                raise SystemExit("Mithril source dependency changed while compiling: " + name)
+            dependency_paths.append((name, dependency, digest))
 
     if not args.selfhost_output:
         output_dir.parent.mkdir(parents=True, exist_ok=True)
@@ -230,6 +261,12 @@ def main():
             raise SystemExit("Mithril library output path already exists: " + library_copy.name)
         library_copy.write_bytes(data)
         library_copies.append(library_copy)
+    bot_profile_copy = None
+    if bot_profile is not None:
+        bot_profile_copy = output_dir / ("bot-profile" + bot_profile.suffix)
+        if bot_profile_copy.exists():
+            raise SystemExit("Mithril BotProfile output path already exists: " + bot_profile_copy.name)
+        bot_profile_copy.write_bytes(bot_profile_bytes)
     module_source = artifacts / "mithril-module.kotoba"
     module_artifact = artifacts / "mithril-module.kseed"
     module_source.write_bytes(lowered_bytes)
@@ -425,6 +462,11 @@ def main():
             raise SystemExit("Mithril library source changed during compilation")
         if sha256(copy_path) != library_hash:
             raise SystemExit("Mithril library source copy changed during compilation")
+    if bot_profile is not None:
+        if hashlib.sha256(bot_profile.read_bytes()).hexdigest() != bot_profile_hash:
+            raise SystemExit("Mithril BotProfile source changed during compilation")
+        if sha256(bot_profile_copy) != bot_profile_hash:
+            raise SystemExit("Mithril BotProfile source copy changed during compilation")
     for _, dependency, digest in dependency_paths:
         if sha256(dependency) != digest:
             raise SystemExit("Mithril native dependency changed during compilation")
@@ -434,6 +476,20 @@ def main():
         "src/mithril/compiler.cljk",
         "src/mithril/form.cljk",
         "src/mithril/module.cljk",
+        "src/mithril/js_identifier.cljk",
+        "src/mithril/native_js.cljk",
+        "src/mithril/native_package.cljk",
+        "src/mithril/native_esm.cljk",
+        "src/mithril/native_declarations.cljk",
+        "src/mithril/native_declaration_emit.cljk",
+        "src/mithril/native_declaration_program.cljk",
+        "src/mithril/native_declaration_composition.cljk",
+        "src/mithril/synthesis.cljk",
+        "src/mithril/components.cljk",
+        "src/mithril/cluster.cljk",
+        "src/mithril/stack.cljk",
+        "src/mithril/twin.cljk",
+        "src/mithril/twin_sim.cljk",
         "src/mithril/module_lower.cljk",
         "src/mithril/program_lower.cljk",
         "src/mithril/web.cljk",
@@ -443,6 +499,7 @@ def main():
         "src/mithril/bpmn.cljk",
         "src/mithril/desktop.cljk",
         "src/mithril/hermes_fleet.cljk",
+        "src/mithril/hermes_scheduler.cljk",
         "src/mithril/growth.cljk",
         "src/mithril/mission.cljk",
         "src/mithril/app.cljk",
@@ -483,6 +540,10 @@ def main():
         "libraries": [{"source": str(path), "sourceCopy": copy_path.name,
                        "sourceSHA256": digest}
                       for path, copy_path, digest in zip(libraries, library_copies, library_hashes)],
+        "botProfile": ({"source": str(bot_profile),
+                        "sourceCopy": bot_profile_copy.name,
+                        "sourceSHA256": bot_profile_hash}
+                       if bot_profile is not None else None),
         "dependencies": [{"path": name, "sourceSHA256": digest}
                          for name, _, digest in dependency_paths],
         "sourceKind": lower_result.get("source-kind"),
