@@ -172,6 +172,7 @@
         categories (get record "categories" [])
         tags (get record "tags" [])
         featured-media (get record "featured_media" 0)
+        parent-id (get record "parent" 0)
         date (get record "date")
         date-gmt (get record "date_gmt")
         modified (get record "modified")
@@ -203,9 +204,10 @@
              "WordPress content must contain a bounded raw or rendered string"
              {:source-id source-id}))
     (when-not (and (id-vector? categories) (id-vector? tags)
-                   (non-negative-id? featured-media))
+                   (non-negative-id? featured-media)
+                   (non-negative-id? parent-id))
       (fail! :mithril.sites/invalid-taxonomy-or-media
-             "category, tag, and featured-media references must be numeric IDs"
+             "category, tag, featured-media, and page-parent references must be numeric IDs"
              {:source-id source-id}))
     (doseq [[field value] [["date" date]
                            ["date_gmt" date-gmt]
@@ -238,6 +240,7 @@
      :source {:system "wordpress"
               :post-id source-id
               :post-type post-type
+              :parent-id parent-id
               :status source-status
               :date date
               :date-gmt date-gmt

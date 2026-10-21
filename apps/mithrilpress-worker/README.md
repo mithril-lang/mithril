@@ -13,9 +13,11 @@ only an explicitly published tenant revision.
   D1 hostname lookup. A hostname label never grants tenant identity.
 - Owner-scoped WordPress REST and WXR 1.2 subset import for posts and pages.
   Imports are bounded, sanitized, immutable revisions that remain private.
-  Standard WXR categories, tags, category parents, and term IDs are retained;
-  a small static SEO field allowlist is retained, while other custom fields,
-  page-parent links, and source media files require manual migration. Every
+  Standard WXR categories, tags, category parents, page-parent links, and term
+  IDs are retained when referenced records are present. Cyclic, unresolved, or
+  over-depth page hierarchies are reported for owner review; a small static SEO
+  field allowlist is retained, while other custom fields and source media files
+  require manual migration. Every
   import returns link, block, asset, SEO metadata, and permalink reconciliation
   counts. Safe multi-segment source URL paths are preserved for published
   routes; query-based and reserved paths fall back to a slug route and are
@@ -487,7 +489,9 @@ Single-item `GET` and `HEAD` routes accept a positive numeric ID. Imported
 entries resolve by their WordPress source ID; MithrilPress-authored entries
 resolve by their MithrilPress API ID. They return only an entry in the active
 published revision, so drafts, private previews, superseded revisions, and IDs
-of another post type return 404.
+of another post type return 404. Pages expose their parent source ID only when
+that parent is also published in the active revision; otherwise the public
+`parent` value is `0`.
 Category/tag lists also support
 `search` and `hide_empty`, and individual terms can be fetched by source ID.
 Responses include standard `X-WP-Total`, `X-WP-TotalPages`, and pagination
@@ -516,8 +520,9 @@ with its original WordPress media ID before import. Source-host links are
 rewritten only for imported permalinks; unresolved links remain visible in the
 report and still point to the source site. The report shows which image
 references were rewritten or omitted. Apart from the static SEO field allowlist
-above, the importer does not preserve custom fields, page-parent relationships,
-users, comments, or custom taxonomies.
+above, the importer does not preserve custom fields, users, comments, or custom
+taxonomies. Unresolved, cyclic, and over-depth page hierarchies are counted in
+the migration report and require owner review.
 Safe multi-segment WordPress permalink paths are used by the published site,
 the read-only REST `link` field, canonical tags, and rewritten internal links.
 Query-based, reserved, invalid, or unsupported source paths fall back to a

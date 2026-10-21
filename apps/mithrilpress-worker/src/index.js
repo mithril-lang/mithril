@@ -323,8 +323,64 @@ function normalizeRecord(record) {
   const selectedSeo = selectWordPressSeoMetadata(record?.seoMetadata ?? record?.meta);
   return {
     ...admission.entry,
+    parentSourceId: admission.entry.parentSourceId ?? null,
     seoMetadata: selectedSeo.metadata,
     seoMetadataOmittedFields: selectedSeo.omittedFields,
+  };
+}
+
+function preserveWordPressPageParents(entries) {
+  const pagesBySourceId = new Map(entries
+    .filter((entry) => entry.kind === "page")
+    .map((entry) => [entry.sourceId, entry]));
+  let omitted = 0;
+  for (const entry of entries) {
+    const parentSourceId = entry.parentSourceId;
+    if (parentSourceId === null) continue;
+    const parent = pagesBySourceId.get(parentSourceId);
+    if (entry.kind !== "page" || !parent || parent.entryId === entry.entryId) {
+      entry.parentSourceId = null;
+      omitted += 1;
+    }
+  }
+
+  for (const page of pagesBySourceId.values()) {
+    const path = [];
+    const positions = new Map();
+    let current = page;
+    while (current?.parentSourceId !== null && current?.parentSourceId !== undefined) {
+      if (positions.has(current.sourceId)) {
+        for (const cyclicPage of path.slice(positions.get(current.sourceId))) {
+          if (cyclicPage.parentSourceId !== null) {
+            cyclicPage.parentSourceId = null;
+            omitted += 1;
+          }
+        }
+        break;
+      }
+      positions.set(current.sourceId, path.length);
+      path.push(current);
+      current = pagesBySourceId.get(current.parentSourceId);
+    }
+  }
+
+  for (const page of pagesBySourceId.values()) {
+    let current = page;
+    let depth = 0;
+    while (current?.parentSourceId !== null && current?.parentSourceId !== undefined) {
+      if (depth >= 64) {
+        current.parentSourceId = null;
+        omitted += 1;
+        break;
+      }
+      depth += 1;
+      current = pagesBySourceId.get(current.parentSourceId);
+    }
+  }
+
+  return {
+    preserved: [...pagesBySourceId.values()].filter((page) => page.parentSourceId !== null).length,
+    omitted,
   };
 }
 
@@ -1372,7 +1428,7 @@ async function studioChat(request, env, site) {
   let slug = chatEntry.slug;
   const baseEntries = conversation.base_revision_id
     ? await env.DB.prepare(
-      "SELECT kind, slug, api_id, route_path FROM entries WHERE site_id = ? AND revision_id = ?",
+      "SELECT entry_id, kind, slug, api_id, route_path, parent_source_id FROM entries WHERE site_id = ? AND revision_id = ?",
     ).bind(site.id, conversation.base_revision_id).all()
     : { results: [] };
   const sameKindEntries = (baseEntries.results ?? []).filter((entry) => entry.kind === kind);
@@ -1398,6 +1454,7 @@ async function studioChat(request, env, site) {
   const entryId = chatEntry.id;
   const assistantAt = new Date(now.getTime() + 1).toISOString();
   const baseRevisionId = conversation.base_revision_id;
+  const inheritedPageParents = (baseEntries.results ?? []).filter((entry) => entry.parent_source_id !== null);
   const statements = [];
   const newConversationOffset = requestedConversationId === null ? 1 : 0;
   if (newConversationOffset) {
@@ -1418,6 +1475,10 @@ async function studioChat(request, env, site) {
     env.DB.prepare(
       "INSERT INTO entries (site_id, revision_id, entry_id, kind, slug, route_path, title, source_html, safe_html, entry_origin, publication_status, language_code, api_id, source_id, source_status, source_date, source_date_gmt, source_modified, source_modified_gmt, source_permalink, categories_json, tags_json, featured_media_id, rendering_admission) SELECT site_id, ?, entry_id, kind, slug, route_path, title, source_html, safe_html, entry_origin, publication_status, language_code, api_id, source_id, source_status, source_date, source_date_gmt, source_modified, source_modified_gmt, source_permalink, categories_json, tags_json, featured_media_id, rendering_admission FROM entries WHERE site_id = ? AND revision_id = ?",
     ).bind(revisionId, site.id, baseRevisionId),
+    ...inheritedPageParents.map((entry) =>
+      env.DB.prepare(
+        "UPDATE entries SET parent_source_id = ? WHERE site_id = ? AND revision_id = ? AND entry_id = ? AND kind = 'page' AND parent_source_id IS NULL",
+      ).bind(entry.parent_source_id, site.id, revisionId, entry.entry_id)),
     env.DB.prepare(
       "INSERT INTO entry_seo_metadata (site_id, revision_id, entry_id, metadata_json) SELECT site_id, ?, entry_id, metadata_json FROM entry_seo_metadata WHERE site_id = ? AND revision_id = ?",
     ).bind(revisionId, site.id, baseRevisionId),
@@ -1456,8 +1517,13 @@ async function studioChat(request, env, site) {
     if (quotaCode) return storageQuotaResponse(quotaCode);
     return fail(503, "draft_not_saved", "The private draft could not be saved. No content was published.");
   }
-  if (saved[7 + newConversationOffset]?.meta?.changes !== 1
-      || saved[8 + newConversationOffset]?.meta?.changes !== 1) {
+  const inheritedParentResults = saved.slice(
+    3 + newConversationOffset,
+    3 + newConversationOffset + inheritedPageParents.length,
+  );
+  if (inheritedParentResults.some((result) => result?.meta?.changes !== 1)
+      || saved[7 + newConversationOffset + inheritedPageParents.length]?.meta?.changes !== 1
+      || saved[8 + newConversationOffset + inheritedPageParents.length]?.meta?.changes !== 1) {
     return fail(503, "draft_not_saved", "The private draft could not be saved. No content was published.");
   }
   return json({
@@ -1921,6 +1987,8 @@ async function importWordPress(request, env, site) {
   if (slugs.size !== entries.length) return fail(422, "duplicate_slug", "Each post type may contain a slug only once per revision.");
   const routePaths = new Set(entries.map((entry) => entry.routePath));
   if (routePaths.size !== entries.length) return fail(422, "duplicate_permalink_route", "Two imported items resolve to the same public URL. Resolve the source permalink collision before importing.");
+  const pageHierarchy = preserveWordPressPageParents(entries);
+  if (parsedWxr) parsedWxr.omitted.parent_page_relations = pageHierarchy.omitted;
   const totalChars = entries.reduce((sum, entry) => sum + entry.sourceHtml.length, 0);
   if (totalChars > MAX_IMPORT_CHARS) return fail(413, "import_too_large", "The imported content exceeds the site import budget.");
 
@@ -1961,6 +2029,7 @@ async function importWordPress(request, env, site) {
       + encoder.encode(entry.kind).byteLength
       + encoder.encode(entry.slug).byteLength
       + encoder.encode(entry.routePath).byteLength
+      + encoder.encode(entry.parentSourceId === null ? "" : String(entry.parentSourceId)).byteLength
       + encoder.encode(entry.title).byteLength
       + encoder.encode(entry.sourceHtml).byteLength
       + encoder.encode(entry.safeHtml).byteLength
@@ -2002,11 +2071,17 @@ async function importWordPress(request, env, site) {
       source_paths_preserved: preservedRouteCount,
       fallback_paths: entries.length - preservedRouteCount,
     },
+    page_hierarchy: {
+      parent_relations_preserved: pageHierarchy.preserved,
+      parent_relations_omitted: pageHierarchy.omitted,
+      maximum_depth: 64,
+    },
     source_omissions: parsedWxr?.omitted ?? null,
     needs_owner_review: gutenbergReport.needs_owner_review
       || omittedInlineImages > 0
       || unresolvedSourceSiteLinks > 0
       || removedUnsafeLinks > 0
+      || pageHierarchy.omitted > 0
       || omittedSeoFields > 0
       || preservedRouteCount < entries.length
       || Object.values(parsedWxr?.omitted ?? {}).some((count) => Number(count) > 0),
@@ -2044,6 +2119,19 @@ async function importWordPress(request, env, site) {
         entry.featuredMediaId,
       ));
       await env.DB.batch(statements);
+    }
+    const parentEntries = entries.filter((entry) => entry.parentSourceId !== null);
+    const parentUpdate = env.DB.prepare(
+      "UPDATE entries SET parent_source_id = ? WHERE site_id = ? AND revision_id = ? AND entry_id = ? AND kind = 'page' AND parent_source_id IS NULL",
+    );
+    for (let start = 0; start < parentEntries.length; start += 50) {
+      const statements = parentEntries.slice(start, start + 50).map((entry) => parentUpdate.bind(
+        entry.parentSourceId, site.id, revisionId, entry.entryId,
+      ));
+      const results = await env.DB.batch(statements);
+      if (results.some((result) => result?.meta?.changes !== 1)) {
+        throw new Error("page hierarchy relation was not committed");
+      }
     }
     const metadataEntries = entries.filter((entry) => Object.keys(entry.seoMetadata).length > 0);
     const metadataInsert = env.DB.prepare(
@@ -2279,6 +2367,7 @@ function wpRecord(site, row) {
     excerpt: { rendered: "", protected: false },
     author: 0,
     featured_media: row.featured_media_id ?? 0,
+    ...(row.kind === "page" ? { parent: Number(row.parent_source_id ?? 0) } : {}),
     comment_status: "closed",
     ping_status: "closed",
     sticky: false,
@@ -2309,7 +2398,7 @@ async function wordpressRead(request, env, site, kind, itemId = null) {
     if (!Number.isSafeInteger(sourceId) || sourceId < 1) return fail(404, "entry_not_found", "Entry not found.");
     if (!site.current_revision_id || site.status !== "active") return fail(404, "entry_not_found", "Entry not found.");
     const row = await env.DB.prepare(
-      `SELECT api_id, source_id, source_date, source_date_gmt, source_modified, source_modified_gmt, featured_media_id, slug, route_path, title, safe_html, categories_json, tags_json, kind, ${SEO_METADATA_SELECT} FROM entries WHERE site_id = ? AND revision_id = ? AND kind = ? AND publication_status = 'published' AND COALESCE(source_id, api_id) = ? LIMIT 1`,
+      `SELECT api_id, source_id, CASE WHEN EXISTS (SELECT 1 FROM entries parent WHERE parent.site_id = entries.site_id AND parent.revision_id = entries.revision_id AND parent.kind = 'page' AND parent.source_id = entries.parent_source_id AND parent.publication_status = 'published') THEN parent_source_id ELSE 0 END AS parent_source_id, source_date, source_date_gmt, source_modified, source_modified_gmt, featured_media_id, slug, route_path, title, safe_html, categories_json, tags_json, kind, ${SEO_METADATA_SELECT} FROM entries WHERE site_id = ? AND revision_id = ? AND kind = ? AND publication_status = 'published' AND COALESCE(source_id, api_id) = ? LIMIT 1`,
     ).bind(site.id, site.current_revision_id, kind, sourceId).first();
     if (!row) return fail(404, "entry_not_found", "Entry not found.");
     return request.method === "HEAD"
@@ -2392,7 +2481,7 @@ async function wordpressRead(request, env, site, kind, itemId = null) {
     : orderColumns[orderby];
   const orderParams = orderby === "relevance" ? [search, search] : [];
   const rows = await env.DB.prepare(
-    `SELECT api_id, source_id, source_date, source_date_gmt, source_modified, source_modified_gmt, featured_media_id, slug, route_path, title, safe_html, categories_json, tags_json, kind, ${SEO_METADATA_SELECT} FROM entries WHERE ${where} ORDER BY ${orderExpression} ${order}, api_id ASC LIMIT ? OFFSET ?`,
+    `SELECT api_id, source_id, CASE WHEN EXISTS (SELECT 1 FROM entries parent WHERE parent.site_id = entries.site_id AND parent.revision_id = entries.revision_id AND parent.kind = 'page' AND parent.source_id = entries.parent_source_id AND parent.publication_status = 'published') THEN parent_source_id ELSE 0 END AS parent_source_id, source_date, source_date_gmt, source_modified, source_modified_gmt, featured_media_id, slug, route_path, title, safe_html, categories_json, tags_json, kind, ${SEO_METADATA_SELECT} FROM entries WHERE ${where} ORDER BY ${orderExpression} ${order}, api_id ASC LIMIT ? OFFSET ?`,
   ).bind(...params, ...orderParams, perPage, offset).all();
   const totalPages = total === 0 ? 0 : Math.ceil(total / perPage);
   const headers = { "X-WP-Total": String(total), "X-WP-TotalPages": String(totalPages) };
