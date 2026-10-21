@@ -2143,6 +2143,22 @@ function parsePathSegment(value) {
   }
 }
 
+function parseWordPressDateFilter(value) {
+  if (value === null) return { valid: true, value: null };
+  if (value.length > 40 || !/^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2}))?$/.test(value)) {
+    return { valid: false, value: null };
+  }
+  const date = value.slice(0, 10);
+  const calendarDate = Date.parse(`${date}T00:00:00.000Z`);
+  if (!Number.isFinite(calendarDate) || new Date(calendarDate).toISOString().slice(0, 10) !== date) {
+    return { valid: false, value: null };
+  }
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp)
+    ? { valid: true, value: new Date(timestamp).toISOString() }
+    : { valid: false, value: null };
+}
+
 function canonicalUrl(hostname, slug, kind) {
   const path = kind === "page" && slug === "home" ? "/" : `/${encodeURIComponent(slug)}/`;
   return `https://${hostname}${path}`;
@@ -2198,17 +2214,79 @@ async function wordpressRead(request, env, site, kind) {
   if (page === null || perPage === null) return fail(400, "invalid_pagination", "Use a valid WordPress page and per_page value (1-100).");
   const slug = url.searchParams.get("slug");
   if (slug !== null && (!textValue(slug, 200) || !ENTRY_SLUG.test(slug))) return fail(400, "invalid_slug", "The slug filter is invalid.");
+  const searchValue = url.searchParams.get("search");
+  const search = searchValue === null ? null : searchValue.trim();
+  if (search !== null && (!search || search.length > 100 || /[\u0000-\u001f\u007f]/.test(search))) {
+    return fail(400, "invalid_search", "The search filter must contain 1-100 printable characters.");
+  }
+  const after = parseWordPressDateFilter(url.searchParams.get("after"));
+  const before = parseWordPressDateFilter(url.searchParams.get("before"));
+  const modifiedAfter = parseWordPressDateFilter(url.searchParams.get("modified_after"));
+  const modifiedBefore = parseWordPressDateFilter(url.searchParams.get("modified_before"));
+  if (!after.valid || !before.valid || !modifiedAfter.valid || !modifiedBefore.valid) {
+    return fail(400, "invalid_date_filter", "Use an ISO 8601 date or date-time for after, before, modified_after, and modified_before.");
+  }
+  if ((after.value && before.value && after.value > before.value)
+      || (modifiedAfter.value && modifiedBefore.value && modifiedAfter.value > modifiedBefore.value)) {
+    return fail(400, "invalid_date_range", "A date filter's after value must not be later than its before value.");
+  }
+  const orderValue = url.searchParams.get("order") ?? "desc";
+  if (orderValue !== "asc" && orderValue !== "desc") {
+    return fail(400, "invalid_order", "Sort order must be asc or desc.");
+  }
+  const order = orderValue.toUpperCase();
+  const orderby = url.searchParams.get("orderby") ?? "date";
+  const orderColumns = {
+    date: "COALESCE(julianday(COALESCE(source_date_gmt, source_date)), -1)",
+    id: "CAST(COALESCE(source_id, api_id) AS INTEGER)",
+    modified: "COALESCE(julianday(COALESCE(source_modified_gmt, source_modified, source_date_gmt, source_date)), -1)",
+    slug: "slug",
+    title: "lower(title)",
+  };
+  if (!Object.hasOwn(orderColumns, orderby) && orderby !== "relevance") {
+    return fail(400, "invalid_orderby", "Sort posts and pages by date, id, modified, relevance, slug, or title.");
+  }
+  if (orderby === "relevance" && search === null) {
+    return fail(400, "search_term_required", "A search filter is required when ordering by relevance.");
+  }
   if (!site.current_revision_id || site.status !== "active") return json([], 200, { "X-WP-Total": "0", "X-WP-TotalPages": "0" });
-  const where = "site_id = ? AND revision_id = ? AND kind = ? AND publication_status = 'published'" + (slug === null ? "" : " AND slug = ?");
-  const params = slug === null
-    ? [site.id, site.current_revision_id, kind]
-    : [site.id, site.current_revision_id, kind, slug];
+  const conditions = ["site_id = ?", "revision_id = ?", "kind = ?", "publication_status = 'published'"];
+  const params = [site.id, site.current_revision_id, kind];
+  if (slug !== null) {
+    conditions.push("slug = ?");
+    params.push(slug);
+  }
+  if (search !== null) {
+    conditions.push("(instr(lower(title), lower(?)) > 0 OR instr(lower(safe_html), lower(?)) > 0)");
+    params.push(search, search);
+  }
+  if (after.value !== null) {
+    conditions.push("julianday(COALESCE(source_date_gmt, source_date)) >= julianday(?)");
+    params.push(after.value);
+  }
+  if (before.value !== null) {
+    conditions.push("julianday(COALESCE(source_date_gmt, source_date)) <= julianday(?)");
+    params.push(before.value);
+  }
+  if (modifiedAfter.value !== null) {
+    conditions.push("julianday(COALESCE(source_modified_gmt, source_modified, source_date_gmt, source_date)) >= julianday(?)");
+    params.push(modifiedAfter.value);
+  }
+  if (modifiedBefore.value !== null) {
+    conditions.push("julianday(COALESCE(source_modified_gmt, source_modified, source_date_gmt, source_date)) <= julianday(?)");
+    params.push(modifiedBefore.value);
+  }
+  const where = conditions.join(" AND ");
   const count = await env.DB.prepare(`SELECT COUNT(*) AS total FROM entries WHERE ${where}`).bind(...params).first();
   const total = Number(count?.total ?? 0);
   const offset = (page - 1) * perPage;
+  const orderExpression = orderby === "relevance"
+    ? "CASE WHEN lower(title) = lower(?) THEN 0 WHEN instr(lower(title), lower(?)) > 0 THEN 1 ELSE 2 END"
+    : orderColumns[orderby];
+  const orderParams = orderby === "relevance" ? [search, search] : [];
   const rows = await env.DB.prepare(
-    `SELECT api_id, source_id, source_date, source_date_gmt, source_modified, source_modified_gmt, featured_media_id, slug, title, safe_html, categories_json, tags_json, kind, ${SEO_METADATA_SELECT} FROM entries WHERE ${where} ORDER BY COALESCE(source_date, '') DESC, api_id ASC LIMIT ? OFFSET ?`,
-  ).bind(...params, perPage, offset).all();
+    `SELECT api_id, source_id, source_date, source_date_gmt, source_modified, source_modified_gmt, featured_media_id, slug, title, safe_html, categories_json, tags_json, kind, ${SEO_METADATA_SELECT} FROM entries WHERE ${where} ORDER BY ${orderExpression} ${order}, api_id ASC LIMIT ? OFFSET ?`,
+  ).bind(...params, ...orderParams, perPage, offset).all();
   const totalPages = total === 0 ? 0 : Math.ceil(total / perPage);
   const headers = { "X-WP-Total": String(total), "X-WP-TotalPages": String(totalPages) };
   if (totalPages > 0) {
