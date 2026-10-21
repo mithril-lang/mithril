@@ -37,6 +37,18 @@
      :id "https://mithril.fund/ns/sites-cms/v1#containsEntry"
      :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#SiteRevision"
      :rdfs/range "https://mithril.fund/ns/sites-cms/v1#ContentEntry")
+   (owl/object-property
+     :id "https://mithril.fund/ns/sites-cms/v1#containsTerm"
+     :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#SiteRevision"
+     :rdfs/range "https://mithril.fund/ns/sites-cms/v1#Term")
+   (owl/object-property
+     :id "https://mithril.fund/ns/sites-cms/v1#entryTerm"
+     :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#ContentEntry"
+     :rdfs/range "https://mithril.fund/ns/sites-cms/v1#Term")
+   (owl/object-property
+     :id "https://mithril.fund/ns/sites-cms/v1#parentTerm"
+     :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#Term"
+     :rdfs/range "https://mithril.fund/ns/sites-cms/v1#Term")
    (owl/datatype-property
      :id "https://mithril.fund/ns/sites-cms/v1#tenantId"
      :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#Site")
@@ -73,6 +85,21 @@
    (owl/datatype-property
      :id "https://mithril.fund/ns/sites-cms/v1#sourceId"
      :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#ContentEntry")
+   (owl/datatype-property
+     :id "https://mithril.fund/ns/sites-cms/v1#termSourceId"
+     :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#Term")
+   (owl/datatype-property
+     :id "https://mithril.fund/ns/sites-cms/v1#termTaxonomy"
+     :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#Term")
+   (owl/datatype-property
+     :id "https://mithril.fund/ns/sites-cms/v1#termSlug"
+     :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#Term")
+   (owl/datatype-property
+     :id "https://mithril.fund/ns/sites-cms/v1#termName"
+     :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#Term")
+   (owl/datatype-property
+     :id "https://mithril.fund/ns/sites-cms/v1#termDescriptionHtml"
+     :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#Term")
    (owl/datatype-property
      :id "https://mithril.fund/ns/sites-cms/v1#languageCode"
      :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#ContentEntry")
@@ -197,6 +224,30 @@
         :sh/path "https://mithril.fund/ns/sites-cms/v1#publicationState"
         :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
         :sh/min-count 1 :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/sites-cms/v1#TermShape"
+     :sh/target-class "https://mithril.fund/ns/sites-cms/v1#Term"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/sites-cms/v1#termSourceId"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#integer"
+        :sh/min-count 1 :sh:max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/sites-cms/v1#termTaxonomy"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh:max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/sites-cms/v1#termSlug"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh:max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/sites-cms/v1#termName"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh:min-count 1 :sh:max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/sites-cms/v1#termDescriptionHtml"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh:min-count 1 :sh:max-count 1)])
    (shacl/node-shape
      :id "https://mithril.fund/ns/sites-cms/v1#ImportReceiptShape"
      :sh/target-class "https://mithril.fund/ns/sites-cms/v1#ImportReceipt"

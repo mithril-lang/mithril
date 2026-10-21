@@ -5,6 +5,11 @@ const MAX_WXR_DEPTH = 64;
 const MAX_WXR_NODES = 100_000;
 const MAX_WXR_ITEMS = 2_000;
 const MAX_IMPORTED_ENTRIES = 500;
+const MAX_IMPORTED_TERMS = 5_000;
+const MAX_IMPORTED_TERM_BYTES = 1_000_000;
+const MAX_TERM_NAME_CHARS = 500;
+const MAX_TERM_DESCRIPTION_CHARS = 20_000;
+const TERM_SLUG = /^[^/?#\\\u0000-\u001f\u007f]{1,200}$/;
 const MAX_NODE_TEXT_CHARS = 250_000;
 const MAX_ATTRIBUTES_PER_ELEMENT = 64;
 const MAX_ATTRIBUTE_NAME_CHARS = 256;
@@ -52,22 +57,75 @@ function setUniqueField(fields, key, value) {
   fields[key] = value;
 }
 
-function putTerm(terms, kind, slug, id) {
-  if (typeof slug !== "string" || !slug.trim() || slug.length > 200 || !id) {
+function putTerm(terms, termRecords, termRecordsById, node) {
+  const kind = node.termKind;
+  const taxonomy = kind === "category" ? "category" : "post_tag";
+  const id = parseId(node.fields.term_id);
+  const slug = kind === "category" ? node.fields.category_nicename : node.fields.tag_slug;
+  const name = kind === "category" ? node.fields.cat_name : node.fields.tag_name;
+  const description = (kind === "category" ? node.fields.category_description : node.fields.tag_description) ?? "";
+  const parentSlug = kind === "category" ? node.fields.category_parent?.trim() ?? "" : "";
+  if (typeof slug !== "string" || !slug.trim() || !TERM_SLUG.test(slug.trim()) || slug.length > 200 || !id
+      || typeof name !== "string" || !name.trim() || name.length > MAX_TERM_NAME_CHARS
+      || typeof description !== "string" || description.length > MAX_TERM_DESCRIPTION_CHARS
+      || (parentSlug && !TERM_SLUG.test(parentSlug)) || parentSlug.length > 200) {
     fail("invalid_wxr_term");
   }
   const key = `${kind}:${slug.trim()}`;
   const previous = terms.get(key);
   if (previous !== undefined && previous !== id) fail("duplicate_wxr_term");
   terms.set(key, id);
+  const idKey = `${taxonomy}:${id}`;
+  const existing = termRecordsById.get(idKey);
+  if (existing) {
+    if (existing.slug !== slug.trim() || existing.name !== name.trim()
+        || existing.description !== description.trim() || existing.parentSlug !== parentSlug) {
+      fail("duplicate_wxr_term");
+    }
+    return;
+  }
+  if (termRecords.length >= MAX_IMPORTED_TERMS) fail("wxr_term_limit_exceeded", 413);
+  const term = {
+    id,
+    taxonomy,
+    slug: slug.trim(),
+    name: name.trim(),
+    description: description.trim(),
+    parentSlug,
+    parentId: 0,
+  };
+  termRecords.push(term);
+  termRecordsById.set(idKey, term);
 }
 
-function completeTerm(node, terms) {
-  const id = parseId(node.fields.term_id);
-  const slug = node.termKind === "category"
-    ? node.fields.category_nicename
-    : node.fields.tag_slug;
-  putTerm(terms, node.termKind, slug, id);
+function resolveTermParents(termRecords, terms) {
+  const byId = new Map(termRecords.map((term) => [`${term.taxonomy}:${term.id}`, term]));
+  for (const term of termRecords) {
+    if (!term.parentSlug) continue;
+    if (term.taxonomy !== "category") fail("invalid_wxr_term_parent");
+    const parentId = terms.get(`category:${term.parentSlug}`);
+    if (!parentId || parentId === term.id || !byId.has(`category:${parentId}`)) fail("unresolved_wxr_term_parent");
+    term.parentId = parentId;
+  }
+  const visited = new Set();
+  for (const term of termRecords) {
+    const path = [];
+    const pathIds = new Set();
+    let current = term;
+    while (current) {
+      const key = `${current.taxonomy}:${current.id}`;
+      if (visited.has(key)) break;
+      if (pathIds.has(key)) fail("cyclic_wxr_term_parent");
+      pathIds.add(key);
+      path.push(current);
+      if (path.length > MAX_WXR_DEPTH) fail("wxr_term_depth_limit_exceeded", 413);
+      current = current.parentId ? byId.get(`category:${current.parentId}`) : null;
+    }
+    for (const node of path) visited.add(`${node.taxonomy}:${node.id}`);
+  }
+  return termRecords.map(({ id, taxonomy, slug, name, description, parentId }) => ({
+    id, taxonomy, slug, name, description, parentId,
+  }));
 }
 
 function completeItem(node, pendingItems) {
@@ -167,6 +225,8 @@ export function parseWordPressWxr(xml) {
 
   const stack = [];
   const terms = new Map();
+  const termRecords = [];
+  const termRecordsById = new Map();
   const pendingItems = [];
   let nodeCount = 0;
   let rootSeen = false;
@@ -280,7 +340,7 @@ export function parseWordPressWxr(xml) {
       wxrVersion = node.text.trim();
     }
 
-    if (node.container === "term") completeTerm(node, terms);
+    if (node.container === "term") putTerm(terms, termRecords, termRecordsById, node);
     if (node.container === "item") completeItem(node, pendingItems);
   });
 
@@ -292,11 +352,18 @@ export function parseWordPressWxr(xml) {
   }
   if (!rootSeen || !channelSeen || !channelLink) fail("invalid_wxr_channel");
   if (wxrVersion !== "1.2") fail("unsupported_wxr_version");
+  const taxonomyTerms = resolveTermParents(termRecords, terms);
+  const termBytes = taxonomyTerms.reduce((sum, term) => sum
+    + new TextEncoder().encode(term.slug).byteLength
+    + new TextEncoder().encode(term.name).byteLength
+    + new TextEncoder().encode(term.description).byteLength, 0);
+  if (termBytes > MAX_IMPORTED_TERM_BYTES) fail("wxr_term_payload_too_large", 413);
   const imported = importRecords(pendingItems, terms, omittedSourceCounts);
   return {
     channelLink,
     wxrVersion,
     ...imported,
+    taxonomyTerms,
     source: "wordpress-wxr",
   };
 }

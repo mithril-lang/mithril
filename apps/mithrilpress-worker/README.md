@@ -13,8 +13,9 @@ explicitly published tenant revision.
   D1 hostname lookup. A hostname label never grants tenant identity.
 - Owner-scoped WordPress REST and WXR 1.2 subset import for posts and pages.
   Imports are bounded, sanitized, immutable revisions that remain private.
-  WXR categories and tags are retained by source IDs; unsupported post types,
-  custom fields, hierarchy links, and media files are reported as omissions.
+  Standard WXR categories, tags, category parents, and term IDs are retained;
+  unsupported post types, custom fields, page-parent links, and media files are
+  reported as omissions.
 - Chat-first MithrilPress Studio for creating one post or page draft, revising it
   in a conversation, opening a private preview, and separately approving and
   publishing it.
@@ -29,7 +30,8 @@ explicitly published tenant revision.
 - Authenticated, `noindex` private preview; separate revision-approval and
   publication actions with audit receipts.
 - Read-only WordPress REST-compatible `GET` endpoints for public posts/pages,
-  including pagination headers. Public `edit` context is denied.
+  categories/tags, and featured media, including pagination headers. Public
+  `edit` context is denied.
 - A minimal server-rendered page route with a restrictive CSP and no theme,
   plugin, shortcode, script, style, form, inline media, or dynamic-block
   execution. A separately validated featured image may be rendered from R2.
@@ -120,7 +122,7 @@ and content row within its owning site.
 | `POST` | `/_mithrilpress/api/studio/chat` | `content:write` | Generate or revise one private draft; no model response is published. |
 | `GET` | `/_mithrilpress/api/studio/conversations` and `/_mithrilpress/api/studio/conversations/{id}` | `content:write` | Read the signed-in owner's conversation history. |
 | `DELETE` | `/_mithrilpress/api/studio/conversations/{id}` | `content:write` | Delete the conversation and its unpublished draft. Published revisions remain intact. |
-| `GET` | `/_mithrilpress/api/studio/usage` | `content:write`, `media:write`, or `site:domains` | Show this site's retained content, R2 image storage, and shared daily app-level usage. |
+| `GET` | `/_mithrilpress/api/studio/usage` | `content:write`, `media:write`, or `site:domains` | Show this site's retained content, public request use, R2 image storage, and daily app-level usage. |
 | `GET` / `POST` | `/_mithrilpress/api/media` | `media:write` | List the tenant's image library or upload a bounded JPEG, PNG, GIF, or WebP image directly to R2. |
 | `DELETE` | `/_mithrilpress/api/media/{id}` | `media:write` | Hide and remove an image; published content referencing it will render without the image. |
 | `GET` / `HEAD` | `/_mithrilpress/media/{id}` | public only when referenced by the published revision; owner preview otherwise | Serve an image only while referenced by published content or the authenticated owner's preview/library. |
@@ -164,34 +166,43 @@ eight requests per UTC day across the deployment; the Cloudflare account-wide
 free AI allowance can be exhausted earlier by other workloads, in which case
 draft generation stops rather than switching to paid usage.
 
-The Worker also enforces a 16 MiB retained-entry payload cap per site and a
-256 MiB payload cap across the deployment. D1 triggers maintain these counters
+The Worker also enforces a 16 MiB retained-import content cap per site,
+including entries and taxonomy terms, and a 256 MiB cap across the deployment.
+D1 triggers maintain these counters
 across immutable revisions and reject writes that exceed either cap; the Studio
 Usage view shows the per-site estimate and the shared daily AI request count.
 The byte estimate counts stored text values, not SQLite indexes, database
-metadata, conversations, DNS migration snapshots, audit rows, or the physical D1 database size. It is an
+metadata, conversations, DNS migration snapshots, audit rows, or the physical
+D1 database size. It is an
 application guardrail rather than provider storage telemetry, and the deployment
 cap reserves room for database overhead without guaranteeing that other writes
 cannot consume the provider limit.
 
 ## Hosting and custom domains
 
-The intended free-plan starting point is one Worker, D1, and a proxied wildcard
-route for `*.sites.mithril.love`. Cloudflare's free Workers plan currently has a
-100,000-request daily limit and 10 ms CPU per request. D1 Free currently
-includes 5 million rows read per day, 100,000 rows written per day, 5 GB total
-account storage, and a 500 MB maximum size for one free database; Workers AI
-includes 10,000 neurons per day. The prototype does not use a paid fallback.
-The Studio does not measure account-wide Worker requests, D1 row reads/writes or
-storage, or Workers AI neuron consumption. Those provider metrics must be
-monitored in Cloudflare; provider limits can stop service before MithrilPress's
-own content or request caps are reached. Provider failures outside AI generation
-can still surface as generic errors. The import and rendering workloads have
-not been qualified against the 10 ms CPU budget. Usage monitoring and free-tier
-guardrails are tracked in Linear MITHRIL-292. See [Workers limits](https://developers.cloudflare.com/workers/platform/limits/),
+The intended runtime is one Worker, D1, and a proxied wildcard route for
+`*.sites.mithril.love`. Hosting is free to site owners; the operator pays the
+provider bill. Cloudflare's Workers Paid plan currently has a $5/month minimum,
+10 million included requests per month, and metered overages. D1, R2, and
+Workers AI have separate account-level allowances and pricing. MithrilPress
+does not bill site owners or automatically upgrade a plan.
+
+MithrilPress enforces 5,000 public site and WordPress REST requests per site per
+UTC day and 25,000 across the deployment. The request that reaches the cap is
+served; subsequent requests receive 429 for a site cap or 503 for the shared
+cap until 00:00 UTC. Studio APIs are outside this public traffic allowance.
+Content and media storage, media reads/writes, and AI drafting have separate
+application caps. These are not Cloudflare account meters: blocked requests
+still invoke the Worker and may count toward provider billing, and unrelated
+account workloads can exhaust shared quotas. The Studio does not measure all
+account-wide Worker requests, D1 reads/writes/storage, or Workers AI neuron
+usage. Import and rendering workloads have not been qualified against the
+current CPU limit. Usage monitoring and release gates are tracked in Linear
+MITHRIL-292. See [Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/),
+[Workers limits](https://developers.cloudflare.com/workers/platform/limits/),
 [D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/), and
 [Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/)
-for the current provider limits before each release.
+again before each release.
 
 The default address is an owner-provisioned hostname under
 `*.sites.mithril.love`. Studio custom-hostname onboarding is implemented behind
@@ -283,11 +294,13 @@ documents routing customer hostnames through a wildcard Worker route.
 
 ## WordPress REST subset
 
-Public list requests support `page`, `per_page` (1–100), `slug`, and `context`
-`view`/`embed`. Responses include standard `X-WP-Total`, `X-WP-TotalPages`, and
-pagination `Link` headers. Only posts/pages are implemented. Editing contexts,
-media and term REST routes, users, comments, custom post types, search, writes,
-and WordPress authentication plugins are not implemented here.
+Public post/page list requests support `page`, `per_page` (1–100), `slug`, and
+`context` `view`/`embed`. Category/tag lists also support `search` and
+`hide_empty`, and individual terms can be fetched by source ID. Responses
+include standard `X-WP-Total`, `X-WP-TotalPages`, and pagination `Link`
+headers. Category/tag archives render published-entry lists. Editing contexts,
+term and media writes, media listings, users, comments, custom post types, and
+WordPress authentication plugins are not implemented here.
 
 The importer also accepts WordPress WXR 1.2 exports. It imports up to 500
 posts/pages per file, with the channel origin, source IDs, slugs, title/body,
@@ -298,6 +311,10 @@ owner approves and publishes them. DTDs, custom entities, non-UTF-8 files,
 unknown taxonomy references, and malformed XML are rejected. The parser caps
 the upload at 12 MB, 2,000 WXR items, 100,000 XML nodes, nesting depth 64, and
 250,000 characters per XML text node.
+
+REST JSON imports may include a `taxonomy_terms` array. Every referenced
+category or tag ID must resolve to an imported term. Term descriptions are
+sanitized before storage and are readable only through the published revision.
 
 WXR attachments are not copied: the importer retains featured-media IDs and
 counts attachment/media references but does not fetch remote files or preserve

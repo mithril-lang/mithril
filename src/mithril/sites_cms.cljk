@@ -12,6 +12,8 @@
 (def max-import-records 500)
 (def max-content-chars 250000)
 (def max-import-chars 10000000)
+(def max-import-terms 5000)
+(def max-taxonomy-references 10000)
 (def max-safe-content-chars 1250000)
 (def tenant-slug-pattern #"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?")
 (def dns-label-pattern #"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?")
@@ -244,39 +246,129 @@
               :permalink permalink}
      :publication-state :private-draft}))
 
+(defn- normalize-taxonomy-term [term]
+  (when-not (map? term)
+    (fail! :mithril.sites/invalid-taxonomy-term
+           "WordPress taxonomy terms must be JSON objects" {}))
+  (let [term-id (get term "id")
+        taxonomy (get term "taxonomy")
+        taxonomy (if (= taxonomy "tag") "post_tag" taxonomy)
+        slug (get term "slug")
+        name (get term "name")
+        description-value (get term "description")
+        description (if (map? description-value)
+                      (or (get description-value "raw")
+                          (get description-value "rendered")
+                          "")
+                      (or description-value ""))
+        parent-id (or (get term "parent_term_id")
+                      (get term "parent")
+                      0)]
+    (when-not (and (positive-id? term-id)
+                   (contains? #{"category" "post_tag"} taxonomy)
+                   (text-value? slug 200)
+                   (re-matches entry-slug-pattern slug)
+                   (text-value? name 500)
+                   (string? description)
+                   (<= (count description) 20000)
+                   (non-negative-id? parent-id)
+                   (or (= taxonomy "category") (zero? parent-id)))
+      (fail! :mithril.sites/invalid-taxonomy-term
+             "taxonomy term fields must be bounded and use a supported standard taxonomy" {}))
+    {:id term-id
+     :taxonomy taxonomy
+     :slug slug
+     :name name
+     :description description
+     :parent-id parent-id}))
+
+(defn- normalize-taxonomy-terms [terms entries]
+  (let [terms (or terms [])]
+    (when-not (and (vector? terms) (<= (count terms) max-import-terms))
+      (fail! :mithril.sites/invalid-taxonomy-terms
+             "taxonomy term list must be a vector of at most 5000 terms" {}))
+    (let [normalized (mapv normalize-taxonomy-term terms)
+          keys (mapv (juxt :taxonomy :id) normalized)
+          slugs (mapv (juxt :taxonomy :slug) normalized)
+          by-key (into {} (map (fn [term] [[(:taxonomy term) (:id term)] term]) normalized))
+          category-ids (set (map :id (filter #(= "category" (:taxonomy %)) normalized)))
+          tag-ids (set (map :id (filter #(= "post_tag" (:taxonomy %)) normalized)))
+          reference-count (reduce + 0
+                                  (map (fn [entry]
+                                         (+ (count (get-in entry [:taxonomy :category-source-ids]))
+                                            (count (get-in entry [:taxonomy :tag-source-ids]))))
+                                       entries))]
+      (when-not (= (count keys) (count (distinct keys)))
+        (fail! :mithril.sites/duplicate-taxonomy-term
+               "taxonomy term IDs must be unique within their taxonomy" {}))
+      (when-not (= (count slugs) (count (distinct slugs)))
+        (fail! :mithril.sites/duplicate-taxonomy-slug
+               "taxonomy term slugs must be unique within their taxonomy" {}))
+      (when (> reference-count max-taxonomy-references)
+        (fail! :mithril.sites/taxonomy-reference-limit
+               "taxonomy references exceed the import budget" {}))
+      (doseq [term normalized]
+        (when (and (pos? (:parent-id term))
+                   (not (contains? category-ids (:parent-id term))))
+          (fail! :mithril.sites/unresolved-taxonomy-parent
+                 "category parent must refer to another imported category" {})))
+      (doseq [term normalized]
+        (loop [current term, path #{}, depth 0]
+          (when (and current (pos? (:parent-id current)))
+            (let [key [(:taxonomy current) (:id current)]]
+              (when (contains? path key)
+                (fail! :mithril.sites/cyclic-taxonomy-parent
+                       "category hierarchy cannot contain cycles" {}))
+              (when (>= depth 64)
+                (fail! :mithril.sites/taxonomy-parent-depth
+                       "category hierarchy exceeds 64 levels" {}))
+              (recur (get by-key ["category" (:parent-id current)])
+                     (conj path key)
+                     (inc depth))))))
+      (doseq [entry entries]
+        (when-not (and (every? category-ids (get-in entry [:taxonomy :category-source-ids]))
+                       (every? tag-ids (get-in entry [:taxonomy :tag-source-ids])))
+          (fail! :mithril.sites/unresolved-taxonomy-reference
+                 "every category and tag ID must refer to an imported standard term" {})))
+      normalized)))
+
 (defn prepare-wordpress-import
   "Prepare a bounded WordPress REST API record vector as an inert private draft.
 
   `authorization` must be an owner-verified import receipt. This function does
   not fetch, persist, sanitize, render, or publish the input. The returned IDs
   are stable for the same tenant, WordPress post type, and source post ID."
-  [tenant-id authorization records]
-  (when-not (text-value? tenant-id 128)
-    (fail! :mithril.sites/invalid-tenant-id
-           "tenant id must be a bounded non-empty string" {}))
-  (authorization-receipt! authorization)
-  (when-not (and (vector? records)
-                 (<= 1 (count records) max-import-records))
-    (fail! :mithril.sites/invalid-import-size
-           "WordPress import must contain between 1 and 500 records" {}))
-  (let [entries (mapv #(normalize-record tenant-id %) records)
-        source-ids (mapv :id entries)
-        body-size (reduce + 0 (map (comp count :source :body) entries))]
-    (when-not (= (count source-ids) (count (distinct source-ids)))
-      (fail! :mithril.sites/duplicate-source-id
-             "WordPress import contains duplicate post identities" {}))
-    (when (> body-size max-import-chars)
-      (fail! :mithril.sites/import-too-large
-             "WordPress import exceeds the admitted content size" {}))
-    {:format import-format
-     :tenant-id tenant-id
-     :source {:system (or (:source-format authorization) "wordpress-rest-api")
-              :site (:source-site authorization)}
-     :authorization-proof-id (:proof-id authorization)
-     :entry-count (count entries)
-     :entries entries
-     :status :private-draft
-     :publication-admitted? false}))
+  ([tenant-id authorization records]
+   (prepare-wordpress-import tenant-id authorization records []))
+  ([tenant-id authorization records taxonomy-terms]
+   (when-not (text-value? tenant-id 128)
+     (fail! :mithril.sites/invalid-tenant-id
+            "tenant id must be a bounded non-empty string" {}))
+   (authorization-receipt! authorization)
+   (when-not (and (vector? records)
+                  (<= 1 (count records) max-import-records))
+     (fail! :mithril.sites/invalid-import-size
+            "WordPress import must contain between 1 and 500 records" {}))
+   (let [entries (mapv #(normalize-record tenant-id %) records)
+         normalized-terms (normalize-taxonomy-terms taxonomy-terms entries)
+         source-ids (mapv :id entries)
+         body-size (reduce + 0 (map (comp count :source :body) entries))]
+     (when-not (= (count source-ids) (count (distinct source-ids)))
+       (fail! :mithril.sites/duplicate-source-id
+              "WordPress import contains duplicate post identities" {}))
+     (when (> body-size max-import-chars)
+       (fail! :mithril.sites/import-too-large
+              "WordPress import exceeds the admitted content size" {}))
+     {:format import-format
+      :tenant-id tenant-id
+      :source {:system (or (:source-format authorization) "wordpress-rest-api")
+               :site (:source-site authorization)}
+      :authorization-proof-id (:proof-id authorization)
+      :entry-count (count entries)
+      :entries entries
+      :taxonomy-terms normalized-terms
+      :status :private-draft
+      :publication-admitted? false})))
 
 (defn admit-sanitized-import
   "Attach host-sanitized output to a prepared import without replacing source.

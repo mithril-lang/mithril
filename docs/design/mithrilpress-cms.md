@@ -75,11 +75,11 @@ bounded WordPress WXR 1.2 subset as well as REST records. It retains posts and
 pages, source IDs, dates, permalinks, category/tag IDs, and featured-media IDs.
 WXR attachments, media bytes, custom fields, page-parent relations, users,
 comments, custom post types, password-protected posts/pages, and custom
-taxonomies remain outside the supported slice. The importer reports omitted
-attachments and metadata and rejects DTDs, custom entities, malformed XML, and
-unresolved category/tag references. Owner-provided media upload and delivery
-are implemented; taxonomy/media listing REST routes and broad Gutenberg support
-remain follow-up work.
+taxonomies remain outside the supported slice. Standard category/tag terms and
+category parent links are preserved. The importer reports omitted attachments
+and metadata and rejects DTDs, custom entities, malformed XML, and unresolved
+category/tag references. Owner-provided media upload and delivery are
+implemented; broad Gutenberg support remains follow-up work.
 
 Studio uses a short-lived owner token exchange, a one-hour `HttpOnly`, `Secure`,
 `SameSite=Strict` cookie session, same-origin mutation checks, prepared D1
@@ -116,39 +116,45 @@ No Cloudflare resources, wildcard DNS, credentials, or public hostnames were
 created by this implementation. Production route configuration and deployment
 remain separate release work.
 
-The free plan is quota-bounded, not an unlimited hosting commitment. R2
-application caps currently allow 250 MiB per site and 8 GiB per deployment,
+The pricing policy is free for site owners; the hosting operator pays the
+Cloudflare bill. This is not a zero-cost provider commitment. The Workers Paid
+plan has a $5 monthly minimum and 10 million included requests before metered
+overage, and D1, R2, and Workers AI have separate account-level allowances and
+pricing. The product never bills site owners or automatically switches them to
+a paid tier. See [Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/),
+[D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/),
+[R2 pricing](https://developers.cloudflare.com/r2/pricing/), and
+[Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/).
+
+Public page and read-only WordPress REST requests have application hard stops
+of 5,000 requests per site and 25,000 across the deployment per UTC day. The
+request that reaches the allowance is served; later requests receive HTTP 429
+for a site limit or HTTP 503 for the shared limit until the next UTC day. These
+limits are tracked atomically in D1. Studio owner APIs are outside this visitor
+allowance. R2 application caps allow 250 MiB per site and 8 GiB per deployment,
 5,000 image reads/day per site and 50,000 across the deployment, and 10,000
-upload/delete operations/day. Per-site read caps prevent one site from
-exhausting the shared allowance alone. Cloudflare's R2
-Standard free tier currently includes 10 GB-month of storage, 1 million Class A
-operations, and 10 million Class B operations monthly. These allowances are
-account-wide, so the app limits do not guarantee a zero bill if other workloads
-use R2. The app has no paid fallback. See [R2 pricing](https://developers.cloudflare.com/r2/pricing/).
+upload/delete operations/day. Studio generation is capped at eight requests per
+UTC day across this deployment, and stops rather than switching to paid AI use.
+The app does not measure all account-level Worker requests, D1 reads/writes or
+storage, or Workers AI neuron usage. A request rejected by MithrilPress still
+invokes the Worker and can count toward Cloudflare metering; app-level stops
+therefore do not guarantee a fixed provider bill or protect unrelated account
+workloads. Provider limits can stop service earlier. Import and rendering CPU
+usage has not been qualified against the current provider limit.
 
-Current Cloudflare limits include 100,000 Worker requests per day and 10 ms CPU per
-request. D1 Free currently includes 5 million rows read per day, 100,000 rows
-written per day, 5 GB total account storage, and a 500 MB maximum size for one
-free database; Workers AI includes 10,000 neurons per day. Studio caps model
-generation at eight requests per UTC day across this deployment, but other
-account workloads can exhaust Cloudflare's free AI allocation earlier. The code
-has no paid fallback.
-
-D1 triggers enforce a 16 MiB retained-entry text-payload limit per site and a
-256 MiB deployment-wide payload limit across immutable revisions. The Studio
-shows the site's estimate, the shared app-level AI request count, R2 image
-storage, per-site and shared daily image reads, and shared daily image writes.
+D1 triggers enforce a 16 MiB retained-import content limit per site, including
+entries and imported taxonomy terms, and a 256 MiB deployment-wide limit across
+immutable revisions. The Studio shows the site's estimate and daily public
+request count, the shared app-level AI request count, R2 image storage, and
+per-site and shared daily image operations.
 The content estimate excludes
 indexes, database metadata,
 conversations, audit rows, and the physical D1 database size. Account-level
-Worker requests, D1 reads/writes/storage, and Workers AI neuron use are not
-measured in the Studio and must be monitored in Cloudflare. Provider limits can
-stop service before MithrilPress application limits are reached. The import and
-rendering workloads are not qualified against the 10 ms CPU budget. Track these
-release requirements in Linear MITHRIL-292.
-Check [Workers limits](https://developers.cloudflare.com/workers/platform/limits/),
-[D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/), and
-[Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/)
+Worker requests outside public page/REST routes, D1 reads/writes/storage, and
+Workers AI neuron use are not measured in the Studio and must be monitored in
+Cloudflare. Provider limits can stop service before MithrilPress application
+limits are reached. Track these release requirements in Linear MITHRIL-292.
+Check [Workers limits](https://developers.cloudflare.com/workers/platform/limits/)
 again before release because provider quotas can change.
 
 ### Domain and DNS management
@@ -208,10 +214,15 @@ requirements are specified in [MithrilPress domain lifecycle](mithrilpress-domai
 `GET /wp-json/wp/v2/posts` and `/pages` expose only the currently published
 revision. They support `page`, `per_page` (1–100), `slug`, and `context=view` or
 `embed`, returning `X-WP-Total`, `X-WP-TotalPages`, and pagination `Link`
-headers. Public edit context is denied. `GET /wp-json/wp/v2/media/{id}` exposes
-metadata only for a featured image referenced by the published revision. The
-API does not expose media listings, terms, users, comments, custom post types,
-writes, or WordPress authentication plugins.
+headers. `GET /wp-json/wp/v2/categories` and `/tags`, with optional term IDs,
+expose imported terms, published-post counts, and descriptions. Categories also
+expose parent IDs. These routes support bounded pagination, `slug`, `search`,
+and `hide_empty`.
+Public edit context is denied. `GET /wp-json/wp/v2/media/{id}` exposes metadata
+only for a featured image referenced by the published revision. Term and media
+write routes, media listings, users, comments, custom post types, and WordPress
+authentication plugins are not available. Category and tag links render simple
+published-entry archives at `/category/{slug}/` and `/tag/{slug}/`.
 The HTML sanitizer preserves a narrow semantic element list, removes all
 attributes except validated HTTP(S)/relative anchor links, strips comments,
 drops active subtrees, and unwraps unknown formatting tags. Inline images and
@@ -230,8 +241,11 @@ entries whose source status was `publish`.
 
 `POST /api/wordpress/import` also accepts a raw WordPress WXR 1.2 XML export
 with `application/rss+xml`, `application/xml`, or `text/xml`. The importer uses
-the WXR channel link to bind the source origin, retains category/tag term IDs,
-and returns omission counts for content it does not migrate. It does not fetch
+the WXR channel link to bind the source origin and retains standard category
+and tag terms, category parents, and entry term IDs. REST JSON imports may
+include a `taxonomy_terms` array; every referenced category/tag ID must resolve
+to an imported term. Term descriptions are sanitized before storage. The API
+returns omission counts for content it does not migrate. It does not fetch
 attachment URLs; owners must upload image files they control and review the
 private preview and omissions before publishing. This does not provide full
 WordPress content parity.
@@ -249,13 +263,14 @@ until those claims are evidenced and approved.
 
 ## OSS and release gates
 
-The intended OSS home is the existing public `mithril-lang/mithril` repository,
-under the product name MithrilPress and the repository's existing root license.
-The current repository standalone profile is `runtime-required` and covers the
-Mithril compiler/native mission-library conformance, not this Worker. The app
-must not be merged as a qualified release until a reviewed, MithrilPress-specific
-standalone qualification scope is available and succeeds. Production deployment
-also requires a service owner, scoped Cloudflare credentials, signed artifact
+MithrilPress source is public in `mithril-lang/mithril` under the product name
+MithrilPress and the repository's existing root license. The repository pins an
+organization-owned `mithrilpress-worker` prepared profile for Worker tests,
+owner-auth integration, D1 migrations, and JavaScript syntax. It has not yet
+produced an exact-source signed receipt for this follow-up branch. That profile
+does not replace the repository's `runtime-required` Mithril compiler/native
+mission-library profile or qualify production. Production deployment also
+requires a service owner, scoped Cloudflare credentials, signed artifact
 evidence, rollback, and live read-back.
 
 Linear project: [MithrilPress CMS and WordPress migration](https://linear.app/kotobalabs/project/mithrilpress-cms-and-wordpress-migration-730325bee568).
