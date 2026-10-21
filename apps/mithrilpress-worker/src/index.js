@@ -276,7 +276,7 @@ function parseWordPressPageParentFilter(searchParams, name) {
     if (!key.startsWith(`${name}[`)) continue;
     present = true;
     const index = key.endsWith("]") ? key.slice(name.length + 1, -1) : null;
-    if (index === null || (index !== "" && (!/^\d{1,2}$/.test(index) || Number(index) >= 100))) {
+    if (index === null || (index !== "" && !/^\d+$/.test(index))) {
       return { valid: false, present: true, values: null, count: 0 };
     }
     values.push(value);
@@ -2494,7 +2494,10 @@ async function wordpressRead(request, env, site, kind, itemId = null) {
     return fail(400, "invalid_orderby", "Sort by parent is available only for pages.");
   }
   if (!Object.hasOwn(orderColumns, orderby) && orderby !== "relevance") {
-    return fail(400, "invalid_orderby", "Sort posts and pages by date, id, modified, relevance, slug, or title.");
+    const allowedOrderBy = kind === "page"
+      ? "date, id, modified, parent, relevance, slug, or title"
+      : "date, id, modified, relevance, slug, or title";
+    return fail(400, "invalid_orderby", `Sort ${kind}s by ${allowedOrderBy}.`);
   }
   if (orderby === "relevance" && search === null) {
     return fail(400, "search_term_required", "A search filter is required when ordering by relevance.");
