@@ -22,7 +22,7 @@ refresh a suspended hostname after the checks pass.
 | --- | --- | --- | --- |
 | MithrilPress subdomain | MithrilPress assigns one unique label, such as `example.sites.mithril.love` | MithrilPress controls the wildcard zone and hostname registry | First release target; requires the wildcard route and tenant provisioning |
 | Customer-owned hostname | Customer adds owner-proof and provider TLS TXT records plus a DNS-only CNAME; MithrilPress verifies ownership and provisions a Cloudflare for SaaS custom hostname | Customer retains DNS and registrar control | Subdomains only; apex and wildcard customer hostnames are excluded from this prototype |
-| Nameserver migration plan | Owner proves control, uploads source and staged destination BIND exports, reviews exact record diff, approves a digest, then changes registrar settings manually | Owner retains both DNS-provider accounts and registrar control | Optional guided plan; no provider credentials or automatic DNS/registrar writes |
+| Nameserver migration plan | Owner proves control, uploads or reads source and staged destination zones, reviews exact record diff, approves a digest, then changes registrar settings manually | Owner retains DNS-provider and registrar control; any Cloudflare API token is zone-scoped and request-only | Optional guided plan; provider import is disabled by default pending isolated-zone qualification |
 
 Cloudflare for SaaS custom hostnames and Workers for Platforms solve different
 problems. MithrilPress should use SaaS custom hostnames for customer domains;
@@ -96,7 +96,11 @@ available only to owner tokens with `site:dns-migrate` scope.
 This operation can affect the entire domain, including web, email, verification,
 and security records. MithrilPress must not start it as an implicit side effect
 of adding a website hostname. The owner-guided planning and propagation-check
-steps are implemented; provider writes and registrar changes remain manual.
+steps are implemented. A Cloudflare zone can be read with a zone-scoped token
+supplied for one request. The code includes an owner-confirmed additive import
+path for missing source records, but provider writes stay disabled by default
+until the Cloudflare import behavior is qualified against an isolated zone.
+Registrar changes remain manual.
 
 1. Require a `site:dns-migrate` owner token and prove control with a short-lived
    TXT record at `_mithrilpress-migration.<zone>`. Only after proof, capture the
@@ -106,11 +110,17 @@ steps are implemented; provider writes and registrar changes remain manual.
    site because TXT data can contain verification secrets. The parser caps
    input at 256 KiB and 2,000 records, accepts `$ORIGIN` and `$TTL`, and rejects
    unsupported directives rather than guessing their expansion.
-3. Import the generated source records into a destination staging zone by hand.
-   Upload the destination export and its assigned nameservers. The diff compares
-   record owner, type, TTL, class, RDATA, and supported Cloudflare proxy/flatten
-   metadata. It excludes provider-managed apex SOA/NS and generated DNSSEC
-   records. A non-exact diff cannot be approved.
+3. Import the generated source records into a destination staging zone by hand,
+   or connect a Cloudflare zone using a zone-scoped token. The token is sent
+   only with the read request and is not saved. For Cloudflare, DNS Write is
+   used only after a separate owner confirmation to submit missing source
+   records. The feature remains disabled until isolated-zone qualification.
+   The live zone must still match the staged snapshot, and the destination must
+   contain no extra or changed records. Upload the destination export manually
+   for other providers. The diff compares record owner, type, TTL, class, RDATA,
+   and supported Cloudflare proxy/flatten metadata. It excludes
+   provider-managed apex SOA/NS and generated DNSSEC records. A non-exact diff
+   cannot be approved.
 4. Require an explicit owner confirmation bound to the source hash, target
    export hash, destination nameservers, and exact diff. The owner separately
    reviews MX, SPF, DKIM, DMARC, verification TXT, CAA, wildcard and any other
@@ -144,7 +154,10 @@ steps are implemented; provider writes and registrar changes remain manual.
 - Rate-limit challenge creation and verification, prevent token reuse, and
   alert on repeated failed ownership checks or hostname reassignment attempts.
 - Keep secrets, challenge tokens, provider API credentials, and zone exports
-  out of URLs, application logs, analytics, and generated sales messages.
+  out of URLs, application logs, analytics, and generated sales messages. A
+  Cloudflare API token is accepted only in a request header, is never written
+  to D1, and should be revoked after use; grant `DNS Write` only for the
+  explicit additive import operation.
 
 ## Rollout gates
 

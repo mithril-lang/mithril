@@ -339,6 +339,25 @@ function generatedDnssecRecord(record) {
   return DNSSEC_GENERATED_TYPES.has(record.type);
 }
 
+export function missingDnsZoneRecords(sourceRecords, targetRecords, zoneName) {
+  const remaining = new Map();
+  for (const record of targetRecords) {
+    if (providerManagedApexRecord(record, zoneName) || generatedDnssecRecord(record)) continue;
+    const key = recordKey(record);
+    remaining.set(key, (remaining.get(key) ?? 0) + 1);
+  }
+
+  const missing = [];
+  for (const record of sourceRecords) {
+    if (providerManagedApexRecord(record, zoneName) || generatedDnssecRecord(record)) continue;
+    const key = recordKey(record);
+    const count = remaining.get(key) ?? 0;
+    if (count > 0) remaining.set(key, count - 1);
+    else missing.push(record);
+  }
+  return missing;
+}
+
 export function compareDnsZoneFiles(sourceRecords, targetRecords, zoneName) {
   const source = new Map();
   const target = new Map();

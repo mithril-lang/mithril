@@ -88,8 +88,13 @@ without granting content editing. Keep import-only automation on a separate
 featured images. This scope does not grant content editing or publication.
 Revoke early by setting `revoked_at`.
 DNS planning is a separate high-impact owner scope. It grants access to private
-zone snapshots and owner approval of a manual cutover plan; it does not grant
-Cloudflare API or registrar credentials.
+zone snapshots and owner approval of a cutover plan. Cloudflare access is
+separate: the owner may provide a zone-scoped API token for one request. The
+Worker forwards it to Cloudflare only for that request, does not persist it,
+and never accepts registrar credentials. DNS Write is used only for an
+explicit additive import request containing source records missing from an
+unchanged staged zone; MithrilPress does not send record update or delete
+operations.
 
 Generate the one-time token envelope locally with
 `node scripts/create-owner-token.mjs <owner-label> <scope> [<scope> ...]`.
@@ -126,6 +131,8 @@ and content row within its owning site.
 | `POST` | `/_mithrilpress/api/dns-migrations/{id}/verify-ownership` | `site:dns-migrate` | Verify the domain TXT challenge before accepting zone files. |
 | `POST` | `/_mithrilpress/api/dns-migrations/{id}/source` | `site:dns-migrate` | Validate and retain the source BIND zone and generate a destination import file. |
 | `POST` | `/_mithrilpress/api/dns-migrations/{id}/target` | `site:dns-migrate` | Compare a staged destination zone and its assigned nameservers against the source. |
+| `POST` | `/_mithrilpress/api/dns-migrations/{id}/cloudflare-target` | `site:dns-migrate` plus a transient zone-scoped Cloudflare token | Read a full Cloudflare zone export and stage its assigned nameservers and record diff. |
+| `POST` | `/_mithrilpress/api/dns-migrations/{id}/cloudflare-import` | `site:dns-migrate`, explicit confirmation, and a transient token with zone-scoped `DNS Write` | Recheck the staged zone, add only missing source records, then export and verify the readback. |
 | `POST` | `/_mithrilpress/api/dns-migrations/{id}/approve` | `site:dns-migrate` | Approve the exact diff digest after a required owner confirmation. |
 | `POST` | `/_mithrilpress/api/dns-migrations/{id}/verify-delegation` | `site:dns-migrate` | Check destination NS and absence of DS through Cloudflare and Google recursive resolvers. |
 | `POST` | `/_mithrilpress/api/dns-migrations/{id}/verify-rollback` | `site:dns-migrate` | Check restored source NS and DS state through the same resolvers. |
@@ -223,15 +230,24 @@ payment information. Therefore custom domains are not part of the zero-cost
 promise. See [Cloudflare for SaaS plans](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/plans/)
 and the [enablement requirements](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/start/enable/).
 
-Full nameserver migration remains a separate, optional workflow. MithrilPress
-does not automate provider or registrar operations. MithrilPress now supports an
-owner-guided DNS migration plan: domain TXT proof, capture of the current NS/DS
-state, private source and staged-destination BIND snapshots, record diff,
-generated destination import text, digest-bound owner approval, and post-cutover
-NS/DS checks through two public recursive resolvers. The owner creates the
-destination zone, imports DNS records, changes registrar nameservers, handles
-DNSSEC, and checks web, TLS, and mail service manually. MithrilPress never
-receives DNS-provider or registrar credentials and never writes customer DNS.
+Full nameserver migration remains a separate, optional owner workflow. It
+includes domain TXT proof, capture of the current NS/DS state, private source
+and destination BIND snapshots, record diff, generated import text,
+digest-bound owner approval, and post-cutover NS/DS checks through two public
+recursive resolvers. For Cloudflare, an owner may submit a zone-scoped token
+for a single read request (`Zone Read` and `DNS Read`). An explicit second
+request may use a scoped `DNS Write` token to submit only records missing from
+an unchanged staged zone. The request does not contain update or delete
+operations; the deployment keeps the import endpoint disabled until its
+behavior is qualified against an isolated Cloudflare zone. MithrilPress stops
+if the live zone changed, the destination has extra or changed records, or the
+post-import readback is not an exact match. The token is not persisted.
+Registrar nameserver changes, DNSSEC, and service checks for web, TLS, and mail
+remain manual owner operations. See [Cloudflare DNS import](https://developers.cloudflare.com/api/resources/dns/subresources/records/methods/import/)
+and [export](https://developers.cloudflare.com/api/resources/dns/subresources/records/methods/export/).
+Provider writes are disabled by default with
+`CLOUDFLARE_DNS_IMPORTS_ENABLED=false`; set it to `true` only after the exact
+import and readback behavior is qualified against an isolated Cloudflare zone.
 
 The parser accepts a documented BIND zone-file subset up to 256 KiB and 2,000
 records. It supports `$ORIGIN`, `$TTL`, explicit or inherited owners, and
@@ -245,8 +261,8 @@ zone export includes them. Generated imports default A/AAAA/CNAME records to
 DNS-only when the source export does not provide proxy state. Provider settings,
 free-form comments, glue, mail delivery, TLS, and application health still need
 separate owner review. Cloudflare's official zone-file import limit is 256 KiB;
-its API supports BIND import/export with `DNS Write` and `DNS Read`/`DNS Write`
-respectively. See [Cloudflare zone import/export](https://developers.cloudflare.com/dns/manage-dns-records/how-to/import-and-export/).
+its API supports BIND import with `DNS Write` and export with `DNS Read` or
+`DNS Write`. See [Cloudflare zone import/export](https://developers.cloudflare.com/dns/manage-dns-records/how-to/import-and-export/).
 
 Zone snapshots contain DNS TXT values that may include verification or service
 secrets. They remain tenant-scoped in D1 until the owner cancels the plan or

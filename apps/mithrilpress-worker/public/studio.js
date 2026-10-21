@@ -39,6 +39,7 @@ const dnsMigrationDetail = document.querySelector("#dns-migration-detail");
 const dnsMigrationStatus = document.querySelector("#dns-migration-status");
 const dnsMigrationWorkflow = document.querySelector("#dns-migration-workflow");
 let activeDnsMigrationId = null;
+let cloudflareDnsImportsEnabled = false;
 
 document.querySelector("#site-host").textContent = window.location.host;
 
@@ -424,9 +425,11 @@ function dnsField(parent, labelText, options = {}) {
   label.textContent = labelText;
   const field = document.createElement(options.multiline ? "textarea" : "input");
   if (options.multiline) field.rows = options.rows || 8;
-  else field.type = "text";
+  else field.type = options.type || "text";
   field.maxLength = options.maxLength || 300000;
   field.placeholder = options.placeholder || "";
+  if (options.autocomplete) field.autocomplete = options.autocomplete;
+  if (options.spellcheck !== undefined) field.spellcheck = options.spellcheck;
   if (options.value) field.value = options.value;
   if (options.readOnly) field.readOnly = true;
   label.append(field);
@@ -467,12 +470,12 @@ function dnsDetails(parent, summaryText, value) {
   parent.append(details);
 }
 
-async function runDnsMigrationAction(id, action, body = {}, method = "POST") {
+async function runDnsMigrationAction(id, action, body = {}, method = "POST", extraHeaders = {}) {
   showStatus(dnsMigrationStatus, "Saving migration progress…");
   try {
     const result = await api(`/_mithrilpress/api/dns-migrations/${encodeURIComponent(id)}${action ? `/${action}` : ""}`, {
       method,
-      headers: requestHeader,
+      headers: { ...requestHeader, ...extraHeaders },
       ...(method === "POST" ? { body } : {}),
     });
     showStatus(dnsMigrationStatus, result.message || "Migration plan updated.");
@@ -521,10 +524,59 @@ function renderDnsMigrationDetail(migration) {
 
   if (["source_loaded", "target_loaded"].includes(migration.status)) {
     if (migration.import_zone_text) {
-      const block = dnsBlock("Destination import file", "Import this generated file into the staged destination zone, review provider proxy options, then export the destination zone and compare it below. MithrilPress does not upload records to a DNS provider.");
+      const block = dnsBlock("Destination import file", "Review this generated BIND file and its DNS-only defaults. You can import it into the staged destination zone yourself or connect a Cloudflare zone below.");
       dnsField(block, "BIND import file", { multiline: true, rows: 10, value: migration.import_zone_text, readOnly: true });
     }
-    const block = dnsBlock("3. Stage the destination zone", "Create or select the destination zone in your DNS provider, import the source records, and paste the destination provider's assigned nameservers and exported BIND zone.");
+
+    const cloudflareBlock = dnsBlock("Optional: read a Cloudflare staging zone", "Use a Cloudflare API token scoped to this zone with Zone Read and DNS Read. The token is sent only with this request and is not saved by MithrilPress. DNS Write is needed only for the explicit additive import below.");
+    const zoneId = dnsField(cloudflareBlock, "Cloudflare zone ID", {
+      maxLength: 32,
+      placeholder: "32-character zone ID",
+      value: migration.target_provider === "cloudflare" ? migration.target_provider_zone_id : "",
+    });
+    const readToken = dnsField(cloudflareBlock, "Short-lived Cloudflare API token", {
+      type: "password", maxLength: 512, autocomplete: "off", spellcheck: false,
+      placeholder: "Paste a zone-scoped token for this request",
+    });
+    dnsActionButton(cloudflareBlock, "Read and stage zone", () => {
+      const token = readToken.value;
+      readToken.value = "";
+      if (!token || !zoneId.value.trim()) {
+        showStatus(dnsMigrationStatus, "Enter the Cloudflare zone ID and a short-lived API token.");
+        return;
+      }
+      void runDnsMigrationAction(migration.id, "cloudflare-target", { zone_id: zoneId.value.trim() }, "POST", {
+        "X-MithrilPress-Cloudflare-Token": token,
+      });
+    }, "button-primary");
+
+    if (migration.status === "target_loaded" && migration.target_provider === "cloudflare"
+        && migration.diff?.removed?.length && migration.diff?.added?.length === 0) {
+      if (!cloudflareDnsImportsEnabled) {
+        dnsBlock("Cloudflare import is not enabled", "This deployment keeps provider writes disabled until the import behavior is qualified against an isolated Cloudflare zone. You can review the generated BIND file and stage records manually.");
+      } else {
+        const importBlock = dnsBlock("Add only missing source records", `${migration.diff.removed.length} source records are missing. MithrilPress will submit only this missing-record set. The live Cloudflare zone is checked again before the import and read back afterward.`);
+        const importToken = dnsField(importBlock, "Short-lived Cloudflare API token with DNS Write", {
+          type: "password", maxLength: 512, autocomplete: "off", spellcheck: false,
+          placeholder: "Paste a zone-scoped token for this request",
+        });
+        const confirm = dnsCheck(importBlock, `I reviewed the ${migration.diff.removed.length} missing records and authorize MithrilPress to add only those records to Cloudflare.`);
+        dnsActionButton(importBlock, "Import missing records", () => {
+          const token = importToken.value;
+          importToken.value = "";
+          if (!token || !confirm.checked) {
+            showStatus(dnsMigrationStatus, "Paste the short-lived token and confirm the exact missing-record plan.");
+            return;
+          }
+          void runDnsMigrationAction(migration.id, "cloudflare-import", {
+            confirm: true,
+            target_zone_sha256: migration.target_zone_sha256,
+          }, "POST", { "X-MithrilPress-Cloudflare-Token": token });
+        }, "button-primary");
+      }
+    }
+
+    const block = dnsBlock("3. Stage the destination zone manually", "Alternatively, create or select the destination zone in your DNS provider, import the source records, then paste the assigned nameservers and exported BIND zone.");
     const nameservers = dnsField(block, "Destination nameservers (one per line)", {
       multiline: true, rows: 3, placeholder: "ada.ns.cloudflare.com\nbob.ns.cloudflare.com",
       value: (migration.target_nameservers || []).join("\n"),
@@ -623,6 +675,7 @@ async function loadDnsMigration(id) {
   try {
     const result = await api(`/_mithrilpress/api/dns-migrations/${encodeURIComponent(id)}`);
     activeDnsMigrationId = id;
+    cloudflareDnsImportsEnabled = result.cloudflare_dns_imports_enabled === true;
     renderDnsMigrationDetail(result.migration);
   } catch (error) {
     showStatus(dnsMigrationStatus, error.message);

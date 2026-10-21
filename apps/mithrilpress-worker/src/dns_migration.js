@@ -1,6 +1,7 @@
 import {
   MAX_ZONE_FILE_BYTES,
   compareDnsZoneFiles,
+  missingDnsZoneRecords,
   normalizeDnsZoneName,
   parseDnsZoneFile,
   renderDnsZoneFile,
@@ -8,6 +9,10 @@ import {
 
 const MAX_ACTIVE_MIGRATIONS_PER_SITE = 3;
 const MAX_TARGET_NAMESERVERS = 4;
+const CLOUDFLARE_API_ROOT = "https://api.cloudflare.com/client/v4";
+const CLOUDFLARE_TOKEN_HEADER = "X-MithrilPress-Cloudflare-Token";
+const MAX_CLOUDFLARE_API_TOKEN_CHARS = 512;
+const MAX_CLOUDFLARE_JSON_BYTES = 65_536;
 const DNS_RESOLVERS = [
   { name: "Cloudflare", endpoint: "https://cloudflare-dns.com/dns-query" },
   { name: "Google", endpoint: "https://dns.google/resolve" },
@@ -67,6 +72,8 @@ function migrationSummary(row, includeDetails = false) {
     target_record_count: row.target_record_count,
     target_zone_sha256: row.target_zone_sha256,
     target_nameservers: parseJson(row.target_nameservers_json, []),
+    target_provider: row.target_provider ?? null,
+    target_provider_zone_id: row.target_provider_zone_id ?? null,
     source_nameservers: parseJson(row.source_nameservers_json, []),
     source_ds_records: parseJson(row.source_ds_json, []),
     source_dns_state_captured_at: row.source_dns_state_captured_at,
@@ -202,6 +209,180 @@ function parseZoneFile(value, zoneName, api) {
   }
 }
 
+function cloudflareToken(request) {
+  const token = request.headers.get(CLOUDFLARE_TOKEN_HEADER);
+  if (typeof token !== "string" || token.length < 20 || token.length > MAX_CLOUDFLARE_API_TOKEN_CHARS
+      || /[\u0000-\u0020\u007f]/.test(token)) return null;
+  return token;
+}
+
+async function boundedResponseText(response, maxBytes) {
+  const declared = Number(response.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > maxBytes) {
+    throw Object.assign(new Error("The provider response exceeds the DNS migration size limit."), { code: "provider_response_too_large" });
+  }
+  if (!response.body) return "";
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let total = 0;
+  let text = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      try { await reader.cancel(); } catch { /* The response is already over budget. */ }
+      throw Object.assign(new Error("The provider response exceeds the DNS migration size limit."), { code: "provider_response_too_large" });
+    }
+    text += decoder.decode(value, { stream: true });
+  }
+  return text + decoder.decode();
+}
+
+async function cloudflareJson(path, token) {
+  let response;
+  try {
+    response = await fetch(`${CLOUDFLARE_API_ROOT}/${path}`, {
+      headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+      redirect: "error",
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch {
+    throw Object.assign(new Error("Cloudflare could not be reached. The DNS plan was not changed."), { status: 503, code: "cloudflare_unavailable" });
+  }
+  let text;
+  try {
+    text = await boundedResponseText(response, MAX_CLOUDFLARE_JSON_BYTES);
+  } catch {
+    throw Object.assign(new Error("Cloudflare returned an unreadable response. The DNS plan was not changed."), { status: 502, code: "cloudflare_invalid_response" });
+  }
+  let payload;
+  try { payload = JSON.parse(text); } catch {
+    throw Object.assign(new Error("Cloudflare returned an unreadable response. The DNS plan was not changed."), { status: 502, code: "cloudflare_invalid_response" });
+  }
+  if (!response.ok || payload?.success !== true || !payload.result) {
+    throw Object.assign(new Error("Cloudflare rejected this zone request. Check that the token is valid and scoped to this zone."), { status: 502, code: "cloudflare_request_rejected" });
+  }
+  return payload.result;
+}
+
+async function cloudflareImport(token, zoneId, zoneText) {
+  let response;
+  try {
+    const form = new FormData();
+    form.set("file", new Blob([zoneText], { type: "text/plain" }), "mithrilpress-zone.txt");
+    response = await fetch(`${CLOUDFLARE_API_ROOT}/zones/${zoneId}/dns_records/import`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+      body: form,
+      redirect: "error",
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch {
+    return { received: false, success: false, result: null };
+  }
+  let payload;
+  try {
+    payload = JSON.parse(await boundedResponseText(response, MAX_CLOUDFLARE_JSON_BYTES));
+  } catch {
+    return { received: true, success: false, result: null };
+  }
+  return {
+    received: true,
+    success: response.ok && payload?.success === true,
+    result: payload?.result && typeof payload.result === "object" ? payload.result : null,
+  };
+}
+
+async function cloudflareZoneSnapshot(token, zoneId, expectedZoneName) {
+  if (!/^[a-f0-9]{32}$/.test(zoneId)) {
+    throw Object.assign(new Error("Enter the 32-character Cloudflare zone ID."), { status: 422, code: "invalid_cloudflare_zone_id" });
+  }
+  const zone = await cloudflareJson(`zones/${zoneId}`, token);
+  const actualZoneName = normalizeDnsZoneName(zone?.name);
+  if (zone?.id !== zoneId || actualZoneName !== expectedZoneName) {
+    throw Object.assign(new Error("The Cloudflare zone does not match the verified migration domain."), { status: 403, code: "cloudflare_zone_mismatch" });
+  }
+  if (zone?.type !== "full" || !["active", "pending"].includes(zone?.status)) {
+    throw Object.assign(new Error("Use an active or pending full Cloudflare DNS zone for this migration."), { status: 409, code: "cloudflare_zone_not_ready" });
+  }
+  const nameservers = normalizeNameservers(zone?.name_servers);
+  if (!nameservers) {
+    throw Object.assign(new Error("Cloudflare did not return a complete nameserver set for this zone."), { status: 502, code: "cloudflare_nameservers_unavailable" });
+  }
+  let response;
+  try {
+    response = await fetch(`${CLOUDFLARE_API_ROOT}/zones/${zoneId}/dns_records/export`, {
+      headers: { Authorization: `Bearer ${token}`, Accept: "text/plain" },
+      redirect: "error",
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch {
+    throw Object.assign(new Error("Cloudflare could not export this zone. The DNS plan was not changed."), { status: 503, code: "cloudflare_export_unavailable" });
+  }
+  let zoneText;
+  try {
+    zoneText = await boundedResponseText(response, MAX_ZONE_FILE_BYTES);
+  } catch {
+    throw Object.assign(new Error("The Cloudflare zone export exceeds the 256 KiB migration limit."), { status: 413, code: "cloudflare_export_too_large" });
+  }
+  if (!response.ok) {
+    throw Object.assign(new Error("Cloudflare refused to export this zone. Check the DNS Read permission on the scoped token."), { status: 502, code: "cloudflare_export_rejected" });
+  }
+  return { zone, nameservers, zoneText };
+}
+
+async function claimCloudflareImport(env, site, migration, owner, zoneId) {
+  const now = new Date().toISOString();
+  const id = crypto.randomUUID();
+  return await env.DB.prepare(
+    "INSERT INTO dns_migration_actions (id, site_id, migration_id, token_id, action, created_at, metadata_json) SELECT ?, ?, ?, ?, 'cloudflare-import-started', ?, ? WHERE (SELECT COUNT(*) FROM dns_migration_actions WHERE site_id = ? AND token_id = ? AND action = 'cloudflare-import-started' AND created_at >= ?) < 1 RETURNING id",
+  ).bind(id, site.id, migration.id, owner.tokenId, now, JSON.stringify({ zone_id: zoneId }),
+    site.id, owner.tokenId, new Date(Date.now() - 60_000).toISOString()).first();
+}
+
+async function cloudflareReadCount(env, site, owner) {
+  const cutoff = new Date(Date.now() - 60_000).toISOString();
+  const recent = await env.DB.prepare(
+    "SELECT COUNT(*) AS total FROM dns_migration_actions WHERE site_id = ? AND token_id = ? AND action = 'cloudflare-zone-read' AND created_at >= ?",
+  ).bind(site.id, owner.tokenId, cutoff).first();
+  return Number(recent?.total ?? 0);
+}
+
+async function stageCloudflareTarget(env, site, migration, zoneId, snapshot) {
+  const source = parseZoneFile(migration.source_zone_text, migration.zone_name);
+  const target = parseZoneFile(snapshot.zoneText, migration.zone_name);
+  const diff = compareDnsZoneFiles(source.records, target.records, migration.zone_name);
+  const targetHash = await sha256Hex(snapshot.zoneText);
+  const approvalDigest = await sha256Hex(JSON.stringify([
+    migration.zone_name,
+    migration.source_zone_sha256,
+    targetHash,
+    snapshot.nameservers,
+    diff,
+  ]));
+  const now = new Date().toISOString();
+  const importText = renderDnsZoneFile(source.records, migration.zone_name);
+  const update = await env.DB.prepare(
+    "UPDATE dns_migrations SET status = 'target_loaded', target_zone_text = ?, target_zone_sha256 = ?, target_record_count = ?, target_nameservers_json = ?, target_provider = 'cloudflare', target_provider_zone_id = ?, diff_json = ?, import_zone_text = ?, approval_digest = ?, owner_approved_at = NULL, delegation_check_json = NULL, delegation_verified_at = NULL, updated_at = ? WHERE site_id = ? AND id = ? AND status IN ('source_loaded', 'target_loaded') AND source_zone_sha256 = ?",
+  ).bind(snapshot.zoneText, targetHash, target.records.length, JSON.stringify(snapshot.nameservers), zoneId,
+    JSON.stringify(diff), importText, approvalDigest, now, site.id, migration.id, migration.source_zone_sha256).run();
+  if (update.meta?.changes !== 1) throw apiError(409, "dns_migration_state_changed", "The migration state changed. Reload the plan and retry.");
+  return { migration: await getMigration(env, site, migration.id), diff, targetHash, recordCount: target.records.length };
+}
+
+function apiError(status, code, message) {
+  return Object.assign(new Error(message), { status, code });
+}
+
+async function recordCloudflareRead(env, site, migration, owner, zoneId, purpose) {
+  if (await cloudflareReadCount(env, site, owner) >= 6) {
+    return apiError(429, "cloudflare_read_limit", "This owner token has reached the six Cloudflare zone reads per minute limit.");
+  }
+  await audit(env, site, migration, owner, "cloudflare-zone-read", { zone_id: zoneId, purpose });
+  return null;
+}
+
 async function uploadSource(request, env, site, migration, owner, api) {
   if (request.method !== "POST" || !api.sameOriginStudioMutation(request, site)) {
     return api.fail(403, "same_origin_required", "Source zone uploads require a same-origin Studio request.");
@@ -284,6 +465,175 @@ async function uploadTarget(request, env, site, migration, owner, api) {
   return api.json({ migration: migrationSummary(latest, true), message: diff.exact
     ? "The DNS records match after excluding provider-managed apex and generated DNSSEC records. Review Cloudflare proxy settings and DNSSEC before approving."
     : "The staged target differs from the source. Review the record diff and import plan, then stage the destination again before approval." });
+}
+
+async function readCloudflareTarget(request, env, site, migration, owner, api) {
+  if (request.method !== "POST" || !api.sameOriginStudioMutation(request, site)) {
+    return api.fail(403, "same_origin_required", "Cloudflare zone reads require a same-origin Studio request.");
+  }
+  if (!migration.source_zone_text || !["source_loaded", "target_loaded"].includes(migration.status)) {
+    return api.fail(409, "target_upload_not_allowed", "Upload and review the source zone before staging a Cloudflare target.");
+  }
+  const token = cloudflareToken(request);
+  if (!token) return api.fail(422, "cloudflare_token_required", "Paste a valid, short-lived Cloudflare API token in the request field.");
+  const body = await api.readBoundedJson(request);
+  const zoneId = typeof body?.zone_id === "string" ? body.zone_id.toLowerCase() : "";
+  if (!/^[a-f0-9]{32}$/.test(zoneId)) return api.fail(422, "invalid_cloudflare_zone_id", "Enter the 32-character Cloudflare zone ID.");
+  const readError = await recordCloudflareRead(env, site, migration, owner, zoneId, "stage-target");
+  if (readError) return api.fail(readError.status, readError.code, readError.message);
+  try {
+    const snapshot = await cloudflareZoneSnapshot(token, zoneId, migration.zone_name);
+    const staged = await stageCloudflareTarget(env, site, migration, zoneId, snapshot);
+    await audit(env, site, staged.migration, owner, "target-uploaded", {
+      provider: "cloudflare",
+      zone_id: zoneId,
+      record_count: staged.recordCount,
+      sha256: staged.targetHash,
+      expected_nameservers: snapshot.nameservers,
+      exact_diff: staged.diff.exact,
+      added_records: staged.diff.added.length,
+      removed_records: staged.diff.removed.length,
+    });
+    return api.json({ migration: migrationSummary(staged.migration, true), cloudflare_dns_imports_enabled: env.CLOUDFLARE_DNS_IMPORTS_ENABLED === "true", message: staged.diff.exact
+      ? "The Cloudflare zone export matches the source. Review Cloudflare proxy settings and DNSSEC separately before approval."
+      : "The Cloudflare zone is staged. Review all differences; MithrilPress will offer only an additive import when there are no destination-only or changed records." });
+  } catch (error) {
+    return errorResponse(api, error, "cloudflare_target_failed");
+  }
+}
+
+async function importCloudflareMissingRecords(request, env, site, migration, owner, api) {
+  if (request.method !== "POST" || !api.sameOriginStudioMutation(request, site)) {
+    return api.fail(403, "same_origin_required", "Cloudflare DNS imports require a same-origin Studio request.");
+  }
+  if (migration.status !== "target_loaded" || migration.target_provider !== "cloudflare"
+      || !migration.target_provider_zone_id || !migration.source_zone_text || !migration.target_zone_text) {
+    return api.fail(409, "cloudflare_import_not_ready", "Read and stage a Cloudflare destination zone before requesting an additive import.");
+  }
+  if (env.CLOUDFLARE_DNS_IMPORTS_ENABLED !== "true") {
+    return api.fail(503, "cloudflare_import_disabled", "Cloudflare DNS imports are disabled for this deployment until the import behavior is qualified against an isolated zone. You can continue with the manual import and comparison workflow.");
+  }
+  const body = await api.readBoundedJson(request);
+  if (body?.confirm !== true || body?.target_zone_sha256 !== migration.target_zone_sha256) {
+    return api.fail(409, "cloudflare_import_confirmation_required", "Confirm the displayed missing-record plan for the current Cloudflare snapshot.");
+  }
+  const stagedDiff = parseJson(migration.diff_json, null);
+  if (!stagedDiff || stagedDiff.added?.length || !stagedDiff.removed?.length) {
+    return api.fail(409, "cloudflare_additive_import_not_allowed", "Automatic import is available only when source records are missing and the destination has no extra or changed records.");
+  }
+  const token = cloudflareToken(request);
+  if (!token) return api.fail(422, "cloudflare_token_required", "Paste a valid, short-lived Cloudflare API token in the request field.");
+  if (await cloudflareReadCount(env, site, owner) > 4) {
+    return api.fail(429, "cloudflare_read_limit", "Wait before importing so MithrilPress can safely read the zone both before and after the write.");
+  }
+  const claimed = await claimCloudflareImport(env, site, migration, owner, migration.target_provider_zone_id);
+  if (!claimed) return api.fail(429, "cloudflare_import_limit", "This owner token can start one Cloudflare DNS import per minute.");
+
+  const beforeReadError = await recordCloudflareRead(env, site, migration, owner, migration.target_provider_zone_id, "pre-import-check");
+  if (beforeReadError) {
+    await audit(env, site, migration, owner, "cloudflare-import-failed", { zone_id: migration.target_provider_zone_id, outcome: "not-started" });
+    return api.fail(beforeReadError.status, beforeReadError.code, beforeReadError.message);
+  }
+
+  let before;
+  let source;
+  let stagedTarget;
+  let beforeTarget;
+  try {
+    before = await cloudflareZoneSnapshot(token, migration.target_provider_zone_id, migration.zone_name);
+    source = parseZoneFile(migration.source_zone_text, migration.zone_name);
+    stagedTarget = parseZoneFile(migration.target_zone_text, migration.zone_name);
+    beforeTarget = parseZoneFile(before.zoneText, migration.zone_name);
+  } catch (error) {
+    await audit(env, site, migration, owner, "cloudflare-import-failed", { zone_id: migration.target_provider_zone_id, outcome: "not-started", error_code: error?.code ?? "cloudflare_preflight_failed" });
+    return errorResponse(api, error, "cloudflare_import_preflight_failed");
+  }
+
+  const stagedNameservers = parseJson(migration.target_nameservers_json, []);
+  const nameserversMatch = JSON.stringify(before.nameservers) === JSON.stringify(stagedNameservers);
+  const liveMatchesStaged = nameserversMatch
+    && compareDnsZoneFiles(stagedTarget.records, beforeTarget.records, migration.zone_name).exact;
+  if (!liveMatchesStaged) {
+    try {
+      const refreshed = await stageCloudflareTarget(env, site, migration, migration.target_provider_zone_id, before);
+      await audit(env, site, refreshed.migration, owner, "cloudflare-import-failed", { zone_id: migration.target_provider_zone_id, outcome: "stale-snapshot-refreshed" });
+      return api.json({ migration: migrationSummary(refreshed.migration, true), cloudflare_dns_imports_enabled: env.CLOUDFLARE_DNS_IMPORTS_ENABLED === "true", message: "The live Cloudflare zone changed since the staged snapshot. No records were imported; review the refreshed diff." }, 409);
+    } catch (error) {
+      await audit(env, site, migration, owner, "cloudflare-import-failed", { zone_id: migration.target_provider_zone_id, outcome: "not-started", error_code: error?.code ?? "cloudflare_preflight_failed" });
+      return errorResponse(api, error, "cloudflare_import_preflight_failed");
+    }
+  }
+
+  const beforeDiff = compareDnsZoneFiles(source.records, beforeTarget.records, migration.zone_name);
+  if (beforeDiff.added.length || !beforeDiff.removed.length) {
+    try {
+      const refreshed = await stageCloudflareTarget(env, site, migration, migration.target_provider_zone_id, before);
+      await audit(env, site, refreshed.migration, owner, "cloudflare-import-failed", { zone_id: migration.target_provider_zone_id, outcome: "not-started", reason: "destination-not-additive" });
+      return api.json({ migration: migrationSummary(refreshed.migration, true), cloudflare_dns_imports_enabled: env.CLOUDFLARE_DNS_IMPORTS_ENABLED === "true", message: beforeDiff.added.length
+        ? "The destination now contains extra or changed records. No import was made; review the refreshed diff manually."
+        : "The destination already matches the source. No import was needed; the exact snapshot is ready for approval." }, beforeDiff.added.length ? 409 : 200);
+    } catch (error) {
+      await audit(env, site, migration, owner, "cloudflare-import-failed", { zone_id: migration.target_provider_zone_id, outcome: "not-started", error_code: error?.code ?? "cloudflare_preflight_failed" });
+      return errorResponse(api, error, "cloudflare_import_preflight_failed");
+    }
+  }
+
+  const missing = missingDnsZoneRecords(source.records, beforeTarget.records, migration.zone_name);
+  const importText = renderDnsZoneFile(missing, migration.zone_name);
+  if (missing.length !== beforeDiff.removed.length || new TextEncoder().encode(importText).byteLength > MAX_ZONE_FILE_BYTES) {
+    await audit(env, site, migration, owner, "cloudflare-import-failed", { zone_id: migration.target_provider_zone_id, outcome: "not-started", reason: "import_plan_invalid", missing_count: missing.length });
+    return api.fail(409, "cloudflare_import_plan_invalid", "The additive import plan failed its record-count or 256 KiB safety check. No records were sent.");
+  }
+
+  const importResult = await cloudflareImport(token, migration.target_provider_zone_id, importText);
+  const afterReadError = await recordCloudflareRead(env, site, migration, owner, migration.target_provider_zone_id, "post-import-readback");
+  if (afterReadError) {
+    await audit(env, site, migration, owner, "cloudflare-import-failed", { zone_id: migration.target_provider_zone_id, outcome: "unknown", api_response_received: importResult.received });
+    return api.fail(503, "cloudflare_import_outcome_unknown", "Cloudflare may have received the import, but MithrilPress could not read the zone back. Reconnect and refresh the Cloudflare target before retrying.");
+  }
+
+  let after;
+  let staged;
+  try {
+    after = await cloudflareZoneSnapshot(token, migration.target_provider_zone_id, migration.zone_name);
+    staged = await stageCloudflareTarget(env, site, migration, migration.target_provider_zone_id, after);
+  } catch (error) {
+    await audit(env, site, migration, owner, "cloudflare-import-failed", { zone_id: migration.target_provider_zone_id, outcome: "unknown", api_response_received: importResult.received, error_code: error?.code ?? "cloudflare_readback_failed" });
+    return api.fail(503, "cloudflare_import_readback_failed", "The import may have changed Cloudflare, but MithrilPress could not validate the zone readback. Refresh the Cloudflare target before retrying.");
+  }
+
+  if (JSON.stringify(after.nameservers) !== JSON.stringify(stagedNameservers)) {
+    await audit(env, site, staged.migration, owner, "cloudflare-import-failed", {
+      zone_id: migration.target_provider_zone_id,
+      outcome: "nameservers-changed",
+      api_response_received: importResult.received,
+      readback_exact: staged.diff.exact,
+    });
+    return api.json({ migration: migrationSummary(staged.migration, true), cloudflare_dns_imports_enabled: env.CLOUDFLARE_DNS_IMPORTS_ENABLED === "true", message: "The Cloudflare nameservers changed during the request. The zone records were read back and staged, but review the new nameserver set before approval." }, 409);
+  }
+
+  if (!staged.diff.exact) {
+    await audit(env, site, staged.migration, owner, "cloudflare-import-failed", {
+      zone_id: migration.target_provider_zone_id,
+      outcome: "readback-incomplete",
+      api_response_received: importResult.received,
+      api_reported_success: importResult.success,
+      remaining_source_records: staged.diff.removed.length,
+      destination_only_records: staged.diff.added.length,
+    });
+    return api.json({ migration: migrationSummary(staged.migration, true), cloudflare_dns_imports_enabled: env.CLOUDFLARE_DNS_IMPORTS_ENABLED === "true", message: "Cloudflare accepted or partially processed the import, but the readback still differs from the source. Review the refreshed record diff; no records were removed or replaced." }, 409);
+  }
+
+  await audit(env, site, staged.migration, owner, "cloudflare-import-finished", {
+    zone_id: migration.target_provider_zone_id,
+    record_count: missing.length,
+    api_response_received: importResult.received,
+    api_reported_success: importResult.success,
+    readback_exact: true,
+  });
+  return api.json({ migration: migrationSummary(staged.migration, true), cloudflare_dns_imports_enabled: env.CLOUDFLARE_DNS_IMPORTS_ENABLED === "true", message: importResult.success
+    ? `Cloudflare now contains all ${missing.length} missing source records. Readback matches the source; review the exact diff and proxy settings before approving.`
+    : `Cloudflare readback now matches the source after the import request. Review the exact diff and proxy settings before approving.` });
 }
 
 async function approveDiff(request, env, site, migration, owner, api) {
@@ -518,6 +868,12 @@ async function eraseOrCancel(request, env, site, migration, owner, api) {
   if (migration.status === "owner_approved") {
     return api.fail(409, "dns_cutover_snapshot_retained", "Verify the destination or record a source rollback before erasing snapshots. The old zone is needed to restore service.");
   }
+  const recentCloudflareImport = await env.DB.prepare(
+    "SELECT COUNT(*) AS total FROM dns_migration_actions WHERE site_id = ? AND migration_id = ? AND action = 'cloudflare-import-started' AND created_at >= ?",
+  ).bind(site.id, migration.id, new Date(Date.now() - 60_000).toISOString()).first();
+  if (Number(recentCloudflareImport?.total ?? 0) > 0) {
+    return api.fail(409, "cloudflare_import_in_progress", "A Cloudflare import was started recently. Refresh and verify the target-zone readback before erasing its rollback snapshots.");
+  }
   const completed = migration.status === "delegation_verified" || migration.status === "rolled_back";
   const status = completed ? "archived" : "cancelled";
   const now = new Date().toISOString();
@@ -552,16 +908,21 @@ export async function handleDnsMigrations(request, env, site, api) {
     return await createMigration(request, env, site, owner, api);
   }
 
-  const match = /^\/_mithrilpress\/api\/dns-migrations\/([a-f0-9-]{36})(?:\/(verify-ownership|source|target|approve|verify-delegation|verify-rollback))?$/.exec(url.pathname);
+  const match = /^\/_mithrilpress\/api\/dns-migrations\/([a-f0-9-]{36})(?:\/(verify-ownership|source|target|cloudflare-target|cloudflare-import|approve|verify-delegation|verify-rollback))?$/.exec(url.pathname);
   if (!match) return api.fail(404, "dns_migration_not_found", "DNS migration plan not found.");
   const migration = await getMigration(env, site, match[1]);
   if (!migration) return api.fail(404, "dns_migration_not_found", "DNS migration plan not found.");
   const action = match[2];
-  if (!action && request.method === "GET") return api.json({ migration: migrationSummary(migration, true) }, 200, { "Cache-Control": "private, no-store" });
+  if (!action && request.method === "GET") return api.json({
+    migration: migrationSummary(migration, true),
+    cloudflare_dns_imports_enabled: env.CLOUDFLARE_DNS_IMPORTS_ENABLED === "true",
+  }, 200, { "Cache-Control": "private, no-store" });
   if (!action) return await eraseOrCancel(request, env, site, migration, owner, api);
   if (action === "verify-ownership") return await verifyOwnership(request, env, site, migration, owner, api);
   if (action === "source") return await uploadSource(request, env, site, migration, owner, api);
   if (action === "target") return await uploadTarget(request, env, site, migration, owner, api);
+  if (action === "cloudflare-target") return await readCloudflareTarget(request, env, site, migration, owner, api);
+  if (action === "cloudflare-import") return await importCloudflareMissingRecords(request, env, site, migration, owner, api);
   if (action === "approve") return await approveDiff(request, env, site, migration, owner, api);
   if (action === "verify-delegation") return await verifyDelegation(request, env, site, migration, owner, api);
   return await verifyRollback(request, env, site, migration, owner, api);
