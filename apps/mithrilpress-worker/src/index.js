@@ -2,6 +2,7 @@ import { handleDnsMigrations } from "./dns_migration.js";
 import { MAX_MEDIA_BYTES, validateImageUpload } from "./media_validation.js";
 import { instantiateMithrilNative as instantiateContentBoundary } from "./content_boundary.js";
 import { instantiateMithrilNative } from "./platform_hostname.js";
+import { collectWordPressMediaReferences, inspectWordPressBlocks } from "./wordpress_blocks.js";
 import { parseWordPressWxr } from "./wxr_import.js";
 
 const SITE_ZONE = "sites.mithril.love";
@@ -380,6 +381,83 @@ async function sanitizeHtml(source) {
   })).text();
   if (result.length > MAX_SAFE_HTML_CHARS) throw Object.assign(new Error(), { status: 422, code: "sanitized_content_too_large" });
   return result;
+}
+
+function boundedImageAltText(value, fallback = "") {
+  const selected = typeof value === "string" && value.length > 0 ? value : fallback;
+  return String(selected ?? "").replace(/[\u0000-\u001f\u007f]/g, "").trim().slice(0, 500);
+}
+
+async function sanitizeImportedWordPressHtml(source, mediaBySourceId) {
+  let imageElements = 0;
+  let rewrittenImages = 0;
+  let omittedImages = 0;
+  const mediaIds = new Set();
+  const rewriter = new HTMLRewriter().on("*", {
+    element(element) {
+      const tag = element.tagName.toLowerCase();
+      if (tag === "img") {
+        imageElements += 1;
+        const classes = element.getAttribute("class") ?? "";
+        const marker = /(?:^|\s)wp-image-([0-9]{1,15})(?:\s|$)/.exec(classes);
+        const sourceId = marker ? Number(marker[1]) : null;
+        const asset = sourceId && Number.isSafeInteger(sourceId) ? mediaBySourceId.get(sourceId) : null;
+        if (!asset || !Number.isSafeInteger(asset.id) || asset.id < 1) {
+          omittedImages += 1;
+          element.remove();
+          return;
+        }
+        const alt = boundedImageAltText(element.getAttribute("alt"), asset.alt_text);
+        for (const [name] of [...element.attributes]) element.removeAttribute(name);
+        element.setAttribute("src", `/_mithrilpress/media/${asset.id}`);
+        element.setAttribute("alt", alt);
+        element.setAttribute("width", String(asset.width));
+        element.setAttribute("height", String(asset.height));
+        element.setAttribute("loading", "lazy");
+        element.setAttribute("decoding", "async");
+        mediaIds.add(asset.id);
+        rewrittenImages += 1;
+        return;
+      }
+      if (DROP_SUBTREE_TAGS.has(tag)) {
+        element.remove();
+        return;
+      }
+      if (!HTML_TAGS.has(tag)) {
+        element.removeAndKeepContent();
+        return;
+      }
+
+      const href = tag === "a" ? element.getAttribute("href") : null;
+      for (const [name] of [...element.attributes]) element.removeAttribute(name);
+      if (tag === "a" && href !== null) {
+        const safeHref = safeLink(href);
+        if (safeHref !== null) element.setAttribute("href", safeHref);
+      }
+    },
+    comments(comment) {
+      comment.remove();
+    },
+  });
+  const html = await rewriter.transform(new Response(source, {
+    headers: { "Content-Type": "text/html; charset=utf-8" },
+  })).text();
+  if (html.length > MAX_SAFE_HTML_CHARS) throw Object.assign(new Error(), { status: 422, code: "sanitized_content_too_large" });
+  return { html, mediaIds: [...mediaIds], imageElements, rewrittenImages, omittedImages };
+}
+
+async function previewHtmlWithRevisionMedia(source, revisionId) {
+  const rewriter = new HTMLRewriter().on("img", {
+    element(element) {
+      const src = element.getAttribute("src") ?? "";
+      if (/^\/_mithrilpress\/media\/[1-9][0-9]*$/.test(src)) {
+        element.setAttribute("src", `${src}?revision=${encodeURIComponent(revisionId)}`);
+      }
+    },
+  });
+  return await rewriter.transform(new Response(source, {
+    headers: { "Content-Type": "text/html; charset=utf-8" },
+  })).text();
 }
 
 function hex(bytes) {
@@ -1264,6 +1342,9 @@ async function studioChat(request, env, site) {
       "INSERT INTO entries (site_id, revision_id, entry_id, kind, slug, title, source_html, safe_html, entry_origin, publication_status, language_code, api_id, source_id, source_status, source_date, source_date_gmt, source_modified, source_modified_gmt, source_permalink, categories_json, tags_json, featured_media_id, rendering_admission) SELECT site_id, ?, entry_id, kind, slug, title, source_html, safe_html, entry_origin, publication_status, language_code, api_id, source_id, source_status, source_date, source_date_gmt, source_modified, source_modified_gmt, source_permalink, categories_json, tags_json, featured_media_id, rendering_admission FROM entries WHERE site_id = ? AND revision_id = ?",
     ).bind(revisionId, site.id, baseRevisionId),
     env.DB.prepare(
+      "INSERT INTO entry_media (site_id, revision_id, entry_id, media_id, created_at) SELECT site_id, ?, entry_id, media_id, created_at FROM entry_media WHERE site_id = ? AND revision_id = ?",
+    ).bind(revisionId, site.id, baseRevisionId),
+    env.DB.prepare(
       "INSERT INTO taxonomy_terms (site_id, revision_id, taxonomy, term_id, slug, name, description_html, parent_term_id) SELECT site_id, ?, taxonomy, term_id, slug, name, description_html, parent_term_id FROM taxonomy_terms WHERE site_id = ? AND revision_id = ?",
     ).bind(revisionId, site.id, baseRevisionId),
     env.DB.prepare(
@@ -1295,8 +1376,8 @@ async function studioChat(request, env, site) {
     if (quotaCode) return storageQuotaResponse(quotaCode);
     return fail(503, "draft_not_saved", "The private draft could not be saved. No content was published.");
   }
-  if (saved[5 + newConversationOffset]?.meta?.changes !== 1
-      || saved[6 + newConversationOffset]?.meta?.changes !== 1) {
+  if (saved[6 + newConversationOffset]?.meta?.changes !== 1
+      || saved[7 + newConversationOffset]?.meta?.changes !== 1) {
     return fail(503, "draft_not_saved", "The private draft could not be saved. No content was published.");
   }
   return json({
@@ -1486,9 +1567,6 @@ function mediaAltText(request) {
 }
 
 async function studioMedia(request, env, site) {
-  if (request.method !== "GET" && !sameOriginStudioMutation(request, site)) {
-    return fail(403, "same_origin_required", "Media changes must come from this site's Studio.");
-  }
   const owner = await ownerToken(request, env, site, "media:write");
   if (!owner) return fail(401, "media_owner_required", "An active site owner token with media:write scope is required.");
   if (request.method === "GET") {
@@ -1578,7 +1656,6 @@ async function studioMedia(request, env, site) {
 }
 
 async function deleteStudioMedia(request, env, site, mediaId) {
-  if (!sameOriginStudioMutation(request, site)) return fail(403, "same_origin_required", "Media changes must come from this site's Studio.");
   const owner = await ownerToken(request, env, site, "media:write");
   if (!owner) return fail(401, "media_owner_required", "An active site owner token with media:write scope is required.");
   if (request.method !== "DELETE") return fail(405, "method_not_allowed", "Use DELETE to remove this media item.");
@@ -1622,12 +1699,12 @@ async function serveMedia(request, env, site, mediaId) {
     const owner = await ownerToken(request, env, site, "revision:preview");
     if (!owner || !/^[a-f0-9-]{36}$/.test(revisionId)) return fail(404, "media_not_found", "Media item not found.");
     asset = await env.DB.prepare(
-      "SELECT a.id, a.object_key, a.content_type, a.byte_length, a.sha256, a.alt_text FROM media_assets a JOIN site_revisions r ON r.site_id = a.site_id AND r.id = ? WHERE a.site_id = ? AND a.id = ? AND a.status = 'active' AND r.state IN ('private-preview', 'approved', 'published', 'superseded') AND EXISTS (SELECT 1 FROM entries e WHERE e.site_id = a.site_id AND e.revision_id = r.id AND e.featured_media_id IN (a.id, a.wordpress_source_id)) LIMIT 1",
+      "SELECT a.id, a.object_key, a.content_type, a.byte_length, a.sha256, a.alt_text FROM media_assets a JOIN site_revisions r ON r.site_id = a.site_id AND r.id = ? WHERE a.site_id = ? AND a.id = ? AND a.status = 'active' AND r.state IN ('private-preview', 'approved', 'published', 'superseded') AND EXISTS (SELECT 1 FROM entries e WHERE e.site_id = a.site_id AND e.revision_id = r.id AND (e.featured_media_id IN (a.id, a.wordpress_source_id) OR EXISTS (SELECT 1 FROM entry_media em WHERE em.site_id = e.site_id AND em.revision_id = e.revision_id AND em.entry_id = e.entry_id AND em.media_id = a.id))) LIMIT 1",
     ).bind(revisionId, site.id, mediaId).first();
     privateRead = true;
   } else if (site.current_revision_id) {
     asset = await env.DB.prepare(
-      "SELECT a.id, a.object_key, a.content_type, a.byte_length, a.sha256, a.alt_text FROM media_assets a WHERE a.site_id = ? AND a.id = ? AND a.status = 'active' AND EXISTS (SELECT 1 FROM entries e WHERE e.site_id = a.site_id AND e.revision_id = ? AND e.publication_status = 'published' AND e.featured_media_id IN (a.id, a.wordpress_source_id)) LIMIT 1",
+      "SELECT a.id, a.object_key, a.content_type, a.byte_length, a.sha256, a.alt_text FROM media_assets a WHERE a.site_id = ? AND a.id = ? AND a.status = 'active' AND EXISTS (SELECT 1 FROM entries e WHERE e.site_id = a.site_id AND e.revision_id = ? AND e.publication_status = 'published' AND (e.featured_media_id IN (a.id, a.wordpress_source_id) OR EXISTS (SELECT 1 FROM entry_media em WHERE em.site_id = e.site_id AND em.revision_id = e.revision_id AND em.entry_id = e.entry_id AND em.media_id = a.id))) LIMIT 1",
     ).bind(site.id, mediaId, site.current_revision_id).first();
   }
   if (!asset && revisionId === null) {
@@ -1662,7 +1739,7 @@ async function serveMedia(request, env, site, mediaId) {
 async function wordpressMediaRead(request, env, site, mediaId) {
   if (request.method !== "GET" && request.method !== "HEAD") return fail(405, "method_not_allowed", "This WordPress media endpoint is read-only.");
   const asset = await env.DB.prepare(
-    "SELECT a.id, a.wordpress_source_id, a.content_type, a.byte_length, a.width, a.height, a.alt_text, a.created_at FROM media_assets a WHERE a.site_id = ? AND (a.id = ? OR a.wordpress_source_id = ?) AND a.status = 'active' AND EXISTS (SELECT 1 FROM entries e WHERE e.site_id = a.site_id AND e.revision_id = ? AND e.publication_status = 'published' AND e.featured_media_id IN (a.id, a.wordpress_source_id)) ORDER BY CASE WHEN a.wordpress_source_id = ? THEN 0 ELSE 1 END LIMIT 1",
+    "SELECT a.id, a.wordpress_source_id, a.content_type, a.byte_length, a.width, a.height, a.alt_text, a.created_at FROM media_assets a WHERE a.site_id = ? AND (a.id = ? OR a.wordpress_source_id = ?) AND a.status = 'active' AND EXISTS (SELECT 1 FROM entries e WHERE e.site_id = a.site_id AND e.revision_id = ? AND e.publication_status = 'published' AND (e.featured_media_id IN (a.id, a.wordpress_source_id) OR EXISTS (SELECT 1 FROM entry_media em WHERE em.site_id = e.site_id AND em.revision_id = e.revision_id AND em.entry_id = e.entry_id AND em.media_id = a.id))) ORDER BY CASE WHEN a.wordpress_source_id = ? THEN 0 ELSE 1 END LIMIT 1",
   ).bind(site.id, mediaId, mediaId, site.current_revision_id ?? "", mediaId).first();
   if (!asset) return fail(404, "media_not_found", "Media item not found.");
   const link = `https://${site.hostname}/_mithrilpress/media/${asset.id}`;
@@ -1725,6 +1802,14 @@ async function importWordPress(request, env, site) {
   }
   const entries = records.map(normalizeRecord);
   const taxonomyTerms = normalizeTaxonomyTerms(sourceTaxonomyTerms, entries);
+  let gutenbergReport;
+  let wordpressMediaReferences;
+  try {
+    gutenbergReport = inspectWordPressBlocks(entries.map((entry) => entry.sourceHtml));
+    wordpressMediaReferences = collectWordPressMediaReferences(entries);
+  } catch (error) {
+    return fail(error?.status ?? 422, error?.code ?? "invalid_wordpress_content", "The imported WordPress content exceeds a supported compatibility boundary.");
+  }
   const identities = new Set(entries.map((entry) => entry.entryId));
   if (identities.size !== entries.length) return fail(422, "duplicate_source_id", "The import contains duplicate WordPress record identities.");
   const slugs = new Set(entries.map((entry) => `${entry.kind}:${entry.slug}`));
@@ -1732,9 +1817,31 @@ async function importWordPress(request, env, site) {
   const totalChars = entries.reduce((sum, entry) => sum + entry.sourceHtml.length, 0);
   if (totalChars > MAX_IMPORT_CHARS) return fail(413, "import_too_large", "The imported content exceeds the site import budget.");
 
+  let mediaBySourceId = new Map();
+  if (wordpressMediaReferences.source_ids.length > 0) {
+    const placeholders = JSON.stringify(wordpressMediaReferences.source_ids);
+    const mediaRows = await env.DB.prepare(
+      "SELECT id, wordpress_source_id, alt_text, width, height FROM media_assets WHERE site_id = ? AND status = 'active' AND wordpress_source_id IN (SELECT CAST(value AS INTEGER) FROM json_each(?))",
+    ).bind(site.id, placeholders).all();
+    mediaBySourceId = new Map((mediaRows.results ?? []).map((row) => [Number(row.wordpress_source_id), row]));
+  }
+
   const encoder = new TextEncoder();
+  let totalInlineImages = 0;
+  let rewrittenInlineImages = 0;
+  let omittedInlineImages = 0;
   for (const entry of entries) {
-    entry.safeHtml = await sanitizeHtml(entry.sourceHtml);
+    if (/<\s*img\b/i.test(entry.sourceHtml)) {
+      const sanitized = await sanitizeImportedWordPressHtml(entry.sourceHtml, mediaBySourceId);
+      entry.safeHtml = sanitized.html;
+      entry.inlineMediaIds = sanitized.mediaIds;
+      totalInlineImages += sanitized.imageElements;
+      rewrittenInlineImages += sanitized.rewrittenImages;
+      omittedInlineImages += sanitized.omittedImages;
+    } else {
+      entry.safeHtml = await sanitizeHtml(entry.sourceHtml);
+      entry.inlineMediaIds = [];
+    }
     const rowBytes = encoder.encode(entry.entryId).byteLength
       + encoder.encode(entry.kind).byteLength
       + encoder.encode(entry.slug).byteLength
@@ -1747,6 +1854,23 @@ async function importWordPress(request, env, site) {
         entry.sourceModified, entry.sourceModifiedGmt, entry.sourcePermalink, entry.featuredMediaId])).byteLength;
     if (rowBytes > MAX_D1_ROW_BYTES) return fail(413, "entry_row_too_large", "An entry exceeds the D1 row budget.");
   }
+
+  const migrationReport = {
+    version: 1,
+    gutenberg: gutenbergReport,
+    inline_media: {
+      wp_image_class_references: wordpressMediaReferences.class_references,
+      referenced_source_ids: wordpressMediaReferences.source_ids.length,
+      mapped_source_ids: mediaBySourceId.size,
+      image_elements: totalInlineImages,
+      rewritten_images: rewrittenInlineImages,
+      omitted_images: omittedInlineImages,
+    },
+    source_omissions: parsedWxr?.omitted ?? null,
+    needs_owner_review: gutenbergReport.needs_owner_review
+      || omittedInlineImages > 0
+      || Object.values(parsedWxr?.omitted ?? {}).some((count) => Number(count) > 0),
+  };
 
   let safeTermBytes = 0;
   for (const term of taxonomyTerms) {
@@ -1781,6 +1905,19 @@ async function importWordPress(request, env, site) {
       ));
       await env.DB.batch(statements);
     }
+    const inlineMediaLinks = entries.flatMap((entry) => entry.inlineMediaIds.map((mediaId) => ({
+      entryId: entry.entryId,
+      mediaId,
+    })));
+    const inlineMediaInsert = env.DB.prepare(
+      "INSERT INTO entry_media (site_id, revision_id, entry_id, media_id, created_at) VALUES (?, ?, ?, ?, ?)",
+    );
+    for (let start = 0; start < inlineMediaLinks.length; start += 50) {
+      const statements = inlineMediaLinks.slice(start, start + 50).map((link) => inlineMediaInsert.bind(
+        site.id, revisionId, link.entryId, link.mediaId, now,
+      ));
+      await env.DB.batch(statements);
+    }
     const termInsert = env.DB.prepare(
       "INSERT INTO taxonomy_terms (site_id, revision_id, taxonomy, term_id, slug, name, description_html, parent_term_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
     );
@@ -1804,6 +1941,7 @@ async function importWordPress(request, env, site) {
           import_format: importFormat,
           source_text_sha256: sourceDigest,
           omitted: parsedWxr?.omitted ?? null,
+          migration_report: migrationReport,
         }), site.id, revisionId),
     ]);
     if (finalized[0]?.meta?.changes !== 1) throw new Error("revision finalization failed");
@@ -1835,8 +1973,37 @@ async function importWordPress(request, env, site) {
     source_format: importFormat,
     source_text_sha256: sourceDigest,
     omitted: parsedWxr?.omitted ?? null,
+    migration_report: migrationReport,
     authorization_proof_id: proofId,
   }, 201);
+}
+
+async function revisionMigrationReport(request, env, site, revisionId) {
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    return fail(405, "method_not_allowed", "Migration reports are read-only.");
+  }
+  const owner = await ownerToken(request, env, site, "revision:preview");
+  if (!owner) return fail(401, "owner_authorization_required", "A scoped site owner token is required.");
+  const row = await env.DB.prepare(
+    "SELECT r.id, r.state, a.metadata_json FROM site_revisions r LEFT JOIN owner_actions a ON a.site_id = r.site_id AND a.revision_id = r.id AND a.action = 'import' WHERE r.site_id = ? AND r.id = ? AND r.state IN ('private-preview', 'approved', 'published', 'superseded') ORDER BY a.created_at DESC LIMIT 1",
+  ).bind(site.id, revisionId).first();
+  if (!row || !row.metadata_json) return fail(404, "revision_not_found", "Migration report not found.");
+  let metadata = {};
+  try {
+    metadata = JSON.parse(row.metadata_json ?? "{}");
+  } catch {
+    return fail(503, "migration_report_unavailable", "The saved migration report is unreadable.");
+  }
+  const report = {
+    revision_id: row.id,
+    state: row.state,
+    source_format: metadata.import_format ?? null,
+    omitted: metadata.omitted ?? null,
+    migration_report: metadata.migration_report ?? null,
+  };
+  return request.method === "HEAD"
+    ? response(null, 200, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "private, no-store" })
+    : json(report, 200, { "Cache-Control": "private, no-store" });
 }
 
 async function previewRevision(request, env, site, revisionId, slug) {
@@ -1851,7 +2018,11 @@ async function previewRevision(request, env, site, revisionId, slug) {
   ).bind(site.id, revisionId, slug).first();
   if (!entry) return fail(404, "entry_not_found", "Entry not found.");
   const media = await featuredMediaForEntry(env, site, entry);
-  return htmlDocument(site.hostname, entry, true, false, media, revisionId);
+  const previewEntry = {
+    ...entry,
+    safe_html: await previewHtmlWithRevisionMedia(entry.safe_html, revisionId),
+  };
+  return htmlDocument(site.hostname, previewEntry, true, false, media, revisionId);
 }
 
 async function approveRevision(request, env, site, revisionId) {
@@ -2259,6 +2430,11 @@ async function handleRequest(request, env) {
 
   if (url.pathname === "/api/wordpress/import" && request.method === "POST") {
     return await importWordPress(request, env, site);
+  }
+
+  const migrationReportMatch = /^\/_mithrilpress\/api\/revisions\/([a-f0-9-]{36})\/migration-report$/.exec(url.pathname);
+  if (migrationReportMatch) {
+    return await revisionMigrationReport(request, env, site, migrationReportMatch[1]);
   }
 
   const approvalMatch = /^\/_mithrilpress\/api\/revisions\/([a-f0-9-]{36})\/(approve|publish)$/.exec(url.pathname);

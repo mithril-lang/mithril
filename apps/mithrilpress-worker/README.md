@@ -14,8 +14,9 @@ explicitly published tenant revision.
 - Owner-scoped WordPress REST and WXR 1.2 subset import for posts and pages.
   Imports are bounded, sanitized, immutable revisions that remain private.
   Standard WXR categories, tags, category parents, and term IDs are retained;
-  unsupported post types, custom fields, page-parent links, and media files are
-  reported as omissions.
+  unsupported post types, custom fields, page-parent links, and source media
+  files require manual migration. Every import returns a Gutenberg and asset
+  reconciliation report for owner review.
 - Chat-first MithrilPress Studio for creating one post or page draft, revising it
   in a conversation, opening a private preview, and separately approving and
   publishing it.
@@ -30,11 +31,12 @@ explicitly published tenant revision.
 - Authenticated, `noindex` private preview; separate revision-approval and
   publication actions with audit receipts.
 - Read-only WordPress REST-compatible `GET` endpoints for public posts/pages,
-  categories/tags, and featured media, including pagination headers. Public
-  `edit` context is denied.
+  categories/tags, and published featured or inline media, including
+  pagination headers. Public `edit` context is denied.
 - A minimal server-rendered page route with a restrictive CSP and no theme,
-  plugin, shortcode, script, style, form, inline media, or dynamic-block
-  execution. A separately validated featured image may be rendered from R2.
+  plugin, shortcode, script, style, form, or dynamic-block execution. Only
+  separately validated owner-uploaded R2 media may render inline or as a
+  featured image.
 
 The checked-in Mithril native-JS modules own platform subdomain validation,
 WordPress post/page record admission, individual taxonomy-term admission, and
@@ -121,6 +123,7 @@ and content row within its owning site.
 | Method | Path | Auth | Behavior |
 | --- | --- | --- | --- |
 | `POST` | `/api/wordpress/import` | `content:import` | Import JSON `{ "source_site": "https://…", "records": [...] }` or a raw `application/rss+xml`, `application/xml`, or `text/xml` WXR 1.2 export into a private sanitized revision. WXR source origin is read from `<channel><link>`. |
+| `GET` / `HEAD` | `/_mithrilpress/api/revisions/{revision-id}/migration-report` | `revision:preview` | Read the saved Gutenberg block classification, asset mapping, and source omission report before approving a migrated revision. |
 | `GET` / `POST` / `DELETE` | `/_mithrilpress/api/studio/session` | `content:write`, `media:write`, `site:domains`, or `site:dns-migrate` | Exchange a short-lived owner token for a one-hour browser session, inspect it, or revoke it. |
 | `GET` | `/_mithrilpress/studio` | public shell; noindex | Open the chat-first post/page Studio. The API requires a site-owner session. |
 | `POST` | `/_mithrilpress/api/studio/chat` | `content:write` | Generate or revise one private draft; no model response is published. |
@@ -149,16 +152,20 @@ and content row within its owning site.
 | `POST` | `/_mithrilpress/api/dns-migrations/{id}/verify-rollback` | `site:dns-migrate` | Check restored source NS and DS state through the same resolvers. |
 | `GET` | `/wp-json/wp/v2/posts` | public | Read the current published posts only. |
 | `GET` | `/wp-json/wp/v2/pages` | public | Read the current published pages only. |
-| `GET` | `/wp-json/wp/v2/media/{id}` | public | Read metadata for a currently published featured image only. |
+| `GET` | `/wp-json/wp/v2/media/{id}` | public | Read metadata for a currently published featured or inline image. |
 | `GET` | `/{slug}/` | public | Render one published page or post. |
 
 The HTML sanitizer keeps a small semantic tag allowlist, removes all attributes
 except validated HTTP(S) or relative anchor links, removes comments, and drops
-active content subtrees. Inline images and attachment URLs from imported source
-HTML are omitted. Owners can upload files they control, supply their original
-WordPress attachment IDs, and select a featured image; MithrilPress does not
-fetch WordPress URLs or import arbitrary media. Sanitization does not make
-WordPress themes, dynamic Gutenberg blocks, plugins, or PHP compatible.
+active content subtrees. An inline image is retained only when its `wp-image-N`
+class maps to an active R2 image uploaded by the site owner with WordPress media
+ID `N`. Unmapped image elements are removed and counted. Owners must transfer
+media themselves; MithrilPress never fetches WordPress URLs or arbitrary source
+media. The private import response and `migration-report` endpoint classify
+static, layout-degraded, dynamic, and unknown Gutenberg blocks, count source
+omissions and image mappings, and flag revisions for owner review. The report
+does not make dynamic blocks, themes, plugins, shortcodes, or PHP compatible;
+their code is never executed.
 The Worker enforces a conservative 1.8 MB encoded-size budget for each content
 row, below Cloudflare D1's documented 2 MB maximum row/string size.
 Imported non-public WordPress statuses remain available only in the private
@@ -360,10 +367,13 @@ REST JSON imports may include a `taxonomy_terms` array. Every referenced
 category or tag ID must resolve to an imported term. Term descriptions are
 sanitized before storage and are readable only through the published revision.
 
-WXR attachments are not copied: the importer retains featured-media IDs and
-counts attachment/media references but does not fetch remote files or preserve
-custom fields, page-parent relationships, users, comments, or custom
-taxonomies. Unsupported post types and password-protected posts/pages are
-skipped and counted in the import response; protected content is never silently
-turned into ordinary public content. Review those omissions in the private
-preview before publication.
+WXR attachment files are not copied: the importer retains featured-media IDs
+and counts attachment/media references but does not fetch remote files. To map
+an inline image, an owner uploads the corresponding image to the tenant library
+with its original WordPress media ID before import. The report shows which
+image references were rewritten or omitted. The importer also does not preserve
+custom fields, page-parent relationships, users, comments, or custom taxonomies.
+Unsupported post types and password-protected posts/pages are skipped and
+counted in the import report; protected content is never silently turned into
+ordinary public content. Review the report and private preview before
+publication.

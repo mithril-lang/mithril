@@ -21,7 +21,14 @@ const wxr = `<?xml version="1.0" encoding="UTF-8"?>
     <item><title>Private migration preview</title><link>${sourceOrigin}/private-migration-preview/</link>
       <wp:post_id>9001</wp:post_id><wp:post_type>post</wp:post_type><wp:status>publish</wp:status>
       <wp:post_name>private-migration-preview</wp:post_name>
-      <content:encoded><![CDATA[<p>Local authorization qualification fixture.</p>]]></content:encoded>
+      <content:encoded><![CDATA[<p>Local authorization qualification fixture.</p>
+        <!-- wp:image {"id":9002} -->
+        <figure><img class="wp-image-9002" src="https://wordpress.example/uploads/hero.png" alt="Owner image"></figure>
+        <!-- /wp:image -->
+        <p><img class="wp-image-9999" src="https://wordpress.example/uploads/unmapped.png"></p>
+        <!-- wp:latest-posts /-->
+        <!-- wp:sample/plugin-card {"id":17} /-->
+      ]]></content:encoded>
     </item>
   </channel>
 </rss>`;
@@ -63,12 +70,12 @@ function makeToken(ownerLabel, scopes) {
   return JSON.parse(result.stdout);
 }
 
-function request(port, method, pathname, { hostname = testHostname, token, body, contentType } = {}) {
+function request(port, method, pathname, { hostname = testHostname, token, body, contentType, headers: extraHeaders = {} } = {}) {
   return new Promise((resolve, reject) => {
-    const headers = { host: hostname, connection: "close" };
+    const headers = { host: hostname, connection: "close", ...extraHeaders };
     if (token) headers.authorization = `Bearer ${token}`;
     if (contentType) headers["content-type"] = contentType;
-    if (body !== undefined) headers["content-length"] = Buffer.byteLength(body);
+    if (body !== undefined) headers["content-length"] = typeof body === "string" ? Buffer.byteLength(body) : body.byteLength;
     const req = httpRequest({ hostname: "127.0.0.1", port, method, path: pathname, headers, timeout: 5_000 }, (res) => {
       const chunks = [];
       res.on("data", (chunk) => chunks.push(chunk));
@@ -85,6 +92,15 @@ function request(port, method, pathname, { hostname = testHostname, token, body,
   });
 }
 
+function png(width = 1, height = 1) {
+  const bytes = new Uint8Array(24);
+  bytes.set([137, 80, 78, 71, 13, 10, 26, 10], 0);
+  bytes.set([73, 72, 68, 82], 12);
+  new DataView(bytes.buffer).setUint32(16, width);
+  new DataView(bytes.buffer).setUint32(20, height);
+  return bytes;
+}
+
 async function freePort() {
   const server = createServer();
   await new Promise((resolve, reject) => server.once("error", reject).listen(0, "127.0.0.1", resolve));
@@ -98,7 +114,7 @@ const tempBase = process.env.MITHRILPRESS_QUALIFICATION_TMP
 await access(tempBase);
 const tempRoot = await mkdtemp(join(tempBase, "mithrilpress-owner-auth-"));
 const persistPath = join(tempRoot, "wrangler-state");
-const siteToken = makeToken("MithrilPress local integration", ["content:import", "revision:preview"]);
+const siteToken = makeToken("MithrilPress local integration", ["content:import", "revision:preview", "media:write"]);
 const otherSiteToken = makeToken("MithrilPress cross-tenant integration", ["content:import", "revision:preview"]);
 let worker;
 
@@ -151,6 +167,22 @@ try {
   });
   assert.equal(deniedCrossTenant.status, 401, "A different tenant's owner token must be denied.");
 
+  const uploaded = await request(port, "POST", "/_mithrilpress/api/media", {
+    token: siteToken.token,
+    body: png(),
+    contentType: "image/png",
+    headers: {
+      origin: `https://${testHostname}`,
+      "x-mithrilpress-request": "1",
+      "x-wordpress-media-id": "9002",
+      "x-mithrilpress-alt": "Migrated image",
+    },
+  });
+  assert.equal(uploaded.status, 201, `Owner media upload failed: ${uploaded.body}`);
+  const uploadedBody = JSON.parse(uploaded.body);
+  const uploadedMediaId = uploadedBody.media.id;
+  assert.equal(uploadedBody.media.wordpress_source_id, 9002);
+
   const imported = await request(port, "POST", "/api/wordpress/import", {
     token: siteToken.token,
     body: wxr,
@@ -160,6 +192,17 @@ try {
   const importedBody = JSON.parse(imported.body);
   assert.equal(importedBody.state, "private-preview");
   assert.equal(importedBody.entry_count, 1);
+  assert.equal(importedBody.migration_report.gutenberg.dynamic_blocks, 1);
+  assert.equal(importedBody.migration_report.gutenberg.unknown_blocks, 1);
+  assert.equal(importedBody.migration_report.inline_media.rewritten_images, 1);
+  assert.equal(importedBody.migration_report.inline_media.omitted_images, 1);
+  assert.equal(importedBody.migration_report.needs_owner_review, true);
+
+  const savedReport = await request(port, "GET", `/_mithrilpress/api/revisions/${importedBody.revision_id}/migration-report`, {
+    token: siteToken.token,
+  });
+  assert.equal(savedReport.status, 200, `Owner migration report read failed: ${savedReport.body}`);
+  assert.deepEqual(JSON.parse(savedReport.body).migration_report, importedBody.migration_report);
 
   const privatePreview = await request(port, "GET", `/_mithrilpress/preview/${importedBody.revision_id}/private-migration-preview`, {
     token: siteToken.token,
@@ -167,6 +210,20 @@ try {
   assert.equal(privatePreview.status, 200, "An authorized owner must be able to view the private preview.");
   assert.match(privatePreview.headers["x-robots-tag"] ?? "", /noindex/);
   assert.match(privatePreview.body, /Local authorization qualification fixture/);
+  assert.match(privatePreview.body, new RegExp(`/_mithrilpress/media/${uploadedMediaId}\\?revision=${importedBody.revision_id}`));
+  assert.equal(privatePreview.body.includes("https://wordpress.example/uploads/hero.png"), false);
+  assert.equal(privatePreview.body.includes("https://wordpress.example/uploads/unmapped.png"), false);
+
+  const privateInlineMedia = await request(port, "GET", `/_mithrilpress/media/${uploadedMediaId}?revision=${importedBody.revision_id}`, {
+    token: siteToken.token,
+  });
+  assert.equal(privateInlineMedia.status, 200, "An authorized preview must be able to read its linked inline media.");
+  assert.equal(privateInlineMedia.body.length, 24);
+  const crossTenantInlineMedia = await request(port, "GET", `/_mithrilpress/media/${uploadedMediaId}?revision=${importedBody.revision_id}`, {
+    hostname: secondHostname,
+    token: otherSiteToken.token,
+  });
+  assert.equal(crossTenantInlineMedia.status, 404, "Inline media must remain inaccessible from another tenant.");
 
   const publicPage = await request(port, "GET", "/");
   assert.equal(publicPage.status, 404, "Imported content must stay private until an owner publishes it.");
@@ -174,7 +231,7 @@ try {
   assert.equal(publicWordPressApi.status, 200);
   assert.deepEqual(JSON.parse(publicWordPressApi.body), [], "Private imports must not appear in the public WordPress-compatible API.");
 
-  process.stdout.write("MithrilPress local owner-auth qualification passed: anonymous denial, tenant-token isolation, scoped WXR import, private owner preview, and pre-publication privacy.\n");
+  process.stdout.write("MithrilPress local owner-auth qualification passed: anonymous denial, tenant-token isolation, owner-uploaded inline media mapping, Gutenberg migration report, private owner preview, and pre-publication privacy.\n");
 } finally {
   if (worker && worker.exitCode === null) {
     worker.kill("SIGTERM");
