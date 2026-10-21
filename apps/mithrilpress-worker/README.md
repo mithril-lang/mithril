@@ -201,8 +201,8 @@ and content row within its owning site.
 | `POST` | `/_mithrilpress/api/dns-migrations/{id}/approve` | `site:dns-migrate` | Approve the exact diff digest after a required owner confirmation. |
 | `POST` | `/_mithrilpress/api/dns-migrations/{id}/verify-delegation` | `site:dns-migrate` | Check destination NS and absence of DS through Cloudflare and Google recursive resolvers. |
 | `POST` | `/_mithrilpress/api/dns-migrations/{id}/verify-rollback` | `site:dns-migrate` | Check restored source NS and DS state through the same resolvers. |
-| `GET` | `/wp-json/wp/v2/posts` | public | Read the current published posts only. |
-| `GET` | `/wp-json/wp/v2/pages` | public | Read the current published pages only. |
+| `GET` | `/wp-json/wp/v2/posts` | public | Read published posts with bounded search, date, order, slug, and pagination filters. |
+| `GET` | `/wp-json/wp/v2/pages` | public | Read published pages with bounded search, date, order, slug, and pagination filters. |
 | `GET` | `/wp-json/wp/v2/media/{id}` | public | Read metadata for a currently published featured or inline image. |
 | `GET` | `/{slug}/` | public | Render one published page or post. |
 
@@ -404,13 +404,21 @@ through its R2 binding rather than an R2 API token.
 
 ## WordPress REST subset
 
-Public post/page list requests support `page`, `per_page` (1–100), `slug`, and
-`context` `view`/`embed`. Category/tag lists also support `search` and
-`hide_empty`, and individual terms can be fetched by source ID. Responses
-include standard `X-WP-Total`, `X-WP-TotalPages`, and pagination `Link`
-headers. Category/tag archives render published-entry lists. Editing contexts,
-term and media writes, media listings, users, comments, custom post types, and
-WordPress authentication plugins are not implemented here.
+Public post/page list requests support `page`, `per_page` (1–100), `slug`,
+`search`, `after`, `before`, `modified_after`, `modified_before`, `order`, and
+`orderby` (`date`, `modified`, `id`, `title`, `slug`, or `relevance`; relevance
+requires a search term), plus `context` `view`/`embed`. Search matches the
+published title and sanitized content. Relevance descending ranks exact title
+matches, title substrings, then content-only matches. Dates accept ISO 8601
+calendar dates or timezone-qualified date-times; date-only `before` and
+`modified_before` values include the full UTC calendar day. Results remain
+restricted to published entries.
+Category/tag lists also support
+`search` and `hide_empty`, and individual terms can be fetched by source ID.
+Responses include standard `X-WP-Total`, `X-WP-TotalPages`, and pagination
+`Link` headers. Category/tag archives render published-entry lists. Editing
+contexts, term and media writes, media listings, users, comments, custom post
+types, and WordPress authentication plugins are not implemented here.
 
 The importer also accepts WordPress WXR 1.2 exports. It imports up to 500
 posts/pages per file, with the channel origin, source IDs, slugs, title/body,
