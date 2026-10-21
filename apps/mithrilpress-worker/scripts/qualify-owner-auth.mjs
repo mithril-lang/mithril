@@ -19,7 +19,7 @@ const collectionFixtures = [
   {
     apiId: 9101,
     slug: "mithril-exact-match",
-    title: "Mithril",
+    title: "Signal",
     content: "<p>Exact title match.</p>",
     date: "2026-05-12T09:00:00Z",
     modified: "2026-06-15T10:00:00Z",
@@ -27,7 +27,7 @@ const collectionFixtures = [
   {
     apiId: 9102,
     slug: "mithril-migration",
-    title: "Mithril migration",
+    title: "Signal migration",
     content: "<p>Partial title match.</p>",
     date: "2026-05-12T12:00:00Z",
     modified: "2026-06-15T18:30:00Z",
@@ -36,7 +36,7 @@ const collectionFixtures = [
     apiId: 9103,
     slug: "security-notes",
     title: "Security notes",
-    content: "<p>Content-only Mithril match.</p>",
+    content: "<p>Content-only Signal match.</p>",
     date: "2026-05-13T08:00:00Z",
     modified: "2026-06-17T11:00:00Z",
   },
@@ -299,7 +299,7 @@ try {
     _yoast_wpseo_metadesc: "Description <safe> & careful",
   });
 
-  const relevance = await request(port, "GET", "/wp-json/wp/v2/posts?search=Mithril&orderby=relevance&per_page=100");
+  const relevance = await request(port, "GET", "/wp-json/wp/v2/posts?search=Signal&orderby=relevance&per_page=100");
   assert.equal(relevance.status, 200, `WordPress relevance query failed: ${relevance.body}`);
   assert.deepEqual(JSON.parse(relevance.body).map((entry) => entry.id), [9101, 9102, 9103]);
 
