@@ -4,9 +4,13 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler dev --config wrangler.example.jsonc --local",
-    "types": "wrangler types --config wrangler.example.jsonc"
+    "types": "wrangler types --config wrangler.example.jsonc",
+    "test": "node --test src/*.test.js"
   },
   "devDependencies": {
     "wrangler": "^4.151.3"
+  },
+  "dependencies": {
+    "saxes": "6.0.0"
   }
 }

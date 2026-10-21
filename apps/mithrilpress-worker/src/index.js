@@ -1,4 +1,5 @@
 import { handleDnsMigrations } from "./dns_migration.js";
+import { parseWordPressWxr } from "./wxr_import.js";
 
 const SITE_ZONE = "sites.mithril.love";
 const CUSTOM_DOMAIN_LIMIT_PER_SITE = 10;
@@ -156,9 +157,9 @@ function parseBoundedInt(value, fallback, minimum, maximum) {
   return parsed >= minimum && parsed <= maximum ? parsed : null;
 }
 
-async function readBoundedJson(request) {
+async function readBoundedText(request, allowedTypes, invalidCode, unsupportedCode = "unsupported_content_type") {
   const contentType = request.headers.get("Content-Type")?.split(";", 1)[0].trim().toLowerCase();
-  if (contentType !== "application/json") throw Object.assign(new Error(), { status: 415, code: "json_required" });
+  if (!allowedTypes.has(contentType)) throw Object.assign(new Error(), { status: 415, code: unsupportedCode });
   const declared = request.headers.get("Content-Length");
   if (declared && Number(declared) > MAX_BODY_BYTES) throw Object.assign(new Error(), { status: 413, code: "payload_too_large" });
   if (!request.body) throw Object.assign(new Error(), { status: 400, code: "missing_body" });
@@ -182,7 +183,16 @@ async function readBoundedJson(request) {
     offset += chunk.byteLength;
   }
   try {
-    return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    throw Object.assign(new Error(), { status: 400, code: invalidCode });
+  }
+}
+
+async function readBoundedJson(request) {
+  const text = await readBoundedText(request, new Set(["application/json"]), "invalid_json", "json_required");
+  try {
+    return JSON.parse(text);
   } catch {
     throw Object.assign(new Error(), { status: 400, code: "invalid_json" });
   }
@@ -850,6 +860,17 @@ function validateSourceOrigin(value) {
   }
 }
 
+function validateWxrChannelOrigin(value) {
+  if (typeof value !== "string" || value.length > 2048) return null;
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:" || url.username || url.password) return null;
+    return url.origin;
+  } catch {
+    return null;
+  }
+}
+
 async function studioSession(request, env, site) {
   if (request.method === "GET") {
     const owner = await ownerToken(request, env, site, "content:write")
@@ -1229,16 +1250,37 @@ async function studioAsset(request, env, path) {
 async function importWordPress(request, env, site) {
   const owner = await ownerToken(request, env, site, "content:import");
   if (!owner) return fail(401, "owner_authorization_required", "A scoped site owner token is required.");
-  const body = await readBoundedJson(request);
-  const sourceOrigin = validateSourceOrigin(body?.source_site);
+  const contentType = request.headers.get("Content-Type")?.split(";", 1)[0].trim().toLowerCase();
+  const wxrTypes = new Set(["application/rss+xml", "application/xml", "text/xml"]);
+  let body = null;
+  let parsedWxr = null;
+  let sourceOrigin;
+  let records;
+  let sourceDigest = null;
+  let importFormat = "wordpress-rest-json";
+  if (wxrTypes.has(contentType)) {
+    const xml = await readBoundedText(request, wxrTypes, "invalid_wxr_xml");
+    try {
+      parsedWxr = parseWordPressWxr(xml);
+    } catch (error) {
+      return fail(error?.status ?? 422, error?.code ?? "invalid_wxr_xml", "The WXR export is malformed or uses content outside the supported import subset.");
+    }
+    sourceOrigin = validateWxrChannelOrigin(parsedWxr.channelLink);
+    records = parsedWxr.records;
+    sourceDigest = hex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(xml)));
+    importFormat = "wordpress-wxr-v1.2-subset";
+  } else {
+    body = await readBoundedJson(request);
+    sourceOrigin = validateSourceOrigin(body?.source_site);
+    records = body?.records;
+  }
   if (!sourceOrigin || (site.source_origin && sourceOrigin !== site.source_origin)) {
-    return fail(422, "source_origin_not_admitted", "Provide the owner-authorized HTTPS WordPress origin for this site.");
+    return fail(422, "source_origin_not_admitted", "Provide a WXR export whose channel link, or JSON source_site, matches the owner-authorized HTTPS WordPress origin for this site.");
   }
-  if (!body || typeof body !== "object" || Array.isArray(body)
-      || !Array.isArray(body.records) || body.records.length < 1 || body.records.length > MAX_RECORDS) {
-    return fail(422, "invalid_import_size", "An import must contain between 1 and 500 WordPress REST records.");
+  if (!Array.isArray(records) || records.length < 1 || records.length > MAX_RECORDS) {
+    return fail(422, "invalid_import_size", "An import must contain between 1 and 500 supported WordPress post or page records.");
   }
-  const entries = body.records.map(normalizeRecord);
+  const entries = records.map(normalizeRecord);
   const identities = new Set(entries.map((entry) => entry.entryId));
   if (identities.size !== entries.length) return fail(422, "duplicate_source_id", "The import contains duplicate WordPress record identities.");
   const slugs = new Set(entries.map((entry) => `${entry.kind}:${entry.slug}`));
@@ -1291,7 +1333,13 @@ async function importWordPress(request, env, site) {
       env.DB.prepare(
         "INSERT INTO owner_actions (id, site_id, revision_id, token_id, action, created_at, metadata_json) SELECT ?, ?, ?, ?, 'import', ?, ? WHERE EXISTS (SELECT 1 FROM site_revisions WHERE site_id = ? AND id = ? AND state = 'private-preview')",
       ).bind(crypto.randomUUID(), site.id, revisionId, owner.tokenId, now,
-        JSON.stringify({ entry_count: entries.length, proof_id: proofId }), site.id, revisionId),
+        JSON.stringify({
+          entry_count: entries.length,
+          proof_id: proofId,
+          import_format: importFormat,
+          source_text_sha256: sourceDigest,
+          omitted: parsedWxr?.omitted ?? null,
+        }), site.id, revisionId),
     ]);
     if (finalized[0]?.meta?.changes !== 1) throw new Error("revision finalization failed");
   } catch (error) {
@@ -1311,7 +1359,15 @@ async function importWordPress(request, env, site) {
     if (quotaCode) return storageQuotaResponse(quotaCode);
     return fail(503, "import_not_committed", "The private import could not be committed. No content was published.");
   }
-  return json({ revision_id: revisionId, state: "private-preview", entry_count: entries.length, authorization_proof_id: proofId }, 201);
+  return json({
+    revision_id: revisionId,
+    state: "private-preview",
+    entry_count: entries.length,
+    source_format: importFormat,
+    source_text_sha256: sourceDigest,
+    omitted: parsedWxr?.omitted ?? null,
+    authorization_proof_id: proofId,
+  }, 201);
 }
 
 async function previewRevision(request, env, site, revisionId, slug) {

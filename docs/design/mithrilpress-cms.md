@@ -70,9 +70,16 @@ The Worker adapter currently duplicates record validation because this
 repository does not package the checked Mithril/ClojureScript runtime for the
 Workers JavaScript runtime. Replacing the duplicate with generated checked
 Mithril code is follow-up work. The adapter does not fetch WordPress itself:
-owners provide the content through a scoped token. WXR/XML import, media
-upload/delivery, themes, taxonomy/media REST routes, and broad Gutenberg support
-are not in this slice.
+owners provide the content through a scoped token. The importer accepts a
+bounded WordPress WXR 1.2 subset as well as REST records. It retains posts and
+pages, source IDs, dates, permalinks, category/tag IDs, and featured-media IDs.
+WXR attachments, media bytes, custom fields, page-parent relations, users,
+comments, custom post types, password-protected posts/pages, and custom
+taxonomies remain outside the supported slice. The importer reports omitted
+attachments and metadata and rejects DTDs, custom entities, malformed XML, and
+unresolved category/tag references. Media
+upload/delivery, taxonomy/media REST routes, and broad Gutenberg support remain
+follow-up work.
 
 Studio uses a short-lived owner token exchange, a one-hour `HttpOnly`, `Secure`,
 `SameSite=Strict` cookie session, same-origin mutation checks, prepared D1
@@ -191,6 +198,13 @@ drops active subtrees, and unwraps unknown formatting tags. Images are omitted.
 Imported WordPress drafts, private, trashed, and future entries stay visible
 only in the authenticated preview; public pages and REST results include only
 entries whose source status was `publish`.
+
+`POST /api/wordpress/import` also accepts a raw WordPress WXR 1.2 XML export
+with `application/rss+xml`, `application/xml`, or `text/xml`. The importer uses
+the WXR channel link to bind the source origin, retains category/tag term IDs,
+and returns omission counts for content it does not migrate. It does not fetch
+attachment URLs; owners must review the private preview and omissions before
+publishing. This does not provide full WordPress content parity.
 
 ## Outreach workflow
 

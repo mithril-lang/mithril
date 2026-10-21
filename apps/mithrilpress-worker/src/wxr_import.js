@@ -1,0 +1,302 @@
+import { SaxesParser } from "saxes";
+
+const MAX_WXR_BYTES = 12_000_000;
+const MAX_WXR_DEPTH = 64;
+const MAX_WXR_NODES = 100_000;
+const MAX_WXR_ITEMS = 2_000;
+const MAX_IMPORTED_ENTRIES = 500;
+const MAX_NODE_TEXT_CHARS = 250_000;
+const MAX_ATTRIBUTES_PER_ELEMENT = 64;
+const MAX_ATTRIBUTE_NAME_CHARS = 256;
+const MAX_ATTRIBUTE_VALUE_CHARS = 8_192;
+const POST_TYPES = new Set(["post", "page"]);
+const FIELD_NAMES = new Map([
+  ["title", "title"],
+  ["link", "link"],
+  ["wp:post_id", "postId"],
+  ["wp:post_type", "postType"],
+  ["wp:status", "status"],
+  ["wp:post_name", "slug"],
+  ["wp:post_date", "date"],
+  ["wp:post_date_gmt", "dateGmt"],
+  ["wp:post_modified", "modified"],
+  ["wp:post_modified_gmt", "modifiedGmt"],
+  ["wp:post_parent", "parentId"],
+  ["wp:post_password", "password"],
+  ["content:encoded", "content"],
+  ["wp:attachment_url", "attachmentUrl"],
+]);
+
+function fail(code, status = 422) {
+  throw Object.assign(new Error(code), { code, status });
+}
+
+function localName(name) {
+  const separator = name.lastIndexOf(":");
+  return (separator < 0 ? name : name.slice(separator + 1)).toLowerCase();
+}
+
+function parseId(value) {
+  if (typeof value !== "string" || !/^[1-9][0-9]{0,14}$/.test(value.trim())) return null;
+  const id = Number(value.trim());
+  return Number.isSafeInteger(id) ? id : null;
+}
+
+function positiveNumberOrZero(value) {
+  if (value === undefined || value === "" || value === "0") return 0;
+  return parseId(value) ?? null;
+}
+
+function setUniqueField(fields, key, value) {
+  if (Object.hasOwn(fields, key)) fail("duplicate_wxr_field");
+  fields[key] = value;
+}
+
+function putTerm(terms, kind, slug, id) {
+  if (typeof slug !== "string" || !slug.trim() || slug.length > 200 || !id) {
+    fail("invalid_wxr_term");
+  }
+  const key = `${kind}:${slug.trim()}`;
+  const previous = terms.get(key);
+  if (previous !== undefined && previous !== id) fail("duplicate_wxr_term");
+  terms.set(key, id);
+}
+
+function completeTerm(node, terms) {
+  const id = parseId(node.fields.term_id);
+  const slug = node.termKind === "category"
+    ? node.fields.category_nicename
+    : node.fields.tag_slug;
+  putTerm(terms, node.termKind, slug, id);
+}
+
+function completeItem(node, pendingItems) {
+  if (pendingItems.length >= MAX_WXR_ITEMS) fail("wxr_item_limit_exceeded", 413);
+  pendingItems.push(node);
+}
+
+function importRecords(pendingItems, terms, omittedSourceCounts) {
+  const records = [];
+  const omitted = {
+    unsupported_post_types: 0,
+    attachments: 0,
+    password_protected_entries: 0,
+    authors: omittedSourceCounts.authors,
+    comments: omittedSourceCounts.comments,
+    custom_taxonomy_terms: 0,
+    parent_page_relations: 0,
+    custom_fields: 0,
+    media_references: 0,
+  };
+
+  for (const item of pendingItems) {
+    const fields = item.fields;
+    const type = fields.postType?.trim();
+    if (type === "attachment") {
+      omitted.attachments += 1;
+      continue;
+    }
+    if (!POST_TYPES.has(type)) {
+      omitted.unsupported_post_types += 1;
+      continue;
+    }
+    if (fields.password?.trim()) {
+      omitted.password_protected_entries += 1;
+      continue;
+    }
+
+    const categories = [];
+    const tags = [];
+    for (const reference of item.terms) {
+      const domain = reference.domain?.toLowerCase();
+      const kind = domain === "category" ? "category"
+        : domain === "post_tag" ? "tag"
+          : null;
+      if (!kind) {
+        omitted.custom_taxonomy_terms += 1;
+        continue;
+      }
+      const slug = reference.slug;
+      const id = terms.get(`${kind}:${slug}`);
+      if (!id) fail("unresolved_wxr_term");
+      (kind === "category" ? categories : tags).push(id);
+    }
+
+    const uniqueCategories = [...new Set(categories)];
+    const uniqueTags = [...new Set(tags)];
+    const sourceId = parseId(fields.postId);
+    const featuredMedia = item.meta.filter((meta) => meta.key === "_thumbnail_id");
+    if (featuredMedia.length > 1) fail("duplicate_wxr_media_reference");
+    const mediaId = positiveNumberOrZero(featuredMedia[0]?.value);
+    if (mediaId === null) fail("invalid_wxr_media_reference");
+    if (mediaId > 0 || fields.attachmentUrl) omitted.media_references += 1;
+    if (parseId(fields.parentId)) omitted.parent_page_relations += 1;
+    if (item.meta.some((meta) => meta.key !== "_thumbnail_id")) omitted.custom_fields += 1;
+
+    records.push({
+      id: sourceId,
+      type,
+      slug: fields.slug?.trim(),
+      title: { raw: fields.title?.trim() ?? "" },
+      content: { raw: fields.content ?? "" },
+      status: fields.status?.trim(),
+      date: fields.date?.trim() || null,
+      date_gmt: fields.dateGmt?.trim() || null,
+      modified: fields.modified?.trim() || null,
+      modified_gmt: fields.modifiedGmt?.trim() || null,
+      link: fields.link?.trim() || null,
+      categories: uniqueCategories,
+      tags: uniqueTags,
+      featured_media: mediaId,
+    });
+    if (records.length > MAX_IMPORTED_ENTRIES) fail("wxr_entry_limit_exceeded", 413);
+  }
+
+  if (records.length === 0) fail("wxr_has_no_supported_entries");
+  return { records, omitted };
+}
+
+/**
+ * Parse the WordPress eXtended RSS subset used by MithrilPress imports.
+ * DTDs, custom entities, processing instructions, unsupported content types,
+ * and over-budget XML are refused or reported instead of being guessed.
+ */
+export function parseWordPressWxr(xml) {
+  if (typeof xml !== "string" || !xml.trim()) fail("wxr_required", 400);
+  if (new TextEncoder().encode(xml).byteLength > MAX_WXR_BYTES) fail("wxr_too_large", 413);
+
+  const stack = [];
+  const terms = new Map();
+  const pendingItems = [];
+  let nodeCount = 0;
+  let rootSeen = false;
+  let channelSeen = false;
+  let channelLink = null;
+  let channelLinkSeen = false;
+  let wxrVersion = null;
+  let wxrVersionSeen = false;
+  const omittedSourceCounts = { authors: 0, comments: 0 };
+
+  const parser = new SaxesParser({ position: false });
+  parser.on("doctype", () => fail("wxr_doctype_not_supported"));
+  parser.on("processinginstruction", () => fail("wxr_processing_instruction_not_supported"));
+  parser.on("opentag", (tag) => {
+    nodeCount += 1;
+    if (nodeCount > MAX_WXR_NODES) fail("wxr_node_limit_exceeded", 413);
+    if (stack.length >= MAX_WXR_DEPTH) fail("wxr_depth_limit_exceeded", 413);
+
+    const name = tag.name.toLowerCase();
+    const local = localName(tag.name);
+    const attributes = tag.attributes ?? {};
+    const attributeEntries = Object.entries(attributes);
+    if (tag.name.length > MAX_ATTRIBUTE_NAME_CHARS
+        || attributeEntries.length > MAX_ATTRIBUTES_PER_ELEMENT
+        || attributeEntries.some(([key, value]) => key.length > MAX_ATTRIBUTE_NAME_CHARS
+          || typeof value !== "string" || value.length > MAX_ATTRIBUTE_VALUE_CHARS)) {
+      fail("wxr_attribute_limit_exceeded", 413);
+    }
+    const parent = stack.at(-1);
+    if (stack.length === 0) {
+      if (name !== "rss") fail("wxr_root_not_rss");
+      rootSeen = true;
+    }
+    if (local === "channel" && parent?.local === "rss") {
+      if (channelSeen) fail("wxr_duplicate_channel");
+      channelSeen = true;
+    }
+    if (parent?.local === "channel" && name === "wp:author") omittedSourceCounts.authors += 1;
+    if (parent?.container === "item" && local === "comment") omittedSourceCounts.comments += 1;
+
+    const node = {
+      name,
+      local,
+      attributes,
+      text: "",
+      fields: {},
+      terms: [],
+      meta: [],
+      container: null,
+    };
+    if (local === "item" && parent?.local === "channel") {
+      if (stack.some((ancestor) => ancestor.container === "item")) fail("wxr_nested_item");
+      node.container = "item";
+    } else if (parent?.container === "item" && local === "category" && name === "category") {
+      node.container = "item-term";
+    } else if (parent?.container === "item" && local === "postmeta") {
+      node.container = "postmeta";
+    } else if (parent?.local === "channel" && name === "wp:category") {
+      node.container = "term";
+      node.termKind = "category";
+    } else if (parent?.local === "channel" && name === "wp:tag") {
+      node.container = "term";
+      node.termKind = "tag";
+    }
+    stack.push(node);
+  });
+
+  const appendText = (value) => {
+    const node = stack.at(-1);
+    if (!node) {
+      if (value.trim()) fail("wxr_text_outside_root");
+      return;
+    }
+    if (node.text.length + value.length > MAX_NODE_TEXT_CHARS) fail("wxr_text_limit_exceeded", 413);
+    node.text += value;
+  };
+  parser.on("text", appendText);
+  parser.on("cdata", appendText);
+  parser.on("closetag", () => {
+    const node = stack.pop();
+    const parent = stack.at(-1);
+    if (!node) fail("wxr_unbalanced_xml");
+
+    if (parent?.container === "postmeta") {
+      if (node.local === "meta_key") setUniqueField(parent.fields, "key", node.text.trim());
+      if (node.local === "meta_value") setUniqueField(parent.fields, "value", node.text);
+    } else if (parent?.container === "term") {
+      setUniqueField(parent.fields, node.local, node.text.trim());
+    } else if (parent?.container === "item") {
+      if (node.container === "postmeta") {
+        parent.meta.push({ key: node.fields.key ?? "", value: node.fields.value ?? "" });
+      } else if (node.container === "item-term") {
+        parent.terms.push({
+          domain: node.attributes.domain ?? "",
+          slug: node.attributes.nicename ?? "",
+          name: node.text.trim(),
+        });
+      } else if (node.name === "content:encoded") {
+        setUniqueField(parent.fields, "content", node.text);
+      } else {
+        const field = FIELD_NAMES.get(node.name);
+        if (field) setUniqueField(parent.fields, field, node.text);
+      }
+    } else if (parent?.local === "channel" && node.name === "link") {
+      if (channelLinkSeen) fail("wxr_duplicate_channel_link");
+      channelLinkSeen = true;
+      channelLink = node.text.trim();
+    } else if (parent?.local === "channel" && node.name === "wp:wxr_version") {
+      if (wxrVersionSeen) fail("wxr_duplicate_version");
+      wxrVersionSeen = true;
+      wxrVersion = node.text.trim();
+    }
+
+    if (node.container === "term") completeTerm(node, terms);
+    if (node.container === "item") completeItem(node, pendingItems);
+  });
+
+  try {
+    parser.write(xml).close();
+  } catch (error) {
+    if (error?.code) throw error;
+    fail("invalid_wxr_xml");
+  }
+  if (!rootSeen || !channelSeen || !channelLink) fail("invalid_wxr_channel");
+  if (wxrVersion !== "1.2") fail("unsupported_wxr_version");
+  const imported = importRecords(pendingItems, terms, omittedSourceCounts);
+  return {
+    channelLink,
+    wxrVersion,
+    ...imported,
+    source: "wordpress-wxr",
+  };
+}

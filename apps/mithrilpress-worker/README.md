@@ -8,8 +8,10 @@ Cloudflare D1 and serves only an explicitly published tenant revision.
 
 - Exact one-label `*.sites.mithril.love` host validation followed by an exact
   D1 hostname lookup. A hostname label never grants tenant identity.
-- Owner-scoped WordPress REST record import for posts and pages. Imports are
-  bounded, sanitized, immutable revisions that remain private.
+- Owner-scoped WordPress REST and WXR 1.2 subset import for posts and pages.
+  Imports are bounded, sanitized, immutable revisions that remain private.
+  WXR categories and tags are retained by source IDs; unsupported post types,
+  custom fields, hierarchy links, and media files are reported as omissions.
 - Chat-first MithrilPress Studio for creating one post or page draft, revising it
   in a conversation, opening a private preview, and separately approving and
   publishing it.
@@ -83,7 +85,7 @@ and content row within its owning site.
 
 | Method | Path | Auth | Behavior |
 | --- | --- | --- | --- |
-| `POST` | `/api/wordpress/import` | `content:import` | Import JSON `{ "source_site": "https://…", "records": [...] }` into a private sanitized revision. |
+| `POST` | `/api/wordpress/import` | `content:import` | Import JSON `{ "source_site": "https://…", "records": [...] }` or a raw `application/rss+xml`, `application/xml`, or `text/xml` WXR 1.2 export into a private sanitized revision. WXR source origin is read from `<channel><link>`. |
 | `GET` / `POST` / `DELETE` | `/_mithrilpress/api/studio/session` | `content:write` for sign-in/status/logout | Exchange a short-lived owner token for a one-hour browser session, inspect it, or revoke it. |
 | `GET` | `/_mithrilpress/studio` | public shell; noindex | Open the chat-first post/page Studio. The API requires a site-owner session. |
 | `POST` | `/_mithrilpress/api/studio/chat` | `content:write` | Generate or revise one private draft; no model response is published. |
@@ -238,5 +240,23 @@ documents routing customer hostnames through a wildcard Worker route.
 Public list requests support `page`, `per_page` (1–100), `slug`, and `context`
 `view`/`embed`. Responses include standard `X-WP-Total`, `X-WP-TotalPages`, and
 pagination `Link` headers. Only posts/pages are implemented. Editing contexts,
-media, terms, users, comments, custom post types, search, writes, WXR/XML, and
-WordPress authentication plugins are not implemented here.
+media and term REST routes, users, comments, custom post types, search, writes,
+and WordPress authentication plugins are not implemented here.
+
+The importer also accepts WordPress WXR 1.2 exports. It imports up to 500
+posts/pages per file, with the channel origin, source IDs, slugs, title/body,
+status, dates, permalinks, category/tag IDs, and featured-media IDs. The owner
+must use a `content:import` token, and the WXR channel link must match the
+site's configured source origin. Imports stay in a private preview until the
+owner approves and publishes them. DTDs, custom entities, non-UTF-8 files,
+unknown taxonomy references, and malformed XML are rejected. The parser caps
+the upload at 12 MB, 2,000 WXR items, 100,000 XML nodes, nesting depth 64, and
+250,000 characters per XML text node.
+
+WXR attachments are not copied: the importer retains featured-media IDs and
+counts attachment/media references but does not fetch remote files or preserve
+custom fields, page-parent relationships, users, comments, or custom
+taxonomies. Unsupported post types and password-protected posts/pages are
+skipped and counted in the import response; protected content is never silently
+turned into ordinary public content. Review those omissions in the private
+preview before publication.
