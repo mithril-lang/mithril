@@ -1219,9 +1219,6 @@ async function studioChat(request, env, site) {
       draft_revision_id: null,
       draft_state: null,
     };
-    await env.DB.prepare(
-      "INSERT INTO studio_conversations (site_id, id, token_id, base_revision_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
-    ).bind(site.id, conversation.id, owner.tokenId, site.current_revision_id, nowIso, nowIso).run();
   }
 
   const dailyQuota = await env.DB.prepare(
@@ -1302,7 +1299,16 @@ async function studioChat(request, env, site) {
   const entryId = `mithrilpress:chat:${conversation.id}`;
   const assistantAt = new Date(now.getTime() + 1).toISOString();
   const baseRevisionId = conversation.base_revision_id;
-  const statements = [
+  const statements = [];
+  const newConversationOffset = requestedConversationId === null ? 1 : 0;
+  if (newConversationOffset) {
+    statements.push(
+      env.DB.prepare(
+        "INSERT INTO studio_conversations (site_id, id, token_id, base_revision_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+      ).bind(site.id, conversation.id, owner.tokenId, baseRevisionId, nowIso, nowIso),
+    );
+  }
+  statements.push(
     env.DB.prepare(
       "UPDATE site_revisions SET state = 'superseded' WHERE site_id = ? AND id = (SELECT draft_revision_id FROM studio_conversations WHERE site_id = ? AND id = ?) AND state = 'private-preview'",
     ).bind(site.id, site.id, conversation.id),
@@ -1336,7 +1342,7 @@ async function studioChat(request, env, site) {
       "INSERT INTO owner_actions (id, site_id, revision_id, token_id, action, created_at, metadata_json) SELECT ?, ?, ?, ?, 'chat-generate', ?, ? WHERE EXISTS (SELECT 1 FROM site_revisions WHERE site_id = ? AND id = ? AND state = 'private-preview')",
     ).bind(crypto.randomUUID(), site.id, revisionId, owner.tokenId, assistantAt,
       JSON.stringify({ model: STUDIO_MODEL, conversation_id: conversation.id, entry_id: entryId }), site.id, revisionId),
-  ];
+  );
   let saved;
   try {
     saved = await env.DB.batch(statements);
@@ -1345,7 +1351,8 @@ async function studioChat(request, env, site) {
     if (quotaCode) return storageQuotaResponse(quotaCode);
     return fail(503, "draft_not_saved", "The private draft could not be saved. No content was published.");
   }
-  if (saved[5]?.meta?.changes !== 1 || saved[6]?.meta?.changes !== 1) {
+  if (saved[5 + newConversationOffset]?.meta?.changes !== 1
+      || saved[6 + newConversationOffset]?.meta?.changes !== 1) {
     return fail(503, "draft_not_saved", "The private draft could not be saved. No content was published.");
   }
   return json({
