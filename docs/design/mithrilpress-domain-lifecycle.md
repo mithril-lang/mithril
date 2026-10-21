@@ -32,14 +32,17 @@ does not choose or qualify a custom domain.
 
 ## Customer hostname state machine
 
-Each hostname belongs to exactly one site and follows these states. Persist
-provider IDs, timestamps, the requesting owner identity, the verified DNS
-evidence, and every transition in an append-only audit log. Do not infer tenant
-identity from a Host header or DNS label.
+Each active hostname claim belongs to exactly one site and follows these states.
+Keep detached historical rows and their audit history, while allowing a
+different site to claim the same hostname after the prior mapping is detached
+and new ownership proof succeeds. Persist provider IDs, timestamps, the
+requesting owner identity, verified DNS evidence, and every transition in an
+append-only audit log. Do not infer tenant identity from a Host header or DNS
+label.
 
 | State | Entry condition | Allowed next transition |
 | --- | --- | --- |
-| `ownership_pending` | Authenticated site owner requests a hostname with at least three labels; normalize IDNA and case, reject malformed names, duplicates, and the platform's own domains; issue an unpredictable hostname-scoped TXT token | Verify the public DNS answer and token, then create provider custom-hostname object |
+| `ownership_pending` | Authenticated site owner requests a hostname with at least three labels; normalize IDNA and case, reject malformed names and the platform's own domains; issue an unpredictable hostname-scoped TXT token with a 24-hour expiry without globally claiming the name | Verify the public DNS answer and token, then atomically claim the hostname and create its provider object; expire to `detached` if proof is not completed |
 | `provider_pending` | TXT challenge passes | Claim a single provider-create operation |
 | `provider_creating` | One request owns the provisioning transition | Create the Cloudflare for SaaS custom-hostname record and persist its provider ID |
 | `tls_pending` | Provider has accepted hostname but certificate is not active | Wait, retry bounded read-only checks, or return to error for owner action |
@@ -48,7 +51,15 @@ identity from a Host header or DNS label.
 | `action_required` | Challenge, provider provisioning, DNS, or certificate failed or timed out | Display the precise next action; allow safe retry or cancel |
 | `suspended` | Owner or operator suspends a hostname due to removal, abuse, or unresolved routing | Reactivate only after ownership, provider, DNS, and tenant-binding checks pass |
 | `detaching` | Owner confirms detach; remove the tenant mapping from serving before provider cleanup | Complete provider deletion and verify requests no longer serve site content |
-| `detached` | Provider object is removed and application no longer resolves the hostname | Terminal; a fresh request must repeat ownership verification |
+| `detached` | Provider object is removed, application no longer resolves the hostname, or the unverified 24-hour challenge expires | Terminal for this historical claim; a fresh claim may be created by any site and must repeat ownership verification |
+
+Unverified challenges do not reserve a hostname or shared custom-hostname
+capacity. The global unique index applies only after TXT ownership is proven;
+if multiple pending requests for one name verify concurrently, only one can
+claim it. Before checking per-site pending limits, the Worker releases expired
+`ownership_pending` rows and records an append-only expiration event. The
+scheduled hostname monitor also runs this cleanup. Detached historical rows
+do not reserve the hostname, so another site can claim it after fresh proof.
 
 Serve content only for `active` mappings, after exact normalized hostname
 lookup to an enabled site and its current published revision. Unknown,
@@ -102,8 +113,12 @@ path for missing source records, but provider writes stay disabled by default
 until the Cloudflare import behavior is qualified against an isolated zone.
 Registrar changes remain manual.
 
-1. Require a `site:dns-migrate` owner token and prove control with a short-lived
-   TXT record at `_mithrilpress-migration.<zone>`. Only after proof, capture the
+1. Require a `site:dns-migrate` owner token and prove control with a TXT record
+   at `_mithrilpress-migration.<zone>` that expires after 48 hours. Expired
+   pending plans are cancelled and their challenges cleared when that owner
+   starts another plan or a tenant requests a plan for the same zone. Pending
+   plans do not reserve a zone globally; the first owner to prove control claims
+   it. Only after proof, capture the
    current nameserver and DS RRsets from Cloudflare and Google public recursive
    resolvers for rollback. Those providers receive the domain lookups.
 2. Upload the current provider's BIND export. Zone snapshots are private to the

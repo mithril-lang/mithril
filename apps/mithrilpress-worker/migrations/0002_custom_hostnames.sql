@@ -1,7 +1,7 @@
 CREATE TABLE site_hostnames (
   id TEXT PRIMARY KEY,
   site_id TEXT NOT NULL,
-  hostname TEXT NOT NULL UNIQUE,
+  hostname TEXT NOT NULL,
   status TEXT NOT NULL CHECK (status IN (
     'ownership_pending', 'provider_pending', 'provider_creating', 'tls_pending', 'dns_pending',
     'active', 'action_required', 'suspended', 'detaching', 'detached'
@@ -27,6 +27,12 @@ CREATE TABLE site_hostnames (
   FOREIGN KEY (site_id) REFERENCES sites(id),
   FOREIGN KEY (site_id, owner_token_id) REFERENCES tenant_owner_tokens(site_id, token_id)
 );
+
+-- Keep historical detached rows and allow concurrent ownership challenges.
+-- A hostname becomes globally exclusive only after an owner proves control.
+CREATE UNIQUE INDEX site_hostnames_claimed_hostname
+  ON site_hostnames(hostname)
+  WHERE status NOT IN ('ownership_pending', 'detached');
 
 CREATE INDEX site_hostnames_by_site_status ON site_hostnames(site_id, status, created_at);
 CREATE INDEX site_hostnames_by_health_check ON site_hostnames(status, last_checked_at);

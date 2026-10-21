@@ -111,6 +111,24 @@ async function audit(env, site, migration, owner, action, metadata = {}) {
   ).bind(crypto.randomUUID(), site.id, migration.id, owner.tokenId, action, new Date().toISOString(), JSON.stringify(metadata)).run();
 }
 
+async function expirePendingMigrations(env, siteId, zoneName, nowIso) {
+  const rows = await env.DB.prepare(
+    "SELECT * FROM dns_migrations WHERE status = 'ownership_pending' AND ownership_expires_at <= ? AND (site_id = ? OR zone_name = ?) ORDER BY ownership_expires_at ASC",
+  ).bind(nowIso, siteId, zoneName).all();
+  for (const migration of rows.results ?? []) {
+    const update = await env.DB.prepare(
+      "UPDATE dns_migrations SET status = 'cancelled', ownership_txt_value = NULL, updated_at = ? WHERE site_id = ? AND id = ? AND status = 'ownership_pending' AND ownership_expires_at <= ?",
+    ).bind(nowIso, migration.site_id, migration.id, nowIso).run();
+    if (update.meta?.changes === 1) {
+      await audit(env, { id: migration.site_id }, migration, { tokenId: migration.owner_token_id }, "cancelled", {
+        zone_name: migration.zone_name,
+        reason: "ownership_challenge_expired",
+        expired_at: migration.ownership_expires_at,
+      });
+    }
+  }
+}
+
 async function getMigration(env, site, migrationId) {
   return await env.DB.prepare(
     "SELECT * FROM dns_migrations WHERE site_id = ? AND id = ? LIMIT 1",
@@ -123,6 +141,9 @@ async function createMigration(request, env, site, owner, api) {
   const body = await api.readBoundedJson(request);
   const zoneName = normalizeDnsZoneName(body?.zone_name);
   if (!zoneName || zoneNotAllowed(zoneName)) return api.fail(422, "invalid_zone_name", "Enter a public DNS zone name that you control.");
+  const now = new Date();
+  const nowIso = now.toISOString();
+  await expirePendingMigrations(env, site.id, zoneName, nowIso);
   const createCutoff = new Date(Date.now() - 60 * 60_000).toISOString();
   const recentCreations = await env.DB.prepare(
     "SELECT COUNT(*) AS total FROM dns_migration_actions WHERE site_id = ? AND token_id = ? AND action = 'created' AND created_at >= ?",
@@ -135,8 +156,6 @@ async function createMigration(request, env, site, owner, api) {
     return api.fail(429, "dns_migration_limit", "This site already has three active DNS migration plans. Cancel or archive one before starting another.");
   }
 
-  const now = new Date();
-  const nowIso = now.toISOString();
   const id = crypto.randomUUID();
   const challenge = `mithrilpress-migration=${randomHex(24)}`;
   const challengeName = `_mithrilpress-migration.${zoneName}`;
@@ -186,10 +205,18 @@ async function verifyOwnership(request, env, site, migration, owner, api) {
     return api.fail(503, "source_dns_unavailable", "Two public DNS resolvers could not agree on current nameserver and DNSSEC state. The ownership proof is visible; retry the check later.");
   }
   const now = new Date().toISOString();
-  const result = await env.DB.prepare(
-    "UPDATE dns_migrations SET status = 'source_pending', ownership_txt_value = NULL, ownership_verified_at = ?, source_nameservers_json = ?, source_ds_json = ?, source_dns_state_captured_at = ?, updated_at = ? WHERE site_id = ? AND id = ? AND status = 'ownership_pending' AND ownership_txt_value = ?",
-  ).bind(now, JSON.stringify(sourceDnsState.nameservers), JSON.stringify(sourceDnsState.ds_records), now,
-    now, site.id, migration.id, migration.ownership_txt_value).run();
+  let result;
+  try {
+    result = await env.DB.prepare(
+      "UPDATE dns_migrations SET status = 'source_pending', ownership_txt_value = NULL, ownership_verified_at = ?, source_nameservers_json = ?, source_ds_json = ?, source_dns_state_captured_at = ?, updated_at = ? WHERE site_id = ? AND id = ? AND status = 'ownership_pending' AND ownership_txt_value = ?",
+    ).bind(now, JSON.stringify(sourceDnsState.nameservers), JSON.stringify(sourceDnsState.ds_records), now,
+      now, site.id, migration.id, migration.ownership_txt_value).run();
+  } catch (error) {
+    if (/unique constraint failed/i.test(String(error?.message ?? error))) {
+      return api.fail(409, "dns_zone_migration_exists", "Another verified migration plan already owns this zone.");
+    }
+    throw error;
+  }
   if (result.meta?.changes !== 1) return api.fail(409, "dns_migration_state_changed", "The migration state changed. Reload the migration list and retry.");
   const latest = await getMigration(env, site, migration.id);
   await audit(env, site, latest, owner, "ownership-verified", {

@@ -441,6 +441,23 @@ async function auditDomainAction(env, site, domain, owner, action, metadata = {}
   ).bind(crypto.randomUUID(), site.id, domain.id, owner.tokenId, action, new Date().toISOString(), JSON.stringify(metadata)).run();
 }
 
+async function expirePendingCustomHostnames(env, nowIso) {
+  const rows = await env.DB.prepare(
+    "SELECT h.* FROM site_hostnames h WHERE h.status = 'ownership_pending' AND h.ownership_expires_at <= ? ORDER BY h.ownership_expires_at ASC LIMIT ?",
+  ).bind(nowIso, CUSTOM_DOMAIN_LIMIT_PER_DEPLOYMENT).all();
+  for (const domain of rows.results ?? []) {
+    const update = await env.DB.prepare(
+      "UPDATE site_hostnames SET status = 'detached', ownership_txt_value = NULL, updated_at = ?, detached_at = ? WHERE site_id = ? AND id = ? AND status = 'ownership_pending' AND ownership_expires_at <= ?",
+    ).bind(nowIso, nowIso, domain.site_id, domain.id, nowIso).run();
+    if (update.meta?.changes === 1) {
+      await auditDomainAction(env, { id: domain.site_id }, domain, { tokenId: domain.owner_token_id }, "domain-ownership-expired", {
+        hostname: domain.hostname,
+        expired_at: domain.ownership_expires_at,
+      });
+    }
+  }
+}
+
 async function domainCheckRateLimit(env, site, domain, owner, action) {
   const cutoff = new Date(Date.now() - 60_000).toISOString();
   const recent = await env.DB.prepare(
@@ -665,6 +682,7 @@ async function refreshCloudflareHostname(request, env, site, domain, owner) {
 
 async function monitorActiveCustomHostnames(env) {
   if (!domainManagementConfigured(env)) return;
+  await expirePendingCustomHostnames(env, new Date().toISOString());
   const rows = await env.DB.prepare(
     "SELECT h.*, s.hostname AS site_hostname FROM site_hostnames h JOIN sites s ON s.id = h.site_id WHERE h.status = 'active' AND s.status = 'active' ORDER BY COALESCE(h.last_checked_at, '') ASC, h.created_at ASC LIMIT ?",
   ).bind(CUSTOM_DOMAIN_HEALTH_BATCH_SIZE).all();
@@ -748,15 +766,20 @@ async function studioDomains(request, env, site) {
     "SELECT COUNT(*) AS total FROM domain_actions WHERE site_id = ? AND token_id = ? AND action = 'domain-requested' AND created_at >= ?",
   ).bind(site.id, owner.tokenId, `${today}T00:00:00.000Z`).first();
   if (Number(recent?.total ?? 0) >= 5) return fail(429, "domain_request_limit", "This owner token has reached its five custom hostname requests per day.");
+  const now = new Date();
+  const nowIso = now.toISOString();
+  await expirePendingCustomHostnames(env, nowIso);
   const total = await env.DB.prepare(
-    "SELECT COUNT(*) AS total FROM site_hostnames WHERE status != 'detached'",
+    "SELECT COUNT(*) AS total FROM site_hostnames WHERE status NOT IN ('ownership_pending', 'detached')",
   ).first();
   const capacity = Math.min(CUSTOM_DOMAIN_LIMIT_PER_DEPLOYMENT, Number.parseInt(env.CF_SAAS_CAPACITY_REMAINING, 10));
   if (Number(total?.total ?? 0) >= capacity) {
     return fail(429, "custom_hostname_capacity", "The deployment has reached its reserved free-plan hostname capacity.");
   }
-  const existing = await env.DB.prepare("SELECT * FROM site_hostnames WHERE hostname = ? LIMIT 1").bind(hostname).first();
-  if (existing && (existing.site_id !== site.id || existing.status !== "detached")) {
+  const existing = await env.DB.prepare(
+    "SELECT * FROM site_hostnames WHERE hostname = ? AND status NOT IN ('ownership_pending', 'detached') LIMIT 1",
+  ).bind(hostname).first();
+  if (existing) {
     return fail(409, "custom_hostname_in_use", "This hostname is already being used by a MithrilPress site.");
   }
   const perSite = await env.DB.prepare(
@@ -766,10 +789,8 @@ async function studioDomains(request, env, site) {
     return fail(429, "site_hostname_capacity", "This site has reached its ten custom hostname limit.");
   }
 
-  const now = new Date();
-  const nowIso = now.toISOString();
   const domain = {
-    id: existing?.id ?? crypto.randomUUID(),
+    id: crypto.randomUUID(),
     site_id: site.id,
     hostname,
     status: "ownership_pending",
@@ -777,20 +798,13 @@ async function studioDomains(request, env, site) {
     ownership_txt_name: `_mithrilpress-verify.${hostname}`,
     ownership_txt_value: `mithrilpress-verification=${hex(crypto.getRandomValues(new Uint8Array(32)))}`,
     ownership_expires_at: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
-    created_at: existing?.created_at ?? nowIso,
+    created_at: nowIso,
     updated_at: nowIso,
   };
-  if (existing) {
-    const update = await env.DB.prepare(
-      "UPDATE site_hostnames SET status = ?, owner_token_id = ?, ownership_txt_name = ?, ownership_txt_value = ?, ownership_expires_at = ?, ownership_verified_at = NULL, provider_hostname_id = NULL, provider_status = NULL, certificate_status = NULL, cname_target = NULL, validation_records_json = '[]', updated_at = ?, activated_at = NULL, detached_at = NULL WHERE site_id = ? AND id = ? AND status = 'detached'",
-    ).bind(domain.status, owner.tokenId, domain.ownership_txt_name, domain.ownership_txt_value, domain.ownership_expires_at, nowIso, site.id, domain.id).run();
-    if (update.meta?.changes !== 1) return fail(409, "custom_hostname_in_use", "This hostname changed while the request was being saved. Reload and retry.");
-  } else {
-    const insert = await env.DB.prepare(
-      "INSERT INTO site_hostnames (id, site_id, hostname, status, owner_token_id, ownership_txt_name, ownership_txt_value, ownership_expires_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(hostname) DO NOTHING",
-    ).bind(domain.id, site.id, hostname, domain.status, owner.tokenId, domain.ownership_txt_name, domain.ownership_txt_value, domain.ownership_expires_at, nowIso, nowIso).run();
-    if (insert.meta?.changes !== 1) return fail(409, "custom_hostname_in_use", "This hostname was requested by another session. Reload and retry.");
-  }
+  const insert = await env.DB.prepare(
+    "INSERT INTO site_hostnames (id, site_id, hostname, status, owner_token_id, ownership_txt_name, ownership_txt_value, ownership_expires_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING",
+  ).bind(domain.id, site.id, hostname, domain.status, owner.tokenId, domain.ownership_txt_name, domain.ownership_txt_value, domain.ownership_expires_at, nowIso, nowIso).run();
+  if (insert.meta?.changes !== 1) return fail(409, "custom_hostname_in_use", "This hostname was requested by another session. Reload and retry.");
   const saved = await env.DB.prepare("SELECT * FROM site_hostnames WHERE site_id = ? AND id = ? LIMIT 1").bind(site.id, domain.id).first();
   await auditDomainAction(env, site, saved, owner, "domain-requested", { hostname });
   return json({ domain: domainSummary(saved), message: "Publish the ownership TXT record, then choose Verify ownership." }, 201);
@@ -824,9 +838,17 @@ async function studioDomainAction(request, env, site, hostnameId, action) {
       }
       if (!verified) return fail(409, "ownership_not_verified", "The required TXT record was not found. Check its name and value, then retry.");
       const verifiedAt = new Date().toISOString();
-      const update = await env.DB.prepare(
-        "UPDATE site_hostnames SET status = 'provider_pending', ownership_verified_at = ?, ownership_txt_value = NULL, updated_at = ? WHERE site_id = ? AND id = ? AND status = 'ownership_pending' AND ownership_txt_value = ?",
-      ).bind(verifiedAt, verifiedAt, site.id, domain.id, domain.ownership_txt_value).run();
+      let update;
+      try {
+        update = await env.DB.prepare(
+          "UPDATE site_hostnames SET status = 'provider_pending', ownership_verified_at = ?, ownership_txt_value = NULL, updated_at = ? WHERE site_id = ? AND id = ? AND status = 'ownership_pending' AND ownership_txt_value = ?",
+        ).bind(verifiedAt, verifiedAt, site.id, domain.id, domain.ownership_txt_value).run();
+      } catch (error) {
+        if (/unique constraint failed/i.test(String(error?.message ?? error))) {
+          return fail(409, "custom_hostname_in_use", "Another site claimed this hostname after ownership was verified.");
+        }
+        throw error;
+      }
       if (update.meta?.changes !== 1) return fail(409, "ownership_state_changed", "The hostname request changed. Reload the domain list and retry.");
       domain.status = "provider_pending";
       domain.ownership_verified_at = verifiedAt;

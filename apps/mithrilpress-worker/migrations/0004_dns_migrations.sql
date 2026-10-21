@@ -43,7 +43,7 @@ CREATE TABLE dns_migrations (
 );
 
 CREATE UNIQUE INDEX dns_migrations_active_zone ON dns_migrations(zone_name)
-WHERE status IN ('ownership_pending', 'source_pending', 'source_loaded', 'target_loaded', 'owner_approved', 'delegation_verified');
+WHERE status IN ('source_pending', 'source_loaded', 'target_loaded', 'owner_approved', 'delegation_verified');
 CREATE INDEX dns_migrations_by_site_status ON dns_migrations(site_id, status, updated_at);
 
 CREATE TRIGGER dns_migrations_active_limit_insert

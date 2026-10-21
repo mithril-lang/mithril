@@ -127,11 +127,11 @@ and content row within its owning site.
 | `GET` | `/_mithrilpress/preview/{revision-id}/{slug}` | `revision:preview` | View sanitized revision HTML with `noindex` headers. |
 | `POST` | `/_mithrilpress/api/revisions/{revision-id}/approve` | `revision:approve` | Record owner approval for a complete sanitized revision. |
 | `POST` | `/_mithrilpress/api/revisions/{revision-id}/publish` | `site:publish` | Make the approved revision the public site revision. |
-| `GET` / `POST` | `/_mithrilpress/api/domains` | `site:domains` | List custom hostnames or start a 24-hour ownership TXT challenge. |
+| `GET` / `POST` | `/_mithrilpress/api/domains` | `site:domains` | List custom hostnames or start a 24-hour ownership TXT challenge. Unverified requests do not reserve hostnames or shared capacity. Expired claims are released before per-site capacity checks; a detached hostname can be claimed by another site after fresh proof. |
 | `POST` | `/_mithrilpress/api/domains/{hostname-id}/verify` | `site:domains` | Verify ownership TXT and provision the Cloudflare for SaaS hostname and certificate. |
 | `POST` | `/_mithrilpress/api/domains/{hostname-id}/refresh` | `site:domains` | Read provider/TLS status and verify the public DNS-only CNAME. |
 | `DELETE` | `/_mithrilpress/api/domains/{hostname-id}` | `site:domains` | Stop serving the hostname, then remove the Cloudflare custom hostname. |
-| `GET` / `POST` | `/_mithrilpress/api/dns-migrations` | `site:dns-migrate` | List plans or create a domain-control TXT challenge. NS/DS state is not queried until ownership is proven. |
+| `GET` / `POST` | `/_mithrilpress/api/dns-migrations` | `site:dns-migrate` | List plans or create a 48-hour domain-control TXT challenge. Pending requests do not reserve a zone globally; the first owner to prove control claims the plan. Expired pending plans are cancelled when the owner starts another plan or a tenant requests the same zone. NS/DS state is not queried until ownership is proven. |
 | `GET` / `DELETE` | `/_mithrilpress/api/dns-migrations/{id}` | `site:dns-migrate` | Read a tenant-private plan, or cancel/archive and erase its zone snapshots. |
 | `POST` | `/_mithrilpress/api/dns-migrations/{id}/verify-ownership` | `site:dns-migrate` | Verify the domain TXT challenge before accepting zone files. |
 | `POST` | `/_mithrilpress/api/dns-migrations/{id}/source` | `site:dns-migrate` | Validate and retain the source BIND zone and generate a destination import file. |
