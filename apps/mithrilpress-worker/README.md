@@ -53,13 +53,15 @@ Mithril workspace's `kbb` compiler.
 ## Local setup
 
 1. Install this package's Wrangler development dependency.
-2. Create a local D1 database and replace the example binding ID in
-   `wrangler.example.jsonc` with its returned ID.
+2. Use Wrangler's local D1 state for development. Keep the all-zero example ID
+   in `wrangler.example.jsonc`; remote D1 setup uses a separate operator-owned
+   config with real account and database IDs.
 3. Apply all migrations in `migrations/` locally, in numeric order.
-4. Provision a site and owner tokens using the SQL shapes below. Keep token
-   plaintext in a secret manager. Use HTTPS only; the Worker stores only a
-   salted SHA-256 digest. The Studio accepts a one-time HTTPS token exchange and
-   keeps the resulting session in a Secure, HttpOnly, SameSite=Strict cookie.
+4. Provision a site and its first chat-first owner token with the operator CLI
+   below. Keep the one-time token in the owner's secret manager. Use HTTPS only;
+   the Worker stores only a salted SHA-256 digest. The Studio accepts a one-time
+   HTTPS token exchange and keeps the resulting session in a Secure, HttpOnly,
+   SameSite=Strict cookie.
 5. Run `npm run dev` to work against local D1.
 
 The example config deliberately has no route and disables `workers.dev`. It is
@@ -79,7 +81,56 @@ has other R2 usage. No paid fallback is configured. See [R2 pricing](https://dev
 
 ## Tenant provisioning data
 
-Insert a site with an owner-approved source origin:
+### Operator provisioning
+
+Install the package dependencies, apply the D1 migrations, then provision a
+tenant. The target must be explicit. Local mode uses Wrangler's local D1 state;
+remote mode also requires the exact hostname to be repeated as a write guard:
+
+```sh
+cd apps/mithrilpress-worker
+npm ci
+npx wrangler d1 migrations apply mithrilpress --config wrangler.example.jsonc --local
+npm run provision:site -- --target local --config wrangler.example.jsonc \
+  --database mithrilpress --hostname preview-example.sites.mithril.love \
+  --owner-label "Example site owner"
+```
+
+For a remote database, use an operator-owned Wrangler config containing the real
+account ID and D1 ID, authenticate a dedicated Wrangler profile with the
+approved operator credential, and repeat the exact hostname for confirmation:
+
+```sh
+npm run provision:site -- --target remote --config wrangler.production.jsonc \
+  --database mithrilpress --hostname preview-example.sites.mithril.love \
+  --owner-label "Example site owner" \
+  --wrangler-profile mithrilpress-provision \
+  --confirm-hostname preview-example.sites.mithril.love
+```
+
+The remote command refuses all-zero example account and database IDs. It only
+writes the tenant and owner-token rows; it does not deploy a Worker or create
+DNS/routes.
+It checks the hostname before writing and verifies the exact salted token row
+before returning the plaintext token. If the final read-back fails, the token
+is withheld and an incomplete empty tenant is removed where safe. Reconcile D1
+before retrying after an ambiguous provider error. The owner token is printed
+once as JSON; send it directly to the owner's secret manager and do not save
+terminal logs. Its chat-first scopes are `content:write`, `media:write`,
+`revision:preview`, `revision:approve`, and `site:publish`. It expires after 24
+hours; a separate least-privilege token is needed for importing or domain/DNS
+management. The CLI preauthorizes no import or domain-management scope.
+
+An optional `--source-origin https://wordpress.example` records an
+owner-approved HTTPS WordPress origin for a later import. It does not fetch or
+copy any source content. Current provisioning is operator-driven; account
+registration, email verification, and direct self-service tenant signup are not
+implemented yet.
+
+### Manual D1 reference
+
+The operator CLI is preferred. For controlled recovery, the equivalent site
+record shape is:
 
 ```sql
 INSERT INTO sites (id, hostname, source_origin, status, created_at)
@@ -109,7 +160,7 @@ explicit additive import request containing source records missing from an
 unchanged staged zone; MithrilPress does not send record update or delete
 operations.
 
-Generate the one-time token envelope locally with
+Generate a one-time token envelope separately with
 `node scripts/create-owner-token.mjs <owner-label> <scope> [<scope> ...]`.
 The command prints the bearer token once and the hash material for the
 `tenant_owner_tokens` insert. Provision only the hash row through a secured
