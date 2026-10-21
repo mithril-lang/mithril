@@ -15,6 +15,33 @@ access to any Cloudflare account.
 | Read an owner DNS zone for migration | An owner-supplied token with `Zone Read` and `DNS Read` on that owner's one zone. | Use only for the read request; do not persist the token. |
 | Add missing DNS records during an approved migration | A separate owner-supplied token with `DNS Write` on that owner's one zone. | Use only after the owner reviews the exact diff. The import endpoint stays disabled until isolated-zone qualification. The token is not persisted. |
 
+## Hosting account and zone boundary
+
+Run the MithrilPress Worker, D1 database, and R2 bucket in a dedicated
+Cloudflare account on the Workers Free plan. Do not use the existing
+`fund-mithril` Workers Paid account for the site-hosting runtime. Add
+`sites.mithril.love` as a separate child zone in the dedicated account, then
+delegate that child zone from the existing `mithril.love` parent with NS
+records. Cloudflare supports moving a subdomain zone to a different account;
+see [Migrate subdomain to a new account](https://developers.cloudflare.com/dns/zone-setups/subdomain-setup/move-to-new-account/).
+
+The parent-zone credential needs DNS Write on `mithril.love` only to add or
+remove the exact `sites.mithril.love` NS delegation. Worker, D1, and route
+credentials belong to the dedicated child-zone account. Keep its R2 bucket
+private and expose media only through the Worker binding; do not create a
+tenant-facing S3 token or public `r2.dev` URL. The R2 free allowance is shared
+across the Cloudflare account and overage is billed, so no unrelated workloads
+or external clients may use this account or bucket. The application media caps
+are sized below the current Standard free allowances, but Cloudflare does not
+enforce an R2 hard-stop at those allowances.
+
+On the child-zone wildcard Worker route, select fail-closed behavior at the
+Workers Free daily request limit. A fail-open route would bypass the Worker.
+Read back the account's Workers plan, child-zone nameservers, proxied wildcard
+record, route pattern and route failure mode before enabling any tenant or
+public hostname. If the account is on Workers Paid or any read-back differs,
+keep hosting disabled.
+
 Cloudflare's R2 S3 API supports bucket-scoped object tokens, while its Workers
 R2 Storage Write permission is account-scoped. The bucket-scoped S3 token is
 not a substitute for a Worker R2 binding. See [R2 API token permissions](https://developers.cloudflare.com/r2/api/tokens/).
@@ -42,7 +69,12 @@ binding only after the bucket exists. The initial sample Wrangler config keeps
 route or database identifier.
 
 The site-owner free tier has application request, storage, and AI limits. Those
-limits stop MithrilPress operations after a cap; they do not disable or cap the
-Cloudflare account bill. Keep deployment-level metering, alerting, and an
-operator-controlled shutdown path as release requirements. Never imply that a
-Cloudflare application quota guarantees zero infrastructure charges.
+limits stop MithrilPress operations after a cap; rejected requests still reach
+the Worker until Cloudflare's Workers Free account limit is reached. D1 Free
+also rejects queries after its daily quota. R2 usage above its included monthly
+allowances is billed rather than automatically stopped; the deployment caps
+bound usage below those allowances only if this account has no other R2 traffic
+and the limits are revalidated before release. Keep the dedicated account,
+application quotas, provider-plan read-back, and an operator-controlled
+shutdown path as release requirements. Never imply that an application quota
+alone guarantees zero infrastructure charges.

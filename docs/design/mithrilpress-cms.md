@@ -96,10 +96,20 @@ publishing. Owner identity provisioning remains out of band.
 
 ## Cloudflare hosting
 
-The initial runtime is a single MithrilPress Worker, D1, and R2. A proxied wildcard
-DNS record and wildcard Worker route cover `*.sites.mithril.love/*`. The Worker
-normalizes the hostname, rejects reserved and unknown labels, then looks up the
-complete hostname in D1. Host labels never grant tenant identity. Content
+The initial runtime is a single MithrilPress Worker, D1, and R2. Production must
+put these resources in a dedicated Cloudflare account on the Workers Free plan,
+separate from the existing `fund-mithril` Workers Paid account and unrelated
+workloads. Add `sites.mithril.love` as a child zone in that account and delegate
+it from the parent `mithril.love` zone with NS records. Cloudflare supports a
+subdomain zone in a different account; this isolates the Workers and R2 quota
+pools from the existing account.
+
+A proxied wildcard DNS record and wildcard Worker route in the child zone cover
+`*.sites.mithril.love/*`. Keep `workers.dev` disabled and configure the route to
+fail closed when the Free plan's daily Worker request limit is reached. Cloudflare
+returns Error 1027 at that limit; fail-open routing bypasses the Worker. The
+Worker normalizes the hostname, rejects reserved and unknown labels, then looks
+up the complete hostname in D1. Host labels never grant tenant identity. Content
 queries carry both site and revision IDs and use prepared statements. Owner
 credentials are per-site salted SHA-256 token hashes with narrowly scoped
 permissions; plaintext tokens are provisioned out of band.
@@ -120,12 +130,12 @@ No Cloudflare resources, wildcard DNS, credentials, or public hostnames were
 created by this implementation. Production route configuration and deployment
 remain separate release work.
 
-The pricing policy is free for site owners; the hosting operator pays the
-Cloudflare bill. This is not a zero-cost provider commitment. The Workers Paid
-plan has a $5 monthly minimum and 10 million included requests before metered
-overage, and D1, R2, and Workers AI have separate account-level allowances and
-pricing. The product never bills site owners or automatically switches them to
-a paid tier. See [Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/),
+The pricing policy is free for site owners; the hosting operator is responsible
+for provider charges. This is not a zero-cost provider commitment. Do not run
+the MithrilPress runtime in the existing Workers Paid account: its requests are
+unlimited and do not provide a hard daily request stop. The product never bills
+site owners or automatically switches a hosting account to a paid tier. See
+[Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/),
 [D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/),
 [R2 pricing](https://developers.cloudflare.com/r2/pricing/), and
 [Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/).
@@ -155,12 +165,37 @@ application caps allow 250 MiB per site and 8 GiB per deployment,
 5,000 image reads/day per site and 50,000 across the deployment, and 10,000
 upload/delete operations/day. Studio generation is capped at eight requests per
 UTC day across this deployment, and stops rather than switching to paid AI use.
-The app does not measure all account-level Worker requests, D1 reads/writes or
-storage, or Workers AI neuron usage. A request rejected by MithrilPress still
-invokes the Worker and can count toward Cloudflare metering; app-level stops
-therefore do not guarantee a fixed provider bill or protect unrelated account
-workloads. Provider limits can stop service earlier. Import and rendering CPU
-usage has not been qualified against the current provider limit.
+The Workers Free plan enforces a 100,000-request daily account limit. D1 Free
+enforces daily limits of 5 million rows read and 100,000 rows written, and a
+5 GB total storage allowance; daily query limits fail closed and storage
+exhaustion prevents new writes. These provider limits are a second stop after
+the MithrilPress application caps, provided the deployment read-back confirms
+that it remains on Workers Free. If it is on Workers Paid, the same request cap
+does not prevent provider metering or overage. Import and rendering CPU usage
+has not been qualified against the Free plan's 10 ms per-request limit.
+
+R2 has monthly account-wide allowances of 10 GB-month Standard storage, 1
+million Class A operations, and 10 million Class B operations; usage above
+those allowances is billed. The current application bounds retained media to
+8 GiB per deployment, reads to 50,000/day, and uploads/deletes to 10,000/day.
+Even over a 31-day month, those caps bound ordinary reads to 1.55 million and
+write requests to 310,000; one cleanup delete after a failed upload can at most
+double the latter to 620,000 Class A calls. This stays below the listed R2 Free
+allowances only while the dedicated account and bucket have no other R2 usage,
+the Worker remains the only media access path, and the documented provider
+limits remain current. R2 itself does not reject billable overage. Keep public
+onboarding disabled unless the account separation, plan, and route fail mode
+are read back. Disable media writes and delivery if the usage bounds or provider
+allowances cannot be maintained.
+
+No usage in the separate account can protect against an operator changing its
+plan, an external R2 client, a provider limit change, or a new unbounded code
+path. The product never bills site owners, but do not advertise zero provider
+cost. Revalidate the provider limits and all media-operation paths before each
+release. Track these release requirements in Linear MITHRIL-292. Check
+[Workers limits](https://developers.cloudflare.com/workers/platform/limits/),
+[D1 Free quota behavior](https://developers.cloudflare.com/d1/reference/faq/),
+and [R2 pricing](https://developers.cloudflare.com/r2/pricing/) before release.
 
 D1 triggers enforce a 16 MiB retained-import content limit per site, including
 entries and imported taxonomy terms, and a 256 MiB deployment-wide limit across
