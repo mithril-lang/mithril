@@ -33,10 +33,29 @@ function sourceUrl(value, sourceOrigin) {
 }
 
 function localCanonicalUrl(siteHostname, entry) {
-  const path = entry.kind === "page" && entry.slug === "home"
+  const path = entry.routePath
+    ?? (entry.kind === "page" && entry.slug === "home" ? "/" : `/${encodeURIComponent(entry.slug)}/`);
+  return `https://${siteHostname}${path}`;
+}
+
+/** Preserve a safe source permalink path while routing the imported content locally. */
+export function wordpressRoutePath(sourcePermalink, sourceOrigin, entry) {
+  const fallback = entry.kind === "page" && entry.slug === "home"
     ? "/"
     : `/${encodeURIComponent(entry.slug)}/`;
-  return `https://${siteHostname}${path}`;
+  const url = sourceUrl(sourcePermalink, sourceOrigin);
+  if (!url || url.search || url.hash) return { path: fallback, preserved: false };
+
+  const path = url.pathname || "/";
+  if (path.length > 2048 || !path.startsWith("/") || path.startsWith("//")
+      || path.includes("\\") || /%(?:2f|5c)/i.test(path)
+      || /[\u0000-\u001f\u007f]/.test(path)
+      || /^\/(?:_mithrilpress|wp-json|wp-admin|wp-login\.php|category|tag)(?:\/|$)/i.test(path)
+      || /^\/api\/wordpress\/import\/?$/i.test(path)
+      || (path === "/" && entry.kind !== "page")) {
+    return { path: fallback, preserved: false };
+  }
+  return { path, preserved: true };
 }
 
 /** Map source WordPress permalinks to their imported MithrilPress routes. */

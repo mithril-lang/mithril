@@ -16,7 +16,10 @@ only an explicitly published tenant revision.
   Standard WXR categories, tags, category parents, and term IDs are retained;
   a small static SEO field allowlist is retained, while other custom fields,
   page-parent links, and source media files require manual migration. Every
-  import returns link, block, asset, and SEO metadata reconciliation counts.
+  import returns link, block, asset, SEO metadata, and permalink reconciliation
+  counts. Safe multi-segment source URL paths are preserved for published
+  routes; query-based and reserved paths fall back to a slug route and are
+  marked for owner review.
 - Chat-first MithrilPress Studio for creating one post or page draft, revising it
   in a conversation, opening a private preview, and separately approving and
   publishing it.
@@ -515,6 +518,12 @@ report and still point to the source site. The report shows which image
 references were rewritten or omitted. Apart from the static SEO field allowlist
 above, the importer does not preserve custom fields, page-parent relationships,
 users, comments, or custom taxonomies.
+Safe multi-segment WordPress permalink paths are used by the published site,
+the read-only REST `link` field, canonical tags, and rewritten internal links.
+Query-based, reserved, invalid, or unsupported source paths fall back to a
+one-segment slug route and are counted in the private migration report; the
+owner must review URL changes before publication. Duplicate public routes are
+rejected rather than resolved arbitrarily.
 Unsupported post types and password-protected posts/pages are skipped and
 counted in the import report; protected content is never silently turned into
 ordinary public content. Review the report and private preview before

@@ -7,15 +7,21 @@ REST-compatible subset, chat-first owner Studio, and supervised sales-process
 docs are in the public repository. The exact Worker source passed its approved
 standalone qualification before integration. No production Worker, D1
 database, R2 bucket, wildcard DNS record, or public route has been provisioned
-and read back. This is not a production release or full WordPress parity.
+and read back. A follow-up branch adds source-permalink route preservation but
+has not been qualified or integrated. This is not a production release or full
+WordPress parity.
 
 ## Product boundary
 
 “WordPress compatible” means importing an explicitly owner-authorized subset of
 posts and pages, preserving source IDs, slugs, dates, taxonomy IDs, media
-references, and source permalinks, and serving a documented read-only subset of
-the WordPress REST API. It does not include PHP, themes, plugins, shortcodes,
-custom post types, or arbitrary Gutenberg rendering.
+references, and safe source URL paths, and serving a documented read-only
+subset of the WordPress REST API. Safe multi-segment source paths can be served
+on MithrilPress and are used for canonical URLs and rewritten internal links.
+Query-based, reserved, and otherwise unsupported paths fall back to a slug route
+and are reported for owner review; colliding routes reject the import. This
+does not include PHP, themes, plugins, shortcodes, custom post types, or
+arbitrary Gutenberg rendering.
 
 WordPress REST post records carry `content` and `title` objects. Raw content is
 provided in the `edit` context, so the importer needs owner-authorized API access
@@ -344,8 +350,11 @@ include a `taxonomy_terms` array; every referenced category/tag ID must resolve
 to an imported term. Term descriptions are sanitized before storage. The API
 returns omission counts for content it does not migrate. It does not fetch
 attachment URLs; owners must upload image files they control and review the
-private preview and omissions before publishing. This does not provide full
-WordPress content parity.
+private preview and omissions before publishing. Safe source permalink paths,
+including nested paths, are retained for public rendering, API links, canonical
+URLs, and imported internal-link rewriting. Sources that use query URLs or
+paths reserved by MithrilPress use a slug fallback and are explicitly marked
+for owner review. This does not provide full WordPress content parity.
 
 ## Outreach workflow
 
