@@ -881,9 +881,9 @@ document.querySelector("#delete-conversation").addEventListener("click", async (
 
 document.querySelector("#chat-form").addEventListener("submit", async (event) => {
   event.preventDefault();
-  const message = chatInput.value.trim();
+  const submittedText = chatInput.value;
+  const message = submittedText.trim();
   if (!message) return;
-  chatInput.value = "";
   renderMessage("user", message);
   const button = document.querySelector("#send-button");
   button.disabled = true;
@@ -895,6 +895,7 @@ document.querySelector("#chat-form").addEventListener("submit", async (event) =>
       headers: requestHeader,
       body: { conversation_id: activeConversationId, message, kind: document.querySelector("#content-kind").value },
     });
+    if (chatInput.value === submittedText) chatInput.value = "";
     activeConversationId = result.conversation_id;
     document.querySelector("#editor-title").textContent = "Refine your draft";
     document.querySelector("#delete-conversation").hidden = false;
