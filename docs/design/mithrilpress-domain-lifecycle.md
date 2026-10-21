@@ -138,10 +138,12 @@ delegation during a write. Registrar changes remain manual.
    fully qualified replacement name (or `.`), following [RFC 3403](https://www.rfc-editor.org/rfc/rfc3403.html).
 3. Import the generated source records into a destination staging zone by hand,
    or connect a Cloudflare zone using a zone-scoped token. The token is sent
-   only with the read request and is not saved. For Cloudflare, a second
-   request may use a scoped DNS Write token after separate owner confirmation
-   to submit only missing source records through batch `posts`; updates and
-   deletes are never sent. The feature remains disabled until isolated-zone
+   only with the read request and is not saved. For Cloudflare, a separate
+   import request uses its token for pre-write and post-write reads as well as
+   the write; scope it to `Zone Read`, `DNS Read`, and `DNS Write` on that zone.
+   After separate owner confirmation, it submits only missing source records
+   through batch `posts`; updates and deletes are never sent. The feature remains
+   disabled until isolated-zone
    qualification. The live zone must still match the staged snapshot, and the
    destination must contain no extra or changed records. Upload the destination
    export manually for other providers. The diff compares record owner, type,
@@ -183,8 +185,9 @@ delegation during a write. Registrar changes remain manual.
 - Keep secrets, challenge tokens, provider API credentials, and zone exports
   out of URLs, application logs, analytics, and generated sales messages. A
   Cloudflare API token is accepted only in a request header, is never written
-  to D1, and should be revoked after use; grant `DNS Write` only for the
-  explicit additive import operation.
+  to D1, and should be revoked after use. The explicit additive import token
+  also performs zone and record reads, so grant `Zone Read`, `DNS Read`, and
+  `DNS Write` only on the exact target zone.
 
 ## Rollout gates
 

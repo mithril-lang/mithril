@@ -155,9 +155,12 @@ DNS planning is a separate high-impact owner scope. It grants access to private
 zone snapshots and owner approval of a cutover plan. Cloudflare access is
 separate: the owner may provide a zone-scoped API token for one request. The
 Worker forwards it to Cloudflare only for that request, does not persist it,
-and never accepts registrar credentials. DNS Write is used only for an
-explicit additive request containing source records missing from an unchanged
-staged zone. The Worker sends Cloudflare batch `posts` only; it never sends
+and never accepts registrar credentials. A staging read uses zone-scoped
+`Zone Read` and `DNS Read`. The separate explicit import request uses its
+token for pre-write and post-write reads as well as the additive write, so it
+requires zone-scoped `Zone Read`, `DNS Read`, and `DNS Write`. It contains only
+source records missing from an unchanged staged zone. The Worker sends
+Cloudflare batch `posts` only; it never sends
 `deletes`, `patches`, or `puts`. Record types or values that cannot be
 represented without changing their meaning remain on the manual import path.
 
@@ -227,7 +230,7 @@ write and storage caps; reaching a cap stops the import without a paid fallback.
 | `POST` | `/_mithrilpress/api/dns-migrations/{id}/source` | `site:dns-migrate` | Validate and retain the source BIND zone and generate a destination import file. |
 | `POST` | `/_mithrilpress/api/dns-migrations/{id}/target` | `site:dns-migrate` | Compare a staged destination zone and its assigned nameservers against the source. |
 | `POST` | `/_mithrilpress/api/dns-migrations/{id}/cloudflare-target` | `site:dns-migrate` plus a transient zone-scoped Cloudflare token | Read a full Cloudflare zone export and stage its assigned nameservers and record diff. |
-| `POST` | `/_mithrilpress/api/dns-migrations/{id}/cloudflare-import` | `site:dns-migrate`, explicit confirmation, and a transient token with zone-scoped `DNS Write` | Recheck the staged zone, create only missing source records using Cloudflare batch `posts`, then export and verify the readback. Unsupported record data remains manual. |
+| `POST` | `/_mithrilpress/api/dns-migrations/{id}/cloudflare-import` | `site:dns-migrate`, explicit confirmation, and a transient token with zone-scoped `Zone Read`, `DNS Read`, and `DNS Write` | Recheck the staged zone, create only missing source records using Cloudflare batch `posts`, then export and verify the readback. Unsupported record data remains manual. |
 | `POST` | `/_mithrilpress/api/dns-migrations/{id}/approve` | `site:dns-migrate` | Approve the exact diff digest after a required owner confirmation. |
 | `POST` | `/_mithrilpress/api/dns-migrations/{id}/verify-delegation` | `site:dns-migrate` | Check destination NS and absence of DS through Cloudflare and Google recursive resolvers. |
 | `POST` | `/_mithrilpress/api/dns-migrations/{id}/verify-rollback` | `site:dns-migrate` | Check restored source NS and DS state through the same resolvers. |
@@ -386,10 +389,12 @@ includes domain TXT proof, capture of the current NS/DS state, private source
 and destination BIND snapshots, record diff, generated import text,
 digest-bound owner approval, and post-cutover NS/DS checks through two public
 recursive resolvers. For Cloudflare, an owner may submit a zone-scoped token
-for a single read request (`Zone Read` and `DNS Read`). An explicit second
-request may use a scoped `DNS Write` token to create only records missing from
-an unchanged staged zone using Cloudflare batch `posts`; the request contains
-no update or delete operations. Cloudflare documents that batch writes use a
+for a single staging read request (`Zone Read` and `DNS Read`). The explicit
+import request uses a separate token to reread the live zone before and after
+the write, as well as create records missing from the unchanged staged zone;
+that token therefore needs zone-scoped `Zone Read`, `DNS Read`, and `DNS Write`.
+The request contains no update or delete operations and uses Cloudflare batch
+`posts`. Cloudflare documents that batch writes use a
 database transaction but DNS propagation is not atomic. The deployment keeps
 the write endpoint disabled until its behavior is qualified against an
 isolated Cloudflare zone. MithrilPress stops if the live zone changed, the
