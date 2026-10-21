@@ -108,10 +108,17 @@ This operation can affect the entire domain, including web, email, verification,
 and security records. MithrilPress must not start it as an implicit side effect
 of adding a website hostname. The owner-guided planning and propagation-check
 steps are implemented. A Cloudflare zone can be read with a zone-scoped token
-supplied for one request. The code includes an owner-confirmed additive import
-path for missing source records, but provider writes stay disabled by default
-until the Cloudflare import behavior is qualified against an isolated zone.
-Registrar changes remain manual.
+supplied for one request. The code includes an owner-confirmed create-only
+batch path for missing source records. It sends only `posts`, refuses record
+types and values it cannot preserve, and verifies an exact zone export after
+the write. Cloudflare documents database transaction handling for batch
+operations but says DNS propagation is not atomic. Provider writes stay disabled
+by default until the create-only request and readback behavior are qualified
+against an isolated zone. The automatic path also requires a pending destination
+zone and current public NS/DS answers that still match the source snapshot.
+Cloudflare states that pending zones answer queries sent to their assigned
+nameservers, so keep the source zone active and do not change registrar
+delegation during a write. Registrar changes remain manual.
 
 1. Require a `site:dns-migrate` owner token and prove control with a TXT record
    at `_mithrilpress-migration.<zone>` that expires after 48 hours. Expired
@@ -127,13 +134,14 @@ Registrar changes remain manual.
    unsupported directives rather than guessing their expansion.
 3. Import the generated source records into a destination staging zone by hand,
    or connect a Cloudflare zone using a zone-scoped token. The token is sent
-   only with the read request and is not saved. For Cloudflare, DNS Write is
-   used only after a separate owner confirmation to submit missing source
-   records. The feature remains disabled until isolated-zone qualification.
-   The live zone must still match the staged snapshot, and the destination must
-   contain no extra or changed records. Upload the destination export manually
-   for other providers. The diff compares record owner, type, TTL, class, RDATA,
-   and supported Cloudflare proxy/flatten metadata. It excludes
+   only with the read request and is not saved. For Cloudflare, a second
+   request may use a scoped DNS Write token after separate owner confirmation
+   to submit only missing source records through batch `posts`; updates and
+   deletes are never sent. The feature remains disabled until isolated-zone
+   qualification. The live zone must still match the staged snapshot, and the
+   destination must contain no extra or changed records. Upload the destination
+   export manually for other providers. The diff compares record owner, type,
+   TTL, class, RDATA, and supported Cloudflare proxy/flatten metadata. It excludes
    provider-managed apex SOA/NS and generated DNSSEC records. A non-exact diff
    cannot be approved.
 4. Require an explicit owner confirmation bound to the source hash, target
