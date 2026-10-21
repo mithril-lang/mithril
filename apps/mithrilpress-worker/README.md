@@ -203,6 +203,7 @@ and content row within its owning site.
 | `POST` | `/_mithrilpress/api/dns-migrations/{id}/verify-rollback` | `site:dns-migrate` | Check restored source NS and DS state through the same resolvers. |
 | `GET` | `/wp-json/wp/v2/posts` | public | Read published posts with bounded search, date, order, slug, and pagination filters. |
 | `GET` | `/wp-json/wp/v2/pages` | public | Read published pages with bounded search, date, order, slug, and pagination filters. |
+| `GET` / `HEAD` | `/wp-json/wp/v2/posts/{id}` or `/wp-json/wp/v2/pages/{id}` | public | Read one published post or page by its WordPress source ID or MithrilPress API ID. |
 | `GET` | `/wp-json/wp/v2/media/{id}` | public | Read metadata for a currently published featured or inline image. |
 | `GET` | `/{slug}/` | public | Render one published page or post. |
 
@@ -413,6 +414,11 @@ matches, title substrings, then content-only matches. Dates accept ISO 8601
 calendar dates or timezone-qualified date-times; date-only `before` and
 `modified_before` values include the full UTC calendar day. Results remain
 restricted to published entries.
+Single-item `GET` and `HEAD` routes accept a positive numeric ID. Imported
+entries resolve by their WordPress source ID; MithrilPress-authored entries
+resolve by their MithrilPress API ID. They return only an entry in the active
+published revision, so drafts, private previews, superseded revisions, and IDs
+of another post type return 404.
 Category/tag lists also support
 `search` and `hide_empty`, and individual terms can be fetched by source ID.
 Responses include standard `X-WP-Total`, `X-WP-TotalPages`, and pagination

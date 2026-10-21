@@ -69,6 +69,14 @@ const wxr = `<?xml version="1.0" encoding="UTF-8"?>
       <wp:post_modified>${entry.modified}</wp:post_modified><wp:post_modified_gmt>${entry.modified}</wp:post_modified_gmt>
       <content:encoded><![CDATA[${entry.content}]]></content:encoded>
     </item>`).join("")}
+    <item><title>Single read page</title><link>${sourceOrigin}/single-read-page/</link>
+      <wp:post_id>9201</wp:post_id><wp:post_type>page</wp:post_type><wp:status>publish</wp:status>
+      <wp:post_name>single-read-page</wp:post_name><content:encoded><![CDATA[<p>Published page fixture.</p>]]></content:encoded>
+    </item>
+    <item><title>Unpublished fixture</title><link>${sourceOrigin}/unpublished-fixture/</link>
+      <wp:post_id>9202</wp:post_id><wp:post_type>post</wp:post_type><wp:status>draft</wp:status>
+      <wp:post_name>unpublished-fixture</wp:post_name><content:encoded><![CDATA[<p>This draft must remain private.</p>]]></content:encoded>
+    </item>
   </channel>
 </rss>`;
 
@@ -230,7 +238,7 @@ try {
   assert.equal(imported.status, 201, `Scoped owner import failed: ${imported.body}`);
   const importedBody = JSON.parse(imported.body);
   assert.equal(importedBody.state, "private-preview");
-  assert.equal(importedBody.entry_count, 4);
+  assert.equal(importedBody.entry_count, 6);
   assert.equal(importedBody.migration_report.gutenberg.dynamic_blocks, 1);
   assert.equal(importedBody.migration_report.gutenberg.unknown_blocks, 1);
   assert.equal(importedBody.migration_report.inline_media.rewritten_images, 1);
@@ -245,6 +253,17 @@ try {
     omitted_fields: 1,
   });
   assert.equal(importedBody.migration_report.needs_owner_review, true);
+
+  // Seed a ready chat-origin draft to exercise API-ID lookup without a live AI provider.
+  const chatApiId = 9500;
+  const chatEntryId = "mithrilpress:chat:single-item-read-fixture";
+  const chatFixtureSql = [
+    `INSERT INTO entries (site_id, revision_id, entry_id, kind, slug, title, source_html, safe_html, entry_origin, publication_status, language_code, api_id, source_id, source_status, source_date, source_date_gmt, source_modified, source_modified_gmt, source_permalink, categories_json, tags_json, featured_media_id, rendering_admission) VALUES (${sqlText(siteId)}, ${sqlText(importedBody.revision_id)}, ${sqlText(chatEntryId)}, 'post', 'chat-authored-api-id', 'Chat authored API ID', '<p>Chat-authored item fixture.</p>', '<p>Chat-authored item fixture.</p>', 'chat', 'draft', 'en', ${chatApiId}, NULL, 'draft', ${sqlText(createdAt)}, ${sqlText(createdAt)}, ${sqlText(createdAt)}, ${sqlText(createdAt)}, NULL, '[]', '[]', NULL, 'ready');`,
+    `UPDATE site_revisions SET entry_count = entry_count + 1 WHERE site_id = ${sqlText(siteId)} AND id = ${sqlText(importedBody.revision_id)} AND state = 'private-preview';`,
+  ].join("\n");
+  runWrangler([
+    "d1", "execute", "mithrilpress", "--local", "--persist-to", persistPath, "--config", config, "--command", chatFixtureSql,
+  ]);
 
   const savedReport = await request(port, "GET", `/_mithrilpress/api/revisions/${importedBody.revision_id}/migration-report`, {
     token: siteToken.token,
@@ -283,6 +302,10 @@ try {
   const publicWordPressApi = await request(port, "GET", "/wp-json/wp/v2/posts");
   assert.equal(publicWordPressApi.status, 200);
   assert.deepEqual(JSON.parse(publicWordPressApi.body), [], "Private imports must not appear in the public WordPress-compatible API.");
+  const privateWordPressItem = await request(port, "GET", "/wp-json/wp/v2/posts/9001");
+  assert.equal(privateWordPressItem.status, 404, "A private-preview entry must not be readable by source ID.");
+  const privateChatItem = await request(port, "GET", `/wp-json/wp/v2/posts/${chatApiId}`);
+  assert.equal(privateChatItem.status, 404, "A chat draft must not be readable before owner publication.");
 
   const approved = await request(port, "POST", `/_mithrilpress/api/revisions/${importedBody.revision_id}/approve`, { token: siteToken.token });
   assert.equal(approved.status, 200, `Owner approval failed: ${approved.body}`);
@@ -299,6 +322,41 @@ try {
     _yoast_wpseo_metadesc: "Description <safe> & careful",
   });
 
+  const publishedWordPressItem = await request(port, "GET", "/wp-json/wp/v2/posts/9001");
+  assert.equal(publishedWordPressItem.status, 200, `WordPress source-ID lookup failed: ${publishedWordPressItem.body}`);
+  const publishedWordPressItemBody = JSON.parse(publishedWordPressItem.body);
+  assert.equal(publishedWordPressItemBody.id, 9001);
+  assert.equal(publishedWordPressItemBody.type, "post");
+  assert.equal(publishedWordPressItemBody.status, "publish");
+  assert.equal(publishedWordPressItemBody.link, `https://${testHostname}/private-migration-preview/`);
+  assert.equal(publishedWordPressItemBody.title.rendered, "Private migration preview");
+  assert.equal(publishedWordPressItemBody.meta._yoast_wpseo_title, "Owner SEO & summary");
+  const chatWordPressItem = await request(port, "GET", `/wp-json/wp/v2/posts/${chatApiId}`);
+  assert.equal(chatWordPressItem.status, 200, `MithrilPress API-ID lookup failed: ${chatWordPressItem.body}`);
+  assert.equal(JSON.parse(chatWordPressItem.body).id, chatApiId);
+  assert.equal(JSON.parse(chatWordPressItem.body).slug, "chat-authored-api-id");
+
+  const publishedWordPressPage = await request(port, "GET", "/wp-json/wp/v2/pages/9201");
+  assert.equal(publishedWordPressPage.status, 200, `WordPress page lookup failed: ${publishedWordPressPage.body}`);
+  assert.equal(JSON.parse(publishedWordPressPage.body).type, "page");
+  assert.equal(JSON.parse(publishedWordPressPage.body).id, 9201);
+  const headWordPressPage = await request(port, "HEAD", "/wp-json/wp/v2/pages/9201");
+  assert.equal(headWordPressPage.status, 200);
+  assert.equal(headWordPressPage.body, "");
+  assert.match(headWordPressPage.headers["content-type"] ?? "", /application\/json/);
+  for (const pathname of [
+    "/wp-json/wp/v2/posts/9201",
+    "/wp-json/wp/v2/posts/9202",
+    "/wp-json/wp/v2/posts/99999999999999999",
+  ]) {
+    const unavailable = await request(port, "GET", pathname);
+    assert.equal(unavailable.status, 404, `${pathname} must not reveal a missing, draft, or other-kind entry.`);
+  }
+  const editWordPressItem = await request(port, "GET", "/wp-json/wp/v2/posts/9001?context=edit");
+  assert.equal(editWordPressItem.status, 401);
+  const writeWordPressItem = await request(port, "POST", "/wp-json/wp/v2/posts/9001");
+  assert.equal(writeWordPressItem.status, 405);
+
   const relevance = await request(port, "GET", "/wp-json/wp/v2/posts?search=Signal&orderby=relevance&per_page=100");
   assert.equal(relevance.status, 200, `WordPress relevance query failed: ${relevance.body}`);
   assert.deepEqual(JSON.parse(relevance.body).map((entry) => entry.id), [9101, 9102, 9103]);
@@ -312,9 +370,9 @@ try {
   assert.equal(modifiedDay.status, 200, `WordPress modified-day query failed: ${modifiedDay.body}`);
   assert.deepEqual(JSON.parse(modifiedDay.body).map((entry) => entry.id), [9101, 9102]);
 
-  const ascendingDate = await request(port, "GET", "/wp-json/wp/v2/posts?after=2026-05-12&orderby=date&order=asc&per_page=100");
+  const ascendingDate = await request(port, "GET", "/wp-json/wp/v2/posts?after=2026-05-12&before=2026-05-13&orderby=date&order=asc&per_page=100");
   assert.deepEqual(JSON.parse(ascendingDate.body).map((entry) => entry.id), [9101, 9102, 9103]);
-  const descendingDate = await request(port, "GET", "/wp-json/wp/v2/posts?after=2026-05-12&orderby=date&order=desc&per_page=100");
+  const descendingDate = await request(port, "GET", "/wp-json/wp/v2/posts?after=2026-05-12&before=2026-05-13&orderby=date&order=desc&per_page=100");
   assert.deepEqual(JSON.parse(descendingDate.body).map((entry) => entry.id), [9103, 9102, 9101]);
 
   const invalidCalendarDate = await request(port, "GET", "/wp-json/wp/v2/posts?before=2026-02-30");
@@ -326,7 +384,7 @@ try {
   const missingRelevanceSearch = await request(port, "GET", "/wp-json/wp/v2/posts?orderby=relevance");
   assert.equal(missingRelevanceSearch.status, 400);
 
-  process.stdout.write("MithrilPress local owner-auth qualification passed: anonymous denial, tenant-token isolation, owner-uploaded inline media mapping, Gutenberg and SEO metadata reports, escaped private and published SEO tags, WordPress REST meta, collection relevance/date/order filters, and pre-publication privacy.\n");
+  process.stdout.write("MithrilPress local owner-auth qualification passed: anonymous denial, tenant-token isolation, owner-uploaded inline media mapping, Gutenberg and SEO metadata reports, escaped private and published SEO tags, WordPress REST source/API item and collection reads, and pre-publication privacy.\n");
 } finally {
   if (worker && worker.exitCode === null) {
     worker.kill("SIGTERM");
