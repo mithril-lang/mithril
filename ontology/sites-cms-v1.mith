@@ -1,0 +1,193 @@
+(mithril/ontology
+  :id "https://mithril.fund/ontology/sites-cms-v1"
+  :profile
+  ["https://www.w3.org/TR/rdf11-concepts/"
+   "https://www.w3.org/TR/owl2-profiles/#OWL_2_RL"
+   "https://www.w3.org/TR/shacl/"]
+  :graph
+  [(owl/class :id "https://mithril.fund/ns/sites-cms/v1#Site")
+   (owl/class :id "https://mithril.fund/ns/sites-cms/v1#SiteRevision")
+   (owl/class :id "https://mithril.fund/ns/sites-cms/v1#ContentEntry")
+   (owl/class :id "https://mithril.fund/ns/sites-cms/v1#Page"
+              :rdfs/sub-class-of "https://mithril.fund/ns/sites-cms/v1#ContentEntry")
+   (owl/class :id "https://mithril.fund/ns/sites-cms/v1#Post"
+              :rdfs/sub-class-of "https://mithril.fund/ns/sites-cms/v1#ContentEntry")
+   (owl/class :id "https://mithril.fund/ns/sites-cms/v1#Term")
+   (owl/class :id "https://mithril.fund/ns/sites-cms/v1#Asset")
+   (owl/class :id "https://mithril.fund/ns/sites-cms/v1#ImportReceipt")
+   (owl/class :id "https://mithril.fund/ns/sites-cms/v1#OwnerApproval")
+   (owl/class :id "https://mithril.fund/ns/sites-cms/v1#Hostname")
+   (owl/object-property
+     :id "https://mithril.fund/ns/sites-cms/v1#currentRevision"
+     :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#Site"
+     :rdfs/range "https://mithril.fund/ns/sites-cms/v1#SiteRevision")
+   (owl/object-property
+     :id "https://mithril.fund/ns/sites-cms/v1#hostname"
+     :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#Site"
+     :rdfs/range "https://mithril.fund/ns/sites-cms/v1#Hostname")
+   (owl/object-property
+     :id "https://mithril.fund/ns/sites-cms/v1#site"
+     :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#ContentEntry"
+     :rdfs/range "https://mithril.fund/ns/sites-cms/v1#Site")
+   (owl/object-property
+     :id "https://mithril.fund/ns/sites-cms/v1#containsEntry"
+     :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#SiteRevision"
+     :rdfs/range "https://mithril.fund/ns/sites-cms/v1#ContentEntry")
+   (owl/datatype-property
+     :id "https://mithril.fund/ns/sites-cms/v1#tenantId"
+     :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#Site")
+   (owl/datatype-property
+     :id "https://mithril.fund/ns/sites-cms/v1#sitePublicationState"
+     :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#Site")
+   (owl/datatype-property
+     :id "https://mithril.fund/ns/sites-cms/v1#hostnameValue"
+     :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#Hostname")
+   (owl/datatype-property
+     :id "https://mithril.fund/ns/sites-cms/v1#revisionState"
+     :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#SiteRevision")
+   (owl/datatype-property
+     :id "https://mithril.fund/ns/sites-cms/v1#sourceOrigin"
+     :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#SiteRevision")
+   (owl/datatype-property
+     :id "https://mithril.fund/ns/sites-cms/v1#sourceSystem"
+     :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#ContentEntry")
+   (owl/datatype-property
+     :id "https://mithril.fund/ns/sites-cms/v1#sourceId"
+     :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#ContentEntry")
+   (owl/datatype-property
+     :id "https://mithril.fund/ns/sites-cms/v1#kind"
+     :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#ContentEntry")
+   (owl/datatype-property
+     :id "https://mithril.fund/ns/sites-cms/v1#slug"
+     :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#ContentEntry")
+   (owl/datatype-property
+     :id "https://mithril.fund/ns/sites-cms/v1#title"
+     :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#ContentEntry")
+   (owl/datatype-property
+     :id "https://mithril.fund/ns/sites-cms/v1#sourceHtml"
+     :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#ContentEntry")
+   (owl/datatype-property
+     :id "https://mithril.fund/ns/sites-cms/v1#safeHtml"
+     :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#ContentEntry")
+   (owl/datatype-property
+     :id "https://mithril.fund/ns/sites-cms/v1#trustState"
+     :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#ContentEntry")
+   (owl/datatype-property
+     :id "https://mithril.fund/ns/sites-cms/v1#publicationState"
+     :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#ContentEntry")
+   (owl/datatype-property
+     :id "https://mithril.fund/ns/sites-cms/v1#sourcePermalink"
+     :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#ContentEntry")
+   (owl/datatype-property
+     :id "https://mithril.fund/ns/sites-cms/v1#proofId"
+     :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#ImportReceipt")
+   (owl/datatype-property
+     :id "https://mithril.fund/ns/sites-cms/v1#sourceSite"
+     :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#ImportReceipt")
+   (owl/datatype-property
+     :id "https://mithril.fund/ns/sites-cms/v1#authorizedAt"
+     :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#ImportReceipt")
+   (owl/datatype-property
+     :id "https://mithril.fund/ns/sites-cms/v1#scope"
+     :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#ImportReceipt")
+   (owl/datatype-property
+     :id "https://mithril.fund/ns/sites-cms/v1#revisionId"
+     :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#OwnerApproval")
+   (owl/datatype-property
+     :id "https://mithril.fund/ns/sites-cms/v1#approvedBy"
+     :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#OwnerApproval")
+   (owl/datatype-property
+     :id "https://mithril.fund/ns/sites-cms/v1#approvedAt"
+     :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#OwnerApproval")
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/sites-cms/v1#SiteShape"
+     :sh/target-class "https://mithril.fund/ns/sites-cms/v1#Site"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/sites-cms/v1#tenantId"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/sites-cms/v1#hostname"
+        :sh/class "https://mithril.fund/ns/sites-cms/v1#Hostname"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/sites-cms/v1#sitePublicationState"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/sites-cms/v1#currentRevision"
+        :sh/class "https://mithril.fund/ns/sites-cms/v1#SiteRevision"
+        :sh/min-count 0 :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/sites-cms/v1#ContentEntryShape"
+     :sh/target-class "https://mithril.fund/ns/sites-cms/v1#ContentEntry"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/sites-cms/v1#site"
+        :sh/class "https://mithril.fund/ns/sites-cms/v1#Site"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/sites-cms/v1#sourceSystem"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/sites-cms/v1#sourceId"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/sites-cms/v1#slug"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/sites-cms/v1#title"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/sites-cms/v1#sourceHtml"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/sites-cms/v1#trustState"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/sites-cms/v1#publicationState"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/sites-cms/v1#ImportReceiptShape"
+     :sh/target-class "https://mithril.fund/ns/sites-cms/v1#ImportReceipt"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/sites-cms/v1#proofId"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/sites-cms/v1#sourceSite"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/sites-cms/v1#authorizedAt"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/sites-cms/v1#scope"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh:max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/sites-cms/v1#OwnerApprovalShape"
+     :sh/target-class "https://mithril.fund/ns/sites-cms/v1#OwnerApproval"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/sites-cms/v1#revisionId"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/sites-cms/v1#approvedBy"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/sites-cms/v1#approvedAt"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh:max-count 1)])])

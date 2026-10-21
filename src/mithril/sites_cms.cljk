@@ -1,0 +1,287 @@
+(ns mithril.sites-cms
+  "MithrilPress' tenant and WordPress import boundary.
+
+  This module prepares an owner-authorized import as private, inert content.
+  It does not fetch a WordPress site, render imported HTML, publish a revision,
+  execute a shortcode/plugin, or write to a storage service."
+  (:require [clojure.string :as str]))
+
+(def import-format "https://mithril.fund/artifact/wordpress-import-v1")
+(def tenant-zone "sites.mithril.love")
+(def max-import-records 500)
+(def max-content-chars 250000)
+(def max-import-chars 10000000)
+(def max-safe-content-chars 1250000)
+(def tenant-slug-pattern #"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?")
+(def entry-slug-pattern #"[^/?#\\\\\u0000-\u001f\u007f]+")
+
+(def reserved-tenant-slugs
+  #{"www" "admin" "api" "assets" "preview" "mail" "status"
+    "support" "docs" "help" "root"})
+
+(def supported-post-types #{"post" "page"})
+(def supported-source-statuses
+  #{"publish" "future" "draft" "pending" "private" "trash"})
+
+(defn- fail! [code detail data]
+  (throw (ex-info detail (merge {:mithril/error code :detail detail} data))))
+
+(defn- text-value? [value max-length]
+  (and (string? value)
+       (not (str/blank? value))
+       (<= (count value) max-length)))
+
+(defn- positive-id? [value]
+  (and (integer? value) (pos? value)))
+
+(defn- non-negative-id? [value]
+  (and (integer? value) (<= 0 value)))
+
+(defn site-hostname
+  "Validate and normalize one reserved tenant hostname.
+
+  The caller must use the returned hostname for an exact registry lookup. A
+  tenant identity is never inferred from an untrusted Host header alone."
+  [hostname]
+  (when-not (and (string? hostname) (<= 1 (count hostname) 253))
+    (fail! :mithril.sites/invalid-hostname
+           "hostname must be a bounded DNS name" {}))
+  (let [normalized (-> hostname str/lower-case (str/replace #"\\.$" ""))
+        suffix (str "." tenant-zone)]
+    (when-not (str/ends-with? normalized suffix)
+      (fail! :mithril.sites/hostname-outside-zone
+             "hostname is outside the MithrilPress Sites zone" {}))
+    (let [slug (subs normalized 0 (- (count normalized) (count suffix)))]
+      (when-not (and (re-matches tenant-slug-pattern slug)
+                     (not (contains? reserved-tenant-slugs slug)))
+        (fail! :mithril.sites/invalid-tenant-slug
+               "hostname must contain one available tenant label" {}))
+      normalized)))
+
+(defn tenant-for-host
+  "Resolve a normalized host through an exact host-to-tenant registry map."
+  [hostname registry]
+  (when-not (map? registry)
+    (fail! :mithril.sites/invalid-registry
+           "tenant registry must be a map" {}))
+  (get registry (site-hostname hostname)))
+
+(defn- authorization-receipt! [receipt]
+  ;; The host must verify the signed receipt before asserting this flag. This
+  ;; pure module validates the shape and scope but has no key or identity store.
+  (when-not (and (map? receipt)
+                 (true? (:owner-verified? receipt))
+                 (contains? (set (:scopes receipt)) :content-import)
+                 (text-value? (:proof-id receipt) 256)
+                 (text-value? (:source-site receipt) 2048)
+                 (text-value? (:authorized-at receipt) 128))
+    (fail! :mithril.sites/import-not-authorized
+           "import requires a verified owner receipt scoped to content-import"
+           {}))
+  receipt)
+
+(defn- rendered-field [record key]
+  (let [field (get record key)]
+    (when (map? field)
+      (or (when (string? (get field "raw")) (get field "raw"))
+          (when (string? (get field "rendered")) (get field "rendered"))))))
+
+(defn- content-field [record]
+  (let [content (get record "content")]
+    (when (map? content)
+      (cond
+        (string? (get content "raw"))
+        {:value (get content "raw") :context "edit"}
+
+        (string? (get content "rendered"))
+        {:value (get content "rendered") :context "view"}
+
+        :else nil))))
+
+(defn- id-vector? [value]
+  (and (vector? value)
+       (<= (count value) 1000)
+       (= (count value) (count (distinct value)))
+       (every? positive-id? value)))
+
+(defn- normalize-record [tenant-id record]
+  (when-not (map? record)
+    (fail! :mithril.sites/invalid-wordpress-record
+           "WordPress record must be a JSON object" {}))
+  (let [source-id (get record "id")
+        post-type (get record "type")
+        source-status (get record "status")
+        slug (get record "slug")
+        title (rendered-field record "title")
+        source-content (content-field record)
+        categories (get record "categories" [])
+        tags (get record "tags" [])
+        featured-media (get record "featured_media" 0)
+        date (get record "date")
+        date-gmt (get record "date_gmt")
+        modified (get record "modified")
+        modified-gmt (get record "modified_gmt")
+        permalink (get record "link")]
+    (when-not (positive-id? source-id)
+      (fail! :mithril.sites/invalid-source-id
+             "WordPress post id must be a positive integer" {}))
+    (when-not (contains? supported-post-types post-type)
+      (fail! :mithril.sites/unsupported-post-type
+             "only WordPress posts and pages are admitted in v1"
+             {:source-id source-id}))
+    (when-not (contains? supported-source-statuses source-status)
+      (fail! :mithril.sites/unsupported-source-status
+             "WordPress source status is not admitted in v1"
+             {:source-id source-id}))
+    (when-not (and (text-value? slug 200)
+                   (re-matches entry-slug-pattern slug))
+      (fail! :mithril.sites/invalid-entry-slug
+             "WordPress slug must be a bounded single path segment"
+             {:source-id source-id}))
+    (when-not (text-value? title 20000)
+      (fail! :mithril.sites/invalid-title
+             "WordPress title must contain a bounded rendered or raw string"
+             {:source-id source-id}))
+    (when-not (and source-content
+                   (text-value? (:value source-content) max-content-chars))
+      (fail! :mithril.sites/invalid-content
+             "WordPress content must contain a bounded raw or rendered string"
+             {:source-id source-id}))
+    (when-not (and (id-vector? categories) (id-vector? tags)
+                   (non-negative-id? featured-media))
+      (fail! :mithril.sites/invalid-taxonomy-or-media
+             "category, tag, and featured-media references must be numeric IDs"
+             {:source-id source-id}))
+    (doseq [[field value] [["date" date]
+                           ["date_gmt" date-gmt]
+                           ["modified" modified]
+                           ["modified_gmt" modified-gmt]]]
+      (when-not (or (nil? value) (and (string? value) (<= (count value) 128)))
+        (fail! :mithril.sites/invalid-date
+               (str "WordPress " field " must be a bounded string or null")
+               {:source-id source-id})))
+    (when-not (or (nil? permalink) (and (string? permalink) (<= (count permalink) 2048)))
+      (fail! :mithril.sites/invalid-permalink
+             "WordPress permalink metadata must be a bounded string"
+             {:source-id source-id}))
+    {:id (str "wordpress:" post-type ":" source-id)
+     :tenant-id tenant-id
+     :kind (keyword post-type)
+     :slug slug
+     :title title
+     :body {:format "wordpress-block-html/v1"
+            :source (:value source-content)
+            :source-context (:context source-content)
+            :trust :untrusted
+            :rendering :blocked-until-sanitized
+            :rendering-admission :blocked}
+     :taxonomy {:category-source-ids categories
+                :tag-source-ids tags}
+     :media {:featured-source-id (when (pos? featured-media) featured-media)}
+     :source {:system "wordpress"
+              :post-id source-id
+              :post-type post-type
+              :status source-status
+              :date date
+              :date-gmt date-gmt
+              :modified modified
+              :modified-gmt modified-gmt
+              :permalink permalink}
+     :publication-state :private-draft}))
+
+(defn prepare-wordpress-import
+  "Prepare a bounded WordPress REST API record vector as an inert private draft.
+
+  `authorization` must be an owner-verified import receipt. This function does
+  not fetch, persist, sanitize, render, or publish the input. The returned IDs
+  are stable for the same tenant, WordPress post type, and source post ID."
+  [tenant-id authorization records]
+  (when-not (text-value? tenant-id 128)
+    (fail! :mithril.sites/invalid-tenant-id
+           "tenant id must be a bounded non-empty string" {}))
+  (authorization-receipt! authorization)
+  (when-not (and (vector? records)
+                 (<= 1 (count records) max-import-records))
+    (fail! :mithril.sites/invalid-import-size
+           "WordPress import must contain between 1 and 500 records" {}))
+  (let [entries (mapv #(normalize-record tenant-id %) records)
+        source-ids (mapv :id entries)
+        body-size (reduce + 0 (map (comp count :source :body) entries))]
+    (when-not (= (count source-ids) (count (distinct source-ids)))
+      (fail! :mithril.sites/duplicate-source-id
+             "WordPress import contains duplicate post identities" {}))
+    (when (> body-size max-import-chars)
+      (fail! :mithril.sites/import-too-large
+             "WordPress import exceeds the admitted content size" {}))
+    {:format import-format
+     :tenant-id tenant-id
+     :source {:system "wordpress-rest-api"
+              :site (:source-site authorization)}
+     :authorization-proof-id (:proof-id authorization)
+     :entry-count (count entries)
+     :entries entries
+     :status :private-draft
+     :publication-admitted? false}))
+
+(defn admit-sanitized-import
+  "Attach host-sanitized output to a prepared import without replacing source.
+
+  `sanitized-by` identifies a reviewed sanitizer implementation and `items`
+  maps every stable entry ID to its bounded safe HTML and SHA-256 digest. The
+  caller is responsible for running the sanitizer; this pure function checks
+  the complete, one-to-one output envelope before opening the render gate."
+  [prepared-import {:keys [sanitized-by items processed-at]}]
+  (when-not (and (= import-format (:format prepared-import))
+                 (= :private-draft (:status prepared-import))
+                 (false? (:publication-admitted? prepared-import))
+                 (vector? (:entries prepared-import))
+                 (text-value? sanitized-by 256)
+                 (text-value? processed-at 128)
+                 (map? items))
+    (fail! :mithril.sites/invalid-sanitization-envelope
+           "sanitization requires a prepared private import and bounded output envelope"
+           {}))
+  (let [entry-ids (set (map :id (:entries prepared-import)))
+        item-ids (set (keys items))]
+    (when-not (= entry-ids item-ids)
+      (fail! :mithril.sites/sanitization-coverage-mismatch
+             "sanitization output must cover every import entry exactly once"
+             {}))
+    (assoc prepared-import
+           :entries
+           (mapv (fn [entry]
+                   (let [{:keys [html sha256]} (get items (:id entry))]
+                     (when-not (and (string? html)
+                                    (<= (count html) max-safe-content-chars)
+                                    (string? sha256)
+                                    (re-matches #"[0-9a-f]{64}" sha256))
+                       (fail! :mithril.sites/invalid-sanitized-content
+                              "sanitized HTML and its SHA-256 digest must be bounded and valid"
+                              {:entry-id (:id entry)}))
+                     (-> entry
+                         (assoc-in [:body :rendered] html)
+                         (assoc-in [:body :rendering] :sanitized-unapproved)
+                         (assoc-in [:body :rendering-admission] :ready)
+                         (assoc-in [:body :sanitization]
+                                   {:implementation sanitized-by
+                                    :sha256 sha256
+                                    :processed-at processed-at}))))
+                 (:entries prepared-import)))))
+
+(defn publication-admitted?
+  "Fail-closed publication gate for a prepared import and separate owner receipt."
+  [prepared-import approval]
+  (and (= import-format (:format prepared-import))
+       (= :private-draft (:status prepared-import))
+       (false? (:publication-admitted? prepared-import))
+       (vector? (:entries prepared-import))
+       (seq (:entries prepared-import))
+       (map? approval)
+       (true? (:owner-approved? approval))
+       (= (:tenant-id prepared-import) (:tenant-id approval))
+       (text-value? (:approval-proof-id approval) 256)
+       (text-value? (:owner-id approval) 256)
+       (text-value? (:revision-id approval) 256)
+       (text-value? (:approved-at approval) 128)
+       (every? #(= :ready (:rendering-admission %))
+               (map :body (:entries prepared-import)))))

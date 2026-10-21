@@ -2659,3 +2659,16 @@ subpath roots while preserving the original index export and initialization
 behavior. Returned subpath filenames are actual source-owned routes; declaration
 programs and the single declaration CLI retain their existing owner checks.
 See [independent subpath qualification](test/qualification/native-esm-subpaths/README.md).
+
+## MithrilPress
+
+MithrilPress is the repository's early open-source CMS and WordPress migration
+prototype. It builds on the Mithril content ontology and pure import boundary,
+with a Cloudflare Worker/D1 adapter for `*.sites.mithril.love`. The current slice
+imports owner-authorized WordPress posts and pages as private drafts, provides
+authenticated noindex previews and separate approval/publication steps, and
+serves a limited read-only WordPress REST-compatible API. It does not claim PHP,
+theme, plugin, shortcode, media-transfer, or full Gutenberg parity. See the
+[MithrilPress design](docs/design/mithrilpress-cms.md) and
+[Worker package](apps/mithrilpress-worker/README.md). It is not yet deployed or
+qualified for release.
