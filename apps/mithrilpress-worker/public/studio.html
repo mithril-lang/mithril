@@ -173,8 +173,13 @@
 
         <section id="usage-panel" class="usage-panel" aria-labelledby="usage-title" hidden>
           <div class="eyebrow">HOSTING ALLOWANCES</div>
-          <h1 id="usage-title">Free hosting usage</h1>
+          <h1 id="usage-title">Included hosting usage</h1>
           <div class="usage-cards">
+            <article class="usage-card">
+              <h2>Hosted requests</h2>
+              <p id="site-hosting-usage" class="usage-value">Loading…</p>
+              <p id="site-hosting-reset" class="usage-detail"></p>
+            </article>
             <article class="usage-card">
               <h2>Stored content for this site</h2>
               <p id="site-storage-usage" class="usage-value">Loading…</p>
@@ -192,7 +197,7 @@
             </article>
           </div>
           <p id="shared-storage-limit" class="usage-detail"></p>
-          <p class="usage-notice">These are MithrilPress application limits, not Cloudflare account telemetry. DNS migration snapshots are not included in the retained-content estimate. Worker request totals, D1 reads/writes/storage, and Workers AI neuron usage are not available in this site view. Cloudflare may apply account-wide free limits separately. MithrilPress does not upgrade or switch to paid usage automatically.</p>
+          <p class="usage-notice">MithrilPress is free for site owners within these allowances. A site request cap returns 429; the shared deployment cap returns 503 until 00:00 UTC. Every routed HTTP request counts, including Studio, DNS, media, previews, WordPress REST, and public pages; unresolved hosts consume the shared count only. The shared cap is checked before hostname lookup, but the Worker invocation and D1 counter write still count toward provider usage. These are application limits, not Cloudflare account telemetry or a guarantee against provider charges. Infrastructure costs are paid by the hosting operator; MithrilPress does not bill site owners or switch to paid usage automatically. DNS migration snapshots are not included in the retained-content estimate.</p>
           <p id="usage-status" class="status" role="status" aria-live="polite"></p>
         </section>
       </section>

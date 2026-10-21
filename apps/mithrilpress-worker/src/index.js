@@ -12,6 +12,9 @@ const MAX_BODY_BYTES = 12_000_000;
 const MAX_RECORDS = 500;
 const MAX_CONTENT_CHARS = 250_000;
 const MAX_IMPORT_CHARS = 10_000_000;
+const MAX_IMPORTED_TERMS = 5_000;
+const MAX_IMPORTED_TERM_BYTES = 1_000_000;
+const MAX_TAXONOMY_REFERENCES = 10_000;
 const MAX_SAFE_HTML_CHARS = 1_250_000;
 const MAX_D1_ROW_BYTES = 1_800_000;
 const SITE_CONTENT_LIMIT_BYTES = 16 * 1024 * 1024;
@@ -21,6 +24,8 @@ const DEPLOYMENT_MEDIA_LIMIT_BYTES = 8 * 1024 * 1024 * 1024;
 const MEDIA_READS_PER_DAY_LIMIT = 50_000;
 const SITE_MEDIA_READS_PER_DAY_LIMIT = 5_000;
 const MEDIA_WRITES_PER_DAY_LIMIT = 10_000;
+const HOSTING_REQUESTS_PER_DAY_LIMIT = 25_000;
+const SITE_HOSTING_REQUESTS_PER_DAY_LIMIT = 5_000;
 const ENTRY_SLUG = /^[^/?#\\\u0000-\u001f\u007f]{1,200}$/;
 const mithrilHostnameCore = instantiateMithrilNative({});
 const POST_TYPES = new Set(["post", "page"]);
@@ -98,8 +103,8 @@ function json(body, status = 200, headers = {}) {
   return response(JSON.stringify(body), status, { "Content-Type": "application/json; charset=utf-8", ...headers });
 }
 
-function fail(status, code, message) {
-  return json({ error: { code, message } }, status);
+function fail(status, code, message, headers = {}) {
+  return json({ error: { code, message } }, status, headers);
 }
 
 function storageQuotaCode(error) {
@@ -126,6 +131,52 @@ function mediaQuotaResponse(code) {
   return code === "site_media_quota_exceeded"
     ? fail(409, code, "This site's image storage allowance is full. Remove unused media or contact the hosting operator.")
     : fail(409, "deployment_media_quota_exceeded", "The shared image storage pool is full. New image uploads are paused until the operator removes media.");
+}
+
+function hostingRequestQuotaCode(error) {
+  const message = String(error?.message ?? error ?? "");
+  if (message.includes("site_daily_hosting_request_limit")) return "site_daily_hosting_request_limit";
+  if (message.includes("deployment_daily_hosting_request_limit")) return "deployment_daily_hosting_request_limit";
+  return null;
+}
+
+function d1ProviderLimitReached(error) {
+  const message = String(error?.message ?? error ?? "").toLowerCase();
+  return message.includes("exceeded d1's free tier daily row read limit")
+    || message.includes("exceeded d1's free tier daily row write limit")
+    || message.includes("exceeded d1's maximum account storage limit")
+    || message.includes("exceeded maximum db size");
+}
+
+function secondsUntilUtcRollover(date = new Date()) {
+  const nextUtcDay = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + 1);
+  return Math.max(1, Math.ceil((nextUtcDay - date.getTime()) / 1000));
+}
+
+function hostingRequestQuotaResponse(code, date = new Date()) {
+  const retryAfter = String(secondsUntilUtcRollover(date));
+  return code === "site_daily_hosting_request_limit"
+    ? fail(429, code, "This site's included daily hosting allowance is used. Public pages will resume after 00:00 UTC.", { "Retry-After": retryAfter })
+    : fail(503, "deployment_daily_hosting_request_limit", "The shared daily hosting allowance is used. Public pages will resume after 00:00 UTC.", { "Retry-After": retryAfter });
+}
+
+async function checkHostingRequest(env, siteId = null, date = new Date()) {
+  const dayUtc = date.toISOString().slice(0, 10);
+  try {
+    const statement = siteId === null
+      ? env.DB.prepare(
+        "INSERT INTO mithrilpress_deployment_daily_requests (singleton, day_utc, request_count) VALUES (1, ?, 1) ON CONFLICT(singleton) DO UPDATE SET day_utc = excluded.day_utc, request_count = CASE WHEN mithrilpress_deployment_daily_requests.day_utc = excluded.day_utc THEN mithrilpress_deployment_daily_requests.request_count + 1 ELSE 1 END",
+      ).bind(dayUtc)
+      : env.DB.prepare(
+          "INSERT INTO mithrilpress_site_daily_requests (site_id, day_utc, request_count) VALUES (?, ?, 1) ON CONFLICT(site_id) DO UPDATE SET day_utc = excluded.day_utc, request_count = CASE WHEN mithrilpress_site_daily_requests.day_utc = excluded.day_utc THEN mithrilpress_site_daily_requests.request_count + 1 ELSE 1 END",
+        ).bind(siteId, dayUtc);
+    await env.DB.batch([statement]);
+    return null;
+  } catch (error) {
+    const code = hostingRequestQuotaCode(error);
+    if (code) return hostingRequestQuotaResponse(code, date);
+    throw error;
+  }
 }
 
 async function countMediaWrite(env, limit, date = new Date()) {
@@ -316,6 +367,83 @@ function validIdList(value) {
     && value.length <= 1000
     && value.every((item) => Number.isSafeInteger(item) && item > 0)
     && new Set(value).size === value.length;
+}
+
+function normalizeTaxonomyTerms(value, entries) {
+  const invalid = (code) => {
+    throw Object.assign(new Error(), { status: 422, code });
+  };
+  const input = value ?? [];
+  if (!Array.isArray(input) || input.length > MAX_IMPORTED_TERMS) invalid("invalid_taxonomy_terms");
+  const terms = [];
+  const byKey = new Map();
+  const slugs = new Set();
+  const encoder = new TextEncoder();
+  let termBytes = 0;
+  for (const item of input) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) invalid("invalid_taxonomy_term");
+    const id = item.id;
+    const taxonomy = item.taxonomy === "tag" ? "post_tag" : item.taxonomy;
+    const slug = item.slug;
+    const name = item.name;
+    const description = typeof item.description === "string"
+      ? item.description
+      : renderedText(item, "description") ?? "";
+    const parentId = item.parent_term_id ?? item.parent ?? 0;
+    if (!Number.isSafeInteger(id) || id < 1 || !["category", "post_tag"].includes(taxonomy)
+        || !textValue(slug, 200) || !ENTRY_SLUG.test(slug)
+        || !textValue(name, 500) || typeof description !== "string" || description.length > 20_000
+        || !Number.isSafeInteger(parentId) || parentId < 0
+        || (taxonomy === "post_tag" && parentId !== 0)) {
+      invalid("invalid_taxonomy_term");
+    }
+    const key = `${taxonomy}:${id}`;
+    const slugKey = `${taxonomy}:${slug}`;
+    if (byKey.has(key) || slugs.has(slugKey)) invalid("duplicate_taxonomy_term");
+    const term = { id, taxonomy, slug, name, description, parentId };
+    byKey.set(key, term);
+    slugs.add(slugKey);
+    termBytes += encoder.encode(slug).byteLength + encoder.encode(name).byteLength + encoder.encode(description).byteLength;
+    if (termBytes > MAX_IMPORTED_TERM_BYTES) {
+      throw Object.assign(new Error(), { status: 413, code: "taxonomy_term_payload_too_large" });
+    }
+    terms.push(term);
+  }
+
+  for (const term of terms) {
+    if (term.parentId && (!byKey.has(`category:${term.parentId}`) || term.parentId === term.id)) {
+      invalid("unresolved_taxonomy_parent");
+    }
+  }
+  const visited = new Set();
+  for (const term of terms) {
+    const path = [];
+    const pathIds = new Set();
+    let current = term;
+    while (current) {
+      const key = `${current.taxonomy}:${current.id}`;
+      if (visited.has(key)) break;
+      if (pathIds.has(key)) invalid("cyclic_taxonomy_parent");
+      pathIds.add(key);
+      path.push(current);
+      if (path.length > 64) invalid("taxonomy_parent_depth_exceeded");
+      current = current.parentId ? byKey.get(`category:${current.parentId}`) : null;
+    }
+    for (const node of path) visited.add(`${node.taxonomy}:${node.id}`);
+  }
+
+  let references = 0;
+  for (const entry of entries) {
+    references += entry.categories.length + entry.tags.length;
+    if (references > MAX_TAXONOMY_REFERENCES) {
+      throw Object.assign(new Error(), { status: 413, code: "taxonomy_reference_limit_exceeded" });
+    }
+    if (entry.categories.some((id) => !byKey.has(`category:${id}`))
+        || entry.tags.some((id) => !byKey.has(`post_tag:${id}`))) {
+      invalid("unresolved_taxonomy_reference");
+    }
+  }
+  return terms;
 }
 
 async function sanitizeHtml(source) {
@@ -1043,7 +1171,10 @@ async function studioChat(request, env, site) {
   if (!sameOriginStudioMutation(request, site)) return fail(403, "same_origin_required", "Studio changes must come from this site.");
   const owner = await ownerToken(request, env, site, "content:write");
   if (!owner) return fail(401, "studio_login_required", "An active content:write session is required.");
-  if (!env.AI) return fail(503, "ai_unavailable", "Chat drafting is not configured for this site.");
+  const aiGatewayId = typeof env.AI_GATEWAY_ID === "string" ? env.AI_GATEWAY_ID.trim() : "";
+  if (env.STUDIO_AI_ENABLED !== "true" || !env.AI || !aiGatewayId || aiGatewayId === "default") {
+    return fail(503, "ai_unavailable", "Chat drafting is disabled until a named, budget-limited AI Gateway is configured.");
+  }
 
   const body = await readBoundedJson(request);
   if (!textValue(body?.message, 1800)) return fail(422, "invalid_message", "Enter a message of up to 1,800 characters.");
@@ -1094,15 +1225,12 @@ async function studioChat(request, env, site) {
       draft_revision_id: null,
       draft_state: null,
     };
-    await env.DB.prepare(
-      "INSERT INTO studio_conversations (site_id, id, token_id, base_revision_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
-    ).bind(site.id, conversation.id, owner.tokenId, site.current_revision_id, nowIso, nowIso).run();
   }
 
   const dailyQuota = await env.DB.prepare(
     "INSERT INTO studio_ai_usage (day_utc, request_count) VALUES (?, 1) ON CONFLICT(day_utc) DO UPDATE SET request_count = request_count + 1 WHERE studio_ai_usage.request_count < ? RETURNING request_count",
   ).bind(nowIso.slice(0, 10), STUDIO_DAILY_GENERATION_LIMIT).first();
-  if (!dailyQuota) return fail(429, "daily_ai_limit", "The free daily drafting allowance has been used. Try again after 00:00 UTC.");
+  if (!dailyQuota) return fail(429, "daily_ai_limit", "The daily MithrilPress drafting limit has been reached. Try again after 00:00 UTC.");
 
   const historyRows = await env.DB.prepare(
     "SELECT role, body FROM studio_messages WHERE site_id = ? AND conversation_id = ? ORDER BY created_at DESC LIMIT ?",
@@ -1131,9 +1259,9 @@ async function studioChat(request, env, site) {
       response_format: { type: "json_schema", json_schema: STUDIO_RESPONSE_SCHEMA },
       max_tokens: 700,
       temperature: 0.35,
-    });
+    }, { gateway: { id: aiGatewayId } });
   } catch {
-    return fail(503, "ai_generation_unavailable", "The free AI drafting service is temporarily unavailable. No draft was published.");
+    return fail(503, "ai_generation_unavailable", "The AI Gateway could not complete this draft request. No draft was saved or published.");
   }
 
   let proposal = modelResult?.response;
@@ -1177,7 +1305,16 @@ async function studioChat(request, env, site) {
   const entryId = `mithrilpress:chat:${conversation.id}`;
   const assistantAt = new Date(now.getTime() + 1).toISOString();
   const baseRevisionId = conversation.base_revision_id;
-  const statements = [
+  const statements = [];
+  const newConversationOffset = requestedConversationId === null ? 1 : 0;
+  if (newConversationOffset) {
+    statements.push(
+      env.DB.prepare(
+        "INSERT INTO studio_conversations (site_id, id, token_id, base_revision_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+      ).bind(site.id, conversation.id, owner.tokenId, baseRevisionId, nowIso, nowIso),
+    );
+  }
+  statements.push(
     env.DB.prepare(
       "UPDATE site_revisions SET state = 'superseded' WHERE site_id = ? AND id = (SELECT draft_revision_id FROM studio_conversations WHERE site_id = ? AND id = ?) AND state = 'private-preview'",
     ).bind(site.id, site.id, conversation.id),
@@ -1187,6 +1324,9 @@ async function studioChat(request, env, site) {
       site.id, conversation.id, owner.tokenId, baseRevisionId, conversation.draft_revision_id, site.current_revision_id),
     env.DB.prepare(
       "INSERT INTO entries (site_id, revision_id, entry_id, kind, slug, title, source_html, safe_html, entry_origin, publication_status, language_code, api_id, source_id, source_status, source_date, source_date_gmt, source_modified, source_modified_gmt, source_permalink, categories_json, tags_json, featured_media_id, rendering_admission) SELECT site_id, ?, entry_id, kind, slug, title, source_html, safe_html, entry_origin, publication_status, language_code, api_id, source_id, source_status, source_date, source_date_gmt, source_modified, source_modified_gmt, source_permalink, categories_json, tags_json, featured_media_id, rendering_admission FROM entries WHERE site_id = ? AND revision_id = ?",
+    ).bind(revisionId, site.id, baseRevisionId),
+    env.DB.prepare(
+      "INSERT INTO taxonomy_terms (site_id, revision_id, taxonomy, term_id, slug, name, description_html, parent_term_id) SELECT site_id, ?, taxonomy, term_id, slug, name, description_html, parent_term_id FROM taxonomy_terms WHERE site_id = ? AND revision_id = ?",
     ).bind(revisionId, site.id, baseRevisionId),
     env.DB.prepare(
       "INSERT INTO entries (site_id, revision_id, entry_id, kind, slug, title, source_html, safe_html, entry_origin, publication_status, language_code, api_id, source_id, source_status, source_date, source_date_gmt, source_modified, source_modified_gmt, source_permalink, categories_json, tags_json, featured_media_id, rendering_admission) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'chat', 'draft', ?, ?, NULL, 'draft', ?, ?, ?, ?, NULL, '[]', '[]', ?, 'ready')",
@@ -1208,7 +1348,7 @@ async function studioChat(request, env, site) {
       "INSERT INTO owner_actions (id, site_id, revision_id, token_id, action, created_at, metadata_json) SELECT ?, ?, ?, ?, 'chat-generate', ?, ? WHERE EXISTS (SELECT 1 FROM site_revisions WHERE site_id = ? AND id = ? AND state = 'private-preview')",
     ).bind(crypto.randomUUID(), site.id, revisionId, owner.tokenId, assistantAt,
       JSON.stringify({ model: STUDIO_MODEL, conversation_id: conversation.id, entry_id: entryId }), site.id, revisionId),
-  ];
+  );
   let saved;
   try {
     saved = await env.DB.batch(statements);
@@ -1217,7 +1357,8 @@ async function studioChat(request, env, site) {
     if (quotaCode) return storageQuotaResponse(quotaCode);
     return fail(503, "draft_not_saved", "The private draft could not be saved. No content was published.");
   }
-  if (saved[4]?.meta?.changes !== 1 || saved[5]?.meta?.changes !== 1) {
+  if (saved[5 + newConversationOffset]?.meta?.changes !== 1
+      || saved[6 + newConversationOffset]?.meta?.changes !== 1) {
     return fail(503, "draft_not_saved", "The private draft could not be saved. No content was published.");
   }
   return json({
@@ -1273,13 +1414,15 @@ async function studioUsage(request, env, site) {
   const now = new Date();
   const dayUtc = now.toISOString().slice(0, 10);
   const resetsAtUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)).toISOString();
-  const [storage, aiUsage, siteMedia, deploymentMedia, mediaOperations, siteMediaReads] = await Promise.all([
+  const [storage, aiUsage, siteMedia, deploymentMedia, mediaOperations, siteMediaReads, siteHostingRequests, deploymentHostingRequests] = await Promise.all([
     env.DB.prepare("SELECT content_bytes FROM mithrilpress_site_storage_usage WHERE site_id = ? LIMIT 1").bind(site.id).first(),
     env.DB.prepare("SELECT request_count FROM studio_ai_usage WHERE day_utc = ? LIMIT 1").bind(dayUtc).first(),
     env.DB.prepare("SELECT asset_bytes FROM mithrilpress_site_media_usage WHERE site_id = ? LIMIT 1").bind(site.id).first(),
     env.DB.prepare("SELECT asset_bytes FROM mithrilpress_deployment_media_usage WHERE singleton = 1").first(),
     env.DB.prepare("SELECT read_count, write_count FROM media_daily_operations WHERE day_utc = ? LIMIT 1").bind(dayUtc).first(),
     env.DB.prepare("SELECT day_utc, read_count FROM media_site_daily_reads WHERE site_id = ? LIMIT 1").bind(site.id).first(),
+    env.DB.prepare("SELECT day_utc, request_count FROM mithrilpress_site_daily_requests WHERE site_id = ? LIMIT 1").bind(site.id).first(),
+    env.DB.prepare("SELECT day_utc, request_count FROM mithrilpress_deployment_daily_requests WHERE singleton = 1 LIMIT 1").first(),
   ]);
   return json({
     storage: {
@@ -1292,6 +1435,13 @@ async function studioUsage(request, env, site) {
       scope: "shared_deployment",
       requests_used: Number(aiUsage?.request_count ?? 0),
       daily_app_limit: STUDIO_DAILY_GENERATION_LIMIT,
+      resets_at_utc: resetsAtUtc,
+    },
+    hosting_requests: {
+      site_requests_used: siteHostingRequests?.day_utc === dayUtc ? Number(siteHostingRequests.request_count ?? 0) : 0,
+      site_daily_limit: SITE_HOSTING_REQUESTS_PER_DAY_LIMIT,
+      deployment_requests_used: deploymentHostingRequests?.day_utc === dayUtc ? Number(deploymentHostingRequests.request_count ?? 0) : 0,
+      shared_deployment_daily_limit: HOSTING_REQUESTS_PER_DAY_LIMIT,
       resets_at_utc: resetsAtUtc,
     },
     r2_media: {
@@ -1330,6 +1480,9 @@ async function deleteStudioConversation(request, env, site, conversationId, owne
       ).bind(site.id, revisionId),
       env.DB.prepare(
         "DELETE FROM entries WHERE site_id = ? AND revision_id = ? AND ? <> COALESCE((SELECT current_revision_id FROM sites WHERE id = ?), '')",
+      ).bind(site.id, revisionId, revisionId, site.id),
+      env.DB.prepare(
+        "DELETE FROM taxonomy_terms WHERE site_id = ? AND revision_id = ? AND ? <> COALESCE((SELECT current_revision_id FROM sites WHERE id = ?), '')",
       ).bind(site.id, revisionId, revisionId, site.id),
     ]);
   }
@@ -1605,6 +1758,7 @@ async function importWordPress(request, env, site) {
   let parsedWxr = null;
   let sourceOrigin;
   let records;
+  let sourceTaxonomyTerms = [];
   let sourceDigest = null;
   let importFormat = "wordpress-rest-json";
   if (wxrTypes.has(contentType)) {
@@ -1616,12 +1770,14 @@ async function importWordPress(request, env, site) {
     }
     sourceOrigin = validateWxrChannelOrigin(parsedWxr.channelLink);
     records = parsedWxr.records;
+    sourceTaxonomyTerms = parsedWxr.taxonomyTerms;
     sourceDigest = hex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(xml)));
     importFormat = "wordpress-wxr-v1.2-subset";
   } else {
     body = await readBoundedJson(request);
     sourceOrigin = validateSourceOrigin(body?.source_site);
     records = body?.records;
+    sourceTaxonomyTerms = body?.taxonomy_terms ?? [];
   }
   if (!sourceOrigin || (site.source_origin && sourceOrigin !== site.source_origin)) {
     return fail(422, "source_origin_not_admitted", "Provide a WXR export whose channel link, or JSON source_site, matches the owner-authorized HTTPS WordPress origin for this site.");
@@ -1630,6 +1786,7 @@ async function importWordPress(request, env, site) {
     return fail(422, "invalid_import_size", "An import must contain between 1 and 500 supported WordPress post or page records.");
   }
   const entries = records.map(normalizeRecord);
+  const taxonomyTerms = normalizeTaxonomyTerms(sourceTaxonomyTerms, entries);
   const identities = new Set(entries.map((entry) => entry.entryId));
   if (identities.size !== entries.length) return fail(422, "duplicate_source_id", "The import contains duplicate WordPress record identities.");
   const slugs = new Set(entries.map((entry) => `${entry.kind}:${entry.slug}`));
@@ -1651,6 +1808,17 @@ async function importWordPress(request, env, site) {
       + encoder.encode(JSON.stringify([entry.sourceStatus, entry.sourceDate, entry.sourceDateGmt,
         entry.sourceModified, entry.sourceModifiedGmt, entry.sourcePermalink, entry.featuredMediaId])).byteLength;
     if (rowBytes > MAX_D1_ROW_BYTES) return fail(413, "entry_row_too_large", "An entry exceeds the D1 row budget.");
+  }
+
+  let safeTermBytes = 0;
+  for (const term of taxonomyTerms) {
+    term.descriptionHtml = await sanitizeHtml(term.description);
+    safeTermBytes += encoder.encode(term.slug).byteLength
+      + encoder.encode(term.name).byteLength
+      + encoder.encode(term.descriptionHtml).byteLength;
+    if (safeTermBytes > MAX_IMPORTED_TERM_BYTES) {
+      return fail(413, "taxonomy_term_payload_too_large", "The imported taxonomy descriptions exceed the term storage budget.");
+    }
   }
 
   const now = new Date().toISOString();
@@ -1675,6 +1843,15 @@ async function importWordPress(request, env, site) {
       ));
       await env.DB.batch(statements);
     }
+    const termInsert = env.DB.prepare(
+      "INSERT INTO taxonomy_terms (site_id, revision_id, taxonomy, term_id, slug, name, description_html, parent_term_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    );
+    for (let start = 0; start < taxonomyTerms.length; start += 50) {
+      const statements = taxonomyTerms.slice(start, start + 50).map((term) => termInsert.bind(
+        site.id, revisionId, term.taxonomy, term.id, term.slug, term.name, term.descriptionHtml, term.parentId,
+      ));
+      await env.DB.batch(statements);
+    }
     const finalized = await env.DB.batch([
       env.DB.prepare(
         "UPDATE site_revisions SET state = 'private-preview' WHERE site_id = ? AND id = ? AND state = 'importing'",
@@ -1684,6 +1861,7 @@ async function importWordPress(request, env, site) {
       ).bind(crypto.randomUUID(), site.id, revisionId, owner.tokenId, now,
         JSON.stringify({
           entry_count: entries.length,
+          taxonomy_term_count: taxonomyTerms.length,
           proof_id: proofId,
           import_format: importFormat,
           source_text_sha256: sourceDigest,
@@ -1695,6 +1873,9 @@ async function importWordPress(request, env, site) {
     const quotaCode = storageQuotaCode(error);
     try {
       await env.DB.batch([
+        env.DB.prepare(
+          "DELETE FROM taxonomy_terms WHERE site_id = ? AND revision_id = ? AND EXISTS (SELECT 1 FROM site_revisions WHERE site_id = ? AND id = ? AND state = 'importing')",
+        ).bind(site.id, revisionId, site.id, revisionId),
         env.DB.prepare(
           "UPDATE site_revisions SET state = 'failed' WHERE site_id = ? AND id = ? AND state = 'importing'",
         ).bind(site.id, revisionId),
@@ -1712,6 +1893,7 @@ async function importWordPress(request, env, site) {
     revision_id: revisionId,
     state: "private-preview",
     entry_count: entries.length,
+    taxonomy_term_count: taxonomyTerms.length,
     source_format: importFormat,
     source_text_sha256: sourceDigest,
     omitted: parsedWxr?.omitted ?? null,
@@ -1857,15 +2039,143 @@ async function wordpressRead(request, env, site, kind) {
   const totalPages = total === 0 ? 0 : Math.ceil(total / perPage);
   const headers = { "X-WP-Total": String(total), "X-WP-TotalPages": String(totalPages) };
   if (totalPages > 0) {
-    const origin = `https://${site.hostname}${url.pathname}`;
+    const pageLink = (targetPage) => {
+      const target = new URL(request.url);
+      target.searchParams.set("page", String(targetPage));
+      target.searchParams.set("per_page", String(perPage));
+      return `<${target.origin}${target.pathname}${target.search}>`;
+    };
     const links = [];
-    if (page > 1) links.push(`<${origin}?page=${page - 1}&per_page=${perPage}>; rel="prev"`);
-    if (page < totalPages) links.push(`<${origin}?page=${page + 1}&per_page=${perPage}>; rel="next"`);
+    if (page > 1) links.push(`${pageLink(page - 1)}; rel="prev"`);
+    if (page < totalPages) links.push(`${pageLink(page + 1)}; rel="next"`);
     if (links.length) headers.Link = links.join(", ");
   }
   const payload = (rows.results ?? []).map((row) => wpRecord(site, row));
   if (request.method === "HEAD") return response(null, 200, { "Content-Type": "application/json; charset=utf-8", ...headers });
   return json(payload, 200, headers);
+}
+
+function wpTerm(site, row) {
+  const taxonomy = row.taxonomy;
+  const path = taxonomy === "category" ? "category" : "tag";
+  const term = {
+    id: row.term_id,
+    count: Number(row.term_count ?? 0),
+    description: row.description_html,
+    link: `https://${site.hostname}/${path}/${encodeURIComponent(row.slug)}/`,
+    name: row.name,
+    slug: row.slug,
+    taxonomy,
+    meta: {},
+  };
+  if (taxonomy === "category") term.parent = row.parent_term_id;
+  return term;
+}
+
+async function wordpressTaxonomyRead(request, env, site, taxonomy, termId = null) {
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    return fail(405, "method_not_allowed", "This WordPress taxonomy endpoint is read-only.");
+  }
+  const url = new URL(request.url);
+  const context = url.searchParams.get("context");
+  if (context && context !== "view" && context !== "embed") {
+    return fail(401, "context_not_available", "Authenticated WordPress edit contexts are not available through the public API.");
+  }
+  if (!site.current_revision_id || site.status !== "active") {
+    if (termId !== null) return fail(404, "term_not_found", "Term not found.");
+    return json([], 200, { "X-WP-Total": "0", "X-WP-TotalPages": "0" });
+  }
+
+  const page = parseBoundedInt(url.searchParams.get("page"), 1, 1, 100000);
+  const perPage = parseBoundedInt(url.searchParams.get("per_page"), 10, 1, 100);
+  if (page === null || perPage === null) return fail(400, "invalid_pagination", "Use a valid WordPress page and per_page value (1-100).");
+  const slug = url.searchParams.get("slug");
+  if (slug !== null && (!textValue(slug, 200) || !ENTRY_SLUG.test(slug))) {
+    return fail(400, "invalid_slug", "The term slug filter is invalid.");
+  }
+  const search = url.searchParams.get("search");
+  if (search !== null && (!search.trim() || search.length > 100)) {
+    return fail(400, "invalid_search", "The term search must contain 1-100 characters.");
+  }
+  const hideEmptyValue = url.searchParams.get("hide_empty");
+  if (hideEmptyValue !== null && !["true", "false", "1", "0"].includes(hideEmptyValue)) {
+    return fail(400, "invalid_hide_empty", "Use true, false, 1, or 0 for hide_empty.");
+  }
+  const numericId = termId === null ? null : Number(termId);
+  if (termId !== null && (!Number.isSafeInteger(numericId) || numericId < 1)) {
+    return fail(404, "term_not_found", "Term not found.");
+  }
+  const hideEmpty = numericId === null
+    && (hideEmptyValue === null || hideEmptyValue === "true" || hideEmptyValue === "1");
+
+  const categoryReferences = taxonomy === "category";
+  const referencedIds = categoryReferences ? "e.categories_json" : "e.tags_json";
+  const countExpression = `(SELECT COUNT(*) FROM entries e, json_each(${referencedIds}) ref WHERE e.site_id = t.site_id AND e.revision_id = t.revision_id AND e.kind = 'post' AND e.publication_status = 'published' AND CAST(ref.value AS INTEGER) = t.term_id)`;
+  const conditions = ["t.site_id = ?", "t.revision_id = ?", "t.taxonomy = ?"];
+  const parameters = [site.id, site.current_revision_id, taxonomy];
+  if (numericId !== null) {
+    conditions.push("t.term_id = ?");
+    parameters.push(numericId);
+  }
+  if (slug !== null) {
+    conditions.push("t.slug = ?");
+    parameters.push(slug);
+  }
+  if (search !== null) {
+    conditions.push("instr(lower(t.name), lower(?)) > 0");
+    parameters.push(search.trim());
+  }
+  if (hideEmpty) conditions.push(`${countExpression} > 0`);
+  const where = conditions.join(" AND ");
+
+  if (numericId !== null) {
+    const row = await env.DB.prepare(
+      `SELECT t.term_id, t.taxonomy, t.slug, t.name, t.description_html, t.parent_term_id, ${countExpression} AS term_count FROM taxonomy_terms t WHERE ${where} LIMIT 1`,
+    ).bind(...parameters).first();
+    if (!row) return fail(404, "term_not_found", "Term not found.");
+    return request.method === "HEAD"
+      ? response(null, 200, { "Content-Type": "application/json; charset=utf-8" })
+      : json(wpTerm(site, row));
+  }
+
+  const orderValue = url.searchParams.get("order") ?? "asc";
+  if (!["asc", "desc"].includes(orderValue)) return fail(400, "invalid_order", "Sort order must be asc or desc.");
+  const order = orderValue === "desc" ? "DESC" : "ASC";
+  const orderby = url.searchParams.get("orderby") ?? "name";
+  const orderColumn = orderby === "id" ? "t.term_id"
+    : orderby === "slug" ? "t.slug"
+      : orderby === "count" ? "term_count" : "t.name";
+  if (!["name", "id", "slug", "count"].includes(orderby)) {
+    return fail(400, "invalid_orderby", "Sort terms by name, id, slug, or count.");
+  }
+
+  const termCounts = `WITH term_counts AS (SELECT CAST(ref.value AS INTEGER) AS term_id, COUNT(*) AS term_count FROM entries e, json_each(${referencedIds}) ref WHERE e.site_id = ? AND e.revision_id = ? AND e.kind = 'post' AND e.publication_status = 'published' GROUP BY CAST(ref.value AS INTEGER))`;
+  const listParameters = [site.id, site.current_revision_id, ...parameters];
+  const visibleTerms = hideEmpty ? " AND COALESCE(tc.term_count, 0) > 0" : "";
+  const count = await env.DB.prepare(
+    `${termCounts} SELECT COUNT(*) AS total FROM taxonomy_terms t LEFT JOIN term_counts tc ON tc.term_id = t.term_id WHERE ${where}${visibleTerms}`,
+  ).bind(...listParameters).first();
+  const total = Number(count?.total ?? 0);
+  const totalPages = total === 0 ? 0 : Math.ceil(total / perPage);
+  const offset = (page - 1) * perPage;
+  const rows = await env.DB.prepare(
+    `${termCounts} SELECT t.term_id, t.taxonomy, t.slug, t.name, t.description_html, t.parent_term_id, COALESCE(tc.term_count, 0) AS term_count FROM taxonomy_terms t LEFT JOIN term_counts tc ON tc.term_id = t.term_id WHERE ${where}${visibleTerms} ORDER BY ${orderColumn} ${order}, t.term_id ASC LIMIT ? OFFSET ?`,
+  ).bind(...listParameters, perPage, offset).all();
+  const headers = { "X-WP-Total": String(total), "X-WP-TotalPages": String(totalPages) };
+  if (totalPages > 0) {
+    const pageLink = (targetPage) => {
+      const target = new URL(request.url);
+      target.searchParams.set("page", String(targetPage));
+      target.searchParams.set("per_page", String(perPage));
+      return `<${target.origin}${target.pathname}${target.search}>`;
+    };
+    const links = [];
+    if (page > 1) links.push(`${pageLink(page - 1)}; rel="prev"`);
+    if (page < totalPages) links.push(`${pageLink(page + 1)}; rel="next"`);
+    if (links.length) headers.Link = links.join(", ");
+  }
+  if (request.method === "HEAD") return response(null, 200, { "Content-Type": "application/json; charset=utf-8", ...headers });
+  return json((rows.results ?? []).map((row) => wpTerm(site, row)), 200, headers);
 }
 
 function escapeHtml(value) {
@@ -1890,6 +2200,42 @@ function htmlDocument(hostname, entry, privatePreview = false, headOnly = false,
   return response(headOnly ? null : body, 200, headers);
 }
 
+async function publicTaxonomyArchive(request, env, site, taxonomy, slug) {
+  const term = await env.DB.prepare(
+    "SELECT term_id, taxonomy, slug, name, description_html FROM taxonomy_terms WHERE site_id = ? AND revision_id = ? AND taxonomy = ? AND slug = ? LIMIT 1",
+  ).bind(site.id, site.current_revision_id, taxonomy, slug).first();
+  if (!term) return fail(404, "term_not_found", "Term not found.");
+  const page = parseBoundedInt(new URL(request.url).searchParams.get("page"), 1, 1, 100000);
+  const perPage = parseBoundedInt(new URL(request.url).searchParams.get("per_page"), 10, 1, 50);
+  if (page === null || perPage === null) return fail(400, "invalid_pagination", "Use a valid page and per_page value (1-50).");
+  const referencedIds = taxonomy === "category" ? "e.categories_json" : "e.tags_json";
+  const matching = `e.site_id = ? AND e.revision_id = ? AND e.kind = 'post' AND e.publication_status = 'published' AND CAST(ref.value AS INTEGER) = ?`;
+  const count = await env.DB.prepare(
+    `SELECT COUNT(*) AS total FROM entries e, json_each(${referencedIds}) ref WHERE ${matching}`,
+  ).bind(site.id, site.current_revision_id, term.term_id).first();
+  const total = Number(count?.total ?? 0);
+  const totalPages = Math.ceil(total / perPage);
+  const rows = await env.DB.prepare(
+    `SELECT e.kind, e.slug, e.title FROM entries e, json_each(${referencedIds}) ref WHERE ${matching} ORDER BY COALESCE(e.source_date, '') DESC, e.api_id ASC LIMIT ? OFFSET ?`,
+  ).bind(site.id, site.current_revision_id, term.term_id, perPage, (page - 1) * perPage).all();
+  const archivePath = taxonomy === "category" ? "category" : "tag";
+  const canonical = `https://${site.hostname}/${archivePath}/${encodeURIComponent(term.slug)}/`;
+  const articleLinks = (rows.results ?? []).map((entry) => {
+    const href = canonicalUrl(site.hostname, entry.slug, entry.kind);
+    return `<li><a href="${escapeHtml(href)}">${escapeHtml(entry.title)}</a></li>`;
+  }).join("");
+  const pageLinks = [
+    page > 1 ? `<a rel="prev" href="?page=${page - 1}&amp;per_page=${perPage}">Previous</a>` : "",
+    page < totalPages ? `<a rel="next" href="?page=${page + 1}&amp;per_page=${perPage}">Next</a>` : "",
+  ].filter(Boolean).join(" ");
+  const body = `<!doctype html><html lang="und"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="index, follow"><title>${escapeHtml(term.name)}</title><link rel="canonical" href="${escapeHtml(canonical)}"></head><body><main><h1>${escapeHtml(term.name)}</h1><div>${term.description_html}</div><ul>${articleLinks}</ul><nav aria-label="Pagination">${pageLinks}</nav></main></body></html>`;
+  const headers = {
+    "Content-Type": "text/html; charset=utf-8",
+    "Content-Security-Policy": "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'; img-src 'self'; style-src 'none'; connect-src 'none'",
+  };
+  return response(request.method === "HEAD" ? null : body, 200, headers);
+}
+
 async function publicPage(request, env, site, pathname) {
   if (request.method !== "GET" && request.method !== "HEAD") return fail(405, "method_not_allowed", "This site is read-only for public visitors.");
   if (!site.current_revision_id || site.status !== "active") return fail(404, "site_not_published", "This site has no published revision.");
@@ -1903,6 +2249,12 @@ async function publicPage(request, env, site, pathname) {
     ).bind(site.id, site.current_revision_id).first();
     return firstPost ? htmlDocument(site.hostname, firstPost, false, request.method === "HEAD", await featuredMediaForEntry(env, site, firstPost)) : fail(404, "site_empty", "No published content is available.");
   }
+  const archiveMatch = /^\/(category|tag)\/([^/]+)\/?$/.exec(pathname);
+  if (archiveMatch) {
+    const slug = parsePathSegment(archiveMatch[2]);
+    if (!slug || !ENTRY_SLUG.test(slug)) return fail(404, "term_not_found", "Term not found.");
+    return await publicTaxonomyArchive(request, env, site, archiveMatch[1] === "category" ? "category" : "post_tag", slug);
+  }
   const rawSlug = pathname.replace(/^\/+|\/+$/g, "");
   const slug = parsePathSegment(rawSlug);
   if (!slug || !ENTRY_SLUG.test(slug)) return fail(404, "entry_not_found", "Entry not found.");
@@ -1913,9 +2265,18 @@ async function publicPage(request, env, site, pathname) {
 }
 
 async function handleRequest(request, env) {
+  // Count the deployment allowance before resolving the tenant. Once the
+  // shared cap is exhausted, reject further requests without reading D1's
+  // hostname registry. This counter covers every HTTP route, not just pages.
+  const deploymentLimit = await checkHostingRequest(env);
+  if (deploymentLimit) return deploymentLimit;
+
   const site = await resolveSite(request, env);
-  if (!site) return fail(404, "site_not_found", "Site not found.");
-  if (site.status !== "active") return fail(404, "site_not_found", "Site not found.");
+  if (!site || site.status !== "active") return fail(404, "site_not_found", "Site not found.");
+
+  const siteLimit = await checkHostingRequest(env, site.id);
+  if (siteLimit) return siteLimit;
+
   const url = new URL(request.url);
 
   if (url.pathname === "/_mithrilpress/studio" || url.pathname === "/_mithrilpress/studio/" || url.pathname === "/_mithrilpress/studio.html") {
@@ -1984,6 +2345,11 @@ async function handleRequest(request, env) {
   }
   const wpMatch = /^\/wp-json\/wp\/v2\/(posts|pages)\/?$/.exec(url.pathname);
   if (wpMatch) return await wordpressRead(request, env, site, wpMatch[1] === "pages" ? "page" : "post");
+  const wpTaxonomyMatch = /^\/wp-json\/wp\/v2\/(categories|tags)(?:\/(\d+))?\/?$/.exec(url.pathname);
+  if (wpTaxonomyMatch) {
+    const taxonomy = wpTaxonomyMatch[1] === "categories" ? "category" : "post_tag";
+    return await wordpressTaxonomyRead(request, env, site, taxonomy, wpTaxonomyMatch[2] ?? null);
+  }
 
   if (url.pathname === "/_mithrilpress/api/media") return await studioMedia(request, env, site);
   const studioMediaMatch = /^\/_mithrilpress\/api\/media\/(\d+)$/.exec(url.pathname);
@@ -2009,6 +2375,9 @@ export default {
     try {
       return await handleRequest(request, env);
     } catch (error) {
+      if (d1ProviderLimitReached(error)) {
+        return fail(503, "provider_usage_limit", "Hosting is temporarily unavailable because a Cloudflare D1 usage limit has been reached.");
+      }
       if (error?.status && error?.code) return fail(error.status, error.code, "The request could not be processed.");
       console.error(JSON.stringify({ event: "sites_request_failed", request_id: requestId }));
       return fail(500, "internal_error", "The request could not be completed.");
