@@ -98,9 +98,13 @@ implemented; broad Gutenberg support remains follow-up work.
 Studio uses a short-lived owner token exchange, a one-hour `HttpOnly`, `Secure`,
 `SameSite=Strict` cookie session, same-origin mutation checks, prepared D1
 queries, bounded chat history, HTML sanitization, and an eight-generation daily
-app cap. It stores conversations in D1 until the owner deletes them. Workers AI
-processes the conversation and current draft to produce a proposal; the proposal
-is not fact-checked and must not be published without owner review. The default
+app cap. D1 triggers cap each conversation at 40 messages, a site at 50 saved
+conversations and 4 MiB of UTF-8 message text, and the deployment at 1,000
+conversations and 64 MiB of message text. The Usage view reports those text
+estimates, and deleting a conversation releases its message allowance. This is
+not a physical D1 database-size measurement. Workers AI processes the
+conversation and current draft to produce a proposal; the proposal is not
+fact-checked and must not be published without owner review. The default
 free-hosting path uses `@cf/meta/llama-3.3-70b-instruct-fp8-fast` directly
 through the Workers AI binding, with no AI Gateway or paid fallback. The model
 is listed as supporting Workers AI JSON Mode, matching Studio's JSON Schema
@@ -242,9 +246,9 @@ entries and imported taxonomy terms, and a 256 MiB deployment-wide limit across
 immutable revisions. The Studio shows the site's estimate and daily public
 request count, the shared app-level AI request count and conservative Neuron
 reservation, R2 image storage, and per-site and shared daily image operations.
-The content estimate excludes
-indexes, database metadata,
-conversations, audit rows, and the physical D1 database size. Account-level
+The retained-content estimate excludes indexes, database metadata, chat-history
+rows (which have separate application quotas), DNS snapshots, audit rows, and
+the physical D1 database size. Account-level
 Worker requests outside public page/REST routes and D1
 reads/writes/storage are not measured in the Studio and must be monitored in
 Cloudflare. Workers AI neurons are also not tenant-metered, but the dedicated
