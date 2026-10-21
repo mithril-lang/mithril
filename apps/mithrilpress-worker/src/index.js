@@ -140,6 +140,14 @@ function hostingRequestQuotaCode(error) {
   return null;
 }
 
+function d1ProviderLimitReached(error) {
+  const message = String(error?.message ?? error ?? "").toLowerCase();
+  return message.includes("exceeded d1's free tier daily row read limit")
+    || message.includes("exceeded d1's free tier daily row write limit")
+    || message.includes("exceeded d1's maximum account storage limit")
+    || message.includes("exceeded maximum db size");
+}
+
 function secondsUntilUtcRollover(date = new Date()) {
   const nextUtcDay = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + 1);
   return Math.max(1, Math.ceil((nextUtcDay - date.getTime()) / 1000));
@@ -155,19 +163,14 @@ function hostingRequestQuotaResponse(code, date = new Date()) {
 async function checkHostingRequest(env, siteId = null, date = new Date()) {
   const dayUtc = date.toISOString().slice(0, 10);
   try {
-    const statements = [
-      env.DB.prepare(
+    const statement = siteId === null
+      ? env.DB.prepare(
         "INSERT INTO mithrilpress_deployment_daily_requests (singleton, day_utc, request_count) VALUES (1, ?, 1) ON CONFLICT(singleton) DO UPDATE SET day_utc = excluded.day_utc, request_count = CASE WHEN mithrilpress_deployment_daily_requests.day_utc = excluded.day_utc THEN mithrilpress_deployment_daily_requests.request_count + 1 ELSE 1 END",
-      ).bind(dayUtc),
-    ];
-    if (siteId !== null) {
-      statements.push(
-        env.DB.prepare(
+      ).bind(dayUtc)
+      : env.DB.prepare(
           "INSERT INTO mithrilpress_site_daily_requests (site_id, day_utc, request_count) VALUES (?, ?, 1) ON CONFLICT(site_id) DO UPDATE SET day_utc = excluded.day_utc, request_count = CASE WHEN mithrilpress_site_daily_requests.day_utc = excluded.day_utc THEN mithrilpress_site_daily_requests.request_count + 1 ELSE 1 END",
-        ).bind(siteId, dayUtc),
-      );
-    }
-    await env.DB.batch(statements);
+        ).bind(siteId, dayUtc);
+    await env.DB.batch([statement]);
     return null;
   } catch (error) {
     const code = hostingRequestQuotaCode(error);
@@ -1168,7 +1171,10 @@ async function studioChat(request, env, site) {
   if (!sameOriginStudioMutation(request, site)) return fail(403, "same_origin_required", "Studio changes must come from this site.");
   const owner = await ownerToken(request, env, site, "content:write");
   if (!owner) return fail(401, "studio_login_required", "An active content:write session is required.");
-  if (!env.AI) return fail(503, "ai_unavailable", "Chat drafting is not configured for this site.");
+  const aiGatewayId = typeof env.AI_GATEWAY_ID === "string" ? env.AI_GATEWAY_ID.trim() : "";
+  if (env.STUDIO_AI_ENABLED !== "true" || !env.AI || !aiGatewayId || aiGatewayId === "default") {
+    return fail(503, "ai_unavailable", "Chat drafting is disabled until a named, budget-limited AI Gateway is configured.");
+  }
 
   const body = await readBoundedJson(request);
   if (!textValue(body?.message, 1800)) return fail(422, "invalid_message", "Enter a message of up to 1,800 characters.");
@@ -1224,7 +1230,7 @@ async function studioChat(request, env, site) {
   const dailyQuota = await env.DB.prepare(
     "INSERT INTO studio_ai_usage (day_utc, request_count) VALUES (?, 1) ON CONFLICT(day_utc) DO UPDATE SET request_count = request_count + 1 WHERE studio_ai_usage.request_count < ? RETURNING request_count",
   ).bind(nowIso.slice(0, 10), STUDIO_DAILY_GENERATION_LIMIT).first();
-  if (!dailyQuota) return fail(429, "daily_ai_limit", "The free daily drafting allowance has been used. Try again after 00:00 UTC.");
+  if (!dailyQuota) return fail(429, "daily_ai_limit", "The daily MithrilPress drafting limit has been reached. Try again after 00:00 UTC.");
 
   const historyRows = await env.DB.prepare(
     "SELECT role, body FROM studio_messages WHERE site_id = ? AND conversation_id = ? ORDER BY created_at DESC LIMIT ?",
@@ -1253,9 +1259,9 @@ async function studioChat(request, env, site) {
       response_format: { type: "json_schema", json_schema: STUDIO_RESPONSE_SCHEMA },
       max_tokens: 700,
       temperature: 0.35,
-    });
+    }, { gateway: { id: aiGatewayId } });
   } catch {
-    return fail(503, "ai_generation_unavailable", "The free AI drafting service is temporarily unavailable. No draft was published.");
+    return fail(503, "ai_generation_unavailable", "The AI Gateway could not complete this draft request. No draft was saved or published.");
   }
 
   let proposal = modelResult?.response;
@@ -1408,7 +1414,7 @@ async function studioUsage(request, env, site) {
   const now = new Date();
   const dayUtc = now.toISOString().slice(0, 10);
   const resetsAtUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)).toISOString();
-  const [storage, aiUsage, siteMedia, deploymentMedia, mediaOperations, siteMediaReads, siteHostingRequests] = await Promise.all([
+  const [storage, aiUsage, siteMedia, deploymentMedia, mediaOperations, siteMediaReads, siteHostingRequests, deploymentHostingRequests] = await Promise.all([
     env.DB.prepare("SELECT content_bytes FROM mithrilpress_site_storage_usage WHERE site_id = ? LIMIT 1").bind(site.id).first(),
     env.DB.prepare("SELECT request_count FROM studio_ai_usage WHERE day_utc = ? LIMIT 1").bind(dayUtc).first(),
     env.DB.prepare("SELECT asset_bytes FROM mithrilpress_site_media_usage WHERE site_id = ? LIMIT 1").bind(site.id).first(),
@@ -1416,6 +1422,7 @@ async function studioUsage(request, env, site) {
     env.DB.prepare("SELECT read_count, write_count FROM media_daily_operations WHERE day_utc = ? LIMIT 1").bind(dayUtc).first(),
     env.DB.prepare("SELECT day_utc, read_count FROM media_site_daily_reads WHERE site_id = ? LIMIT 1").bind(site.id).first(),
     env.DB.prepare("SELECT day_utc, request_count FROM mithrilpress_site_daily_requests WHERE site_id = ? LIMIT 1").bind(site.id).first(),
+    env.DB.prepare("SELECT day_utc, request_count FROM mithrilpress_deployment_daily_requests WHERE singleton = 1 LIMIT 1").first(),
   ]);
   return json({
     storage: {
@@ -1430,9 +1437,10 @@ async function studioUsage(request, env, site) {
       daily_app_limit: STUDIO_DAILY_GENERATION_LIMIT,
       resets_at_utc: resetsAtUtc,
     },
-    public_hosting: {
+    hosting_requests: {
       site_requests_used: siteHostingRequests?.day_utc === dayUtc ? Number(siteHostingRequests.request_count ?? 0) : 0,
       site_daily_limit: SITE_HOSTING_REQUESTS_PER_DAY_LIMIT,
+      deployment_requests_used: deploymentHostingRequests?.day_utc === dayUtc ? Number(deploymentHostingRequests.request_count ?? 0) : 0,
       shared_deployment_daily_limit: HOSTING_REQUESTS_PER_DAY_LIMIT,
       resets_at_utc: resetsAtUtc,
     },
@@ -2257,12 +2265,18 @@ async function publicPage(request, env, site, pathname) {
 }
 
 async function handleRequest(request, env) {
+  // Count the deployment allowance before resolving the tenant. Once the
+  // shared cap is exhausted, reject further requests without reading D1's
+  // hostname registry. This counter covers every HTTP route, not just pages.
+  const deploymentLimit = await checkHostingRequest(env);
+  if (deploymentLimit) return deploymentLimit;
+
   const site = await resolveSite(request, env);
-  if (!site || site.status !== "active") {
-    const hostingLimit = await checkHostingRequest(env);
-    if (hostingLimit) return hostingLimit;
-    return fail(404, "site_not_found", "Site not found.");
-  }
+  if (!site || site.status !== "active") return fail(404, "site_not_found", "Site not found.");
+
+  const siteLimit = await checkHostingRequest(env, site.id);
+  if (siteLimit) return siteLimit;
+
   const url = new URL(request.url);
 
   if (url.pathname === "/_mithrilpress/studio" || url.pathname === "/_mithrilpress/studio/" || url.pathname === "/_mithrilpress/studio.html") {
@@ -2323,11 +2337,6 @@ async function handleRequest(request, env) {
     return await previewRevision(request, env, site, previewMatch[1], slug);
   }
 
-  if (url.pathname.startsWith("/wp-json/")) {
-    const hostingLimit = await checkHostingRequest(env, site.id);
-    if (hostingLimit) return hostingLimit;
-  }
-
   const wpMediaMatch = /^\/wp-json\/wp\/v2\/media\/(\d+)\/?$/.exec(url.pathname);
   if (wpMediaMatch) {
     const mediaId = Number(wpMediaMatch[1]);
@@ -2357,8 +2366,6 @@ async function handleRequest(request, env) {
   }
   if (url.pathname.startsWith("/wp-json/")) return fail(404, "rest_route_not_supported", "This WordPress-compatible route is not implemented.");
 
-  const hostingLimit = await checkHostingRequest(env, site.id);
-  if (hostingLimit) return hostingLimit;
   return await publicPage(request, env, site, url.pathname);
 }
 
@@ -2368,6 +2375,9 @@ export default {
     try {
       return await handleRequest(request, env);
     } catch (error) {
+      if (d1ProviderLimitReached(error)) {
+        return fail(503, "provider_usage_limit", "Hosting is temporarily unavailable because a Cloudflare D1 usage limit has been reached.");
+      }
       if (error?.status && error?.code) return fail(error.status, error.code, "The request could not be processed.");
       console.error(JSON.stringify({ event: "sites_request_failed", request_id: requestId }));
       return fail(500, "internal_error", "The request could not be completed.");

@@ -1,8 +1,9 @@
 PRAGMA foreign_keys = ON;
 
--- Public page, read-only WordPress REST, and unresolved/inactive-host traffic
--- is metered separately from media operations. One row per site and deployment
--- is reused at UTC rollover.
+-- Every routed HTTP request consumes a shared deployment allowance. Requests
+-- that resolve to an active site also consume that site's allowance. These
+-- counters are application guardrails, separate from media operation caps.
+-- One row per site and deployment is reused at UTC rollover.
 CREATE TABLE mithrilpress_deployment_daily_requests (
   singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
   day_utc TEXT NOT NULL CHECK (length(day_utc) = 10),

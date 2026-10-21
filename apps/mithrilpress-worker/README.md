@@ -162,9 +162,19 @@ owner preview; public routes expose records whose source status was `publish`.
 Chat-created entries are draft-only until their containing revision is approved
 and explicitly published. Workers AI receives the bounded conversation and
 current draft to generate a proposal. The prototype caps Studio generation at
-eight requests per UTC day across the deployment; the Cloudflare account-wide
-free AI allowance can be exhausted earlier by other workloads, in which case
-draft generation stops rather than switching to paid usage.
+eight requests per UTC day across the deployment. Studio AI is disabled in the
+example deployment and only runs through an explicitly configured, named AI
+Gateway; the implicit `default` gateway is rejected. Before enabling it, the
+operator must configure and verify a spend-limit rule for MithrilPress on that
+gateway. The app-level request cap is not a neuron or dollar cap. Cloudflare
+Workers AI bills usage above its daily free neuron allocation on a Workers Paid
+account, and other workloads share that allocation. AI Gateway spend limits
+block requests after their configured budget, but enforcement is eventually
+consistent, so concurrent requests may briefly exceed the target. The prompt
+and output are bounded to limit that exposure, and a gateway rejection returns
+an unavailable response without saving or publishing a draft. See [Workers AI
+pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/) and
+[AI Gateway spend limits](https://developers.cloudflare.com/ai-gateway/features/spend-limits/).
 
 The Worker also enforces a 16 MiB retained-import content cap per site,
 including entries and taxonomy terms, and a 256 MiB cap across the deployment.
@@ -187,23 +197,33 @@ provider bill. Cloudflare's Workers Paid plan currently has a $5/month minimum,
 Workers AI have separate account-level allowances and pricing. MithrilPress
 does not bill site owners or automatically upgrade a plan.
 
-MithrilPress enforces 5,000 public page and WordPress REST requests per active
-site per UTC day and 25,000 public requests across the deployment. The shared
-counter also includes requests that reach this Worker but resolve to a missing
-or inactive host; those requests otherwise return 404. The request that reaches
-the cap is handled; later requests receive 429 for a site cap or 503 for the
-shared cap until 00:00 UTC. Studio APIs for resolved active sites are outside
-this public traffic allowance. Content and media storage, media reads/writes,
-and AI drafting have separate application caps. These are not Cloudflare
-account meters: the Worker invocation and hostname lookup happen before the
-application counter and can still count toward provider billing. Unrelated
-account workloads can exhaust shared quotas. The Studio does not measure all
-account-wide Worker requests, D1 reads/writes/storage, or Workers AI neuron
-usage. Import and rendering workloads have not been qualified against the
-current CPU limit. Usage monitoring and release gates are tracked in Linear
-MITHRIL-292. See [Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/),
+MithrilPress enforces 5,000 HTTP requests per active site per UTC day and
+25,000 HTTP requests across the deployment. Every routed request counts,
+including public pages, WordPress REST, Studio, previews, DNS, media, and
+unsupported routes. The shared counter increments before hostname resolution,
+so unresolved hosts also consume the shared cap and requests after the shared
+cap are rejected before the hostname registry is read. Resolved active sites
+then consume their site allowance. The request that reaches a cap is handled;
+later requests receive 429 for a site cap or 503 for the shared cap until 00:00
+UTC. These application counters limit MithrilPress routes; they do not stop
+Worker invocations at Cloudflare's billing layer. The Worker invocation and
+one D1 counter write still occur before a request can receive the shared-cap
+response, and unrelated workloads in the same Cloudflare account consume the
+same provider allocations. The Studio shows MithrilPress app counters, but does
+not measure all account-wide Worker requests, D1 reads/writes/storage, or
+Workers AI neuron usage. Cloudflare's Workers Paid plan has no request ceiling
+and meters usage beyond included allocations; budget alerts notify but do not
+pause or cap usage. A strict provider-level stop therefore requires a dedicated
+Workers Free deployment or an independently operated route shutdown, with the
+account and hostname-routing boundaries verified before launch; it is not
+provided by these app counters. On Workers Free, D1 daily read/write exhaustion
+or a D1 storage ceiling is returned as a clear 503 and requests fail closed.
+Import and rendering workloads have not been qualified against the current CPU
+limit. Usage monitoring and release gates are tracked in Linear MITHRIL-292.
+See [Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/),
 [Workers limits](https://developers.cloudflare.com/workers/platform/limits/),
 [D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/), and
+[Cloudflare budget alerts](https://developers.cloudflare.com/billing/manage/budget-alerts/),
 [Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/)
 again before each release.
 
