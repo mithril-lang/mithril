@@ -1,11 +1,13 @@
 # MithrilPress: WordPress-compatible migration CMS
 
-**Status: OSS implementation prototype.** This branch contains the Mithril
-content ontology and pure boundary, a Cloudflare Worker/D1 host adapter, a
-bounded WordPress import and read-only REST-compatible subset, a chat-first
-owner Studio with private preview/approval/publication, and supervised
-sales-process docs. It is not yet qualified, merged, or deployed. This is a
-documented compatibility subset, not full WordPress parity.
+**Status: OSS implementation prototype, published in PRs #114 and #115 on
+2026-10-21.** The Mithril content ontology and pure import/chat boundaries,
+Cloudflare Worker/D1 adapter, bounded WordPress import and read-only
+REST-compatible subset, chat-first owner Studio, and supervised sales-process
+docs are in the public repository. The exact Worker source passed its approved
+standalone qualification before integration. No production Worker, D1
+database, R2 bucket, wildcard DNS record, or public route has been provisioned
+and read back. This is not a production release or full WordPress parity.
 
 ## Product boundary
 
@@ -125,6 +127,16 @@ a paid tier. See [Workers pricing](https://developers.cloudflare.com/workers/pla
 [D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/),
 [R2 pricing](https://developers.cloudflare.com/r2/pricing/), and
 [Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/).
+
+The Cloudflare product that offers isolated per-customer Worker runtimes is
+[Workers for Platforms](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/).
+Its dispatch namespace is designed for customer-authored or AI-generated code
+that must execute in isolated Workers. MithrilPress renders tenant content
+with one operator-owned codebase, so its first version should use one ordinary
+Worker, D1, and R2. Workers for Platforms is a separate paid offering (listed
+at $25/month plus usage overages when checked on 2026-10-21); it does not
+provide a free-hosting hard stop. Reconsider it only if executing tenant code
+becomes a reviewed requirement. See [Workers for Platforms pricing](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/reference/pricing/).
 
 Public page and read-only WordPress REST requests have application hard stops
 of 5,000 requests per active site and 25,000 across the deployment per UTC day.

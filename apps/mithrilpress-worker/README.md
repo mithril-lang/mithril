@@ -197,6 +197,17 @@ provider bill. Cloudflare's Workers Paid plan currently has a $5/month minimum,
 Workers AI have separate account-level allowances and pricing. MithrilPress
 does not bill site owners or automatically upgrade a plan.
 
+MithrilPress does not use Workers for Platforms in the initial design. That
+product's dispatch namespaces isolate and route customer-authored Worker code;
+MithrilPress runs one reviewed renderer over tenant content and does not execute
+tenant code. Workers for Platforms is a separately paid service (listed at
+$25/month plus usage overages when checked on 2026-10-21), so it is not the
+mechanism for a free site-owner tier or a provider-level hard stop. Revisit it
+only if tenant-authored code becomes a product requirement. See the
+[Workers for Platforms overview](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/),
+[how dispatch works](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/how-workers-for-platforms-works/),
+and [pricing](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/reference/pricing/).
+
 MithrilPress enforces 5,000 HTTP requests per active site per UTC day and
 25,000 HTTP requests across the deployment. Every routed request counts,
 including public pages, WordPress REST, Studio, previews, DNS, media, and
