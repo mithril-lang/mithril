@@ -27,7 +27,7 @@ test("Workers AI is disabled unless explicitly enabled in Free-only mode", () =>
   }), true);
 });
 
-test("Free-only inference calls the low-neuron model directly without a Gateway fallback", async () => {
+test("Free-only inference calls the schema-compatible model directly without a Gateway fallback", async () => {
   const request = { messages: [{ role: "user", content: "Draft a page" }], max_tokens: 700 };
   const calls = [];
   const env = {

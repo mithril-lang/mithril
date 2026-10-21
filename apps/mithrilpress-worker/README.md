@@ -263,8 +263,10 @@ Chat-created entries are draft-only until their containing revision is
 approved and explicitly published. Workers AI receives the bounded
 conversation and current draft to generate a proposal; it is not fact-checked,
 and the owner must review it before publication. Studio uses
-`@cf/meta/llama-3.2-3b-instruct` directly through the Workers AI binding in
-`workers-free-only` mode. This deliberately does not use AI Gateway, Unified
+`@cf/meta/llama-3.3-70b-instruct-fp8-fast` directly through the Workers AI
+binding in `workers-free-only` mode. This model is listed as supporting
+Cloudflare Workers AI JSON Mode, which matches Studio's JSON Schema request.
+This deliberately does not use AI Gateway, Unified
 Billing, provider credentials, or a paid fallback. Cloudflare's Workers Free
 plan includes 10,000 Neurons per account per UTC day; after that, further
 inference operations fail until the allowance resets. The prototype also caps
@@ -279,8 +281,9 @@ Free, then set `STUDIO_AI_ENABLED=true` and `STUDIO_AI_MODE=workers-free-only`.
 Never use this mode on a Workers Paid account: usage above the daily free
 allocation is billed there. The Workers Free provider limit is the neuron hard
 stop; MithrilPress's eight-request cap is an additional app limit, not a neuron
-meter. See [Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/)
-and the [`llama-3.2-3b-instruct` model page](https://developers.cloudflare.com/workers-ai/models/llama-3.2-3b-instruct/).
+meter. See [Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/),
+[JSON Mode supported models](https://developers.cloudflare.com/workers-ai/features/json-mode/),
+and the [`llama-3.3-70b-instruct-fp8-fast` model page](https://developers.cloudflare.com/workers-ai/models/llama-3.3-70b-instruct-fp8-fast/).
 
 The Worker also enforces a 16 MiB retained-import content cap per site,
 including entries and taxonomy terms, and a 256 MiB cap across the deployment.

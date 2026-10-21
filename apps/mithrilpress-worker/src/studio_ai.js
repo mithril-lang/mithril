@@ -1,4 +1,4 @@
-export const STUDIO_MODEL = "@cf/meta/llama-3.2-3b-instruct";
+export const STUDIO_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 export const STUDIO_AI_FREE_MODE = "workers-free-only";
 export const STUDIO_AI_FREE_NEURONS_PER_DAY = 10_000;
 

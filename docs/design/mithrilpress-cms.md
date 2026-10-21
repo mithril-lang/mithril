@@ -91,9 +91,10 @@ queries, bounded chat history, HTML sanitization, and an eight-generation daily
 app cap. It stores conversations in D1 until the owner deletes them. Workers AI
 processes the conversation and current draft to produce a proposal; the proposal
 is not fact-checked and must not be published without owner review. The default
-free-hosting path uses `@cf/meta/llama-3.2-3b-instruct` directly through the
-Workers AI binding, with no AI Gateway or paid fallback. Enable it only when the
-target account is verified as Workers Free and set
+free-hosting path uses `@cf/meta/llama-3.3-70b-instruct-fp8-fast` directly
+through the Workers AI binding, with no AI Gateway or paid fallback. The model
+is listed as supporting Workers AI JSON Mode, matching Studio's JSON Schema
+request. Enable it only when the target account is verified as Workers Free and set
 `STUDIO_AI_MODE=workers-free-only`; the provider stops inference at its
 10,000-Neuron daily free allocation. On Workers Paid, usage above that allocation
 is billable, so this mode must not be deployed there. The example deployment
