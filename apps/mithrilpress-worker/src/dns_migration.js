@@ -484,9 +484,19 @@ async function claimCloudflareImport(env, site, migration, owner, zoneId) {
                AND ended.rowid > started.rowid
            )
        )
+       AND EXISTS (
+         SELECT 1 FROM dns_migrations AS current_migration
+         WHERE current_migration.site_id = ? AND current_migration.id = ?
+           AND current_migration.status = 'target_loaded'
+           AND current_migration.target_provider = 'cloudflare'
+           AND current_migration.target_provider_zone_id = ?
+           AND current_migration.source_zone_sha256 = ?
+           AND current_migration.target_zone_sha256 = ?
+       )
      RETURNING id`,
   ).bind(id, site.id, migration.id, owner.tokenId, nowIso, JSON.stringify({ zone_id: zoneId }),
-    site.id, owner.tokenId, tokenWindowStart, site.id, migration.id, leaseWindowStart).first();
+    site.id, owner.tokenId, tokenWindowStart, site.id, migration.id, leaseWindowStart,
+    site.id, migration.id, zoneId, migration.source_zone_sha256, migration.target_zone_sha256).first();
 }
 
 async function cloudflareReadCount(env, site, owner) {
@@ -692,7 +702,16 @@ async function importCloudflareMissingRecords(request, env, site, migration, own
     return api.fail(429, "cloudflare_read_limit", "Wait before importing so MithrilPress can safely read the zone both before and after the write.");
   }
   const claimed = await claimCloudflareImport(env, site, migration, owner, migration.target_provider_zone_id);
-  if (!claimed) return api.fail(429, "cloudflare_import_limit", "Only one Cloudflare DNS import can run for a migration at a time, and each owner token can start one per minute. Refresh the migration after an in-progress request settles before retrying.");
+  if (!claimed) {
+    const tokenWindowStart = new Date(Date.now() - 60_000).toISOString();
+    const recentStarts = await env.DB.prepare(
+      "SELECT COUNT(*) AS total FROM dns_migration_actions WHERE site_id = ? AND token_id = ? AND action = 'cloudflare-import-started' AND created_at >= ?",
+    ).bind(site.id, owner.tokenId, tokenWindowStart).first();
+    if (Number(recentStarts?.total ?? 0) > 0) {
+      return api.fail(429, "cloudflare_import_limit", "This owner token can start one Cloudflare DNS import per minute. Refresh the migration after the current request settles before retrying.");
+    }
+    return api.fail(409, "dns_migration_state_changed", "The migration snapshot changed or another Cloudflare import is in progress. Refresh the migration before retrying.");
+  }
 
   const beforeReadError = await recordCloudflareRead(env, site, migration, owner, migration.target_provider_zone_id, "pre-import-check");
   if (beforeReadError) {
@@ -1108,18 +1127,45 @@ async function eraseOrCancel(request, env, site, migration, owner, api) {
   if (migration.status === "owner_approved") {
     return api.fail(409, "dns_cutover_snapshot_retained", "Verify the destination or record a source rollback before erasing snapshots. The old zone is needed to restore service.");
   }
-  const recentCloudflareImport = await env.DB.prepare(
-    "SELECT COUNT(*) AS total FROM dns_migration_actions WHERE site_id = ? AND migration_id = ? AND action = 'cloudflare-import-started' AND created_at >= ?",
-  ).bind(site.id, migration.id, new Date(Date.now() - 60_000).toISOString()).first();
-  if (Number(recentCloudflareImport?.total ?? 0) > 0) {
-    return api.fail(409, "cloudflare_import_in_progress", "A Cloudflare import was started recently. Refresh and verify the target-zone readback before erasing its rollback snapshots.");
+  const importLeaseStart = new Date(Date.now() - CLOUDFLARE_IMPORT_LEASE_MS).toISOString();
+  const activeCloudflareImport = await env.DB.prepare(
+    `SELECT COUNT(*) AS total FROM dns_migration_actions AS started
+     WHERE started.site_id = ? AND started.migration_id = ?
+       AND started.action = 'cloudflare-import-started' AND started.created_at >= ?
+       AND NOT EXISTS (
+         SELECT 1 FROM dns_migration_actions AS ended
+         WHERE ended.site_id = started.site_id AND ended.migration_id = started.migration_id
+           AND ended.action IN ('cloudflare-import-finished', 'cloudflare-import-failed')
+           AND ended.rowid > started.rowid
+       )`,
+  ).bind(site.id, migration.id, importLeaseStart).first();
+  if (Number(activeCloudflareImport?.total ?? 0) > 0) {
+    return api.fail(409, "cloudflare_import_in_progress", "A Cloudflare import is still in progress. Refresh and verify the target-zone readback before erasing its rollback snapshots.");
   }
   const completed = migration.status === "delegation_verified" || migration.status === "rolled_back";
   const status = completed ? "archived" : "cancelled";
   const now = new Date().toISOString();
-  await env.DB.prepare(
-    "UPDATE dns_migrations SET status = ?, ownership_txt_value = NULL, source_zone_text = NULL, target_zone_text = NULL, diff_json = NULL, import_zone_text = NULL, target_nameservers_json = NULL, approval_digest = NULL, updated_at = ? WHERE site_id = ? AND id = ?",
-  ).bind(status, now, site.id, migration.id).run();
+  const erased = await env.DB.prepare(
+    `UPDATE dns_migrations
+     SET status = ?, ownership_txt_value = NULL, source_zone_text = NULL, target_zone_text = NULL,
+         diff_json = NULL, import_zone_text = NULL, target_nameservers_json = NULL,
+         approval_digest = NULL, updated_at = ?
+     WHERE site_id = ? AND id = ? AND status = ?
+       AND NOT EXISTS (
+         SELECT 1 FROM dns_migration_actions AS started
+         WHERE started.site_id = dns_migrations.site_id AND started.migration_id = dns_migrations.id
+           AND started.action = 'cloudflare-import-started' AND started.created_at >= ?
+           AND NOT EXISTS (
+             SELECT 1 FROM dns_migration_actions AS ended
+             WHERE ended.site_id = started.site_id AND ended.migration_id = started.migration_id
+               AND ended.action IN ('cloudflare-import-finished', 'cloudflare-import-failed')
+               AND ended.rowid > started.rowid
+           )
+       )`,
+  ).bind(status, now, site.id, migration.id, migration.status, importLeaseStart).run();
+  if (erased.meta?.changes !== 1) {
+    return api.fail(409, "dns_migration_state_changed", "The migration changed or a Cloudflare import started. Refresh its current state before erasing rollback snapshots.");
+  }
   const latest = await getMigration(env, site, migration.id);
   await audit(env, site, latest, owner, completed ? "snapshots-erased" : "cancelled", {
     zone_name: migration.zone_name,
