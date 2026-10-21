@@ -18,6 +18,8 @@ const contentPanel = document.querySelector("#content-panel");
 const contentTab = document.querySelector("#content-tab");
 const domainsPanel = document.querySelector("#domains-panel");
 const domainsTab = document.querySelector("#domains-tab");
+const usagePanel = document.querySelector("#usage-panel");
+const usageTab = document.querySelector("#usage-tab");
 const domainList = document.querySelector("#domain-list");
 const domainStatus = document.querySelector("#domain-status");
 const domainForm = document.querySelector("#domain-form");
@@ -49,13 +51,19 @@ function showStatus(target, message = "") {
 function showStudioView(name) {
   const canContent = ownerScopes.includes("content:write");
   const canDomains = ownerScopes.includes("site:domains");
-  const showDomains = canDomains && (name === "domains" || !canContent);
+  const canUsage = canContent || canDomains;
+  const showUsage = canUsage && name === "usage";
+  const showDomains = canDomains && (name === "domains" || (!canContent && !showUsage));
+  const showContent = canContent && !showDomains && !showUsage;
   contentTab.hidden = !canContent;
   domainsTab.hidden = !canDomains;
-  contentPanel.hidden = !canContent || showDomains;
+  usageTab.hidden = !canUsage;
+  contentPanel.hidden = !showContent;
   domainsPanel.hidden = !showDomains;
-  contentTab.setAttribute("aria-current", showDomains ? "false" : canContent ? "page" : "false");
+  usagePanel.hidden = !showUsage;
+  contentTab.setAttribute("aria-current", showContent ? "page" : "false");
   domainsTab.setAttribute("aria-current", showDomains ? "page" : "false");
+  usageTab.setAttribute("aria-current", showUsage ? "page" : "false");
 }
 
 function setOwnerScopes(scopes = []) {
@@ -162,6 +170,7 @@ async function signIn(token) {
   showStatus(studioStatus, `Signed in as ${result.owner}.`);
   if (ownerScopes.includes("content:write")) await refreshConversations();
   if (ownerScopes.includes("site:domains")) await refreshDomains();
+  await refreshUsage();
 }
 
 function addDomainRecord(card, record, label) {
@@ -241,6 +250,29 @@ async function refreshDomains() {
   }
 }
 
+async function refreshUsage() {
+  if (!ownerScopes.includes("content:write") && !ownerScopes.includes("site:domains")) return;
+  const target = document.querySelector("#usage-status");
+  showStatus(target);
+  try {
+    const result = await api("/_mithrilpress/api/studio/usage");
+    const stored = Math.max(0, Number(result.storage.estimated_content_bytes) || 0);
+    const limit = Math.max(1, Number(result.storage.site_limit_bytes) || 1);
+    const usedMiB = (stored / (1024 * 1024)).toFixed(2);
+    const limitMiB = (limit / (1024 * 1024)).toFixed(2);
+    document.querySelector("#site-storage-usage").textContent = `${usedMiB} MiB of ${limitMiB} MiB`;
+    const progress = document.querySelector("#site-storage-progress");
+    progress.max = limit;
+    progress.value = Math.min(stored, limit);
+    const sharedLimit = Math.max(0, Number(result.storage.shared_deployment_limit_bytes) || 0);
+    document.querySelector("#shared-storage-limit").textContent = `Shared retained-content ceiling: ${(sharedLimit / (1024 * 1024)).toFixed(0)} MiB across this hosting deployment. Aggregate usage is managed by the host operator.`;
+    document.querySelector("#ai-usage").textContent = `${result.ai_drafting.requests_used} of ${result.ai_drafting.daily_app_limit} shared requests today (UTC)`;
+    document.querySelector("#ai-usage-reset").textContent = `Resets at ${result.ai_drafting.resets_at_utc}.`;
+  } catch (error) {
+    showStatus(target, error.message);
+  }
+}
+
 async function runDomainAction(domain, action) {
   showStatus(domainStatus, action === "verify" ? "Checking ownership and provisioning TLS…" : "Refreshing hostname status…");
   try {
@@ -291,6 +323,11 @@ domainsTab.addEventListener("click", async () => {
   if (!ownerScopes.includes("site:domains")) return;
   showStudioView("domains");
   await refreshDomains();
+});
+usageTab.addEventListener("click", async () => {
+  if (!ownerScopes.includes("content:write") && !ownerScopes.includes("site:domains")) return;
+  showStudioView("usage");
+  await refreshUsage();
 });
 
 domainForm.addEventListener("submit", async (event) => {
@@ -350,6 +387,7 @@ document.querySelector("#chat-form").addEventListener("submit", async (event) =>
     document.querySelector("#content-kind").value = result.draft.kind;
     showStatus(studioStatus, "A private draft was saved. Review it before approval.");
     await refreshConversations();
+    await refreshUsage();
   } catch (error) {
     renderMessage("assistant", error.message, true);
     showStatus(studioStatus, "The conversation remains unpublished.");
@@ -405,6 +443,7 @@ document.querySelector("#publish-button").addEventListener("click", async () => 
       showStatus(studioStatus, `Signed in as ${session.owner}.`);
       if (ownerScopes.includes("content:write")) await refreshConversations();
       if (ownerScopes.includes("site:domains")) await refreshDomains();
+      await refreshUsage();
     }
   } catch {
     loginPanel.hidden = false;

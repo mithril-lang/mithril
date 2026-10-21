@@ -34,6 +34,7 @@
         <nav id="studio-nav" class="studio-nav" aria-label="Studio sections">
           <button id="content-tab" class="studio-tab" type="button" aria-current="page">Content</button>
           <button id="domains-tab" class="studio-tab" type="button" aria-current="false" hidden>Domains</button>
+          <button id="usage-tab" class="studio-tab" type="button" aria-current="false">Usage</button>
         </nav>
 
         <div id="content-panel" class="studio-layout">
@@ -109,6 +110,27 @@
           <p id="domain-status" class="status" role="status" aria-live="polite"></p>
           <ul id="domain-list" class="domain-list" aria-label="Custom hostnames"></ul>
           <p id="domain-unavailable" class="domain-unavailable" hidden>Custom domains are not enabled on this hosting deployment. The default MithrilPress subdomain continues to work.</p>
+        </section>
+
+        <section id="usage-panel" class="usage-panel" aria-labelledby="usage-title" hidden>
+          <div class="eyebrow">HOSTING ALLOWANCES</div>
+          <h1 id="usage-title">Free hosting usage</h1>
+          <div class="usage-cards">
+            <article class="usage-card">
+              <h2>Stored content for this site</h2>
+              <p id="site-storage-usage" class="usage-value">Loading…</p>
+              <progress id="site-storage-progress" max="16777216" value="0" aria-label="Site content storage allowance"></progress>
+              <p class="usage-detail">Application estimate across retained content revisions.</p>
+            </article>
+            <article class="usage-card">
+              <h2>AI drafting requests</h2>
+              <p id="ai-usage" class="usage-value">Loading…</p>
+              <p id="ai-usage-reset" class="usage-detail"></p>
+            </article>
+          </div>
+          <p id="shared-storage-limit" class="usage-detail"></p>
+          <p class="usage-notice">These are MithrilPress application limits, not Cloudflare account telemetry. Worker request totals, D1 reads/writes/storage, and Workers AI neuron usage are not available in this site view. Cloudflare may apply account-wide free limits separately. MithrilPress does not upgrade or switch to paid usage automatically.</p>
+          <p id="usage-status" class="status" role="status" aria-live="polite"></p>
         </section>
       </section>
     </main>

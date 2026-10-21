@@ -110,14 +110,22 @@ remain separate release work.
 The free plan is quota-bounded, not an unlimited hosting commitment. Current
 Cloudflare limits include 100,000 Worker requests per day and 10 ms CPU per
 request. D1 Free currently includes 5 million rows read per day, 100,000 rows
-written per day, and 5 GB total storage; Workers AI includes 10,000 neurons per
-day. Studio caps model generation at eight requests per UTC day across this
-deployment, but other account workloads can exhaust Cloudflare's free AI
-allocation earlier. The code has no paid fallback. Aggregate Worker and D1
-quota monitoring is not implemented, and provider failures outside AI generation
-may currently surface as generic errors. The import and rendering workloads are
-not qualified against the 10 ms CPU budget. Track these release requirements in
-Linear MITHRIL-292.
+written per day, 5 GB total account storage, and a 500 MB maximum size for one
+free database; Workers AI includes 10,000 neurons per day. Studio caps model
+generation at eight requests per UTC day across this deployment, but other
+account workloads can exhaust Cloudflare's free AI allocation earlier. The code
+has no paid fallback.
+
+D1 triggers enforce a 16 MiB retained-entry text-payload limit per site and a
+256 MiB deployment-wide payload limit across immutable revisions. The Studio
+shows the site's estimate, the shared app-level AI request count, and the
+deployment content ceiling. This estimate excludes indexes, database metadata,
+conversations, audit rows, and the physical D1 database size. Account-level
+Worker requests, D1 reads/writes/storage, and Workers AI neuron use are not
+measured in the Studio and must be monitored in Cloudflare. Provider limits can
+stop service before MithrilPress application limits are reached. The import and
+rendering workloads are not qualified against the 10 ms CPU budget. Track these
+release requirements in Linear MITHRIL-292.
 Check [Workers limits](https://developers.cloudflare.com/workers/platform/limits/),
 [D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/), and
 [Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/)

@@ -86,6 +86,7 @@ and content row within its owning site.
 | `POST` | `/_mithrilpress/api/studio/chat` | `content:write` | Generate or revise one private draft; no model response is published. |
 | `GET` | `/_mithrilpress/api/studio/conversations` and `/_mithrilpress/api/studio/conversations/{id}` | `content:write` | Read the signed-in owner's conversation history. |
 | `DELETE` | `/_mithrilpress/api/studio/conversations/{id}` | `content:write` | Delete the conversation and its unpublished draft. Published revisions remain intact. |
+| `GET` | `/_mithrilpress/api/studio/usage` | `content:write` or `site:domains` | Show this site's retained content estimate and the shared daily app-level AI drafting count. |
 | `GET` | `/_mithrilpress/preview/{revision-id}/{slug}` | `revision:preview` | View sanitized revision HTML with `noindex` headers. |
 | `POST` | `/_mithrilpress/api/revisions/{revision-id}/approve` | `revision:approve` | Record owner approval for a complete sanitized revision. |
 | `POST` | `/_mithrilpress/api/revisions/{revision-id}/publish` | `site:publish` | Make the approved revision the public site revision. |
@@ -113,18 +114,31 @@ eight requests per UTC day across the deployment; the Cloudflare account-wide
 free AI allowance can be exhausted earlier by other workloads, in which case
 draft generation stops rather than switching to paid usage.
 
+The Worker also enforces a 16 MiB retained-entry payload cap per site and a
+256 MiB payload cap across the deployment. D1 triggers maintain these counters
+across immutable revisions and reject writes that exceed either cap; the Studio
+Usage view shows the per-site estimate and the shared daily AI request count.
+The byte estimate counts stored text values, not SQLite indexes, database
+metadata, conversations, audit rows, or the physical D1 database size. It is an
+application guardrail rather than provider storage telemetry, and the deployment
+cap reserves room for database overhead without guaranteeing that other writes
+cannot consume the provider limit.
+
 ## Hosting and custom domains
 
 The intended free-plan starting point is one Worker, D1, and a proxied wildcard
 route for `*.sites.mithril.love`. Cloudflare's free Workers plan currently has a
 100,000-request daily limit and 10 ms CPU per request. D1 Free currently
-includes 5 million rows read per day, 100,000 rows written per day, and 5 GB
-total storage; Workers AI includes 10,000 neurons per day. The prototype does
-not use a paid fallback. Aggregate Worker and D1 quota monitoring is not yet
-implemented; provider failures outside AI generation can currently surface as
-generic errors. The import and rendering workloads have not been qualified
-against the 10 ms CPU budget. Usage monitoring and free-tier guardrails are
-tracked in Linear MITHRIL-292. See [Workers limits](https://developers.cloudflare.com/workers/platform/limits/),
+includes 5 million rows read per day, 100,000 rows written per day, 5 GB total
+account storage, and a 500 MB maximum size for one free database; Workers AI
+includes 10,000 neurons per day. The prototype does not use a paid fallback.
+The Studio does not measure account-wide Worker requests, D1 row reads/writes or
+storage, or Workers AI neuron consumption. Those provider metrics must be
+monitored in Cloudflare; provider limits can stop service before MithrilPress's
+own content or request caps are reached. Provider failures outside AI generation
+can still surface as generic errors. The import and rendering workloads have
+not been qualified against the 10 ms CPU budget. Usage monitoring and free-tier
+guardrails are tracked in Linear MITHRIL-292. See [Workers limits](https://developers.cloudflare.com/workers/platform/limits/),
 [D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/), and
 [Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/)
 for the current provider limits before each release.

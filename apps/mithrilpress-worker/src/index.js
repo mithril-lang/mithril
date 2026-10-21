@@ -9,6 +9,8 @@ const MAX_CONTENT_CHARS = 250_000;
 const MAX_IMPORT_CHARS = 10_000_000;
 const MAX_SAFE_HTML_CHARS = 1_250_000;
 const MAX_D1_ROW_BYTES = 1_800_000;
+const SITE_CONTENT_LIMIT_BYTES = 16 * 1024 * 1024;
+const DEPLOYMENT_CONTENT_LIMIT_BYTES = 256 * 1024 * 1024;
 const TENANT_LABEL = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 const ENTRY_SLUG = /^[^/?#\\\u0000-\u001f\u007f]{1,200}$/;
 const RESERVED_LABELS = new Set([
@@ -92,6 +94,19 @@ function json(body, status = 200, headers = {}) {
 
 function fail(status, code, message) {
   return json({ error: { code, message } }, status);
+}
+
+function storageQuotaCode(error) {
+  const message = String(error?.message ?? error ?? "");
+  if (message.includes("site_storage_quota_exceeded")) return "site_storage_quota_exceeded";
+  if (message.includes("deployment_storage_quota_exceeded")) return "deployment_storage_quota_exceeded";
+  return null;
+}
+
+function storageQuotaResponse(code) {
+  return code === "site_storage_quota_exceeded"
+    ? fail(409, code, "This site's retained content has reached its application storage limit. Reduce the import size or contact the hosting operator.")
+    : fail(409, "deployment_storage_quota_exceeded", "The shared hosting content pool is full. This site cannot accept more content right now; contact the hosting operator.");
 }
 
 function normalizeSiteHostname(hostname) {
@@ -1077,7 +1092,14 @@ async function studioChat(request, env, site) {
     ).bind(crypto.randomUUID(), site.id, revisionId, owner.tokenId, assistantAt,
       JSON.stringify({ model: STUDIO_MODEL, conversation_id: conversation.id, entry_id: entryId }), site.id, revisionId),
   ];
-  const saved = await env.DB.batch(statements);
+  let saved;
+  try {
+    saved = await env.DB.batch(statements);
+  } catch (error) {
+    const quotaCode = storageQuotaCode(error);
+    if (quotaCode) return storageQuotaResponse(quotaCode);
+    return fail(503, "draft_not_saved", "The private draft could not be saved. No content was published.");
+  }
   if (saved[4]?.meta?.changes !== 1 || saved[5]?.meta?.changes !== 1) {
     return fail(503, "draft_not_saved", "The private draft could not be saved. No content was published.");
   }
@@ -1122,6 +1144,40 @@ async function studioConversations(request, env, site) {
     "SELECT c.id, c.updated_at, c.draft_revision_id, r.state AS draft_state, (SELECT body FROM studio_messages m WHERE m.site_id = c.site_id AND m.conversation_id = c.id AND m.role = 'user' ORDER BY m.created_at ASC, m.id ASC LIMIT 1) AS title FROM studio_conversations c LEFT JOIN site_revisions r ON r.site_id = c.site_id AND r.id = c.draft_revision_id WHERE c.site_id = ? AND c.token_id = ? ORDER BY c.updated_at DESC LIMIT 20",
   ).bind(site.id, owner.tokenId).all();
   return json({ conversations: rows.results ?? [] });
+}
+
+async function studioUsage(request, env, site) {
+  if (request.method !== "GET") return fail(405, "method_not_allowed", "Hosting usage is read-only.");
+  const owner = await ownerToken(request, env, site, null);
+  if (!owner || !owner.scopes.some((scope) => scope === "content:write" || scope === "site:domains")) {
+    return fail(401, "studio_login_required", "Sign in with a content:write or site:domains owner token to view hosting usage.");
+  }
+
+  const now = new Date();
+  const dayUtc = now.toISOString().slice(0, 10);
+  const resetsAtUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)).toISOString();
+  const [storage, aiUsage] = await Promise.all([
+    env.DB.prepare("SELECT content_bytes FROM mithrilpress_site_storage_usage WHERE site_id = ? LIMIT 1").bind(site.id).first(),
+    env.DB.prepare("SELECT request_count FROM studio_ai_usage WHERE day_utc = ? LIMIT 1").bind(dayUtc).first(),
+  ]);
+  return json({
+    storage: {
+      estimate_type: "retained_entry_text_payload",
+      estimated_content_bytes: Number(storage?.content_bytes ?? 0),
+      site_limit_bytes: SITE_CONTENT_LIMIT_BYTES,
+      shared_deployment_limit_bytes: DEPLOYMENT_CONTENT_LIMIT_BYTES,
+    },
+    ai_drafting: {
+      scope: "shared_deployment",
+      requests_used: Number(aiUsage?.request_count ?? 0),
+      daily_app_limit: STUDIO_DAILY_GENERATION_LIMIT,
+      resets_at_utc: resetsAtUtc,
+    },
+    provider_metering: {
+      available: false,
+      detail: "Cloudflare account-level Worker requests, D1 reads/writes/storage, and Workers AI neuron usage are not measured by this site view.",
+    },
+  }, 200, { "Cache-Control": "private, no-store" });
 }
 
 async function deleteStudioConversation(request, env, site, conversationId, owner) {
@@ -1233,7 +1289,8 @@ async function importWordPress(request, env, site) {
         JSON.stringify({ entry_count: entries.length, proof_id: proofId }), site.id, revisionId),
     ]);
     if (finalized[0]?.meta?.changes !== 1) throw new Error("revision finalization failed");
-  } catch {
+  } catch (error) {
+    const quotaCode = storageQuotaCode(error);
     try {
       await env.DB.batch([
         env.DB.prepare(
@@ -1246,6 +1303,7 @@ async function importWordPress(request, env, site) {
     } catch {
       // The failed revision is still not addressable as a preview or public site.
     }
+    if (quotaCode) return storageQuotaResponse(quotaCode);
     return fail(503, "import_not_committed", "The private import could not be committed. No content was published.");
   }
   return json({ revision_id: revisionId, state: "private-preview", entry_count: entries.length, authorization_proof_id: proofId }, 201);
@@ -1450,6 +1508,9 @@ async function handleRequest(request, env) {
   }
   if (url.pathname === "/_mithrilpress/api/studio/conversations" && request.method === "GET") {
     return await studioConversations(request, env, site);
+  }
+  if (url.pathname === "/_mithrilpress/api/studio/usage") {
+    return await studioUsage(request, env, site);
   }
   if (url.pathname === "/_mithrilpress/api/studio/chat" && request.method === "POST") {
     return await studioChat(request, env, site);
