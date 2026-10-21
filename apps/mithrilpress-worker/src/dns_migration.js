@@ -338,7 +338,8 @@ function cloudflareBatchRecord(record) {
       throw apiError(422, "cloudflare_record_format_unsupported", "An MX record could not be represented safely for Cloudflare. Import it manually.");
     }
     payload.priority = priority;
-    payload.content = record.rdata_tokens[1].replace(/\.$/, "");
+    const exchange = record.rdata_tokens[1];
+    payload.content = exchange === "." ? "." : exchange.replace(/\.$/, "");
     return payload;
   }
   if (record.type === "SRV") {
