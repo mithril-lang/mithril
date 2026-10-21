@@ -1732,17 +1732,9 @@ async function studioMedia(request, env, site) {
     ]);
     if (committed[0]?.meta?.changes !== 1) throw new Error("media reservation state changed");
   } catch {
-    try {
-      await env.MEDIA.delete(idempotentObjectKey);
-    } catch {
-      // A pending database row remains private and can be cleaned up by an operator.
-    }
-    try {
-      await env.DB.prepare("DELETE FROM media_assets WHERE site_id = ? AND id = ? AND status = 'pending'")
-        .bind(site.id, reserved.id).run();
-    } catch {
-      // The row remains non-public; the database storage guard prevents further over-allocation.
-    }
+    // Keep the pending reservation and object for operator reconciliation. A
+    // failed delete must never release the D1 storage accounting while an R2
+    // object might remain stored.
     return fail(503, "media_upload_not_committed", "The image upload could not be committed. It is not available to public pages.");
   }
   return json({ media: mediaSummary(site, reserved) }, 201, { "Cache-Control": "private, no-store" });

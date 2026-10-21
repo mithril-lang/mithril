@@ -86,6 +86,34 @@ and operation bounds, keep the bucket isolated, and disable media writes and
 delivery if those bounds cannot be maintained. A plan change, other account
 workloads, or a new access path invalidates these assumptions.
 
+## R2 included-usage envelope
+
+The Worker currently caps media storage at 8 GiB deployment-wide, media writes
+(uploads and deletes) at 10,000/day, and media reads at 50,000/day. Cloudflare's
+Standard R2 free allowance is 10 GB-month of storage, 1 million Class A
+operations/month, and 10 million Class B operations/month. Using decimal units,
+8 GiB is about 8.59 GB, below the included storage allowance if sustained for a
+full month. The daily operation caps correspond to at most 310,000 writes and
+1.55 million reads over a 31-day month. Even budgeting two Class A operations
+for each counted write (one upload plus one later cleanup) yields at most
+620,000, below the included 1 million. Any extra cleanup retries or other
+operator-initiated bucket activity fall outside this envelope and must be
+accounted for separately.
+
+This is a source-level budget calculation, not Cloudflare usage telemetry or a
+bill guarantee. R2 allowances are account-wide. The calculation is valid only
+for an isolated account where no other bucket or workload consumes those
+allowances; read back provider usage before and during any canary. Keep R2
+disabled if the account is shared, the plan is not verified, or observed usage
+does not leave the stated margin. Do not activate the R2 subscription merely
+because the application has these caps: Cloudflare bills usage above its
+included monthly allowances.
+
+Failed media uploads retain their private D1 reservation and any R2 object for
+operator reconciliation. Do not release that reservation until object removal
+is confirmed; otherwise an object left behind after a failed delete could fall
+outside the application storage ceiling.
+
 Revalidate the plan and rule before each release. Keep production routing off
 until the provider state and blocked-request behavior have been read back.
 
