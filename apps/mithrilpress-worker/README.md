@@ -1,8 +1,11 @@
 # MithrilPress Worker
 
 This package is the first host adapter for the MithrilPress content
-model in `src/mithril/sites_cms.cljk` and `ontology/sites-cms-v1.mith`. It uses
-Cloudflare D1 and R2, and serves only an explicitly published tenant revision.
+model in `src/mithril/sites_cms.cljk` and `ontology/sites-cms-v1.mith`. Platform
+tenant hostname validation is authored in Mithril at
+`apps/mithrilpress-worker/src/platform_hostname.mith` and compiled to the
+checked-in Worker module. It uses Cloudflare D1 and R2, and serves only an
+explicitly published tenant revision.
 
 ## Supported in this slice
 
@@ -31,11 +34,13 @@ Cloudflare D1 and R2, and serves only an explicitly published tenant revision.
   plugin, shortcode, script, style, form, inline media, or dynamic-block
   execution. A separately validated featured image may be rendered from R2.
 
-The Worker adapter currently duplicates the pure Mithril module's record
-normalization because this repository does not yet package its ClojureScript
-runtime for the Workers JavaScript runtime. The Mithril module remains the
-semantic model. A later integration should generate or call the Worker
-normalizer from a checked Mithril module instead of maintaining two copies.
+The generated Mithril module owns platform subdomain validation, and the Worker
+uses it before its exact D1 hostname lookup. WordPress record normalization and
+the wider import state machine still have JavaScript adapter logic alongside
+the pure `.cljk` boundary model; those parts are not yet generated from Mithril.
+Regenerate the checked-in hostname module from the repository root or this
+package directory with `npm run build:mithril` after changing its `.mith`
+source. The build uses the Mithril workspace's `kbb` compiler.
 
 ## Local setup
 

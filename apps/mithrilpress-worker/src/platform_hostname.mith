@@ -1,0 +1,102 @@
+(mithril/native-js-module
+ :name "mithrilpress.platform_hostname"
+ :imports []
+ :exports ["siteHostname"]
+ :functions
+ [(mithril/function
+   :name "siteHostname"
+   :params [(rdf/node :name "hostname" :datatype "js-value")]
+   :returns "js-value"
+   :body
+   (mithril/if
+    :condition
+    (mithril/host-logical
+     :operator "&&"
+     :left
+     (mithril/host-binary
+      :operator "==="
+      :left (mithril/host-unary :operator "typeof" :value (mithril/local :name "hostname"))
+      :right (mithril/literal :datatype "js-value" :value "string"))
+     :right
+     (mithril/host-logical
+      :operator "&&"
+      :left
+      (mithril/host-binary
+       :operator ">"
+       :left (mithril/host-get :object (mithril/local :name "hostname")
+                               :key (mithril/literal :datatype "js-value" :value "length"))
+       :right (mithril/literal :datatype "js-value" :value 0))
+      :right
+      (mithril/host-binary
+       :operator "<="
+       :left (mithril/host-get :object (mithril/local :name "hostname")
+                               :key (mithril/literal :datatype "js-value" :value "length"))
+       :right (mithril/literal :datatype "js-value" :value 253))))
+    :then
+    (mithril/let
+     :bindings
+     [(rdf/node
+       :name "normalized"
+       :value
+       (mithril/host-method
+        :object
+        (mithril/host-method
+         :object (mithril/local :name "hostname")
+         :key (mithril/literal :datatype "js-value" :value "toLowerCase")
+         :args [])
+        :key (mithril/literal :datatype "js-value" :value "replace")
+        :args [(mithril/host-regexp :pattern "\\.$" :flags "")
+               (mithril/literal :datatype "js-value" :value "")]))
+      (rdf/node
+       :name "suffix"
+       :value (mithril/literal :datatype "js-value" :value ".sites.mithril.love"))]
+     :body
+     (mithril/if
+      :condition
+      (mithril/host-method
+       :object (mithril/local :name "normalized")
+       :key (mithril/literal :datatype "js-value" :value "endsWith")
+       :args [(mithril/local :name "suffix")])
+      :then
+      (mithril/let
+       :bindings
+       [(rdf/node
+         :name "label"
+         :value
+         (mithril/host-method
+          :object (mithril/local :name "normalized")
+          :key (mithril/literal :datatype "js-value" :value "slice")
+          :args
+          [(mithril/literal :datatype "js-value" :value 0)
+           (mithril/host-binary
+            :operator "-"
+            :left (mithril/host-get :object (mithril/local :name "normalized")
+                                    :key (mithril/literal :datatype "js-value" :value "length"))
+            :right (mithril/host-get :object (mithril/local :name "suffix")
+                                    :key (mithril/literal :datatype "js-value" :value "length")))]))]
+       :body
+       (mithril/host-logical
+        :operator "&&"
+        :left
+        (mithril/host-method
+         :object (mithril/host-regexp
+                  :pattern "^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$"
+                  :flags "")
+         :key (mithril/literal :datatype "js-value" :value "test")
+         :args [(mithril/local :name "label")])
+        :right
+        (mithril/host-logical
+         :operator "&&"
+         :left
+         (mithril/host-unary
+          :operator "!"
+          :value
+          (mithril/host-method
+           :object (mithril/host-regexp
+                    :pattern "^(?:www|admin|api|assets|preview|mail|status|support|docs|help|root)$"
+                    :flags "")
+           :key (mithril/literal :datatype "js-value" :value "test")
+           :args [(mithril/local :name "label")]))
+         :right (mithril/local :name "normalized"))))
+      :else (mithril/literal :datatype "js-value" :value nil)))
+    :else (mithril/literal :datatype "js-value" :value nil)))])

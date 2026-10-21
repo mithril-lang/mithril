@@ -1,5 +1,6 @@
 import { handleDnsMigrations } from "./dns_migration.js";
 import { MAX_MEDIA_BYTES, validateImageUpload } from "./media_validation.js";
+import { instantiateMithrilNative } from "./platform_hostname.js";
 import { parseWordPressWxr } from "./wxr_import.js";
 
 const SITE_ZONE = "sites.mithril.love";
@@ -20,12 +21,8 @@ const DEPLOYMENT_MEDIA_LIMIT_BYTES = 8 * 1024 * 1024 * 1024;
 const MEDIA_READS_PER_DAY_LIMIT = 50_000;
 const SITE_MEDIA_READS_PER_DAY_LIMIT = 5_000;
 const MEDIA_WRITES_PER_DAY_LIMIT = 10_000;
-const TENANT_LABEL = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 const ENTRY_SLUG = /^[^/?#\\\u0000-\u001f\u007f]{1,200}$/;
-const RESERVED_LABELS = new Set([
-  "www", "admin", "api", "assets", "preview", "mail", "status",
-  "support", "docs", "help", "root",
-]);
+const mithrilHostnameCore = instantiateMithrilNative({});
 const POST_TYPES = new Set(["post", "page"]);
 const SOURCE_STATUSES = new Set(["publish", "future", "draft", "pending", "private", "trash"]);
 const HTML_TAGS = new Set([
@@ -161,12 +158,7 @@ async function countMediaRead(env, siteId, date = new Date()) {
 }
 
 function normalizeSiteHostname(hostname) {
-  const host = hostname.toLowerCase().replace(/\.$/, "");
-  const suffix = `.${SITE_ZONE}`;
-  if (!host.endsWith(suffix)) return null;
-  const label = host.slice(0, -suffix.length);
-  if (!TENANT_LABEL.test(label) || RESERVED_LABELS.has(label)) return null;
-  return host;
+  return mithrilHostnameCore.siteHostname(hostname);
 }
 
 function normalizeRequestHostname(hostname) {

@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build:mithril": "kbb --backend sci --classpath ../../src ../../bin/mithril-native-js.cljk src/platform_hostname.mith --target js --output src/platform_hostname.js",
     "dev": "wrangler dev --config wrangler.example.jsonc --local",
     "types": "wrangler types --config wrangler.example.jsonc",
     "test": "node --test src/*.test.js"

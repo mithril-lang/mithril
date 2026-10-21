@@ -62,14 +62,14 @@ taxonomy terms, assets, import receipts, hostnames, and owner approvals.
 The Mithril boundary also defines `prepare-chat-draft` and
 `admit-sanitized-chat-draft`: generated HTML remains untrusted and blocked until
 the host attaches bounded sanitized output. `chat-publication-admitted?`
-requires approval tied to the same tenant and conversation. The Worker currently
-implements this state machine in JavaScript while packaging between the Mithril
-runtime and Workers remains follow-up work.
+requires approval tied to the same tenant and conversation. Platform subdomain
+validation is now authored in `apps/mithrilpress-worker/src/platform_hostname.mith`,
+compiled with Mithril's native JavaScript emitter, and called by the Worker
+before its exact D1 hostname lookup.
 
-The Worker adapter currently duplicates record validation because this
-repository does not package the checked Mithril/ClojureScript runtime for the
-Workers JavaScript runtime. Replacing the duplicate with generated checked
-Mithril code is follow-up work. The adapter does not fetch WordPress itself:
+WordPress record normalization and the broader import state machine remain in
+the JavaScript Worker adapter and the pure `.cljk` boundary model; these parts
+are not yet generated from Mithril. The adapter does not fetch WordPress itself:
 owners provide the content through a scoped token. The importer accepts a
 bounded WordPress WXR 1.2 subset as well as REST records. It retains posts and
 pages, source IDs, dates, permalinks, category/tag IDs, and featured-media IDs.
@@ -77,9 +77,9 @@ WXR attachments, media bytes, custom fields, page-parent relations, users,
 comments, custom post types, password-protected posts/pages, and custom
 taxonomies remain outside the supported slice. The importer reports omitted
 attachments and metadata and rejects DTDs, custom entities, malformed XML, and
-unresolved category/tag references. Media
-upload/delivery, taxonomy/media REST routes, and broad Gutenberg support remain
-follow-up work.
+unresolved category/tag references. Owner-provided media upload and delivery
+are implemented; taxonomy/media listing REST routes and broad Gutenberg support
+remain follow-up work.
 
 Studio uses a short-lived owner token exchange, a one-hour `HttpOnly`, `Secure`,
 `SameSite=Strict` cookie session, same-origin mutation checks, prepared D1
@@ -182,9 +182,14 @@ wildcard custom hostnames and apex proxying are unavailable on Free, and
 non-enterprise enablement requires payment information. Therefore customer
 domains are not part of the zero-cost promise. See [Cloudflare for SaaS plans](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/plans/)
 and the [enablement requirements](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/start/enable/).
-A full nameserver migration remains optional and unimplemented. It requires a
-DNS inventory, record comparison, owner approval, DNSSEC and mail checks,
-controlled cutover, and rollback. Cloudflare's [Workers-as-fallback-origin guide](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/start/advanced-settings/worker-as-origin/)
+An owner-guided nameserver migration plan is implemented: it captures source and
+staged destination snapshots, compares supported records, binds approval to the
+exact diff, checks NS/DS propagation through two recursive resolvers, and can
+verify source rollback. A Cloudflare destination can be read and staged; the
+additive Cloudflare record-import path is disabled by default until isolated-zone
+qualification. Registrar changes remain manual. This does not check mail or
+HTTP/TLS service health or every geographic resolver. Cloudflare's
+[Workers-as-fallback-origin guide](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/start/advanced-settings/worker-as-origin/)
 describes routing custom-hostname traffic through the SaaS zone's Worker route.
 
 The Cloudflare product the original idea may have been recalling is
