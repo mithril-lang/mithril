@@ -1,16 +1,18 @@
 # MithrilPress domain lifecycle
 
 **Status: custom-hostname onboarding is implemented behind a disabled-by-default
-operator gate. DNS migration planning is owner-guided and does not mutate customer
-DNS or registrar state.** The owner Studio can issue a TXT ownership challenge,
-create a Cloudflare for SaaS custom-hostname record after proof, display TLS
-validation records, check provider/certificate status, verify a DNS-only CNAME,
-activate the exact tenant mapping, and detach a hostname. The code does not
-write the customer's DNS. Owner-guided zone snapshots, record comparison,
-cutover approval, and NS/DS propagation checks are implemented; DNS-provider
-record writes, automatic nameserver changes, and registrar transfers are not.
-Do not enable the custom-hostname feature until its dedicated SaaS zone and
-route have been provisioned and read back. A five-minute Cron Trigger
+operator gate. DNS migration planning is owner-guided. Its optional Cloudflare
+record-import path is implemented as an owner-confirmed create-only batch
+operation, but remains disabled pending isolated-zone qualification.** The
+owner Studio can issue a TXT ownership challenge, create a Cloudflare for SaaS
+custom-hostname record after proof, display TLS validation records, check
+provider/certificate status, verify a DNS-only CNAME, activate the exact tenant
+mapping, and detach a hostname. MithrilPress does not change customer registrar,
+nameserver-delegation, or DNSSEC state. Owner-guided zone snapshots, record
+comparison, cutover approval, and NS/DS propagation checks are implemented;
+automatic nameserver changes and registrar transfers are not. Do not enable the
+custom-hostname feature until its dedicated SaaS zone and route have been
+provisioned and read back. A five-minute Cron Trigger
 rechecks active hostnames in batches of 30; at the 90-hostname deployment cap,
 every mapping is checked within 15 minutes. Mismatches suspend immediately;
 three consecutive provider/DNS read failures also suspend. An owner must
