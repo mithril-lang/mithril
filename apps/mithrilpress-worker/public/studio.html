@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow, noarchive">
+    <title>MithrilPress Studio</title>
+    <link rel="stylesheet" href="/_mithrilpress/studio.css">
+    <script src="/_mithrilpress/studio.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/_mithrilpress/studio">MithrilPress <span>Studio</span></a>
+      <div class="top-actions">
+        <span id="site-host" class="site-host"></span>
+        <button id="logout-button" class="button button-quiet" type="button" hidden>Sign out</button>
+      </div>
+    </header>
+
+    <main>
+      <section id="login-panel" class="login-panel" aria-labelledby="login-title">
+        <div class="eyebrow">OWNER ACCESS</div>
+        <h1 id="login-title">Write and publish with a conversation</h1>
+        <p>Use a short-lived owner token. Chat and publishing require content:write, revision:preview, revision:approve, and site:publish. Image uploads require media:write. Custom hostnames require site:domains; DNS migration planning requires site:dns-migrate. Your token is exchanged for a one-hour, host-only browser session.</p>
+        <form id="login-form">
+          <label for="owner-token">Owner token</label>
+          <input id="owner-token" name="token" type="password" autocomplete="off" spellcheck="false" required>
+          <button class="button button-primary" type="submit">Sign in</button>
+        </form>
+        <p id="login-status" class="status" role="status" aria-live="polite"></p>
+      </section>
+
+      <section id="studio-panel" class="studio-shell" hidden>
+        <nav id="studio-nav" class="studio-nav" aria-label="Studio sections">
+          <button id="content-tab" class="studio-tab" type="button" aria-current="page">Content</button>
+          <button id="media-tab" class="studio-tab" type="button" aria-current="false" hidden>Media</button>
+          <button id="domains-tab" class="studio-tab" type="button" aria-current="false" hidden>Domains</button>
+          <button id="dns-migration-tab" class="studio-tab" type="button" aria-current="false" hidden>DNS migration</button>
+          <button id="usage-tab" class="studio-tab" type="button" aria-current="false">Usage</button>
+        </nav>
+
+        <div id="content-panel" class="studio-layout">
+          <aside class="conversation-sidebar" aria-label="Conversations">
+          <div class="sidebar-heading">
+            <h2>Draft conversations</h2>
+            <button id="new-conversation" class="button button-small" type="button">New</button>
+          </div>
+          <ul id="conversation-list" class="conversation-list"></ul>
+          <button id="delete-conversation" class="button button-quiet delete-button" type="button" hidden>Delete conversation</button>
+        </aside>
+
+        <section class="editor-panel" aria-labelledby="editor-title">
+          <div class="editor-heading">
+            <div>
+              <div class="eyebrow">CHAT-FIRST CONTENT</div>
+              <h1 id="editor-title">What should we write?</h1>
+            </div>
+            <label class="content-kind-label" for="content-kind">Content type
+              <select id="content-kind">
+                <option value="post">Post</option>
+                <option value="page">Page</option>
+              </select>
+            </label>
+          </div>
+
+          <div id="featured-image-control" class="featured-image-control" hidden>
+            <p id="featured-image-label" class="usage-detail">No featured image selected.</p>
+            <button id="choose-featured-image" class="button button-small" type="button">Choose image</button>
+            <button id="clear-featured-image" class="button button-small" type="button">Remove image</button>
+          </div>
+
+          <div id="chat-messages" class="chat-messages" role="log" aria-live="polite" aria-relevant="additions text">
+            <p class="empty-state">Describe the post or page you want. You can refine it by chatting; every response remains a private draft.</p>
+          </div>
+
+          <form id="chat-form" class="chat-form">
+            <label class="visually-hidden" for="chat-input">Message MithrilPress</label>
+            <textarea id="chat-input" name="message" rows="3" maxlength="1800" placeholder="For example: Write a concise introduction for our community garden and ask readers to volunteer." required></textarea>
+            <div class="composer-footer">
+              <p>AI drafts are not fact-checked. Review the preview before approval and publication.</p>
+              <button id="send-button" class="button button-primary" type="submit">Create draft</button>
+            </div>
+          </form>
+
+          <section id="draft-panel" class="draft-panel" aria-labelledby="draft-title" hidden>
+            <div>
+              <div class="eyebrow">PRIVATE REVISION</div>
+              <h2 id="draft-title"></h2>
+              <p id="draft-state" class="draft-state"></p>
+            </div>
+            <a id="preview-link" class="button button-secondary" target="_blank" rel="noopener noreferrer">Open private preview</a>
+            <div class="publish-actions">
+              <button id="approve-button" class="button button-secondary" type="button">Approve revision</button>
+              <button id="publish-button" class="button button-primary" type="button" hidden>Publish approved revision</button>
+            </div>
+          </section>
+
+          <p id="studio-status" class="status" role="status" aria-live="polite"></p>
+          </section>
+        </div>
+
+        <section id="media-panel" class="media-panel" aria-labelledby="media-title" hidden>
+          <div class="domains-heading">
+            <div>
+              <div class="eyebrow">OWNER-PROVIDED IMAGES</div>
+              <h1 id="media-title">Media library</h1>
+            </div>
+            <span id="media-storage-usage" class="domain-default-host"></span>
+          </div>
+          <p class="domain-guidance">Upload JPEG, PNG, GIF, or WebP images up to 8 MiB. MithrilPress checks file signatures and dimensions and stores images in tenant-scoped R2. Remove private location metadata before upload. An image becomes public when attached to published content.</p>
+          <form id="media-upload-form" class="domain-form">
+            <label for="media-file">Image file</label>
+            <input id="media-file" name="file" type="file" accept="image/jpeg,image/png,image/gif,image/webp" required>
+            <label for="media-alt">Alternative text</label>
+            <input id="media-alt" name="alt_text" type="text" maxlength="500" autocomplete="off">
+            <label for="wordpress-media-id">WordPress attachment ID (optional)</label>
+            <input id="wordpress-media-id" name="wordpress_media_id" type="number" min="1" max="999999999999999" inputmode="numeric">
+            <button id="media-upload-button" class="button button-primary" type="submit">Upload image</button>
+          </form>
+          <p id="media-status" class="status" role="status" aria-live="polite"></p>
+          <ul id="media-list" class="media-list" aria-label="Uploaded images"></ul>
+        </section>
+
+        <section id="domains-panel" class="domains-panel" aria-labelledby="domains-title" hidden>
+          <div class="domains-heading">
+            <div>
+              <div class="eyebrow">HOSTNAME MANAGEMENT</div>
+              <h1 id="domains-title">Connect a customer domain</h1>
+            </div>
+            <span id="default-hostname" class="domain-default-host"></span>
+          </div>
+          <p class="domain-guidance">The site subdomain remains available while a customer hostname is prepared. MithrilPress verifies ownership, provisions its TLS certificate, and activates the hostname after the CNAME is visible. DNS changes on a customer's provider are never made automatically.</p>
+          <form id="domain-form" class="domain-form">
+            <label for="custom-hostname">Hostname</label>
+            <div class="domain-form-row">
+              <input id="custom-hostname" name="hostname" type="text" autocomplete="url" placeholder="blog.example.com" maxlength="253" required>
+              <button id="add-domain-button" class="button button-primary" type="submit">Add hostname</button>
+            </div>
+          </form>
+          <p id="domain-status" class="status" role="status" aria-live="polite"></p>
+          <ul id="domain-list" class="domain-list" aria-label="Custom hostnames"></ul>
+          <p id="domain-unavailable" class="domain-unavailable" hidden>Custom domains are not enabled on this hosting deployment. The default MithrilPress subdomain continues to work.</p>
+        </section>
+
+        <section id="dns-migration-panel" class="domains-panel" aria-labelledby="dns-migration-title" hidden>
+          <div class="domains-heading">
+            <div>
+              <div class="eyebrow">OWNER-GUIDED DNS TRANSFER</div>
+              <h1 id="dns-migration-title">Plan a nameserver migration</h1>
+            </div>
+          </div>
+          <p class="domain-guidance">MithrilPress verifies domain control, compares private BIND zone snapshots, prepares a destination import file, and checks public nameserver and DNSSEC propagation through Cloudflare and Google public resolvers. These providers receive DNS lookups for this domain after ownership is proven. You keep control of both DNS providers and make all provider and registrar changes yourself. Keep the source zone active through the rollback window.</p>
+          <form id="dns-migration-form" class="domain-form">
+            <label for="dns-migration-zone">Domain zone</label>
+            <div class="domain-form-row">
+              <input id="dns-migration-zone" name="zone_name" type="text" autocomplete="url" placeholder="example.com" maxlength="253" required>
+              <button id="create-dns-migration" class="button button-primary" type="submit">Start plan</button>
+            </div>
+          </form>
+          <p id="dns-migration-status" class="status" role="status" aria-live="polite"></p>
+          <ul id="dns-migration-list" class="domain-list" aria-label="DNS migration plans"></ul>
+          <section id="dns-migration-detail" class="dns-migration-detail" aria-labelledby="dns-migration-detail-title" hidden>
+            <div class="dns-migration-detail-heading">
+              <div>
+                <div class="eyebrow">MIGRATION CHECKLIST</div>
+                <h2 id="dns-migration-detail-title"></h2>
+              </div>
+              <span id="dns-migration-state" class="domain-state"></span>
+            </div>
+            <div id="dns-migration-workflow"></div>
+          </section>
+        </section>
+
+        <section id="usage-panel" class="usage-panel" aria-labelledby="usage-title" hidden>
+          <div class="eyebrow">HOSTING ALLOWANCES</div>
+          <h1 id="usage-title">Free hosting usage</h1>
+          <div class="usage-cards">
+            <article class="usage-card">
+              <h2>Stored content for this site</h2>
+              <p id="site-storage-usage" class="usage-value">Loading…</p>
+              <progress id="site-storage-progress" max="16777216" value="0" aria-label="Site content storage allowance"></progress>
+              <p class="usage-detail">Application estimate across retained content revisions.</p>
+            </article>
+            <article class="usage-card">
+              <h2>AI drafting requests</h2>
+              <p id="ai-usage" class="usage-value">Loading…</p>
+              <p id="ai-usage-reset" class="usage-detail"></p>
+            </article>
+            <article class="usage-card">
+              <h2>R2 image storage and delivery</h2>
+              <p id="r2-media-usage" class="usage-detail">Loading…</p>
+            </article>
+          </div>
+          <p id="shared-storage-limit" class="usage-detail"></p>
+          <p class="usage-notice">These are MithrilPress application limits, not Cloudflare account telemetry. DNS migration snapshots are not included in the retained-content estimate. Worker request totals, D1 reads/writes/storage, and Workers AI neuron usage are not available in this site view. Cloudflare may apply account-wide free limits separately. MithrilPress does not upgrade or switch to paid usage automatically.</p>
+          <p id="usage-status" class="status" role="status" aria-live="polite"></p>
+        </section>
+      </section>
+    </main>
+  </body>
+</html>

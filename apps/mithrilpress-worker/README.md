@@ -1,0 +1,308 @@
+# MithrilPress Worker
+
+This package is the first host adapter for the MithrilPress content
+model in `src/mithril/sites_cms.cljk` and `ontology/sites-cms-v1.mith`. Platform
+tenant hostname validation is authored in Mithril at
+`apps/mithrilpress-worker/src/platform_hostname.mith` and compiled to the
+checked-in Worker module. It uses Cloudflare D1 and R2, and serves only an
+explicitly published tenant revision.
+
+## Supported in this slice
+
+- Exact one-label `*.sites.mithril.love` host validation followed by an exact
+  D1 hostname lookup. A hostname label never grants tenant identity.
+- Owner-scoped WordPress REST and WXR 1.2 subset import for posts and pages.
+  Imports are bounded, sanitized, immutable revisions that remain private.
+  WXR categories and tags are retained by source IDs; unsupported post types,
+  custom fields, hierarchy links, and media files are reported as omissions.
+- Chat-first MithrilPress Studio for creating one post or page draft, revising it
+  in a conversation, opening a private preview, and separately approving and
+  publishing it.
+- Owner-provided JPEG, PNG, GIF, and WebP image uploads to tenant-scoped R2,
+  with byte and dimension checks, per-site and deployment storage caps, daily
+  per-site and shared read caps, daily upload/delete caps, and explicit
+  featured-image selection. One site cannot exhaust the shared image delivery
+  allowance by itself. Uploads never fetch URLs from WordPress or elsewhere.
+- Short-lived, host-only browser sessions exchanged from a scoped owner token;
+  conversation messages and AI drafts remain in the tenant's D1 database until
+  the owner deletes the conversation.
+- Authenticated, `noindex` private preview; separate revision-approval and
+  publication actions with audit receipts.
+- Read-only WordPress REST-compatible `GET` endpoints for public posts/pages,
+  including pagination headers. Public `edit` context is denied.
+- A minimal server-rendered page route with a restrictive CSP and no theme,
+  plugin, shortcode, script, style, form, inline media, or dynamic-block
+  execution. A separately validated featured image may be rendered from R2.
+
+The generated Mithril module owns platform subdomain validation, and the Worker
+uses it before its exact D1 hostname lookup. WordPress record normalization and
+the wider import state machine still have JavaScript adapter logic alongside
+the pure `.cljk` boundary model; those parts are not yet generated from Mithril.
+Regenerate the checked-in hostname module from the repository root or this
+package directory with `npm run build:mithril` after changing its `.mith`
+source. The build uses the Mithril workspace's `kbb` compiler.
+
+## Local setup
+
+1. Install this package's Wrangler development dependency.
+2. Create a local D1 database and replace the example binding ID in
+   `wrangler.example.jsonc` with its returned ID.
+3. Apply all migrations in `migrations/` locally, in numeric order.
+4. Provision a site and owner tokens using the SQL shapes below. Keep token
+   plaintext in a secret manager. Use HTTPS only; the Worker stores only a
+   salted SHA-256 digest. The Studio accepts a one-time HTTPS token exchange and
+   keeps the resulting session in a Secure, HttpOnly, SameSite=Strict cookie.
+5. Run `npm run dev` to work against local D1.
+
+The example config deliberately has no route and disables `workers.dev`. It is
+not a production deployment config. Production routing, real D1 IDs, zone
+ownership, wildcard DNS, exact-source standalone qualification, rollback, and
+live read-back remain release gates.
+
+The R2 adapter stores objects with random site-scoped keys and keeps metadata
+and ownership references in D1. The application caps storage at 250 MiB per
+site and 8 GiB per deployment, image reads at 5,000 per site and 50,000 across
+the deployment per UTC day, and uploads/deletes at 10,000 across the deployment
+per day. Cloudflare's R2 Standard free tier currently includes
+10 GB-month storage, 1 million Class A operations, and 10 million Class B
+operations per month; those allowances are account-wide and shared with other
+workloads. The application caps do not guarantee a zero bill when the account
+has other R2 usage. No paid fallback is configured. See [R2 pricing](https://developers.cloudflare.com/r2/pricing/).
+
+## Tenant provisioning data
+
+Insert a site with an owner-approved source origin:
+
+```sql
+INSERT INTO sites (id, hostname, source_origin, status, created_at)
+VALUES ('<site-uuid>', '<one-label>.sites.mithril.love', 'https://wordpress.example', 'active', '<utc-iso8601>');
+```
+
+Each owner token has format `<24 lowercase hex token id>.<43 base64url secret>`
+and a separate random 16-byte salt. Store the SHA-256 hex digest of
+`<salt-hex>.<secret>`, not the full token. Include every generated field except
+`token` when inserting the row, including `expires_at`; generated tokens expire
+after 24 hours. Allowed scopes are
+`content:import`, `content:write`, `media:write`, `revision:preview`, `revision:approve`,
+`site:publish`, `site:domains`, and `site:dns-migrate`. The Studio owner token needs `content:write` to create drafts,
+`revision:preview` to open previews, `revision:approve` to approve a revision,
+`site:publish` to publish it. A domain-only Studio token may use `site:domains`
+without granting content editing. Keep import-only automation on a separate
+`content:import` token. Image upload and library management use the separate
+`media:write` scope. An owner can combine it with `content:write` to select
+featured images. This scope does not grant content editing or publication.
+Revoke early by setting `revoked_at`.
+DNS planning is a separate high-impact owner scope. It grants access to private
+zone snapshots and owner approval of a cutover plan. Cloudflare access is
+separate: the owner may provide a zone-scoped API token for one request. The
+Worker forwards it to Cloudflare only for that request, does not persist it,
+and never accepts registrar credentials. DNS Write is used only for an
+explicit additive import request containing source records missing from an
+unchanged staged zone; MithrilPress does not send record update or delete
+operations.
+
+Generate the one-time token envelope locally with
+`node scripts/create-owner-token.mjs <owner-label> <scope> [<scope> ...]`.
+The command prints the bearer token once and the hash material for the
+`tenant_owner_tokens` insert. Provision only the hash row through a secured
+operator path and deliver the plaintext token through the owner's secret
+manager; never commit or log the output. Store scopes as a JSON array such as
+`["content:import"]`. The schema's composite foreign keys keep each revision
+and content row within its owning site.
+
+## Endpoints
+
+| Method | Path | Auth | Behavior |
+| --- | --- | --- | --- |
+| `POST` | `/api/wordpress/import` | `content:import` | Import JSON `{ "source_site": "https://…", "records": [...] }` or a raw `application/rss+xml`, `application/xml`, or `text/xml` WXR 1.2 export into a private sanitized revision. WXR source origin is read from `<channel><link>`. |
+| `GET` / `POST` / `DELETE` | `/_mithrilpress/api/studio/session` | `content:write`, `media:write`, `site:domains`, or `site:dns-migrate` | Exchange a short-lived owner token for a one-hour browser session, inspect it, or revoke it. |
+| `GET` | `/_mithrilpress/studio` | public shell; noindex | Open the chat-first post/page Studio. The API requires a site-owner session. |
+| `POST` | `/_mithrilpress/api/studio/chat` | `content:write` | Generate or revise one private draft; no model response is published. |
+| `GET` | `/_mithrilpress/api/studio/conversations` and `/_mithrilpress/api/studio/conversations/{id}` | `content:write` | Read the signed-in owner's conversation history. |
+| `DELETE` | `/_mithrilpress/api/studio/conversations/{id}` | `content:write` | Delete the conversation and its unpublished draft. Published revisions remain intact. |
+| `GET` | `/_mithrilpress/api/studio/usage` | `content:write`, `media:write`, or `site:domains` | Show this site's retained content, R2 image storage, and shared daily app-level usage. |
+| `GET` / `POST` | `/_mithrilpress/api/media` | `media:write` | List the tenant's image library or upload a bounded JPEG, PNG, GIF, or WebP image directly to R2. |
+| `DELETE` | `/_mithrilpress/api/media/{id}` | `media:write` | Hide and remove an image; published content referencing it will render without the image. |
+| `GET` / `HEAD` | `/_mithrilpress/media/{id}` | public only when referenced by the published revision; owner preview otherwise | Serve an image only while referenced by published content or the authenticated owner's preview/library. |
+| `GET` | `/_mithrilpress/preview/{revision-id}/{slug}` | `revision:preview` | View sanitized revision HTML with `noindex` headers. |
+| `POST` | `/_mithrilpress/api/revisions/{revision-id}/approve` | `revision:approve` | Record owner approval for a complete sanitized revision. |
+| `POST` | `/_mithrilpress/api/revisions/{revision-id}/publish` | `site:publish` | Make the approved revision the public site revision. |
+| `GET` / `POST` | `/_mithrilpress/api/domains` | `site:domains` | List custom hostnames or start a 24-hour ownership TXT challenge. Unverified requests do not reserve hostnames or shared capacity. Expired claims are released before per-site capacity checks; a detached hostname can be claimed by another site after fresh proof. |
+| `POST` | `/_mithrilpress/api/domains/{hostname-id}/verify` | `site:domains` | Verify ownership TXT and provision the Cloudflare for SaaS hostname and certificate. |
+| `POST` | `/_mithrilpress/api/domains/{hostname-id}/refresh` | `site:domains` | Read provider/TLS status and verify the public DNS-only CNAME. |
+| `DELETE` | `/_mithrilpress/api/domains/{hostname-id}` | `site:domains` | Stop serving the hostname, then remove the Cloudflare custom hostname. |
+| `GET` / `POST` | `/_mithrilpress/api/dns-migrations` | `site:dns-migrate` | List plans or create a 48-hour domain-control TXT challenge. Pending requests do not reserve a zone globally; the first owner to prove control claims the plan. Expired pending plans are cancelled when the owner starts another plan or a tenant requests the same zone. NS/DS state is not queried until ownership is proven. |
+| `GET` / `DELETE` | `/_mithrilpress/api/dns-migrations/{id}` | `site:dns-migrate` | Read a tenant-private plan, or cancel/archive and erase its zone snapshots. |
+| `POST` | `/_mithrilpress/api/dns-migrations/{id}/verify-ownership` | `site:dns-migrate` | Verify the domain TXT challenge before accepting zone files. |
+| `POST` | `/_mithrilpress/api/dns-migrations/{id}/source` | `site:dns-migrate` | Validate and retain the source BIND zone and generate a destination import file. |
+| `POST` | `/_mithrilpress/api/dns-migrations/{id}/target` | `site:dns-migrate` | Compare a staged destination zone and its assigned nameservers against the source. |
+| `POST` | `/_mithrilpress/api/dns-migrations/{id}/cloudflare-target` | `site:dns-migrate` plus a transient zone-scoped Cloudflare token | Read a full Cloudflare zone export and stage its assigned nameservers and record diff. |
+| `POST` | `/_mithrilpress/api/dns-migrations/{id}/cloudflare-import` | `site:dns-migrate`, explicit confirmation, and a transient token with zone-scoped `DNS Write` | Recheck the staged zone, add only missing source records, then export and verify the readback. |
+| `POST` | `/_mithrilpress/api/dns-migrations/{id}/approve` | `site:dns-migrate` | Approve the exact diff digest after a required owner confirmation. |
+| `POST` | `/_mithrilpress/api/dns-migrations/{id}/verify-delegation` | `site:dns-migrate` | Check destination NS and absence of DS through Cloudflare and Google recursive resolvers. |
+| `POST` | `/_mithrilpress/api/dns-migrations/{id}/verify-rollback` | `site:dns-migrate` | Check restored source NS and DS state through the same resolvers. |
+| `GET` | `/wp-json/wp/v2/posts` | public | Read the current published posts only. |
+| `GET` | `/wp-json/wp/v2/pages` | public | Read the current published pages only. |
+| `GET` | `/wp-json/wp/v2/media/{id}` | public | Read metadata for a currently published featured image only. |
+| `GET` | `/{slug}/` | public | Render one published page or post. |
+
+The HTML sanitizer keeps a small semantic tag allowlist, removes all attributes
+except validated HTTP(S) or relative anchor links, removes comments, and drops
+active content subtrees. Inline images and attachment URLs from imported source
+HTML are omitted. Owners can upload files they control, supply their original
+WordPress attachment IDs, and select a featured image; MithrilPress does not
+fetch WordPress URLs or import arbitrary media. Sanitization does not make
+WordPress themes, dynamic Gutenberg blocks, plugins, or PHP compatible.
+The Worker enforces a conservative 1.8 MB encoded-size budget for each content
+row, below Cloudflare D1's documented 2 MB maximum row/string size.
+Imported non-public WordPress statuses remain available only in the private
+owner preview; public routes expose records whose source status was `publish`.
+Chat-created entries are draft-only until their containing revision is approved
+and explicitly published. Workers AI receives the bounded conversation and
+current draft to generate a proposal. The prototype caps Studio generation at
+eight requests per UTC day across the deployment; the Cloudflare account-wide
+free AI allowance can be exhausted earlier by other workloads, in which case
+draft generation stops rather than switching to paid usage.
+
+The Worker also enforces a 16 MiB retained-entry payload cap per site and a
+256 MiB payload cap across the deployment. D1 triggers maintain these counters
+across immutable revisions and reject writes that exceed either cap; the Studio
+Usage view shows the per-site estimate and the shared daily AI request count.
+The byte estimate counts stored text values, not SQLite indexes, database
+metadata, conversations, DNS migration snapshots, audit rows, or the physical D1 database size. It is an
+application guardrail rather than provider storage telemetry, and the deployment
+cap reserves room for database overhead without guaranteeing that other writes
+cannot consume the provider limit.
+
+## Hosting and custom domains
+
+The intended free-plan starting point is one Worker, D1, and a proxied wildcard
+route for `*.sites.mithril.love`. Cloudflare's free Workers plan currently has a
+100,000-request daily limit and 10 ms CPU per request. D1 Free currently
+includes 5 million rows read per day, 100,000 rows written per day, 5 GB total
+account storage, and a 500 MB maximum size for one free database; Workers AI
+includes 10,000 neurons per day. The prototype does not use a paid fallback.
+The Studio does not measure account-wide Worker requests, D1 row reads/writes or
+storage, or Workers AI neuron consumption. Those provider metrics must be
+monitored in Cloudflare; provider limits can stop service before MithrilPress's
+own content or request caps are reached. Provider failures outside AI generation
+can still surface as generic errors. The import and rendering workloads have
+not been qualified against the 10 ms CPU budget. Usage monitoring and free-tier
+guardrails are tracked in Linear MITHRIL-292. See [Workers limits](https://developers.cloudflare.com/workers/platform/limits/),
+[D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/), and
+[Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/)
+for the current provider limits before each release.
+
+The default address is an owner-provisioned hostname under
+`*.sites.mithril.love`. Studio custom-hostname onboarding is implemented behind
+a disabled-by-default feature gate. It asks the owner to publish a short-lived
+TXT proof, creates the Cloudflare for SaaS hostname only after that proof
+resolves, returns the provider's TLS validation records, and activates the
+tenant mapping only after Cloudflare reports an active hostname and
+certificate and public DNS shows the expected CNAME. The customer adds a
+DNS-only CNAME; MithrilPress never asks for their DNS-provider password and
+does not write to their DNS zone.
+
+To enable the feature, the operator must supply `CF_SAAS_API_TOKEN` as a Worker
+secret and configure `CF_SAAS_ZONE_ID`, `CF_SAAS_CNAME_TARGET`,
+`CF_SAAS_CAPACITY_REMAINING`, `CUSTOM_DOMAINS_ENABLED`,
+`CUSTOM_DOMAINS_ROUTING_READY`, and `CUSTOM_DOMAINS_MONITORING_READY`. Scope the
+API token to the dedicated SaaS zone with `SSL and Certificates Write`; the
+Worker does not need customer-zone DNS write access. Set routing ready only
+after a dedicated `sites.mithril.love`
+SaaS zone, fallback origin, wildcard Worker route, wildcard DNS, and safe
+delegation from `mithril.love` have been configured and read back. The SaaS
+zone's catch-all route must not intercept unrelated `mithril.love` websites.
+Set the hostname capacity to the verified remaining quota, capped at 90 in this
+deployment; the other 10 places are reserved for platform operations. Without
+all of these settings, the Domains panel remains disabled.
+
+An enabled Worker also runs a five-minute Cron Trigger that checks up to 30
+active custom hostnames per invocation. At the configured limit of 90, every
+hostname is checked at least once per 15 minutes. It suspends a mapping when
+the provider hostname, certificate, or DNS-only CNAME no longer matches, and
+after three consecutive provider/DNS check failures. A suspended hostname
+must pass an owner-triggered refresh before it serves content again. Set
+`CUSTOM_DOMAINS_MONITORING_READY=true` only after the deployed Cron Trigger has
+completed successfully and its run is visible in Cloudflare. This prototype
+accepts subdomains with at least three labels; apex domains and wildcard
+customer hostnames are not supported.
+
+Cloudflare currently includes 100 custom hostnames on Free, charges $0.10 per
+additional hostname, and excludes wildcard custom hostnames and apex proxying
+from Free. Enabling Cloudflare for SaaS on non-enterprise plans requires
+payment information. Therefore custom domains are not part of the zero-cost
+promise. See [Cloudflare for SaaS plans](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/plans/)
+and the [enablement requirements](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/start/enable/).
+
+Full nameserver migration remains a separate, optional owner workflow. It
+includes domain TXT proof, capture of the current NS/DS state, private source
+and destination BIND snapshots, record diff, generated import text,
+digest-bound owner approval, and post-cutover NS/DS checks through two public
+recursive resolvers. For Cloudflare, an owner may submit a zone-scoped token
+for a single read request (`Zone Read` and `DNS Read`). An explicit second
+request may use a scoped `DNS Write` token to submit only records missing from
+an unchanged staged zone. The request does not contain update or delete
+operations; the deployment keeps the import endpoint disabled until its
+behavior is qualified against an isolated Cloudflare zone. MithrilPress stops
+if the live zone changed, the destination has extra or changed records, or the
+post-import readback is not an exact match. The token is not persisted.
+Registrar nameserver changes, DNSSEC, and service checks for web, TLS, and mail
+remain manual owner operations. See [Cloudflare DNS import](https://developers.cloudflare.com/api/resources/dns/subresources/records/methods/import/)
+and [export](https://developers.cloudflare.com/api/resources/dns/subresources/records/methods/export/).
+Provider writes are disabled by default with
+`CLOUDFLARE_DNS_IMPORTS_ENABLED=false`; set it to `true` only after the exact
+import and readback behavior is qualified against an isolated Cloudflare zone.
+
+The parser accepts a documented BIND zone-file subset up to 256 KiB and 2,000
+records. It supports `$ORIGIN`, `$TTL`, explicit or inherited owners, and
+standard TTL suffixes; unsupported directives such as `$GENERATE` must be
+expanded before upload. The parser does not support escaped owner-name labels
+or non-IN record classes, so review and normalize exports that use them before
+uploading.
+Comparison excludes provider-managed apex SOA/NS and generated DNSSEC records,
+and retains Cloudflare `cf-proxied` and `cf-flatten-cname` settings where the
+zone export includes them. Generated imports default A/AAAA/CNAME records to
+DNS-only when the source export does not provide proxy state. Provider settings,
+free-form comments, glue, mail delivery, TLS, and application health still need
+separate owner review. Cloudflare's official zone-file import limit is 256 KiB;
+its API supports BIND import with `DNS Write` and export with `DNS Read` or
+`DNS Write`. See [Cloudflare zone import/export](https://developers.cloudflare.com/dns/manage-dns-records/how-to/import-and-export/).
+
+Zone snapshots contain DNS TXT values that may include verification or service
+secrets. They remain tenant-scoped in D1 until the owner cancels the plan or
+archives a verified cutover/rollback, at which point snapshots and challenge
+values are erased while hashes and append-only audit receipts remain. Keep the
+source DNS zone active through the rollback window. After TXT ownership proof,
+MithrilPress sends DNS queries for the domain to Cloudflare and Google public
+resolvers to capture and check nameserver/DNSSEC state. A registrar transfer is
+separate and may incur at-cost renewal charges.
+
+Cloudflare's [Workers-as-fallback-origin guide](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/start/advanced-settings/worker-as-origin/)
+documents routing customer hostnames through a wildcard Worker route.
+
+## WordPress REST subset
+
+Public list requests support `page`, `per_page` (1–100), `slug`, and `context`
+`view`/`embed`. Responses include standard `X-WP-Total`, `X-WP-TotalPages`, and
+pagination `Link` headers. Only posts/pages are implemented. Editing contexts,
+media and term REST routes, users, comments, custom post types, search, writes,
+and WordPress authentication plugins are not implemented here.
+
+The importer also accepts WordPress WXR 1.2 exports. It imports up to 500
+posts/pages per file, with the channel origin, source IDs, slugs, title/body,
+status, dates, permalinks, category/tag IDs, and featured-media IDs. The owner
+must use a `content:import` token, and the WXR channel link must match the
+site's configured source origin. Imports stay in a private preview until the
+owner approves and publishes them. DTDs, custom entities, non-UTF-8 files,
+unknown taxonomy references, and malformed XML are rejected. The parser caps
+the upload at 12 MB, 2,000 WXR items, 100,000 XML nodes, nesting depth 64, and
+250,000 characters per XML text node.
+
+WXR attachments are not copied: the importer retains featured-media IDs and
+counts attachment/media references but does not fetch remote files or preserve
+custom fields, page-parent relationships, users, comments, or custom
+taxonomies. Unsupported post types and password-protected posts/pages are
+skipped and counted in the import response; protected content is never silently
+turned into ordinary public content. Review those omissions in the private
+preview before publication.

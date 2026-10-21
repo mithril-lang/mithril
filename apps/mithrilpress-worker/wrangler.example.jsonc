@@ -1,0 +1,45 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "mithrilpress",
+  "main": "src/index.js",
+  "compatibility_date": "2026-10-21",
+  "workers_dev": false,
+  "triggers": {
+    "crons": ["*/5 * * * *"]
+  },
+  "vars": {
+    "CUSTOM_DOMAINS_ENABLED": "false",
+    "CUSTOM_DOMAINS_ROUTING_READY": "false",
+    "CUSTOM_DOMAINS_MONITORING_READY": "false",
+    "CLOUDFLARE_DNS_IMPORTS_ENABLED": "false",
+    "CF_SAAS_CAPACITY_REMAINING": "0",
+    "CF_SAAS_ZONE_ID": "00000000000000000000000000000000",
+    "CF_SAAS_CNAME_TARGET": "customers.sites.mithril.love"
+  },
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": true
+  },
+  "ai": {
+    "binding": "AI"
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "mithrilpress",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "MEDIA",
+      "bucket_name": "mithrilpress-media"
+    }
+  ]
+}
