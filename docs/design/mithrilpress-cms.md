@@ -111,6 +111,15 @@ daily Free allocation. On Workers Paid, usage above that allocation is billable,
 so this mode must not be deployed there. The example deployment keeps Studio AI
 disabled and the plan confirmation false.
 
+At the currently published rate for this model (26,668 input and 204,805
+output Neurons per million tokens), the reservation formula caps one accepted
+request at 821 Neurons: at most 10,000 input bytes including message/schema
+overhead, at most 700 output tokens, and a two-times safety multiplier. Eight
+maximum-size requests reserve at most 6,568 Neurons. This bounds only the
+application's estimate, not provider usage or other account workloads. See
+[Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/)
+and recheck the model rates, limits, and account plan before release.
+
 ## Cloudflare hosting
 
 The initial runtime is a single MithrilPress Worker, D1, and R2. Production must

@@ -286,6 +286,14 @@ Cloudflare account usage is not measured by MithrilPress. Other workloads can
 consume the account-wide free allocation first, causing drafting to stop
 earlier.
 
+At the currently published rate for this model (26,668 input and 204,805
+output Neurons per million tokens), the reservation formula caps one accepted
+request at 821 Neurons: at most 10,000 input bytes including message/schema
+overhead, at most 700 output tokens, and a two-times safety multiplier. Eight
+maximum-size requests reserve at most 6,568 Neurons. This is a bound on the
+application's estimate, not a measurement or guarantee of provider usage;
+recheck the model rates, limits, and account plan before release.
+
 The example config keeps Studio AI disabled and its mode set to `disabled`.
 Before enabling it, read back the exact target account's plan and confirm it is
 Workers Free, then set `STUDIO_AI_FREE_PLAN_CONFIRMED=true`,
