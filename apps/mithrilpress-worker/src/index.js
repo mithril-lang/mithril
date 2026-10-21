@@ -3,6 +3,7 @@ import { MAX_MEDIA_BYTES, validateImageUpload } from "./media_validation.js";
 import { instantiateMithrilNative as instantiateContentBoundary } from "./content_boundary.js";
 import { instantiateMithrilNative } from "./platform_hostname.js";
 import { collectWordPressMediaReferences, inspectWordPressBlocks } from "./wordpress_blocks.js";
+import { buildWordPressPermalinkMap, rewriteWordPressLink } from "./wordpress_links.js";
 import { parseWordPressWxr } from "./wxr_import.js";
 
 const SITE_ZONE = "sites.mithril.love";
@@ -388,10 +389,14 @@ function boundedImageAltText(value, fallback = "") {
   return String(selected ?? "").replace(/[\u0000-\u001f\u007f]/g, "").trim().slice(0, 500);
 }
 
-async function sanitizeImportedWordPressHtml(source, mediaBySourceId) {
+async function sanitizeImportedWordPressHtml(source, mediaBySourceId, linkContext) {
   let imageElements = 0;
   let rewrittenImages = 0;
   let omittedImages = 0;
+  let sourceSiteLinks = 0;
+  let rewrittenLinks = 0;
+  let unresolvedSourceSiteLinks = 0;
+  let removedUnsafeLinks = 0;
   const mediaIds = new Set();
   const rewriter = new HTMLRewriter().on("*", {
     element(element) {
@@ -429,10 +434,14 @@ async function sanitizeImportedWordPressHtml(source, mediaBySourceId) {
       }
 
       const href = tag === "a" ? element.getAttribute("href") : null;
+      const rewrittenLink = href === null ? null : rewriteWordPressLink(href, linkContext);
       for (const [name] of [...element.attributes]) element.removeAttribute(name);
-      if (tag === "a" && href !== null) {
-        const safeHref = safeLink(href);
-        if (safeHref !== null) element.setAttribute("href", safeHref);
+      if (tag === "a" && rewrittenLink) {
+        if (rewrittenLink.sourceSite) sourceSiteLinks += 1;
+        if (rewrittenLink.rewritten) rewrittenLinks += 1;
+        if (rewrittenLink.unresolved) unresolvedSourceSiteLinks += 1;
+        if (rewrittenLink.removed) removedUnsafeLinks += 1;
+        if (rewrittenLink.href !== null) element.setAttribute("href", rewrittenLink.href);
       }
     },
     comments(comment) {
@@ -443,7 +452,14 @@ async function sanitizeImportedWordPressHtml(source, mediaBySourceId) {
     headers: { "Content-Type": "text/html; charset=utf-8" },
   })).text();
   if (html.length > MAX_SAFE_HTML_CHARS) throw Object.assign(new Error(), { status: 422, code: "sanitized_content_too_large" });
-  return { html, mediaIds: [...mediaIds], imageElements, rewrittenImages, omittedImages };
+  return {
+    html,
+    mediaIds: [...mediaIds],
+    imageElements,
+    rewrittenImages,
+    omittedImages,
+    links: { sourceSiteLinks, rewrittenLinks, unresolvedSourceSiteLinks, removedUnsafeLinks },
+  };
 }
 
 async function previewHtmlWithRevisionMedia(source, revisionId) {
@@ -1826,22 +1842,30 @@ async function importWordPress(request, env, site) {
     mediaBySourceId = new Map((mediaRows.results ?? []).map((row) => [Number(row.wordpress_source_id), row]));
   }
 
+  const permalinkMap = buildWordPressPermalinkMap(entries, sourceOrigin, site.hostname);
   const encoder = new TextEncoder();
   let totalInlineImages = 0;
   let rewrittenInlineImages = 0;
   let omittedInlineImages = 0;
+  let sourceSiteLinks = 0;
+  let rewrittenLinks = 0;
+  let unresolvedSourceSiteLinks = 0;
+  let removedUnsafeLinks = 0;
   for (const entry of entries) {
-    if (/<\s*img\b/i.test(entry.sourceHtml)) {
-      const sanitized = await sanitizeImportedWordPressHtml(entry.sourceHtml, mediaBySourceId);
-      entry.safeHtml = sanitized.html;
-      entry.inlineMediaIds = sanitized.mediaIds;
-      totalInlineImages += sanitized.imageElements;
-      rewrittenInlineImages += sanitized.rewrittenImages;
-      omittedInlineImages += sanitized.omittedImages;
-    } else {
-      entry.safeHtml = await sanitizeHtml(entry.sourceHtml);
-      entry.inlineMediaIds = [];
-    }
+    const sanitized = await sanitizeImportedWordPressHtml(entry.sourceHtml, mediaBySourceId, {
+      sourceOrigin,
+      sourcePermalink: entry.sourcePermalink,
+      permalinkMap,
+    });
+    entry.safeHtml = sanitized.html;
+    entry.inlineMediaIds = sanitized.mediaIds;
+    totalInlineImages += sanitized.imageElements;
+    rewrittenInlineImages += sanitized.rewrittenImages;
+    omittedInlineImages += sanitized.omittedImages;
+    sourceSiteLinks += sanitized.links.sourceSiteLinks;
+    rewrittenLinks += sanitized.links.rewrittenLinks;
+    unresolvedSourceSiteLinks += sanitized.links.unresolvedSourceSiteLinks;
+    removedUnsafeLinks += sanitized.links.removedUnsafeLinks;
     const rowBytes = encoder.encode(entry.entryId).byteLength
       + encoder.encode(entry.kind).byteLength
       + encoder.encode(entry.slug).byteLength
@@ -1866,9 +1890,17 @@ async function importWordPress(request, env, site) {
       rewritten_images: rewrittenInlineImages,
       omitted_images: omittedInlineImages,
     },
+    content_links: {
+      source_site_links: sourceSiteLinks,
+      rewritten_links: rewrittenLinks,
+      unresolved_source_site_links: unresolvedSourceSiteLinks,
+      removed_unsafe_links: removedUnsafeLinks,
+    },
     source_omissions: parsedWxr?.omitted ?? null,
     needs_owner_review: gutenbergReport.needs_owner_review
       || omittedInlineImages > 0
+      || unresolvedSourceSiteLinks > 0
+      || removedUnsafeLinks > 0
       || Object.values(parsedWxr?.omitted ?? {}).some((count) => Number(count) > 0),
   };
 

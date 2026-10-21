@@ -22,6 +22,9 @@ const wxr = `<?xml version="1.0" encoding="UTF-8"?>
       <wp:post_id>9001</wp:post_id><wp:post_type>post</wp:post_type><wp:status>publish</wp:status>
       <wp:post_name>private-migration-preview</wp:post_name>
       <content:encoded><![CDATA[<p>Local authorization qualification fixture.</p>
+        <a href="${sourceOrigin}/private-migration-preview/#intro">Imported self link</a>
+        <a href="/not-imported/">Unmapped source link</a>
+        <a href="javascript:alert(1)">Unsafe source link</a>
         <!-- wp:image {"id":9002} -->
         <figure><img class="wp-image-9002" src="https://wordpress.example/uploads/hero.png" alt="Owner image"></figure>
         <!-- /wp:image -->
@@ -196,6 +199,10 @@ try {
   assert.equal(importedBody.migration_report.gutenberg.unknown_blocks, 1);
   assert.equal(importedBody.migration_report.inline_media.rewritten_images, 1);
   assert.equal(importedBody.migration_report.inline_media.omitted_images, 1);
+  assert.equal(importedBody.migration_report.content_links.source_site_links, 2);
+  assert.equal(importedBody.migration_report.content_links.rewritten_links, 1);
+  assert.equal(importedBody.migration_report.content_links.unresolved_source_site_links, 1);
+  assert.equal(importedBody.migration_report.content_links.removed_unsafe_links, 1);
   assert.equal(importedBody.migration_report.needs_owner_review, true);
 
   const savedReport = await request(port, "GET", `/_mithrilpress/api/revisions/${importedBody.revision_id}/migration-report`, {
@@ -211,6 +218,9 @@ try {
   assert.match(privatePreview.headers["x-robots-tag"] ?? "", /noindex/);
   assert.match(privatePreview.body, /Local authorization qualification fixture/);
   assert.match(privatePreview.body, new RegExp(`/_mithrilpress/media/${uploadedMediaId}\\?revision=${importedBody.revision_id}`));
+  assert.match(privatePreview.body, /href="https:\/\/integration\.sites\.mithril\.love\/private-migration-preview\/#intro"/);
+  assert.match(privatePreview.body, /href="https:\/\/wordpress\.example\/not-imported\/"/);
+  assert.equal(privatePreview.body.includes("javascript:alert(1)"), false);
   assert.equal(privatePreview.body.includes("https://wordpress.example/uploads/hero.png"), false);
   assert.equal(privatePreview.body.includes("https://wordpress.example/uploads/unmapped.png"), false);
 
