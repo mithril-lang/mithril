@@ -1,5 +1,6 @@
 import { handleDnsMigrations } from "./dns_migration.js";
 import { MAX_MEDIA_BYTES, validateImageUpload } from "./media_validation.js";
+import { instantiateMithrilNative as instantiateContentBoundary } from "./content_boundary.js";
 import { instantiateMithrilNative } from "./platform_hostname.js";
 import { parseWordPressWxr } from "./wxr_import.js";
 
@@ -28,8 +29,7 @@ const HOSTING_REQUESTS_PER_DAY_LIMIT = 25_000;
 const SITE_HOSTING_REQUESTS_PER_DAY_LIMIT = 5_000;
 const ENTRY_SLUG = /^[^/?#\\\u0000-\u001f\u007f]{1,200}$/;
 const mithrilHostnameCore = instantiateMithrilNative({});
-const POST_TYPES = new Set(["post", "page"]);
-const SOURCE_STATUSES = new Set(["publish", "future", "draft", "pending", "private", "trash"]);
+const mithrilContentBoundary = instantiateContentBoundary({ Array, Number, Set });
 const HTML_TAGS = new Set([
   "a", "b", "blockquote", "br", "code", "dd", "del", "div", "dl", "dt",
   "em", "figcaption", "figure", "h1", "h2", "h3", "h4", "h5", "h6", "hr",
@@ -304,69 +304,10 @@ function textValue(value, limit) {
   return typeof value === "string" && value.trim().length > 0 && value.length <= limit;
 }
 
-function renderedText(record, key) {
-  const value = record[key];
-  return value && typeof value === "object"
-    ? (typeof value.raw === "string" ? value.raw : typeof value.rendered === "string" ? value.rendered : null)
-    : null;
-}
-
 function normalizeRecord(record) {
-  if (!record || typeof record !== "object" || Array.isArray(record)) throw Object.assign(new Error(), { status: 422, code: "invalid_wordpress_record" });
-  const id = record.id;
-  const kind = record.type;
-  const slug = record.slug;
-  const title = renderedText(record, "title");
-  const content = record.content && typeof record.content === "object"
-    ? (typeof record.content.raw === "string"
-      ? record.content.raw
-      : typeof record.content.rendered === "string" ? record.content.rendered : null)
-    : null;
-  const sourceStatus = record.status;
-  const categories = record.categories ?? [];
-  const tags = record.tags ?? [];
-  const media = record.featured_media ?? 0;
-  if (!Number.isSafeInteger(id) || id <= 0) throw Object.assign(new Error(), { status: 422, code: "invalid_source_id" });
-  if (!POST_TYPES.has(kind)) throw Object.assign(new Error(), { status: 422, code: "unsupported_post_type" });
-  if (!SOURCE_STATUSES.has(sourceStatus)) throw Object.assign(new Error(), { status: 422, code: "unsupported_source_status" });
-  if (!textValue(slug, 200) || !ENTRY_SLUG.test(slug)) throw Object.assign(new Error(), { status: 422, code: "invalid_slug" });
-  if (!textValue(title, 20000)) throw Object.assign(new Error(), { status: 422, code: "invalid_title" });
-  if (!textValue(content, MAX_CONTENT_CHARS)) throw Object.assign(new Error(), { status: 422, code: "invalid_content" });
-  if (!validIdList(categories) || !validIdList(tags) || !Number.isSafeInteger(media) || media < 0) {
-    throw Object.assign(new Error(), { status: 422, code: "invalid_taxonomy_or_media" });
-  }
-  for (const field of ["date", "date_gmt", "modified", "modified_gmt"]) {
-    if (record[field] !== undefined && record[field] !== null && (typeof record[field] !== "string" || record[field].length > 128)) {
-      throw Object.assign(new Error(), { status: 422, code: "invalid_date" });
-    }
-  }
-  if (record.link !== undefined && record.link !== null && (typeof record.link !== "string" || record.link.length > 2048)) {
-    throw Object.assign(new Error(), { status: 422, code: "invalid_permalink" });
-  }
-  return {
-    entryId: `wordpress:${kind}:${id}`,
-    kind,
-    slug,
-    title,
-    sourceHtml: content,
-    sourceId: id,
-    sourceStatus,
-    sourceDate: record.date ?? null,
-    sourceDateGmt: record.date_gmt ?? null,
-    sourceModified: record.modified ?? null,
-    sourceModifiedGmt: record.modified_gmt ?? null,
-    sourcePermalink: record.link ?? null,
-    categories,
-    tags,
-    featuredMediaId: media || null,
-  };
-}
-
-function validIdList(value) {
-  return Array.isArray(value)
-    && value.length <= 1000
-    && value.every((item) => Number.isSafeInteger(item) && item > 0)
-    && new Set(value).size === value.length;
+  const admission = mithrilContentBoundary.normalizeWordPressRecord(record);
+  if (!admission.ok) throw Object.assign(new Error(), { status: 422, code: admission.code });
+  return admission.entry;
 }
 
 function normalizeTaxonomyTerms(value, entries) {
@@ -381,22 +322,9 @@ function normalizeTaxonomyTerms(value, entries) {
   const encoder = new TextEncoder();
   let termBytes = 0;
   for (const item of input) {
-    if (!item || typeof item !== "object" || Array.isArray(item)) invalid("invalid_taxonomy_term");
-    const id = item.id;
-    const taxonomy = item.taxonomy === "tag" ? "post_tag" : item.taxonomy;
-    const slug = item.slug;
-    const name = item.name;
-    const description = typeof item.description === "string"
-      ? item.description
-      : renderedText(item, "description") ?? "";
-    const parentId = item.parent_term_id ?? item.parent ?? 0;
-    if (!Number.isSafeInteger(id) || id < 1 || !["category", "post_tag"].includes(taxonomy)
-        || !textValue(slug, 200) || !ENTRY_SLUG.test(slug)
-        || !textValue(name, 500) || typeof description !== "string" || description.length > 20_000
-        || !Number.isSafeInteger(parentId) || parentId < 0
-        || (taxonomy === "post_tag" && parentId !== 0)) {
-      invalid("invalid_taxonomy_term");
-    }
+    const admission = mithrilContentBoundary.normalizeTaxonomyTerm(item);
+    if (!admission.ok) invalid(admission.code);
+    const { id, taxonomy, slug, name, description, parentId } = admission.term;
     const key = `${taxonomy}:${id}`;
     const slugKey = `${taxonomy}:${slug}`;
     if (byKey.has(key) || slugs.has(slugKey)) invalid("duplicate_taxonomy_term");
@@ -1273,16 +1201,26 @@ async function studioChat(request, env, site) {
     }
   }
   const languageCode = normalizedLanguageTag(proposal?.language);
-  if (!proposal || typeof proposal !== "object"
-      || !textValue(proposal.assistant_message, 1500)
-      || !textValue(proposal.title, 200)
-      || !languageCode
-      || typeof proposal.html !== "string" || proposal.html.length < 1 || proposal.html.length > MAX_CONTENT_CHARS) {
+  if (!languageCode) {
     return fail(502, "invalid_ai_response", "The drafting service returned an incomplete proposal. No draft was saved.");
   }
-  const safeHtml = await sanitizeHtml(proposal.html);
+  const candidateSlug = studioSlug(proposal?.slug, proposal?.title);
+  const admittedDraft = mithrilContentBoundary.prepareChatDraft(
+    site.id, owner.tokenId, conversation.id, kind, candidateSlug, proposal, languageCode,
+  );
+  if (!admittedDraft.ok || admittedDraft.status !== "private-draft"
+      || admittedDraft.publicationAdmitted !== false || admittedDraft.tenantId !== site.id
+      || admittedDraft.authorizationProofId !== owner.tokenId || admittedDraft.conversationId !== conversation.id
+      || admittedDraft.entry.tenantId !== site.id || admittedDraft.entry.kind !== kind
+      || admittedDraft.entry.id !== `mithrilpress:chat:${conversation.id}`
+      || admittedDraft.entry.language !== languageCode || admittedDraft.entry.trust !== "untrusted"
+      || admittedDraft.entry.renderingAdmission !== "blocked" || admittedDraft.entry.publicationState !== "draft") {
+    return fail(502, "invalid_ai_response", "The drafting service returned an incomplete proposal. No draft was saved.");
+  }
+  const chatEntry = admittedDraft.entry;
+  const safeHtml = await sanitizeHtml(chatEntry.source);
   if (!textValue(safeHtml, MAX_SAFE_HTML_CHARS)) return fail(502, "empty_ai_draft", "The generated content did not contain publishable text. No draft was saved.");
-  let slug = studioSlug(proposal.slug, proposal.title);
+  let slug = chatEntry.slug;
   const baseEntries = conversation.base_revision_id
     ? await env.DB.prepare(
       "SELECT slug, api_id FROM entries WHERE site_id = ? AND revision_id = ? AND kind = ?",
@@ -1302,7 +1240,7 @@ async function studioChat(request, env, site) {
   if (baseCount >= MAX_RECORDS) return fail(409, "site_content_limit", "This revision has reached the 500-entry limit. Import or archive content before adding another post.");
 
   const revisionId = crypto.randomUUID();
-  const entryId = `mithrilpress:chat:${conversation.id}`;
+  const entryId = chatEntry.id;
   const assistantAt = new Date(now.getTime() + 1).toISOString();
   const baseRevisionId = conversation.base_revision_id;
   const statements = [];
@@ -1330,7 +1268,7 @@ async function studioChat(request, env, site) {
     ).bind(revisionId, site.id, baseRevisionId),
     env.DB.prepare(
       "INSERT INTO entries (site_id, revision_id, entry_id, kind, slug, title, source_html, safe_html, entry_origin, publication_status, language_code, api_id, source_id, source_status, source_date, source_date_gmt, source_modified, source_modified_gmt, source_permalink, categories_json, tags_json, featured_media_id, rendering_admission) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'chat', 'draft', ?, ?, NULL, 'draft', ?, ?, ?, ?, NULL, '[]', '[]', ?, 'ready')",
-    ).bind(site.id, revisionId, entryId, kind, slug, proposal.title.trim(), proposal.html, safeHtml,
+    ).bind(site.id, revisionId, entryId, kind, slug, chatEntry.title.trim(), chatEntry.source, safeHtml,
       languageCode, apiId, nowIso, nowIso, nowIso, nowIso, featuredMediaId),
     env.DB.prepare(
       "UPDATE site_revisions SET state = 'private-preview' WHERE site_id = ? AND id = ? AND state = 'importing' AND entry_count = (SELECT COUNT(*) FROM entries WHERE site_id = ? AND revision_id = ? AND rendering_admission = 'ready')",
@@ -1343,7 +1281,7 @@ async function studioChat(request, env, site) {
     ).bind(site.id, conversation.id, crypto.randomUUID(), body.message.trim(), nowIso),
     env.DB.prepare(
       "INSERT INTO studio_messages (site_id, conversation_id, id, role, body, created_at) VALUES (?, ?, ?, 'assistant', ?, ?)",
-    ).bind(site.id, conversation.id, crypto.randomUUID(), proposal.assistant_message.trim(), assistantAt),
+    ).bind(site.id, conversation.id, crypto.randomUUID(), chatEntry.assistantMessage.trim(), assistantAt),
     env.DB.prepare(
       "INSERT INTO owner_actions (id, site_id, revision_id, token_id, action, created_at, metadata_json) SELECT ?, ?, ?, ?, 'chat-generate', ?, ? WHERE EXISTS (SELECT 1 FROM site_revisions WHERE site_id = ? AND id = ? AND state = 'private-preview')",
     ).bind(crypto.randomUUID(), site.id, revisionId, owner.tokenId, assistantAt,
@@ -1363,8 +1301,8 @@ async function studioChat(request, env, site) {
   }
   return json({
     conversation_id: conversation.id,
-    message: proposal.assistant_message.trim(),
-    draft: { revision_id: revisionId, title: proposal.title.trim(), slug, kind, state: "private-preview", featured_media_id: featuredMediaId },
+    message: chatEntry.assistantMessage.trim(),
+    draft: { revision_id: revisionId, title: chatEntry.title.trim(), slug, kind, state: "private-preview", featured_media_id: featuredMediaId },
     preview_url: `/_mithrilpress/preview/${revisionId}/${encodeURIComponent(slug)}`,
   }, 201);
 }

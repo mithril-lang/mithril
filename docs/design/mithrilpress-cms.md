@@ -61,18 +61,20 @@ taxonomy terms, assets, import receipts, hostnames, and owner approvals.
 - force imports into private drafts and deny publication until a separate
   tenant-bound owner approval is present.
 
-The Mithril boundary also defines `prepare-chat-draft` and
-`admit-sanitized-chat-draft`: generated HTML remains untrusted and blocked until
-the host attaches bounded sanitized output. `chat-publication-admitted?`
-requires approval tied to the same tenant and conversation. Platform subdomain
-validation is now authored in `apps/mithrilpress-worker/src/platform_hostname.mith`,
-compiled with Mithril's native JavaScript emitter, and called by the Worker
-before its exact D1 hostname lookup.
+The Worker runtime contracts are authored in
+`apps/mithrilpress-worker/src/platform_hostname.mith` and
+`apps/mithrilpress-worker/src/content_boundary.mith`, compiled with Mithril's
+native JavaScript emitter, and called at the hostname, WordPress record,
+taxonomy-term, and chat-proposal boundaries. The chat contract returns an
+untrusted, blocked, private-draft envelope; the host attaches bounded sanitized
+HTML before opening the rendering gate. The pure `.cljk` boundary remains the
+platform-neutral reference model. The Worker keeps host I/O and stateful work
+in JavaScript, including cross-record taxonomy integrity, D1/R2 and AI calls,
+HTML sanitization, language-tag canonicalization, slug collision resolution,
+and publication transactions.
 
-WordPress record normalization and the broader import state machine remain in
-the JavaScript Worker adapter and the pure `.cljk` boundary model; these parts
-are not yet generated from Mithril. The adapter does not fetch WordPress itself:
-owners provide the content through a scoped token. The importer accepts a
+The adapter does not fetch WordPress itself: owners provide the content through
+a scoped token. The importer accepts a
 bounded WordPress WXR 1.2 subset as well as REST records. It retains posts and
 pages, source IDs, dates, permalinks, category/tag IDs, and featured-media IDs.
 WXR attachments, media bytes, custom fields, page-parent relations, users,

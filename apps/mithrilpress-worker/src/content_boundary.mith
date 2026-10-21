@@ -1,0 +1,353 @@
+; Mithril-authored admission contracts used by the MithrilPress Worker.
+(mithril/native-js-module
+ :name "mithrilpress.content_boundary"
+ :imports ["Array" "Number" "Set"]
+ :functions
+ [(mithril/function
+   :name "isRecord"
+   :params [(rdf/node :name "value" :datatype "js-value")]
+   :returns "js-value"
+   :body
+   (mithril/host-logical
+    :operator "&&"
+    :left (mithril/host-binary
+           :operator "==="
+           :left (mithril/host-unary :operator "typeof" :value (mithril/local :name "value"))
+           :right (mithril/literal :datatype "js-value" :value "object"))
+    :right
+    (mithril/host-logical
+     :operator "&&"
+     :left (mithril/host-binary :operator "!==" :left (mithril/local :name "value")
+                                :right (mithril/literal :datatype "js-value" :value nil))
+     :right (mithril/host-unary
+             :operator "!"
+             :value (mithril/host-method
+                     :object (mithril/host-import :name "Array")
+                     :key (mithril/literal :datatype "js-value" :value "isArray")
+                     :args [(mithril/local :name "value")])))))
+  (mithril/function
+   :name "textValue"
+   :params [(rdf/node :name "value" :datatype "js-value")
+            (rdf/node :name "limit" :datatype "js-value")]
+   :returns "js-value"
+   :body
+   (mithril/host-logical
+    :operator "&&"
+    :left (mithril/host-binary :operator "==="
+                               :left (mithril/host-unary :operator "typeof" :value (mithril/local :name "value"))
+                               :right (mithril/literal :datatype "js-value" :value "string"))
+    :right (mithril/host-logical
+            :operator "&&"
+            :left (mithril/host-binary
+                   :operator ">"
+                   :left (mithril/host-get
+                          :object (mithril/host-method :object (mithril/local :name "value")
+                                                       :key (mithril/literal :datatype "js-value" :value "trim") :args [])
+                          :key (mithril/literal :datatype "js-value" :value "length"))
+                   :right (mithril/literal :datatype "js-value" :value 0))
+            :right (mithril/host-binary :operator "<="
+                                        :left (mithril/host-get :object (mithril/local :name "value")
+                                                                :key (mithril/literal :datatype "js-value" :value "length"))
+                                        :right (mithril/local :name "limit")))))
+  (mithril/function
+   :name "positiveId"
+   :params [(rdf/node :name "value" :datatype "js-value")]
+   :returns "js-value"
+   :body (mithril/host-logical
+          :operator "&&"
+          :left (mithril/host-method :object (mithril/host-import :name "Number")
+                                     :key (mithril/literal :datatype "js-value" :value "isSafeInteger")
+                                     :args [(mithril/local :name "value")])
+          :right (mithril/host-binary :operator ">" :left (mithril/local :name "value")
+                                      :right (mithril/literal :datatype "js-value" :value 0))))
+  (mithril/function
+   :name "nonNegativeId"
+   :params [(rdf/node :name "value" :datatype "js-value")]
+   :returns "js-value"
+   :body (mithril/host-logical
+          :operator "&&"
+          :left (mithril/host-method :object (mithril/host-import :name "Number")
+                                     :key (mithril/literal :datatype "js-value" :value "isSafeInteger")
+                                     :args [(mithril/local :name "value")])
+          :right (mithril/host-binary :operator ">=" :left (mithril/local :name "value")
+                                      :right (mithril/literal :datatype "js-value" :value 0))))
+  (mithril/function
+   :name "validIdList"
+   :params [(rdf/node :name "value" :datatype "js-value")]
+   :returns "js-value"
+   :body
+   (mithril/host-logical
+    :operator "&&"
+    :left (mithril/host-method :object (mithril/host-import :name "Array")
+                               :key (mithril/literal :datatype "js-value" :value "isArray")
+                               :args [(mithril/local :name "value")])
+    :right
+    (mithril/host-logical
+     :operator "&&"
+     :left (mithril/host-binary :operator "<="
+                                :left (mithril/host-get :object (mithril/local :name "value")
+                                                        :key (mithril/literal :datatype "js-value" :value "length"))
+                                :right (mithril/literal :datatype "js-value" :value 1000))
+     :right
+     (mithril/host-logical
+      :operator "&&"
+      :left (mithril/host-binary
+             :operator "==="
+             :left (mithril/host-get
+                    :object (mithril/host-construct :constructor (mithril/host-import :name "Set")
+                                                    :args [(mithril/local :name "value")])
+                    :key (mithril/literal :datatype "js-value" :value "size"))
+             :right (mithril/host-get :object (mithril/local :name "value")
+                                      :key (mithril/literal :datatype "js-value" :value "length")))
+      :right (mithril/host-method
+              :object (mithril/local :name "value")
+              :key (mithril/literal :datatype "js-value" :value "every")
+              :args [(mithril/native-lambda :params ["item"]
+                       :body (mithril/host-invoke :function (mithril/function-ref :name "positiveId")
+                                                  :args [(mithril/local :name "item")]))])))))
+  (mithril/function
+   :name "renderedField"
+   :params [(rdf/node :name "record" :datatype "js-value")
+            (rdf/node :name "key" :datatype "js-value")]
+   :returns "js-value"
+   :body
+   (mithril/let
+    :bindings [(rdf/node :name "field" :value (mithril/host-optional-get
+                                                :object (mithril/local :name "record")
+                                                :key (mithril/local :name "key")))]
+    :body
+    (mithril/if
+     :condition (mithril/host-invoke :function (mithril/function-ref :name "isRecord")
+                                     :args [(mithril/local :name "field")])
+     :then
+     (mithril/let
+      :bindings [(rdf/node :name "raw" :value (mithril/host-optional-get
+                                                :object (mithril/local :name "field")
+                                                :key (mithril/literal :datatype "js-value" :value "raw")))
+                 (rdf/node :name "rendered" :value (mithril/host-optional-get
+                                                     :object (mithril/local :name "field")
+                                                     :key (mithril/literal :datatype "js-value" :value "rendered")))]
+      :body
+      (mithril/if
+       :condition (mithril/host-binary :operator "==="
+                                      :left (mithril/host-unary :operator "typeof" :value (mithril/local :name "raw"))
+                                      :right (mithril/literal :datatype "js-value" :value "string"))
+       :then (mithril/local :name "raw")
+       :else (mithril/if
+              :condition (mithril/host-binary :operator "==="
+                                             :left (mithril/host-unary :operator "typeof" :value (mithril/local :name "rendered"))
+                                             :right (mithril/literal :datatype "js-value" :value "string"))
+              :then (mithril/local :name "rendered")
+              :else (mithril/literal :datatype "js-value" :value nil))))
+     :else (mithril/literal :datatype "js-value" :value nil))))
+  (mithril/function
+   :name "contentField"
+   :params [(rdf/node :name "record" :datatype "js-value")]
+   :returns "js-value"
+   :body (mithril/host-invoke :function (mithril/function-ref :name "renderedField")
+                              :args [(mithril/local :name "record")
+                                     (mithril/literal :datatype "js-value" :value "content")]))
+  (mithril/function
+   :name "optionalString"
+   :params [(rdf/node :name "value" :datatype "js-value")
+            (rdf/node :name "limit" :datatype "js-value")]
+   :returns "js-value"
+   :body
+   (mithril/host-logical
+    :operator "||"
+    :left (mithril/host-logical
+           :operator "||"
+           :left (mithril/host-binary :operator "==="
+                                      :left (mithril/local :name "value")
+                                      :right (mithril/literal :datatype "js-value" :value nil))
+           :right (mithril/host-binary :operator "==="
+                                       :left (mithril/host-unary :operator "typeof" :value (mithril/local :name "value"))
+                                       :right (mithril/literal :datatype "js-value" :value "undefined")))
+    :right (mithril/host-logical
+            :operator "&&"
+            :left (mithril/host-binary :operator "==="
+                                       :left (mithril/host-unary :operator "typeof" :value (mithril/local :name "value"))
+                                       :right (mithril/literal :datatype "js-value" :value "string"))
+            :right (mithril/host-binary :operator "<="
+                                        :left (mithril/host-get :object (mithril/local :name "value")
+                                                                :key (mithril/literal :datatype "js-value" :value "length"))
+                                        :right (mithril/local :name "limit")))))
+  (mithril/function
+   :name "safeSlug"
+   :params [(rdf/node :name "value" :datatype "js-value")]
+   :returns "js-value"
+   :body
+   (mithril/host-logical
+    :operator "&&"
+    :left (mithril/host-invoke :function (mithril/function-ref :name "textValue")
+                               :args [(mithril/local :name "value")
+                                      (mithril/literal :datatype "js-value" :value 200)])
+    :right
+    (mithril/host-logical
+     :operator "&&"
+    :left (mithril/host-unary :operator "!"
+                               :value (mithril/host-method
+                                       :object (mithril/host-regexp :pattern "[/\\\\?#]" :flags "")
+                                       :key (mithril/literal :datatype "js-value" :value "test")
+                                       :args [(mithril/local :name "value")]))
+     :right (mithril/host-unary :operator "!"
+                                :value (mithril/host-method
+                                        :object (mithril/host-regexp :pattern "[\\u0000-\\u001f\\u007f]" :flags "")
+                                        :key (mithril/literal :datatype "js-value" :value "test")
+                                        :args [(mithril/local :name "value")])))))
+  (mithril/function
+   :name "invalid"
+   :params [(rdf/node :name "code" :datatype "js-value")]
+   :returns "js-value"
+   :body (mithril/host-object
+          :entries [(rdf/node :key (mithril/literal :datatype "js-value" :value "ok")
+                              :value (mithril/literal :datatype "js-value" :value false))
+                    (rdf/node :key (mithril/literal :datatype "js-value" :value "code")
+                              :value (mithril/local :name "code"))]))
+  (mithril/function
+   :name "normalizeWordPressRecord"
+   :params [(rdf/node :name "record" :datatype "js-value")]
+   :returns "js-value"
+   :body
+   (mithril/if
+    :condition (mithril/host-unary :operator "!"
+                                   :value (mithril/host-invoke :function (mithril/function-ref :name "isRecord")
+                                                               :args [(mithril/local :name "record")]))
+    :then (mithril/host-invoke :function (mithril/function-ref :name "invalid")
+                               :args [(mithril/literal :datatype "js-value" :value "invalid_wordpress_record")])
+    :else
+    (mithril/let
+     :bindings [(rdf/node :name "id" :value (mithril/host-get :object (mithril/local :name "record") :key (mithril/literal :datatype "js-value" :value "id")))
+                (rdf/node :name "kind" :value (mithril/host-get :object (mithril/local :name "record") :key (mithril/literal :datatype "js-value" :value "type")))
+                (rdf/node :name "sourceStatus" :value (mithril/host-get :object (mithril/local :name "record") :key (mithril/literal :datatype "js-value" :value "status")))
+                (rdf/node :name "slug" :value (mithril/host-get :object (mithril/local :name "record") :key (mithril/literal :datatype "js-value" :value "slug")))
+                (rdf/node :name "title" :value (mithril/host-invoke :function (mithril/function-ref :name "renderedField") :args [(mithril/local :name "record") (mithril/literal :datatype "js-value" :value "title")]))
+                (rdf/node :name "content" :value (mithril/host-invoke :function (mithril/function-ref :name "contentField") :args [(mithril/local :name "record")]))
+                (rdf/node :name "categories" :value (mithril/host-logical :operator "??" :left (mithril/host-get :object (mithril/local :name "record") :key (mithril/literal :datatype "js-value" :value "categories")) :right (mithril/host-array :items [])))
+                (rdf/node :name "tags" :value (mithril/host-logical :operator "??" :left (mithril/host-get :object (mithril/local :name "record") :key (mithril/literal :datatype "js-value" :value "tags")) :right (mithril/host-array :items [])))
+                (rdf/node :name "media" :value (mithril/host-logical :operator "??" :left (mithril/host-get :object (mithril/local :name "record") :key (mithril/literal :datatype "js-value" :value "featured_media")) :right (mithril/literal :datatype "js-value" :value 0)))
+                (rdf/node :name "datesValid" :value (mithril/host-logical :operator "&&"
+                  :left (mithril/host-logical :operator "&&"
+                    :left (mithril/host-invoke :function (mithril/function-ref :name "optionalString") :args [(mithril/host-optional-get :object (mithril/local :name "record") :key (mithril/literal :datatype "js-value" :value "date")) (mithril/literal :datatype "js-value" :value 128)])
+                    :right (mithril/host-invoke :function (mithril/function-ref :name "optionalString") :args [(mithril/host-optional-get :object (mithril/local :name "record") :key (mithril/literal :datatype "js-value" :value "date_gmt")) (mithril/literal :datatype "js-value" :value 128)]))
+                  :right (mithril/host-logical :operator "&&"
+                    :left (mithril/host-invoke :function (mithril/function-ref :name "optionalString") :args [(mithril/host-optional-get :object (mithril/local :name "record") :key (mithril/literal :datatype "js-value" :value "modified")) (mithril/literal :datatype "js-value" :value 128)])
+                    :right (mithril/host-invoke :function (mithril/function-ref :name "optionalString") :args [(mithril/host-optional-get :object (mithril/local :name "record") :key (mithril/literal :datatype "js-value" :value "modified_gmt")) (mithril/literal :datatype "js-value" :value 128)]))))]
+     :body
+     (mithril/if
+      :condition (mithril/host-unary :operator "!" :value (mithril/host-invoke :function (mithril/function-ref :name "positiveId") :args [(mithril/local :name "id")]))
+      :then (mithril/host-invoke :function (mithril/function-ref :name "invalid") :args [(mithril/literal :datatype "js-value" :value "invalid_source_id")])
+      :else
+      (mithril/if
+       :condition (mithril/host-unary :operator "!" :value (mithril/host-method :object (mithril/host-array :items [(mithril/literal :datatype "js-value" :value "post") (mithril/literal :datatype "js-value" :value "page")]) :key (mithril/literal :datatype "js-value" :value "includes") :args [(mithril/local :name "kind")]))
+       :then (mithril/host-invoke :function (mithril/function-ref :name "invalid") :args [(mithril/literal :datatype "js-value" :value "unsupported_post_type")])
+       :else
+       (mithril/if
+        :condition (mithril/host-unary :operator "!" :value (mithril/host-method :object (mithril/host-array :items [(mithril/literal :datatype "js-value" :value "publish") (mithril/literal :datatype "js-value" :value "future") (mithril/literal :datatype "js-value" :value "draft") (mithril/literal :datatype "js-value" :value "pending") (mithril/literal :datatype "js-value" :value "private") (mithril/literal :datatype "js-value" :value "trash")]) :key (mithril/literal :datatype "js-value" :value "includes") :args [(mithril/local :name "sourceStatus")]))
+        :then (mithril/host-invoke :function (mithril/function-ref :name "invalid") :args [(mithril/literal :datatype "js-value" :value "unsupported_source_status")])
+        :else
+        (mithril/if
+         :condition (mithril/host-unary :operator "!" :value (mithril/host-invoke :function (mithril/function-ref :name "safeSlug") :args [(mithril/local :name "slug")]))
+         :then (mithril/host-invoke :function (mithril/function-ref :name "invalid") :args [(mithril/literal :datatype "js-value" :value "invalid_slug")])
+         :else
+         (mithril/if
+          :condition (mithril/host-unary :operator "!" :value (mithril/host-invoke :function (mithril/function-ref :name "textValue") :args [(mithril/local :name "title") (mithril/literal :datatype "js-value" :value 20000)]))
+          :then (mithril/host-invoke :function (mithril/function-ref :name "invalid") :args [(mithril/literal :datatype "js-value" :value "invalid_title")])
+          :else
+          (mithril/if
+           :condition (mithril/host-unary :operator "!" :value (mithril/host-invoke :function (mithril/function-ref :name "textValue") :args [(mithril/local :name "content") (mithril/literal :datatype "js-value" :value 250000)]))
+           :then (mithril/host-invoke :function (mithril/function-ref :name "invalid") :args [(mithril/literal :datatype "js-value" :value "invalid_content")])
+           :else
+           (mithril/if
+            :condition (mithril/host-unary :operator "!" :value (mithril/host-logical :operator "&&" :left (mithril/host-logical :operator "&&" :left (mithril/host-invoke :function (mithril/function-ref :name "validIdList") :args [(mithril/local :name "categories")]) :right (mithril/host-invoke :function (mithril/function-ref :name "validIdList") :args [(mithril/local :name "tags")])) :right (mithril/host-invoke :function (mithril/function-ref :name "nonNegativeId") :args [(mithril/local :name "media")])))
+            :then (mithril/host-invoke :function (mithril/function-ref :name "invalid") :args [(mithril/literal :datatype "js-value" :value "invalid_taxonomy_or_media")])
+            :else
+            (mithril/if
+             :condition (mithril/host-unary :operator "!" :value (mithril/local :name "datesValid"))
+             :then (mithril/host-invoke :function (mithril/function-ref :name "invalid") :args [(mithril/literal :datatype "js-value" :value "invalid_date")])
+             :else
+             (mithril/if
+              :condition (mithril/host-unary :operator "!" :value (mithril/host-invoke :function (mithril/function-ref :name "optionalString") :args [(mithril/host-optional-get :object (mithril/local :name "record") :key (mithril/literal :datatype "js-value" :value "link")) (mithril/literal :datatype "js-value" :value 2048)]))
+              :then (mithril/host-invoke :function (mithril/function-ref :name "invalid") :args [(mithril/literal :datatype "js-value" :value "invalid_permalink")])
+              :else
+              (mithril/host-object
+               :entries [(rdf/node :key (mithril/literal :datatype "js-value" :value "ok") :value (mithril/literal :datatype "js-value" :value true))
+                         (rdf/node :key (mithril/literal :datatype "js-value" :value "entry")
+                           :value (mithril/host-object :entries [
+                             (rdf/node :key (mithril/literal :datatype "js-value" :value "entryId") :value (mithril/host-binary :operator "+" :left (mithril/host-binary :operator "+" :left (mithril/literal :datatype "js-value" :value "wordpress:") :right (mithril/local :name "kind")) :right (mithril/host-binary :operator "+" :left (mithril/literal :datatype "js-value" :value ":") :right (mithril/local :name "id"))))
+                             (rdf/node :key (mithril/literal :datatype "js-value" :value "kind") :value (mithril/local :name "kind"))
+                             (rdf/node :key (mithril/literal :datatype "js-value" :value "slug") :value (mithril/local :name "slug"))
+                             (rdf/node :key (mithril/literal :datatype "js-value" :value "title") :value (mithril/local :name "title"))
+                             (rdf/node :key (mithril/literal :datatype "js-value" :value "sourceHtml") :value (mithril/local :name "content"))
+                             (rdf/node :key (mithril/literal :datatype "js-value" :value "sourceId") :value (mithril/local :name "id"))
+                             (rdf/node :key (mithril/literal :datatype "js-value" :value "sourceStatus") :value (mithril/local :name "sourceStatus"))
+                             (rdf/node :key (mithril/literal :datatype "js-value" :value "sourceDate") :value (mithril/host-logical :operator "??" :left (mithril/host-optional-get :object (mithril/local :name "record") :key (mithril/literal :datatype "js-value" :value "date")) :right (mithril/literal :datatype "js-value" :value nil)))
+                             (rdf/node :key (mithril/literal :datatype "js-value" :value "sourceDateGmt") :value (mithril/host-logical :operator "??" :left (mithril/host-optional-get :object (mithril/local :name "record") :key (mithril/literal :datatype "js-value" :value "date_gmt")) :right (mithril/literal :datatype "js-value" :value nil)))
+                             (rdf/node :key (mithril/literal :datatype "js-value" :value "sourceModified") :value (mithril/host-logical :operator "??" :left (mithril/host-optional-get :object (mithril/local :name "record") :key (mithril/literal :datatype "js-value" :value "modified")) :right (mithril/literal :datatype "js-value" :value nil)))
+                             (rdf/node :key (mithril/literal :datatype "js-value" :value "sourceModifiedGmt") :value (mithril/host-logical :operator "??" :left (mithril/host-optional-get :object (mithril/local :name "record") :key (mithril/literal :datatype "js-value" :value "modified_gmt")) :right (mithril/literal :datatype "js-value" :value nil)))
+                             (rdf/node :key (mithril/literal :datatype "js-value" :value "sourcePermalink") :value (mithril/host-logical :operator "??" :left (mithril/host-optional-get :object (mithril/local :name "record") :key (mithril/literal :datatype "js-value" :value "link")) :right (mithril/literal :datatype "js-value" :value nil)))
+                             (rdf/node :key (mithril/literal :datatype "js-value" :value "categories") :value (mithril/local :name "categories"))
+                             (rdf/node :key (mithril/literal :datatype "js-value" :value "tags") :value (mithril/local :name "tags"))
+                             (rdf/node :key (mithril/literal :datatype "js-value" :value "featuredMediaId") :value (mithril/if :condition (mithril/local :name "media") :then (mithril/local :name "media") :else (mithril/literal :datatype "js-value" :value nil)))]))])))))))))))))
+  (mithril/function
+   :name "normalizeTaxonomyTerm"
+   :params [(rdf/node :name "item" :datatype "js-value")]
+   :returns "js-value"
+   :body
+   (mithril/if
+    :condition (mithril/host-unary :operator "!" :value (mithril/host-invoke :function (mithril/function-ref :name "isRecord") :args [(mithril/local :name "item")]))
+    :then (mithril/host-invoke :function (mithril/function-ref :name "invalid") :args [(mithril/literal :datatype "js-value" :value "invalid_taxonomy_term")])
+    :else
+    (mithril/let
+     :bindings [(rdf/node :name "id" :value (mithril/host-get :object (mithril/local :name "item") :key (mithril/literal :datatype "js-value" :value "id")))
+                (rdf/node :name "taxonomyInput" :value (mithril/host-get :object (mithril/local :name "item") :key (mithril/literal :datatype "js-value" :value "taxonomy")))
+                (rdf/node :name "taxonomy" :value (mithril/if :condition (mithril/host-binary :operator "===" :left (mithril/local :name "taxonomyInput") :right (mithril/literal :datatype "js-value" :value "tag")) :then (mithril/literal :datatype "js-value" :value "post_tag") :else (mithril/local :name "taxonomyInput")))
+                (rdf/node :name "slug" :value (mithril/host-get :object (mithril/local :name "item") :key (mithril/literal :datatype "js-value" :value "slug")))
+                (rdf/node :name "name" :value (mithril/host-get :object (mithril/local :name "item") :key (mithril/literal :datatype "js-value" :value "name")))
+                (rdf/node :name "descriptionInput" :value (mithril/host-get :object (mithril/local :name "item") :key (mithril/literal :datatype "js-value" :value "description")))
+                (rdf/node :name "description" :value (mithril/if :condition (mithril/host-binary :operator "===" :left (mithril/host-unary :operator "typeof" :value (mithril/local :name "descriptionInput")) :right (mithril/literal :datatype "js-value" :value "string")) :then (mithril/local :name "descriptionInput") :else (mithril/host-logical :operator "??" :left (mithril/host-invoke :function (mithril/function-ref :name "renderedField") :args [(mithril/local :name "item") (mithril/literal :datatype "js-value" :value "description")]) :right (mithril/literal :datatype "js-value" :value ""))))
+                (rdf/node :name "parentId" :value (mithril/host-logical :operator "??" :left (mithril/host-optional-get :object (mithril/local :name "item") :key (mithril/literal :datatype "js-value" :value "parent_term_id")) :right (mithril/host-logical :operator "??" :left (mithril/host-get :object (mithril/local :name "item") :key (mithril/literal :datatype "js-value" :value "parent")) :right (mithril/literal :datatype "js-value" :value 0))))]
+     :body
+     (mithril/if
+      :condition (mithril/host-unary :operator "!" :value (mithril/host-logical :operator "&&" :left (mithril/host-logical :operator "&&" :left (mithril/host-invoke :function (mithril/function-ref :name "positiveId") :args [(mithril/local :name "id")]) :right (mithril/host-method :object (mithril/host-array :items [(mithril/literal :datatype "js-value" :value "category") (mithril/literal :datatype "js-value" :value "post_tag")]) :key (mithril/literal :datatype "js-value" :value "includes") :args [(mithril/local :name "taxonomy")])) :right (mithril/host-logical :operator "&&" :left (mithril/host-invoke :function (mithril/function-ref :name "safeSlug") :args [(mithril/local :name "slug")]) :right (mithril/host-logical :operator "&&" :left (mithril/host-invoke :function (mithril/function-ref :name "textValue") :args [(mithril/local :name "name") (mithril/literal :datatype "js-value" :value 500)]) :right (mithril/host-logical :operator "&&" :left (mithril/host-binary :operator "===" :left (mithril/host-unary :operator "typeof" :value (mithril/local :name "description")) :right (mithril/literal :datatype "js-value" :value "string")) :right (mithril/host-logical :operator "&&" :left (mithril/host-binary :operator "<=" :left (mithril/host-get :object (mithril/local :name "description") :key (mithril/literal :datatype "js-value" :value "length")) :right (mithril/literal :datatype "js-value" :value 20000)) :right (mithril/host-logical :operator "&&" :left (mithril/host-invoke :function (mithril/function-ref :name "nonNegativeId") :args [(mithril/local :name "parentId")]) :right (mithril/if :condition (mithril/host-binary :operator "===" :left (mithril/local :name "taxonomy") :right (mithril/literal :datatype "js-value" :value "post_tag")) :then (mithril/host-binary :operator "===" :left (mithril/local :name "parentId") :right (mithril/literal :datatype "js-value" :value 0)) :else (mithril/literal :datatype "js-value" :value true)))))))))
+      :then (mithril/host-invoke :function (mithril/function-ref :name "invalid") :args [(mithril/literal :datatype "js-value" :value "invalid_taxonomy_term")])
+      :else (mithril/host-object :entries [(rdf/node :key (mithril/literal :datatype "js-value" :value "ok") :value (mithril/literal :datatype "js-value" :value true)) (rdf/node :key (mithril/literal :datatype "js-value" :value "term") :value (mithril/host-object :entries [(rdf/node :key (mithril/literal :datatype "js-value" :value "id") :value (mithril/local :name "id")) (rdf/node :key (mithril/literal :datatype "js-value" :value "taxonomy") :value (mithril/local :name "taxonomy")) (rdf/node :key (mithril/literal :datatype "js-value" :value "slug") :value (mithril/local :name "slug")) (rdf/node :key (mithril/literal :datatype "js-value" :value "name") :value (mithril/local :name "name")) (rdf/node :key (mithril/literal :datatype "js-value" :value "description") :value (mithril/local :name "description")) (rdf/node :key (mithril/literal :datatype "js-value" :value "parentId") :value (mithril/local :name "parentId"))]))])))))
+  (mithril/function
+   :name "prepareChatDraft"
+   :params [(rdf/node :name "tenantId" :datatype "js-value") (rdf/node :name "authorizationProofId" :datatype "js-value") (rdf/node :name "conversationId" :datatype "js-value") (rdf/node :name "kind" :datatype "js-value") (rdf/node :name "slug" :datatype "js-value") (rdf/node :name "proposal" :datatype "js-value") (rdf/node :name "language" :datatype "js-value")]
+   :returns "js-value"
+   :body
+   (mithril/if
+    :condition (mithril/host-unary :operator "!" :value (mithril/host-logical :operator "&&" :left (mithril/host-logical :operator "&&" :left (mithril/host-invoke :function (mithril/function-ref :name "textValue") :args [(mithril/local :name "tenantId") (mithril/literal :datatype "js-value" :value 128)]) :right (mithril/host-invoke :function (mithril/function-ref :name "textValue") :args [(mithril/local :name "authorizationProofId") (mithril/literal :datatype "js-value" :value 256)])) :right (mithril/host-logical :operator "&&" :left (mithril/host-invoke :function (mithril/function-ref :name "textValue") :args [(mithril/local :name "conversationId") (mithril/literal :datatype "js-value" :value 128)]) :right (mithril/host-logical :operator "&&" :left (mithril/host-method :object (mithril/host-array :items [(mithril/literal :datatype "js-value" :value "post") (mithril/literal :datatype "js-value" :value "page")]) :key (mithril/literal :datatype "js-value" :value "includes") :args [(mithril/local :name "kind")]) :right (mithril/host-logical :operator "&&" :left (mithril/host-invoke :function (mithril/function-ref :name "safeSlug") :args [(mithril/local :name "slug")]) :right (mithril/host-logical :operator "&&" :left (mithril/host-invoke :function (mithril/function-ref :name "isRecord") :args [(mithril/local :name "proposal")]) :right (mithril/host-invoke :function (mithril/function-ref :name "textValue") :args [(mithril/local :name "language") (mithril/literal :datatype "js-value" :value 64)])))))))
+    :then (mithril/host-invoke :function (mithril/function-ref :name "invalid") :args [(mithril/literal :datatype "js-value" :value "invalid_chat_proposal")])
+    :else
+    (mithril/let
+     :bindings [(rdf/node :name "assistantMessage" :value (mithril/host-get :object (mithril/local :name "proposal") :key (mithril/literal :datatype "js-value" :value "assistant_message"))) (rdf/node :name "title" :value (mithril/host-get :object (mithril/local :name "proposal") :key (mithril/literal :datatype "js-value" :value "title"))) (rdf/node :name "html" :value (mithril/host-get :object (mithril/local :name "proposal") :key (mithril/literal :datatype "js-value" :value "html")))]
+     :body
+     (mithril/if
+      :condition (mithril/host-unary :operator "!" :value (mithril/host-logical :operator "&&" :left (mithril/host-invoke :function (mithril/function-ref :name "textValue") :args [(mithril/local :name "assistantMessage") (mithril/literal :datatype "js-value" :value 1500)]) :right (mithril/host-logical :operator "&&" :left (mithril/host-invoke :function (mithril/function-ref :name "textValue") :args [(mithril/local :name "title") (mithril/literal :datatype "js-value" :value 200)]) :right (mithril/host-invoke :function (mithril/function-ref :name "textValue") :args [(mithril/local :name "html") (mithril/literal :datatype "js-value" :value 250000)]))))
+      :then (mithril/host-invoke :function (mithril/function-ref :name "invalid") :args [(mithril/literal :datatype "js-value" :value "invalid_chat_proposal")])
+      :else
+      (mithril/host-object :entries [
+        (rdf/node :key (mithril/literal :datatype "js-value" :value "ok") :value (mithril/literal :datatype "js-value" :value true))
+        (rdf/node :key (mithril/literal :datatype "js-value" :value "status") :value (mithril/literal :datatype "js-value" :value "private-draft"))
+        (rdf/node :key (mithril/literal :datatype "js-value" :value "publicationAdmitted") :value (mithril/literal :datatype "js-value" :value false))
+        (rdf/node :key (mithril/literal :datatype "js-value" :value "tenantId") :value (mithril/local :name "tenantId"))
+        (rdf/node :key (mithril/literal :datatype "js-value" :value "authorizationProofId") :value (mithril/local :name "authorizationProofId"))
+        (rdf/node :key (mithril/literal :datatype "js-value" :value "conversationId") :value (mithril/local :name "conversationId"))
+        (rdf/node :key (mithril/literal :datatype "js-value" :value "entry")
+          :value (mithril/host-object :entries [
+            (rdf/node :key (mithril/literal :datatype "js-value" :value "id") :value (mithril/host-binary :operator "+" :left (mithril/literal :datatype "js-value" :value "mithrilpress:chat:") :right (mithril/local :name "conversationId")))
+            (rdf/node :key (mithril/literal :datatype "js-value" :value "tenantId") :value (mithril/local :name "tenantId"))
+            (rdf/node :key (mithril/literal :datatype "js-value" :value "kind") :value (mithril/local :name "kind"))
+            (rdf/node :key (mithril/literal :datatype "js-value" :value "slug") :value (mithril/local :name "slug"))
+            (rdf/node :key (mithril/literal :datatype "js-value" :value "title") :value (mithril/local :name "title"))
+            (rdf/node :key (mithril/literal :datatype "js-value" :value "language") :value (mithril/local :name "language"))
+            (rdf/node :key (mithril/literal :datatype "js-value" :value "assistantMessage") :value (mithril/local :name "assistantMessage"))
+            (rdf/node :key (mithril/literal :datatype "js-value" :value "source") :value (mithril/local :name "html"))
+            (rdf/node :key (mithril/literal :datatype "js-value" :value "trust") :value (mithril/literal :datatype "js-value" :value "untrusted"))
+            (rdf/node :key (mithril/literal :datatype "js-value" :value "renderingAdmission") :value (mithril/literal :datatype "js-value" :value "blocked"))
+            (rdf/node :key (mithril/literal :datatype "js-value" :value "publicationState") :value (mithril/literal :datatype "js-value" :value "draft"))]))])))))]
+ :exports [(rdf/node :name "normalizeWordPressRecord" :value (mithril/function-ref :name "normalizeWordPressRecord"))
+           (rdf/node :name "normalizeTaxonomyTerm" :value (mithril/function-ref :name "normalizeTaxonomyTerm"))
+           (rdf/node :name "prepareChatDraft" :value (mithril/function-ref :name "prepareChatDraft"))])
