@@ -229,6 +229,45 @@ try {
   const uploadedBody = JSON.parse(uploaded.body);
   const uploadedMediaId = uploadedBody.media.id;
   assert.equal(uploadedBody.media.wordpress_source_id, 9002);
+  const repeatedUpload = await request(port, "POST", "/_mithrilpress/api/media", {
+    token: siteToken.token,
+    body: png(),
+    contentType: "image/png",
+    headers: {
+      origin: `https://${testHostname}`,
+      "x-mithrilpress-request": "1",
+      "x-wordpress-media-id": "9002",
+      "x-mithrilpress-alt": "Migrated image",
+    },
+  });
+  assert.equal(repeatedUpload.status, 200, `Identical owner media retry was not idempotent: ${repeatedUpload.body}`);
+  assert.equal(JSON.parse(repeatedUpload.body).media.id, uploadedMediaId);
+  const conflictingMediaAlt = await request(port, "POST", "/_mithrilpress/api/media", {
+    token: siteToken.token,
+    body: png(),
+    contentType: "image/png",
+    headers: {
+      origin: `https://${testHostname}`,
+      "x-mithrilpress-request": "1",
+      "x-wordpress-media-id": "9002",
+      "x-mithrilpress-alt": "Different alt text",
+    },
+  });
+  assert.equal(conflictingMediaAlt.status, 409);
+  assert.equal(JSON.parse(conflictingMediaAlt.body).error.code, "wordpress_media_conflict");
+  const conflictingMediaBytes = await request(port, "POST", "/_mithrilpress/api/media", {
+    token: siteToken.token,
+    body: png(2, 1),
+    contentType: "image/png",
+    headers: {
+      origin: `https://${testHostname}`,
+      "x-mithrilpress-request": "1",
+      "x-wordpress-media-id": "9002",
+      "x-mithrilpress-alt": "Migrated image",
+    },
+  });
+  assert.equal(conflictingMediaBytes.status, 409);
+  assert.equal(JSON.parse(conflictingMediaBytes.body).error.code, "wordpress_media_conflict");
 
   const imported = await request(port, "POST", "/api/wordpress/import", {
     token: siteToken.token,
@@ -384,7 +423,7 @@ try {
   const missingRelevanceSearch = await request(port, "GET", "/wp-json/wp/v2/posts?orderby=relevance");
   assert.equal(missingRelevanceSearch.status, 400);
 
-  process.stdout.write("MithrilPress local owner-auth qualification passed: anonymous denial, tenant-token isolation, owner-uploaded inline media mapping, Gutenberg and SEO metadata reports, escaped private and published SEO tags, WordPress REST source/API item and collection reads, and pre-publication privacy.\n");
+  process.stdout.write("MithrilPress local owner-auth qualification passed: anonymous denial, tenant-token isolation, owner media idempotency/conflicts, owner-uploaded inline media mapping, Gutenberg and SEO metadata reports, escaped private and published SEO tags, WordPress REST source/API item and collection reads, and pre-publication privacy.\n");
 } finally {
   if (worker && worker.exitCode === null) {
     worker.kill("SIGTERM");

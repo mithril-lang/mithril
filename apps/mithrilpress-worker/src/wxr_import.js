@@ -1,4 +1,5 @@
 import { SaxesParser } from "saxes";
+import { instantiateMithrilNative as instantiateContentBoundary } from "./content_boundary.js";
 import { selectWordPressSeoMetadata } from "./wordpress_seo.js";
 
 const MAX_WXR_BYTES = 12_000_000;
@@ -32,6 +33,7 @@ const FIELD_NAMES = new Map([
   ["content:encoded", "content"],
   ["wp:attachment_url", "attachmentUrl"],
 ]);
+const mithrilContentBoundary = instantiateContentBoundary({ Array, Number, Set });
 
 function fail(code, status = 422) {
   throw Object.assign(new Error(code), { code, status });
@@ -217,6 +219,33 @@ function importRecords(pendingItems, terms, omittedSourceCounts) {
   return { records, omitted };
 }
 
+function importAttachments(pendingItems) {
+  return pendingItems.flatMap((item) => {
+    if (item.fields.postType?.trim() !== "attachment") return [];
+    const paths = item.meta.filter((meta) => meta.key === "_wp_attached_file")
+      .map((meta) => meta.value.trim());
+    const altTexts = item.meta.filter((meta) => meta.key === "_wp_attachment_image_alt")
+      .map((meta) => meta.value);
+    const path = paths.find(Boolean) ?? null;
+    const altText = altTexts[0] ?? "";
+    const pathConflict = new Set(paths.filter(Boolean)).size > 1;
+    const altConflict = new Set(altTexts).size > 1;
+    const admitted = mithrilContentBoundary.normalizeWordPressAttachment({
+      source_id: parseId(item.fields.postId),
+      path,
+      alt_text: altText,
+    });
+    return [{
+      source_id: admitted.ok ? admitted.attachment.id : parseId(item.fields.postId),
+      path: admitted.ok ? admitted.attachment.path : path,
+      alt_text: admitted.ok ? admitted.attachment.altText : altText,
+      admission_error: pathConflict ? "duplicate_wordpress_attachment_path"
+        : altConflict ? "duplicate_wordpress_attachment_alt_text"
+          : admitted.ok ? null : admitted.code,
+    }];
+  });
+}
+
 /**
  * Parse the WordPress eXtended RSS subset used by MithrilPress imports.
  * DTDs, custom entities, processing instructions, unsupported content types,
@@ -366,6 +395,7 @@ export function parseWordPressWxr(xml) {
     channelLink,
     wxrVersion,
     ...imported,
+    attachments: importAttachments(pendingItems),
     taxonomyTerms,
     source: "wordpress-wxr",
   };

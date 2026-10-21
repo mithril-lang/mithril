@@ -1591,6 +1591,21 @@ function mediaAltText(request) {
   return value.trim();
 }
 
+async function existingWordPressMediaResponse(env, site, wordpressSourceId, contentType, details, sha256, altText) {
+  const existing = await env.DB.prepare(
+    "SELECT id, wordpress_source_id, content_type, byte_length, width, height, sha256, alt_text, status, created_at FROM media_assets WHERE site_id = ? AND wordpress_source_id = ? LIMIT 1",
+  ).bind(site.id, wordpressSourceId).first();
+  if (!existing) return null;
+  if (existing.status !== "active") {
+    return fail(409, "wordpress_media_not_ready", "This WordPress media ID has an upload that is not ready. Resolve it before retrying the import.");
+  }
+  if (existing.sha256 !== sha256 || existing.content_type !== contentType
+      || existing.byte_length !== details.byteLength || existing.alt_text !== altText) {
+    return fail(409, "wordpress_media_conflict", "This WordPress media ID is already mapped to different image bytes or alt text.");
+  }
+  return json({ media: mediaSummary(site, existing) }, 200, { "Cache-Control": "private, no-store" });
+}
+
 async function studioMedia(request, env, site) {
   const owner = await ownerToken(request, env, site, "media:write");
   if (!owner) return fail(401, "media_owner_required", "An active site owner token with media:write scope is required.");
@@ -1615,18 +1630,16 @@ async function studioMedia(request, env, site) {
   const details = validateImageUpload(bytes, contentType);
   const wordpressSourceId = optionalWordPressMediaId(request);
   const altText = mediaAltText(request);
+  const sha256 = hex(await crypto.subtle.digest("SHA-256", bytes));
   if (wordpressSourceId !== null) {
-    const duplicate = await env.DB.prepare(
-      "SELECT id FROM media_assets WHERE site_id = ? AND wordpress_source_id = ? LIMIT 1",
-    ).bind(site.id, wordpressSourceId).first();
-    if (duplicate) return fail(409, "wordpress_media_already_imported", "This WordPress media ID is already present in the site's media library.");
+    const existing = await existingWordPressMediaResponse(env, site, wordpressSourceId, contentType, details, sha256, altText);
+    if (existing) return existing;
   }
   if (!await countMediaWrite(env, MEDIA_WRITES_PER_DAY_LIMIT)) {
     return fail(429, "media_daily_write_limit", "The shared free media upload and delete allowance is exhausted for today. Try again after 00:00 UTC.");
   }
 
   const idempotentObjectKey = `${site.id}/${crypto.randomUUID()}`;
-  const sha256 = hex(await crypto.subtle.digest("SHA-256", bytes));
   const createdAt = new Date().toISOString();
   let reserved;
   try {
@@ -1638,10 +1651,8 @@ async function studioMedia(request, env, site) {
     const quotaCode = mediaQuotaCode(error);
     if (quotaCode) return mediaQuotaResponse(quotaCode);
     if (wordpressSourceId !== null) {
-      const duplicate = await env.DB.prepare(
-        "SELECT id FROM media_assets WHERE site_id = ? AND wordpress_source_id = ? LIMIT 1",
-      ).bind(site.id, wordpressSourceId).first();
-      if (duplicate) return fail(409, "wordpress_media_already_imported", "This WordPress media ID is already present in the site's media library.");
+      const existing = await existingWordPressMediaResponse(env, site, wordpressSourceId, contentType, details, sha256, altText);
+      if (existing) return existing;
     }
     return fail(503, "media_not_reserved", "The image could not be reserved in the site's free storage allowance.");
   }
