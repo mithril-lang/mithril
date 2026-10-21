@@ -295,6 +295,12 @@ separate and may incur at-cost renewal charges.
 Cloudflare's [Workers-as-fallback-origin guide](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/start/advanced-settings/worker-as-origin/)
 documents routing customer hostnames through a wildcard Worker route.
 
+Before provisioning a zone or enabling a provider integration, review the
+[Cloudflare credential boundaries](../../docs/design/mithrilpress-cloudflare-auth.md).
+DNS migration tokens are supplied by an owner for one operation; the SaaS
+hostname token is a separate operator secret; and the Worker accesses media
+through its R2 binding rather than an R2 API token.
+
 ## WordPress REST subset
 
 Public post/page list requests support `page`, `per_page` (1–100), `slug`, and
