@@ -127,11 +127,15 @@ a paid tier. See [Workers pricing](https://developers.cloudflare.com/workers/pla
 [Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/).
 
 Public page and read-only WordPress REST requests have application hard stops
-of 5,000 requests per site and 25,000 across the deployment per UTC day. The
-request that reaches the allowance is served; later requests receive HTTP 429
-for a site limit or HTTP 503 for the shared limit until the next UTC day. These
-limits are tracked atomically in D1. Studio owner APIs are outside this visitor
-allowance. R2 application caps allow 250 MiB per site and 8 GiB per deployment,
+of 5,000 requests per active site and 25,000 across the deployment per UTC day.
+The shared counter also counts requests that reach the Worker but resolve to a
+missing or inactive host; those otherwise return 404. The request that reaches
+the allowance is handled; later requests receive HTTP 429 for a site limit or
+HTTP 503 for the shared limit until the next UTC day. These limits are tracked
+atomically in D1. Studio owner APIs for resolved active sites are outside this
+visitor allowance. The Worker invocation and hostname lookup happen before the
+application counter, so rejected requests can still be provider-metered. R2
+application caps allow 250 MiB per site and 8 GiB per deployment,
 5,000 image reads/day per site and 50,000 across the deployment, and 10,000
 upload/delete operations/day. Studio generation is capped at eight requests per
 UTC day across this deployment, and stops rather than switching to paid AI use.

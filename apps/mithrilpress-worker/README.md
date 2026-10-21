@@ -187,13 +187,16 @@ provider bill. Cloudflare's Workers Paid plan currently has a $5/month minimum,
 Workers AI have separate account-level allowances and pricing. MithrilPress
 does not bill site owners or automatically upgrade a plan.
 
-MithrilPress enforces 5,000 public site and WordPress REST requests per site per
-UTC day and 25,000 across the deployment. The request that reaches the cap is
-served; subsequent requests receive 429 for a site cap or 503 for the shared
-cap until 00:00 UTC. Studio APIs are outside this public traffic allowance.
-Content and media storage, media reads/writes, and AI drafting have separate
-application caps. These are not Cloudflare account meters: blocked requests
-still invoke the Worker and may count toward provider billing, and unrelated
+MithrilPress enforces 5,000 public page and WordPress REST requests per active
+site per UTC day and 25,000 public requests across the deployment. The shared
+counter also includes requests that reach this Worker but resolve to a missing
+or inactive host; those requests otherwise return 404. The request that reaches
+the cap is handled; later requests receive 429 for a site cap or 503 for the
+shared cap until 00:00 UTC. Studio APIs for resolved active sites are outside
+this public traffic allowance. Content and media storage, media reads/writes,
+and AI drafting have separate application caps. These are not Cloudflare
+account meters: the Worker invocation and hostname lookup happen before the
+application counter and can still count toward provider billing. Unrelated
 account workloads can exhaust shared quotas. The Studio does not measure all
 account-wide Worker requests, D1 reads/writes/storage, or Workers AI neuron
 usage. Import and rendering workloads have not been qualified against the

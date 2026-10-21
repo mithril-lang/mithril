@@ -308,7 +308,7 @@ async function refreshUsage() {
     const sharedLimit = Math.max(0, Number(result.storage.shared_deployment_limit_bytes) || 0);
     document.querySelector("#shared-storage-limit").textContent = `Shared retained-content ceiling: ${(sharedLimit / (1024 * 1024)).toFixed(0)} MiB across this hosting deployment. Aggregate usage is managed by the host operator.`;
     document.querySelector("#site-hosting-usage").textContent = `${result.public_hosting.site_requests_used} of ${result.public_hosting.site_daily_limit} public requests today (UTC)`;
-    document.querySelector("#site-hosting-reset").textContent = `Shared deployment ceiling: ${result.public_hosting.shared_deployment_daily_limit} requests/day. Resets at ${result.public_hosting.resets_at_utc}.`;
+    document.querySelector("#site-hosting-reset").textContent = `Shared deployment cap: ${result.public_hosting.shared_deployment_daily_limit} requests/day; unknown or inactive host 404s also consume it. Resets at ${result.public_hosting.resets_at_utc}.`;
     document.querySelector("#ai-usage").textContent = `${result.ai_drafting.requests_used} of ${result.ai_drafting.daily_app_limit} shared requests today (UTC)`;
     document.querySelector("#ai-usage-reset").textContent = `Resets at ${result.ai_drafting.resets_at_utc}.`;
     const media = result.r2_media;

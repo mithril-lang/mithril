@@ -1,7 +1,8 @@
 PRAGMA foreign_keys = ON;
 
--- Public page and read-only WordPress REST traffic is metered separately from
--- media operations. One row per site and deployment is reused at UTC rollover.
+-- Public page, read-only WordPress REST, and unresolved/inactive-host traffic
+-- is metered separately from media operations. One row per site and deployment
+-- is reused at UTC rollover.
 CREATE TABLE mithrilpress_deployment_daily_requests (
   singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
   day_utc TEXT NOT NULL CHECK (length(day_utc) = 10),

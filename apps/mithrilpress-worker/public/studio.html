@@ -197,7 +197,7 @@
             </article>
           </div>
           <p id="shared-storage-limit" class="usage-detail"></p>
-          <p class="usage-notice">MithrilPress is free for site owners within these allowances. A site request cap returns 429; a shared deployment cap returns 503 until 00:00 UTC. These are application limits, not Cloudflare account telemetry. Infrastructure costs are paid by the hosting operator; MithrilPress does not bill site owners or switch to paid usage automatically. A blocked Worker request can still count toward provider metering. DNS migration snapshots are not included in the retained-content estimate.</p>
+          <p class="usage-notice">MithrilPress is free for site owners within these allowances. A site request cap returns 429; a shared deployment cap returns 503 until 00:00 UTC. The shared request count includes requests that reach this Worker but resolve to an unknown or inactive host, which otherwise return 404. These are application limits, not Cloudflare account telemetry or a guarantee against provider charges. Infrastructure costs are paid by the hosting operator; MithrilPress does not bill site owners or switch to paid usage automatically. A blocked Worker request can still count toward provider metering, and resolving a hostname happens before its request is counted. DNS migration snapshots are not included in the retained-content estimate.</p>
           <p id="usage-status" class="status" role="status" aria-live="polite"></p>
         </section>
       </section>

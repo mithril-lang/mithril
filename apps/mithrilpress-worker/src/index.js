@@ -152,17 +152,22 @@ function hostingRequestQuotaResponse(code, date = new Date()) {
     : fail(503, "deployment_daily_hosting_request_limit", "The shared daily hosting allowance is used. Public pages will resume after 00:00 UTC.", { "Retry-After": retryAfter });
 }
 
-async function checkPublicHostingRequest(env, siteId, date = new Date()) {
+async function checkHostingRequest(env, siteId = null, date = new Date()) {
   const dayUtc = date.toISOString().slice(0, 10);
   try {
-    await env.DB.batch([
+    const statements = [
       env.DB.prepare(
         "INSERT INTO mithrilpress_deployment_daily_requests (singleton, day_utc, request_count) VALUES (1, ?, 1) ON CONFLICT(singleton) DO UPDATE SET day_utc = excluded.day_utc, request_count = CASE WHEN mithrilpress_deployment_daily_requests.day_utc = excluded.day_utc THEN mithrilpress_deployment_daily_requests.request_count + 1 ELSE 1 END",
       ).bind(dayUtc),
-      env.DB.prepare(
-        "INSERT INTO mithrilpress_site_daily_requests (site_id, day_utc, request_count) VALUES (?, ?, 1) ON CONFLICT(site_id) DO UPDATE SET day_utc = excluded.day_utc, request_count = CASE WHEN mithrilpress_site_daily_requests.day_utc = excluded.day_utc THEN mithrilpress_site_daily_requests.request_count + 1 ELSE 1 END",
-      ).bind(siteId, dayUtc),
-    ]);
+    ];
+    if (siteId !== null) {
+      statements.push(
+        env.DB.prepare(
+          "INSERT INTO mithrilpress_site_daily_requests (site_id, day_utc, request_count) VALUES (?, ?, 1) ON CONFLICT(site_id) DO UPDATE SET day_utc = excluded.day_utc, request_count = CASE WHEN mithrilpress_site_daily_requests.day_utc = excluded.day_utc THEN mithrilpress_site_daily_requests.request_count + 1 ELSE 1 END",
+        ).bind(siteId, dayUtc),
+      );
+    }
+    await env.DB.batch(statements);
     return null;
   } catch (error) {
     const code = hostingRequestQuotaCode(error);
@@ -2246,8 +2251,11 @@ async function publicPage(request, env, site, pathname) {
 
 async function handleRequest(request, env) {
   const site = await resolveSite(request, env);
-  if (!site) return fail(404, "site_not_found", "Site not found.");
-  if (site.status !== "active") return fail(404, "site_not_found", "Site not found.");
+  if (!site || site.status !== "active") {
+    const hostingLimit = await checkHostingRequest(env);
+    if (hostingLimit) return hostingLimit;
+    return fail(404, "site_not_found", "Site not found.");
+  }
   const url = new URL(request.url);
 
   if (url.pathname === "/_mithrilpress/studio" || url.pathname === "/_mithrilpress/studio/" || url.pathname === "/_mithrilpress/studio.html") {
@@ -2309,7 +2317,7 @@ async function handleRequest(request, env) {
   }
 
   if (url.pathname.startsWith("/wp-json/")) {
-    const hostingLimit = await checkPublicHostingRequest(env, site.id);
+    const hostingLimit = await checkHostingRequest(env, site.id);
     if (hostingLimit) return hostingLimit;
   }
 
@@ -2342,7 +2350,7 @@ async function handleRequest(request, env) {
   }
   if (url.pathname.startsWith("/wp-json/")) return fail(404, "rest_route_not_supported", "This WordPress-compatible route is not implemented.");
 
-  const hostingLimit = await checkPublicHostingRequest(env, site.id);
+  const hostingLimit = await checkHostingRequest(env, site.id);
   if (hostingLimit) return hostingLimit;
   return await publicPage(request, env, site, url.pathname);
 }
