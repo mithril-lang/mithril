@@ -30,6 +30,10 @@
      :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#ContentEntry"
      :rdfs/range "https://mithril.fund/ns/sites-cms/v1#Site")
    (owl/object-property
+     :id "https://mithril.fund/ns/sites-cms/v1#parentRevision"
+     :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#SiteRevision"
+     :rdfs/range "https://mithril.fund/ns/sites-cms/v1#SiteRevision")
+   (owl/object-property
      :id "https://mithril.fund/ns/sites-cms/v1#containsEntry"
      :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#SiteRevision"
      :rdfs/range "https://mithril.fund/ns/sites-cms/v1#ContentEntry")
@@ -52,7 +56,13 @@
      :id "https://mithril.fund/ns/sites-cms/v1#sourceSystem"
      :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#ContentEntry")
    (owl/datatype-property
+     :id "https://mithril.fund/ns/sites-cms/v1#contentOrigin"
+     :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#ContentEntry")
+   (owl/datatype-property
      :id "https://mithril.fund/ns/sites-cms/v1#sourceId"
+     :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#ContentEntry")
+   (owl/datatype-property
+     :id "https://mithril.fund/ns/sites-cms/v1#languageCode"
      :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#ContentEntry")
    (owl/datatype-property
      :id "https://mithril.fund/ns/sites-cms/v1#kind"
@@ -132,7 +142,15 @@
         :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
         :sh/min-count 1 :sh/max-count 1)
       (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/sites-cms/v1#contentOrigin"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
         :sh/path "https://mithril.fund/ns/sites-cms/v1#sourceId"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/sites-cms/v1#languageCode"
         :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
         :sh/min-count 1 :sh/max-count 1)
       (shacl/property-shape

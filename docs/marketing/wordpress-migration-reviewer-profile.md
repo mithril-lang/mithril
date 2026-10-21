@@ -55,6 +55,63 @@ permission to contact.
    replies and suppressions. An interested owner must separately authorize an
    import before a private preview can be built.
 
+## Business process SOP
+
+**Owner:** MithrilPress product owner | **Responsible team:** Human sales
+operator with draft-only bot assistance | **Review cadence:** Before each
+market launch and quarterly while active
+
+### Purpose and scope
+
+Qualify a single owner-selected business site for a possible migration, prepare
+an accurate individualized draft when the market and contact gates pass, and
+record the result. This SOP excludes automated sending, domain-list crawling,
+site cloning, and importing content without owner authorization.
+
+### RACI
+
+| Step | Responsible | Accountable | Consulted | Informed |
+| --- | --- | --- | --- | --- |
+| Select a market and locale | Human operator | Product owner | Local legal reviewer | Draft-only bot |
+| Approve contact basis and local rules | Legal reviewer | Product owner | Human operator | Draft-only bot |
+| Review one selected business site | Draft-only bot | Human operator | Product owner | Legal reviewer |
+| Verify recipient, fit, duplicate and suppression state | Human operator | Product owner | Legal reviewer | Draft-only bot |
+| Prepare and approve exact copy | Draft-only bot prepares; human operator reviews | Product owner | Legal reviewer | — |
+| Send through the supervised channel | Human operator | Product owner | Legal reviewer | Draft-only bot |
+| Record delivery, reply, complaint and suppression | Human operator | Product owner | Legal reviewer | Draft-only bot |
+
+The bot has no mail account, outbound action, schedule, or permission to
+activate a gateway. It may prepare drafts only after the human has selected a
+market, domain, and recipient.
+
+### Process flow
+
+`Market and locale approved → one domain selected → public fit evidence recorded → contact/legal/duplicate/suppression gates pass → draft prepared → human reviews exact recipient and copy → supervised human send → provider read-back → reply or suppression recorded`
+
+Any failed or unknown gate ends in `HOLD`. A public email address or WordPress
+technology signal alone does not satisfy the contact gate.
+
+### Exceptions
+
+| Scenario | Action |
+| --- | --- |
+| Japan or unsupported market/locale | Hold; do not research or draft. |
+| Contact basis, market review, sender, or opt-out is missing | Hold; do not create an email draft. |
+| Public content indicates WordPress but no owner authorization exists | Do not copy content, create a preview, or import. Ask whether the owner wants to authorize an export/API import. |
+| Prospect expects full WordPress parity or a security guarantee | Explain the supported subset and prototype status; do not claim compatibility or superiority. |
+| Duplicate, prior opt-out, complaint, bounce, or unknown suppression state | Suppress and do not send. |
+| Product quota, owner provisioning, or custom-domain cost is unknown | Disclose the current gate; do not promise zero-cost custom domains or activate service. |
+
+### Metrics and controls
+
+| Metric | Target | How to measure |
+| --- | --- | --- |
+| Candidates with complete market/contact/legal/duplicate/suppression fields before draft | 100% | Review the per-recipient record. |
+| Messages sent without individual human approval | 0 | Compare approved copy with provider send records. |
+| Imports without explicit owner authorization | 0 | Check import authorization receipt and owner action audit. |
+| Opt-outs and complaints reflected in suppression state | 100% | Read back the supervised provider and suppression ledger. |
+| Replies and actual send states distinguished from drafts | 100% | Reconcile draft, approval, delivery, bounce, and reply events separately. |
+
 ## Activation checklist
 
 Keep the profile disabled until all are recorded: supported target market and

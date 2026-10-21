@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow, noarchive">
+    <title>MithrilPress Studio</title>
+    <link rel="stylesheet" href="/_mithrilpress/studio.css">
+    <script src="/_mithrilpress/studio.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/_mithrilpress/studio">MithrilPress <span>Studio</span></a>
+      <div class="top-actions">
+        <span id="site-host" class="site-host"></span>
+        <button id="logout-button" class="button button-quiet" type="button" hidden>Sign out</button>
+      </div>
+    </header>
+
+    <main>
+      <section id="login-panel" class="login-panel" aria-labelledby="login-title">
+        <div class="eyebrow">OWNER ACCESS</div>
+        <h1 id="login-title">Write and publish with a conversation</h1>
+        <p>Use a short-lived owner token with content:write, revision:preview, revision:approve, and site:publish scopes. Your token is exchanged for a one-hour, host-only browser session.</p>
+        <form id="login-form">
+          <label for="owner-token">Owner token</label>
+          <input id="owner-token" name="token" type="password" autocomplete="off" spellcheck="false" required>
+          <button class="button button-primary" type="submit">Sign in</button>
+        </form>
+        <p id="login-status" class="status" role="status" aria-live="polite"></p>
+      </section>
+
+      <section id="studio-panel" class="studio-layout" hidden>
+        <aside class="conversation-sidebar" aria-label="Conversations">
+          <div class="sidebar-heading">
+            <h2>Draft conversations</h2>
+            <button id="new-conversation" class="button button-small" type="button">New</button>
+          </div>
+          <ul id="conversation-list" class="conversation-list"></ul>
+          <button id="delete-conversation" class="button button-quiet delete-button" type="button" hidden>Delete conversation</button>
+        </aside>
+
+        <section class="editor-panel" aria-labelledby="editor-title">
+          <div class="editor-heading">
+            <div>
+              <div class="eyebrow">CHAT-FIRST CONTENT</div>
+              <h1 id="editor-title">What should we write?</h1>
+            </div>
+            <label class="content-kind-label" for="content-kind">Content type
+              <select id="content-kind">
+                <option value="post">Post</option>
+                <option value="page">Page</option>
+              </select>
+            </label>
+          </div>
+
+          <div id="chat-messages" class="chat-messages" role="log" aria-live="polite" aria-relevant="additions text">
+            <p class="empty-state">Describe the post or page you want. You can refine it by chatting; every response remains a private draft.</p>
+          </div>
+
+          <form id="chat-form" class="chat-form">
+            <label class="visually-hidden" for="chat-input">Message MithrilPress</label>
+            <textarea id="chat-input" name="message" rows="3" maxlength="1800" placeholder="For example: Write a concise introduction for our community garden and ask readers to volunteer." required></textarea>
+            <div class="composer-footer">
+              <p>AI drafts are not fact-checked. Review the preview before approval and publication.</p>
+              <button id="send-button" class="button button-primary" type="submit">Create draft</button>
+            </div>
+          </form>
+
+          <section id="draft-panel" class="draft-panel" aria-labelledby="draft-title" hidden>
+            <div>
+              <div class="eyebrow">PRIVATE REVISION</div>
+              <h2 id="draft-title"></h2>
+              <p id="draft-state" class="draft-state"></p>
+            </div>
+            <a id="preview-link" class="button button-secondary" target="_blank" rel="noopener noreferrer">Open private preview</a>
+            <div class="publish-actions">
+              <button id="approve-button" class="button button-secondary" type="button">Approve revision</button>
+              <button id="publish-button" class="button button-primary" type="button" hidden>Publish approved revision</button>
+            </div>
+          </section>
+
+          <p id="studio-status" class="status" role="status" aria-live="polite"></p>
+        </section>
+      </section>
+    </main>
+  </body>
+</html>
