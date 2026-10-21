@@ -140,15 +140,17 @@ at $25/month plus usage overages when checked on 2026-10-21); it does not
 provide a free-hosting hard stop. Reconsider it only if executing tenant code
 becomes a reviewed requirement. See [Workers for Platforms pricing](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/reference/pricing/).
 
-Public page and read-only WordPress REST requests have application hard stops
-of 5,000 requests per active site and 25,000 across the deployment per UTC day.
-The shared counter also counts requests that reach the Worker but resolve to a
-missing or inactive host; those otherwise return 404. The request that reaches
-the allowance is handled; later requests receive HTTP 429 for a site limit or
-HTTP 503 for the shared limit until the next UTC day. These limits are tracked
-atomically in D1. Studio owner APIs for resolved active sites are outside this
-visitor allowance. The Worker invocation and hostname lookup happen before the
-application counter, so rejected requests can still be provider-metered. R2
+Every request that reaches the Worker is subject to application hard stops of
+25,000 requests across the deployment per UTC day. A request that resolves to
+an active site is also subject to that site's 5,000-request daily cap; this
+includes Studio, domain, DNS, media, preview, REST, and public-page routes. The
+shared counter runs before hostname lookup, so requests to missing or inactive
+hosts count toward the deployment cap and otherwise return 404. The site counter
+runs after active-site resolution and before route dispatch. The request that
+reaches an allowance is handled; later requests receive HTTP 429 for a site
+limit or HTTP 503 for the shared limit until the next UTC day. These limits are
+tracked atomically in D1. The Worker invocation and shared-counter write happen
+before a capped response, so rejected requests can still be provider-metered. R2
 application caps allow 250 MiB per site and 8 GiB per deployment,
 5,000 image reads/day per site and 50,000 across the deployment, and 10,000
 upload/delete operations/day. Studio generation is capped at eight requests per

@@ -1204,7 +1204,7 @@ async function studioChat(request, env, site) {
   if (!languageCode) {
     return fail(502, "invalid_ai_response", "The drafting service returned an incomplete proposal. No draft was saved.");
   }
-  const candidateSlug = studioSlug(proposal?.slug, proposal?.title);
+  const candidateSlug = studioSlug(proposal?.slug, typeof proposal?.title === "string" ? proposal.title : "");
   const admittedDraft = mithrilContentBoundary.prepareChatDraft(
     site.id, owner.tokenId, conversation.id, kind, candidateSlug, proposal, languageCode,
   );
