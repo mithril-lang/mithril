@@ -6,6 +6,11 @@ import { collectWordPressMediaReferences, inspectWordPressBlocks } from "./wordp
 import { buildWordPressPermalinkMap, rewriteWordPressLink } from "./wordpress_links.js";
 import { selectWordPressSeoMetadata } from "./wordpress_seo.js";
 import { parseWordPressWxr } from "./wxr_import.js";
+import {
+  isWorkersFreeAiEnabled,
+  runWorkersFreeAi,
+  STUDIO_AI_FREE_NEURONS_PER_DAY,
+} from "./studio_ai.js";
 
 const SITE_ZONE = "sites.mithril.love";
 const CUSTOM_DOMAIN_LIMIT_PER_SITE = 10;
@@ -1159,7 +1164,6 @@ async function studioSession(request, env, site) {
   return fail(405, "method_not_allowed", "Use GET, POST, or DELETE for studio session management.");
 }
 
-const STUDIO_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 const STUDIO_DAILY_GENERATION_LIMIT = 8;
 const STUDIO_MAX_MESSAGES = 40;
 const STUDIO_CONTEXT_MESSAGES = 8;
@@ -1199,9 +1203,8 @@ async function studioChat(request, env, site) {
   if (!sameOriginStudioMutation(request, site)) return fail(403, "same_origin_required", "Studio changes must come from this site.");
   const owner = await ownerToken(request, env, site, "content:write");
   if (!owner) return fail(401, "studio_login_required", "An active content:write session is required.");
-  const aiGatewayId = typeof env.AI_GATEWAY_ID === "string" ? env.AI_GATEWAY_ID.trim() : "";
-  if (env.STUDIO_AI_ENABLED !== "true" || !env.AI || !aiGatewayId || aiGatewayId === "default") {
-    return fail(503, "ai_unavailable", "Chat drafting is disabled until a named, budget-limited AI Gateway is configured.");
+  if (!isWorkersFreeAiEnabled(env)) {
+    return fail(503, "ai_unavailable", "Chat drafting is disabled until Workers AI is explicitly enabled in Workers Free-only mode.");
   }
 
   const body = await readBoundedJson(request);
@@ -1282,14 +1285,14 @@ async function studioChat(request, env, site) {
   ].join("\n");
   let modelResult;
   try {
-    modelResult = await env.AI.run(STUDIO_MODEL, {
+    modelResult = await runWorkersFreeAi(env, {
       messages: [{ role: "system", content: system }, ...history, { role: "user", content: body.message }],
       response_format: { type: "json_schema", json_schema: STUDIO_RESPONSE_SCHEMA },
       max_tokens: 700,
       temperature: 0.35,
-    }, { gateway: { id: aiGatewayId } });
+    });
   } catch {
-    return fail(503, "ai_generation_unavailable", "The AI Gateway could not complete this draft request. No draft was saved or published.");
+    return fail(503, "ai_generation_unavailable", "Workers AI is unavailable or its free daily allocation is exhausted. No draft was saved or published.");
   }
 
   let proposal = modelResult?.response;
@@ -1479,6 +1482,9 @@ async function studioUsage(request, env, site) {
       scope: "shared_deployment",
       requests_used: Number(aiUsage?.request_count ?? 0),
       daily_app_limit: STUDIO_DAILY_GENERATION_LIMIT,
+      provider_free_neurons_per_day: STUDIO_AI_FREE_NEURONS_PER_DAY,
+      provider_scope: "account",
+      provider_usage_measured_here: false,
       resets_at_utc: resetsAtUtc,
     },
     hosting_requests: {
@@ -1503,7 +1509,7 @@ async function studioUsage(request, env, site) {
     },
     provider_metering: {
       available: false,
-      detail: "Cloudflare account-level Worker requests, D1 reads/writes/storage, and Workers AI neuron usage are not measured by this site view.",
+      detail: "This view shows MithrilPress app request caps, not account-level usage. Workers Free stops AI inference after its shared 10,000-Neuron daily allocation; other account workloads may use it first.",
     },
   }, 200, { "Cache-Control": "private, no-store" });
 }

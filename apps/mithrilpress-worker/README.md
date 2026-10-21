@@ -259,22 +259,28 @@ The Worker enforces a conservative 1.8 MB encoded-size budget for each content
 row, below Cloudflare D1's documented 2 MB maximum row/string size.
 Imported non-public WordPress statuses remain available only in the private
 owner preview; public routes expose records whose source status was `publish`.
-Chat-created entries are draft-only until their containing revision is approved
-and explicitly published. Workers AI receives the bounded conversation and
-current draft to generate a proposal. The prototype caps Studio generation at
-eight requests per UTC day across the deployment. Studio AI is disabled in the
-example deployment and only runs through an explicitly configured, named AI
-Gateway; the implicit `default` gateway is rejected. Before enabling it, the
-operator must configure and verify a spend-limit rule for MithrilPress on that
-gateway. The app-level request cap is not a neuron or dollar cap. Cloudflare
-Workers AI bills usage above its daily free neuron allocation on a Workers Paid
-account, and other workloads share that allocation. AI Gateway spend limits
-block requests after their configured budget, but enforcement is eventually
-consistent, so concurrent requests may briefly exceed the target. The prompt
-and output are bounded to limit that exposure, and a gateway rejection returns
-an unavailable response without saving or publishing a draft. See [Workers AI
-pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/) and
-[AI Gateway spend limits](https://developers.cloudflare.com/ai-gateway/features/spend-limits/).
+Chat-created entries are draft-only until their containing revision is
+approved and explicitly published. Workers AI receives the bounded
+conversation and current draft to generate a proposal; it is not fact-checked,
+and the owner must review it before publication. Studio uses
+`@cf/meta/llama-3.2-3b-instruct` directly through the Workers AI binding in
+`workers-free-only` mode. This deliberately does not use AI Gateway, Unified
+Billing, provider credentials, or a paid fallback. Cloudflare's Workers Free
+plan includes 10,000 Neurons per account per UTC day; after that, further
+inference operations fail until the allowance resets. The prototype also caps
+Studio generations at eight per UTC day across the deployment, bounds input
+history and output, and saves no draft when inference fails. Workers AI is
+account-wide: other workloads can consume the same free allocation, causing
+MithrilPress drafting to stop earlier.
+
+The example config keeps Studio AI disabled and its mode set to `disabled`.
+Before enabling it, verify that the target Cloudflare account is on Workers
+Free, then set `STUDIO_AI_ENABLED=true` and `STUDIO_AI_MODE=workers-free-only`.
+Never use this mode on a Workers Paid account: usage above the daily free
+allocation is billed there. The Workers Free provider limit is the neuron hard
+stop; MithrilPress's eight-request cap is an additional app limit, not a neuron
+meter. See [Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/)
+and the [`llama-3.2-3b-instruct` model page](https://developers.cloudflare.com/workers-ai/models/llama-3.2-3b-instruct/).
 
 The Worker also enforces a 16 MiB retained-import content cap per site,
 including entries and taxonomy terms, and a 256 MiB cap across the deployment.
@@ -322,9 +328,11 @@ one D1 counter write still occur before a request can receive the shared-cap
 response, and unrelated workloads in the same Cloudflare account consume the
 same provider allocations. The Studio shows MithrilPress app counters, but does
 not measure all account-wide Worker requests, D1 reads/writes/storage, or
-Workers AI neuron usage. Cloudflare's Workers Paid plan has no request ceiling
-and meters usage beyond included allocations; budget alerts notify but do not
-pause or cap usage. A strict provider-level stop therefore requires a dedicated
+Workers AI neuron usage. The dedicated Workers Free plan supplies the provider
+hard stop for daily AI neurons; if other workloads consume the shared allowance,
+AI drafting fails closed earlier. Never move this runtime to Workers Paid, where
+usage above the free AI allocation is billed and Worker requests have no daily
+provider cap. A strict provider-level stop therefore requires a dedicated
 Workers Free deployment or an independently operated route shutdown, with the
 account and hostname-routing boundaries verified before launch; it is not
 provided by these app counters. On Workers Free, D1 daily read/write exhaustion

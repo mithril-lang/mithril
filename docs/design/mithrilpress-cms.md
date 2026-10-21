@@ -87,12 +87,17 @@ implemented; broad Gutenberg support remains follow-up work.
 
 Studio uses a short-lived owner token exchange, a one-hour `HttpOnly`, `Secure`,
 `SameSite=Strict` cookie session, same-origin mutation checks, prepared D1
-queries, bounded chat history, HTML sanitization, and a daily AI generation cap.
-It stores conversations in D1 until the owner deletes them. Workers AI processes
-the conversation and current draft to produce a proposal; the proposal is not
-fact-checked and must not be published without owner review. The current Studio
-UI requires owner scopes for content writing, private preview, approval, and
-publishing. Owner identity provisioning remains out of band.
+queries, bounded chat history, HTML sanitization, and an eight-generation daily
+app cap. It stores conversations in D1 until the owner deletes them. Workers AI
+processes the conversation and current draft to produce a proposal; the proposal
+is not fact-checked and must not be published without owner review. The default
+free-hosting path uses `@cf/meta/llama-3.2-3b-instruct` directly through the
+Workers AI binding, with no AI Gateway or paid fallback. Enable it only when the
+target account is verified as Workers Free and set
+`STUDIO_AI_MODE=workers-free-only`; the provider stops inference at its
+10,000-Neuron daily free allocation. On Workers Paid, usage above that allocation
+is billable, so this mode must not be deployed there. The example deployment
+keeps Studio AI disabled.
 
 ## Cloudflare hosting
 
@@ -212,10 +217,14 @@ per-site and shared daily image operations.
 The content estimate excludes
 indexes, database metadata,
 conversations, audit rows, and the physical D1 database size. Account-level
-Worker requests outside public page/REST routes, D1 reads/writes/storage, and
-Workers AI neuron use are not measured in the Studio and must be monitored in
-Cloudflare. Provider limits can stop service before MithrilPress application
-limits are reached. Track these release requirements in Linear MITHRIL-292.
+Worker requests outside public page/REST routes and D1
+reads/writes/storage are not measured in the Studio and must be monitored in
+Cloudflare. Workers AI neurons are also not tenant-metered, but the dedicated
+Workers Free account enforces its 10,000-Neuron daily provider stop. Other
+account workloads can exhaust that shared allowance sooner, causing Studio
+drafting to fail closed. Provider limits can stop service before MithrilPress
+application limits are reached. Track these release requirements in
+Linear MITHRIL-292.
 Check [Workers limits](https://developers.cloudflare.com/workers/platform/limits/)
 again before release because provider quotas can change.
 
