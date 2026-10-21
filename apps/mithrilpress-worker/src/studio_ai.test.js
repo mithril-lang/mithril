@@ -23,6 +23,7 @@ test("Workers AI is disabled unless explicitly enabled in Free-only mode", () =>
   assert.equal(isWorkersFreeAiEnabled({
     STUDIO_AI_ENABLED: "true",
     STUDIO_AI_MODE: STUDIO_AI_FREE_MODE,
+    STUDIO_AI_FREE_PLAN_CONFIRMED: "true",
     AI: { run },
   }), true);
 });
@@ -33,6 +34,7 @@ test("Free-only inference calls the schema-compatible model directly without a G
   const env = {
     STUDIO_AI_ENABLED: "true",
     STUDIO_AI_MODE: STUDIO_AI_FREE_MODE,
+    STUDIO_AI_FREE_PLAN_CONFIRMED: "true",
     AI_GATEWAY_ID: "ignored-paid-gateway",
     AI: {
       async run(...args) {

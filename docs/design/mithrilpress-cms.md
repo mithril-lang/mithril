@@ -95,10 +95,17 @@ free-hosting path uses `@cf/meta/llama-3.3-70b-instruct-fp8-fast` directly
 through the Workers AI binding, with no AI Gateway or paid fallback. The model
 is listed as supporting Workers AI JSON Mode, matching Studio's JSON Schema
 request. Enable it only when the target account is verified as Workers Free and set
-`STUDIO_AI_MODE=workers-free-only`; the provider stops inference at its
-10,000-Neuron daily free allocation. On Workers Paid, usage above that allocation
-is billable, so this mode must not be deployed there. The example deployment
-keeps Studio AI disabled.
+`STUDIO_AI_FREE_PLAN_CONFIRMED=true` and `STUDIO_AI_MODE=workers-free-only`;
+the confirmation is an operator-controlled deployment gate, not a runtime query
+of Cloudflare's account plan. Studio caps generations at eight per UTC day,
+limits the conservative prompt-input estimate to 10,000 bytes and output to 700
+tokens, and atomically reserves a two-times Neuron estimate against an 8,000
+Neuron application budget. Failed and ambiguous calls keep their reservations.
+These estimates use published model rates and are not provider metering; recheck
+pricing before release. The provider stops inference at its shared 10,000-Neuron
+daily Free allocation. On Workers Paid, usage above that allocation is billable,
+so this mode must not be deployed there. The example deployment keeps Studio AI
+disabled and the plan confirmation false.
 
 ## Cloudflare hosting
 
@@ -214,8 +221,8 @@ and [R2 pricing](https://developers.cloudflare.com/r2/pricing/) before release.
 D1 triggers enforce a 16 MiB retained-import content limit per site, including
 entries and imported taxonomy terms, and a 256 MiB deployment-wide limit across
 immutable revisions. The Studio shows the site's estimate and daily public
-request count, the shared app-level AI request count, R2 image storage, and
-per-site and shared daily image operations.
+request count, the shared app-level AI request count and conservative Neuron
+reservation, R2 image storage, and per-site and shared daily image operations.
 The content estimate excludes
 indexes, database metadata,
 conversations, audit rows, and the physical D1 database size. Account-level

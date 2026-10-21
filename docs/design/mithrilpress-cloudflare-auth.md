@@ -71,7 +71,12 @@ route or database identifier.
 The site-owner free tier has application request, storage, and AI limits. Those
 limits stop MithrilPress operations after a cap; rejected requests still reach
 the Worker until Cloudflare's Workers Free account limit is reached. D1 Free
-also rejects queries after its daily quota. R2 usage above its included monthly
+also rejects queries after its daily quota. Workers AI requires an explicit
+`STUDIO_AI_FREE_PLAN_CONFIRMED=true` deployment flag after the operator reads
+back the exact account plan. MithrilPress also limits prompt bytes, output
+tokens, generations per day, and a conservative shared Neuron reservation; the
+reservation is not Cloudflare provider metering and can be wrong if model
+pricing changes. R2 usage above its included monthly
 allowances is billed rather than automatically stopped; the deployment caps
 bound usage below those allowances only if this account has no other R2 traffic
 and the limits are revalidated before release. Keep the dedicated account,

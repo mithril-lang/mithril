@@ -275,18 +275,26 @@ This deliberately does not use AI Gateway, Unified
 Billing, provider credentials, or a paid fallback. Cloudflare's Workers Free
 plan includes 10,000 Neurons per account per UTC day; after that, further
 inference operations fail until the allowance resets. The prototype also caps
-Studio generations at eight per UTC day across the deployment, bounds input
-history and output, and saves no draft when inference fails. Workers AI is
-account-wide: other workloads can consume the same free allocation, causing
-MithrilPress drafting to stop earlier.
+Studio generations at eight per UTC day across the deployment, bounds the
+conservative prompt-input estimate to 10,000 bytes and output to 700 tokens,
+and atomically reserves a two-times neuron estimate against an 8,000-Neuron
+application budget before inference. Reservations are not returned after a
+provider error or timeout because the provider may have completed the request.
+The Studio reports these reservations separately from actual provider usage;
+Cloudflare account usage is not measured by MithrilPress. Other workloads can
+consume the account-wide free allocation first, causing drafting to stop
+earlier.
 
 The example config keeps Studio AI disabled and its mode set to `disabled`.
-Before enabling it, verify that the target Cloudflare account is on Workers
-Free, then set `STUDIO_AI_ENABLED=true` and `STUDIO_AI_MODE=workers-free-only`.
-Never use this mode on a Workers Paid account: usage above the daily free
-allocation is billed there. The Workers Free provider limit is the neuron hard
-stop; MithrilPress's eight-request cap is an additional app limit, not a neuron
-meter. See [Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/),
+Before enabling it, read back the exact target account's plan and confirm it is
+Workers Free, then set `STUDIO_AI_FREE_PLAN_CONFIRMED=true`,
+`STUDIO_AI_ENABLED=true`, and `STUDIO_AI_MODE=workers-free-only`. The
+confirmation is an operator-controlled deployment gate, not a runtime query of
+Cloudflare's account plan. Never use this mode on a Workers Paid account: usage
+above the daily free allocation is billed there. The provider stop and the
+application reservation are separate controls; the estimate depends on the
+model's current published Neuron rates and must be revalidated before release.
+See [Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/),
 [JSON Mode supported models](https://developers.cloudflare.com/workers-ai/features/json-mode/),
 and the [`llama-3.3-70b-instruct-fp8-fast` model page](https://developers.cloudflare.com/workers-ai/models/llama-3.3-70b-instruct-fp8-fast/).
 
@@ -294,7 +302,8 @@ The Worker also enforces a 16 MiB retained-import content cap per site,
 including entries and taxonomy terms, and a 256 MiB cap across the deployment.
 D1 triggers maintain these counters
 across immutable revisions and reject writes that exceed either cap; the Studio
-Usage view shows the per-site estimate and the shared daily AI request count.
+Usage view shows the per-site estimate, shared daily AI request count, and
+conservative shared daily Neuron reservation.
 The byte estimate counts retained entry text, taxonomy text, and allowlisted
 SEO metadata, not SQLite indexes, other database metadata, conversations, DNS
 migration snapshots, audit rows, or the physical D1 database size. It is an
