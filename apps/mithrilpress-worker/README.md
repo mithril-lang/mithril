@@ -195,7 +195,12 @@ only referenced local images and creates a private preview revision. It never
 approves or publishes the revision. The owner must inspect the saved migration
 report, approve the complete revision, and publish it in a separate action.
 The report lists ready/mapped media, missing references, rejected files, and
-unreferenced attachments. The worker enforces the tenant's existing daily media
+unreferenced attachments. On a definite import rejection, the CLI deletes media
+it uploaded during that attempt; failed cleanup is listed in the error report
+for operator follow-up. If the import response is ambiguous, the CLI leaves the
+uploads in place rather than risk deleting media referenced by a private
+revision. An ambiguous upload response is listed by WordPress media ID for
+operator reconciliation. The worker enforces the tenant's existing daily media
 write and storage caps; reaching a cap stops the import without a paid fallback.
 
 ## Endpoints
@@ -318,16 +323,19 @@ only if tenant-authored code becomes a product requirement. See the
 and [pricing](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/reference/pricing/).
 
 MithrilPress enforces 5,000 HTTP requests per active site per UTC day and
-25,000 HTTP requests across the deployment. Every routed request counts,
-including public pages, WordPress REST, Studio, previews, DNS, media, and
-unsupported routes. The shared counter increments before hostname resolution,
-so unresolved hosts also consume the shared cap and requests after the shared
-cap are rejected before the hostname registry is read. Resolved active sites
-then consume their site allowance. The request that reaches a cap is handled;
-later requests receive 429 for a site cap or 503 for the shared cap until 00:00
-UTC. These application counters limit MithrilPress routes; they do not stop
+25,000 HTTP requests across the deployment. A request must resolve to an active
+site before it consumes either application counter; unknown or inactive hosts
+return 404 without reducing tenant capacity. Each accepted tenant request
+updates the site and deployment counters in one D1 transaction, so a request
+rejected by either cap does not advance the other counter. This covers public
+pages, WordPress REST, Studio, previews, DNS, and media. The request that
+reaches a cap is handled; later requests receive 429 for a site cap or 503 for
+the shared cap until 00:00 UTC. A burst of valid requests distributed across
+multiple tenants can still exhaust the shared allowance, so production routing
+must have an independently verified edge rate limit before public launch. These
+application counters limit MithrilPress routes; they do not stop
 Worker invocations at Cloudflare's billing layer. The Worker invocation and
-one D1 counter write still occur before a request can receive the shared-cap
+hostname lookup still occur before a request can receive an application-cap
 response, and unrelated workloads in the same Cloudflare account consume the
 same provider allocations. The Studio shows MithrilPress app counters, but does
 not measure all account-wide Worker requests, D1 reads/writes/storage, or

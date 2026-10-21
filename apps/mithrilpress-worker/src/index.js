@@ -168,17 +168,18 @@ function hostingRequestQuotaResponse(code, date = new Date()) {
     : fail(503, "deployment_daily_hosting_request_limit", "The shared daily hosting allowance is used. Public pages will resume after 00:00 UTC.", { "Retry-After": retryAfter });
 }
 
-async function checkHostingRequest(env, siteId = null, date = new Date()) {
+async function checkHostingRequest(env, siteId, date = new Date()) {
   const dayUtc = date.toISOString().slice(0, 10);
   try {
-    const statement = siteId === null
-      ? env.DB.prepare(
-        "INSERT INTO mithrilpress_deployment_daily_requests (singleton, day_utc, request_count) VALUES (1, ?, 1) ON CONFLICT(singleton) DO UPDATE SET day_utc = excluded.day_utc, request_count = CASE WHEN mithrilpress_deployment_daily_requests.day_utc = excluded.day_utc THEN mithrilpress_deployment_daily_requests.request_count + 1 ELSE 1 END",
-      ).bind(dayUtc)
-      : env.DB.prepare(
-          "INSERT INTO mithrilpress_site_daily_requests (site_id, day_utc, request_count) VALUES (?, ?, 1) ON CONFLICT(site_id) DO UPDATE SET day_utc = excluded.day_utc, request_count = CASE WHEN mithrilpress_site_daily_requests.day_utc = excluded.day_utc THEN mithrilpress_site_daily_requests.request_count + 1 ELSE 1 END",
-        ).bind(siteId, dayUtc);
-    await env.DB.batch([statement]);
+    const deploymentStatement = env.DB.prepare(
+      "INSERT INTO mithrilpress_deployment_daily_requests (singleton, day_utc, request_count) VALUES (1, ?, 1) ON CONFLICT(singleton) DO UPDATE SET day_utc = excluded.day_utc, request_count = CASE WHEN mithrilpress_deployment_daily_requests.day_utc = excluded.day_utc THEN mithrilpress_deployment_daily_requests.request_count + 1 ELSE 1 END",
+    ).bind(dayUtc);
+    const siteStatement = env.DB.prepare(
+      "INSERT INTO mithrilpress_site_daily_requests (site_id, day_utc, request_count) VALUES (?, ?, 1) ON CONFLICT(site_id) DO UPDATE SET day_utc = excluded.day_utc, request_count = CASE WHEN mithrilpress_site_daily_requests.day_utc = excluded.day_utc THEN mithrilpress_site_daily_requests.request_count + 1 ELSE 1 END",
+    ).bind(siteId, dayUtc);
+    // D1 batches are transactional: if either cap rejects the request, neither
+    // counter advances. Unknown hosts never consume either allowance.
+    await env.DB.batch([deploymentStatement, siteStatement]);
     return null;
   } catch (error) {
     const code = hostingRequestQuotaCode(error);
@@ -1907,15 +1908,16 @@ async function importWordPress(request, env, site) {
     if (rowBytes + seoMetadataBytes > MAX_D1_ROW_BYTES) return fail(413, "entry_row_too_large", "An entry exceeds the D1 row budget.");
   }
 
+  const omittedSeoFields = parsedWxr
+    ? Number(parsedWxr.omitted.custom_fields ?? 0)
+    : entries.reduce((sum, entry) => sum + entry.seoMetadataOmittedFields, 0);
   const migrationReport = {
     version: 1,
     gutenberg: gutenbergReport,
     seo_metadata: {
       entries_with_metadata: entries.filter((entry) => Object.keys(entry.seoMetadata).length > 0).length,
       imported_fields: entries.reduce((sum, entry) => sum + Object.keys(entry.seoMetadata).length, 0),
-      omitted_fields: parsedWxr
-        ? Number(parsedWxr.omitted.custom_fields ?? 0)
-        : entries.reduce((sum, entry) => sum + entry.seoMetadataOmittedFields, 0),
+      omitted_fields: omittedSeoFields,
     },
     inline_media: {
       wp_image_class_references: wordpressMediaReferences.class_references,
@@ -1936,7 +1938,7 @@ async function importWordPress(request, env, site) {
       || omittedInlineImages > 0
       || unresolvedSourceSiteLinks > 0
       || removedUnsafeLinks > 0
-      || migrationReport.seo_metadata.omitted_fields > 0
+      || omittedSeoFields > 0
       || Object.values(parsedWxr?.omitted ?? {}).some((count) => Number(count) > 0),
   };
 
@@ -2551,17 +2553,14 @@ async function publicPage(request, env, site, pathname) {
 }
 
 async function handleRequest(request, env) {
-  // Count the deployment allowance before resolving the tenant. Once the
-  // shared cap is exhausted, reject further requests without reading D1's
-  // hostname registry. This counter covers every HTTP route, not just pages.
-  const deploymentLimit = await checkHostingRequest(env);
-  if (deploymentLimit) return deploymentLimit;
-
   const site = await resolveSite(request, env);
   if (!site || site.status !== "active") return fail(404, "site_not_found", "Site not found.");
 
-  const siteLimit = await checkHostingRequest(env, site.id);
-  if (siteLimit) return siteLimit;
+  // Only active tenant requests consume the application hosting allowance.
+  // Update both caps atomically so site exhaustion cannot drain other sites'
+  // shared capacity.
+  const hostingLimit = await checkHostingRequest(env, site.id);
+  if (hostingLimit) return hostingLimit;
 
   const url = new URL(request.url);
 
