@@ -150,6 +150,11 @@ version. Revisit Workers for Platforms only if customer-authored code becomes a
 reviewed product requirement. See [Workers for Platforms](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/)
 and [Cloudflare hostname routing](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/configuration/hostname-routing/).
 
+The customer-domain lifecycle, explicit DNS ownership checks, cutover and
+rollback gates are specified in [MithrilPress domain lifecycle](mithrilpress-domain-lifecycle.md).
+This lifecycle is a design requirement; no domain-management UI or DNS writes
+are implemented here.
+
 ## WordPress REST subset
 
 `GET /wp-json/wp/v2/posts` and `/pages` expose only the currently published
