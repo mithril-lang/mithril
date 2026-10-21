@@ -315,7 +315,11 @@ requirements are specified in [MithrilPress domain lifecycle](mithrilpress-domai
 `GET /wp-json/wp/v2/posts` and `/pages` expose only the currently published
 revision. They support `page`, `per_page` (1–100), `slug`, and `context=view` or
 `embed`, returning `X-WP-Total`, `X-WP-TotalPages`, and pagination `Link`
-headers. `GET /wp-json/wp/v2/categories` and `/tags`, with optional term IDs,
+headers. Page lists additionally support bounded `parent` and `parent_exclude`
+filters and `orderby=parent`; both parent filters accept at most 80 IDs in
+total. Filtering and sorting use the public parent ID: it is exposed only when
+the parent is also published in the active revision, and is `0` otherwise.
+`GET /wp-json/wp/v2/categories` and `/tags`, with optional term IDs,
 expose imported terms, published-post counts, and descriptions. Categories also
 expose parent IDs. These routes support bounded pagination, `slug`, `search`,
 and `hide_empty`. Single-item `GET` and `HEAD` routes at

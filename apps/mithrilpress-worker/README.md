@@ -242,7 +242,7 @@ write and storage caps; reaching a cap stops the import without a paid fallback.
 | `POST` | `/_mithrilpress/api/dns-migrations/{id}/verify-delegation` | `site:dns-migrate` | Check destination NS and absence of DS through Cloudflare and Google recursive resolvers. |
 | `POST` | `/_mithrilpress/api/dns-migrations/{id}/verify-rollback` | `site:dns-migrate` | Check restored source NS and DS state through the same resolvers. |
 | `GET` | `/wp-json/wp/v2/posts` | public | Read published posts with bounded search, date, order, slug, and pagination filters. |
-| `GET` | `/wp-json/wp/v2/pages` | public | Read published pages with bounded search, date, order, slug, and pagination filters. |
+| `GET` | `/wp-json/wp/v2/pages` | public | Read published pages with bounded search, date, order, slug, pagination, and page-parent filters. |
 | `GET` / `HEAD` | `/wp-json/wp/v2/posts/{id}` or `/wp-json/wp/v2/pages/{id}` | public | Read one published post or page by its WordPress source ID or MithrilPress API ID. |
 | `GET` | `/wp-json/wp/v2/media/{id}` | public | Read metadata for a currently published featured or inline image. |
 | `GET` | `/{slug}/` | public | Render one published page or post. |
@@ -479,12 +479,17 @@ through its R2 binding rather than an R2 API token.
 Public post/page list requests support `page`, `per_page` (1–100), `slug`,
 `search`, `after`, `before`, `modified_after`, `modified_before`, `order`, and
 `orderby` (`date`, `modified`, `id`, `title`, `slug`, or `relevance`; relevance
-requires a search term), plus `context` `view`/`embed`. Search matches the
-published title and sanitized content. Relevance descending ranks exact title
-matches, title substrings, then content-only matches. Dates accept ISO 8601
-calendar dates or timezone-qualified date-times; date-only `before` and
-`modified_before` values include the full UTC calendar day. Results remain
-restricted to published entries.
+requires a search term), plus `context` `view`/`embed`. Page lists also support
+`parent`, `parent_exclude`, and `orderby=parent`. Parent filters accept up to 80
+IDs total across both filters in comma-separated, repeated, or bracket-array
+query forms. Search matches the published title and sanitized content.
+Relevance descending ranks exact title matches, title substrings, then
+content-only matches. Dates accept ISO 8601 calendar dates or timezone-qualified
+date-times; date-only `before` and `modified_before` values include the full UTC
+calendar day. Results remain restricted to published entries. Parent filtering
+and sorting use the public parent ID returned for each page: it is the source ID
+only when that parent is also published in the active revision, and `0`
+otherwise.
 Single-item `GET` and `HEAD` routes accept a positive numeric ID. Imported
 entries resolve by their WordPress source ID; MithrilPress-authored entries
 resolve by their MithrilPress API ID. They return only an entry in the active
