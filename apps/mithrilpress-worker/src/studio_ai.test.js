@@ -57,6 +57,6 @@ test("Free-only inference fails closed and does not call AI when disabled", asyn
     STUDIO_AI_MODE: "gateway",
     AI: { async run() { calls += 1; return { response: "draft" }; } },
   };
-  await assert.rejects(runWorkersFreeAi(env, {}), /not configured for free-only mode/);
+  await assert.rejects(runWorkersFreeAi(env, {}), /requires explicit enablement and confirmation of the Workers Free account plan/);
   assert.equal(calls, 0);
 });
