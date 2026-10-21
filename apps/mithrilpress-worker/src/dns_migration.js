@@ -507,7 +507,7 @@ async function cloudflareReadCount(env, site, owner) {
   return Number(recent?.total ?? 0);
 }
 
-async function stageCloudflareTarget(env, site, migration, zoneId, snapshot) {
+async function stageCloudflareTarget(env, site, migration, zoneId, snapshot, importLeaseId = null) {
   const source = parseZoneFile(migration.source_zone_text, migration.zone_name);
   const target = parseZoneFile(snapshot.zoneText, migration.zone_name);
   const diff = compareDnsZoneFiles(source.records, target.records, migration.zone_name);
@@ -520,11 +520,38 @@ async function stageCloudflareTarget(env, site, migration, zoneId, snapshot) {
     diff,
   ]));
   const now = new Date().toISOString();
+  const importLeaseStart = new Date(Date.now() - CLOUDFLARE_IMPORT_LEASE_MS).toISOString();
   const importText = renderDnsZoneFile(source.records, migration.zone_name);
   const update = await env.DB.prepare(
-    "UPDATE dns_migrations SET status = 'target_loaded', target_zone_text = ?, target_zone_sha256 = ?, target_record_count = ?, target_nameservers_json = ?, target_provider = 'cloudflare', target_provider_zone_id = ?, diff_json = ?, import_zone_text = ?, approval_digest = ?, owner_approved_at = NULL, delegation_check_json = NULL, delegation_verified_at = NULL, updated_at = ? WHERE site_id = ? AND id = ? AND status IN ('source_loaded', 'target_loaded') AND source_zone_sha256 = ?",
+    `UPDATE dns_migrations SET status = 'target_loaded', target_zone_text = ?, target_zone_sha256 = ?, target_record_count = ?, target_nameservers_json = ?, target_provider = 'cloudflare', target_provider_zone_id = ?, diff_json = ?, import_zone_text = ?, approval_digest = ?, owner_approved_at = NULL, delegation_check_json = NULL, delegation_verified_at = NULL, updated_at = ?
+     WHERE site_id = ? AND id = ? AND status IN ('source_loaded', 'target_loaded') AND source_zone_sha256 = ?
+       AND NOT EXISTS (
+         SELECT 1 FROM dns_migration_actions AS started
+         WHERE started.site_id = dns_migrations.site_id AND started.migration_id = dns_migrations.id
+           AND started.action = 'cloudflare-import-started' AND started.created_at >= ?
+           AND started.id <> COALESCE(?, '')
+           AND NOT EXISTS (
+             SELECT 1 FROM dns_migration_actions AS ended
+             WHERE ended.site_id = started.site_id AND ended.migration_id = started.migration_id
+               AND ended.action IN ('cloudflare-import-finished', 'cloudflare-import-failed')
+               AND ended.rowid > started.rowid
+           )
+       )
+       AND (? IS NULL OR EXISTS (
+         SELECT 1 FROM dns_migration_actions AS owned
+         WHERE owned.id = ? AND owned.site_id = dns_migrations.site_id
+           AND owned.migration_id = dns_migrations.id
+           AND owned.action = 'cloudflare-import-started' AND owned.created_at >= ?
+           AND NOT EXISTS (
+             SELECT 1 FROM dns_migration_actions AS ended
+             WHERE ended.site_id = owned.site_id AND ended.migration_id = owned.migration_id
+               AND ended.action IN ('cloudflare-import-finished', 'cloudflare-import-failed')
+               AND ended.rowid > owned.rowid
+           )
+       ))`,
   ).bind(snapshot.zoneText, targetHash, target.records.length, JSON.stringify(snapshot.nameservers), zoneId,
-    JSON.stringify(diff), importText, approvalDigest, now, site.id, migration.id, migration.source_zone_sha256).run();
+    JSON.stringify(diff), importText, approvalDigest, now, site.id, migration.id, migration.source_zone_sha256,
+    importLeaseStart, importLeaseId, importLeaseId, importLeaseId, importLeaseStart).run();
   if (update.meta?.changes !== 1) throw apiError(409, "dns_migration_state_changed", "The migration state changed. Reload the plan and retry.");
   return { migration: await getMigration(env, site, migration.id), diff, targetHash, recordCount: target.records.length };
 }
@@ -623,10 +650,23 @@ async function uploadTarget(request, env, site, migration, owner, api) {
     diff,
   ]));
   const now = new Date().toISOString();
+  const importLeaseStart = new Date(Date.now() - CLOUDFLARE_IMPORT_LEASE_MS).toISOString();
   const update = await env.DB.prepare(
-    "UPDATE dns_migrations SET status = 'target_loaded', target_zone_text = ?, target_zone_sha256 = ?, target_record_count = ?, target_nameservers_json = ?, diff_json = ?, import_zone_text = ?, approval_digest = ?, owner_approved_at = NULL, delegation_check_json = NULL, delegation_verified_at = NULL, updated_at = ? WHERE site_id = ? AND id = ? AND status IN ('source_loaded', 'target_loaded') AND source_zone_sha256 = ?",
+    `UPDATE dns_migrations SET status = 'target_loaded', target_zone_text = ?, target_zone_sha256 = ?, target_record_count = ?, target_nameservers_json = ?, diff_json = ?, import_zone_text = ?, approval_digest = ?, owner_approved_at = NULL, delegation_check_json = NULL, delegation_verified_at = NULL, updated_at = ?
+     WHERE site_id = ? AND id = ? AND status IN ('source_loaded', 'target_loaded') AND source_zone_sha256 = ?
+       AND NOT EXISTS (
+         SELECT 1 FROM dns_migration_actions AS started
+         WHERE started.site_id = dns_migrations.site_id AND started.migration_id = dns_migrations.id
+           AND started.action = 'cloudflare-import-started' AND started.created_at >= ?
+           AND NOT EXISTS (
+             SELECT 1 FROM dns_migration_actions AS ended
+             WHERE ended.site_id = started.site_id AND ended.migration_id = started.migration_id
+               AND ended.action IN ('cloudflare-import-finished', 'cloudflare-import-failed')
+               AND ended.rowid > started.rowid
+           )
+       )`,
   ).bind(body.zone_file, targetHash, target.records.length, JSON.stringify(nameservers), JSON.stringify(diff),
-    importText, approvalDigest, now, site.id, migration.id, migration.source_zone_sha256).run();
+    importText, approvalDigest, now, site.id, migration.id, migration.source_zone_sha256, importLeaseStart).run();
   if (update.meta?.changes !== 1) return api.fail(409, "dns_migration_state_changed", "The source snapshot changed. Reload the migration and retry.");
   const latest = await getMigration(env, site, migration.id);
   await audit(env, site, latest, owner, "target-uploaded", {
@@ -770,7 +810,7 @@ async function importCloudflareMissingRecords(request, env, site, migration, own
     && compareDnsZoneFiles(stagedTarget.records, beforeTarget.records, migration.zone_name).exact;
   if (!liveMatchesStaged) {
     try {
-      const refreshed = await stageCloudflareTarget(env, site, migration, migration.target_provider_zone_id, before);
+      const refreshed = await stageCloudflareTarget(env, site, migration, migration.target_provider_zone_id, before, claimed.id);
       await audit(env, site, refreshed.migration, owner, "cloudflare-import-failed", { zone_id: migration.target_provider_zone_id, outcome: "stale-snapshot-refreshed" });
       return api.json({ migration: migrationSummary(refreshed.migration, true), cloudflare_dns_imports_enabled: env.CLOUDFLARE_DNS_IMPORTS_ENABLED === "true", message: "The live Cloudflare zone changed since the staged snapshot. No records were imported; review the refreshed diff." }, 409);
     } catch (error) {
@@ -782,7 +822,7 @@ async function importCloudflareMissingRecords(request, env, site, migration, own
   const beforeDiff = compareDnsZoneFiles(source.records, beforeTarget.records, migration.zone_name);
   if (beforeDiff.added.length || !beforeDiff.removed.length) {
     try {
-      const refreshed = await stageCloudflareTarget(env, site, migration, migration.target_provider_zone_id, before);
+      const refreshed = await stageCloudflareTarget(env, site, migration, migration.target_provider_zone_id, before, claimed.id);
       await audit(env, site, refreshed.migration, owner, "cloudflare-import-failed", { zone_id: migration.target_provider_zone_id, outcome: "not-started", reason: "destination-not-additive" });
       return api.json({ migration: migrationSummary(refreshed.migration, true), cloudflare_dns_imports_enabled: env.CLOUDFLARE_DNS_IMPORTS_ENABLED === "true", message: beforeDiff.added.length
         ? "The destination now contains extra or changed records. No import was made; review the refreshed diff manually."
@@ -821,7 +861,7 @@ async function importCloudflareMissingRecords(request, env, site, migration, own
   let staged;
   try {
     after = await cloudflareZoneSnapshot(token, migration.target_provider_zone_id, migration.zone_name);
-    staged = await stageCloudflareTarget(env, site, migration, migration.target_provider_zone_id, after);
+    staged = await stageCloudflareTarget(env, site, migration, migration.target_provider_zone_id, after, claimed.id);
   } catch (error) {
     await audit(env, site, migration, owner, "cloudflare-import-failed", { zone_id: migration.target_provider_zone_id, outcome: "unknown", api_response_received: importResult.received, error_code: error?.code ?? "cloudflare_readback_failed" });
     return api.fail(503, "cloudflare_import_readback_failed", "The import may have changed Cloudflare, but MithrilPress could not validate the zone readback. Refresh the Cloudflare target before retrying.");
@@ -909,9 +949,22 @@ async function approveDiff(request, env, site, migration, owner, api) {
     return api.fail(409, "dns_approval_confirmation_required", "Confirm the exact displayed DNS diff before approving the cutover plan.");
   }
   const now = new Date().toISOString();
+  const importLeaseStart = new Date(Date.now() - CLOUDFLARE_IMPORT_LEASE_MS).toISOString();
   const update = await env.DB.prepare(
-    "UPDATE dns_migrations SET status = 'owner_approved', owner_approved_at = ?, updated_at = ? WHERE site_id = ? AND id = ? AND status = 'target_loaded' AND approval_digest = ?",
-  ).bind(now, now, site.id, migration.id, migration.approval_digest).run();
+    `UPDATE dns_migrations SET status = 'owner_approved', owner_approved_at = ?, updated_at = ?
+     WHERE site_id = ? AND id = ? AND status = 'target_loaded' AND approval_digest = ?
+       AND NOT EXISTS (
+         SELECT 1 FROM dns_migration_actions AS started
+         WHERE started.site_id = dns_migrations.site_id AND started.migration_id = dns_migrations.id
+           AND started.action = 'cloudflare-import-started' AND started.created_at >= ?
+           AND NOT EXISTS (
+             SELECT 1 FROM dns_migration_actions AS ended
+             WHERE ended.site_id = started.site_id AND ended.migration_id = started.migration_id
+               AND ended.action IN ('cloudflare-import-finished', 'cloudflare-import-failed')
+               AND ended.rowid > started.rowid
+           )
+       )`,
+  ).bind(now, now, site.id, migration.id, migration.approval_digest, importLeaseStart).run();
   if (update.meta?.changes !== 1) return api.fail(409, "dns_migration_state_changed", "The target snapshot changed. Reload the migration and approve the current diff.");
   const latest = await getMigration(env, site, migration.id);
   await audit(env, site, latest, owner, "diff-approved", {
