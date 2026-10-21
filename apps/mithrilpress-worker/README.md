@@ -17,8 +17,9 @@ Cloudflare D1 and R2, and serves only an explicitly published tenant revision.
   publishing it.
 - Owner-provided JPEG, PNG, GIF, and WebP image uploads to tenant-scoped R2,
   with byte and dimension checks, per-site and deployment storage caps, daily
-  read/write caps, and explicit featured-image selection. Uploads never fetch
-  URLs from WordPress or elsewhere.
+  per-site and shared read caps, daily upload/delete caps, and explicit
+  featured-image selection. One site cannot exhaust the shared image delivery
+  allowance by itself. Uploads never fetch URLs from WordPress or elsewhere.
 - Short-lived, host-only browser sessions exchanged from a scoped owner token;
   conversation messages and AI drafts remain in the tenant's D1 database until
   the owner deletes the conversation.
@@ -55,8 +56,9 @@ live read-back remain release gates.
 
 The R2 adapter stores objects with random site-scoped keys and keeps metadata
 and ownership references in D1. The application caps storage at 250 MiB per
-site and 8 GiB per deployment, with 50,000 reads and 10,000 upload/delete
-operations per UTC day. Cloudflare's R2 Standard free tier currently includes
+site and 8 GiB per deployment, image reads at 5,000 per site and 50,000 across
+the deployment per UTC day, and uploads/deletes at 10,000 across the deployment
+per day. Cloudflare's R2 Standard free tier currently includes
 10 GB-month storage, 1 million Class A operations, and 10 million Class B
 operations per month; those allowances are account-wide and shared with other
 workloads. The application caps do not guarantee a zero bill when the account

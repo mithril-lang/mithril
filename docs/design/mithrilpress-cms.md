@@ -118,7 +118,9 @@ remain separate release work.
 
 The free plan is quota-bounded, not an unlimited hosting commitment. R2
 application caps currently allow 250 MiB per site and 8 GiB per deployment,
-50,000 reads/day, and 10,000 upload/delete operations/day. Cloudflare's R2
+5,000 image reads/day per site and 50,000 across the deployment, and 10,000
+upload/delete operations/day. Per-site read caps prevent one site from
+exhausting the shared allowance alone. Cloudflare's R2
 Standard free tier currently includes 10 GB-month of storage, 1 million Class A
 operations, and 10 million Class B operations monthly. These allowances are
 account-wide, so the app limits do not guarantee a zero bill if other workloads
@@ -135,7 +137,8 @@ has no paid fallback.
 D1 triggers enforce a 16 MiB retained-entry text-payload limit per site and a
 256 MiB deployment-wide payload limit across immutable revisions. The Studio
 shows the site's estimate, the shared app-level AI request count, R2 image
-storage, and daily app-level image operations. The content estimate excludes
+storage, per-site and shared daily image reads, and shared daily image writes.
+The content estimate excludes
 indexes, database metadata,
 conversations, audit rows, and the physical D1 database size. Account-level
 Worker requests, D1 reads/writes/storage, and Workers AI neuron use are not
@@ -210,7 +213,8 @@ drops active subtrees, and unwraps unknown formatting tags. Inline images and
 attachment URLs are omitted. A `media:write` owner can upload JPEG, PNG, GIF,
 or WebP files up to 8 MiB, with signature and dimension checks, to tenant-scoped
 R2. The image library uses a 250 MiB per-site cap, an 8 GiB per-deployment cap,
-50,000 reads/day, and 10,000 upload/delete operations/day. A published page
+5,000 reads/day per site, 50,000 across the deployment, and 10,000
+upload/delete operations/day. A published page
 serves an image only while its entry references it; private previews require a
 `revision:preview` session. Uploads do not fetch WordPress URLs or strip image
 metadata, so owners should remove GPS or other private metadata before upload.

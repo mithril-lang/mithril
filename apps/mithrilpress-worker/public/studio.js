@@ -312,7 +312,7 @@ async function refreshUsage() {
     const mediaUsed = (Number(media.site_used_bytes) / (1024 * 1024)).toFixed(2);
     const mediaLimit = (Number(media.site_limit_bytes) / (1024 * 1024)).toFixed(0);
     document.querySelector("#media-storage-usage").textContent = `${mediaUsed} MiB of ${mediaLimit} MiB used`;
-    document.querySelector("#r2-media-usage").textContent = `${mediaUsed} MiB of ${mediaLimit} MiB for this site; ${media.daily_reads_used}/${media.daily_reads_limit} reads and ${media.daily_uploads_and_deletes_used}/${media.daily_uploads_and_deletes_limit} uploads/deletes today (UTC).`;
+    document.querySelector("#r2-media-usage").textContent = `${mediaUsed} MiB of ${mediaLimit} MiB for this site; ${media.site_daily_reads_used}/${media.site_daily_reads_limit} site reads and ${media.daily_reads_used}/${media.daily_reads_limit} shared reads, plus ${media.daily_uploads_and_deletes_used}/${media.daily_uploads_and_deletes_limit} uploads/deletes today (UTC).`;
   } catch (error) {
     showStatus(target, error.message);
   }

@@ -18,6 +18,7 @@ const DEPLOYMENT_CONTENT_LIMIT_BYTES = 256 * 1024 * 1024;
 const SITE_MEDIA_LIMIT_BYTES = 250 * 1024 * 1024;
 const DEPLOYMENT_MEDIA_LIMIT_BYTES = 8 * 1024 * 1024 * 1024;
 const MEDIA_READS_PER_DAY_LIMIT = 50_000;
+const SITE_MEDIA_READS_PER_DAY_LIMIT = 5_000;
 const MEDIA_WRITES_PER_DAY_LIMIT = 10_000;
 const TENANT_LABEL = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 const ENTRY_SLUG = /^[^/?#\\\u0000-\u001f\u007f]{1,200}$/;
@@ -130,14 +131,33 @@ function mediaQuotaResponse(code) {
     : fail(409, "deployment_media_quota_exceeded", "The shared image storage pool is full. New image uploads are paused until the operator removes media.");
 }
 
-async function countMediaOperation(env, type, limit, date = new Date()) {
-  const column = type === "read" ? "read_count" : "write_count";
-  const reads = type === "read" ? 1 : 0;
-  const writes = type === "write" ? 1 : 0;
+async function countMediaWrite(env, limit, date = new Date()) {
   const row = await env.DB.prepare(
-    `INSERT INTO media_daily_operations (day_utc, read_count, write_count) VALUES (?, ?, ?) ON CONFLICT(day_utc) DO UPDATE SET ${column} = ${column} + 1 WHERE ${column} < ? RETURNING ${column} AS operation_count`,
-  ).bind(date.toISOString().slice(0, 10), reads, writes, limit).first();
+    "INSERT INTO media_daily_operations (day_utc, read_count, write_count) VALUES (?, 0, 1) ON CONFLICT(day_utc) DO UPDATE SET write_count = write_count + 1 WHERE write_count < ? RETURNING write_count AS operation_count",
+  ).bind(date.toISOString().slice(0, 10), limit).first();
   return row !== null;
+}
+
+async function countMediaRead(env, siteId, date = new Date()) {
+  const dayUtc = date.toISOString().slice(0, 10);
+  let row;
+  try {
+    row = await env.DB.prepare(
+      "INSERT INTO media_site_daily_reads (site_id, day_utc, read_count) VALUES (?, ?, 1) ON CONFLICT(site_id) DO UPDATE SET day_utc = excluded.day_utc, read_count = CASE WHEN media_site_daily_reads.day_utc = excluded.day_utc THEN media_site_daily_reads.read_count + 1 ELSE 1 END WHERE (CASE WHEN media_site_daily_reads.day_utc = excluded.day_utc THEN media_site_daily_reads.read_count ELSE 0 END) < ? AND COALESCE((SELECT read_count FROM media_daily_operations WHERE day_utc = excluded.day_utc), 0) < ? RETURNING read_count",
+    ).bind(siteId, dayUtc, SITE_MEDIA_READS_PER_DAY_LIMIT, MEDIA_READS_PER_DAY_LIMIT).first();
+  } catch (error) {
+    if (String(error?.message ?? error).includes("media_deployment_daily_read_limit")) return "deployment";
+    throw error;
+  }
+  if (row !== null) return null;
+
+  const [siteUsage, deploymentUsage] = await Promise.all([
+    env.DB.prepare("SELECT day_utc, read_count FROM media_site_daily_reads WHERE site_id = ? LIMIT 1").bind(siteId).first(),
+    env.DB.prepare("SELECT read_count FROM media_daily_operations WHERE day_utc = ? LIMIT 1").bind(dayUtc).first(),
+  ]);
+  if (Number(deploymentUsage?.read_count ?? 0) >= MEDIA_READS_PER_DAY_LIMIT) return "deployment";
+  if (siteUsage?.day_utc === dayUtc && Number(siteUsage.read_count ?? 0) >= SITE_MEDIA_READS_PER_DAY_LIMIT) return "site";
+  return "deployment";
 }
 
 function normalizeSiteHostname(hostname) {
@@ -1239,12 +1259,13 @@ async function studioUsage(request, env, site) {
   const now = new Date();
   const dayUtc = now.toISOString().slice(0, 10);
   const resetsAtUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)).toISOString();
-  const [storage, aiUsage, siteMedia, deploymentMedia, mediaOperations] = await Promise.all([
+  const [storage, aiUsage, siteMedia, deploymentMedia, mediaOperations, siteMediaReads] = await Promise.all([
     env.DB.prepare("SELECT content_bytes FROM mithrilpress_site_storage_usage WHERE site_id = ? LIMIT 1").bind(site.id).first(),
     env.DB.prepare("SELECT request_count FROM studio_ai_usage WHERE day_utc = ? LIMIT 1").bind(dayUtc).first(),
     env.DB.prepare("SELECT asset_bytes FROM mithrilpress_site_media_usage WHERE site_id = ? LIMIT 1").bind(site.id).first(),
     env.DB.prepare("SELECT asset_bytes FROM mithrilpress_deployment_media_usage WHERE singleton = 1").first(),
     env.DB.prepare("SELECT read_count, write_count FROM media_daily_operations WHERE day_utc = ? LIMIT 1").bind(dayUtc).first(),
+    env.DB.prepare("SELECT day_utc, read_count FROM media_site_daily_reads WHERE site_id = ? LIMIT 1").bind(site.id).first(),
   ]);
   return json({
     storage: {
@@ -1264,6 +1285,8 @@ async function studioUsage(request, env, site) {
       site_limit_bytes: SITE_MEDIA_LIMIT_BYTES,
       deployment_used_bytes: Number(deploymentMedia?.asset_bytes ?? 0),
       deployment_limit_bytes: DEPLOYMENT_MEDIA_LIMIT_BYTES,
+      site_daily_reads_used: siteMediaReads?.day_utc === dayUtc ? Number(siteMediaReads.read_count ?? 0) : 0,
+      site_daily_reads_limit: SITE_MEDIA_READS_PER_DAY_LIMIT,
       daily_reads_used: Number(mediaOperations?.read_count ?? 0),
       daily_reads_limit: MEDIA_READS_PER_DAY_LIMIT,
       daily_uploads_and_deletes_used: Number(mediaOperations?.write_count ?? 0),
@@ -1390,7 +1413,7 @@ async function studioMedia(request, env, site) {
     ).bind(site.id, wordpressSourceId).first();
     if (duplicate) return fail(409, "wordpress_media_already_imported", "This WordPress media ID is already present in the site's media library.");
   }
-  if (!await countMediaOperation(env, "write", MEDIA_WRITES_PER_DAY_LIMIT)) {
+  if (!await countMediaWrite(env, MEDIA_WRITES_PER_DAY_LIMIT)) {
     return fail(429, "media_daily_write_limit", "The shared free media upload and delete allowance is exhausted for today. Try again after 00:00 UTC.");
   }
 
@@ -1459,7 +1482,7 @@ async function deleteStudioMedia(request, env, site, mediaId) {
     "SELECT id, object_key, status FROM media_assets WHERE site_id = ? AND id = ? LIMIT 1",
   ).bind(site.id, mediaId).first();
   if (!row) return fail(404, "media_not_found", "Media item not found.");
-  if (!await countMediaOperation(env, "write", MEDIA_WRITES_PER_DAY_LIMIT)) {
+  if (!await countMediaWrite(env, MEDIA_WRITES_PER_DAY_LIMIT)) {
     return fail(429, "media_daily_write_limit", "The shared free media upload and delete allowance is exhausted for today. Try again after 00:00 UTC.");
   }
   await env.DB.prepare("UPDATE media_assets SET status = 'deleting' WHERE site_id = ? AND id = ? AND status IN ('pending', 'active', 'deleting')")
@@ -1512,9 +1535,9 @@ async function serveMedia(request, env, site, mediaId) {
     }
   }
   if (!asset) return fail(404, "media_not_found", "Media item not found.");
-  if (!await countMediaOperation(env, "read", MEDIA_READS_PER_DAY_LIMIT)) {
-    return fail(429, "media_daily_read_limit", "The shared free image delivery allowance is exhausted for today. Try again after 00:00 UTC.");
-  }
+  const readLimit = await countMediaRead(env, site.id);
+  if (readLimit === "site") return fail(429, "site_media_daily_read_limit", "This site's daily image delivery allowance is exhausted. It resets at 00:00 UTC.");
+  if (readLimit === "deployment") return fail(429, "deployment_media_daily_read_limit", "The shared free image delivery allowance is exhausted for today. It resets at 00:00 UTC.");
   const object = request.method === "HEAD"
     ? await env.MEDIA.head(asset.object_key)
     : await env.MEDIA.get(asset.object_key);
