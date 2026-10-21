@@ -131,7 +131,9 @@ delegation during a write. Registrar changes remain manual.
 2. Upload the current provider's BIND export. Zone snapshots are private to the
    site because TXT data can contain verification secrets. The parser caps
    input at 256 KiB and 2,000 records, accepts `$ORIGIN` and `$TTL`, and rejects
-   unsupported directives rather than guessing their expansion.
+   unsupported directives rather than guessing their expansion. NAPTR records
+   are checked for their six standard fields, quoted character strings, and a
+   fully qualified replacement name (or `.`), following [RFC 3403](https://www.rfc-editor.org/rfc/rfc3403.html).
 3. Import the generated source records into a destination staging zone by hand,
    or connect a Cloudflare zone using a zone-scoped token. The token is sent
    only with the read request and is not saved. For Cloudflare, a second

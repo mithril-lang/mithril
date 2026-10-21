@@ -415,7 +415,9 @@ records. It supports `$ORIGIN`, `$TTL`, explicit or inherited owners, and
 standard TTL suffixes; unsupported directives such as `$GENERATE` must be
 expanded before upload. The parser does not support escaped owner-name labels
 or non-IN record classes, so review and normalize exports that use them before
-uploading.
+uploading. NAPTR records must use the six standard fields, quoted flags,
+service, and regexp character strings, and a fully qualified replacement name
+(or `.`); ambiguous forms are rejected before staging.
 Comparison excludes provider-managed apex SOA/NS and generated DNSSEC records,
 and retains Cloudflare `cf-proxied` and `cf-flatten-cname` settings where the
 zone export includes them. Generated imports default A/AAAA/CNAME records to
