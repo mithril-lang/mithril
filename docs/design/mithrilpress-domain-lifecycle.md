@@ -146,7 +146,11 @@ delegation during a write. Registrar changes remain manual.
    disabled until isolated-zone
    qualification. The live zone must still match the staged snapshot, and the
    destination must contain no extra or changed records. Upload the destination
-   export manually for other providers. The diff compares record owner, type,
+   export manually for other providers. The create-only converter supports
+   `A`, `AAAA`, `CAA`, `CNAME`, `MX`, `NAPTR`, `NS`, `OPENPGPKEY`, `PTR`, `SRV`,
+   `TXT`, and `URI` records with validated field formats and TTLs. If any
+   missing source record cannot be represented safely, the entire automatic
+   batch is rejected before the provider write. The diff compares record owner, type,
    TTL, class, RDATA, and supported Cloudflare proxy/flatten metadata. It excludes
    provider-managed apex SOA/NS and generated DNSSEC records. A non-exact diff
    cannot be approved.

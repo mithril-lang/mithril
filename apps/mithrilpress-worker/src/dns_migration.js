@@ -15,8 +15,7 @@ const MAX_CLOUDFLARE_API_TOKEN_CHARS = 512;
 const MAX_CLOUDFLARE_JSON_BYTES = 65_536;
 const CLOUDFLARE_IMPORT_LEASE_MS = 5 * 60_000;
 const CLOUDFLARE_CREATE_RECORD_TYPES = new Set([
-  "A", "AAAA", "CAA", "CERT", "CNAME", "DS", "HTTPS", "LOC", "MX", "NAPTR",
-  "NS", "PTR", "SMIMEA", "SRV", "SSHFP", "SVCB", "TLSA", "TXT", "URI",
+  "A", "AAAA", "CAA", "CNAME", "MX", "NAPTR", "NS", "OPENPGPKEY", "PTR", "SRV", "TXT", "URI",
 ]);
 const DNS_RESOLVERS = [
   { name: "Cloudflare", endpoint: "https://cloudflare-dns.com/dns-query" },
@@ -313,6 +312,17 @@ function cloudflareStringContent(tokens, { requireQuoted = false, recordType }) 
   return strings.join("");
 }
 
+function cloudflareUnsignedInteger(token, maximum, recordType, field) {
+  if (typeof token !== "string" || !/^\d+$/.test(token)) {
+    throw apiError(422, "cloudflare_record_format_unsupported", `A ${recordType} ${field} value cannot be safely represented by Cloudflare. Import it manually.`);
+  }
+  const value = Number(token);
+  if (!Number.isSafeInteger(value) || value > maximum) {
+    throw apiError(422, "cloudflare_record_format_unsupported", `A ${recordType} ${field} value is outside the Cloudflare record API range. Import it manually.`);
+  }
+  return value;
+}
+
 function cloudflareBatchRecord(record) {
   if (!CLOUDFLARE_CREATE_RECORD_TYPES.has(record.type)) {
     throw apiError(422, "cloudflare_record_type_unsupported", `The ${record.type} record type cannot be written through the safe Cloudflare create-only path. Import it manually.`);
@@ -330,6 +340,36 @@ function cloudflareBatchRecord(record) {
       throw apiError(422, "cloudflare_record_format_unsupported", "A TXT record uses multiple zone-file strings that cannot be represented without changing their structure. Import it manually.");
     }
     payload.content = cloudflareStringContent(record.rdata_tokens, { requireQuoted: true, recordType: "TXT" });
+    return payload;
+  }
+  if (record.type === "CAA") {
+    if (record.rdata_tokens.length !== 3) {
+      throw apiError(422, "cloudflare_record_format_unsupported", "A CAA record could not be represented safely for Cloudflare. Import it manually.");
+    }
+    const [flagsToken, tag, valueToken] = record.rdata_tokens;
+    if (typeof tag !== "string" || !/^[a-z0-9-]{1,15}$/i.test(tag)) {
+      throw apiError(422, "cloudflare_record_format_unsupported", "A CAA property tag cannot be represented safely for Cloudflare. Import it manually.");
+    }
+    payload.data = {
+      flags: cloudflareUnsignedInteger(flagsToken, 255, "CAA", "flags"),
+      tag,
+      value: cloudflareStringContent([valueToken], { requireQuoted: true, recordType: "CAA" }),
+    };
+    return payload;
+  }
+  if (record.type === "NAPTR") {
+    if (record.rdata_tokens.length !== 6) {
+      throw apiError(422, "cloudflare_record_format_unsupported", "A NAPTR record could not be represented safely for Cloudflare. Import it manually.");
+    }
+    const [orderToken, preferenceToken, flagsToken, serviceToken, regexpToken, replacementToken] = record.rdata_tokens;
+    payload.data = {
+      order: cloudflareUnsignedInteger(orderToken, 65_535, "NAPTR", "order"),
+      preference: cloudflareUnsignedInteger(preferenceToken, 65_535, "NAPTR", "preference"),
+      flags: cloudflareStringContent([flagsToken], { requireQuoted: true, recordType: "NAPTR" }),
+      service: cloudflareStringContent([serviceToken], { requireQuoted: true, recordType: "NAPTR" }),
+      regex: cloudflareStringContent([regexpToken], { requireQuoted: true, recordType: "NAPTR" }),
+      replacement: replacementToken === "." ? "." : replacementToken.replace(/\.$/, ""),
+    };
     return payload;
   }
   if (record.type === "MX") {

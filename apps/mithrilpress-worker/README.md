@@ -163,6 +163,12 @@ source records missing from an unchanged staged zone. The Worker sends
 Cloudflare batch `posts` only; it never sends
 `deletes`, `patches`, or `puts`. Record types or values that cannot be
 represented without changing their meaning remain on the manual import path.
+The create-only converter currently supports `A`, `AAAA`, `CAA`, `CNAME`,
+`MX`, `NAPTR`, `NS`, `OPENPGPKEY`, `PTR`, `SRV`, `TXT`, and `URI` records with
+validated field formats and TTLs. Other record types remain available in the
+reviewable BIND export but require a manual import; if a missing record cannot
+be represented, the whole automatic batch is rejected before any provider
+write.
 
 Generate a one-time token envelope separately with
 `node scripts/create-owner-token.mjs <owner-label> <scope> [<scope> ...]`.
