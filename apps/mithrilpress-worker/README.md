@@ -408,8 +408,11 @@ Public post/page list requests support `page`, `per_page` (1–100), `slug`,
 `search`, `after`, `before`, `modified_after`, `modified_before`, `order`, and
 `orderby` (`date`, `modified`, `id`, `title`, `slug`, or `relevance`; relevance
 requires a search term), plus `context` `view`/`embed`. Search matches the
-published title and sanitized content. Dates accept ISO 8601 calendar dates or
-timezone-qualified date-times; results remain restricted to published entries.
+published title and sanitized content. Relevance descending ranks exact title
+matches, title substrings, then content-only matches. Dates accept ISO 8601
+calendar dates or timezone-qualified date-times; date-only `before` and
+`modified_before` values include the full UTC calendar day. Results remain
+restricted to published entries.
 Category/tag lists also support
 `search` and `hide_empty`, and individual terms can be fetched by source ID.
 Responses include standard `X-WP-Total`, `X-WP-TotalPages`, and pagination

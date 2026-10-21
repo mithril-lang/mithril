@@ -266,7 +266,86 @@ try {
     _yoast_wpseo_metadesc: "Description <safe> & careful",
   });
 
-  process.stdout.write("MithrilPress local owner-auth qualification passed: anonymous denial, tenant-token isolation, owner-uploaded inline media mapping, Gutenberg and SEO metadata reports, escaped private and published SEO tags, WordPress REST meta, and pre-publication privacy.\n");
+  const collectionFixtures = [
+    {
+      apiId: 9101,
+      slug: "mithril-exact-match",
+      title: "Mithril",
+      content: "<p>Exact title match.</p>",
+      date: "2026-05-12T09:00:00Z",
+      modified: "2026-06-15T10:00:00Z",
+    },
+    {
+      apiId: 9102,
+      slug: "mithril-migration",
+      title: "Mithril migration",
+      content: "<p>Partial title match.</p>",
+      date: "2026-05-12T12:00:00Z",
+      modified: "2026-06-15T18:30:00Z",
+    },
+    {
+      apiId: 9103,
+      slug: "security-notes",
+      title: "Security notes",
+      content: "<p>Content-only Mithril match.</p>",
+      date: "2026-05-13T08:00:00Z",
+      modified: "2026-06-17T11:00:00Z",
+    },
+  ];
+  const collectionWxr = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:wp="http://wordpress.org/export/1.2/">
+  <channel><title>Collection filter fixture</title><link>${sourceOrigin}</link><wp:wxr_version>1.2</wp:wxr_version>
+    ${collectionFixtures.map((entry) => `
+    <item><title>${entry.title}</title><link>${sourceOrigin}/${entry.slug}/</link>
+      <wp:post_id>${entry.apiId}</wp:post_id><wp:post_type>post</wp:post_type><wp:status>publish</wp:status><wp:post_name>${entry.slug}</wp:post_name>
+      <wp:post_date>${entry.date}</wp:post_date><wp:post_date_gmt>${entry.date}</wp:post_date_gmt>
+      <wp:post_modified>${entry.modified}</wp:post_modified><wp:post_modified_gmt>${entry.modified}</wp:post_modified_gmt>
+      <content:encoded><![CDATA[${entry.content}]]></content:encoded>
+    </item>`).join("")}
+  </channel>
+</rss>`;
+  const importedCollection = await request(port, "POST", "/api/wordpress/import", {
+    token: siteToken.token,
+    body: collectionWxr,
+    contentType: "application/rss+xml",
+  });
+  assert.equal(importedCollection.status, 201, `Collection fixture import failed: ${importedCollection.body}`);
+  const importedCollectionBody = JSON.parse(importedCollection.body);
+  assert.equal(importedCollectionBody.state, "private-preview");
+  assert.equal(importedCollectionBody.entry_count, 3);
+  const approvedCollection = await request(port, "POST", `/_mithrilpress/api/revisions/${importedCollectionBody.revision_id}/approve`, { token: siteToken.token });
+  assert.equal(approvedCollection.status, 200, `Collection fixture approval failed: ${approvedCollection.body}`);
+  const publishedCollection = await request(port, "POST", `/_mithrilpress/api/revisions/${importedCollectionBody.revision_id}/publish`, { token: siteToken.token });
+  assert.equal(publishedCollection.status, 200, `Collection fixture publication failed: ${publishedCollection.body}`);
+
+  const relevance = await request(port, "GET", "/wp-json/wp/v2/posts?search=Mithril&orderby=relevance&per_page=100");
+  assert.equal(relevance.status, 200, `WordPress relevance query failed: ${relevance.body}`);
+  assert.deepEqual(JSON.parse(relevance.body).map((entry) => entry.id), [9101, 9102, 9103]);
+
+  const calendarDay = await request(port, "GET", "/wp-json/wp/v2/posts?after=2026-05-12&before=2026-05-12&orderby=id&order=asc&per_page=100");
+  assert.equal(calendarDay.status, 200, `WordPress calendar-day query failed: ${calendarDay.body}`);
+  assert.deepEqual(JSON.parse(calendarDay.body).map((entry) => entry.id), [9101, 9102]);
+  assert.equal(calendarDay.headers["x-wp-total"], "2");
+
+  const modifiedDay = await request(port, "GET", "/wp-json/wp/v2/posts?modified_after=2026-06-15&modified_before=2026-06-15&orderby=id&order=asc&per_page=100");
+  assert.equal(modifiedDay.status, 200, `WordPress modified-day query failed: ${modifiedDay.body}`);
+  assert.deepEqual(JSON.parse(modifiedDay.body).map((entry) => entry.id), [9101, 9102]);
+
+  const ascendingDate = await request(port, "GET", "/wp-json/wp/v2/posts?after=2026-05-12&orderby=date&order=asc&per_page=100");
+  assert.deepEqual(JSON.parse(ascendingDate.body).map((entry) => entry.id), [9101, 9102, 9103]);
+  const descendingDate = await request(port, "GET", "/wp-json/wp/v2/posts?after=2026-05-12&orderby=date&order=desc&per_page=100");
+  assert.deepEqual(JSON.parse(descendingDate.body).map((entry) => entry.id), [9103, 9102, 9101]);
+
+  const invalidCalendarDate = await request(port, "GET", "/wp-json/wp/v2/posts?before=2026-02-30");
+  assert.equal(invalidCalendarDate.status, 400);
+  const invalidDateRange = await request(port, "GET", "/wp-json/wp/v2/posts?after=2026-06-01&before=2026-05-31");
+  assert.equal(invalidDateRange.status, 400);
+  const invalidOrder = await request(port, "GET", "/wp-json/wp/v2/posts?order=desc%20LIMIT%201");
+  assert.equal(invalidOrder.status, 400);
+  const missingRelevanceSearch = await request(port, "GET", "/wp-json/wp/v2/posts?orderby=relevance");
+  assert.equal(missingRelevanceSearch.status, 400);
+
+  process.stdout.write("MithrilPress local owner-auth qualification passed: anonymous denial, tenant-token isolation, owner-uploaded inline media mapping, Gutenberg and SEO metadata reports, escaped private and published SEO tags, WordPress REST meta, collection relevance/date/order filters, and pre-publication privacy.\n");
 } finally {
   if (worker && worker.exitCode === null) {
     worker.kill("SIGTERM");

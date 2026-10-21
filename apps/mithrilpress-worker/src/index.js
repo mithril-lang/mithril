@@ -2143,7 +2143,7 @@ function parsePathSegment(value) {
   }
 }
 
-function parseWordPressDateFilter(value) {
+function parseWordPressDateFilter(value, { endOfDay = false } = {}) {
   if (value === null) return { valid: true, value: null };
   if (value.length > 40 || !/^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2}))?$/.test(value)) {
     return { valid: false, value: null };
@@ -2153,7 +2153,8 @@ function parseWordPressDateFilter(value) {
   if (!Number.isFinite(calendarDate) || new Date(calendarDate).toISOString().slice(0, 10) !== date) {
     return { valid: false, value: null };
   }
-  const timestamp = Date.parse(value);
+  const parsedValue = endOfDay && value.length === 10 ? `${value}T23:59:59.999Z` : value;
+  const timestamp = Date.parse(parsedValue);
   return Number.isFinite(timestamp)
     ? { valid: true, value: new Date(timestamp).toISOString() }
     : { valid: false, value: null };
@@ -2220,9 +2221,9 @@ async function wordpressRead(request, env, site, kind) {
     return fail(400, "invalid_search", "The search filter must contain 1-100 printable characters.");
   }
   const after = parseWordPressDateFilter(url.searchParams.get("after"));
-  const before = parseWordPressDateFilter(url.searchParams.get("before"));
+  const before = parseWordPressDateFilter(url.searchParams.get("before"), { endOfDay: true });
   const modifiedAfter = parseWordPressDateFilter(url.searchParams.get("modified_after"));
-  const modifiedBefore = parseWordPressDateFilter(url.searchParams.get("modified_before"));
+  const modifiedBefore = parseWordPressDateFilter(url.searchParams.get("modified_before"), { endOfDay: true });
   if (!after.valid || !before.valid || !modifiedAfter.valid || !modifiedBefore.valid) {
     return fail(400, "invalid_date_filter", "Use an ISO 8601 date or date-time for after, before, modified_after, and modified_before.");
   }
@@ -2281,7 +2282,7 @@ async function wordpressRead(request, env, site, kind) {
   const total = Number(count?.total ?? 0);
   const offset = (page - 1) * perPage;
   const orderExpression = orderby === "relevance"
-    ? "CASE WHEN lower(title) = lower(?) THEN 0 WHEN instr(lower(title), lower(?)) > 0 THEN 1 ELSE 2 END"
+    ? "CASE WHEN lower(title) = lower(?) THEN 2 WHEN instr(lower(title), lower(?)) > 0 THEN 1 ELSE 0 END"
     : orderColumns[orderby];
   const orderParams = orderby === "relevance" ? [search, search] : [];
   const rows = await env.DB.prepare(
