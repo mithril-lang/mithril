@@ -47,6 +47,14 @@ const exportXml = `<?xml version="1.0" encoding="UTF-8"?>
         <wp:meta_key><![CDATA[custom_field]]></wp:meta_key>
         <wp:meta_value><![CDATA[value]]></wp:meta_value>
       </wp:postmeta>
+      <wp:postmeta>
+        <wp:meta_key><![CDATA[_yoast_wpseo_title]]></wp:meta_key>
+        <wp:meta_value><![CDATA[Safety overview]]></wp:meta_value>
+      </wp:postmeta>
+      <wp:postmeta>
+        <wp:meta_key><![CDATA[_yoast_wpseo_metadesc]]></wp:meta_key>
+        <wp:meta_value><![CDATA[Owner-authored search description.]]></wp:meta_value>
+      </wp:postmeta>
       <wp:comment>
         <wp:comment_id>8</wp:comment_id>
         <wp:comment_content><![CDATA[Reader comment]]></wp:comment_content>
@@ -100,6 +108,10 @@ test("parses a bounded WXR posts/pages subset with category and tag IDs", () => 
     categories: [7],
     tags: [9],
     featured_media: 101,
+    seoMetadata: {
+      _yoast_wpseo_title: "Safety overview",
+      _yoast_wpseo_metadesc: "Owner-authored search description.",
+    },
   });
   assert.deepEqual(parsed.omitted, {
     unsupported_post_types: 1,
