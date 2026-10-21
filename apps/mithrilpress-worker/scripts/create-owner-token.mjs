@@ -7,6 +7,7 @@ const scopesAllowed = new Set([
   "revision:approve",
   "site:publish",
   "site:domains",
+  "site:dns-migrate",
 ]);
 
 const [ownerLabel, ...requestedScopes] = process.argv.slice(2);

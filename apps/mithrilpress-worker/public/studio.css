@@ -119,12 +119,29 @@ main { max-width: 1180px; margin: 0 auto; padding: 38px 24px 60px; }
 .domain-record code { display: block; overflow-wrap: anywhere; color: #26382d; font-size: 12px; line-height: 1.5; white-space: pre-wrap; }
 .domain-card-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .domain-remove { color: #985143; }
+.dns-migration-detail { margin-top: 20px; padding: 18px; border: 1px solid #dce3dd; border-radius: 12px; background: #fbfcfb; }
+.dns-migration-detail-heading { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding-bottom: 13px; border-bottom: 1px solid #e7ece8; }
+.dns-migration-detail-heading h2 { margin: 6px 0 0; font-size: 20px; overflow-wrap: anywhere; }
+.dns-migration-step { display: grid; gap: 10px; margin-top: 15px; padding: 15px; border: 1px solid #e1e8e2; border-radius: 10px; background: #fff; }
+.dns-migration-step h3 { margin: 0; font-size: 14px; color: #244833; }
+.dns-migration-step p { margin: 0; color: #5c6b63; font-size: 13px; line-height: 1.55; }
+.dns-migration-step > code { display: block; padding: 10px; border-radius: 7px; background: #f3f6f3; color: #24392c; font-size: 12px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.dns-migration-field { display: grid; gap: 6px; color: #52645a; font-size: 12px; font-weight: 650; }
+.dns-migration-field input, .dns-migration-field textarea { width: 100%; min-height: 42px; padding: 10px; border: 1px solid #ccd7cf; border-radius: 8px; background: #fff; color: #17211d; font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; resize: vertical; }
+.dns-migration-field textarea[readonly] { background: #f4f6f4; }
+.dns-migration-check { display: flex; align-items: flex-start; gap: 9px; color: #43564a; font-size: 12px; line-height: 1.5; }
+.dns-migration-check input { flex: 0 0 auto; margin: 2px 0 0; accent-color: #20814f; }
+.dns-migration-diff { border: 1px solid #e6ece7; border-radius: 8px; background: #fafcfb; }
+.dns-migration-diff summary { padding: 10px; color: #315c42; cursor: pointer; font-size: 12px; font-weight: 650; }
+.dns-migration-diff pre { max-height: 340px; overflow: auto; margin: 0; padding: 10px; border-top: 1px solid #e6ece7; color: #26382d; font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+.dns-migration-warning { padding: 11px; border-left: 3px solid #c1a864; background: #faf8f0; }
 
 @media (max-width: 760px) {
   .topbar { padding: 0 16px; }
   main { padding: 22px 12px 40px; }
   .studio-layout { grid-template-columns: 1fr; }
   .domains-panel { padding: 17px; }
+  .dns-migration-detail { padding: 12px; }
   .usage-panel { padding: 18px; }
   .usage-cards { grid-template-columns: 1fr; }
   .domains-heading { align-items: flex-start; flex-direction: column; }

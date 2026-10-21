@@ -1,13 +1,16 @@
 # MithrilPress domain lifecycle
 
 **Status: custom-hostname onboarding is implemented behind a disabled-by-default
-operator gate.** The owner Studio can issue a TXT ownership challenge, create a
-Cloudflare for SaaS custom-hostname record after proof, display TLS validation
-records, check provider/certificate status, verify a DNS-only CNAME, activate
-the exact tenant mapping, and detach a hostname. The code does not write the
-customer's DNS. Full zone import, record management, and nameserver migration
-remain unimplemented. Do not enable the feature until its dedicated SaaS zone
-and route have been provisioned and read back. A five-minute Cron Trigger
+operator gate. DNS migration planning is owner-guided and does not mutate customer
+DNS or registrar state.** The owner Studio can issue a TXT ownership challenge,
+create a Cloudflare for SaaS custom-hostname record after proof, display TLS
+validation records, check provider/certificate status, verify a DNS-only CNAME,
+activate the exact tenant mapping, and detach a hostname. The code does not
+write the customer's DNS. Owner-guided zone snapshots, record comparison,
+cutover approval, and NS/DS propagation checks are implemented; DNS-provider
+record writes, automatic nameserver changes, and registrar transfers are not.
+Do not enable the custom-hostname feature until its dedicated SaaS zone and
+route have been provisioned and read back. A five-minute Cron Trigger
 rechecks active hostnames in batches of 30; at the 90-hostname deployment cap,
 every mapping is checked within 15 minutes. Mismatches suspend immediately;
 three consecutive provider/DNS read failures also suspend. An owner must
@@ -19,7 +22,7 @@ refresh a suspended hostname after the checks pass.
 | --- | --- | --- | --- |
 | MithrilPress subdomain | MithrilPress assigns one unique label, such as `example.sites.mithril.love` | MithrilPress controls the wildcard zone and hostname registry | First release target; requires the wildcard route and tenant provisioning |
 | Customer-owned hostname | Customer adds owner-proof and provider TLS TXT records plus a DNS-only CNAME; MithrilPress verifies ownership and provisions a Cloudflare for SaaS custom hostname | Customer retains DNS and registrar control | Subdomains only; apex and wildcard customer hostnames are excluded from this prototype |
-| Nameserver migration | Customer authorizes moving authoritative DNS to Cloudflare after record inventory and review | Cloudflare becomes authoritative; customer retains account ownership | Optional migration service only; never required to use a custom hostname |
+| Nameserver migration plan | Owner proves control, uploads source and staged destination BIND exports, reviews exact record diff, approves a digest, then changes registrar settings manually | Owner retains both DNS-provider accounts and registrar control | Optional guided plan; no provider credentials or automatic DNS/registrar writes |
 
 Cloudflare for SaaS custom hostnames and Workers for Platforms solve different
 problems. MithrilPress should use SaaS custom hostnames for customer domains;
@@ -85,34 +88,48 @@ remain authenticated and separate from public host routing.
 
 Nameserver transfer is a separate, optional workflow with its own approval and
 rollback plan. CNAME/TXT verification is the normal path and does not require
-transferring a domain or changing mail routing.
+transferring a domain or changing mail routing. The DNS migration planner is
+available only to owner tokens with `site:dns-migrate` scope.
 
 ## Optional nameserver migration
 
 This operation can affect the entire domain, including web, email, verification,
 and security records. MithrilPress must not start it as an implicit side effect
-of adding a website hostname. This workflow is not yet implemented.
+of adding a website hostname. The owner-guided planning and propagation-check
+steps are implemented; provider writes and registrar changes remain manual.
 
-1. Obtain explicit authorization from an owner who controls the domain and
-   document the affected domain, intended cutover window, and rollback contact.
-2. Read and export the current authoritative zone through an authorized
-   provider integration or customer-supplied export. Record TTLs and preserve
-   the source snapshot without exposing secrets in logs.
-3. Import into a staging zone and present a complete record-by-record diff.
-   Call out MX, SPF, DKIM, DMARC, domain-verification, CAA, DNSSEC/DS, wildcard,
-   and other NS records. Preserve mail records exactly unless the owner
-   separately requests a documented change.
-4. Require owner approval of the diff and cutover. Validate the target zone and
-   DNSSEC state before requesting a registrar nameserver update. Never make
-   registrar changes on the owner's behalf without separately scoped
-   authorization.
-5. Monitor authoritative answers, web TLS, mail routing, and verification
-   records during propagation. Keep the source provider and zone intact during
-   the agreed rollback window.
-6. If checks fail, restore the prior nameserver delegation and verify the old
-   zone answers again. Record the actual rollback evidence. Do not delete the
-   source zone until the owner confirms stable service and the retention window
-   expires.
+1. Require a `site:dns-migrate` owner token and prove control with a short-lived
+   TXT record at `_mithrilpress-migration.<zone>`. Only after proof, capture the
+   current nameserver and DS RRsets from Cloudflare and Google public recursive
+   resolvers for rollback. Those providers receive the domain lookups.
+2. Upload the current provider's BIND export. Zone snapshots are private to the
+   site because TXT data can contain verification secrets. The parser caps
+   input at 256 KiB and 2,000 records, accepts `$ORIGIN` and `$TTL`, and rejects
+   unsupported directives rather than guessing their expansion.
+3. Import the generated source records into a destination staging zone by hand.
+   Upload the destination export and its assigned nameservers. The diff compares
+   record owner, type, TTL, class, RDATA, and supported Cloudflare proxy/flatten
+   metadata. It excludes provider-managed apex SOA/NS and generated DNSSEC
+   records. A non-exact diff cannot be approved.
+4. Require an explicit owner confirmation bound to the source hash, target
+   export hash, destination nameservers, and exact diff. The owner separately
+   reviews MX, SPF, DKIM, DMARC, verification TXT, CAA, wildcard and any other
+   security/service records.
+5. Before changing registrar nameservers, remove the old DS record when source
+   DNSSEC is enabled. The owner performs the registrar update manually, keeps
+   both DNS providers active, and asks MithrilPress to compare the exact target
+   NS set and confirm that no DS record is visible through both recursive
+   resolvers. This checks recursive propagation only; it does not verify email,
+   HTTP, TLS, authoritative health, or every geographic resolver.
+6. If service checks fail, restore the captured source nameservers at the
+   registrar and restore the captured source DS state after the source becomes
+   authoritative again. MithrilPress can verify that NS/DS state through the
+   same resolvers. Keep the source provider and zone intact through the rollback
+   window.
+7. After the owner verifies destination service or source rollback, the owner
+   can erase snapshots. Hashes and append-only audit receipts remain. Do not
+   delete the source zone until the owner confirms stable service and the
+   retention window expires.
 
 ## Removal and incident handling
 

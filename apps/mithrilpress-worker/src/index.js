@@ -1,3 +1,5 @@
+import { handleDnsMigrations } from "./dns_migration.js";
+
 const SITE_ZONE = "sites.mithril.love";
 const CUSTOM_DOMAIN_LIMIT_PER_SITE = 10;
 const CUSTOM_DOMAIN_LIMIT_PER_DEPLOYMENT = 90;
@@ -851,8 +853,9 @@ function validateSourceOrigin(value) {
 async function studioSession(request, env, site) {
   if (request.method === "GET") {
     const owner = await ownerToken(request, env, site, "content:write")
-      ?? await ownerToken(request, env, site, "site:domains");
-    if (!owner) return fail(401, "studio_login_required", "Sign in with an owner token that has content:write or site:domains scope.");
+      ?? await ownerToken(request, env, site, "site:domains")
+      ?? await ownerToken(request, env, site, "site:dns-migrate");
+    if (!owner) return fail(401, "studio_login_required", "Sign in with an owner token that has a Studio scope.");
     const session = owner.viaSession
       ? await env.DB.prepare("SELECT expires_at FROM studio_sessions WHERE site_id = ? AND session_id = ? AND revoked_at IS NULL LIMIT 1")
         .bind(site.id, owner.sessionId).first()
@@ -869,7 +872,8 @@ async function studioSession(request, env, site) {
     if (!parts) return fail(401, "studio_login_required", "The owner token is invalid or lacks content:write scope.");
     const nowDate = new Date();
     const owner = await verifyOwnerTokenParts(env, site, parts[1], parts[2], null, nowDate.toISOString());
-    if (!owner || !(owner.scopes.includes("content:write") || owner.scopes.includes("site:domains"))) {
+    if (!owner || !(owner.scopes.includes("content:write") || owner.scopes.includes("site:domains")
+        || owner.scopes.includes("site:dns-migrate"))) {
       return fail(401, "studio_login_required", "The owner token is invalid or lacks a Studio scope.");
     }
 
@@ -891,7 +895,8 @@ async function studioSession(request, env, site) {
 
   if (request.method === "DELETE") {
     const owner = await ownerToken(request, env, site, "content:write")
-      ?? await ownerToken(request, env, site, "site:domains");
+      ?? await ownerToken(request, env, site, "site:domains")
+      ?? await ownerToken(request, env, site, "site:dns-migrate");
     if (!owner?.viaSession || !owner.sessionId) return fail(401, "studio_login_required", "An active studio session is required.");
     await env.DB.prepare(
       "UPDATE studio_sessions SET revoked_at = ? WHERE site_id = ? AND session_id = ? AND revoked_at IS NULL",
@@ -1500,6 +1505,15 @@ async function handleRequest(request, env) {
   if (url.pathname === "/_mithrilpress/studio.css") return await studioAsset(request, env, "/studio.css");
 
   if (url.pathname === "/_mithrilpress/api/studio/session") return await studioSession(request, env, site);
+  if (url.pathname.startsWith("/_mithrilpress/api/dns-migrations")) {
+    return await handleDnsMigrations(request, env, site, {
+      ownerToken,
+      sameOriginStudioMutation,
+      readBoundedJson,
+      json,
+      fail,
+    });
+  }
   if (url.pathname === "/_mithrilpress/api/domains") return await studioDomains(request, env, site);
   const domainActionMatch = /^\/_mithrilpress\/api\/domains\/([a-f0-9-]{36})(?:\/(verify|refresh))?$/.exec(url.pathname);
   if (domainActionMatch) {

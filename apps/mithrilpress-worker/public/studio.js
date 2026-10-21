@@ -18,6 +18,8 @@ const contentPanel = document.querySelector("#content-panel");
 const contentTab = document.querySelector("#content-tab");
 const domainsPanel = document.querySelector("#domains-panel");
 const domainsTab = document.querySelector("#domains-tab");
+const dnsMigrationPanel = document.querySelector("#dns-migration-panel");
+const dnsMigrationTab = document.querySelector("#dns-migration-tab");
 const usagePanel = document.querySelector("#usage-panel");
 const usageTab = document.querySelector("#usage-tab");
 const domainList = document.querySelector("#domain-list");
@@ -25,6 +27,11 @@ const domainStatus = document.querySelector("#domain-status");
 const domainForm = document.querySelector("#domain-form");
 const domainUnavailable = document.querySelector("#domain-unavailable");
 const defaultHostname = document.querySelector("#default-hostname");
+const dnsMigrationList = document.querySelector("#dns-migration-list");
+const dnsMigrationDetail = document.querySelector("#dns-migration-detail");
+const dnsMigrationStatus = document.querySelector("#dns-migration-status");
+const dnsMigrationWorkflow = document.querySelector("#dns-migration-workflow");
+let activeDnsMigrationId = null;
 
 document.querySelector("#site-host").textContent = window.location.host;
 
@@ -51,25 +58,31 @@ function showStatus(target, message = "") {
 function showStudioView(name) {
   const canContent = ownerScopes.includes("content:write");
   const canDomains = ownerScopes.includes("site:domains");
+  const canDnsMigration = ownerScopes.includes("site:dns-migrate");
   const canUsage = canContent || canDomains;
   const showUsage = canUsage && name === "usage";
-  const showDomains = canDomains && (name === "domains" || (!canContent && !showUsage));
-  const showContent = canContent && !showDomains && !showUsage;
+  const showDnsMigration = canDnsMigration && (name === "dns-migration" || (!canContent && !canDomains && !showUsage));
+  const showDomains = canDomains && (name === "domains" || (!canContent && !showUsage && !showDnsMigration));
+  const showContent = canContent && !showDomains && !showUsage && !showDnsMigration;
   contentTab.hidden = !canContent;
   domainsTab.hidden = !canDomains;
+  dnsMigrationTab.hidden = !canDnsMigration;
   usageTab.hidden = !canUsage;
   contentPanel.hidden = !showContent;
   domainsPanel.hidden = !showDomains;
+  dnsMigrationPanel.hidden = !showDnsMigration;
   usagePanel.hidden = !showUsage;
   contentTab.setAttribute("aria-current", showContent ? "page" : "false");
   domainsTab.setAttribute("aria-current", showDomains ? "page" : "false");
+  dnsMigrationTab.setAttribute("aria-current", showDnsMigration ? "page" : "false");
   usageTab.setAttribute("aria-current", showUsage ? "page" : "false");
 }
 
 function setOwnerScopes(scopes = []) {
   ownerScopes = Array.isArray(scopes) ? scopes : [];
   defaultHostname.textContent = "";
-  showStudioView(ownerScopes.includes("content:write") ? "content" : "domains");
+  showStudioView(ownerScopes.includes("content:write") ? "content"
+    : ownerScopes.includes("site:domains") ? "domains" : "dns-migration");
 }
 
 function clearMessages() {
@@ -170,7 +183,8 @@ async function signIn(token) {
   showStatus(studioStatus, `Signed in as ${result.owner}.`);
   if (ownerScopes.includes("content:write")) await refreshConversations();
   if (ownerScopes.includes("site:domains")) await refreshDomains();
-  await refreshUsage();
+  if (ownerScopes.includes("site:dns-migrate")) await refreshDnsMigrations();
+  if (ownerScopes.includes("content:write") || ownerScopes.includes("site:domains")) await refreshUsage();
 }
 
 function addDomainRecord(card, record, label) {
@@ -290,6 +304,268 @@ async function runDomainAction(domain, action) {
   }
 }
 
+function dnsBlock(title, content) {
+  const block = document.createElement("section");
+  block.className = "dns-migration-step";
+  const heading = document.createElement("h3");
+  heading.textContent = title;
+  block.append(heading);
+  if (content) {
+    const text = document.createElement("p");
+    text.textContent = content;
+    block.append(text);
+  }
+  dnsMigrationWorkflow.append(block);
+  return block;
+}
+
+function dnsField(parent, labelText, options = {}) {
+  const label = document.createElement("label");
+  label.className = "dns-migration-field";
+  label.textContent = labelText;
+  const field = document.createElement(options.multiline ? "textarea" : "input");
+  if (options.multiline) field.rows = options.rows || 8;
+  else field.type = "text";
+  field.maxLength = options.maxLength || 300000;
+  field.placeholder = options.placeholder || "";
+  if (options.value) field.value = options.value;
+  if (options.readOnly) field.readOnly = true;
+  label.append(field);
+  parent.append(label);
+  return field;
+}
+
+function dnsCheck(parent, text) {
+  const label = document.createElement("label");
+  label.className = "dns-migration-check";
+  const input = document.createElement("input");
+  input.type = "checkbox";
+  const description = document.createElement("span");
+  description.textContent = text;
+  label.append(input, description);
+  parent.append(label);
+  return input;
+}
+
+function dnsActionButton(parent, text, handler, className = "button-secondary") {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = `button button-small ${className}`;
+  button.textContent = text;
+  button.addEventListener("click", handler);
+  parent.append(button);
+  return button;
+}
+
+function dnsDetails(parent, summaryText, value) {
+  const details = document.createElement("details");
+  details.className = "dns-migration-diff";
+  const summary = document.createElement("summary");
+  summary.textContent = summaryText;
+  const pre = document.createElement("pre");
+  pre.textContent = typeof value === "string" ? value : JSON.stringify(value, null, 2);
+  details.append(summary, pre);
+  parent.append(details);
+}
+
+async function runDnsMigrationAction(id, action, body = {}, method = "POST") {
+  showStatus(dnsMigrationStatus, "Saving migration progress…");
+  try {
+    const result = await api(`/_mithrilpress/api/dns-migrations/${encodeURIComponent(id)}${action ? `/${action}` : ""}`, {
+      method,
+      headers: requestHeader,
+      ...(method === "POST" ? { body } : {}),
+    });
+    showStatus(dnsMigrationStatus, result.message || "Migration plan updated.");
+    await refreshDnsMigrations(id);
+  } catch (error) {
+    showStatus(dnsMigrationStatus, error.message);
+    await loadDnsMigration(id);
+  }
+}
+
+function renderDnsMigrationDetail(migration) {
+  dnsMigrationDetail.hidden = false;
+  document.querySelector("#dns-migration-detail-title").textContent = migration.zone_name;
+  document.querySelector("#dns-migration-state").textContent = migration.status.replaceAll("_", " ");
+  dnsMigrationWorkflow.replaceChildren();
+
+  const originalNs = (migration.source_nameservers || []).join("\n") || "Unavailable";
+  const dnsStateCaptured = Boolean(migration.source_dns_state_captured_at);
+  const originalDs = migration.source_ds_records?.length
+    ? migration.source_ds_records.join("\n")
+    : "No DS record was visible when ownership was verified.";
+  const sourceStatus = dnsStateCaptured
+    ? `Captured ${new Date(migration.source_dns_state_captured_at).toLocaleString()} · ${migration.source_record_count ?? "Source zone not uploaded"} records`
+    : "Pending domain ownership proof. MithrilPress has not queried nameserver or DNSSEC state.";
+  dnsBlock("Captured rollback state", sourceStatus);
+  if (dnsStateCaptured) dnsDetails(dnsMigrationWorkflow.lastElementChild, "Captured source nameservers", originalNs);
+  if (dnsStateCaptured) dnsDetails(dnsMigrationWorkflow.lastElementChild, "Captured source DNSSEC DS records", originalDs);
+
+  if (migration.status === "ownership_pending") {
+    const block = dnsBlock("1. Verify domain control", `Publish this TXT record before ${migration.ownership_expires_at || "the challenge expires"}.`);
+    if (migration.ownership_record) {
+      const code = document.createElement("code");
+      code.textContent = `${migration.ownership_record.name}  TXT  ${migration.ownership_record.value}`;
+      block.append(code);
+    }
+    dnsActionButton(block, "Verify TXT record", () => runDnsMigrationAction(migration.id, "verify-ownership"));
+  }
+
+  if (["source_pending", "source_loaded"].includes(migration.status)) {
+    const block = dnsBlock("2. Upload the source DNS zone", "Paste a complete BIND export from the current authoritative provider. Zone snapshots can contain sensitive TXT values and stay private to this site.");
+    const source = dnsField(block, "Source BIND zone file", { multiline: true, rows: 10, placeholder: "$ORIGIN example.com.\nwww 300 IN A 192.0.2.10" });
+    dnsActionButton(block, migration.source_record_count ? "Replace source snapshot" : "Validate source zone", () => {
+      void runDnsMigrationAction(migration.id, "source", { zone_file: source.value });
+    }, "button-primary");
+  }
+
+  if (["source_loaded", "target_loaded"].includes(migration.status)) {
+    if (migration.import_zone_text) {
+      const block = dnsBlock("Destination import file", "Import this generated file into the staged destination zone, review provider proxy options, then export the destination zone and compare it below. MithrilPress does not upload records to a DNS provider.");
+      dnsField(block, "BIND import file", { multiline: true, rows: 10, value: migration.import_zone_text, readOnly: true });
+    }
+    const block = dnsBlock("3. Stage the destination zone", "Create or select the destination zone in your DNS provider, import the source records, and paste the destination provider's assigned nameservers and exported BIND zone.");
+    const nameservers = dnsField(block, "Destination nameservers (one per line)", {
+      multiline: true, rows: 3, placeholder: "ada.ns.cloudflare.com\nbob.ns.cloudflare.com",
+      value: (migration.target_nameservers || []).join("\n"),
+    });
+    const target = dnsField(block, "Destination BIND zone export", { multiline: true, rows: 10, placeholder: "$ORIGIN example.com.\nwww 300 IN A 192.0.2.10" });
+    dnsActionButton(block, migration.status === "target_loaded" ? "Refresh destination diff" : "Compare destination zone", () => {
+      void runDnsMigrationAction(migration.id, "target", {
+        nameservers: nameservers.value.split(/\r?\n/).map((value) => value.trim()).filter(Boolean),
+        zone_file: target.value,
+      });
+    }, "button-primary");
+  }
+
+  if (migration.diff) {
+    const block = dnsBlock("Record comparison", migration.diff.exact
+      ? "Compared DNS records match after excluding provider-managed apex SOA/NS and generated DNSSEC records. Review the excluded provider records and DNSSEC settings separately."
+      : `${migration.diff.added.length} destination-only records and ${migration.diff.removed.length} missing source records. Do not approve until the staged records match.`);
+    dnsDetails(block, "View record-by-record diff", migration.diff);
+    if (migration.diff.source_dnssec_records || migration.diff.target_dnssec_records) {
+      const warning = document.createElement("p");
+      warning.className = "dns-migration-warning";
+      warning.textContent = `DNSSEC generated records are excluded from the comparison (${migration.diff.source_dnssec_records} source, ${migration.diff.target_dnssec_records} destination). Handle DS records separately using the captured DNSSEC state.`;
+      block.append(warning);
+    }
+  }
+
+  if (migration.status === "target_loaded" && migration.diff?.exact) {
+    const block = dnsBlock("4. Approve this snapshot", "The digest below binds the source file, destination export, nameservers, and exact diff. Approval authorizes the owner to perform the later manual registrar cutover.");
+    const digest = document.createElement("code");
+    digest.textContent = migration.approval_digest || "";
+    block.append(digest);
+    const confirm = dnsCheck(block, "I reviewed the full DNS record diff and destination import. I understand that the old DS record must be removed before changing nameservers, and that MithrilPress will not make provider or registrar changes.");
+    dnsActionButton(block, "Approve exact DNS diff", () => {
+      if (!confirm.checked) {
+        showStatus(dnsMigrationStatus, "Review and confirm the exact DNS diff before approval.");
+        return;
+      }
+      void runDnsMigrationAction(migration.id, "approve", { confirm: true, approval_digest: migration.approval_digest });
+    }, "button-primary");
+  }
+
+  if (migration.status === "owner_approved") {
+    const block = dnsBlock("5. Change nameservers at the registrar", "Before the registrar change, remove the old DS record if DNSSEC is enabled. Update only the domain's nameserver delegation using the approved destination nameservers. Keep both DNS providers and all source records active during propagation.");
+    const expected = document.createElement("code");
+    expected.textContent = `Destination nameservers:\n${(migration.target_nameservers || []).join("\n")}\n\nSource nameservers for rollback:\n${originalNs}`;
+    block.append(expected);
+    const registrarUpdated = dnsCheck(block, "I changed the registrar nameservers to the destination set above.");
+    const oldDsRemoved = dnsCheck(block, "I removed the old DS record before the registrar change, or confirmed that no DS record existed.");
+    dnsActionButton(block, "Check destination delegation", () => {
+      if (!registrarUpdated.checked || !oldDsRemoved.checked) {
+        showStatus(dnsMigrationStatus, "Confirm the manual registrar and DS steps before checking public DNS.");
+        return;
+      }
+      void runDnsMigrationAction(migration.id, "verify-delegation", { registrar_updated: true, old_ds_removed: true });
+    }, "button-primary");
+  }
+
+  if (["owner_approved", "delegation_verified"].includes(migration.status)) {
+    const rollback = dnsBlock("Rollback to the source provider", "If the destination fails, restore the captured source nameservers at the registrar. Restore the captured source DS state only after the source nameservers are authoritative again.");
+    dnsDetails(rollback, "Source nameservers to restore", originalNs);
+    const ds = document.createElement("code");
+    ds.textContent = originalDs;
+    rollback.append(ds);
+    const registrarRestored = dnsCheck(rollback, "I restored the source nameservers at the registrar.");
+    const sourceDsRestored = dnsCheck(rollback, "I restored the captured source DS state after source DNS is authoritative.");
+    dnsActionButton(rollback, "Verify source rollback", () => {
+      if (!registrarRestored.checked || !sourceDsRestored.checked) {
+        showStatus(dnsMigrationStatus, "Confirm the source NS and DS restoration before checking rollback.");
+        return;
+      }
+      void runDnsMigrationAction(migration.id, "verify-rollback", { registrar_restored: true, source_ds_restored: true });
+    }, "domain-remove");
+  }
+
+  if (migration.delegation_check) dnsDetails(dnsMigrationWorkflow, "Latest destination propagation check", migration.delegation_check);
+  if (migration.rollback_check) dnsDetails(dnsMigrationWorkflow, "Latest source rollback check", migration.rollback_check);
+  if (migration.status === "delegation_verified" || migration.status === "rolled_back") {
+    const block = dnsBlock(migration.status === "delegation_verified" ? "Migration delegation verified" : "Source rollback verified",
+      migration.status === "delegation_verified"
+        ? "Both recursive resolvers show the approved nameserver set and no DS record. Verify the website, TLS, email delivery, and domain-specific services separately."
+        : "Both recursive resolvers show the captured source nameservers and DS state. Verify the website, TLS, and mail service separately.");
+    dnsActionButton(block, "Erase snapshots and archive", () => {
+      if (!window.confirm("Erase private source and destination zone snapshots and close the rollback window? This cannot be undone.")) return;
+      void runDnsMigrationAction(migration.id, null, {}, "DELETE");
+    }, "domain-remove");
+  } else if (!["cancelled", "archived", "owner_approved"].includes(migration.status)) {
+    const block = dnsBlock("Cancel and erase snapshots", "This removes private zone-file content and the ownership TXT value. It does not change DNS or registrar settings.");
+    dnsActionButton(block, "Cancel migration plan", () => {
+      if (!window.confirm("Cancel the plan and erase its zone snapshots? If you already changed the registrar, restore the source nameservers first.")) return;
+      void runDnsMigrationAction(migration.id, null, {}, "DELETE");
+    }, "domain-remove");
+  }
+}
+
+async function loadDnsMigration(id) {
+  try {
+    const result = await api(`/_mithrilpress/api/dns-migrations/${encodeURIComponent(id)}`);
+    activeDnsMigrationId = id;
+    renderDnsMigrationDetail(result.migration);
+  } catch (error) {
+    showStatus(dnsMigrationStatus, error.message);
+  }
+}
+
+async function refreshDnsMigrations(openId = activeDnsMigrationId) {
+  if (!ownerScopes.includes("site:dns-migrate")) return;
+  try {
+    const result = await api("/_mithrilpress/api/dns-migrations");
+    dnsMigrationList.replaceChildren();
+    for (const migration of result.migrations || []) {
+      const card = document.createElement("li");
+      card.className = "domain-card dns-migration-card";
+      const heading = document.createElement("div");
+      heading.className = "domain-card-heading";
+      const zone = document.createElement("h2");
+      zone.textContent = migration.zone_name;
+      const state = document.createElement("span");
+      state.className = "domain-state";
+      state.textContent = migration.status.replaceAll("_", " ");
+      heading.append(zone, state);
+      const button = domainButton("Open migration checklist", "button-secondary", () => void loadDnsMigration(migration.id));
+      card.append(heading, button);
+      dnsMigrationList.append(card);
+    }
+    if (!result.migrations?.length) {
+      const empty = document.createElement("li");
+      empty.className = "empty-state";
+      empty.textContent = "No DNS migration plans have been created.";
+      dnsMigrationList.append(empty);
+      activeDnsMigrationId = null;
+      dnsMigrationDetail.hidden = true;
+      return;
+    }
+    if (openId && result.migrations.some((item) => item.id === openId)) await loadDnsMigration(openId);
+    else await loadDnsMigration(result.migrations[0].id);
+  } catch (error) {
+    showStatus(dnsMigrationStatus, error.message);
+  }
+}
+
 document.querySelector("#login-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const tokenField = document.querySelector("#owner-token");
@@ -315,6 +591,10 @@ document.querySelector("#logout-button").addEventListener("click", async () => {
     resetConversation();
     conversationList.replaceChildren();
     domainList.replaceChildren();
+    dnsMigrationList.replaceChildren();
+    dnsMigrationWorkflow.replaceChildren();
+    dnsMigrationDetail.hidden = true;
+    activeDnsMigrationId = null;
   }
 });
 
@@ -324,10 +604,38 @@ domainsTab.addEventListener("click", async () => {
   showStudioView("domains");
   await refreshDomains();
 });
+dnsMigrationTab.addEventListener("click", async () => {
+  if (!ownerScopes.includes("site:dns-migrate")) return;
+  showStudioView("dns-migration");
+  await refreshDnsMigrations();
+});
 usageTab.addEventListener("click", async () => {
   if (!ownerScopes.includes("content:write") && !ownerScopes.includes("site:domains")) return;
   showStudioView("usage");
   await refreshUsage();
+});
+
+document.querySelector("#dns-migration-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const field = document.querySelector("#dns-migration-zone");
+  const zoneName = field.value.trim();
+  if (!zoneName) return;
+  const button = document.querySelector("#create-dns-migration");
+  button.disabled = true;
+  showStatus(dnsMigrationStatus, "Checking current nameserver and DNSSEC state…");
+  try {
+    const result = await api("/_mithrilpress/api/dns-migrations", {
+      method: "POST", headers: requestHeader, body: { zone_name: zoneName },
+    });
+    field.value = "";
+    activeDnsMigrationId = result.migration.id;
+    showStatus(dnsMigrationStatus, result.message);
+    await refreshDnsMigrations(result.migration.id);
+  } catch (error) {
+    showStatus(dnsMigrationStatus, error.message);
+  } finally {
+    button.disabled = false;
+  }
 });
 
 domainForm.addEventListener("submit", async (event) => {
@@ -443,6 +751,7 @@ document.querySelector("#publish-button").addEventListener("click", async () => 
       showStatus(studioStatus, `Signed in as ${session.owner}.`);
       if (ownerScopes.includes("content:write")) await refreshConversations();
       if (ownerScopes.includes("site:domains")) await refreshDomains();
+      if (ownerScopes.includes("site:dns-migrate")) await refreshDnsMigrations();
       await refreshUsage();
     }
   } catch {

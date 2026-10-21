@@ -21,7 +21,7 @@
       <section id="login-panel" class="login-panel" aria-labelledby="login-title">
         <div class="eyebrow">OWNER ACCESS</div>
         <h1 id="login-title">Write and publish with a conversation</h1>
-        <p>Use a short-lived owner token. Chat and publishing require content:write, revision:preview, revision:approve, and site:publish. Domain management requires site:domains. Your token is exchanged for a one-hour, host-only browser session.</p>
+        <p>Use a short-lived owner token. Chat and publishing require content:write, revision:preview, revision:approve, and site:publish. Custom hostnames require site:domains; DNS migration planning requires site:dns-migrate. Your token is exchanged for a one-hour, host-only browser session.</p>
         <form id="login-form">
           <label for="owner-token">Owner token</label>
           <input id="owner-token" name="token" type="password" autocomplete="off" spellcheck="false" required>
@@ -34,6 +34,7 @@
         <nav id="studio-nav" class="studio-nav" aria-label="Studio sections">
           <button id="content-tab" class="studio-tab" type="button" aria-current="page">Content</button>
           <button id="domains-tab" class="studio-tab" type="button" aria-current="false" hidden>Domains</button>
+          <button id="dns-migration-tab" class="studio-tab" type="button" aria-current="false" hidden>DNS migration</button>
           <button id="usage-tab" class="studio-tab" type="button" aria-current="false">Usage</button>
         </nav>
 
@@ -112,6 +113,35 @@
           <p id="domain-unavailable" class="domain-unavailable" hidden>Custom domains are not enabled on this hosting deployment. The default MithrilPress subdomain continues to work.</p>
         </section>
 
+        <section id="dns-migration-panel" class="domains-panel" aria-labelledby="dns-migration-title" hidden>
+          <div class="domains-heading">
+            <div>
+              <div class="eyebrow">OWNER-GUIDED DNS TRANSFER</div>
+              <h1 id="dns-migration-title">Plan a nameserver migration</h1>
+            </div>
+          </div>
+          <p class="domain-guidance">MithrilPress verifies domain control, compares private BIND zone snapshots, prepares a destination import file, and checks public nameserver and DNSSEC propagation through Cloudflare and Google public resolvers. These providers receive DNS lookups for this domain after ownership is proven. You keep control of both DNS providers and make all provider and registrar changes yourself. Keep the source zone active through the rollback window.</p>
+          <form id="dns-migration-form" class="domain-form">
+            <label for="dns-migration-zone">Domain zone</label>
+            <div class="domain-form-row">
+              <input id="dns-migration-zone" name="zone_name" type="text" autocomplete="url" placeholder="example.com" maxlength="253" required>
+              <button id="create-dns-migration" class="button button-primary" type="submit">Start plan</button>
+            </div>
+          </form>
+          <p id="dns-migration-status" class="status" role="status" aria-live="polite"></p>
+          <ul id="dns-migration-list" class="domain-list" aria-label="DNS migration plans"></ul>
+          <section id="dns-migration-detail" class="dns-migration-detail" aria-labelledby="dns-migration-detail-title" hidden>
+            <div class="dns-migration-detail-heading">
+              <div>
+                <div class="eyebrow">MIGRATION CHECKLIST</div>
+                <h2 id="dns-migration-detail-title"></h2>
+              </div>
+              <span id="dns-migration-state" class="domain-state"></span>
+            </div>
+            <div id="dns-migration-workflow"></div>
+          </section>
+        </section>
+
         <section id="usage-panel" class="usage-panel" aria-labelledby="usage-title" hidden>
           <div class="eyebrow">HOSTING ALLOWANCES</div>
           <h1 id="usage-title">Free hosting usage</h1>
@@ -129,7 +159,7 @@
             </article>
           </div>
           <p id="shared-storage-limit" class="usage-detail"></p>
-          <p class="usage-notice">These are MithrilPress application limits, not Cloudflare account telemetry. Worker request totals, D1 reads/writes/storage, and Workers AI neuron usage are not available in this site view. Cloudflare may apply account-wide free limits separately. MithrilPress does not upgrade or switch to paid usage automatically.</p>
+          <p class="usage-notice">These are MithrilPress application limits, not Cloudflare account telemetry. DNS migration snapshots are not included in the retained-content estimate. Worker request totals, D1 reads/writes/storage, and Workers AI neuron usage are not available in this site view. Cloudflare may apply account-wide free limits separately. MithrilPress does not upgrade or switch to paid usage automatically.</p>
           <p id="usage-status" class="status" role="status" aria-live="polite"></p>
         </section>
       </section>

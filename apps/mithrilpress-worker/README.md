@@ -61,11 +61,14 @@ and a separate random 16-byte salt. Store the SHA-256 hex digest of
 `token` when inserting the row, including `expires_at`; generated tokens expire
 after 24 hours. Allowed scopes are
 `content:import`, `content:write`, `revision:preview`, `revision:approve`,
-`site:publish`, and `site:domains`. The Studio owner token needs `content:write` to create drafts,
+`site:publish`, `site:domains`, and `site:dns-migrate`. The Studio owner token needs `content:write` to create drafts,
 `revision:preview` to open previews, `revision:approve` to approve a revision,
 `site:publish` to publish it. A domain-only Studio token may use `site:domains`
 without granting content editing. Keep import-only automation on a separate
 `content:import` token. Revoke early by setting `revoked_at`.
+DNS planning is a separate high-impact owner scope. It grants access to private
+zone snapshots and owner approval of a manual cutover plan; it does not grant
+Cloudflare API or registrar credentials.
 
 Generate the one-time token envelope locally with
 `node scripts/create-owner-token.mjs <owner-label> <scope> [<scope> ...]`.
@@ -94,6 +97,14 @@ and content row within its owning site.
 | `POST` | `/_mithrilpress/api/domains/{hostname-id}/verify` | `site:domains` | Verify ownership TXT and provision the Cloudflare for SaaS hostname and certificate. |
 | `POST` | `/_mithrilpress/api/domains/{hostname-id}/refresh` | `site:domains` | Read provider/TLS status and verify the public DNS-only CNAME. |
 | `DELETE` | `/_mithrilpress/api/domains/{hostname-id}` | `site:domains` | Stop serving the hostname, then remove the Cloudflare custom hostname. |
+| `GET` / `POST` | `/_mithrilpress/api/dns-migrations` | `site:dns-migrate` | List plans or create a domain-control TXT challenge. NS/DS state is not queried until ownership is proven. |
+| `GET` / `DELETE` | `/_mithrilpress/api/dns-migrations/{id}` | `site:dns-migrate` | Read a tenant-private plan, or cancel/archive and erase its zone snapshots. |
+| `POST` | `/_mithrilpress/api/dns-migrations/{id}/verify-ownership` | `site:dns-migrate` | Verify the domain TXT challenge before accepting zone files. |
+| `POST` | `/_mithrilpress/api/dns-migrations/{id}/source` | `site:dns-migrate` | Validate and retain the source BIND zone and generate a destination import file. |
+| `POST` | `/_mithrilpress/api/dns-migrations/{id}/target` | `site:dns-migrate` | Compare a staged destination zone and its assigned nameservers against the source. |
+| `POST` | `/_mithrilpress/api/dns-migrations/{id}/approve` | `site:dns-migrate` | Approve the exact diff digest after a required owner confirmation. |
+| `POST` | `/_mithrilpress/api/dns-migrations/{id}/verify-delegation` | `site:dns-migrate` | Check destination NS and absence of DS through Cloudflare and Google recursive resolvers. |
+| `POST` | `/_mithrilpress/api/dns-migrations/{id}/verify-rollback` | `site:dns-migrate` | Check restored source NS and DS state through the same resolvers. |
 | `GET` | `/wp-json/wp/v2/posts` | public | Read the current published posts only. |
 | `GET` | `/wp-json/wp/v2/pages` | public | Read the current published pages only. |
 | `GET` | `/{slug}/` | public | Render one published page or post. |
@@ -119,7 +130,7 @@ The Worker also enforces a 16 MiB retained-entry payload cap per site and a
 across immutable revisions and reject writes that exceed either cap; the Studio
 Usage view shows the per-site estimate and the shared daily AI request count.
 The byte estimate counts stored text values, not SQLite indexes, database
-metadata, conversations, audit rows, or the physical D1 database size. It is an
+metadata, conversations, DNS migration snapshots, audit rows, or the physical D1 database size. It is an
 application guardrail rather than provider storage telemetry, and the deployment
 cap reserves room for database overhead without guaranteeing that other writes
 cannot consume the provider limit.
@@ -185,10 +196,38 @@ payment information. Therefore custom domains are not part of the zero-cost
 promise. See [Cloudflare for SaaS plans](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/plans/)
 and the [enablement requirements](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/start/enable/).
 
-Full nameserver migration remains a separate, optional workflow and is not
-implemented. It requires importing and comparing all DNS records, including
-mail, verification, CAA, SRV, wildcard, and DNSSEC settings; owner approval;
-cutover monitoring; and a tested rollback path. A registrar transfer is also
+Full nameserver migration remains a separate, optional workflow. MithrilPress
+does not automate provider or registrar operations. MithrilPress now supports an
+owner-guided DNS migration plan: domain TXT proof, capture of the current NS/DS
+state, private source and staged-destination BIND snapshots, record diff,
+generated destination import text, digest-bound owner approval, and post-cutover
+NS/DS checks through two public recursive resolvers. The owner creates the
+destination zone, imports DNS records, changes registrar nameservers, handles
+DNSSEC, and checks web, TLS, and mail service manually. MithrilPress never
+receives DNS-provider or registrar credentials and never writes customer DNS.
+
+The parser accepts a documented BIND zone-file subset up to 256 KiB and 2,000
+records. It supports `$ORIGIN`, `$TTL`, explicit or inherited owners, and
+standard TTL suffixes; unsupported directives such as `$GENERATE` must be
+expanded before upload. The parser does not support escaped owner-name labels
+or non-IN record classes, so review and normalize exports that use them before
+uploading.
+Comparison excludes provider-managed apex SOA/NS and generated DNSSEC records,
+and retains Cloudflare `cf-proxied` and `cf-flatten-cname` settings where the
+zone export includes them. Generated imports default A/AAAA/CNAME records to
+DNS-only when the source export does not provide proxy state. Provider settings,
+free-form comments, glue, mail delivery, TLS, and application health still need
+separate owner review. Cloudflare's official zone-file import limit is 256 KiB;
+its API supports BIND import/export with `DNS Write` and `DNS Read`/`DNS Write`
+respectively. See [Cloudflare zone import/export](https://developers.cloudflare.com/dns/manage-dns-records/how-to/import-and-export/).
+
+Zone snapshots contain DNS TXT values that may include verification or service
+secrets. They remain tenant-scoped in D1 until the owner cancels the plan or
+archives a verified cutover/rollback, at which point snapshots and challenge
+values are erased while hashes and append-only audit receipts remain. Keep the
+source DNS zone active through the rollback window. After TXT ownership proof,
+MithrilPress sends DNS queries for the domain to Cloudflare and Google public
+resolvers to capture and check nameserver/DNSSEC state. A registrar transfer is
 separate and may incur at-cost renewal charges.
 
 Cloudflare's [Workers-as-fallback-origin guide](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/start/advanced-settings/worker-as-origin/)
