@@ -169,6 +169,35 @@ manager; never commit or log the output. Store scopes as a JSON array such as
 `["content:import"]`. The schema's composite foreign keys keep each revision
 and content row within its owning site.
 
+### Owner-provided WXR media bundle
+
+The local migration CLI accepts a WordPress WXR 1.2 export and the matching
+local `wp-content/uploads` directory. It never requests the source WordPress
+site or follows attachment URLs. The media directory must preserve the paths
+recorded in WXR's `_wp_attached_file` metadata. The tool checks referenced
+attachments, image signatures, dimensions, duplicate WordPress media IDs,
+symlinks, and package limits before uploading. Unreferenced WXR attachments are
+reported and skipped.
+
+Run a dry-run plan first; this does not need an owner token and makes no network
+requests:
+
+```sh
+npm run import:wordpress -- --site https://example.sites.mithril.love \
+  --wxr /path/to/wordpress-export.xml \
+  --media-dir /path/to/wp-content/uploads
+```
+
+After reviewing the plan, save a short-lived owner token with only
+`content:import` and `media:write` scopes in a local file readable only by its
+owner, then add `--token-file /path/to/owner.token --apply`. `--apply` uploads
+only referenced local images and creates a private preview revision. It never
+approves or publishes the revision. The owner must inspect the saved migration
+report, approve the complete revision, and publish it in a separate action.
+The report lists ready/mapped media, missing references, rejected files, and
+unreferenced attachments. The worker enforces the tenant's existing daily media
+write and storage caps; reaching a cap stops the import without a paid fallback.
+
 ## Endpoints
 
 | Method | Path | Auth | Behavior |

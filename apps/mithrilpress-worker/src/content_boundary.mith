@@ -196,6 +196,88 @@
                                         :key (mithril/literal :datatype "js-value" :value "test")
                                         :args [(mithril/local :name "value")])))))
   (mithril/function
+   :name "safeRelativeMediaPath"
+   :params [(rdf/node :name "value" :datatype "js-value")]
+   :returns "js-value"
+   :body
+   (mithril/let
+    :bindings [(rdf/node :name "segments"
+                         :value (mithril/host-method :object (mithril/local :name "value")
+                                                     :key (mithril/literal :datatype "js-value" :value "split")
+                                                     :args [(mithril/literal :datatype "js-value" :value "/")]))]
+    :body
+    (mithril/host-logical
+     :operator "&&"
+     :left (mithril/host-binary :operator "==="
+                                :left (mithril/host-unary :operator "typeof" :value (mithril/local :name "value"))
+                                :right (mithril/literal :datatype "js-value" :value "string"))
+     :right (mithril/host-logical
+             :operator "&&"
+             :left (mithril/host-binary :operator ">"
+                                        :left (mithril/host-get :object (mithril/local :name "value")
+                                                                :key (mithril/literal :datatype "js-value" :value "length"))
+                                        :right (mithril/literal :datatype "js-value" :value 0))
+             :right (mithril/host-logical
+                     :operator "&&"
+                     :left (mithril/host-binary :operator "<="
+                                                :left (mithril/host-get :object (mithril/local :name "value")
+                                                                        :key (mithril/literal :datatype "js-value" :value "length"))
+                                                :right (mithril/literal :datatype "js-value" :value 1024))
+                     :right (mithril/host-logical
+                             :operator "&&"
+                             :left (mithril/host-binary :operator "==="
+                                                        :left (mithril/host-method :object (mithril/local :name "value")
+                                                                                   :key (mithril/literal :datatype "js-value" :value "trim")
+                                                                                   :args [])
+                                                        :right (mithril/local :name "value"))
+                             :right (mithril/host-logical
+                                     :operator "&&"
+                                     :left (mithril/host-unary :operator "!"
+                                                               :value (mithril/host-method
+                                                                       :object (mithril/host-regexp :pattern "^/|\\\\|:|[\\u0000-\\u001f\\u007f]" :flags "")
+                                                                       :key (mithril/literal :datatype "js-value" :value "test")
+                                                                       :args [(mithril/local :name "value")]))
+                                     :right (mithril/host-method
+                                             :object (mithril/local :name "segments")
+                                             :key (mithril/literal :datatype "js-value" :value "every")
+                                             :args [(mithril/native-lambda
+                                                     :params ["part"]
+                                                     :body (mithril/host-logical
+                                                            :operator "&&"
+                                                            :left (mithril/host-binary :operator ">"
+                                                                                       :left (mithril/host-get :object (mithril/local :name "part")
+                                                                                                               :key (mithril/literal :datatype "js-value" :value "length"))
+                                                                                       :right (mithril/literal :datatype "js-value" :value 0))
+                                                            :right (mithril/host-logical
+                                                                    :operator "&&"
+                                                                    :left (mithril/host-binary :operator "!=="
+                                                                                               :left (mithril/local :name "part")
+                                                                                               :right (mithril/literal :datatype "js-value" :value "."))
+                                                                    :right (mithril/host-binary :operator "!=="
+                                                                                               :left (mithril/local :name "part")
+                                                                                               :right (mithril/literal :datatype "js-value" :value "..")))))]))))))))
+  (mithril/function
+   :name "safeMediaAltText"
+   :params [(rdf/node :name "value" :datatype "js-value")]
+   :returns "js-value"
+   :body
+   (mithril/host-logical
+    :operator "&&"
+    :left (mithril/host-binary :operator "==="
+                               :left (mithril/host-unary :operator "typeof" :value (mithril/local :name "value"))
+                               :right (mithril/literal :datatype "js-value" :value "string"))
+    :right (mithril/host-logical
+            :operator "&&"
+            :left (mithril/host-binary :operator "<="
+                                       :left (mithril/host-get :object (mithril/local :name "value")
+                                                               :key (mithril/literal :datatype "js-value" :value "length"))
+                                       :right (mithril/literal :datatype "js-value" :value 500))
+            :right (mithril/host-unary :operator "!"
+                                       :value (mithril/host-method
+                                               :object (mithril/host-regexp :pattern "[\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f\\u007f]" :flags "")
+                                               :key (mithril/literal :datatype "js-value" :value "test")
+                                               :args [(mithril/local :name "value")])))))
+  (mithril/function
    :name "invalid"
    :params [(rdf/node :name "code" :datatype "js-value")]
    :returns "js-value"
@@ -313,6 +395,46 @@
       :then (mithril/host-invoke :function (mithril/function-ref :name "invalid") :args [(mithril/literal :datatype "js-value" :value "invalid_taxonomy_term")])
       :else (mithril/host-object :entries [(rdf/node :key (mithril/literal :datatype "js-value" :value "ok") :value (mithril/literal :datatype "js-value" :value true)) (rdf/node :key (mithril/literal :datatype "js-value" :value "term") :value (mithril/host-object :entries [(rdf/node :key (mithril/literal :datatype "js-value" :value "id") :value (mithril/local :name "id")) (rdf/node :key (mithril/literal :datatype "js-value" :value "taxonomy") :value (mithril/local :name "taxonomy")) (rdf/node :key (mithril/literal :datatype "js-value" :value "slug") :value (mithril/local :name "slug")) (rdf/node :key (mithril/literal :datatype "js-value" :value "name") :value (mithril/local :name "name")) (rdf/node :key (mithril/literal :datatype "js-value" :value "description") :value (mithril/local :name "description")) (rdf/node :key (mithril/literal :datatype "js-value" :value "parentId") :value (mithril/local :name "parentId"))]))])))))
   (mithril/function
+   :name "normalizeWordPressAttachment"
+   :params [(rdf/node :name "record" :datatype "js-value")]
+   :returns "js-value"
+   :body
+   (mithril/if
+    :condition (mithril/host-unary :operator "!"
+                                   :value (mithril/host-invoke :function (mithril/function-ref :name "isRecord")
+                                                               :args [(mithril/local :name "record")]))
+    :then (mithril/host-invoke :function (mithril/function-ref :name "invalid")
+                               :args [(mithril/literal :datatype "js-value" :value "invalid_wordpress_attachment")])
+    :else
+    (mithril/let
+     :bindings [(rdf/node :name "id" :value (mithril/host-optional-get :object (mithril/local :name "record") :key (mithril/literal :datatype "js-value" :value "source_id")))
+                (rdf/node :name "path" :value (mithril/host-optional-get :object (mithril/local :name "record") :key (mithril/literal :datatype "js-value" :value "path")))
+                (rdf/node :name "altText" :value (mithril/host-logical :operator "??" :left (mithril/host-optional-get :object (mithril/local :name "record") :key (mithril/literal :datatype "js-value" :value "alt_text")) :right (mithril/literal :datatype "js-value" :value "")))
+                (rdf/node :name "pathMissing" :value (mithril/host-logical :operator "||"
+                  :left (mithril/host-binary :operator "===" :left (mithril/local :name "path") :right (mithril/literal :datatype "js-value" :value nil))
+                  :right (mithril/host-binary :operator "===" :left (mithril/host-unary :operator "typeof" :value (mithril/local :name "path")) :right (mithril/literal :datatype "js-value" :value "undefined"))))
+                (rdf/node :name "pathSafe" :value (mithril/host-logical :operator "||" :left (mithril/local :name "pathMissing")
+                  :right (mithril/host-logical :operator "&&"
+                    :left (mithril/host-binary :operator "===" :left (mithril/host-unary :operator "typeof" :value (mithril/local :name "path")) :right (mithril/literal :datatype "js-value" :value "string"))
+                    :right (mithril/host-invoke :function (mithril/function-ref :name "safeRelativeMediaPath") :args [(mithril/local :name "path")]))))]
+     :body
+     (mithril/if
+      :condition (mithril/host-unary :operator "!" :value (mithril/host-invoke :function (mithril/function-ref :name "positiveId") :args [(mithril/local :name "id")]))
+      :then (mithril/host-invoke :function (mithril/function-ref :name "invalid") :args [(mithril/literal :datatype "js-value" :value "invalid_wordpress_attachment_id")])
+      :else
+      (mithril/if
+       :condition (mithril/host-unary :operator "!" :value (mithril/local :name "pathSafe"))
+       :then (mithril/host-invoke :function (mithril/function-ref :name "invalid") :args [(mithril/literal :datatype "js-value" :value "invalid_wordpress_attachment_path")])
+       :else
+       (mithril/if
+        :condition (mithril/host-unary :operator "!" :value (mithril/host-invoke :function (mithril/function-ref :name "safeMediaAltText") :args [(mithril/local :name "altText")]))
+        :then (mithril/host-invoke :function (mithril/function-ref :name "invalid") :args [(mithril/literal :datatype "js-value" :value "invalid_wordpress_attachment_alt_text")])
+        :else (mithril/host-object :entries [(rdf/node :key (mithril/literal :datatype "js-value" :value "ok") :value (mithril/literal :datatype "js-value" :value true))
+                                             (rdf/node :key (mithril/literal :datatype "js-value" :value "attachment")
+                                                       :value (mithril/host-object :entries [(rdf/node :key (mithril/literal :datatype "js-value" :value "id") :value (mithril/local :name "id"))
+                                                                                             (rdf/node :key (mithril/literal :datatype "js-value" :value "path") :value (mithril/host-logical :operator "??" :left (mithril/local :name "path") :right (mithril/literal :datatype "js-value" :value nil)))
+                                                                                             (rdf/node :key (mithril/literal :datatype "js-value" :value "altText") :value (mithril/local :name "altText"))]))])))))))
+  (mithril/function
    :name "prepareChatDraft"
    :params [(rdf/node :name "tenantId" :datatype "js-value") (rdf/node :name "authorizationProofId" :datatype "js-value") (rdf/node :name "conversationId" :datatype "js-value") (rdf/node :name "kind" :datatype "js-value") (rdf/node :name "slug" :datatype "js-value") (rdf/node :name "proposal" :datatype "js-value") (rdf/node :name "language" :datatype "js-value")]
    :returns "js-value"
@@ -350,4 +472,5 @@
             (rdf/node :key (mithril/literal :datatype "js-value" :value "publicationState") :value (mithril/literal :datatype "js-value" :value "draft"))]))])))))]
  :exports [(rdf/node :name "normalizeWordPressRecord" :value (mithril/function-ref :name "normalizeWordPressRecord"))
            (rdf/node :name "normalizeTaxonomyTerm" :value (mithril/function-ref :name "normalizeTaxonomyTerm"))
+           (rdf/node :name "normalizeWordPressAttachment" :value (mithril/function-ref :name "normalizeWordPressAttachment"))
            (rdf/node :name "prepareChatDraft" :value (mithril/function-ref :name "prepareChatDraft"))])
