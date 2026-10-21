@@ -2204,11 +2204,24 @@ async function featuredMediaForEntry(env, site, entry) {
   ).bind(site.id, mediaId, mediaId, mediaId).first();
 }
 
-async function wordpressRead(request, env, site, kind) {
+async function wordpressRead(request, env, site, kind, itemId = null) {
   if (request.method !== "GET" && request.method !== "HEAD") return fail(405, "method_not_allowed", "This compatibility endpoint is read-only.");
   const url = new URL(request.url);
   if (url.searchParams.get("context") && url.searchParams.get("context") !== "view" && url.searchParams.get("context") !== "embed") {
     return fail(401, "context_not_available", "Authenticated WordPress edit contexts are not available through the public API.");
+  }
+  if (itemId !== null) {
+    if (itemId.length > 15) return fail(404, "entry_not_found", "Entry not found.");
+    const sourceId = Number(itemId);
+    if (!Number.isSafeInteger(sourceId) || sourceId < 1) return fail(404, "entry_not_found", "Entry not found.");
+    if (!site.current_revision_id || site.status !== "active") return fail(404, "entry_not_found", "Entry not found.");
+    const row = await env.DB.prepare(
+      `SELECT api_id, source_id, source_date, source_date_gmt, source_modified, source_modified_gmt, featured_media_id, slug, title, safe_html, categories_json, tags_json, kind, ${SEO_METADATA_SELECT} FROM entries WHERE site_id = ? AND revision_id = ? AND kind = ? AND publication_status = 'published' AND COALESCE(source_id, api_id) = ? LIMIT 1`,
+    ).bind(site.id, site.current_revision_id, kind, sourceId).first();
+    if (!row) return fail(404, "entry_not_found", "Entry not found.");
+    return request.method === "HEAD"
+      ? response(null, 200, { "Content-Type": "application/json; charset=utf-8" })
+      : json(wpRecord(site, row));
   }
   const page = parseBoundedInt(url.searchParams.get("page"), 1, 1, 100000);
   const perPage = parseBoundedInt(url.searchParams.get("per_page"), 10, 1, 100);
@@ -2604,8 +2617,8 @@ async function handleRequest(request, env) {
     if (!Number.isSafeInteger(mediaId) || mediaId < 1) return fail(404, "media_not_found", "Media item not found.");
     return await wordpressMediaRead(request, env, site, mediaId);
   }
-  const wpMatch = /^\/wp-json\/wp\/v2\/(posts|pages)\/?$/.exec(url.pathname);
-  if (wpMatch) return await wordpressRead(request, env, site, wpMatch[1] === "pages" ? "page" : "post");
+  const wpMatch = /^\/wp-json\/wp\/v2\/(posts|pages)(?:\/([0-9]+))?\/?$/.exec(url.pathname);
+  if (wpMatch) return await wordpressRead(request, env, site, wpMatch[1] === "pages" ? "page" : "post", wpMatch[2] ?? null);
   const wpTaxonomyMatch = /^\/wp-json\/wp\/v2\/(categories|tags)(?:\/(\d+))?\/?$/.exec(url.pathname);
   if (wpTaxonomyMatch) {
     const taxonomy = wpTaxonomyMatch[1] === "categories" ? "category" : "post_tag";

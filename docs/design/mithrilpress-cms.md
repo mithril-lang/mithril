@@ -272,7 +272,11 @@ revision. They support `page`, `per_page` (1–100), `slug`, and `context=view` 
 headers. `GET /wp-json/wp/v2/categories` and `/tags`, with optional term IDs,
 expose imported terms, published-post counts, and descriptions. Categories also
 expose parent IDs. These routes support bounded pagination, `slug`, `search`,
-and `hide_empty`.
+and `hide_empty`. Single-item `GET` and `HEAD` routes at
+`/wp-json/wp/v2/posts/{id}` and `/wp-json/wp/v2/pages/{id}` return one published
+entry by its WordPress source ID, or by the MithrilPress API ID for a
+chat-authored entry. Only the active published revision is addressable; private
+previews, drafts, and IDs for another post type return 404.
 Public edit context is denied. `GET /wp-json/wp/v2/media/{id}` exposes metadata
 only for a featured image referenced by the published revision. Term and media
 write routes, media listings, users, comments, custom post types, and WordPress
