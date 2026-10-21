@@ -2,10 +2,10 @@
 
 This package is the first host adapter for the MithrilPress content
 model in `src/mithril/sites_cms.cljk` and `ontology/sites-cms-v1.mith`. Platform
-tenant hostname validation is authored in Mithril at
-`apps/mithrilpress-worker/src/platform_hostname.mith` and compiled to the
-checked-in Worker module. It uses Cloudflare D1 and R2, and serves only an
-explicitly published tenant revision.
+tenant hostname validation and the Workers Free AI admission policy are authored
+in Mithril at `src/platform_hostname.mith` and `src/studio_ai_policy.mith`, then
+compiled to checked-in Worker modules. It uses Cloudflare D1 and R2, and serves
+only an explicitly published tenant revision.
 
 ## Supported in this slice
 
@@ -39,16 +39,17 @@ explicitly published tenant revision.
   featured image.
 
 The checked-in Mithril native-JS modules own platform subdomain validation,
-WordPress post/page record admission, individual taxonomy-term admission, and
-the private chat-draft proposal envelope. The Worker calls those contracts at
-the hostname, import, taxonomy, and AI proposal boundaries. It retains host
-responsibility for cross-record taxonomy references and cycles, D1/R2 and AI
-I/O, HTML sanitization, language-tag canonicalization, and slug collision
-resolution. The `.cljk` model remains the platform-neutral reference boundary;
-the `.mith` modules are the executable Worker contracts. Regenerate all
-checked-in modules from the repository root or this package directory with
-`npm run build:mithril` after changing their `.mith` source. The build uses the
-Mithril workspace's `kbb` compiler.
+Workers Free-only AI admission, WordPress post/page record admission, individual
+taxonomy-term admission, and the private chat-draft proposal envelope. The
+Worker calls those contracts at the hostname, inference, import, taxonomy, and
+AI proposal boundaries. It retains host responsibility for cross-record
+taxonomy references and cycles, D1/R2 and AI I/O, HTML sanitization,
+language-tag canonicalization, and slug collision resolution. The `.cljk`
+model remains the platform-neutral reference boundary; the `.mith` modules are
+the executable Worker contracts. Regenerate all checked-in modules from the
+repository root or this package directory with `npm run build:mithril` after
+changing their `.mith` source. The build uses the Mithril workspace's `kbb`
+compiler.
 
 ## Local setup
 

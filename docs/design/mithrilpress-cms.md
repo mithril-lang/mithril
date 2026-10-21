@@ -62,16 +62,20 @@ taxonomy terms, assets, import receipts, hostnames, and owner approvals.
   tenant-bound owner approval is present.
 
 The Worker runtime contracts are authored in
-`apps/mithrilpress-worker/src/platform_hostname.mith` and
-`apps/mithrilpress-worker/src/content_boundary.mith`, compiled with Mithril's
+`apps/mithrilpress-worker/src/platform_hostname.mith`,
+`apps/mithrilpress-worker/src/content_boundary.mith`, and
+`apps/mithrilpress-worker/src/studio_ai_policy.mith`, compiled with Mithril's
 native JavaScript emitter, and called at the hostname, WordPress record,
-taxonomy-term, and chat-proposal boundaries. The chat contract returns an
-untrusted, blocked, private-draft envelope; the host attaches bounded sanitized
-HTML before opening the rendering gate. The pure `.cljk` boundary remains the
-platform-neutral reference model. The Worker keeps host I/O and stateful work
-in JavaScript, including cross-record taxonomy integrity, D1/R2 and AI calls,
-HTML sanitization, language-tag canonicalization, slug collision resolution,
-and publication transactions.
+taxonomy-term, chat-proposal, and Workers Free AI-admission boundaries. The chat
+contract returns an untrusted, blocked, private-draft envelope; the host
+attaches bounded sanitized HTML before opening the rendering gate. The AI
+policy contract requires explicit enablement, the `workers-free-only` mode,
+operator confirmation of the Workers Free plan, and an available AI binding
+before inference. The pure `.cljk` boundary remains the platform-neutral
+reference model. The Worker keeps host I/O and stateful work in JavaScript,
+including cross-record taxonomy integrity, D1/R2 and AI calls, HTML
+sanitization, language-tag canonicalization, slug collision resolution, and
+publication transactions.
 
 The adapter does not fetch WordPress itself: owners provide the content through
 a scoped token. The importer accepts a

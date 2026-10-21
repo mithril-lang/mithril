@@ -1,5 +1,14 @@
+import {
+  instantiateMithrilNative as instantiateStudioAiPolicy,
+} from "./studio_ai_policy.js";
+
+const {
+  isWorkersFreeAiEnabled: evaluateWorkersFreeAiEnabled,
+  workersFreeAiMode,
+} = instantiateStudioAiPolicy({});
+
 export const STUDIO_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
-export const STUDIO_AI_FREE_MODE = "workers-free-only";
+export const STUDIO_AI_FREE_MODE = workersFreeAiMode();
 export const STUDIO_AI_FREE_NEURONS_PER_DAY = 10_000;
 export const STUDIO_AI_DAILY_NEURON_RESERVATION_LIMIT = 8_000;
 export const STUDIO_AI_MAX_INPUT_BYTES = 10_000;
@@ -13,10 +22,7 @@ const RESPONSE_SCHEMA_TOKEN_OVERHEAD = 512;
 const encoder = new TextEncoder();
 
 export function isWorkersFreeAiEnabled(env) {
-  return env?.STUDIO_AI_ENABLED === "true"
-    && env?.STUDIO_AI_MODE === STUDIO_AI_FREE_MODE
-    && env?.STUDIO_AI_FREE_PLAN_CONFIRMED === "true"
-    && typeof env?.AI?.run === "function";
+  return evaluateWorkersFreeAiEnabled(env, STUDIO_AI_FREE_MODE);
 }
 
 export function estimateWorkersFreeAiNeurons(request) {
