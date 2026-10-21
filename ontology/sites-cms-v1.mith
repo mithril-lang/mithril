@@ -47,6 +47,18 @@
      :id "https://mithril.fund/ns/sites-cms/v1#hostnameValue"
      :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#Hostname")
    (owl/datatype-property
+     :id "https://mithril.fund/ns/sites-cms/v1#hostnameState"
+     :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#Hostname")
+   (owl/datatype-property
+     :id "https://mithril.fund/ns/sites-cms/v1#hostnameProviderState"
+     :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#Hostname")
+   (owl/datatype-property
+     :id "https://mithril.fund/ns/sites-cms/v1#hostnameCertificateState"
+     :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#Hostname")
+   (owl/datatype-property
+     :id "https://mithril.fund/ns/sites-cms/v1#hostnameCnameTarget"
+     :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#Hostname")
+   (owl/datatype-property
      :id "https://mithril.fund/ns/sites-cms/v1#revisionState"
      :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#SiteRevision")
    (owl/datatype-property
@@ -109,6 +121,18 @@
    (owl/datatype-property
      :id "https://mithril.fund/ns/sites-cms/v1#approvedAt"
      :rdfs/domain "https://mithril.fund/ns/sites-cms/v1#OwnerApproval")
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/sites-cms/v1#HostnameShape"
+     :sh/target-class "https://mithril.fund/ns/sites-cms/v1#Hostname"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/sites-cms/v1#hostnameValue"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh:max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/sites-cms/v1#hostnameState"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh:min-count 1 :sh:max-count 1)])
    (shacl/node-shape
      :id "https://mithril.fund/ns/sites-cms/v1#SiteShape"
      :sh/target-class "https://mithril.fund/ns/sites-cms/v1#Site"

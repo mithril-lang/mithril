@@ -4,6 +4,17 @@
   "main": "src/index.js",
   "compatibility_date": "2026-10-21",
   "workers_dev": false,
+  "triggers": {
+    "crons": ["*/5 * * * *"]
+  },
+  "vars": {
+    "CUSTOM_DOMAINS_ENABLED": "false",
+    "CUSTOM_DOMAINS_ROUTING_READY": "false",
+    "CUSTOM_DOMAINS_MONITORING_READY": "false",
+    "CF_SAAS_CAPACITY_REMAINING": "0",
+    "CF_SAAS_ZONE_ID": "00000000000000000000000000000000",
+    "CF_SAAS_CNAME_TARGET": "customers.sites.mithril.love"
+  },
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",

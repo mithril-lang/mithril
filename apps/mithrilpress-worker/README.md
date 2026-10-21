@@ -34,7 +34,7 @@ normalizer from a checked Mithril module instead of maintaining two copies.
 1. Install this package's Wrangler development dependency.
 2. Create a local D1 database and replace the example binding ID in
    `wrangler.example.jsonc` with its returned ID.
-3. Apply `migrations/0001_sites.sql` locally.
+3. Apply all migrations in `migrations/` locally, in numeric order.
 4. Provision a site and owner tokens using the SQL shapes below. Keep token
    plaintext in a secret manager. Use HTTPS only; the Worker stores only a
    salted SHA-256 digest. The Studio accepts a one-time HTTPS token exchange and
@@ -60,10 +60,11 @@ and a separate random 16-byte salt. Store the SHA-256 hex digest of
 `<salt-hex>.<secret>`, not the full token. Include every generated field except
 `token` when inserting the row, including `expires_at`; generated tokens expire
 after 24 hours. Allowed scopes are
-`content:import`, `content:write`, `revision:preview`, `revision:approve`, and
-`site:publish`. The Studio owner token needs `content:write` to create drafts,
+`content:import`, `content:write`, `revision:preview`, `revision:approve`,
+`site:publish`, and `site:domains`. The Studio owner token needs `content:write` to create drafts,
 `revision:preview` to open previews, `revision:approve` to approve a revision,
-and `site:publish` to publish it. Keep import-only automation on a separate
+`site:publish` to publish it. A domain-only Studio token may use `site:domains`
+without granting content editing. Keep import-only automation on a separate
 `content:import` token. Revoke early by setting `revoked_at`.
 
 Generate the one-time token envelope locally with
@@ -88,6 +89,10 @@ and content row within its owning site.
 | `GET` | `/_mithrilpress/preview/{revision-id}/{slug}` | `revision:preview` | View sanitized revision HTML with `noindex` headers. |
 | `POST` | `/_mithrilpress/api/revisions/{revision-id}/approve` | `revision:approve` | Record owner approval for a complete sanitized revision. |
 | `POST` | `/_mithrilpress/api/revisions/{revision-id}/publish` | `site:publish` | Make the approved revision the public site revision. |
+| `GET` / `POST` | `/_mithrilpress/api/domains` | `site:domains` | List custom hostnames or start a 24-hour ownership TXT challenge. |
+| `POST` | `/_mithrilpress/api/domains/{hostname-id}/verify` | `site:domains` | Verify ownership TXT and provision the Cloudflare for SaaS hostname and certificate. |
+| `POST` | `/_mithrilpress/api/domains/{hostname-id}/refresh` | `site:domains` | Read provider/TLS status and verify the public DNS-only CNAME. |
+| `DELETE` | `/_mithrilpress/api/domains/{hostname-id}` | `site:domains` | Stop serving the hostname, then remove the Cloudflare custom hostname. |
 | `GET` | `/wp-json/wp/v2/posts` | public | Read the current published posts only. |
 | `GET` | `/wp-json/wp/v2/pages` | public | Read the current published pages only. |
 | `GET` | `/{slug}/` | public | Render one published page or post. |
@@ -124,20 +129,53 @@ tracked in Linear MITHRIL-292. See [Workers limits](https://developers.cloudflar
 [Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/)
 for the current provider limits before each release.
 
-The wildcard `sites.mithril.love` domain is the default hosting address. A
-customer domain can be connected without transferring its nameservers: the
-owner verifies control, adds the requested CNAME/TXT records, and traffic is
-attached through Cloudflare for SaaS. On non-enterprise Cloudflare plans,
-enabling Cloudflare for SaaS requires payment information. Its free allowance
-currently includes 100 hostnames, then charges $0.10 per additional hostname;
-customer wildcard hostnames require Enterprise. See [Cloudflare for SaaS plans](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/plans/)
+The default address is an owner-provisioned hostname under
+`*.sites.mithril.love`. Studio custom-hostname onboarding is implemented behind
+a disabled-by-default feature gate. It asks the owner to publish a short-lived
+TXT proof, creates the Cloudflare for SaaS hostname only after that proof
+resolves, returns the provider's TLS validation records, and activates the
+tenant mapping only after Cloudflare reports an active hostname and
+certificate and public DNS shows the expected CNAME. The customer adds a
+DNS-only CNAME; MithrilPress never asks for their DNS-provider password and
+does not write to their DNS zone.
+
+To enable the feature, the operator must supply `CF_SAAS_API_TOKEN` as a Worker
+secret and configure `CF_SAAS_ZONE_ID`, `CF_SAAS_CNAME_TARGET`,
+`CF_SAAS_CAPACITY_REMAINING`, `CUSTOM_DOMAINS_ENABLED`,
+`CUSTOM_DOMAINS_ROUTING_READY`, and `CUSTOM_DOMAINS_MONITORING_READY`. Scope the
+API token to the dedicated SaaS zone with `SSL and Certificates Write`; the
+Worker does not need customer-zone DNS write access. Set routing ready only
+after a dedicated `sites.mithril.love`
+SaaS zone, fallback origin, wildcard Worker route, wildcard DNS, and safe
+delegation from `mithril.love` have been configured and read back. The SaaS
+zone's catch-all route must not intercept unrelated `mithril.love` websites.
+Set the hostname capacity to the verified remaining quota, capped at 90 in this
+deployment; the other 10 places are reserved for platform operations. Without
+all of these settings, the Domains panel remains disabled.
+
+An enabled Worker also runs a five-minute Cron Trigger that checks up to 30
+active custom hostnames per invocation. At the configured limit of 90, every
+hostname is checked at least once per 15 minutes. It suspends a mapping when
+the provider hostname, certificate, or DNS-only CNAME no longer matches, and
+after three consecutive provider/DNS check failures. A suspended hostname
+must pass an owner-triggered refresh before it serves content again. Set
+`CUSTOM_DOMAINS_MONITORING_READY=true` only after the deployed Cron Trigger has
+completed successfully and its run is visible in Cloudflare. This prototype
+accepts subdomains with at least three labels; apex domains and wildcard
+customer hostnames are not supported.
+
+Cloudflare currently includes 100 custom hostnames on Free, charges $0.10 per
+additional hostname, and excludes wildcard custom hostnames and apex proxying
+from Free. Enabling Cloudflare for SaaS on non-enterprise plans requires
+payment information. Therefore custom domains are not part of the zero-cost
+promise. See [Cloudflare for SaaS plans](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/plans/)
 and the [enablement requirements](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/start/enable/).
-Therefore custom domains are not part of the zero-cost promise. A full nameserver move or registrar transfer
-is optional and may incur at-cost renewal charges. Before any nameserver
-cutover, a future domain manager must import and compare all DNS records,
-including mail, verification, CAA, SRV, and DNSSEC settings, then provide a
-rollback path. The domain manager and DNS API integration are not implemented
-in this slice.
+
+Full nameserver migration remains a separate, optional workflow and is not
+implemented. It requires importing and comparing all DNS records, including
+mail, verification, CAA, SRV, wildcard, and DNSSEC settings; owner approval;
+cutover monitoring; and a tested rollback path. A registrar transfer is also
+separate and may incur at-cost renewal charges.
 
 Cloudflare's [Workers-as-fallback-origin guide](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/start/advanced-settings/worker-as-origin/)
 documents routing customer hostnames through a wildcard Worker route.

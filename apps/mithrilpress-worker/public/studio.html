@@ -21,7 +21,7 @@
       <section id="login-panel" class="login-panel" aria-labelledby="login-title">
         <div class="eyebrow">OWNER ACCESS</div>
         <h1 id="login-title">Write and publish with a conversation</h1>
-        <p>Use a short-lived owner token with content:write, revision:preview, revision:approve, and site:publish scopes. Your token is exchanged for a one-hour, host-only browser session.</p>
+        <p>Use a short-lived owner token. Chat and publishing require content:write, revision:preview, revision:approve, and site:publish. Domain management requires site:domains. Your token is exchanged for a one-hour, host-only browser session.</p>
         <form id="login-form">
           <label for="owner-token">Owner token</label>
           <input id="owner-token" name="token" type="password" autocomplete="off" spellcheck="false" required>
@@ -30,8 +30,14 @@
         <p id="login-status" class="status" role="status" aria-live="polite"></p>
       </section>
 
-      <section id="studio-panel" class="studio-layout" hidden>
-        <aside class="conversation-sidebar" aria-label="Conversations">
+      <section id="studio-panel" class="studio-shell" hidden>
+        <nav id="studio-nav" class="studio-nav" aria-label="Studio sections">
+          <button id="content-tab" class="studio-tab" type="button" aria-current="page">Content</button>
+          <button id="domains-tab" class="studio-tab" type="button" aria-current="false" hidden>Domains</button>
+        </nav>
+
+        <div id="content-panel" class="studio-layout">
+          <aside class="conversation-sidebar" aria-label="Conversations">
           <div class="sidebar-heading">
             <h2>Draft conversations</h2>
             <button id="new-conversation" class="button button-small" type="button">New</button>
@@ -81,6 +87,28 @@
           </section>
 
           <p id="studio-status" class="status" role="status" aria-live="polite"></p>
+          </section>
+        </div>
+
+        <section id="domains-panel" class="domains-panel" aria-labelledby="domains-title" hidden>
+          <div class="domains-heading">
+            <div>
+              <div class="eyebrow">HOSTNAME MANAGEMENT</div>
+              <h1 id="domains-title">Connect a customer domain</h1>
+            </div>
+            <span id="default-hostname" class="domain-default-host"></span>
+          </div>
+          <p class="domain-guidance">The site subdomain remains available while a customer hostname is prepared. MithrilPress verifies ownership, provisions its TLS certificate, and activates the hostname after the CNAME is visible. DNS changes on a customer's provider are never made automatically.</p>
+          <form id="domain-form" class="domain-form">
+            <label for="custom-hostname">Hostname</label>
+            <div class="domain-form-row">
+              <input id="custom-hostname" name="hostname" type="text" autocomplete="url" placeholder="blog.example.com" maxlength="253" required>
+              <button id="add-domain-button" class="button button-primary" type="submit">Add hostname</button>
+            </div>
+          </form>
+          <p id="domain-status" class="status" role="status" aria-live="polite"></p>
+          <ul id="domain-list" class="domain-list" aria-label="Custom hostnames"></ul>
+          <p id="domain-unavailable" class="domain-unavailable" hidden>Custom domains are not enabled on this hosting deployment. The default MithrilPress subdomain continues to work.</p>
         </section>
       </section>
     </main>

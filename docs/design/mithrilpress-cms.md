@@ -130,17 +130,34 @@ Support for customer-owned domains should use Cloudflare for SaaS custom
 hostnames and a Worker wildcard route; Workers for Platforms would be excessive
 because MithrilPress renders tenant content and does not run tenant code. The
 hostname must be verified and explicitly mapped to a tenant before any content
-is served. The custom-domain manager is a follow-up, not implemented in the
-current Worker. It should guide CNAME/TXT setup and TLS validation without
-requiring a nameserver transfer. On non-enterprise plans, Cloudflare requires
-payment information to enable Cloudflare for SaaS; 100 hostnames are currently
-included, additional hostnames cost $0.10 each, and wildcard custom hostnames
-are Enterprise-only. Thus customer-domain onboarding is not guaranteed to be
-free. A nameserver transfer remains optional and requires a DNS inventory,
-record comparison, owner approval, DNSSEC and mail checks, controlled cutover,
-and rollback. Cloudflare's [Workers-as-fallback-origin guide](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/start/advanced-settings/worker-as-origin/)
-describes routing custom-hostname traffic through the zone's Worker route.
-Never change a customer's DNS records without owner authorization.
+is served. The Worker now has an owner-only, feature-gated custom-hostname flow:
+it issues a TXT ownership challenge, provisions Cloudflare for SaaS only after
+that challenge resolves, returns provider TLS validation records, and activates
+the exact tenant mapping only after provider, certificate, and public DNS
+checks pass. The customer must add a DNS-only CNAME. Customer DNS is never
+written by MithrilPress. Hostnames must be subdomains with at least three
+labels; apex and wildcard customer hostnames are excluded from this prototype.
+An enabled Worker checks up to 30 active hostnames every five minutes and
+suspends mismatches or mappings with three consecutive provider/DNS read
+failures. Re-enable remains blocked until both the dedicated routing setup and
+the deployed Cron Trigger have been read back successfully.
+
+This flow is disabled until a dedicated `sites.mithril.love` SaaS zone,
+fallback origin, wildcard Worker route, wildcard DNS, safe subzone delegation,
+scoped `SSL and Certificates Write` token, and current hostname capacity have
+all been provisioned and read back. Cloudflare for SaaS's catch-all route must
+not intercept unrelated `mithril.love` websites. Keep
+`CUSTOM_DOMAINS_MONITORING_READY=false` until the Cron Trigger's successful
+deployed invocation is visible. Cloudflare for SaaS currently
+includes 100 custom hostnames and charges $0.10 per additional hostname;
+wildcard custom hostnames and apex proxying are unavailable on Free, and
+non-enterprise enablement requires payment information. Therefore customer
+domains are not part of the zero-cost promise. See [Cloudflare for SaaS plans](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/plans/)
+and the [enablement requirements](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/start/enable/).
+A full nameserver migration remains optional and unimplemented. It requires a
+DNS inventory, record comparison, owner approval, DNSSEC and mail checks,
+controlled cutover, and rollback. Cloudflare's [Workers-as-fallback-origin guide](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/start/advanced-settings/worker-as-origin/)
+describes routing custom-hostname traffic through the SaaS zone's Worker route.
 
 The Cloudflare product the original idea may have been recalling is
 **Workers for Platforms**. Its dispatch namespaces suit a service that executes
@@ -150,10 +167,8 @@ version. Revisit Workers for Platforms only if customer-authored code becomes a
 reviewed product requirement. See [Workers for Platforms](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/)
 and [Cloudflare hostname routing](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/configuration/hostname-routing/).
 
-The customer-domain lifecycle, explicit DNS ownership checks, cutover and
-rollback gates are specified in [MithrilPress domain lifecycle](mithrilpress-domain-lifecycle.md).
-This lifecycle is a design requirement; no domain-management UI or DNS writes
-are implemented here.
+The feature-gated implementation and remaining nameserver migration design are
+specified in [MithrilPress domain lifecycle](mithrilpress-domain-lifecycle.md).
 
 ## WordPress REST subset
 

@@ -6,6 +6,7 @@ const scopesAllowed = new Set([
   "revision:preview",
   "revision:approve",
   "site:publish",
+  "site:domains",
 ]);
 
 const [ownerLabel, ...requestedScopes] = process.argv.slice(2);

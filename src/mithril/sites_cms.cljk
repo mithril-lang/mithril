@@ -14,6 +14,7 @@
 (def max-import-chars 10000000)
 (def max-safe-content-chars 1250000)
 (def tenant-slug-pattern #"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?")
+(def dns-label-pattern #"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?")
 (def entry-slug-pattern #"[^/?#\\\\\u0000-\u001f\u007f]+")
 
 (def reserved-tenant-slugs
@@ -48,7 +49,7 @@
   (when-not (and (string? hostname) (<= 1 (count hostname) 253))
     (fail! :mithril.sites/invalid-hostname
            "hostname must be a bounded DNS name" {}))
-  (let [normalized (-> hostname str/lower-case (str/replace #"\\.$" ""))
+  (let [normalized (-> hostname str/lower-case (str/replace #"\.$" ""))
         suffix (str "." tenant-zone)]
     (when-not (str/ends-with? normalized suffix)
       (fail! :mithril.sites/hostname-outside-zone
@@ -60,13 +61,59 @@
                "hostname must contain one available tenant label" {}))
       normalized)))
 
+(defn custom-site-hostname
+  "Validate a customer hostname without granting tenant identity.
+
+  The caller must resolve this exact normalized name through an active mapping
+  whose owner proof, provider hostname, TLS certificate, and CNAME target have
+  all been read back. MithrilPress-owned names remain reserved for the platform."
+  [hostname]
+  (when-not (and (string? hostname) (<= 1 (count hostname) 253))
+    (fail! :mithril.sites/invalid-hostname
+           "hostname must be a bounded DNS name" {}))
+  (let [normalized (-> hostname str/lower-case (str/replace #"\.$" ""))
+        labels (str/split normalized #"\.")]
+    (when-not (and (<= 2 (count labels) 127)
+                   (every? #(and (<= 1 (count %) 63)
+                                 (re-matches dns-label-pattern %)) labels)
+                   (not (re-matches #"\d{1,3}(?:\.\d{1,3}){3}" normalized))
+                   (not= normalized "mithril.love")
+                   (not (str/ends-with? normalized ".mithril.love")))
+      (fail! :mithril.sites/invalid-custom-hostname
+             "customer hostname must be a fully qualified name outside mithril.love" {}))
+    normalized))
+
 (defn tenant-for-host
-  "Resolve a normalized host through an exact host-to-tenant registry map."
+  "Resolve an exact registered platform or verified customer hostname.
+
+  Platform hostname entries may retain the legacy hostname-to-tenant string
+  mapping. Customer hostnames require an active mapping with separate owner,
+  provider, TLS, and DNS proof fields."
   [hostname registry]
   (when-not (map? registry)
     (fail! :mithril.sites/invalid-registry
            "tenant registry must be a map" {}))
-  (get registry (site-hostname hostname)))
+  (let [normalized-input (when (string? hostname)
+                           (-> hostname str/lower-case (str/replace #"\.$" "")))
+        platform-host? (and normalized-input
+                            (str/ends-with? normalized-input (str "." tenant-zone)))
+        normalized (if platform-host?
+                     (site-hostname hostname)
+                     (custom-site-hostname hostname))
+        mapping (get registry normalized)]
+    (cond
+      (and platform-host? (string? mapping)) mapping
+      (and (map? mapping)
+           (= :active (:hostname-state mapping))
+           (text-value? (:tenant-id mapping) 128)
+           (text-value? (:owner-proof-id mapping) 256)
+           (= "active" (:provider-status mapping))
+           (= "active" (:certificate-status mapping))
+           (text-value? (:expected-cname-target mapping) 253)
+           (= (some-> (:expected-cname-target mapping) str/lower-case)
+              (some-> (:observed-cname-target mapping) str/lower-case)))
+      (:tenant-id mapping)
+      :else nil)))
 
 (defn- authorization-receipt! [receipt]
   ;; The host must verify the signed receipt before asserting this flag. This
