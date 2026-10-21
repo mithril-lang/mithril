@@ -14,9 +14,9 @@ explicitly published tenant revision.
 - Owner-scoped WordPress REST and WXR 1.2 subset import for posts and pages.
   Imports are bounded, sanitized, immutable revisions that remain private.
   Standard WXR categories, tags, category parents, and term IDs are retained;
-  unsupported post types, custom fields, page-parent links, and source media
-  files require manual migration. Every import returns a Gutenberg and asset
-  link, block, and asset reconciliation report for owner review.
+  a small static SEO field allowlist is retained, while other custom fields,
+  page-parent links, and source media files require manual migration. Every
+  import returns link, block, asset, and SEO metadata reconciliation counts.
 - Chat-first MithrilPress Studio for creating one post or page draft, revising it
   in a conversation, opening a private preview, and separately approving and
   publishing it.
@@ -169,6 +169,11 @@ endpoint classify static, layout-degraded, dynamic, and unknown Gutenberg
 blocks, count source omissions, link mappings and image mappings, and flag
 revisions for owner review. The report does not make dynamic blocks, themes,
 plugins, shortcodes, or PHP compatible; their code is never executed.
+Only static Yoast SEO title/description and Rank Math title/description fields
+are retained. Dynamic template tokens, duplicate fields, mixed-plugin metadata,
+and other custom fields remain omitted and are counted for owner review. These
+text values are escaped in rendered HTML and exposed through the read-only
+WordPress `meta` response; SEO plugin code and schema graphs are not imported.
 The Worker enforces a conservative 1.8 MB encoded-size budget for each content
 row, below Cloudflare D1's documented 2 MB maximum row/string size.
 Imported non-public WordPress statuses remain available only in the private
@@ -195,9 +200,9 @@ including entries and taxonomy terms, and a 256 MiB cap across the deployment.
 D1 triggers maintain these counters
 across immutable revisions and reject writes that exceed either cap; the Studio
 Usage view shows the per-site estimate and the shared daily AI request count.
-The byte estimate counts stored text values, not SQLite indexes, database
-metadata, conversations, DNS migration snapshots, audit rows, or the physical
-D1 database size. It is an
+The byte estimate counts retained entry text, taxonomy text, and allowlisted
+SEO metadata, not SQLite indexes, other database metadata, conversations, DNS
+migration snapshots, audit rows, or the physical D1 database size. It is an
 application guardrail rather than provider storage telemetry, and the deployment
 cap reserves room for database overhead without guaranteeing that other writes
 cannot consume the provider limit.
@@ -376,8 +381,9 @@ an inline image, an owner uploads the corresponding image to the tenant library
 with its original WordPress media ID before import. Source-host links are
 rewritten only for imported permalinks; unresolved links remain visible in the
 report and still point to the source site. The report shows which image
-references were rewritten or omitted. The importer also does not preserve
-custom fields, page-parent relationships, users, comments, or custom taxonomies.
+references were rewritten or omitted. Apart from the static SEO field allowlist
+above, the importer does not preserve custom fields, page-parent relationships,
+users, comments, or custom taxonomies.
 Unsupported post types and password-protected posts/pages are skipped and
 counted in the import report; protected content is never silently turned into
 ordinary public content. Review the report and private preview before

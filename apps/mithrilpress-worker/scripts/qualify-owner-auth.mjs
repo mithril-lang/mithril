@@ -21,6 +21,9 @@ const wxr = `<?xml version="1.0" encoding="UTF-8"?>
     <item><title>Private migration preview</title><link>${sourceOrigin}/private-migration-preview/</link>
       <wp:post_id>9001</wp:post_id><wp:post_type>post</wp:post_type><wp:status>publish</wp:status>
       <wp:post_name>private-migration-preview</wp:post_name>
+      <wp:postmeta><wp:meta_key><![CDATA[custom_field]]></wp:meta_key><wp:meta_value><![CDATA[owner-review-required]]></wp:meta_value></wp:postmeta>
+      <wp:postmeta><wp:meta_key><![CDATA[_yoast_wpseo_title]]></wp:meta_key><wp:meta_value><![CDATA[Owner SEO & summary]]></wp:meta_value></wp:postmeta>
+      <wp:postmeta><wp:meta_key><![CDATA[_yoast_wpseo_metadesc]]></wp:meta_key><wp:meta_value><![CDATA[Description <safe> & careful]]></wp:meta_value></wp:postmeta>
       <content:encoded><![CDATA[<p>Local authorization qualification fixture.</p>
         <a href="${sourceOrigin}/private-migration-preview/#intro">Imported self link</a>
         <a href="/not-imported/">Unmapped source link</a>
@@ -117,7 +120,7 @@ const tempBase = process.env.MITHRILPRESS_QUALIFICATION_TMP
 await access(tempBase);
 const tempRoot = await mkdtemp(join(tempBase, "mithrilpress-owner-auth-"));
 const persistPath = join(tempRoot, "wrangler-state");
-const siteToken = makeToken("MithrilPress local integration", ["content:import", "revision:preview", "media:write"]);
+const siteToken = makeToken("MithrilPress local integration", ["content:import", "revision:preview", "media:write", "revision:approve", "site:publish"]);
 const otherSiteToken = makeToken("MithrilPress cross-tenant integration", ["content:import", "revision:preview"]);
 let worker;
 
@@ -203,6 +206,11 @@ try {
   assert.equal(importedBody.migration_report.content_links.rewritten_links, 1);
   assert.equal(importedBody.migration_report.content_links.unresolved_source_site_links, 1);
   assert.equal(importedBody.migration_report.content_links.removed_unsafe_links, 1);
+  assert.deepEqual(importedBody.migration_report.seo_metadata, {
+    entries_with_metadata: 1,
+    imported_fields: 2,
+    omitted_fields: 1,
+  });
   assert.equal(importedBody.migration_report.needs_owner_review, true);
 
   const savedReport = await request(port, "GET", `/_mithrilpress/api/revisions/${importedBody.revision_id}/migration-report`, {
@@ -216,6 +224,8 @@ try {
   });
   assert.equal(privatePreview.status, 200, "An authorized owner must be able to view the private preview.");
   assert.match(privatePreview.headers["x-robots-tag"] ?? "", /noindex/);
+  assert.match(privatePreview.body, /<title>Owner SEO &amp; summary<\/title>/);
+  assert.match(privatePreview.body, /<meta name="description" content="Description &lt;safe&gt; &amp; careful">/);
   assert.match(privatePreview.body, /Local authorization qualification fixture/);
   assert.match(privatePreview.body, new RegExp(`/_mithrilpress/media/${uploadedMediaId}\\?revision=${importedBody.revision_id}`));
   assert.match(privatePreview.body, /href="https:\/\/integration\.sites\.mithril\.love\/private-migration-preview\/#intro"/);
@@ -241,7 +251,22 @@ try {
   assert.equal(publicWordPressApi.status, 200);
   assert.deepEqual(JSON.parse(publicWordPressApi.body), [], "Private imports must not appear in the public WordPress-compatible API.");
 
-  process.stdout.write("MithrilPress local owner-auth qualification passed: anonymous denial, tenant-token isolation, owner-uploaded inline media mapping, Gutenberg migration report, private owner preview, and pre-publication privacy.\n");
+  const approved = await request(port, "POST", `/_mithrilpress/api/revisions/${importedBody.revision_id}/approve`, { token: siteToken.token });
+  assert.equal(approved.status, 200, `Owner approval failed: ${approved.body}`);
+  const published = await request(port, "POST", `/_mithrilpress/api/revisions/${importedBody.revision_id}/publish`, { token: siteToken.token });
+  assert.equal(published.status, 200, `Owner publication failed: ${published.body}`);
+  const publicSeoPage = await request(port, "GET", "/private-migration-preview/");
+  assert.equal(publicSeoPage.status, 200);
+  assert.match(publicSeoPage.body, /<title>Owner SEO &amp; summary<\/title>/);
+  assert.match(publicSeoPage.body, /<meta name="description" content="Description &lt;safe&gt; &amp; careful">/);
+  const publishedWordPressApi = await request(port, "GET", "/wp-json/wp/v2/posts");
+  assert.equal(publishedWordPressApi.status, 200);
+  assert.deepEqual(JSON.parse(publishedWordPressApi.body)[0].meta, {
+    _yoast_wpseo_title: "Owner SEO & summary",
+    _yoast_wpseo_metadesc: "Description <safe> & careful",
+  });
+
+  process.stdout.write("MithrilPress local owner-auth qualification passed: anonymous denial, tenant-token isolation, owner-uploaded inline media mapping, Gutenberg and SEO metadata reports, escaped private and published SEO tags, WordPress REST meta, and pre-publication privacy.\n");
 } finally {
   if (worker && worker.exitCode === null) {
     worker.kill("SIGTERM");

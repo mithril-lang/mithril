@@ -1,4 +1,5 @@
 import { SaxesParser } from "saxes";
+import { selectWordPressSeoMetadata } from "./wordpress_seo.js";
 
 const MAX_WXR_BYTES = 12_000_000;
 const MAX_WXR_DEPTH = 64;
@@ -189,7 +190,8 @@ function importRecords(pendingItems, terms, omittedSourceCounts) {
     if (mediaId === null) fail("invalid_wxr_media_reference");
     if (mediaId > 0 || fields.attachmentUrl) omitted.media_references += 1;
     if (parseId(fields.parentId)) omitted.parent_page_relations += 1;
-    if (item.meta.some((meta) => meta.key !== "_thumbnail_id")) omitted.custom_fields += 1;
+    const seo = selectWordPressSeoMetadata(item.meta);
+    omitted.custom_fields += seo.omittedFields;
 
     records.push({
       id: sourceId,
@@ -206,6 +208,7 @@ function importRecords(pendingItems, terms, omittedSourceCounts) {
       categories: uniqueCategories,
       tags: uniqueTags,
       featured_media: mediaId,
+      seoMetadata: seo.metadata,
     });
     if (records.length > MAX_IMPORTED_ENTRIES) fail("wxr_entry_limit_exceeded", 413);
   }
