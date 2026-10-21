@@ -200,8 +200,8 @@ version. Revisit Workers for Platforms only if customer-authored code becomes a
 reviewed product requirement. See [Workers for Platforms](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/)
 and [Cloudflare hostname routing](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/configuration/hostname-routing/).
 
-The feature-gated implementation and remaining nameserver migration design are
-specified in [MithrilPress domain lifecycle](mithrilpress-domain-lifecycle.md).
+The feature gates, implemented DNS migration steps, and remaining operator
+requirements are specified in [MithrilPress domain lifecycle](mithrilpress-domain-lifecycle.md).
 
 ## WordPress REST subset
 
