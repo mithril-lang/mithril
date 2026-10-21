@@ -13,6 +13,7 @@ const CLOUDFLARE_API_ROOT = "https://api.cloudflare.com/client/v4";
 const CLOUDFLARE_TOKEN_HEADER = "X-MithrilPress-Cloudflare-Token";
 const MAX_CLOUDFLARE_API_TOKEN_CHARS = 512;
 const MAX_CLOUDFLARE_JSON_BYTES = 65_536;
+const CLOUDFLARE_IMPORT_LEASE_MS = 5 * 60_000;
 const CLOUDFLARE_CREATE_RECORD_TYPES = new Set([
   "A", "AAAA", "CAA", "CERT", "CNAME", "DS", "HTTPS", "LOC", "MX", "NAPTR",
   "NS", "PTR", "SMIMEA", "SRV", "SSHFP", "SVCB", "TLSA", "TXT", "URI",
@@ -460,12 +461,32 @@ async function cloudflareZoneSnapshot(token, zoneId, expectedZoneName) {
 }
 
 async function claimCloudflareImport(env, site, migration, owner, zoneId) {
-  const now = new Date().toISOString();
+  // The append-only action log is also a per-migration lease: a finished or
+  // failed action releases it, while an interrupted request expires after five minutes.
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const tokenWindowStart = new Date(now.getTime() - 60_000).toISOString();
+  const leaseWindowStart = new Date(now.getTime() - CLOUDFLARE_IMPORT_LEASE_MS).toISOString();
   const id = crypto.randomUUID();
   return await env.DB.prepare(
-    "INSERT INTO dns_migration_actions (id, site_id, migration_id, token_id, action, created_at, metadata_json) SELECT ?, ?, ?, ?, 'cloudflare-import-started', ?, ? WHERE (SELECT COUNT(*) FROM dns_migration_actions WHERE site_id = ? AND token_id = ? AND action = 'cloudflare-import-started' AND created_at >= ?) < 1 RETURNING id",
-  ).bind(id, site.id, migration.id, owner.tokenId, now, JSON.stringify({ zone_id: zoneId }),
-    site.id, owner.tokenId, new Date(Date.now() - 60_000).toISOString()).first();
+    `INSERT INTO dns_migration_actions (id, site_id, migration_id, token_id, action, created_at, metadata_json)
+     SELECT ?, ?, ?, ?, 'cloudflare-import-started', ?, ?
+     WHERE (SELECT COUNT(*) FROM dns_migration_actions
+       WHERE site_id = ? AND token_id = ? AND action = 'cloudflare-import-started' AND created_at >= ?) < 1
+       AND NOT EXISTS (
+         SELECT 1 FROM dns_migration_actions AS started
+         WHERE started.site_id = ? AND started.migration_id = ?
+           AND started.action = 'cloudflare-import-started' AND started.created_at >= ?
+           AND NOT EXISTS (
+             SELECT 1 FROM dns_migration_actions AS ended
+             WHERE ended.site_id = started.site_id AND ended.migration_id = started.migration_id
+               AND ended.action IN ('cloudflare-import-finished', 'cloudflare-import-failed')
+               AND ended.rowid > started.rowid
+           )
+       )
+     RETURNING id`,
+  ).bind(id, site.id, migration.id, owner.tokenId, nowIso, JSON.stringify({ zone_id: zoneId }),
+    site.id, owner.tokenId, tokenWindowStart, site.id, migration.id, leaseWindowStart).first();
 }
 
 async function cloudflareReadCount(env, site, owner) {
@@ -671,7 +692,7 @@ async function importCloudflareMissingRecords(request, env, site, migration, own
     return api.fail(429, "cloudflare_read_limit", "Wait before importing so MithrilPress can safely read the zone both before and after the write.");
   }
   const claimed = await claimCloudflareImport(env, site, migration, owner, migration.target_provider_zone_id);
-  if (!claimed) return api.fail(429, "cloudflare_import_limit", "This owner token can start one Cloudflare DNS import per minute.");
+  if (!claimed) return api.fail(429, "cloudflare_import_limit", "Only one Cloudflare DNS import can run for a migration at a time, and each owner token can start one per minute. Refresh the migration after an in-progress request settles before retrying.");
 
   const beforeReadError = await recordCloudflareRead(env, site, migration, owner, migration.target_provider_zone_id, "pre-import-check");
   if (beforeReadError) {
