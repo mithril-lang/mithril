@@ -174,6 +174,13 @@ that it remains on Workers Free. If it is on Workers Paid, the same request cap
 does not prevent provider metering or overage. Import and rendering CPU usage
 has not been qualified against the Free plan's 10 ms per-request limit.
 
+Before public routing, provision the one-rule Free WAF burst guard on the
+delegated `sites.mithril.love` child zone and verify that blocked requests do
+not invoke the Worker. Its IP counters are local to each Cloudflare data center
+and do not provide a global request budget. See the [Free edge-protection
+runbook](../operations/mithrilpress-free-edge-protection.md) for the current
+rule shape, scoped token, rollout checks, and limitations.
+
 R2 has monthly account-wide allowances of 10 GB-month Standard storage, 1
 million Class A operations, and 10 million Class B operations; usage above
 those allowances is billed. The current application bounds retained media to
