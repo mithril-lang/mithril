@@ -36,13 +36,17 @@ explicitly published tenant revision.
   plugin, shortcode, script, style, form, inline media, or dynamic-block
   execution. A separately validated featured image may be rendered from R2.
 
-The generated Mithril module owns platform subdomain validation, and the Worker
-uses it before its exact D1 hostname lookup. WordPress record normalization and
-the wider import state machine still have JavaScript adapter logic alongside
-the pure `.cljk` boundary model; those parts are not yet generated from Mithril.
-Regenerate the checked-in hostname module from the repository root or this
-package directory with `npm run build:mithril` after changing its `.mith`
-source. The build uses the Mithril workspace's `kbb` compiler.
+The checked-in Mithril native-JS modules own platform subdomain validation,
+WordPress post/page record admission, individual taxonomy-term admission, and
+the private chat-draft proposal envelope. The Worker calls those contracts at
+the hostname, import, taxonomy, and AI proposal boundaries. It retains host
+responsibility for cross-record taxonomy references and cycles, D1/R2 and AI
+I/O, HTML sanitization, language-tag canonicalization, and slug collision
+resolution. The `.cljk` model remains the platform-neutral reference boundary;
+the `.mith` modules are the executable Worker contracts. Regenerate all
+checked-in modules from the repository root or this package directory with
+`npm run build:mithril` after changing their `.mith` source. The build uses the
+Mithril workspace's `kbb` compiler.
 
 ## Local setup
 
