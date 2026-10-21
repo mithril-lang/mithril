@@ -1,4 +1,5 @@
 import { handleDnsMigrations } from "./dns_migration.js";
+import { MAX_MEDIA_BYTES, validateImageUpload } from "./media_validation.js";
 import { parseWordPressWxr } from "./wxr_import.js";
 
 const SITE_ZONE = "sites.mithril.love";
@@ -14,6 +15,10 @@ const MAX_SAFE_HTML_CHARS = 1_250_000;
 const MAX_D1_ROW_BYTES = 1_800_000;
 const SITE_CONTENT_LIMIT_BYTES = 16 * 1024 * 1024;
 const DEPLOYMENT_CONTENT_LIMIT_BYTES = 256 * 1024 * 1024;
+const SITE_MEDIA_LIMIT_BYTES = 250 * 1024 * 1024;
+const DEPLOYMENT_MEDIA_LIMIT_BYTES = 8 * 1024 * 1024 * 1024;
+const MEDIA_READS_PER_DAY_LIMIT = 50_000;
+const MEDIA_WRITES_PER_DAY_LIMIT = 10_000;
 const TENANT_LABEL = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 const ENTRY_SLUG = /^[^/?#\\\u0000-\u001f\u007f]{1,200}$/;
 const RESERVED_LABELS = new Set([
@@ -112,6 +117,29 @@ function storageQuotaResponse(code) {
     : fail(409, "deployment_storage_quota_exceeded", "The shared hosting content pool is full. This site cannot accept more content right now; contact the hosting operator.");
 }
 
+function mediaQuotaCode(error) {
+  const message = String(error?.message ?? error ?? "");
+  if (message.includes("site_media_quota_exceeded")) return "site_media_quota_exceeded";
+  if (message.includes("deployment_media_quota_exceeded")) return "deployment_media_quota_exceeded";
+  return null;
+}
+
+function mediaQuotaResponse(code) {
+  return code === "site_media_quota_exceeded"
+    ? fail(409, code, "This site's image storage allowance is full. Remove unused media or contact the hosting operator.")
+    : fail(409, "deployment_media_quota_exceeded", "The shared image storage pool is full. New image uploads are paused until the operator removes media.");
+}
+
+async function countMediaOperation(env, type, limit, date = new Date()) {
+  const column = type === "read" ? "read_count" : "write_count";
+  const reads = type === "read" ? 1 : 0;
+  const writes = type === "write" ? 1 : 0;
+  const row = await env.DB.prepare(
+    `INSERT INTO media_daily_operations (day_utc, read_count, write_count) VALUES (?, ?, ?) ON CONFLICT(day_utc) DO UPDATE SET ${column} = ${column} + 1 WHERE ${column} < ? RETURNING ${column} AS operation_count`,
+  ).bind(date.toISOString().slice(0, 10), reads, writes, limit).first();
+  return row !== null;
+}
+
 function normalizeSiteHostname(hostname) {
   const host = hostname.toLowerCase().replace(/\.$/, "");
   const suffix = `.${SITE_ZONE}`;
@@ -157,11 +185,17 @@ function parseBoundedInt(value, fallback, minimum, maximum) {
   return parsed >= minimum && parsed <= maximum ? parsed : null;
 }
 
-async function readBoundedText(request, allowedTypes, invalidCode, unsupportedCode = "unsupported_content_type") {
+async function readBoundedBytes(request, allowedTypes, unsupportedCode = "unsupported_content_type", maxBytes = MAX_BODY_BYTES) {
   const contentType = request.headers.get("Content-Type")?.split(";", 1)[0].trim().toLowerCase();
   if (!allowedTypes.has(contentType)) throw Object.assign(new Error(), { status: 415, code: unsupportedCode });
+  const contentEncoding = request.headers.get("Content-Encoding");
+  if (contentEncoding && contentEncoding.toLowerCase() !== "identity") {
+    throw Object.assign(new Error(), { status: 415, code: "content_encoding_not_supported" });
+  }
   const declared = request.headers.get("Content-Length");
-  if (declared && Number(declared) > MAX_BODY_BYTES) throw Object.assign(new Error(), { status: 413, code: "payload_too_large" });
+  if (declared && (!Number.isSafeInteger(Number(declared)) || Number(declared) < 0 || Number(declared) > maxBytes)) {
+    throw Object.assign(new Error(), { status: 413, code: "payload_too_large" });
+  }
   if (!request.body) throw Object.assign(new Error(), { status: 400, code: "missing_body" });
   const reader = request.body.getReader();
   const chunks = [];
@@ -170,7 +204,7 @@ async function readBoundedText(request, allowedTypes, invalidCode, unsupportedCo
     const item = await reader.read();
     if (item.done) break;
     total += item.value.byteLength;
-    if (total > MAX_BODY_BYTES) {
+    if (total > maxBytes) {
       await reader.cancel();
       throw Object.assign(new Error(), { status: 413, code: "payload_too_large" });
     }
@@ -182,6 +216,11 @@ async function readBoundedText(request, allowedTypes, invalidCode, unsupportedCo
     bytes.set(chunk, offset);
     offset += chunk.byteLength;
   }
+  return bytes;
+}
+
+async function readBoundedText(request, allowedTypes, invalidCode, unsupportedCode = "unsupported_content_type") {
+  const bytes = await readBoundedBytes(request, allowedTypes, unsupportedCode);
   try {
     return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   } catch {
@@ -874,6 +913,7 @@ function validateWxrChannelOrigin(value) {
 async function studioSession(request, env, site) {
   if (request.method === "GET") {
     const owner = await ownerToken(request, env, site, "content:write")
+      ?? await ownerToken(request, env, site, "media:write")
       ?? await ownerToken(request, env, site, "site:domains")
       ?? await ownerToken(request, env, site, "site:dns-migrate");
     if (!owner) return fail(401, "studio_login_required", "Sign in with an owner token that has a Studio scope.");
@@ -893,7 +933,7 @@ async function studioSession(request, env, site) {
     if (!parts) return fail(401, "studio_login_required", "The owner token is invalid or lacks content:write scope.");
     const nowDate = new Date();
     const owner = await verifyOwnerTokenParts(env, site, parts[1], parts[2], null, nowDate.toISOString());
-    if (!owner || !(owner.scopes.includes("content:write") || owner.scopes.includes("site:domains")
+    if (!owner || !(owner.scopes.includes("content:write") || owner.scopes.includes("media:write") || owner.scopes.includes("site:domains")
         || owner.scopes.includes("site:dns-migrate"))) {
       return fail(401, "studio_login_required", "The owner token is invalid or lacks a Studio scope.");
     }
@@ -916,6 +956,7 @@ async function studioSession(request, env, site) {
 
   if (request.method === "DELETE") {
     const owner = await ownerToken(request, env, site, "content:write")
+      ?? await ownerToken(request, env, site, "media:write")
       ?? await ownerToken(request, env, site, "site:domains")
       ?? await ownerToken(request, env, site, "site:dns-migrate");
     if (!owner?.viaSession || !owner.sessionId) return fail(401, "studio_login_required", "An active studio session is required.");
@@ -972,6 +1013,21 @@ async function studioChat(request, env, site) {
 
   const body = await readBoundedJson(request);
   if (!textValue(body?.message, 1800)) return fail(422, "invalid_message", "Enter a message of up to 1,800 characters.");
+  const hasFeaturedMedia = Object.hasOwn(body, "featured_media_id");
+  let requestedFeaturedMediaId = null;
+  if (hasFeaturedMedia && body.featured_media_id !== null) {
+    if (!Number.isSafeInteger(body.featured_media_id) || body.featured_media_id <= 0) {
+      return fail(422, "invalid_featured_media", "Select a media item from this site's library.");
+    }
+    if (!owner.scopes.includes("media:write")) {
+      return fail(403, "media_scope_required", "A media:write owner scope is required to set a featured image.");
+    }
+    const selectedMedia = await env.DB.prepare(
+      "SELECT id FROM media_assets WHERE site_id = ? AND id = ? AND status = 'active' LIMIT 1",
+    ).bind(site.id, body.featured_media_id).first();
+    if (!selectedMedia) return fail(422, "invalid_featured_media", "Select an active image from this site's media library.");
+    requestedFeaturedMediaId = selectedMedia.id;
+  }
   const requestedKind = body.kind === "page" ? "page" : "post";
   const requestedConversationId = body.conversation_id ?? null;
   if (requestedConversationId !== null && !/^[a-f0-9-]{36}$/.test(requestedConversationId)) {
@@ -1021,9 +1077,10 @@ async function studioChat(request, env, site) {
   let currentDraft = null;
   if (conversation.draft_revision_id) {
     currentDraft = await env.DB.prepare(
-      "SELECT kind, title, slug, safe_html FROM entries WHERE site_id = ? AND revision_id = ? AND entry_id = ? LIMIT 1",
+      "SELECT kind, title, slug, safe_html, featured_media_id FROM entries WHERE site_id = ? AND revision_id = ? AND entry_id = ? LIMIT 1",
     ).bind(site.id, conversation.draft_revision_id, `mithrilpress:chat:${conversation.id}`).first();
   }
+  const featuredMediaId = hasFeaturedMedia ? requestedFeaturedMediaId : (currentDraft?.featured_media_id ?? null);
   const kind = currentDraft?.kind ?? requestedKind;
   const system = [
     "You are the writing partner inside MithrilPress Studio. Create or revise exactly one unpublished website draft based on the owner's messages.",
@@ -1098,9 +1155,9 @@ async function studioChat(request, env, site) {
       "INSERT INTO entries (site_id, revision_id, entry_id, kind, slug, title, source_html, safe_html, entry_origin, publication_status, language_code, api_id, source_id, source_status, source_date, source_date_gmt, source_modified, source_modified_gmt, source_permalink, categories_json, tags_json, featured_media_id, rendering_admission) SELECT site_id, ?, entry_id, kind, slug, title, source_html, safe_html, entry_origin, publication_status, language_code, api_id, source_id, source_status, source_date, source_date_gmt, source_modified, source_modified_gmt, source_permalink, categories_json, tags_json, featured_media_id, rendering_admission FROM entries WHERE site_id = ? AND revision_id = ?",
     ).bind(revisionId, site.id, baseRevisionId),
     env.DB.prepare(
-      "INSERT INTO entries (site_id, revision_id, entry_id, kind, slug, title, source_html, safe_html, entry_origin, publication_status, language_code, api_id, source_id, source_status, source_date, source_date_gmt, source_modified, source_modified_gmt, source_permalink, categories_json, tags_json, featured_media_id, rendering_admission) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'chat', 'draft', ?, ?, NULL, 'draft', ?, ?, ?, ?, NULL, '[]', '[]', NULL, 'ready')",
+      "INSERT INTO entries (site_id, revision_id, entry_id, kind, slug, title, source_html, safe_html, entry_origin, publication_status, language_code, api_id, source_id, source_status, source_date, source_date_gmt, source_modified, source_modified_gmt, source_permalink, categories_json, tags_json, featured_media_id, rendering_admission) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'chat', 'draft', ?, ?, NULL, 'draft', ?, ?, ?, ?, NULL, '[]', '[]', ?, 'ready')",
     ).bind(site.id, revisionId, entryId, kind, slug, proposal.title.trim(), proposal.html, safeHtml,
-      languageCode, apiId, nowIso, nowIso, nowIso, nowIso),
+      languageCode, apiId, nowIso, nowIso, nowIso, nowIso, featuredMediaId),
     env.DB.prepare(
       "UPDATE site_revisions SET state = 'private-preview' WHERE site_id = ? AND id = ? AND state = 'importing' AND entry_count = (SELECT COUNT(*) FROM entries WHERE site_id = ? AND revision_id = ? AND rendering_admission = 'ready')",
     ).bind(site.id, revisionId, site.id, revisionId),
@@ -1132,7 +1189,7 @@ async function studioChat(request, env, site) {
   return json({
     conversation_id: conversation.id,
     message: proposal.assistant_message.trim(),
-    draft: { revision_id: revisionId, title: proposal.title.trim(), slug, kind, state: "private-preview" },
+    draft: { revision_id: revisionId, title: proposal.title.trim(), slug, kind, state: "private-preview", featured_media_id: featuredMediaId },
     preview_url: `/_mithrilpress/preview/${revisionId}/${encodeURIComponent(slug)}`,
   }, 201);
 }
@@ -1147,7 +1204,7 @@ async function studioConversation(request, env, site, conversationId, owner) {
   ).bind(site.id, conversationId, STUDIO_MAX_MESSAGES).all();
   const draft = conversation.draft_revision_id
     ? await env.DB.prepare(
-      "SELECT title, slug, kind FROM entries WHERE site_id = ? AND revision_id = ? AND entry_id = ? LIMIT 1",
+      "SELECT title, slug, kind, featured_media_id FROM entries WHERE site_id = ? AND revision_id = ? AND entry_id = ? LIMIT 1",
     ).bind(site.id, conversation.draft_revision_id, `mithrilpress:chat:${conversationId}`).first()
     : null;
   return json({
@@ -1175,16 +1232,19 @@ async function studioConversations(request, env, site) {
 async function studioUsage(request, env, site) {
   if (request.method !== "GET") return fail(405, "method_not_allowed", "Hosting usage is read-only.");
   const owner = await ownerToken(request, env, site, null);
-  if (!owner || !owner.scopes.some((scope) => scope === "content:write" || scope === "site:domains")) {
-    return fail(401, "studio_login_required", "Sign in with a content:write or site:domains owner token to view hosting usage.");
+  if (!owner || !owner.scopes.some((scope) => scope === "content:write" || scope === "media:write" || scope === "site:domains")) {
+    return fail(401, "studio_login_required", "Sign in with a content:write, media:write, or site:domains owner token to view hosting usage.");
   }
 
   const now = new Date();
   const dayUtc = now.toISOString().slice(0, 10);
   const resetsAtUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)).toISOString();
-  const [storage, aiUsage] = await Promise.all([
+  const [storage, aiUsage, siteMedia, deploymentMedia, mediaOperations] = await Promise.all([
     env.DB.prepare("SELECT content_bytes FROM mithrilpress_site_storage_usage WHERE site_id = ? LIMIT 1").bind(site.id).first(),
     env.DB.prepare("SELECT request_count FROM studio_ai_usage WHERE day_utc = ? LIMIT 1").bind(dayUtc).first(),
+    env.DB.prepare("SELECT asset_bytes FROM mithrilpress_site_media_usage WHERE site_id = ? LIMIT 1").bind(site.id).first(),
+    env.DB.prepare("SELECT asset_bytes FROM mithrilpress_deployment_media_usage WHERE singleton = 1").first(),
+    env.DB.prepare("SELECT read_count, write_count FROM media_daily_operations WHERE day_utc = ? LIMIT 1").bind(dayUtc).first(),
   ]);
   return json({
     storage: {
@@ -1198,6 +1258,17 @@ async function studioUsage(request, env, site) {
       requests_used: Number(aiUsage?.request_count ?? 0),
       daily_app_limit: STUDIO_DAILY_GENERATION_LIMIT,
       resets_at_utc: resetsAtUtc,
+    },
+    r2_media: {
+      site_used_bytes: Number(siteMedia?.asset_bytes ?? 0),
+      site_limit_bytes: SITE_MEDIA_LIMIT_BYTES,
+      deployment_used_bytes: Number(deploymentMedia?.asset_bytes ?? 0),
+      deployment_limit_bytes: DEPLOYMENT_MEDIA_LIMIT_BYTES,
+      daily_reads_used: Number(mediaOperations?.read_count ?? 0),
+      daily_reads_limit: MEDIA_READS_PER_DAY_LIMIT,
+      daily_uploads_and_deletes_used: Number(mediaOperations?.write_count ?? 0),
+      daily_uploads_and_deletes_limit: MEDIA_WRITES_PER_DAY_LIMIT,
+      storage_class: "Standard",
     },
     provider_metering: {
       available: false,
@@ -1245,6 +1316,247 @@ async function studioAsset(request, env, path) {
     headers.set("Content-Security-Policy", "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'");
   }
   return response(assetResponse.body, assetResponse.status, headers);
+}
+
+function mediaSummary(site, row) {
+  return {
+    id: row.id,
+    wordpress_source_id: row.wordpress_source_id ?? null,
+    content_type: row.content_type,
+    byte_length: row.byte_length,
+    width: row.width,
+    height: row.height,
+    sha256: row.sha256,
+    alt_text: row.alt_text,
+    created_at: row.created_at,
+    preview_url: `/_mithrilpress/media/${row.id}`,
+    source_url: `https://${site.hostname}/_mithrilpress/media/${row.id}`,
+  };
+}
+
+function optionalWordPressMediaId(request) {
+  const raw = request.headers.get("X-WordPress-Media-ID");
+  if (raw === null) return null;
+  if (!/^[1-9][0-9]{0,14}$/.test(raw)) throw Object.assign(new Error(), { status: 422, code: "invalid_wordpress_media_id" });
+  const id = Number(raw);
+  if (!Number.isSafeInteger(id)) throw Object.assign(new Error(), { status: 422, code: "invalid_wordpress_media_id" });
+  return id;
+}
+
+function mediaAltText(request) {
+  const raw = request.headers.get("X-MithrilPress-Alt") ?? "";
+  let value;
+  try {
+    value = decodeURIComponent(raw);
+  } catch {
+    throw Object.assign(new Error(), { status: 422, code: "invalid_media_alt_text" });
+  }
+  if (value.length > 500 || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(value)) {
+    throw Object.assign(new Error(), { status: 422, code: "invalid_media_alt_text" });
+  }
+  return value.trim();
+}
+
+async function studioMedia(request, env, site) {
+  if (request.method !== "GET" && !sameOriginStudioMutation(request, site)) {
+    return fail(403, "same_origin_required", "Media changes must come from this site's Studio.");
+  }
+  const owner = await ownerToken(request, env, site, "media:write");
+  if (!owner) return fail(401, "media_owner_required", "An active site owner token with media:write scope is required.");
+  if (request.method === "GET") {
+    const rows = await env.DB.prepare(
+      "SELECT id, wordpress_source_id, content_type, byte_length, width, height, sha256, alt_text, created_at FROM media_assets WHERE site_id = ? AND status = 'active' ORDER BY created_at DESC, id DESC LIMIT 200",
+    ).bind(site.id).all();
+    const usage = await env.DB.prepare(
+      "SELECT asset_bytes FROM mithrilpress_site_media_usage WHERE site_id = ? LIMIT 1",
+    ).bind(site.id).first();
+    return json({
+      media: (rows.results ?? []).map((row) => mediaSummary(site, row)),
+      storage: { used_bytes: Number(usage?.asset_bytes ?? 0), site_limit_bytes: SITE_MEDIA_LIMIT_BYTES },
+    }, 200, { "Cache-Control": "private, no-store" });
+  }
+  if (request.method !== "POST") return fail(405, "method_not_allowed", "Use GET or POST for the media library.");
+  if (!env.MEDIA) return fail(503, "media_storage_unavailable", "Image storage is not configured for this hosting deployment.");
+
+  const allowedTypes = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
+  const bytes = await readBoundedBytes(request, allowedTypes, "image_type_not_supported", MAX_MEDIA_BYTES);
+  const contentType = request.headers.get("Content-Type")?.split(";", 1)[0].trim().toLowerCase();
+  const details = validateImageUpload(bytes, contentType);
+  const wordpressSourceId = optionalWordPressMediaId(request);
+  const altText = mediaAltText(request);
+  if (wordpressSourceId !== null) {
+    const duplicate = await env.DB.prepare(
+      "SELECT id FROM media_assets WHERE site_id = ? AND wordpress_source_id = ? LIMIT 1",
+    ).bind(site.id, wordpressSourceId).first();
+    if (duplicate) return fail(409, "wordpress_media_already_imported", "This WordPress media ID is already present in the site's media library.");
+  }
+  if (!await countMediaOperation(env, "write", MEDIA_WRITES_PER_DAY_LIMIT)) {
+    return fail(429, "media_daily_write_limit", "The shared free media upload and delete allowance is exhausted for today. Try again after 00:00 UTC.");
+  }
+
+  const idempotentObjectKey = `${site.id}/${crypto.randomUUID()}`;
+  const sha256 = hex(await crypto.subtle.digest("SHA-256", bytes));
+  const createdAt = new Date().toISOString();
+  let reserved;
+  try {
+    reserved = await env.DB.prepare(
+      "INSERT INTO media_assets (site_id, wordpress_source_id, object_key, content_type, byte_length, width, height, sha256, alt_text, status, uploaded_by_token_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?) RETURNING id, wordpress_source_id, content_type, byte_length, width, height, sha256, alt_text, created_at",
+    ).bind(site.id, wordpressSourceId, idempotentObjectKey, contentType, details.byteLength,
+      details.width, details.height, sha256, altText, owner.tokenId, createdAt).first();
+  } catch (error) {
+    const quotaCode = mediaQuotaCode(error);
+    if (quotaCode) return mediaQuotaResponse(quotaCode);
+    if (wordpressSourceId !== null) {
+      const duplicate = await env.DB.prepare(
+        "SELECT id FROM media_assets WHERE site_id = ? AND wordpress_source_id = ? LIMIT 1",
+      ).bind(site.id, wordpressSourceId).first();
+      if (duplicate) return fail(409, "wordpress_media_already_imported", "This WordPress media ID is already present in the site's media library.");
+    }
+    return fail(503, "media_not_reserved", "The image could not be reserved in the site's free storage allowance.");
+  }
+
+  try {
+    await env.MEDIA.put(idempotentObjectKey, bytes, {
+      httpMetadata: {
+        contentType,
+        contentDisposition: "inline",
+        cacheControl: "public, max-age=3600, immutable",
+      },
+      customMetadata: { mediaId: String(reserved.id), sha256 },
+    });
+    const committed = await env.DB.batch([
+      env.DB.prepare("UPDATE media_assets SET status = 'active' WHERE site_id = ? AND id = ? AND status = 'pending'")
+        .bind(site.id, reserved.id),
+      env.DB.prepare("INSERT INTO media_actions (id, site_id, media_id, token_id, action, created_at, metadata_json) VALUES (?, ?, ?, ?, 'media-uploaded', ?, ?)")
+        .bind(crypto.randomUUID(), site.id, reserved.id, owner.tokenId, createdAt,
+          JSON.stringify({ byte_length: details.byteLength, content_type: contentType, sha256, wordpress_source_id: wordpressSourceId })),
+    ]);
+    if (committed[0]?.meta?.changes !== 1) throw new Error("media reservation state changed");
+  } catch {
+    try {
+      await env.MEDIA.delete(idempotentObjectKey);
+    } catch {
+      // A pending database row remains private and can be cleaned up by an operator.
+    }
+    try {
+      await env.DB.prepare("DELETE FROM media_assets WHERE site_id = ? AND id = ? AND status = 'pending'")
+        .bind(site.id, reserved.id).run();
+    } catch {
+      // The row remains non-public; the database storage guard prevents further over-allocation.
+    }
+    return fail(503, "media_upload_not_committed", "The image upload could not be committed. It is not available to public pages.");
+  }
+  return json({ media: mediaSummary(site, reserved) }, 201, { "Cache-Control": "private, no-store" });
+}
+
+async function deleteStudioMedia(request, env, site, mediaId) {
+  if (!sameOriginStudioMutation(request, site)) return fail(403, "same_origin_required", "Media changes must come from this site's Studio.");
+  const owner = await ownerToken(request, env, site, "media:write");
+  if (!owner) return fail(401, "media_owner_required", "An active site owner token with media:write scope is required.");
+  if (request.method !== "DELETE") return fail(405, "method_not_allowed", "Use DELETE to remove this media item.");
+  if (!env.MEDIA) return fail(503, "media_storage_unavailable", "Image storage is not configured for this hosting deployment.");
+  const row = await env.DB.prepare(
+    "SELECT id, object_key, status FROM media_assets WHERE site_id = ? AND id = ? LIMIT 1",
+  ).bind(site.id, mediaId).first();
+  if (!row) return fail(404, "media_not_found", "Media item not found.");
+  if (!await countMediaOperation(env, "write", MEDIA_WRITES_PER_DAY_LIMIT)) {
+    return fail(429, "media_daily_write_limit", "The shared free media upload and delete allowance is exhausted for today. Try again after 00:00 UTC.");
+  }
+  await env.DB.prepare("UPDATE media_assets SET status = 'deleting' WHERE site_id = ? AND id = ? AND status IN ('pending', 'active', 'deleting')")
+    .bind(site.id, mediaId).run();
+  try {
+    await env.MEDIA.delete(row.object_key);
+  } catch {
+    return fail(503, "media_delete_pending", "The item is hidden from publication, but object removal is pending. Retry later.");
+  }
+  const now = new Date().toISOString();
+  try {
+    const result = await env.DB.batch([
+      env.DB.prepare("DELETE FROM media_assets WHERE site_id = ? AND id = ? AND status = 'deleting'").bind(site.id, mediaId),
+      env.DB.prepare("INSERT INTO media_actions (id, site_id, media_id, token_id, action, created_at, metadata_json) VALUES (?, ?, ?, ?, 'media-deleted', ?, '{}')")
+        .bind(crypto.randomUUID(), site.id, mediaId, owner.tokenId, now),
+    ]);
+    if (result[0]?.meta?.changes !== 1) throw new Error("media metadata removal failed");
+  } catch {
+    return fail(503, "media_delete_pending", "The object was removed, but metadata cleanup is pending. Retry later.");
+  }
+  return json({ media_id: mediaId, deleted: true });
+}
+
+async function serveMedia(request, env, site, mediaId) {
+  if (request.method !== "GET" && request.method !== "HEAD") return fail(405, "method_not_allowed", "Published media is read-only.");
+  if (!env.MEDIA) return fail(503, "media_storage_unavailable", "Image storage is not configured for this hosting deployment.");
+  const url = new URL(request.url);
+  const revisionId = url.searchParams.get("revision");
+  let asset = null;
+  let privateRead = false;
+  if (revisionId !== null) {
+    const owner = await ownerToken(request, env, site, "revision:preview");
+    if (!owner || !/^[a-f0-9-]{36}$/.test(revisionId)) return fail(404, "media_not_found", "Media item not found.");
+    asset = await env.DB.prepare(
+      "SELECT a.id, a.object_key, a.content_type, a.byte_length, a.sha256, a.alt_text FROM media_assets a JOIN site_revisions r ON r.site_id = a.site_id AND r.id = ? WHERE a.site_id = ? AND a.id = ? AND a.status = 'active' AND r.state IN ('private-preview', 'approved', 'published', 'superseded') AND EXISTS (SELECT 1 FROM entries e WHERE e.site_id = a.site_id AND e.revision_id = r.id AND e.featured_media_id IN (a.id, a.wordpress_source_id)) LIMIT 1",
+    ).bind(revisionId, site.id, mediaId).first();
+    privateRead = true;
+  } else if (site.current_revision_id) {
+    asset = await env.DB.prepare(
+      "SELECT a.id, a.object_key, a.content_type, a.byte_length, a.sha256, a.alt_text FROM media_assets a WHERE a.site_id = ? AND a.id = ? AND a.status = 'active' AND EXISTS (SELECT 1 FROM entries e WHERE e.site_id = a.site_id AND e.revision_id = ? AND e.publication_status = 'published' AND e.featured_media_id IN (a.id, a.wordpress_source_id)) LIMIT 1",
+    ).bind(site.id, mediaId, site.current_revision_id).first();
+  }
+  if (!asset && revisionId === null) {
+    const owner = await ownerToken(request, env, site, "media:write");
+    if (owner) {
+      asset = await env.DB.prepare(
+        "SELECT id, object_key, content_type, byte_length, sha256, alt_text FROM media_assets WHERE site_id = ? AND id = ? AND status = 'active' LIMIT 1",
+      ).bind(site.id, mediaId).first();
+      privateRead = Boolean(asset);
+    }
+  }
+  if (!asset) return fail(404, "media_not_found", "Media item not found.");
+  if (!await countMediaOperation(env, "read", MEDIA_READS_PER_DAY_LIMIT)) {
+    return fail(429, "media_daily_read_limit", "The shared free image delivery allowance is exhausted for today. Try again after 00:00 UTC.");
+  }
+  const object = request.method === "HEAD"
+    ? await env.MEDIA.head(asset.object_key)
+    : await env.MEDIA.get(asset.object_key);
+  if (!object) return fail(404, "media_not_found", "Media item not found.");
+  const headers = {
+    "Content-Type": asset.content_type,
+    "Content-Length": String(asset.byte_length),
+    "ETag": object.httpEtag ?? object.etag,
+    "Cache-Control": privateRead ? "private, no-store" : "public, max-age=3600, immutable",
+    "X-Content-Type-Options": "nosniff",
+    "Content-Security-Policy": "default-src 'none'; sandbox",
+    "Cross-Origin-Resource-Policy": "same-site",
+  };
+  return response(request.method === "HEAD" ? null : object.body, 200, headers);
+}
+
+async function wordpressMediaRead(request, env, site, mediaId) {
+  if (request.method !== "GET" && request.method !== "HEAD") return fail(405, "method_not_allowed", "This WordPress media endpoint is read-only.");
+  const asset = await env.DB.prepare(
+    "SELECT a.id, a.wordpress_source_id, a.content_type, a.byte_length, a.width, a.height, a.alt_text, a.created_at FROM media_assets a WHERE a.site_id = ? AND (a.id = ? OR a.wordpress_source_id = ?) AND a.status = 'active' AND EXISTS (SELECT 1 FROM entries e WHERE e.site_id = a.site_id AND e.revision_id = ? AND e.publication_status = 'published' AND e.featured_media_id IN (a.id, a.wordpress_source_id)) ORDER BY CASE WHEN a.wordpress_source_id = ? THEN 0 ELSE 1 END LIMIT 1",
+  ).bind(site.id, mediaId, mediaId, site.current_revision_id ?? "", mediaId).first();
+  if (!asset) return fail(404, "media_not_found", "Media item not found.");
+  const link = `https://${site.hostname}/_mithrilpress/media/${asset.id}`;
+  const result = {
+    id: asset.wordpress_source_id ?? asset.id,
+    date: asset.created_at,
+    slug: `media-${asset.id}`,
+    status: "inherit",
+    type: "attachment",
+    link,
+    title: { rendered: asset.alt_text || `Image ${asset.id}` },
+    author: 0,
+    media_type: "image",
+    mime_type: asset.content_type,
+    media_details: { width: asset.width, height: asset.height, file: `media-${asset.id}` },
+    post: 0,
+    source_url: link,
+    alt_text: asset.alt_text,
+  };
+  return request.method === "HEAD"
+    ? response(null, 200, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "public, max-age=300" })
+    : json(result, 200, { "Cache-Control": "public, max-age=300" });
 }
 
 async function importWordPress(request, env, site) {
@@ -1378,10 +1690,11 @@ async function previewRevision(request, env, site, revisionId, slug) {
   ).bind(site.id, revisionId).first();
   if (!revision) return fail(404, "revision_not_found", "Revision not found.");
   const entry = await env.DB.prepare(
-    "SELECT kind, slug, title, safe_html, language_code, source_date FROM entries WHERE site_id = ? AND revision_id = ? AND slug = ? ORDER BY CASE kind WHEN 'page' THEN 0 ELSE 1 END LIMIT 1",
+    "SELECT kind, slug, title, safe_html, language_code, source_date, featured_media_id FROM entries WHERE site_id = ? AND revision_id = ? AND slug = ? ORDER BY CASE kind WHEN 'page' THEN 0 ELSE 1 END LIMIT 1",
   ).bind(site.id, revisionId, slug).first();
   if (!entry) return fail(404, "entry_not_found", "Entry not found.");
-  return htmlDocument(site.hostname, entry, true);
+  const media = await featuredMediaForEntry(env, site, entry);
+  return htmlDocument(site.hostname, entry, true, false, media, revisionId);
 }
 
 async function approveRevision(request, env, site, revisionId) {
@@ -1474,6 +1787,14 @@ function wpRecord(site, row) {
   };
 }
 
+async function featuredMediaForEntry(env, site, entry) {
+  const mediaId = entry.featured_media_id;
+  if (!Number.isSafeInteger(mediaId) || mediaId < 1) return null;
+  return await env.DB.prepare(
+    "SELECT id, alt_text FROM media_assets WHERE site_id = ? AND status = 'active' AND (id = ? OR wordpress_source_id = ?) ORDER BY CASE WHEN wordpress_source_id = ? THEN 0 ELSE 1 END LIMIT 1",
+  ).bind(site.id, mediaId, mediaId, mediaId).first();
+}
+
 async function wordpressRead(request, env, site, kind) {
   if (request.method !== "GET" && request.method !== "HEAD") return fail(405, "method_not_allowed", "This compatibility endpoint is read-only.");
   const url = new URL(request.url);
@@ -1516,12 +1837,18 @@ function escapeHtml(value) {
   })[character]);
 }
 
-function htmlDocument(hostname, entry, privatePreview = false, headOnly = false) {
+function htmlDocument(hostname, entry, privatePreview = false, headOnly = false, media = null, previewRevisionId = null) {
   const canonical = canonicalUrl(hostname, entry.slug, entry.kind);
   const robots = privatePreview ? "noindex, nofollow, noarchive" : "index, follow";
   const language = normalizedLanguageTag(entry.language_code) ?? "und";
-  const body = `<!doctype html><html lang="${escapeHtml(language)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="${robots}"><title>${escapeHtml(entry.title)}</title><link rel="canonical" href="${escapeHtml(canonical)}"></head><body><main><article><h1>${escapeHtml(entry.title)}</h1><div>${entry.safe_html}</div></article></main></body></html>`;
-  const headers = { "Content-Type": "text/html; charset=utf-8" };
+  const image = media
+    ? `<img src="/_mithrilpress/media/${media.id}${privatePreview ? `?revision=${encodeURIComponent(previewRevisionId)}` : ""}" alt="${escapeHtml(media.alt_text)}" loading="lazy" decoding="async">`
+    : "";
+  const body = `<!doctype html><html lang="${escapeHtml(language)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="${robots}"><title>${escapeHtml(entry.title)}</title><link rel="canonical" href="${escapeHtml(canonical)}"></head><body><main><article><h1>${escapeHtml(entry.title)}</h1>${image}<div>${entry.safe_html}</div></article></main></body></html>`;
+  const headers = {
+    "Content-Type": "text/html; charset=utf-8",
+    "Content-Security-Policy": "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'; img-src 'self'; style-src 'none'; connect-src 'none'",
+  };
   if (privatePreview) headers["X-Robots-Tag"] = "noindex, nofollow, noarchive";
   return response(headOnly ? null : body, 200, headers);
 }
@@ -1531,21 +1858,21 @@ async function publicPage(request, env, site, pathname) {
   if (!site.current_revision_id || site.status !== "active") return fail(404, "site_not_published", "This site has no published revision.");
   if (pathname === "/") {
     const home = await env.DB.prepare(
-      "SELECT kind, slug, title, safe_html, language_code, source_date FROM entries WHERE site_id = ? AND revision_id = ? AND kind = 'page' AND slug = 'home' AND publication_status = 'published' LIMIT 1",
+      "SELECT kind, slug, title, safe_html, language_code, source_date, featured_media_id FROM entries WHERE site_id = ? AND revision_id = ? AND kind = 'page' AND slug = 'home' AND publication_status = 'published' LIMIT 1",
     ).bind(site.id, site.current_revision_id).first();
-    if (home) return htmlDocument(site.hostname, home, false, request.method === "HEAD");
+    if (home) return htmlDocument(site.hostname, home, false, request.method === "HEAD", await featuredMediaForEntry(env, site, home));
     const firstPost = await env.DB.prepare(
-      "SELECT kind, slug, title, safe_html, language_code, source_date, api_id FROM entries WHERE site_id = ? AND revision_id = ? AND publication_status = 'published' ORDER BY CASE kind WHEN 'page' THEN 0 ELSE 1 END, COALESCE(source_date, '') DESC, api_id ASC LIMIT 1",
+      "SELECT kind, slug, title, safe_html, language_code, source_date, api_id, featured_media_id FROM entries WHERE site_id = ? AND revision_id = ? AND publication_status = 'published' ORDER BY CASE kind WHEN 'page' THEN 0 ELSE 1 END, COALESCE(source_date, '') DESC, api_id ASC LIMIT 1",
     ).bind(site.id, site.current_revision_id).first();
-    return firstPost ? htmlDocument(site.hostname, firstPost, false, request.method === "HEAD") : fail(404, "site_empty", "No published content is available.");
+    return firstPost ? htmlDocument(site.hostname, firstPost, false, request.method === "HEAD", await featuredMediaForEntry(env, site, firstPost)) : fail(404, "site_empty", "No published content is available.");
   }
   const rawSlug = pathname.replace(/^\/+|\/+$/g, "");
   const slug = parsePathSegment(rawSlug);
   if (!slug || !ENTRY_SLUG.test(slug)) return fail(404, "entry_not_found", "Entry not found.");
   const entry = await env.DB.prepare(
-    "SELECT kind, slug, title, safe_html, language_code, source_date FROM entries WHERE site_id = ? AND revision_id = ? AND slug = ? AND publication_status = 'published' ORDER BY CASE kind WHEN 'page' THEN 0 ELSE 1 END LIMIT 1",
+    "SELECT kind, slug, title, safe_html, language_code, source_date, featured_media_id FROM entries WHERE site_id = ? AND revision_id = ? AND slug = ? AND publication_status = 'published' ORDER BY CASE kind WHEN 'page' THEN 0 ELSE 1 END LIMIT 1",
   ).bind(site.id, site.current_revision_id, slug).first();
-  return entry ? htmlDocument(site.hostname, entry, false, request.method === "HEAD") : fail(404, "entry_not_found", "Entry not found.");
+  return entry ? htmlDocument(site.hostname, entry, false, request.method === "HEAD", await featuredMediaForEntry(env, site, entry)) : fail(404, "entry_not_found", "Entry not found.");
 }
 
 async function handleRequest(request, env) {
@@ -1612,8 +1939,28 @@ async function handleRequest(request, env) {
     return await previewRevision(request, env, site, previewMatch[1], slug);
   }
 
+  const wpMediaMatch = /^\/wp-json\/wp\/v2\/media\/(\d+)\/?$/.exec(url.pathname);
+  if (wpMediaMatch) {
+    const mediaId = Number(wpMediaMatch[1]);
+    if (!Number.isSafeInteger(mediaId) || mediaId < 1) return fail(404, "media_not_found", "Media item not found.");
+    return await wordpressMediaRead(request, env, site, mediaId);
+  }
   const wpMatch = /^\/wp-json\/wp\/v2\/(posts|pages)\/?$/.exec(url.pathname);
   if (wpMatch) return await wordpressRead(request, env, site, wpMatch[1] === "pages" ? "page" : "post");
+
+  if (url.pathname === "/_mithrilpress/api/media") return await studioMedia(request, env, site);
+  const studioMediaMatch = /^\/_mithrilpress\/api\/media\/(\d+)$/.exec(url.pathname);
+  if (studioMediaMatch) {
+    const mediaId = Number(studioMediaMatch[1]);
+    if (!Number.isSafeInteger(mediaId) || mediaId < 1) return fail(404, "media_not_found", "Media item not found.");
+    return await deleteStudioMedia(request, env, site, mediaId);
+  }
+  const mediaRouteMatch = /^\/_mithrilpress\/media\/(\d+)$/.exec(url.pathname);
+  if (mediaRouteMatch) {
+    const mediaId = Number(mediaRouteMatch[1]);
+    if (!Number.isSafeInteger(mediaId) || mediaId < 1) return fail(404, "media_not_found", "Media item not found.");
+    return await serveMedia(request, env, site, mediaId);
+  }
   if (url.pathname.startsWith("/wp-json/")) return fail(404, "rest_route_not_supported", "This WordPress-compatible route is not implemented.");
 
   return await publicPage(request, env, site, url.pathname);

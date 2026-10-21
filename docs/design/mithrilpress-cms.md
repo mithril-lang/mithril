@@ -92,7 +92,7 @@ publishing. Owner identity provisioning remains out of band.
 
 ## Cloudflare hosting
 
-The initial runtime is a single MithrilPress Worker plus D1. A proxied wildcard
+The initial runtime is a single MithrilPress Worker, D1, and R2. A proxied wildcard
 DNS record and wildcard Worker route cover `*.sites.mithril.love/*`. The Worker
 normalizes the hostname, rejects reserved and unknown labels, then looks up the
 complete hostname in D1. Host labels never grant tenant identity. Content
@@ -103,19 +103,28 @@ permissions; plaintext tokens are provisioned out of band.
 `apps/mithrilpress-worker/` provides the Worker handler, D1 migration, token
 generator, chat-first Studio assets, and non-production Wrangler example. It
 imports sanitized private drafts, supports private noindex previews and separate
-approval and publish actions, returns a read-only post/page REST subset, and
-serves minimal SSR HTML with a restrictive CSP. It stores original and
-sanitized content with a 1.8 MB encoded row budget beneath D1's documented 2 MB
-maximum row/string size. It preserves media IDs but does not yet transfer assets
-or use R2.
+approval and publish actions, returns a read-only post/page and featured-media
+REST subset, and serves minimal SSR HTML with a restrictive CSP. It stores
+original and sanitized content with a 1.8 MB encoded row budget beneath D1's
+documented 2 MB maximum row/string size. Owner-provided images use R2 with
+random site-scoped object keys and D1 metadata. Uploads check file signatures,
+declared dimensions, MIME type, and byte length. They do not fetch external
+WordPress media URLs or remove image metadata.
 
 The checked-in Wrangler example has no custom route and disables `workers.dev`.
 No Cloudflare resources, wildcard DNS, credentials, or public hostnames were
 created by this implementation. Production route configuration and deployment
 remain separate release work.
 
-The free plan is quota-bounded, not an unlimited hosting commitment. Current
-Cloudflare limits include 100,000 Worker requests per day and 10 ms CPU per
+The free plan is quota-bounded, not an unlimited hosting commitment. R2
+application caps currently allow 250 MiB per site and 8 GiB per deployment,
+50,000 reads/day, and 10,000 upload/delete operations/day. Cloudflare's R2
+Standard free tier currently includes 10 GB-month of storage, 1 million Class A
+operations, and 10 million Class B operations monthly. These allowances are
+account-wide, so the app limits do not guarantee a zero bill if other workloads
+use R2. The app has no paid fallback. See [R2 pricing](https://developers.cloudflare.com/r2/pricing/).
+
+Current Cloudflare limits include 100,000 Worker requests per day and 10 ms CPU per
 request. D1 Free currently includes 5 million rows read per day, 100,000 rows
 written per day, 5 GB total account storage, and a 500 MB maximum size for one
 free database; Workers AI includes 10,000 neurons per day. Studio caps model
@@ -125,8 +134,9 @@ has no paid fallback.
 
 D1 triggers enforce a 16 MiB retained-entry text-payload limit per site and a
 256 MiB deployment-wide payload limit across immutable revisions. The Studio
-shows the site's estimate, the shared app-level AI request count, and the
-deployment content ceiling. This estimate excludes indexes, database metadata,
+shows the site's estimate, the shared app-level AI request count, R2 image
+storage, and daily app-level image operations. The content estimate excludes
+indexes, database metadata,
 conversations, audit rows, and the physical D1 database size. Account-level
 Worker requests, D1 reads/writes/storage, and Workers AI neuron use are not
 measured in the Studio and must be monitored in Cloudflare. Provider limits can
@@ -190,11 +200,21 @@ specified in [MithrilPress domain lifecycle](mithrilpress-domain-lifecycle.md).
 `GET /wp-json/wp/v2/posts` and `/pages` expose only the currently published
 revision. They support `page`, `per_page` (1–100), `slug`, and `context=view` or
 `embed`, returning `X-WP-Total`, `X-WP-TotalPages`, and pagination `Link`
-headers. Public edit context is denied. The API does not expose media, terms,
-users, comments, custom post types, writes, or WordPress authentication plugins.
+headers. Public edit context is denied. `GET /wp-json/wp/v2/media/{id}` exposes
+metadata only for a featured image referenced by the published revision. The
+API does not expose media listings, terms, users, comments, custom post types,
+writes, or WordPress authentication plugins.
 The HTML sanitizer preserves a narrow semantic element list, removes all
 attributes except validated HTTP(S)/relative anchor links, strips comments,
-drops active subtrees, and unwraps unknown formatting tags. Images are omitted.
+drops active subtrees, and unwraps unknown formatting tags. Inline images and
+attachment URLs are omitted. A `media:write` owner can upload JPEG, PNG, GIF,
+or WebP files up to 8 MiB, with signature and dimension checks, to tenant-scoped
+R2. The image library uses a 250 MiB per-site cap, an 8 GiB per-deployment cap,
+50,000 reads/day, and 10,000 upload/delete operations/day. A published page
+serves an image only while its entry references it; private previews require a
+`revision:preview` session. Uploads do not fetch WordPress URLs or strip image
+metadata, so owners should remove GPS or other private metadata before upload.
+This supports owner-assisted featured images, not automatic media migration.
 Imported WordPress drafts, private, trashed, and future entries stay visible
 only in the authenticated preview; public pages and REST results include only
 entries whose source status was `publish`.
@@ -203,8 +223,9 @@ entries whose source status was `publish`.
 with `application/rss+xml`, `application/xml`, or `text/xml`. The importer uses
 the WXR channel link to bind the source origin, retains category/tag term IDs,
 and returns omission counts for content it does not migrate. It does not fetch
-attachment URLs; owners must review the private preview and omissions before
-publishing. This does not provide full WordPress content parity.
+attachment URLs; owners must upload image files they control and review the
+private preview and omissions before publishing. This does not provide full
+WordPress content parity.
 
 ## Outreach workflow
 

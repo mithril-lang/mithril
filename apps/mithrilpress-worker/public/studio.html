@@ -21,7 +21,7 @@
       <section id="login-panel" class="login-panel" aria-labelledby="login-title">
         <div class="eyebrow">OWNER ACCESS</div>
         <h1 id="login-title">Write and publish with a conversation</h1>
-        <p>Use a short-lived owner token. Chat and publishing require content:write, revision:preview, revision:approve, and site:publish. Custom hostnames require site:domains; DNS migration planning requires site:dns-migrate. Your token is exchanged for a one-hour, host-only browser session.</p>
+        <p>Use a short-lived owner token. Chat and publishing require content:write, revision:preview, revision:approve, and site:publish. Image uploads require media:write. Custom hostnames require site:domains; DNS migration planning requires site:dns-migrate. Your token is exchanged for a one-hour, host-only browser session.</p>
         <form id="login-form">
           <label for="owner-token">Owner token</label>
           <input id="owner-token" name="token" type="password" autocomplete="off" spellcheck="false" required>
@@ -33,6 +33,7 @@
       <section id="studio-panel" class="studio-shell" hidden>
         <nav id="studio-nav" class="studio-nav" aria-label="Studio sections">
           <button id="content-tab" class="studio-tab" type="button" aria-current="page">Content</button>
+          <button id="media-tab" class="studio-tab" type="button" aria-current="false" hidden>Media</button>
           <button id="domains-tab" class="studio-tab" type="button" aria-current="false" hidden>Domains</button>
           <button id="dns-migration-tab" class="studio-tab" type="button" aria-current="false" hidden>DNS migration</button>
           <button id="usage-tab" class="studio-tab" type="button" aria-current="false">Usage</button>
@@ -60,6 +61,12 @@
                 <option value="page">Page</option>
               </select>
             </label>
+          </div>
+
+          <div id="featured-image-control" class="featured-image-control" hidden>
+            <p id="featured-image-label" class="usage-detail">No featured image selected.</p>
+            <button id="choose-featured-image" class="button button-small" type="button">Choose image</button>
+            <button id="clear-featured-image" class="button button-small" type="button">Remove image</button>
           </div>
 
           <div id="chat-messages" class="chat-messages" role="log" aria-live="polite" aria-relevant="additions text">
@@ -91,6 +98,28 @@
           <p id="studio-status" class="status" role="status" aria-live="polite"></p>
           </section>
         </div>
+
+        <section id="media-panel" class="media-panel" aria-labelledby="media-title" hidden>
+          <div class="domains-heading">
+            <div>
+              <div class="eyebrow">OWNER-PROVIDED IMAGES</div>
+              <h1 id="media-title">Media library</h1>
+            </div>
+            <span id="media-storage-usage" class="domain-default-host"></span>
+          </div>
+          <p class="domain-guidance">Upload JPEG, PNG, GIF, or WebP images up to 8 MiB. MithrilPress checks file signatures and dimensions and stores images in tenant-scoped R2. Remove private location metadata before upload. An image becomes public when attached to published content.</p>
+          <form id="media-upload-form" class="domain-form">
+            <label for="media-file">Image file</label>
+            <input id="media-file" name="file" type="file" accept="image/jpeg,image/png,image/gif,image/webp" required>
+            <label for="media-alt">Alternative text</label>
+            <input id="media-alt" name="alt_text" type="text" maxlength="500" autocomplete="off">
+            <label for="wordpress-media-id">WordPress attachment ID (optional)</label>
+            <input id="wordpress-media-id" name="wordpress_media_id" type="number" min="1" max="999999999999999" inputmode="numeric">
+            <button id="media-upload-button" class="button button-primary" type="submit">Upload image</button>
+          </form>
+          <p id="media-status" class="status" role="status" aria-live="polite"></p>
+          <ul id="media-list" class="media-list" aria-label="Uploaded images"></ul>
+        </section>
 
         <section id="domains-panel" class="domains-panel" aria-labelledby="domains-title" hidden>
           <div class="domains-heading">
@@ -156,6 +185,10 @@
               <h2>AI drafting requests</h2>
               <p id="ai-usage" class="usage-value">Loading…</p>
               <p id="ai-usage-reset" class="usage-detail"></p>
+            </article>
+            <article class="usage-card">
+              <h2>R2 image storage and delivery</h2>
+              <p id="r2-media-usage" class="usage-detail">Loading…</p>
             </article>
           </div>
           <p id="shared-storage-limit" class="usage-detail"></p>

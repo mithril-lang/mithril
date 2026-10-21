@@ -2,7 +2,7 @@
 
 This package is the first host adapter for the MithrilPress content
 model in `src/mithril/sites_cms.cljk` and `ontology/sites-cms-v1.mith`. It uses
-Cloudflare D1 and serves only an explicitly published tenant revision.
+Cloudflare D1 and R2, and serves only an explicitly published tenant revision.
 
 ## Supported in this slice
 
@@ -15,6 +15,10 @@ Cloudflare D1 and serves only an explicitly published tenant revision.
 - Chat-first MithrilPress Studio for creating one post or page draft, revising it
   in a conversation, opening a private preview, and separately approving and
   publishing it.
+- Owner-provided JPEG, PNG, GIF, and WebP image uploads to tenant-scoped R2,
+  with byte and dimension checks, per-site and deployment storage caps, daily
+  read/write caps, and explicit featured-image selection. Uploads never fetch
+  URLs from WordPress or elsewhere.
 - Short-lived, host-only browser sessions exchanged from a scoped owner token;
   conversation messages and AI drafts remain in the tenant's D1 database until
   the owner deletes the conversation.
@@ -23,7 +27,8 @@ Cloudflare D1 and serves only an explicitly published tenant revision.
 - Read-only WordPress REST-compatible `GET` endpoints for public posts/pages,
   including pagination headers. Public `edit` context is denied.
 - A minimal server-rendered page route with a restrictive CSP and no theme,
-  plugin, shortcode, script, style, form, media, or dynamic-block execution.
+  plugin, shortcode, script, style, form, inline media, or dynamic-block
+  execution. A separately validated featured image may be rendered from R2.
 
 The Worker adapter currently duplicates the pure Mithril module's record
 normalization because this repository does not yet package its ClojureScript
@@ -48,6 +53,15 @@ not a production deployment config. Production routing, real D1 IDs, zone
 ownership, wildcard DNS, exact-source standalone qualification, rollback, and
 live read-back remain release gates.
 
+The R2 adapter stores objects with random site-scoped keys and keeps metadata
+and ownership references in D1. The application caps storage at 250 MiB per
+site and 8 GiB per deployment, with 50,000 reads and 10,000 upload/delete
+operations per UTC day. Cloudflare's R2 Standard free tier currently includes
+10 GB-month storage, 1 million Class A operations, and 10 million Class B
+operations per month; those allowances are account-wide and shared with other
+workloads. The application caps do not guarantee a zero bill when the account
+has other R2 usage. No paid fallback is configured. See [R2 pricing](https://developers.cloudflare.com/r2/pricing/).
+
 ## Tenant provisioning data
 
 Insert a site with an owner-approved source origin:
@@ -62,12 +76,15 @@ and a separate random 16-byte salt. Store the SHA-256 hex digest of
 `<salt-hex>.<secret>`, not the full token. Include every generated field except
 `token` when inserting the row, including `expires_at`; generated tokens expire
 after 24 hours. Allowed scopes are
-`content:import`, `content:write`, `revision:preview`, `revision:approve`,
+`content:import`, `content:write`, `media:write`, `revision:preview`, `revision:approve`,
 `site:publish`, `site:domains`, and `site:dns-migrate`. The Studio owner token needs `content:write` to create drafts,
 `revision:preview` to open previews, `revision:approve` to approve a revision,
 `site:publish` to publish it. A domain-only Studio token may use `site:domains`
 without granting content editing. Keep import-only automation on a separate
-`content:import` token. Revoke early by setting `revoked_at`.
+`content:import` token. Image upload and library management use the separate
+`media:write` scope. An owner can combine it with `content:write` to select
+featured images. This scope does not grant content editing or publication.
+Revoke early by setting `revoked_at`.
 DNS planning is a separate high-impact owner scope. It grants access to private
 zone snapshots and owner approval of a manual cutover plan; it does not grant
 Cloudflare API or registrar credentials.
@@ -86,12 +103,15 @@ and content row within its owning site.
 | Method | Path | Auth | Behavior |
 | --- | --- | --- | --- |
 | `POST` | `/api/wordpress/import` | `content:import` | Import JSON `{ "source_site": "https://…", "records": [...] }` or a raw `application/rss+xml`, `application/xml`, or `text/xml` WXR 1.2 export into a private sanitized revision. WXR source origin is read from `<channel><link>`. |
-| `GET` / `POST` / `DELETE` | `/_mithrilpress/api/studio/session` | `content:write` for sign-in/status/logout | Exchange a short-lived owner token for a one-hour browser session, inspect it, or revoke it. |
+| `GET` / `POST` / `DELETE` | `/_mithrilpress/api/studio/session` | `content:write`, `media:write`, `site:domains`, or `site:dns-migrate` | Exchange a short-lived owner token for a one-hour browser session, inspect it, or revoke it. |
 | `GET` | `/_mithrilpress/studio` | public shell; noindex | Open the chat-first post/page Studio. The API requires a site-owner session. |
 | `POST` | `/_mithrilpress/api/studio/chat` | `content:write` | Generate or revise one private draft; no model response is published. |
 | `GET` | `/_mithrilpress/api/studio/conversations` and `/_mithrilpress/api/studio/conversations/{id}` | `content:write` | Read the signed-in owner's conversation history. |
 | `DELETE` | `/_mithrilpress/api/studio/conversations/{id}` | `content:write` | Delete the conversation and its unpublished draft. Published revisions remain intact. |
-| `GET` | `/_mithrilpress/api/studio/usage` | `content:write` or `site:domains` | Show this site's retained content estimate and the shared daily app-level AI drafting count. |
+| `GET` | `/_mithrilpress/api/studio/usage` | `content:write`, `media:write`, or `site:domains` | Show this site's retained content, R2 image storage, and shared daily app-level usage. |
+| `GET` / `POST` | `/_mithrilpress/api/media` | `media:write` | List the tenant's image library or upload a bounded JPEG, PNG, GIF, or WebP image directly to R2. |
+| `DELETE` | `/_mithrilpress/api/media/{id}` | `media:write` | Hide and remove an image; published content referencing it will render without the image. |
+| `GET` / `HEAD` | `/_mithrilpress/media/{id}` | public only when referenced by the published revision; owner preview otherwise | Serve an image only while referenced by published content or the authenticated owner's preview/library. |
 | `GET` | `/_mithrilpress/preview/{revision-id}/{slug}` | `revision:preview` | View sanitized revision HTML with `noindex` headers. |
 | `POST` | `/_mithrilpress/api/revisions/{revision-id}/approve` | `revision:approve` | Record owner approval for a complete sanitized revision. |
 | `POST` | `/_mithrilpress/api/revisions/{revision-id}/publish` | `site:publish` | Make the approved revision the public site revision. |
@@ -109,13 +129,16 @@ and content row within its owning site.
 | `POST` | `/_mithrilpress/api/dns-migrations/{id}/verify-rollback` | `site:dns-migrate` | Check restored source NS and DS state through the same resolvers. |
 | `GET` | `/wp-json/wp/v2/posts` | public | Read the current published posts only. |
 | `GET` | `/wp-json/wp/v2/pages` | public | Read the current published pages only. |
+| `GET` | `/wp-json/wp/v2/media/{id}` | public | Read metadata for a currently published featured image only. |
 | `GET` | `/{slug}/` | public | Render one published page or post. |
 
 The HTML sanitizer keeps a small semantic tag allowlist, removes all attributes
 except validated HTTP(S) or relative anchor links, removes comments, and drops
-active content subtrees. Images/assets are intentionally omitted in this
-slice; imported source HTML is retained for reconciliation. Sanitization does
-not make WordPress themes, dynamic Gutenberg blocks, plugins, or PHP compatible.
+active content subtrees. Inline images and attachment URLs from imported source
+HTML are omitted. Owners can upload files they control, supply their original
+WordPress attachment IDs, and select a featured image; MithrilPress does not
+fetch WordPress URLs or import arbitrary media. Sanitization does not make
+WordPress themes, dynamic Gutenberg blocks, plugins, or PHP compatible.
 The Worker enforces a conservative 1.8 MB encoded-size budget for each content
 row, below Cloudflare D1's documented 2 MB maximum row/string size.
 Imported non-public WordPress statuses remain available only in the private

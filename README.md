@@ -2664,11 +2664,12 @@ See [independent subpath qualification](test/qualification/native-esm-subpaths/R
 
 MithrilPress is the repository's early open-source CMS and WordPress migration
 prototype. It builds on the Mithril content ontology and pure import boundary,
-with a Cloudflare Worker/D1 adapter for `*.sites.mithril.love`. The current slice
-imports owner-authorized WordPress posts and pages as private drafts, provides
-authenticated noindex previews and separate approval/publication steps, and
-serves a limited read-only WordPress REST-compatible API. It does not claim PHP,
-theme, plugin, shortcode, media-transfer, or full Gutenberg parity. See the
+with a Cloudflare Worker, D1, and R2 adapter for `*.sites.mithril.love`. The
+current slice imports owner-authorized WordPress posts and pages as private
+drafts, provides authenticated noindex previews and separate
+approval/publication steps, supports owner-provided featured images, and serves
+a limited read-only WordPress REST-compatible API. It does not claim PHP,
+theme, plugin, shortcode, automated media-transfer, or full Gutenberg parity. See the
 [MithrilPress design](docs/design/mithrilpress-cms.md) and
 [Worker package](apps/mithrilpress-worker/README.md). It is not yet deployed or
 qualified for release.

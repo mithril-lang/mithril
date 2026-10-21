@@ -2,6 +2,8 @@ const requestHeader = { "X-MithrilPress-Request": "1" };
 let activeConversationId = null;
 let activeDraft = null;
 let ownerScopes = [];
+let selectedFeaturedMediaId = null;
+let mediaItems = [];
 
 const loginPanel = document.querySelector("#login-panel");
 const studioPanel = document.querySelector("#studio-panel");
@@ -16,6 +18,11 @@ const draftTitle = document.querySelector("#draft-title");
 const draftState = document.querySelector("#draft-state");
 const contentPanel = document.querySelector("#content-panel");
 const contentTab = document.querySelector("#content-tab");
+const mediaPanel = document.querySelector("#media-panel");
+const mediaTab = document.querySelector("#media-tab");
+const mediaList = document.querySelector("#media-list");
+const mediaStatus = document.querySelector("#media-status");
+const featuredImageControl = document.querySelector("#featured-image-control");
 const domainsPanel = document.querySelector("#domains-panel");
 const domainsTab = document.querySelector("#domains-tab");
 const dnsMigrationPanel = document.querySelector("#dns-migration-panel");
@@ -57,22 +64,27 @@ function showStatus(target, message = "") {
 
 function showStudioView(name) {
   const canContent = ownerScopes.includes("content:write");
+  const canMedia = ownerScopes.includes("media:write");
   const canDomains = ownerScopes.includes("site:domains");
   const canDnsMigration = ownerScopes.includes("site:dns-migrate");
-  const canUsage = canContent || canDomains;
+  const canUsage = canContent || canMedia || canDomains;
   const showUsage = canUsage && name === "usage";
-  const showDnsMigration = canDnsMigration && (name === "dns-migration" || (!canContent && !canDomains && !showUsage));
-  const showDomains = canDomains && (name === "domains" || (!canContent && !showUsage && !showDnsMigration));
-  const showContent = canContent && !showDomains && !showUsage && !showDnsMigration;
+  const showDnsMigration = canDnsMigration && (name === "dns-migration" || (!canContent && !canMedia && !canDomains && !showUsage));
+  const showDomains = canDomains && (name === "domains" || (!canContent && !canMedia && !showUsage && !showDnsMigration));
+  const showMedia = canMedia && (name === "media" || (!canContent && !canDomains && !canDnsMigration && !showUsage));
+  const showContent = canContent && !showDomains && !showUsage && !showDnsMigration && !showMedia;
   contentTab.hidden = !canContent;
+  mediaTab.hidden = !canMedia;
   domainsTab.hidden = !canDomains;
   dnsMigrationTab.hidden = !canDnsMigration;
   usageTab.hidden = !canUsage;
   contentPanel.hidden = !showContent;
+  mediaPanel.hidden = !showMedia;
   domainsPanel.hidden = !showDomains;
   dnsMigrationPanel.hidden = !showDnsMigration;
   usagePanel.hidden = !showUsage;
   contentTab.setAttribute("aria-current", showContent ? "page" : "false");
+  mediaTab.setAttribute("aria-current", showMedia ? "page" : "false");
   domainsTab.setAttribute("aria-current", showDomains ? "page" : "false");
   dnsMigrationTab.setAttribute("aria-current", showDnsMigration ? "page" : "false");
   usageTab.setAttribute("aria-current", showUsage ? "page" : "false");
@@ -82,7 +94,16 @@ function setOwnerScopes(scopes = []) {
   ownerScopes = Array.isArray(scopes) ? scopes : [];
   defaultHostname.textContent = "";
   showStudioView(ownerScopes.includes("content:write") ? "content"
-    : ownerScopes.includes("site:domains") ? "domains" : "dns-migration");
+    : ownerScopes.includes("media:write") ? "media"
+      : ownerScopes.includes("site:domains") ? "domains" : "dns-migration");
+  featuredImageControl.hidden = !ownerScopes.includes("content:write") || !ownerScopes.includes("media:write");
+  renderFeaturedImageSelection();
+}
+
+function renderFeaturedImageSelection() {
+  const label = document.querySelector("#featured-image-label");
+  const selected = mediaItems.find((item) => item.id === selectedFeaturedMediaId);
+  label.textContent = selected ? `Featured image: ${selected.alt_text || `Image ${selected.id}`}` : "No featured image selected.";
 }
 
 function clearMessages() {
@@ -115,6 +136,8 @@ function showDraft(draft, revisionId, state, previewUrl) {
 
 function resetConversation() {
   activeConversationId = null;
+  selectedFeaturedMediaId = null;
+  renderFeaturedImageSelection();
   document.querySelector("#delete-conversation").hidden = true;
   document.querySelector("#editor-title").textContent = "What should we write?";
   clearMessages();
@@ -159,6 +182,8 @@ async function openConversation(id) {
     clearMessages();
     for (const message of result.conversation.messages) renderMessage(message.role, message.body);
     if (result.conversation.draft) {
+      selectedFeaturedMediaId = result.conversation.draft.featured_media_id ?? null;
+      renderFeaturedImageSelection();
       showDraft(result.conversation.draft, result.conversation.draft_revision_id, result.conversation.draft_state);
       document.querySelector("#content-kind").value = result.conversation.draft.kind;
       document.querySelector("#send-button").textContent = "Update draft";
@@ -182,9 +207,10 @@ async function signIn(token) {
   showStatus(loginStatus);
   showStatus(studioStatus, `Signed in as ${result.owner}.`);
   if (ownerScopes.includes("content:write")) await refreshConversations();
+  if (ownerScopes.includes("media:write")) await refreshMedia();
   if (ownerScopes.includes("site:domains")) await refreshDomains();
   if (ownerScopes.includes("site:dns-migrate")) await refreshDnsMigrations();
-  if (ownerScopes.includes("content:write") || ownerScopes.includes("site:domains")) await refreshUsage();
+  if (ownerScopes.includes("content:write") || ownerScopes.includes("media:write") || ownerScopes.includes("site:domains")) await refreshUsage();
 }
 
 function addDomainRecord(card, record, label) {
@@ -265,7 +291,7 @@ async function refreshDomains() {
 }
 
 async function refreshUsage() {
-  if (!ownerScopes.includes("content:write") && !ownerScopes.includes("site:domains")) return;
+  if (!ownerScopes.includes("content:write") && !ownerScopes.includes("media:write") && !ownerScopes.includes("site:domains")) return;
   const target = document.querySelector("#usage-status");
   showStatus(target);
   try {
@@ -282,8 +308,81 @@ async function refreshUsage() {
     document.querySelector("#shared-storage-limit").textContent = `Shared retained-content ceiling: ${(sharedLimit / (1024 * 1024)).toFixed(0)} MiB across this hosting deployment. Aggregate usage is managed by the host operator.`;
     document.querySelector("#ai-usage").textContent = `${result.ai_drafting.requests_used} of ${result.ai_drafting.daily_app_limit} shared requests today (UTC)`;
     document.querySelector("#ai-usage-reset").textContent = `Resets at ${result.ai_drafting.resets_at_utc}.`;
+    const media = result.r2_media;
+    const mediaUsed = (Number(media.site_used_bytes) / (1024 * 1024)).toFixed(2);
+    const mediaLimit = (Number(media.site_limit_bytes) / (1024 * 1024)).toFixed(0);
+    document.querySelector("#media-storage-usage").textContent = `${mediaUsed} MiB of ${mediaLimit} MiB used`;
+    document.querySelector("#r2-media-usage").textContent = `${mediaUsed} MiB of ${mediaLimit} MiB for this site; ${media.daily_reads_used}/${media.daily_reads_limit} reads and ${media.daily_uploads_and_deletes_used}/${media.daily_uploads_and_deletes_limit} uploads/deletes today (UTC).`;
   } catch (error) {
     showStatus(target, error.message);
+  }
+}
+
+function renderMediaItem(item) {
+  const card = document.createElement("li");
+  card.className = "media-card";
+  const image = document.createElement("img");
+  image.className = "media-preview";
+  image.src = `/_mithrilpress/media/${item.id}`;
+  image.alt = item.alt_text || "";
+  image.loading = "lazy";
+  const details = document.createElement("div");
+  details.className = "media-details";
+  const title = document.createElement("strong");
+  title.textContent = item.alt_text || `Image ${item.id}`;
+  const metadata = document.createElement("span");
+  metadata.textContent = `${item.content_type} · ${item.width} × ${item.height} · ${(item.byte_length / 1024).toFixed(1)} KiB`;
+  details.append(title, metadata);
+  const actions = document.createElement("div");
+  actions.className = "media-actions";
+  if (ownerScopes.includes("content:write")) {
+    actions.append(domainButton(selectedFeaturedMediaId === item.id ? "Selected" : "Use as featured image", "button-secondary", () => {
+      selectedFeaturedMediaId = item.id;
+      renderFeaturedImageSelection();
+      renderMediaList();
+      showStudioView("content");
+      showStatus(studioStatus, "Featured image selected for this draft. Save the draft to keep the change.");
+    }));
+  }
+  actions.append(domainButton("Delete", "domain-remove", async () => {
+    if (!window.confirm("Delete this image? Content that uses it may display without an image.")) return;
+    try {
+      await api(`/_mithrilpress/api/media/${item.id}`, { method: "DELETE", headers: requestHeader });
+      if (selectedFeaturedMediaId === item.id) selectedFeaturedMediaId = null;
+      await refreshMedia();
+      renderFeaturedImageSelection();
+    } catch (error) {
+      showStatus(mediaStatus, error.message);
+    }
+  }));
+  card.append(image, details, actions);
+  return card;
+}
+
+function renderMediaList() {
+  mediaList.replaceChildren();
+  for (const item of mediaItems) mediaList.append(renderMediaItem(item));
+  if (!mediaItems.length) {
+    const empty = document.createElement("li");
+    empty.className = "empty-state";
+    empty.textContent = "No images have been uploaded.";
+    mediaList.append(empty);
+  }
+  renderFeaturedImageSelection();
+}
+
+async function refreshMedia() {
+  if (!ownerScopes.includes("media:write")) return;
+  showStatus(mediaStatus);
+  try {
+    const result = await api("/_mithrilpress/api/media");
+    mediaItems = result.media || [];
+    const used = (Number(result.storage.used_bytes) / (1024 * 1024)).toFixed(2);
+    const limit = (Number(result.storage.site_limit_bytes) / (1024 * 1024)).toFixed(0);
+    document.querySelector("#media-storage-usage").textContent = `${used} MiB of ${limit} MiB used`;
+    renderMediaList();
+  } catch (error) {
+    showStatus(mediaStatus, error.message);
   }
 }
 
@@ -589,6 +688,8 @@ document.querySelector("#logout-button").addEventListener("click", async () => {
     document.querySelector("#logout-button").hidden = true;
     setOwnerScopes([]);
     resetConversation();
+    mediaItems = [];
+    renderMediaList();
     conversationList.replaceChildren();
     domainList.replaceChildren();
     dnsMigrationList.replaceChildren();
@@ -599,6 +700,20 @@ document.querySelector("#logout-button").addEventListener("click", async () => {
 });
 
 document.querySelector("#content-tab").addEventListener("click", () => showStudioView("content"));
+mediaTab.addEventListener("click", async () => {
+  if (!ownerScopes.includes("media:write")) return;
+  showStudioView("media");
+  await refreshMedia();
+});
+document.querySelector("#choose-featured-image").addEventListener("click", async () => {
+  showStudioView("media");
+  await refreshMedia();
+});
+document.querySelector("#clear-featured-image").addEventListener("click", () => {
+  selectedFeaturedMediaId = null;
+  renderFeaturedImageSelection();
+  showStatus(studioStatus, "The featured image will be cleared when you save this draft.");
+});
 domainsTab.addEventListener("click", async () => {
   if (!ownerScopes.includes("site:domains")) return;
   showStudioView("domains");
@@ -610,9 +725,45 @@ dnsMigrationTab.addEventListener("click", async () => {
   await refreshDnsMigrations();
 });
 usageTab.addEventListener("click", async () => {
-  if (!ownerScopes.includes("content:write") && !ownerScopes.includes("site:domains")) return;
+  if (!ownerScopes.includes("content:write") && !ownerScopes.includes("media:write") && !ownerScopes.includes("site:domains")) return;
   showStudioView("usage");
   await refreshUsage();
+});
+
+document.querySelector("#media-upload-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const file = document.querySelector("#media-file").files[0];
+  const altText = document.querySelector("#media-alt").value;
+  const wordpressId = document.querySelector("#wordpress-media-id").value.trim();
+  if (!file) return;
+  if (file.size > 8 * 1024 * 1024) {
+    showStatus(mediaStatus, "Choose an image smaller than 8 MiB.");
+    return;
+  }
+  const button = document.querySelector("#media-upload-button");
+  button.disabled = true;
+  showStatus(mediaStatus, "Uploading and validating image…");
+  const headers = {
+    "Content-Type": file.type,
+    "X-MithrilPress-Request": "1",
+    "X-MithrilPress-Alt": encodeURIComponent(altText),
+  };
+  if (wordpressId) headers["X-WordPress-Media-ID"] = wordpressId;
+  try {
+    const response = await fetch("/_mithrilpress/api/media", {
+      method: "POST", headers, body: file, credentials: "same-origin",
+    });
+    const result = response.headers.get("Content-Type")?.includes("application/json") ? await response.json() : null;
+    if (!response.ok) throw new Error(result?.error?.message || `Upload failed (${response.status}).`);
+    document.querySelector("#media-upload-form").reset();
+    showStatus(mediaStatus, "Image uploaded to this site's private media library.");
+    await refreshMedia();
+    await refreshUsage();
+  } catch (error) {
+    showStatus(mediaStatus, error.message);
+  } finally {
+    button.disabled = false;
+  }
 });
 
 document.querySelector("#dns-migration-form").addEventListener("submit", async (event) => {
@@ -750,6 +901,7 @@ document.querySelector("#publish-button").addEventListener("click", async () => 
       document.querySelector("#logout-button").hidden = false;
       showStatus(studioStatus, `Signed in as ${session.owner}.`);
       if (ownerScopes.includes("content:write")) await refreshConversations();
+      if (ownerScopes.includes("media:write")) await refreshMedia();
       if (ownerScopes.includes("site:domains")) await refreshDomains();
       if (ownerScopes.includes("site:dns-migrate")) await refreshDnsMigrations();
       await refreshUsage();

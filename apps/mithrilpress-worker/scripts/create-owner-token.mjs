@@ -3,6 +3,7 @@ import { createHash, randomBytes } from "node:crypto";
 const scopesAllowed = new Set([
   "content:import",
   "content:write",
+  "media:write",
   "revision:preview",
   "revision:approve",
   "site:publish",
