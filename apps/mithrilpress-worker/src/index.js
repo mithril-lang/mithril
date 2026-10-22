@@ -47,12 +47,7 @@ const ENTRY_SLUG = /^[^/?#\\\u0000-\u001f\u007f]{1,200}$/;
 const mithrilHostnameCore = instantiateMithrilNative({});
 const mithrilContentBoundary = instantiateContentBoundary({ Array, Number, Set });
 const mithrilMigrationPolicy = instantiateMigrationPolicy({});
-const HTML_TAGS = new Set([
-  "a", "b", "blockquote", "br", "code", "dd", "del", "div", "dl", "dt",
-  "em", "figcaption", "figure", "h1", "h2", "h3", "h4", "h5", "h6", "hr",
-  "i", "ins", "li", "ol", "p", "pre", "s", "span", "strong", "sub", "sup",
-  "table", "tbody", "td", "th", "thead", "tr", "u", "ul",
-]);
+const HTML_TAGS = new Set(mithrilContentBoundary.staticHtmlTags());
 const DROP_SUBTREE_TAGS = new Set([
   "audio", "button", "canvas", "embed", "form", "iframe", "input", "link",
   "math", "meta", "noscript", "object", "option", "script", "select", "source",
