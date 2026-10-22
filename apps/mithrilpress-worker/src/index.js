@@ -8,6 +8,7 @@ import { selectWordPressSeoMetadata } from "./wordpress_seo.js";
 import { parseWordPressWxr } from "./wxr_import.js";
 
 const SITE_ZONE = "sites.mithril.love";
+const CONTROL_HOST = "control.mithril.love";
 const CUSTOM_DOMAIN_LIMIT_PER_SITE = 10;
 const CUSTOM_DOMAIN_LIMIT_PER_DEPLOYMENT = 90;
 const CUSTOM_DOMAIN_HEALTH_BATCH_SIZE = 30;
@@ -2651,6 +2652,7 @@ async function handleRequest(request, env) {
   const controlPublicationCurrentMatch = /^\/_mithrilpress\/api\/control\/sites\/([a-f0-9-]{36})\/publication\/current$/.exec(url.pathname);
   const controlPublicationMediaMatch = /^\/_mithrilpress\/api\/control\/sites\/([a-f0-9-]{36})\/publication\/revisions\/([a-f0-9-]{36})\/media\/(\d+)$/.exec(url.pathname);
   if (controlPublicationCurrentMatch || controlPublicationMediaMatch) {
+    if (url.hostname !== CONTROL_HOST) return fail(404, "site_not_found", "Site not found.");
     if (url.search) return fail(400, "invalid_publication_request", "Publication control requests do not accept query parameters.");
     const siteId = controlPublicationCurrentMatch?.[1] ?? controlPublicationMediaMatch[1];
     const site = await env.DB.prepare(
