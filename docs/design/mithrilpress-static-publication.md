@@ -17,9 +17,13 @@ This could keep normal visitor traffic out of the metered CMS runtime while
 leaving chat, import, preview, approval, and publishing on the authenticated
 control plane.
 
-References: [Static Assets](https://developers.cloudflare.com/workers/static-assets/),
+References:
+[Static Assets](https://developers.cloudflare.com/workers/static-assets/),
 [Static Assets billing and limits](https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/),
-and [Workers best practices](https://developers.cloudflare.com/workers/best-practices/workers-best-practices/).
+[Workers best practices](https://developers.cloudflare.com/workers/best-practices/workers-best-practices/),
+[Workers limits](https://developers.cloudflare.com/workers/platform/limits/),
+[Workers route fail-open API field](https://developers.cloudflare.com/changelog/post/2025-04-15-workers-api-fixes/),
+and [R2 pricing](https://developers.cloudflare.com/r2/pricing/).
 
 ## Candidate topology
 
@@ -83,8 +87,8 @@ Before production, prove all of the following:
   public rewriting and continue to reach the dynamic Worker with their current
   authentication, noindex, same-origin, audit, and tenant-boundary checks.
 * Wildcard route matching and precedence between static and dynamic routes are
-  read back on an isolated zone. The current `fund-mithril` parent zone has no
-  Transform Rules entrypoint or Worker route.
+  read back on an isolated zone. The current parent zone has no Transform
+  Rules entrypoint or Worker route.
 
 Do not rely on path-prefix isolation until the traversal and normalization
 cases above have been demonstrated. URL rewriting changes only the path; it
@@ -139,13 +143,37 @@ public files. It does not make the editor, dynamic REST endpoints, D1, AI, or
 R2 free or unlimited. It does not replace the user-facing app caps, provider
 plan read-back, backup, rollback, or standalone qualification.
 
-The user selected Cloudflare account `fund-mithril`. A read-only inventory on
-2026-10-22 found the active `mithril.love` parent zone on the Free Website plan,
-38 existing Worker scripts, 7 D1 databases, and 19 R2 buckets. None was named
-for MithrilPress. There is no MithrilPress route, DNS record, Transform Rules
-entrypoint, or rate-limit ruleset. Billing Read is not available through the
-current Cloudflare connection, so the Workers subscription is unverified. Do
-not change that account's plan or enable a paid product as part of this design.
+Cloudflare documents static asset requests as free and unlimited, but bundle
+size remains bounded: Workers Free allows 20,000 files per Worker version and
+25 MiB per file; Paid allows more files, while the per-file limit remains
+25 MiB. Set publisher caps below the plan limit read back for the target
+account. Static assets packaged in a Worker version do not consume the
+MithrilPress R2 media allowance; any upload or media path backed by R2 still
+does.
+
+The dynamic Worker has a separate account-wide daily request limit on Workers
+Free (100,000 requests); at the limit Cloudflare can fail a route open or
+closed. Every security-sensitive route must be created with
+`request_limit_fail_open: false` and that setting must be read back before
+enablement. Do not rely on the application request cap as a provider cost stop:
+it runs only after the Worker starts, and Workers Paid has no daily request
+limit.
+
+R2's included Standard allowance is account-wide: 10 GB-month of storage, 1
+million Class A operations, and 10 million Class B operations per month.
+Usage above those allowances is billed, and R2 does not provide a hard stop at
+the included limits. A MithrilPress per-site cap cannot guarantee zero
+provider overage when unrelated workloads share the account. Keep R2-backed
+uploads and delivery disabled until aggregate usage and a provider-enforced
+cost boundary are verified; use a separately bounded storage plane if that
+boundary is unavailable.
+
+On 2026-10-22, a read-only inventory found the proposed `mithril.love` parent
+zone on the Free Website plan, with no MithrilPress route, DNS record,
+Transform Rules entrypoint, or rate-limit ruleset. Billing Read is not
+available through the current Cloudflare connection, so the account-level
+Workers subscription is unverified. Do not infer the Workers plan, change an
+account plan, or enable a paid product as part of this design.
 
 The design requires an isolated-zone proof, exact-source standalone
 qualification, capacity limits, a signed artifact, rollback evidence, and live
