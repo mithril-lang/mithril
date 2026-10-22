@@ -171,20 +171,21 @@ The fixed Pages Function serves the read-only WordPress REST subset at
 the publisher verifies that only this REST route invokes Functions and reads
 back posts, pages, taxonomies, and media through the live HTTPS API. The
 published static data contains only the owner-approved public revision. REST
-search matches titles on this static path; the Worker API retains its broader
-search behavior.
+search matches published titles on this static path; the authenticated Worker
+API retains its broader search behavior.
 
-All other routes are excluded from Function invocation, so HTML and media keep
-the Pages static-asset request model. The REST routes consume Pages Functions
-requests. Cloudflare documents a daily free request limit and a per-project
-fail-open/fail-closed control. Before publishing, verify the `fund-mithril`
-account is on Workers Free and set the Pages project to fail-closed in
-**Settings > Runtime > Fail open / closed**. The publisher requires the
-operator attestations `MITHRILPRESS_FUNCTIONS_PLAN_CONFIRMATION=workers-free`
-and `MITHRILPRESS_FUNCTIONS_EXHAUSTION_CONFIRMATION=fail-closed` on every
-publication; these values do not replace checking the account and project
-settings in Cloudflare. Paid/Standard plans or fail-open settings are not
-eligible for the no-overage hosting path.
+All other routes stay on Pages static assets, whose requests are free and
+unlimited. Each REST Function request increments the same trigger-enforced D1
+request counters as the MithrilPress Worker: 5,000 requests per site/day and
+25,000 requests across the deployment/day. The publisher verifies the exact
+`mithrilpress` D1 database in the pinned account and binds it as `DB` on a new
+Pages project before the first deployment. The Function checks both counters
+before filtering or returning content and fails closed when D1 is unavailable
+or a limit is reached. The digest covers both the Function and its shared quota
+helper. Site owners are never charged; Pages Function requests are still
+metered to the operator, and application caps are not a provider billing cap
+on a Workers Paid account. Each over-cap REST attempt still invokes a metered
+Function to read the application counter.
 
 The publisher refuses `_worker.js`, arbitrary Functions routes, extra files,
 symlinks, and bundles above the existing 5,000-file / 300 MB product caps.
@@ -199,7 +200,15 @@ account (the hosted MithrilPress profile must select `fund-mithril`). Initial
 publication also requires `CLOUDFLARE_ZONE_ID` to match the separately pinned
 `MITHRILPRESS_EXPECTED_CLOUDFLARE_ZONE_ID`. The zone must read back as
 `mithril.love` and belong to that account. The token needs Pages Read and Write
-for the account, Zone Read for the zone, and DNS Read and Write for the zone.
+and D1 Read for the account, Zone Read for the zone, and DNS Read and Write
+for the zone. The deployment profile pins
+`MITHRILPRESS_EXPECTED_D1_DATABASE_ID`; the command requires the matching
+`MITHRILPRESS_D1_DATABASE_ID` and verifies that the database is named
+`mithrilpress` in the same account before using it. The Pages production
+configuration must read back the exact `DB` binding. The publisher does not
+claim to configure or verify Cloudflare's separate request-limit exhaustion
+behavior; the application quota stops content responses, not Worker request
+metering.
 The command also requires the owner token, the reviewed revision UUID, a path
 to the previous successful receipt, and a new receipt path. For the initial
 publish, the previous-receipt path is a new file for the verified placeholder
@@ -216,8 +225,8 @@ MITHRILPRESS_SITE_ID=00000000-0000-4000-8000-000000000000 \
 MITHRILPRESS_EXPECTED_REVISION=00000000-0000-4000-8000-000000000001 \
 MITHRILPRESS_EXPECTED_CLOUDFLARE_ACCOUNT_ID=<pinned-account-id> \
 MITHRILPRESS_EXPECTED_CLOUDFLARE_ZONE_ID=<pinned-mithril-love-zone-id> \
-MITHRILPRESS_FUNCTIONS_PLAN_CONFIRMATION=workers-free \
-MITHRILPRESS_FUNCTIONS_EXHAUSTION_CONFIRMATION=fail-closed \
+MITHRILPRESS_D1_DATABASE_ID=<mithrilpress-d1-id> \
+MITHRILPRESS_EXPECTED_D1_DATABASE_ID=<pinned-mithrilpress-d1-id> \
 MITHRILPRESS_PREVIOUS_RECEIPT_PATH=/secure/evidence/placeholder.json \
 MITHRILPRESS_PUBLISH_RECEIPT_PATH=/secure/evidence/first-publish.json \
 MITHRILPRESS_SCRATCH_DIR=/path/to/existing-scratch-directory \
@@ -232,8 +241,9 @@ the previous successful publication receipt:
 MITHRILPRESS_CONTROL_URL=https://control.mithril.love \
 MITHRILPRESS_SITE_ID=00000000-0000-4000-8000-000000000000 \
 MITHRILPRESS_EXPECTED_REVISION=00000000-0000-4000-8000-000000000002 \
-MITHRILPRESS_FUNCTIONS_PLAN_CONFIRMATION=workers-free \
-MITHRILPRESS_FUNCTIONS_EXHAUSTION_CONFIRMATION=fail-closed \
+MITHRILPRESS_EXPECTED_CLOUDFLARE_ACCOUNT_ID=<pinned-account-id> \
+MITHRILPRESS_D1_DATABASE_ID=<mithrilpress-d1-id> \
+MITHRILPRESS_EXPECTED_D1_DATABASE_ID=<pinned-mithrilpress-d1-id> \
 MITHRILPRESS_SCRATCH_DIR=/path/to/existing-scratch-directory \
 MITHRILPRESS_PREVIOUS_RECEIPT_PATH=/secure/evidence/previous.json \
 MITHRILPRESS_PUBLISH_RECEIPT_PATH=/secure/evidence/next.json \

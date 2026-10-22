@@ -1,7 +1,8 @@
 # MithrilPress static publication plane
 
-**Status: local artifact export, a guarded Direct Upload updater, and an
-explicit first-publish mode are implemented; none is qualified or deployed.**
+**Status: local artifact export, a guarded Direct Upload updater, an explicit
+first-publish mode, and a fixed read-only REST Function with shared D1 request
+caps are implemented on the current unqualified branch; none is deployed.**
 The Worker exposes a
 `site:publish`-scoped digest-bound snapshot and referenced-media endpoint,
 `apps/mithrilpress-worker/scripts/export-static-pages.mjs` builds a local static
@@ -12,7 +13,8 @@ CNAME when no conflicting DNS record exists, and wait for domain/TLS/HTTPS
 read-back before deploying owner-approved content. Later updates perform full
 HTTPS asset read-back and attempt a guarded rollback on failure. This source
 has not been qualified or deployed. No MithrilPress Pages project, DNS record,
-custom domain, or Worker route has been created.
+custom domain, Worker route, or MithrilPress D1 database exists in the selected
+`fund-mithril` account.
 
 ## Why split public delivery from the editor
 
@@ -22,8 +24,9 @@ static files without invoking a Function; those requests are free and
 unlimited. A separate Pages project per tenant gives each site's files a
 separate root, so visitor routing does not depend on a shared hostname-to-path
 rewrite. Chat, import, preview, approval, and publication stay on the
-authenticated control plane. Only a specifically supported dynamic WordPress
-REST route would need a Pages Function, which is a metered Worker request.
+authenticated control plane. The fixed read-only WordPress REST route invokes
+a Pages Function; the Function uses shared D1 request counters before it
+returns any record. These invocations are metered as Workers requests.
 
 References:
 [Pages pricing](https://developers.cloudflare.com/pages/functions/pricing/),
@@ -50,7 +53,7 @@ One Pages Direct Upload project per tenant
         |
         v
 Exact Pages custom domain: <site>.sites.mithril.love
-static files bypass Functions; optional REST paths invoke a bounded Function
+static files bypass Functions; supported REST paths invoke a quota-bound Function
 ```
 
 The editor Worker continues to enforce site-scoped sessions and capabilities.
@@ -60,10 +63,10 @@ deployment. The publisher should run outside the tenant-facing Worker under
 the existing standalone release authority; no Pages or DNS credential belongs
 in a tenant request handler.
 
-The publisher will build one complete, immutable asset set from the published
-snapshot. The Pages project's root would contain that site's sanitized HTML,
-styles, owner-uploaded media, sitemap, feed, and static WordPress-compatible
-JSON files explicitly included in the parity contract. It must never include
+The publisher builds one complete, immutable asset set from the published
+snapshot. The Pages project's root contains that site's sanitized HTML,
+styles, owner-uploaded media, sitemap, feed, and the bounded JSON catalog used
+by the read-only WordPress REST Function. It must never include
 another site's files, drafts, chat history, owner sessions, or private
 previews. Unsupported dynamic WordPress queries would be called out in the
 owner's migration report.
@@ -99,14 +102,20 @@ revision, and snapshot digest. The manifest is emitted outside the site root so
 it does not become a public asset; it is included in the CLI's JSON result.
 Preserve that result in the signed
 standalone-publisher receipt and verify its digest before any future upload.
-The output is not uploaded. It currently does not emit a WordPress REST API
-implementation or a Pages Functions `_routes.json`; query-dependent REST
-parity remains a separate metered feature gate.
+The output is not uploaded. It emits the REST catalog, per-record JSON, a
+Pages Function source digest covering both the handler and its shared quota
+helper, and a `_routes.json` that invokes only `/wp-json/wp/v2/*`. The Function
+increments the same deployment and per-site D1 counters as the main Worker
+before it queries the catalog. Query filtering is bounded to the documented
+read-only compatibility subset.
 
 The guarded publisher accepts only the exact site UUID-derived Pages project
 name (`mp-<site UUID>`), the Cloudflare account and zone IDs pinned by the
-standalone profile, a project without Pages Functions, and one exact custom
-hostname. Updates require a previous successful receipt whose unique deployment
+standalone profile, a production `DB` binding to the exact pinned MithrilPress
+D1 database, and one exact custom hostname. It configures that binding only on
+a Pages project it just created; an established project with a missing or
+different binding is held for operator reconciliation. Updates require a
+previous successful receipt whose unique deployment
 message matches the current production deployment, verify the currently served
 files against it, and verify the approved revision again immediately before
 upload. Wrangler is invoked from the package's locked local installation
@@ -282,12 +291,17 @@ media object, feed, and sitemap outside Function routes.
 The account-level Workers subscription is a separate boundary for the control
 Worker and any REST Function. Workers Free has a 100,000-request daily account
 limit; a Workers Standard/Paid account can bill overages and does not supply
-this daily hard stop. The current Cloudflare connection lacks Billing Read, so
-the subscription is unverified. Leave REST Functions and paid control-plane
-use disabled until the account billing state and an enforceable operator
-budget are read back. Keep site-owner plans free; at every product cap, stop
-new writes, uploads, AI requests, and onboarding without switching tiers or
-billing the owner.
+this daily hard stop. The REST Function uses the shared MithrilPress D1 caps
+to stop returning content after 5,000 requests per site/day or 25,000 requests
+across the deployment/day. Each over-cap attempt still invokes the Function
+and can consume provider usage, so these application caps are not a billing
+hard stop. The current Cloudflare connection lacks Billing Read, so the
+subscription is unverified. Keep production REST Functions and paid
+control-plane use disabled until the account billing state and an enforceable
+operator budget are read back. Keep site-owner plans free; at every product
+cap, stop new writes, uploads, AI requests, and onboarding without switching
+tiers or billing the owner. The publisher does not configure or verify the
+separate Pages Free request-exhaustion behavior.
 
 R2's included Standard allowance is account-wide: 10 GB-month of storage, 1
 million Class A operations, and 10 million Class B operations per month.

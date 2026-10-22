@@ -11,6 +11,7 @@ const MAX_OUTPUT_BYTES = 300_000_000;
 const MAX_OUTPUT_FILES = 5_000;
 const CONTROL_ORIGIN = "https://control.mithril.love";
 const PAGES_FUNCTION_PATH = resolve(dirname(fileURLToPath(import.meta.url)), "../functions/wp-json/wp/v2/[[path]].js");
+const HOSTING_REQUEST_LIMITS_PATH = resolve(dirname(fileURLToPath(import.meta.url)), "../src/hosting_request_limits.js");
 const MEDIA_CONTENT_TYPES = new Map([
   ["image/jpeg", "jpg"],
   ["image/png", "png"],
@@ -296,6 +297,7 @@ function wordpressApiFiles(snapshot, mediaById) {
   }));
   add("/_mithrilpress-wp-api/index.json", {
     schema_version: 1,
+    site_id: snapshot.site_id,
     hostname: snapshot.hostname,
     revision_id: snapshot.revision.id,
     entries,
@@ -539,7 +541,14 @@ async function hashPublicationArtifact(root, snapshot) {
   await visit(root);
   if (files.length < 1) fail("The publication artifact is empty.");
   files.sort((left, right) => left.path < right.path ? -1 : left.path > right.path ? 1 : 0);
-  const pagesFunctionSha256 = createHash("sha256").update(await readFile(PAGES_FUNCTION_PATH)).digest("hex");
+  const pagesFunctionSources = await Promise.all([
+    readFile(PAGES_FUNCTION_PATH),
+    readFile(HOSTING_REQUEST_LIMITS_PATH),
+  ]);
+  const pagesFunctionSha256 = createHash("sha256").update(JSON.stringify({
+    "functions/wp-json/wp/v2/[[path]].js": createHash("sha256").update(pagesFunctionSources[0]).digest("hex"),
+    "src/hosting_request_limits.js": createHash("sha256").update(pagesFunctionSources[1]).digest("hex"),
+  })).digest("hex");
   const manifest = {
     schema_version: 1,
     site_id: snapshot.site_id,

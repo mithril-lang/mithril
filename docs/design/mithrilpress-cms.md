@@ -120,9 +120,13 @@ D1. Host labels never grant tenant identity. Content queries carry both site
 and revision IDs and use prepared statements. Owner credentials are per-site
 salted SHA-256 token hashes with narrowly scoped permissions; plaintext tokens
 are provisioned out of band. A separate Pages Function or control-plane
-request can still consume account Workers usage; the account plan is not
-verified, so do not enable those paths until the usage boundary and fail-closed
-behavior are read back.
+request can still consume account Workers usage. The candidate Pages REST
+Function uses MithrilPress D1 counters to stop returning content at application
+caps, but every over-cap attempt still invokes a metered Function. The account
+plan is not verified, so do not enable those paths until the provider usage
+boundary is read back. The Pages API `fail_open` field concerns deployment
+configuration failures; it is not the Pages Free daily request-exhaustion
+setting.
 
 The parent zone serves unrelated hostnames. Cloudflare Free rate-limiting rules
 support path and Verified Bot fields, but not host matching. A path-only rule

@@ -6,6 +6,7 @@ import { collectWordPressMediaReferences, inspectWordPressBlocks } from "./wordp
 import { buildWordPressPermalinkMap, rewriteWordPressLink } from "./wordpress_links.js";
 import { selectWordPressSeoMetadata } from "./wordpress_seo.js";
 import { parseWordPressWxr } from "./wxr_import.js";
+import { consumeHostingRequest } from "./hosting_request_limits.js";
 
 const SITE_ZONE = "sites.mithril.love";
 const CONTROL_HOST = "control.mithril.love";
@@ -137,13 +138,6 @@ function mediaQuotaResponse(code) {
     : fail(409, "deployment_media_quota_exceeded", "The shared image storage pool is full. New image uploads are paused until the operator removes media.");
 }
 
-function hostingRequestQuotaCode(error) {
-  const message = String(error?.message ?? error ?? "");
-  if (message.includes("site_daily_hosting_request_limit")) return "site_daily_hosting_request_limit";
-  if (message.includes("deployment_daily_hosting_request_limit")) return "deployment_daily_hosting_request_limit";
-  return null;
-}
-
 function d1ProviderLimitReached(error) {
   const message = String(error?.message ?? error ?? "").toLowerCase();
   return message.includes("exceeded d1's free tier daily row read limit")
@@ -165,22 +159,8 @@ function hostingRequestQuotaResponse(code, date = new Date()) {
 }
 
 async function checkHostingRequest(env, siteId = null, date = new Date()) {
-  const dayUtc = date.toISOString().slice(0, 10);
-  try {
-    const statement = siteId === null
-      ? env.DB.prepare(
-        "INSERT INTO mithrilpress_deployment_daily_requests (singleton, day_utc, request_count) VALUES (1, ?, 1) ON CONFLICT(singleton) DO UPDATE SET day_utc = excluded.day_utc, request_count = CASE WHEN mithrilpress_deployment_daily_requests.day_utc = excluded.day_utc THEN mithrilpress_deployment_daily_requests.request_count + 1 ELSE 1 END",
-      ).bind(dayUtc)
-      : env.DB.prepare(
-          "INSERT INTO mithrilpress_site_daily_requests (site_id, day_utc, request_count) VALUES (?, ?, 1) ON CONFLICT(site_id) DO UPDATE SET day_utc = excluded.day_utc, request_count = CASE WHEN mithrilpress_site_daily_requests.day_utc = excluded.day_utc THEN mithrilpress_site_daily_requests.request_count + 1 ELSE 1 END",
-        ).bind(siteId, dayUtc);
-    await env.DB.batch([statement]);
-    return null;
-  } catch (error) {
-    const code = hostingRequestQuotaCode(error);
-    if (code) return hostingRequestQuotaResponse(code, date);
-    throw error;
-  }
+  const code = await consumeHostingRequest(env, siteId, date);
+  return code ? hostingRequestQuotaResponse(code, date) : null;
 }
 
 async function countMediaWrite(env, limit, date = new Date()) {

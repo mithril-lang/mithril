@@ -11,6 +11,8 @@ const CONTROL_ORIGIN = "https://control.mithril.love";
 const PAGES_API_ORIGIN = "https://api.cloudflare.com/client/v4";
 const PINNED_ZONE_NAME = "mithril.love";
 const MAX_MITHRILPRESS_PAGES_PROJECTS = 90;
+const MITHRILPRESS_D1_DATABASE_NAME = "mithrilpress";
+const MITHRILPRESS_D1_BINDING_NAME = "DB";
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 function fail(message) {
@@ -141,9 +143,16 @@ async function inspectArtifact(root, suppliedManifest) {
     }
     await visitFunctions(functionsRoot);
     const runtimeInfo = await lstat(runtimePath);
+    const quotaHelperPath = resolve(PACKAGE_ROOT, "src/hosting_request_limits.js");
+    const quotaHelperInfo = await lstat(quotaHelperPath);
+    const runtimeSourceDigest = sha256(JSON.stringify({
+      "functions/wp-json/wp/v2/[[path]].js": sha256(await readFile(runtimePath)),
+      "src/hosting_request_limits.js": sha256(await readFile(quotaHelperPath)),
+    }));
     if (runtimeFiles.length !== 1 || runtimeFiles[0] !== "wp-json/wp/v2/[[path]].js"
         || !runtimeInfo.isFile() || runtimeInfo.isSymbolicLink()
-        || sha256(await readFile(runtimePath)) !== manifest.pages_function_sha256) {
+        || !quotaHelperInfo.isFile() || quotaHelperInfo.isSymbolicLink()
+        || runtimeSourceDigest !== manifest.pages_function_sha256) {
       fail("Only the digest-bound WordPress REST Pages Function may be deployed.");
     }
     let routeConfig;
@@ -239,11 +248,73 @@ async function cloudflareDnsJson(zoneId, pathname, token, method = "GET", body) 
   return cloudflareJson(pathname, token, method, body, zoneDnsPrefix(zoneId));
 }
 
+function accountD1Prefix(accountId) {
+  return `/client/v4/accounts/${encodeURIComponent(accountId)}/d1/database/`;
+}
+
+async function cloudflareD1Json(accountId, pathname, token, method = "GET", body) {
+  return cloudflareJson(pathname, token, method, body, accountD1Prefix(accountId));
+}
+
 function accountApiPath(accountId, projectName, suffix = "") {
   return `/client/v4/accounts/${encodeURIComponent(accountId)}/pages/projects/${encodeURIComponent(projectName)}${suffix}`;
 }
 
-async function readProjectAndDomain(accountId, projectName, hostname, token) {
+async function readMithrilPressDatabase(accountId, databaseId, token) {
+  const database = await cloudflareD1Json(
+    accountId,
+    `/client/v4/accounts/${encodeURIComponent(accountId)}/d1/database/${encodeURIComponent(databaseId)}`,
+    token,
+  );
+  if (!database || database.id !== databaseId || database.name !== MITHRILPRESS_D1_DATABASE_NAME) {
+    fail("The pinned D1 database does not match the expected MithrilPress database in this Cloudflare account.");
+  }
+  return database;
+}
+
+function validatePagesD1Binding(project, databaseId) {
+  const production = project?.deployment_configs?.production;
+  const bindings = production?.d1_databases;
+  if (Object.keys(bindings ?? {}).length !== 1
+      || bindings?.[MITHRILPRESS_D1_BINDING_NAME]?.id !== databaseId) {
+    fail("The Pages production Function must read back the exact MithrilPress D1 binding.");
+  }
+}
+
+async function ensurePagesD1Binding(accountId, projectName, databaseId, token, projectCreated) {
+  let project = await cloudflarePagesJson(accountId, accountApiPath(accountId, projectName), token);
+  const production = project?.deployment_configs?.production ?? {};
+  const bindings = production.d1_databases ?? {};
+  if (bindings[MITHRILPRESS_D1_BINDING_NAME]?.id === databaseId
+      && Object.keys(bindings).length === 1) {
+    validatePagesD1Binding(project, databaseId);
+    return project;
+  }
+  if (!projectCreated || Object.keys(bindings).length > 0
+      || Object.keys(production.env_vars ?? {}).length > 0) {
+    fail("The existing Pages project does not have the exact D1 quota binding; refusing to change an established project configuration.");
+  }
+  const updated = await cloudflarePagesJson(
+    accountId,
+    accountApiPath(accountId, projectName),
+    token,
+    "PATCH",
+    {
+      deployment_configs: {
+        production: {
+          ...production,
+          d1_databases: { [MITHRILPRESS_D1_BINDING_NAME]: { id: databaseId } },
+        },
+      },
+    },
+  );
+  if (!updated || updated.name !== projectName) fail("Cloudflare did not return the configured Pages project.");
+  project = await cloudflarePagesJson(accountId, accountApiPath(accountId, projectName), token);
+  validatePagesD1Binding(project, databaseId);
+  return project;
+}
+
+async function readProjectAndDomain(accountId, projectName, hostname, databaseId, token) {
   const project = await cloudflarePagesJson(accountId, accountApiPath(accountId, projectName), token);
   if (!project || project.name !== projectName || typeof project.uses_functions !== "boolean"
       || !project.production_branch || !/^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$/.test(project.production_branch)
@@ -251,6 +322,7 @@ async function readProjectAndDomain(accountId, projectName, hostname, token) {
       || (project.source && Object.keys(project.source).length > 0)) {
     fail("The existing Pages project is not the expected static-only Direct Upload project.");
   }
+  validatePagesD1Binding(project, databaseId);
   const domains = await cloudflarePagesJson(accountId, accountApiPath(accountId, projectName, "/domains"), token);
   if (!Array.isArray(domains) || domains.length !== 1) {
     fail("The Pages project must have exactly one custom domain attached.");
@@ -288,7 +360,7 @@ function validateDeployment(deployment, projectName, requireFunctions = false) {
   return deployment;
 }
 
-async function loadPreviousReceipt(path, accountId, projectName, manifest, activeDeployment) {
+async function loadPreviousReceipt(path, accountId, projectName, manifest, activeDeployment, databaseId) {
   if (!path || !isAbsolute(path)) fail("MITHRILPRESS_PREVIOUS_RECEIPT_PATH must point to the last successful local receipt.");
   let receipt;
   try {
@@ -299,8 +371,9 @@ async function loadPreviousReceipt(path, accountId, projectName, manifest, activ
   const base = { ...receipt };
   const suppliedDigest = base.receipt_sha256;
   delete base.receipt_sha256;
-  if (receipt.schema_version !== 1 || suppliedDigest !== sha256(JSON.stringify(base))
+  if (receipt.schema_version !== 2 || suppliedDigest !== sha256(JSON.stringify(base))
       || receipt.account_id !== accountId || receipt.project_name !== projectName
+      || receipt.d1_database_id !== databaseId
       || receipt.site_id !== manifest.site_id || receipt.hostname !== manifest.hostname
       || receipt.deployment_id !== activeDeployment?.id || !receipt.artifact_manifest
       || receipt.status !== "production-readback-passed") {
@@ -815,6 +888,7 @@ async function pathExists(path) {
 
 async function deployBootstrapPlaceholder({
   accountId,
+  databaseId,
   projectName,
   project,
   sourceManifest,
@@ -837,7 +911,7 @@ async function deployBootstrapPlaceholder({
     let receipt = null;
     if (await pathExists(previousReceiptPath)) {
       try {
-        receipt = await loadPreviousReceipt(previousReceiptPath, accountId, projectName, sourceManifest, active);
+        receipt = await loadPreviousReceipt(previousReceiptPath, accountId, projectName, sourceManifest, active, databaseId);
       } catch (error) {
         // A previous successful first publish may have completed before its final receipt was written.
         // It is accepted only when the current deployment independently matches the owner-approved manifest.
@@ -853,8 +927,9 @@ async function deployBootstrapPlaceholder({
     }
     const verifiedFiles = await verifyManifestAtHostname(project.subdomain, placeholderManifest);
     receipt = await writeNewReceipt(previousReceiptPath, {
-      schema_version: 1,
+      schema_version: 2,
       account_id: accountId,
+      d1_database_id: databaseId,
       project_name: projectName,
       site_id: placeholderManifest.site_id,
       hostname: placeholderManifest.hostname,
@@ -891,8 +966,9 @@ async function deployBootstrapPlaceholder({
   );
   const verifiedFiles = await verifyManifestAtHostname(project.subdomain, placeholderManifest);
   const previousReceipt = await writeNewReceipt(previousReceiptPath, {
-    schema_version: 1,
+    schema_version: 2,
     account_id: accountId,
+    d1_database_id: databaseId,
     project_name: projectName,
     site_id: placeholderManifest.site_id,
     hostname: placeholderManifest.hostname,
@@ -914,6 +990,7 @@ async function deployBootstrapPlaceholder({
 
 async function prepareInitialPagesPublication({
   accountId,
+  databaseId,
   zoneId,
   projectName,
   hostname,
@@ -935,7 +1012,7 @@ async function prepareInitialPagesPublication({
     if (records.length > 0) fail("The requested hostname already has DNS records; no Pages project was created.");
   }
   const ensured = await ensurePagesProject(accountId, projectName, hostname, cloudflareToken);
-  project = ensured.project;
+  project = await ensurePagesD1Binding(accountId, projectName, databaseId, cloudflareToken, ensured.created);
   if (!projectWasPresent && !ensured.created) {
     fail("A Pages project appeared during bootstrap preflight; refusing to adopt it.");
   }
@@ -946,6 +1023,7 @@ async function prepareInitialPagesPublication({
 
   const bootstrap = await deployBootstrapPlaceholder({
     accountId,
+    databaseId,
     projectName,
     project,
     sourceManifest: manifest,
@@ -958,7 +1036,7 @@ async function prepareInitialPagesPublication({
 
   if (bootstrap.alreadyPublished) {
     await addOrResumePagesDomain(accountId, projectName, hostname, project, zoneId, cloudflareToken);
-    await readProjectAndDomain(accountId, projectName, hostname, cloudflareToken);
+    await readProjectAndDomain(accountId, projectName, hostname, databaseId, cloudflareToken);
     const verifiedFiles = await verifyManifestAtHostname(hostname, manifest);
     return { project, deployment: bootstrap.deployment, previousReceipt: bootstrap.previousReceipt, alreadyPublished: true, verifiedFiles };
   }
@@ -966,7 +1044,7 @@ async function prepareInitialPagesPublication({
   // A newly initialized project contains only the noindex placeholder until the custom
   // hostname has a verified Pages association, exact CNAME, active TLS, and HTTPS read-back.
   await addOrResumePagesDomain(accountId, projectName, hostname, project, zoneId, cloudflareToken);
-  await readProjectAndDomain(accountId, projectName, hostname, cloudflareToken);
+  await readProjectAndDomain(accountId, projectName, hostname, databaseId, cloudflareToken);
   await verifyManifestAtHostname(hostname, bootstrap.manifest);
   return {
     project,
@@ -991,12 +1069,6 @@ async function main() {
     fail("Use --confirm-publication after reviewing the approved revision. For the first publish, also pass --initialize-hostname <exact-site-hostname>.");
   }
   if (isInitialPublication) assertExpectedPageHostname(initialHostname);
-  if (requiredEnvironment("MITHRILPRESS_FUNCTIONS_PLAN_CONFIRMATION") !== "workers-free") {
-    fail("Pages Functions publication requires the account to be verified on Workers Free to prevent paid overage.");
-  }
-  if (requiredEnvironment("MITHRILPRESS_FUNCTIONS_EXHAUSTION_CONFIRMATION") !== "fail-closed") {
-    fail("Pages Functions publication requires the project runtime to be verified as fail-closed at its free request limit.");
-  }
   const controlUrl = new URL(requiredEnvironment("MITHRILPRESS_CONTROL_URL"));
   if (controlUrl.origin !== CONTROL_ORIGIN || controlUrl.pathname !== "/" || controlUrl.search || controlUrl.hash
       || controlUrl.username || controlUrl.password) {
@@ -1012,6 +1084,11 @@ async function main() {
   if (!/^[a-f0-9]{32}$/.test(accountId) || accountId !== expectedAccountId) {
     fail("CLOUDFLARE_ACCOUNT_ID must exactly match the standalone publisher's pinned account ID.");
   }
+  const databaseId = requiredEnvironment("MITHRILPRESS_D1_DATABASE_ID");
+  const expectedDatabaseId = requiredEnvironment("MITHRILPRESS_EXPECTED_D1_DATABASE_ID");
+  if (!/^[a-f0-9-]{36}$/.test(databaseId) || databaseId !== expectedDatabaseId) {
+    fail("MITHRILPRESS_D1_DATABASE_ID must exactly match the standalone publisher's pinned MithrilPress D1 database.");
+  }
   const zoneId = isInitialPublication ? requiredEnvironment("CLOUDFLARE_ZONE_ID") : null;
   const expectedZoneId = isInitialPublication
     ? requiredEnvironment("MITHRILPRESS_EXPECTED_CLOUDFLARE_ZONE_ID")
@@ -1021,6 +1098,7 @@ async function main() {
     fail("CLOUDFLARE_ZONE_ID must exactly match the standalone publisher's pinned mithril.love zone ID.");
   }
   const cloudflareToken = requiredEnvironment("CLOUDFLARE_API_TOKEN");
+  await readMithrilPressDatabase(accountId, databaseId, cloudflareToken);
   const publishReceiptPath = requiredEnvironment("MITHRILPRESS_PUBLISH_RECEIPT_PATH");
   const previousReceiptPath = requiredEnvironment("MITHRILPRESS_PREVIOUS_RECEIPT_PATH");
   if (resolve(publishReceiptPath) === resolve(previousReceiptPath)) {
@@ -1116,6 +1194,7 @@ async function main() {
       }
       const bootstrap = await prepareInitialPagesPublication({
         accountId,
+        databaseId,
         zoneId,
         projectName,
         hostname: initialHostname,
@@ -1135,8 +1214,9 @@ async function main() {
         await verifyWordPressApiAtHostname(manifest.hostname, artifactRoot);
         await assertRevisionStillCurrent(siteId, ownerToken, manifest);
         const receipt = await writeNewReceipt(publishReceiptPath, {
-          schema_version: 1,
+          schema_version: 2,
           account_id: accountId,
+          d1_database_id: databaseId,
           project_name: projectName,
           site_id: siteId,
           hostname: manifest.hostname,
@@ -1159,11 +1239,11 @@ async function main() {
       previous = bootstrap.deployment;
       previousReceipt = bootstrap.previousReceipt;
     } else {
-      const established = await readProjectAndDomain(accountId, projectName, manifest.hostname, cloudflareToken);
+      const established = await readProjectAndDomain(accountId, projectName, manifest.hostname, databaseId, cloudflareToken);
       project = established.project;
       const activeDeployments = await listProductionDeployments(accountId, projectName, cloudflareToken);
       previous = validateDeployment(activeDeployments[0], projectName);
-      previousReceipt = await loadPreviousReceipt(previousReceiptPath, accountId, projectName, manifest, previous);
+      previousReceipt = await loadPreviousReceipt(previousReceiptPath, accountId, projectName, manifest, previous, databaseId);
       await verifyManifestAtHostname(manifest.hostname, previousReceipt.artifact_manifest);
       await assertHttpsHostReady(manifest.hostname);
       await assertRevisionStillCurrent(siteId, ownerToken, manifest);
@@ -1193,8 +1273,9 @@ async function main() {
     await verifyWordPressApiAtHostname(manifest.hostname, artifactRoot);
     await assertRevisionStillCurrent(siteId, ownerToken, manifest);
     const receipt = await writeNewReceipt(publishReceiptPath, {
-      schema_version: 1,
+      schema_version: 2,
       account_id: accountId,
+      d1_database_id: databaseId,
       project_name: projectName,
       site_id: siteId,
       hostname: manifest.hostname,

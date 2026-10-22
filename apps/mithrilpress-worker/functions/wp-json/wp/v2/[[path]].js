@@ -1,3 +1,5 @@
+import { consumeHostingRequest } from "../../../../src/hosting_request_limits.js";
+
 const INDEX_PATH = "/_mithrilpress-wp-api/index.json";
 const MAX_INDEX_BYTES = 25 * 1024 * 1024;
 const MAX_RECORD_BYTES = 8 * 1024 * 1024;
@@ -14,8 +16,24 @@ function json(body, status = 200, headers = {}) {
   });
 }
 
-function fail(status, code, message) {
-  return json({ error: code, message }, status, { "Cache-Control": "no-store" });
+function fail(status, code, message, headers = {}) {
+  return json({ error: code, message }, status, { "Cache-Control": "no-store", ...headers });
+}
+
+function requestQuotaFailure(code, date = new Date()) {
+  const nextUtcDay = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + 1);
+  const retryAfter = String(Math.max(1, Math.ceil((nextUtcDay - date.getTime()) / 1000)));
+  return code === "site_daily_hosting_request_limit"
+    ? fail(429, code, "This site's included daily hosting allowance is used. Public pages will resume after 00:00 UTC.", { "Retry-After": retryAfter })
+    : fail(503, code, "The shared daily hosting allowance is used. Public pages will resume after 00:00 UTC.", { "Retry-After": retryAfter });
+}
+
+function d1ProviderLimitReached(error) {
+  const message = String(error?.message ?? error ?? "").toLowerCase();
+  return message.includes("exceeded d1's free tier daily row read limit")
+    || message.includes("exceeded d1's free tier daily row write limit")
+    || message.includes("exceeded d1's maximum account storage limit")
+    || message.includes("exceeded maximum db size");
 }
 
 async function readJsonAsset(context, pathname, maximumBytes) {
@@ -296,8 +314,20 @@ export async function onRequest(context) {
 
   const catalog = await readJsonAsset(context, INDEX_PATH, MAX_INDEX_BYTES);
   if (!catalog || catalog.schema_version !== 1 || catalog.hostname !== url.hostname
+      || !/^[a-f0-9-]{36}$/.test(catalog.site_id ?? "")
       || !Array.isArray(catalog.entries) || !Array.isArray(catalog.terms) || !Array.isArray(catalog.media)) {
     return fail(503, "publication_data_unavailable", "The published WordPress compatibility index is unavailable.");
+  }
+  try {
+    const deploymentLimit = await consumeHostingRequest(context.env);
+    if (deploymentLimit) return requestQuotaFailure(deploymentLimit);
+    const siteLimit = await consumeHostingRequest(context.env, catalog.site_id);
+    if (siteLimit) return requestQuotaFailure(siteLimit);
+  } catch (error) {
+    if (d1ProviderLimitReached(error)) {
+      return fail(503, "provider_usage_limit", "Hosting is temporarily unavailable because a Cloudflare D1 usage limit has been reached.");
+    }
+    return fail(503, "request_quota_unavailable", "The public WordPress API is unavailable because its shared request limit could not be checked.");
   }
   const [, endpoint, itemId] = match;
   if (endpoint === "posts" || endpoint === "pages") {
