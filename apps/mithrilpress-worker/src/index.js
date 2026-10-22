@@ -172,18 +172,26 @@ function hostingRequestQuotaResponse(code, date = new Date()) {
     : fail(503, "deployment_daily_hosting_request_limit", "The shared daily hosting allowance is used. Public pages will resume after 00:00 UTC.", { "Retry-After": retryAfter });
 }
 
-async function checkHostingRequest(env, siteId, date = new Date()) {
+async function checkDeploymentHostingRequest(env, date = new Date()) {
   const dayUtc = date.toISOString().slice(0, 10);
   try {
-    const deploymentStatement = env.DB.prepare(
+    await env.DB.prepare(
       "INSERT INTO mithrilpress_deployment_daily_requests (singleton, day_utc, request_count) VALUES (1, ?, 1) ON CONFLICT(singleton) DO UPDATE SET day_utc = excluded.day_utc, request_count = CASE WHEN mithrilpress_deployment_daily_requests.day_utc = excluded.day_utc THEN mithrilpress_deployment_daily_requests.request_count + 1 ELSE 1 END",
-    ).bind(dayUtc);
-    const siteStatement = env.DB.prepare(
+    ).bind(dayUtc).run();
+    return null;
+  } catch (error) {
+    const code = hostingRequestQuotaCode(error);
+    if (code) return hostingRequestQuotaResponse(code, date);
+    throw error;
+  }
+}
+
+async function checkSiteHostingRequest(env, siteId, date = new Date()) {
+  const dayUtc = date.toISOString().slice(0, 10);
+  try {
+    await env.DB.prepare(
       "INSERT INTO mithrilpress_site_daily_requests (site_id, day_utc, request_count) VALUES (?, ?, 1) ON CONFLICT(site_id) DO UPDATE SET day_utc = excluded.day_utc, request_count = CASE WHEN mithrilpress_site_daily_requests.day_utc = excluded.day_utc THEN mithrilpress_site_daily_requests.request_count + 1 ELSE 1 END",
-    ).bind(siteId, dayUtc);
-    // D1 batches are transactional: if either cap rejects the request, neither
-    // counter advances. Unknown hosts never consume either allowance.
-    await env.DB.batch([deploymentStatement, siteStatement]);
+    ).bind(siteId, dayUtc).run();
     return null;
   } catch (error) {
     const code = hostingRequestQuotaCode(error);
@@ -2595,14 +2603,18 @@ async function publicPage(request, env, site, pathname) {
 }
 
 async function handleRequest(request, env) {
+  const requestDate = new Date();
+  // Reserve the shared HTTP allowance before any tenant lookup. Even unknown
+  // hosts consume Worker and D1 capacity, so they count against this cap.
+  const deploymentLimit = await checkDeploymentHostingRequest(env, requestDate);
+  if (deploymentLimit) return deploymentLimit;
+
   const site = await resolveSite(request, env);
   if (!site || site.status !== "active") return fail(404, "site_not_found", "Site not found.");
 
-  // Only active tenant requests consume the application hosting allowance.
-  // Update both caps atomically so site exhaustion cannot drain other sites'
-  // shared capacity.
-  const hostingLimit = await checkHostingRequest(env, site.id);
-  if (hostingLimit) return hostingLimit;
+  // An active tenant also consumes its own daily allowance after resolution.
+  const siteLimit = await checkSiteHostingRequest(env, site.id, requestDate);
+  if (siteLimit) return siteLimit;
 
   const url = new URL(request.url);
 

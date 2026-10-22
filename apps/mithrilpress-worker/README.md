@@ -340,31 +340,29 @@ only if tenant-authored code becomes a product requirement. See the
 [how dispatch works](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/how-workers-for-platforms-works/),
 and [pricing](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/reference/pricing/).
 
-MithrilPress enforces 5,000 HTTP requests per active site per UTC day and
-25,000 HTTP requests across the deployment. A request must resolve to an active
-site before it consumes either application counter; unknown or inactive hosts
-return 404 without reducing tenant capacity. Each accepted tenant request
-updates the site and deployment counters in one D1 transaction, so a request
-rejected by either cap does not advance the other counter. This covers public
-pages, WordPress REST, Studio, previews, DNS, and media. The request that
-reaches a cap is handled; later requests receive 429 for a site cap or 503 for
-the shared cap until 00:00 UTC. A burst of valid requests distributed across
-multiple tenants can still exhaust the shared allowance, so production routing
-must have an independently verified edge rate limit before public launch. These
-application counters limit MithrilPress routes; they do not stop
-Worker invocations at Cloudflare's billing layer. The Worker invocation and
-hostname lookup still occur before a request can receive an application-cap
-response, and unrelated workloads in the same Cloudflare account consume the
-same provider allocations. The Studio shows MithrilPress app counters, but does
-not measure all account-wide Worker requests, D1 reads/writes/storage, or
-Workers AI neuron usage. The dedicated Workers Free plan supplies the provider
-hard stop for daily AI neurons; if other workloads consume the shared allowance,
-AI drafting fails closed earlier. Never move this runtime to Workers Paid, where
-usage above the free AI allocation is billed and Worker requests have no daily
-provider cap. A strict provider-level stop therefore requires a dedicated
-Workers Free deployment or an independently operated route shutdown, with the
-account and hostname-routing boundaries verified before launch; it is not
-provided by these app counters. On Workers Free, D1 daily read/write exhaustion
+MithrilPress enforces a shared cap of 25,000 HTTP requests per deployment per
+UTC day and an additional 5,000-request cap for each active site. Every request
+that reaches the Worker is checked against the shared cap before tenant lookup, including
+unknown or inactive hosts; an active-site request also consumes that site's
+counter after resolution. The shared and site counters are updated separately:
+a request rejected by the site cap still consumes the shared allowance because
+it already used the Worker and D1 lookup. This covers public pages, WordPress
+REST, Studio, previews, DNS, and media. The final request within each allowance
+is served; later requests receive 429 for a site cap or 503 for the shared cap
+until 00:00 UTC. Anonymous unknown-host traffic can exhaust the shared cap and
+deny service to every site, so public routing needs a host-scoped control before
+Worker invocation. These application counters do not stop Worker invocations or
+the D1 counter statement at Cloudflare's billing layer. The Studio shows
+MithrilPress app counters, but does not measure all account-wide Worker
+requests, D1 reads/writes/storage, or Workers AI neuron usage. The dedicated
+Workers Free plan supplies the provider hard stop for daily AI neurons; if other
+workloads consume the shared allowance, AI drafting fails closed earlier. Never
+move this runtime to Workers Paid, where usage above the free AI allocation is
+billed and Worker requests have no daily provider cap. A strict provider-level
+stop therefore requires a dedicated Workers Free deployment or an independently
+operated route shutdown, with the account and hostname-routing boundaries
+verified before launch; it is not provided by these app counters. On Workers
+Free, D1 daily read/write exhaustion
 or a D1 storage ceiling is returned as a clear 503 and requests fail closed.
 Import and rendering workloads have not been qualified against the current CPU
 limit. Usage monitoring and release gates are tracked in Linear MITHRIL-292.
