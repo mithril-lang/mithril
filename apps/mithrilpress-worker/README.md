@@ -112,7 +112,11 @@ The output is a local artifact only. A standalone publisher must re-read the
 current revision and digest immediately before any future Pages upload, verify
 the exact Pages deployment and host afterward, and retain the previous
 known-good deployment. Pages credentials and R2 objects are never sent to the
-tenant-facing Worker.
+tenant-facing Worker. The command's JSON result includes a sorted per-file
+manifest with each path, byte length, and SHA-256, plus an artifact digest bound
+to the site, hostname, published revision, and source snapshot digest. Preserve
+that result with the standalone publisher receipt so the upload can be tied to
+the exact local bundle.
 
 ## Tenant provisioning data
 

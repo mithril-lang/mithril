@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
-import { lstat, mkdir, rename, rm, writeFile } from "node:fs/promises";
+import { createReadStream } from "node:fs";
+import { lstat, mkdir, readdir, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 
 const MAX_SNAPSHOT_BYTES = 40 * 1024 * 1024;
@@ -380,6 +381,68 @@ async function downloadMediaWithLimit(snapshot, base, siteId, token, outputRoot)
   if (firstError) throw firstError;
 }
 
+async function hashPublicationArtifact(root, snapshot) {
+  const files = [];
+  let totalBytes = 0;
+
+  async function visit(directory) {
+    const children = await readdir(directory, { withFileTypes: true });
+    children.sort((left, right) => left.name < right.name ? -1 : left.name > right.name ? 1 : 0);
+    for (const child of children) {
+      const target = resolve(directory, child.name);
+      const relativePath = relative(root, target);
+      if (relativePath.startsWith(`..${sep}`) || relativePath === ".." || isAbsolute(relativePath)) {
+        fail("Refusing to hash a file outside the publication output directory.");
+      }
+      if (child.isDirectory()) {
+        await visit(target);
+        continue;
+      }
+      if (!child.isFile()) fail("The publication artifact contains a symlink or unsupported filesystem entry.");
+
+      const before = await lstat(target);
+      if (!before.isFile() || before.isSymbolicLink() || before.size > 25 * 1024 * 1024) {
+        fail("The publication artifact contains an unsupported or oversized file.");
+      }
+      const hash = createHash("sha256");
+      let byteLength = 0;
+      for await (const chunk of createReadStream(target)) {
+        byteLength += chunk.byteLength;
+        if (byteLength > before.size || byteLength > 25 * 1024 * 1024) {
+          fail("A publication file changed or exceeded its verified size while hashing.");
+        }
+        hash.update(chunk);
+      }
+      const after = await lstat(target);
+      if (!after.isFile() || after.isSymbolicLink() || byteLength !== before.size
+          || after.size !== before.size || after.ino !== before.ino || after.dev !== before.dev
+          || after.mtimeMs !== before.mtimeMs) {
+        fail("A publication file changed while the artifact digest was being calculated.");
+      }
+      const pathname = `/${relativePath.split(sep).join("/")}`;
+      files.push({ path: pathname, byte_length: byteLength, sha256: hash.digest("hex") });
+      totalBytes += byteLength;
+      if (files.length > MAX_OUTPUT_FILES || totalBytes > MAX_OUTPUT_BYTES) {
+        fail("The complete site exceeds the local publication limits while hashing.");
+      }
+    }
+  }
+
+  await visit(root);
+  if (files.length < 1) fail("The publication artifact is empty.");
+  files.sort((left, right) => left.path < right.path ? -1 : left.path > right.path ? 1 : 0);
+  const manifest = {
+    schema_version: 1,
+    site_id: snapshot.site_id,
+    hostname: snapshot.hostname,
+    revision_id: snapshot.revision.id,
+    snapshot_sha256: snapshot.digest_sha256,
+    files,
+  };
+  const artifactSha256 = createHash("sha256").update(JSON.stringify(manifest)).digest("hex");
+  return { manifest: { ...manifest, artifact_sha256: artifactSha256 }, totalBytes };
+}
+
 async function main() {
   const { base, siteId, token } = endpointConfiguration();
   const snapshot = await requestSnapshot(base, siteId, token);
@@ -398,6 +461,7 @@ async function main() {
     const built = buildStaticFiles(snapshot);
     for (const [pathname, bytes] of built.files) await writeAsset(staging, pathname, bytes);
     await downloadMediaWithLimit(snapshot, base, siteId, token, staging);
+    const artifact = await hashPublicationArtifact(staging, snapshot);
     await verifyStillCurrent(base, siteId, token, snapshot);
     await rename(staging, output);
     process.stdout.write(`${JSON.stringify({
@@ -405,8 +469,10 @@ async function main() {
       hostname: snapshot.hostname,
       revision_id: snapshot.revision.id,
       snapshot_sha256: snapshot.digest_sha256,
-      files: built.outputFileCount,
-      output_bytes: built.outputBytes,
+      files: artifact.manifest.files.length,
+      output_bytes: artifact.totalBytes,
+      artifact_sha256: artifact.manifest.artifact_sha256,
+      artifact_manifest: artifact.manifest,
       deployed: false,
     }, null, 2)}\n`);
   } catch (error) {

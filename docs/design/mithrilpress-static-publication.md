@@ -86,8 +86,14 @@ The local exporter verifies the snapshot and each media object's length and
 SHA-256, rejects unsafe or colliding paths, and caps output at 5,000 files,
 300 MB total, and Pages' 25 MiB per-file limit. It emits static entry pages,
 taxonomy archives, a sitemap, RSS, robots.txt, security headers, and referenced
-media. The output is not uploaded. It currently does not emit a WordPress REST
-API implementation or a Pages Functions `_routes.json`; query-dependent REST
+media. Its JSON result contains a sorted path/length/SHA-256 manifest for every
+file and an artifact digest bound to the site, exact hostname, published
+revision, and snapshot digest. The manifest is emitted outside the site root so
+it does not become a public asset; it is included in the CLI's JSON result.
+Preserve that result in the signed
+standalone-publisher receipt and verify its digest before any future upload.
+The output is not uploaded. It currently does not emit a WordPress REST API
+implementation or a Pages Functions `_routes.json`; query-dependent REST
 parity remains a separate metered feature gate.
 
 ## Host isolation and routing
