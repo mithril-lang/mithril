@@ -87,11 +87,11 @@
             <label for="manual-title">Title</label>
             <input id="manual-title" name="title" type="text" maxlength="200" required>
             <label for="manual-content">Draft text</label>
-            <textarea id="manual-content" name="content" rows="10" maxlength="1800" placeholder="Write the text you want to save as a private draft." required></textarea>
+            <textarea id="manual-content" name="content" rows="10" maxlength="100000" placeholder="Write the text you want to save as a private draft." required></textarea>
             <label for="manual-language">Content language (BCP 47, optional)</label>
             <input id="manual-language" name="language" type="text" maxlength="64" placeholder="For example: en or fr-CA" autocomplete="off" spellcheck="false">
             <div class="composer-footer">
-              <p>Text is saved as plain paragraphs. MithrilPress does not send it to an AI provider.</p>
+              <p>Text is saved as plain paragraphs, up to 100,000 characters. MithrilPress does not send it to an AI provider; site storage caps still apply.</p>
               <button id="manual-save-button" class="button button-primary" type="submit">Save private draft</button>
             </div>
           </form>

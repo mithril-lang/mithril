@@ -24,6 +24,7 @@ const CUSTOM_DOMAIN_HEALTH_FAILURE_LIMIT = 3;
 const MAX_BODY_BYTES = 12_000_000;
 const MAX_RECORDS = 500;
 const MAX_CONTENT_CHARS = 250_000;
+const MAX_MANUAL_DRAFT_CHARS = 100_000;
 const MAX_IMPORT_CHARS = 10_000_000;
 const MAX_IMPORTED_TERMS = 5_000;
 const MAX_IMPORTED_TERM_BYTES = 1_000_000;
@@ -1538,7 +1539,9 @@ async function studioManualDraft(request, env, site) {
 
   const body = await readBoundedJson(request);
   if (!textValue(body?.title, 200)) return fail(422, "invalid_title", "Enter a title of up to 200 characters.");
-  if (!textValue(body?.content, 1800)) return fail(422, "invalid_content", "Enter text of up to 1,800 characters.");
+  if (!textValue(body?.content, MAX_MANUAL_DRAFT_CHARS)) {
+    return fail(422, "invalid_content", "Enter text of up to 100,000 characters.");
+  }
   const requestedKind = body.kind === "page" ? "page" : "post";
   const requestedConversationId = body.conversation_id ?? null;
   if (requestedConversationId !== null && !/^[a-f0-9-]{36}$/.test(requestedConversationId)) {
