@@ -957,7 +957,7 @@ document.querySelector("#chat-form").addEventListener("submit", async (event) =>
     showStatus(studioStatus, "The conversation remains unpublished.");
   } finally {
     button.disabled = false;
-    button.textContent = "Update draft";
+    button.textContent = activeDraft ? "Update draft" : "Create draft";
     chatInput.focus();
   }
 });
