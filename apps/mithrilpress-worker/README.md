@@ -340,18 +340,31 @@ zone-wide cap is 90 Worker Domains, leaving ten slots below Cloudflare's
 100-domain limit; D1 also rejects a 91st non-deleted platform site. Onboarding
 stops at either cap and never upgrades the account.
 
-Create the tenant row first with `provision:site`, then run the attachment
-command with an operator credential stored in the process environment. The
-token must be able to read the account, zone, Worker scripts, Worker Domains,
-and exact DNS records, and write Worker Scripts/Custom Domains. The command
-verifies the account reads back as `fund-mithril`, the zone as `mithril.love`,
-the named Worker exists, the exact hostname is unused, and the zone count is
-below 90. `--apply` is required for the provider write; without it the command
-prints a plan. It then reads back the Worker Domain and verifies the noindex
-Studio shell over HTTPS. An incomplete TLS/HTTPS read-back leaves the exact
-domain in place for manual reconciliation; the command never removes provider
-resources automatically. Migration `0012_platform_site_capacity.sql` caps
-non-deleted platform sites at 90 in D1, including concurrent tenant inserts.
+Create the tenant row first with `provision:site`, then independently read back
+the D1 row that maps this exact hostname to that site. The attachment command
+does not query D1; confirming that registration is an operator precondition
+before `--apply`. The Worker serves content only when its own exact D1 hostname
+lookup resolves to an active tenant.
+
+Use an operator credential from the approved secret store, passed through the
+process environment. Cloudflare requires Editor access to the existing Worker
+and `Workers Routes Write` scoped to the affected `mithril.love` zone to add a
+Custom Domain. The command also needs read access to the account, zone, Worker
+scripts, Worker Domains, and exact DNS records. Cloudflare currently does not
+support per-Worker roles for Custom Domains, so keep provider writes disabled
+if the required grant cannot be limited to the reviewed account and zone. The
+command verifies that the account reads back as `fund-mithril`, the zone as
+`mithril.love`, the named Worker exists, the exact hostname is unused, and the
+zone count is below 90. Cloudflare creates the exact DNS record and managed
+certificate; no DNS Write permission, wildcard record, or Worker Route is used
+for this attachment. `--apply` is required for the provider write; without it
+the command prints a plan. It then reads back the Worker Domain and verifies
+the noindex Studio shell over HTTPS. An incomplete TLS/HTTPS read-back leaves
+the exact domain in place for manual reconciliation; the command never removes
+provider resources automatically. Migration `0012_platform_site_capacity.sql`
+caps non-deleted platform sites at 90 in D1, including concurrent tenant
+inserts. See the Cloudflare [Custom Domains](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/)
+and [Workers authorization](https://developers.cloudflare.com/workers/authorization/workers/) documentation.
 
 ```sh
 export CLOUDFLARE_API_TOKEN='from the operator secret manager'

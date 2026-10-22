@@ -9,6 +9,7 @@ access to any Cloudflare account.
 | Operation | Credential and scope | Handling |
 | --- | --- | --- |
 | Worker and route deployment | A deployment credential with only the Worker, D1, and route permissions needed for the verified target account and zone. Create or select the D1 database and R2 bucket separately before binding them. | Keep it in the approved local credential store. Never commit it or place it in Studio. |
+| Default platform hostname attachment | For the existing `mithrilpress` Worker, Cloudflare requires Editor access to the Worker and `Workers Routes Write` scoped to the affected `mithril.love` zone. The API also needs account, zone, Worker, and exact-host preflight reads. | Use the `fund-mithril` account and the exact active zone. Cloudflare currently does not support per-Worker roles for Custom Domains; if the required grant cannot be kept within the reviewed account/zone boundary, leave `--apply` disabled. |
 | Customer media at runtime | The Worker `MEDIA` R2 binding points to the pre-created `mithrilpress-media` bucket. Tenant authorization and random tenant-scoped object keys are enforced in the Worker. | No R2 API token is sent to the Worker. |
 | Optional S3-compatible media access | An R2 `Object Read & Write` API token scoped to the single MithrilPress bucket. | Use only for an authorized S3 client. It does not provision a Worker binding. |
 | Cloudflare for SaaS hostnames | `CF_SAAS_API_TOKEN` with `SSL and Certificates Write` on the verified SaaS fallback zone only. | Store as a Worker secret. Do not grant customer-zone DNS access. Keep hostname feature flags false until routing, fallback, capacity, certificate monitoring, and rollback are verified. |
@@ -17,15 +18,19 @@ access to any Cloudflare account.
 
 ## Hosting account and zone boundary
 
-Use the Cloudflare account that owns the active parent zone `mithril.love`
-for the default platform host. The hostname `*.sites.mithril.love` is served
-from that existing zone; it does not require a child zone or NS delegation.
-Cloudflare standalone subdomain-zone setup is Enterprise-only. See
-[subdomain-zone availability](https://developers.cloudflare.com/dns/zone-setups/subdomain-setup/).
+Use the `fund-mithril` Cloudflare account and its active parent zone
+`mithril.love` for the default platform host. The requested URL pattern remains
+`*.sites.mithril.love`, but each registered `label.sites.mithril.love` hostname
+is attached as one exact Worker Custom Domain to the shared `mithrilpress`
+Worker. Cloudflare creates the exact DNS record and managed certificate for
+that hostname; no wildcard DNS record, wildcard Worker Route, child zone, or
+NS delegation is part of this topology. An exact Custom Domain routes all paths
+for that hostname to its Worker, and an existing conflicting CNAME prevents
+creation. See [Custom Domains](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/).
 
-The deployment needs a proxied wildcard DNS record and a Worker route
-`*.sites.mithril.love/*` on the parent zone. Scope DNS Write to the parent
-zone and validate that automation changes only the platform wildcard record.
+Do not grant DNS Write for default-host attachment: Cloudflare manages the
+exact DNS record as part of the Custom Domain operation. Keep customer-owned
+DNS migration permissions separate; those remain owner-supplied and zone-scoped.
 Keep Worker, D1, and R2 permissions limited to the selected account and
 resources wherever Cloudflare supports that scope. Keep the R2 bucket private
 and expose media only through the Worker binding; do not create a tenant-facing
@@ -35,10 +40,12 @@ review its full blast radius before granting it.
 The parent zone also serves unrelated hostnames. Cloudflare Free rate-limiting
 rules support path and Verified Bot fields, but not host matching. A path-only
 rule on the parent zone would also rate-limit unrelated hosts; do not deploy
-one as MithrilPress protection. Keep the public route disabled until a
-host-scoped edge guard or an approved isolated hosting zone is available.
-Configure the Worker route to fail closed and read back the route, DNS record,
-and failure mode before enabling any tenant hostname.
+one as MithrilPress protection. Exact Custom Domains avoid attaching unknown
+labels to the Worker, but they do not replace abuse controls or a verified
+account-level cost boundary. Keep public host attachment disabled until those
+controls and the exact-host rollback procedure are qualified. Read back the
+Custom Domain, DNS record, certificate, and HTTPS response before marking a
+tenant hostname active.
 
 Cloudflare's R2 S3 API supports bucket-scoped object tokens, while its Workers
 R2 Storage Write permission is account-scoped. The bucket-scoped S3 token is
@@ -55,13 +62,14 @@ Verify the deployment identity and exact resource scope before provisioning.
 An authenticated identity or a successful read request does not prove that
 DNS, Worker, D1, R2, or WAF writes are authorized.
 
-Do not create the MithrilPress production bucket, wildcard DNS record, Worker
-route, or SaaS hostname configuration until the exact Worker source has passed
-its approved standalone qualification and the target zone, account, fallback
-origin, and rollback procedure have been read back. Configure the bucket
-binding only after the bucket exists. The initial sample Wrangler config keeps
-`workers_dev` and customer-domain features disabled and contains no production
-route or database identifier.
+Do not create a production bucket, Worker Custom Domain, Pages project, or SaaS
+hostname configuration until the exact Worker source has passed its approved
+standalone qualification and the target account, zone, host, cost boundary, and
+rollback procedure have been read back. Configure the bucket binding only
+after the bucket exists. The initial sample Wrangler config keeps `workers_dev`
+and customer-domain features disabled and contains no production route or
+database identifier. Keep the exact-host provisioning command in dry-run mode
+until a reviewed credential can perform only the required operation.
 
 Hosting is free to site owners; this is not a zero-cost provider commitment.
 Workers Free has an account-wide daily request hard limit, while Workers Paid
