@@ -217,7 +217,7 @@ write and storage caps; reaching a cap stops the import without a paid fallback.
 | `GET` / `POST` / `DELETE` | `/_mithrilpress/api/studio/session` | `content:write`, `media:write`, `site:domains`, or `site:dns-migrate` | Exchange a short-lived owner token for a one-hour browser session, inspect it, or revoke it. |
 | `GET` | `/_mithrilpress/studio` | public shell; noindex | Open the chat-first post/page Studio. The API requires a site-owner session. |
 | `POST` | `/_mithrilpress/api/studio/chat` | `content:write` | Generate or revise one private draft; no model response is published. |
-| `POST` | `/_mithrilpress/api/studio/manual-draft` | `content:write` | Save a title and bounded plain-text content as a private draft without calling AI; uses the same sanitizer, route checks, revision approval, publication, and D1 conversation quotas. |
+| `POST` | `/_mithrilpress/api/studio/manual-draft` | `content:write` | Save a title and up to 100,000 characters of plain text as a private draft without calling AI; uses the same sanitizer, route checks, revision approval, publication, and D1 conversation quotas. |
 | `GET` | `/_mithrilpress/api/studio/conversations` and `/_mithrilpress/api/studio/conversations/{id}` | `content:write` | Read the signed-in owner's conversation history. |
 | `DELETE` | `/_mithrilpress/api/studio/conversations/{id}` | `content:write` | Delete the conversation and its unpublished draft. Published revisions remain intact. |
 | `GET` | `/_mithrilpress/api/studio/usage` | `content:write`, `media:write`, or `site:domains` | Show this site's retained content, public request use, R2 image storage, and daily app-level usage. |
@@ -312,13 +312,13 @@ See [Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/p
 [JSON Mode supported models](https://developers.cloudflare.com/workers-ai/features/json-mode/),
 and the [`llama-3.3-70b-instruct-fp8-fast` model page](https://developers.cloudflare.com/workers-ai/models/llama-3.3-70b-instruct-fp8-fast/).
 
-Owners may instead write a title and up to 1,800 characters directly in Studio.
-The Worker escapes the text into paragraphs, applies the same content boundary
-and sanitizer, and saves a private revision through the existing conversation
-flow. This records `ai_used: false` and does not consume the AI request or
-Neuron reservation. Database triggers still enforce the per-conversation,
-per-site, and deployment-wide conversation and text limits; an exhausted quota
-rejects the whole save.
+Owners may instead write a title and up to 100,000 characters directly in
+Studio. The Worker escapes the text into paragraphs, applies the manual-draft
+content boundary and sanitizer, and saves a private revision through the
+existing conversation flow. This records `ai_used: false` and does not consume
+the AI request or Neuron reservation. Database triggers still enforce the
+per-conversation, per-site, and deployment-wide conversation and text limits;
+an exhausted quota rejects the whole save.
 
 The Worker also enforces a 16 MiB retained-import content cap per site,
 including entries and taxonomy terms, and a 256 MiB cap across the deployment.

@@ -25,6 +25,9 @@ const MAX_BODY_BYTES = 12_000_000;
 const MAX_RECORDS = 500;
 const MAX_CONTENT_CHARS = 250_000;
 const MAX_MANUAL_DRAFT_CHARS = 100_000;
+const MAX_CHAT_DRAFT_HTML_CHARS = 250_000;
+// Worst case: every input character is a double quote (six escaped chars), plus <p></p>.
+const MAX_MANUAL_DRAFT_HTML_CHARS = 600_007;
 const MAX_IMPORT_CHARS = 10_000_000;
 const MAX_IMPORTED_TERMS = 5_000;
 const MAX_IMPORTED_TERM_BYTES = 1_000_000;
@@ -1416,8 +1419,8 @@ async function studioChat(request, env, site) {
     return fail(502, "invalid_ai_response", "The drafting service returned an incomplete proposal. No draft was saved.");
   }
   const candidateSlug = studioSlug(proposal?.slug, typeof proposal?.title === "string" ? proposal.title : "");
-  const admittedDraft = mithrilContentBoundary.prepareChatDraft(
-    site.id, owner.tokenId, conversation.id, kind, candidateSlug, proposal, languageCode,
+  const admittedDraft = mithrilContentBoundary.prepareStudioDraft(
+    site.id, owner.tokenId, conversation.id, kind, candidateSlug, proposal, languageCode, MAX_CHAT_DRAFT_HTML_CHARS,
   );
   if (!admittedDraft.ok || admittedDraft.status !== "private-draft"
       || admittedDraft.publicationAdmitted !== false || admittedDraft.tenantId !== site.id
@@ -1617,8 +1620,8 @@ async function studioManualDraft(request, env, site) {
     html: sourceHtml,
   };
   const candidateSlug = studioSlug(title, title);
-  const admittedDraft = mithrilContentBoundary.prepareChatDraft(
-    site.id, owner.tokenId, conversation.id, kind, candidateSlug, proposal, languageCode,
+  const admittedDraft = mithrilContentBoundary.prepareStudioDraft(
+    site.id, owner.tokenId, conversation.id, kind, candidateSlug, proposal, languageCode, MAX_MANUAL_DRAFT_HTML_CHARS,
   );
   if (!admittedDraft.ok || admittedDraft.status !== "private-draft"
       || admittedDraft.publicationAdmitted !== false || admittedDraft.tenantId !== site.id
