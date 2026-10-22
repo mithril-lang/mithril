@@ -103,8 +103,11 @@ npm run export:pages
 The site ID and token must belong to the same tenant. Set the token in the same
 process environment before running the command. The control-plane origin must
 route the authenticated site publication endpoint; no such Cloudflare route is
-provisioned by this package. An optional `MITHRILPRESS_EXPECTED_REVISION` makes
-the exporter fail if the published revision changed before the snapshot read.
+provisioned by this package. The exporter accepts only the exact
+`https://control.mithril.love` origin so the bearer token is not sent to an
+arbitrary tenant hostname or `workers.dev` endpoint. An optional
+`MITHRILPRESS_EXPECTED_REVISION` makes the exporter fail if the published
+revision changed before the snapshot read.
 The output is a local artifact only. A standalone publisher must re-read the
 current revision and digest immediately before any future Pages upload, verify
 the exact Pages deployment and host afterward, and retain the previous

@@ -6,6 +6,7 @@ const MAX_SNAPSHOT_BYTES = 40 * 1024 * 1024;
 const MAX_MEDIA_BYTES = 262_144_000;
 const MAX_OUTPUT_BYTES = 300_000_000;
 const MAX_OUTPUT_FILES = 5_000;
+const CONTROL_ORIGIN = "https://control.mithril.love";
 const MEDIA_CONTENT_TYPES = new Map([
   ["image/jpeg", "jpg"],
   ["image/png", "png"],
@@ -28,9 +29,7 @@ function endpointConfiguration() {
   if (base.protocol !== "https:" || base.username || base.password || base.search || base.hash || base.pathname !== "/") {
     fail("MITHRILPRESS_CONTROL_URL must be an HTTPS origin without credentials, a path, or query parameters.");
   }
-  if (base.hostname !== "mithril.love" && !base.hostname.endsWith(".mithril.love") && !base.hostname.endsWith(".workers.dev")) {
-    fail("MITHRILPRESS_CONTROL_URL must use the Mithril domain or a Cloudflare workers.dev hostname.");
-  }
+  if (base.origin !== CONTROL_ORIGIN) fail(`MITHRILPRESS_CONTROL_URL must use the exact ${CONTROL_ORIGIN} origin.`);
   const siteId = requiredEnvironment("MITHRILPRESS_SITE_ID");
   if (!/^[a-f0-9-]{36}$/.test(siteId)) fail("MITHRILPRESS_SITE_ID must be the exact MithrilPress site UUID.");
   const token = requiredEnvironment("MITHRILPRESS_OWNER_TOKEN");
