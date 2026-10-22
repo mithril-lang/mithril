@@ -9,8 +9,8 @@ activate the exact tenant mapping, and detach a hostname. The code does not
 write the customer's DNS. Owner-guided zone snapshots, record comparison,
 cutover approval, and NS/DS propagation checks are implemented; DNS-provider
 record writes, automatic nameserver changes, and registrar transfers are not.
-Do not enable the custom-hostname feature until its dedicated SaaS zone and
-route have been provisioned and read back. A five-minute Cron Trigger
+Do not enable the customer-owned-domain feature until its dedicated SaaS zone
+and route have been provisioned and read back. A five-minute Cron Trigger
 rechecks active hostnames in batches of 30; at the 90-hostname deployment cap,
 every mapping is checked within 15 minutes. Mismatches suspend immediately;
 three consecutive provider/DNS read failures also suspend. An owner must
@@ -20,21 +20,22 @@ refresh a suspended hostname after the checks pass.
 
 | Type | Setup | Control | Initial availability |
 | --- | --- | --- | --- |
-| MithrilPress subdomain (default) | One shared MithrilPress Worker and D1 registry serves `*.sites.mithril.love` through a wildcard DNS record and Worker route | MithrilPress controls the platform zone and exact hostname registry; the owner keeps their registrar and nameservers | Required default topology; disabled pending deep-host TLS, host-scoped ingress, cost, rollback, and release qualification |
-| Optional static publication | A separately selected Pages Direct Upload project attaches one exact name, such as `example.sites.mithril.love`; the existing Cloudflare zone adds its CNAME after confirmation | MithrilPress controls that Pages project and exact hostname; the owner keeps their registrar and nameservers | Optional and capped at 90 projects; requires isolated deep-host TLS and separate release qualification |
+| MithrilPress subdomain (default) | One shared MithrilPress Worker and D1 registry; attach one exact Worker Custom Domain per registered `label.sites.mithril.love` host | MithrilPress controls the platform zone and exact hostname registry; the owner keeps their registrar and nameservers | Required default topology; no wildcard DNS/route; cap at 90; qualify managed TLS, cost, rollback, and exact source |
+| Optional static publication | A separately selected Pages Direct Upload project attaches one exact name, such as `example.sites.mithril.love`; the existing Cloudflare zone adds its CNAME after confirmation | MithrilPress controls that Pages project and exact hostname; the owner keeps their registrar and nameservers | Optional and capped at 90 projects; requires exact-host TLS, cutover/rollback, and separate release qualification |
 | Customer-owned hostname | Customer adds owner-proof and provider TLS TXT records plus a DNS-only CNAME; MithrilPress verifies ownership and provisions a Cloudflare for SaaS custom hostname | Customer retains DNS and registrar control | Subdomains only; apex and wildcard customer hostnames are excluded from this prototype |
 | Nameserver migration plan | Owner proves control, uploads or reads source and staged destination zones, reviews exact record diff, approves a digest, then changes registrar settings manually | Owner retains DNS-provider and registrar control; any Cloudflare API token is zone-scoped and request-only | Optional guided plan; provider import is disabled by default pending isolated-zone qualification |
 
 Cloudflare for SaaS custom hostnames and Workers for Platforms solve different
 problems. MithrilPress should use SaaS custom hostnames for customer-owned
 domains; the renderer runs MithrilPress code and does not execute tenant code.
-The default product hostname uses the shared Worker with a wildcard DNS record
-and Worker route for `*.sites.mithril.love`; each request resolves the complete
-hostname through the tenant registry. This route remains disabled until the
-deep-host certificate and host-scoped ingress guard are qualified. The optional
-Pages publication mode uses an exact custom domain per selected site and does
-not change the default topology. Neither path transfers customer nameservers
-or registrar control.
+The default public URL pattern is `*.sites.mithril.love`, implemented with one
+exact Worker Custom Domain per registered tenant on the shared Worker. Cloudflare
+creates each exact DNS mapping and managed certificate; no wildcard record or
+route is required. Each request resolves the complete hostname through the
+tenant registry. The optional Pages publication mode uses an exact custom
+domain per selected site and requires an owner-approved cutover and rollback;
+it does not change other tenants' default Worker attachments. Neither path
+transfers customer nameservers or registrar control.
 
 ## Customer hostname state machine
 

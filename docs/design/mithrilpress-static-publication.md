@@ -2,16 +2,18 @@
 
 **Scope boundary:** this is an optional, capped publication adapter, not the
 default hosting topology. The requested default remains one shared
-tenant-aware Worker and D1 hostname registry for `*.sites.mithril.love`, as
+tenant-aware Worker and D1 hostname registry with exact Worker Custom Domains
+for registered `label.sites.mithril.love` hosts, as
 tracked in [MITHRIL-275](https://linear.app/kotobalabs/issue/MITHRIL-275/implement-mithrilpress-cloudflare-worker-routing-and-private-previews).
 This Pages path uses one exact hostname per project and neither provisions nor
-replaces the wildcard Worker route.
+replaces the default Worker Custom Domain attachment.
 
 **Status: the executable publication source at
 `8931a87fc7aff7d5d9c5ecb28abda794e3cadde1` passed the pinned
 `mithrilpress-worker` standalone profile (35/35 tests, including owner-auth and
-tenant-isolation checks). This follow-up changes documentation only and passes
-`git diff --check`; none of the Pages resources or routes is deployed.**
+tenant-isolation checks). PR #135's documentation follow-up was checked with
+`git diff --check`; the separate exact-host attachment work in PR #138 has not
+been qualified. None of the Pages resources or routes is deployed.**
 The Worker exposes a
 `site:publish`-scoped digest-bound snapshot and referenced-media endpoint,
 `apps/mithrilpress-worker/scripts/export-static-pages.mjs` builds a local static
@@ -49,7 +51,7 @@ and [R2 pricing](https://developers.cloudflare.com/r2/pricing/).
 
 The diagram below applies only when an owner and operator separately select
 the optional Pages publication path for a site. It does not describe the
-default shared Worker route.
+default exact Worker Custom Domain attachment.
 
 ```text
 Owner chat and WordPress import

@@ -74,12 +74,15 @@ Mithril workspace's `kbb` compiler.
 
 The example config deliberately has no route and disables `workers.dev`. It is
 not a production deployment config. The required default hosting topology is a
-shared tenant-aware Worker and D1 hostname registry on
-`*.sites.mithril.love`. Production routing, deep-host TLS, a host-scoped ingress
-guard, real D1 IDs, zone ownership, exact-source standalone qualification,
-rollback, and live read-back remain release gates. This package creates no
-wildcard DNS record or Worker route. The optional Pages adapter attaches one
-exact hostname per site and remains an independently gated publication path.
+shared tenant-aware Worker and D1 hostname registry, with one exact Worker
+Custom Domain for each registered `label.sites.mithril.love` site. This keeps
+the requested public hostname pattern without a wildcard DNS record or route;
+Cloudflare creates the exact DNS mapping and managed certificate. The platform
+cohort stops at 90 domains. Production attachment, certificate read-back,
+operator cost controls, real D1 IDs, zone ownership, exact-source standalone
+qualification, rollback, and live read-back remain release gates. The optional
+Pages adapter attaches one exact hostname per selected site and remains an
+independently gated publication path.
 
 The R2 adapter stores objects with random site-scoped keys and keeps metadata
 and ownership references in D1. The application caps storage at 250 MiB per
@@ -95,10 +98,10 @@ has other R2 usage. No paid fallback is configured. See [R2 pricing](https://dev
 
 This capped Pages path is an optional publication adapter, not the default
 hosting plane. The shared tenant-aware Worker and D1 registry remain the
-default for `*.sites.mithril.love`; the Pages publisher neither provisions nor
-replaces that wildcard route. Pages projects, exact custom domains, and REST
-Functions remain disabled until their separate qualification and cost gates
-pass.
+default for registered exact hostnames under `*.sites.mithril.love`; the Pages
+publisher does not provision or replace those Worker Custom Domains. Pages
+projects, exact custom domains, and REST Functions remain disabled until their
+separate qualification and cost gates pass.
 
 After a site owner separately approves and publishes a revision, a publisher
 with a short-lived `site:publish` token can read the current snapshot and its
@@ -133,9 +136,9 @@ the exact local bundle.
 
 ### Optional guarded Pages Direct Upload
 
-This exact-host flow is separate from the default shared Worker route. It is
-limited to the capped Pages publication path and does not change routing for
-tenants that remain on the shared Worker.
+This exact-host flow is separate from the default shared Worker Custom Domain
+attachment. It is limited to the capped Pages publication path and does not
+change routing for tenants that remain on the shared Worker.
 
 `npm run publish:pages -- --confirm-publication` updates an already established
 static Pages site. The first publish uses the explicit
@@ -328,7 +331,8 @@ implemented yet.
 
 ### Exact platform-host attachment
 
-Each registered `label.sites.mithril.love` host can attach to the shared
+The public URL pattern is `*.sites.mithril.love`; each registered
+`label.sites.mithril.love` host attaches to the shared
 `mithrilpress` Worker as an exact Cloudflare Worker Custom Domain. This avoids a
 wildcard DNS record and wildcard route, so unknown labels do not reach the
 Worker. Cloudflare creates the exact DNS mapping and managed certificate. The
@@ -532,22 +536,23 @@ cannot consume the provider limit.
 
 ## Hosting and custom domains
 
-The intended runtime is one Worker, D1, and a proxied wildcard route for
-`*.sites.mithril.love`. Hosting is free to site owners; the operator pays the
-provider bill. Cloudflare's Workers Paid plan currently has a $5/month minimum,
-10 million included requests per month, and metered overages. D1, R2, and
-Workers AI have separate account-level allowances and pricing. MithrilPress
-does not bill site owners or automatically upgrade a plan.
+The requested public URL pattern is `*.sites.mithril.love`. The default runtime
+is one shared tenant-aware Worker and D1 registry, with one exact Worker Custom
+Domain attached for each registered `label.sites.mithril.love` hostname. A
+Custom Domain is an exact hostname match: Cloudflare creates its DNS record and
+managed certificate, and no wildcard DNS record or Worker Route is used. This
+keeps unregistered labels from reaching the Worker. Hosting is free to site
+owners; the operator is responsible for provider charges. MithrilPress does not
+bill owners or automatically upgrade a Cloudflare plan.
 
 MithrilPress does not use Workers for Platforms in the initial design. That
 product's dispatch namespaces isolate and route customer-authored Worker code;
 MithrilPress runs one reviewed renderer over tenant content and does not execute
-tenant code. Workers for Platforms is a separately paid service (listed at
-$25/month plus usage overages when checked on 2026-10-21), so it is not the
-mechanism for a free site-owner tier or a provider-level hard stop. Revisit it
-only if tenant-authored code becomes a product requirement. See the
-[Workers for Platforms overview](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/),
-[how dispatch works](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/how-workers-for-platforms-works/),
+tenant code. Workers for Platforms is a separate product with its own pricing,
+so it is not required for this shared-renderer design or a provider-level hard
+stop. Revisit it only if tenant-authored code becomes a product requirement.
+See the [Workers for Platforms overview](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/),
+[dispatch model](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/how-workers-for-platforms-works/),
 and [pricing](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/reference/pricing/).
 
 MithrilPress enforces 5,000 HTTP requests per active site per UTC day and
@@ -564,12 +569,14 @@ one D1 counter write still occur before a request can receive the shared-cap
 response, and unrelated workloads in the same Cloudflare account consume the
 same provider allocations. The Studio shows MithrilPress app counters, but does
 not measure all account-wide Worker requests, D1 reads/writes/storage, or
-Workers AI neuron usage. Cloudflare's Workers Paid plan has no request ceiling
-and meters usage beyond included allocations; budget alerts notify but do not
-pause or cap usage. A strict provider-level stop therefore requires a dedicated
-Workers Free deployment or an independently operated route shutdown, with the
-account and hostname-routing boundaries verified before launch; it is not
-provided by these app counters. On Workers Free, D1 daily read/write exhaustion
+Workers AI neuron usage. Workers Paid has no daily request ceiling and meters
+usage beyond its included allocations; budget alerts notify but do not pause or
+cap usage. Workers Free has an account-wide daily request limit and rejects
+requests after that limit, but this protects MithrilPress only if the selected
+account is confirmed Free and shared account usage is bounded. A strict
+provider-level stop is not provided by MithrilPress's app counters. Keep public
+hosting disabled until the account plan, shared usage, and enforceable cost
+boundary are read back. On Workers Free, D1 daily read/write exhaustion
 or a D1 storage ceiling is returned as a clear 503 and requests fail closed.
 Import and rendering workloads have not been qualified against the current CPU
 limit. Usage monitoring and release gates are tracked in Linear MITHRIL-292.
@@ -580,9 +587,10 @@ See [Workers pricing](https://developers.cloudflare.com/workers/platform/pricing
 [Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/)
 again before each release.
 
-The default address is an owner-provisioned hostname under
-`*.sites.mithril.love`. Studio custom-hostname onboarding is implemented behind
-a disabled-by-default feature gate. It asks the owner to publish a short-lived
+The default address is one exact Worker Custom Domain per registered tenant
+under the requested `*.sites.mithril.love` URL pattern. Customer-owned-domain
+onboarding is implemented behind a separate disabled-by-default feature gate.
+It asks the owner to publish a short-lived
 TXT proof, creates the Cloudflare for SaaS hostname only after that proof
 resolves, returns the provider's TLS validation records, and activates the
 tenant mapping only after Cloudflare reports an active hostname and
