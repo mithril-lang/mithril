@@ -409,8 +409,8 @@ write and storage caps; reaching a cap stops the import without a paid fallback.
 | `GET` | `/_mithrilpress/api/studio/conversations` and `/_mithrilpress/api/studio/conversations/{id}` | `content:write` | Read the signed-in owner's conversation history. |
 | `DELETE` | `/_mithrilpress/api/studio/conversations/{id}` | `content:write` | Delete the conversation and its unpublished draft. Published revisions remain intact. |
 | `GET` | `/_mithrilpress/api/studio/usage` | `content:write`, `media:write`, or `site:domains` | Show this site's retained content, public request use, R2 image storage, and daily app-level usage. |
-| `GET` / `POST` | `/_mithrilpress/api/media` | `media:write` | List the tenant's image library or upload a bounded JPEG, PNG, GIF, or WebP image directly to R2. |
-| `DELETE` | `/_mithrilpress/api/media/{id}` | `media:write` | Hide and remove an image; published content referencing it will render without the image. |
+| `GET` / `POST` | `/_mithrilpress/api/media` | `media:write` | List the tenant's image library and up to 25 pending uploads, or upload a bounded JPEG, PNG, GIF, or WebP image directly to R2. |
+| `DELETE` | `/_mithrilpress/api/media/{id}` | `media:write` | Hide and remove an image only after its immutable completed-upload action is verified; published content referencing it will render without the image. |
 | `GET` / `HEAD` | `/_mithrilpress/media/{id}` | public only when referenced by the published revision; owner preview otherwise | Serve an image only while referenced by published content or the authenticated owner's preview/library. |
 | `GET` | `/_mithrilpress/preview/{revision-id}/{slug}` | `revision:preview` | View sanitized revision HTML with `noindex` headers. |
 | `POST` | `/_mithrilpress/api/revisions/{revision-id}/approve` | `revision:approve` | Record owner approval for a complete sanitized revision. |
@@ -436,6 +436,16 @@ write and storage caps; reaching a cap stops the import without a paid fallback.
 | `GET` / `HEAD` | `/wp-json/wp/v2/posts/{id}` or `/wp-json/wp/v2/pages/{id}` | public | Read one published post or page by its WordPress source ID or MithrilPress API ID. |
 | `GET` | `/wp-json/wp/v2/media/{id}` | public | Read metadata for a currently published featured or inline image. |
 | `GET` | `/{slug}/` | public | Render one published page or post. |
+
+An R2 write that rejects or has an uncertain result keeps its private D1
+reservation. A successful `R2.put` is recorded as one immutable
+`media-uploaded` action before the row can become active. Studio lists pending
+reservations and offers removal only when the exact action, owner token,
+creation time, and upload metadata can be verified. Removal fences the row as
+`deleting`, verifies the exact R2 object's metadata, confirms object absence,
+then removes the D1 reservation. Unknown or mismatched outcomes remain private
+and quota-counted for operator review. Follow the
+[media reconciliation runbook](../../docs/operations/mithrilpress-media-reconciliation.md).
 
 The HTML sanitizer keeps a small semantic tag allowlist, removes all attributes
 except validated HTTP(S) or relative anchor links, removes comments, and drops

@@ -1587,6 +1587,61 @@ async function existingWordPressMediaResponse(env, site, wordpressSourceId, cont
   return json({ media: mediaSummary(site, existing) }, 200, { "Cache-Control": "private, no-store" });
 }
 
+function mediaUploadActionMatches(action, asset) {
+  if (action.token_id !== asset.uploaded_by_token_id || action.created_at !== asset.created_at) return false;
+  let metadata;
+  try {
+    metadata = JSON.parse(action.metadata_json);
+  } catch {
+    return false;
+  }
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)
+      || !Object.prototype.hasOwnProperty.call(metadata, "wordpress_source_id")) return false;
+  return metadata.byte_length === Number(asset.byte_length)
+    && metadata.content_type === asset.content_type
+    && metadata.sha256 === asset.sha256
+    && (metadata.wordpress_source_id ?? null) === (asset.wordpress_source_id === null ? null : Number(asset.wordpress_source_id))
+    && (metadata.width === undefined || metadata.width === Number(asset.width))
+    && (metadata.height === undefined || metadata.height === Number(asset.height))
+    && (metadata.alt_text === undefined || metadata.alt_text === asset.alt_text);
+}
+
+async function mediaUploadActionProof(env, site, asset) {
+  const rows = await env.DB.prepare(
+    "SELECT id, token_id, created_at, metadata_json FROM media_actions WHERE site_id = ? AND media_id = ? AND action = 'media-uploaded' ORDER BY created_at ASC, id ASC LIMIT 2",
+  ).bind(site.id, asset.id).all();
+  const actions = rows.results ?? [];
+  if (actions.length !== 1 || !mediaUploadActionMatches(actions[0], asset)) return null;
+  return actions[0];
+}
+
+async function recordMediaUploadAction(env, site, asset) {
+  const existing = await mediaUploadActionProof(env, site, asset);
+  if (existing) return existing;
+  const rows = await env.DB.prepare(
+    "SELECT id FROM media_actions WHERE site_id = ? AND media_id = ? AND action = 'media-uploaded' LIMIT 2",
+  ).bind(site.id, asset.id).all();
+  if ((rows.results ?? []).length > 0) return null;
+
+  const id = `media-uploaded:${site.id}:${asset.id}`;
+  try {
+    await env.DB.prepare(
+      "INSERT OR IGNORE INTO media_actions (id, site_id, media_id, token_id, action, created_at, metadata_json) VALUES (?, ?, ?, ?, 'media-uploaded', ?, ?)",
+    ).bind(id, site.id, asset.id, asset.uploaded_by_token_id, asset.created_at, JSON.stringify({
+      byte_length: Number(asset.byte_length),
+      content_type: asset.content_type,
+      width: Number(asset.width),
+      height: Number(asset.height),
+      sha256: asset.sha256,
+      wordpress_source_id: asset.wordpress_source_id === null ? null : Number(asset.wordpress_source_id),
+      alt_text: asset.alt_text,
+    })).run();
+  } catch {
+    // The insert result can be ambiguous; the immutable event read-back decides whether it committed.
+  }
+  return mediaUploadActionProof(env, site, asset);
+}
+
 async function studioMedia(request, env, site) {
   const owner = await ownerToken(request, env, site, "media:write");
   if (!owner) return fail(401, "media_owner_required", "An active site owner token with media:write scope is required.");
@@ -1594,11 +1649,23 @@ async function studioMedia(request, env, site) {
     const rows = await env.DB.prepare(
       "SELECT id, wordpress_source_id, content_type, byte_length, width, height, sha256, alt_text, created_at FROM media_assets WHERE site_id = ? AND status = 'active' ORDER BY created_at DESC, id DESC LIMIT 200",
     ).bind(site.id).all();
+    const pendingRows = await env.DB.prepare(
+      "SELECT id, wordpress_source_id, content_type, byte_length, width, height, sha256, alt_text, status, uploaded_by_token_id, created_at FROM media_assets WHERE site_id = ? AND status IN ('pending', 'deleting') ORDER BY created_at ASC, id ASC LIMIT 26",
+    ).bind(site.id).all();
+    const pendingAssets = (pendingRows.results ?? []).slice(0, 25);
+    const pendingUploads = await Promise.all(pendingAssets.map(async (asset) => ({
+      id: asset.id,
+      status: asset.status,
+      created_at: asset.created_at,
+      safe_to_remove: Boolean(await mediaUploadActionProof(env, site, asset)),
+    })));
     const usage = await env.DB.prepare(
       "SELECT asset_bytes FROM mithrilpress_site_media_usage WHERE site_id = ? LIMIT 1",
     ).bind(site.id).first();
     return json({
       media: (rows.results ?? []).map((row) => mediaSummary(site, row)),
+      pending_uploads: pendingUploads,
+      pending_uploads_truncated: (pendingRows.results ?? []).length > pendingAssets.length,
       storage: { used_bytes: Number(usage?.asset_bytes ?? 0), site_limit_bytes: SITE_MEDIA_LIMIT_BYTES },
     }, 200, { "Cache-Control": "private, no-store" });
   }
@@ -1625,7 +1692,7 @@ async function studioMedia(request, env, site) {
   let reserved;
   try {
     reserved = await env.DB.prepare(
-      "INSERT INTO media_assets (site_id, wordpress_source_id, object_key, content_type, byte_length, width, height, sha256, alt_text, status, uploaded_by_token_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?) RETURNING id, wordpress_source_id, content_type, byte_length, width, height, sha256, alt_text, created_at",
+      "INSERT INTO media_assets (site_id, wordpress_source_id, object_key, content_type, byte_length, width, height, sha256, alt_text, status, uploaded_by_token_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?) RETURNING id, wordpress_source_id, object_key, content_type, byte_length, width, height, sha256, alt_text, status, uploaded_by_token_id, created_at",
     ).bind(site.id, wordpressSourceId, idempotentObjectKey, contentType, details.byteLength,
       details.width, details.height, sha256, altText, owner.tokenId, createdAt).first();
   } catch (error) {
@@ -1647,27 +1714,42 @@ async function studioMedia(request, env, site) {
       },
       customMetadata: { mediaId: String(reserved.id), sha256 },
     });
-    const committed = await env.DB.batch([
-      env.DB.prepare("UPDATE media_assets SET status = 'active' WHERE site_id = ? AND id = ? AND status = 'pending'")
-        .bind(site.id, reserved.id),
-      env.DB.prepare("INSERT INTO media_actions (id, site_id, media_id, token_id, action, created_at, metadata_json) VALUES (?, ?, ?, ?, 'media-uploaded', ?, ?)")
-        .bind(crypto.randomUUID(), site.id, reserved.id, owner.tokenId, createdAt,
-          JSON.stringify({ byte_length: details.byteLength, content_type: contentType, sha256, wordpress_source_id: wordpressSourceId })),
-    ]);
-    if (committed[0]?.meta?.changes !== 1) throw new Error("media reservation state changed");
   } catch {
-    try {
-      await env.MEDIA.delete(idempotentObjectKey);
-    } catch {
-      // A pending database row remains private and can be cleaned up by an operator.
+    // A rejected R2 put can still have an unknown outcome. Keep the private
+    // reservation so a late object cannot escape the storage quota.
+    return fail(503, "media_upload_outcome_unknown", "The image storage result is uncertain. Its private storage reservation was retained for safe reconciliation.");
+  }
+
+  try {
+    const uploadAction = await recordMediaUploadAction(env, site, reserved);
+    if (!uploadAction) {
+      return fail(503, "media_upload_reconciliation_required", "The image was stored, but its completed write could not be recorded. It remains private and reserved for reconciliation.");
     }
-    try {
-      await env.DB.prepare("DELETE FROM media_assets WHERE site_id = ? AND id = ? AND status = 'pending'")
-        .bind(site.id, reserved.id).run();
-    } catch {
-      // The row remains non-public; the database storage guard prevents further over-allocation.
+    const activated = await env.DB.prepare(
+      "UPDATE media_assets SET status = 'active' WHERE site_id = ? AND id = ? AND status = 'pending'",
+    ).bind(site.id, reserved.id).run();
+    if (activated.meta?.changes !== 1) {
+      const current = await env.DB.prepare(
+        "SELECT status FROM media_assets WHERE site_id = ? AND id = ? LIMIT 1",
+      ).bind(site.id, reserved.id).first();
+      if (current?.status !== "active") {
+        return fail(503, "media_upload_activation_pending", "The image write completed, but its private reservation changed before activation. It remains reserved for reconciliation.");
+      }
     }
-    return fail(503, "media_upload_not_committed", "The image upload could not be committed. It is not available to public pages.");
+  } catch {
+    // Do not remove the object or reservation after a possibly committed D1
+    // write. Read-back can prove activation; otherwise leave the asset private.
+    try {
+      const [current, proof] = await Promise.all([
+        env.DB.prepare("SELECT status FROM media_assets WHERE site_id = ? AND id = ? LIMIT 1").bind(site.id, reserved.id).first(),
+        mediaUploadActionProof(env, site, reserved),
+      ]);
+      if (current?.status !== "active" || !proof) {
+        return fail(503, "media_upload_reconciliation_required", "The image was stored, but activation could not be confirmed. Its private reservation was retained for safe reconciliation.");
+      }
+    } catch {
+      return fail(503, "media_upload_reconciliation_required", "The image was stored, but activation could not be confirmed. Its private reservation was retained for safe reconciliation.");
+    }
   }
   return json({ media: mediaSummary(site, reserved) }, 201, { "Cache-Control": "private, no-store" });
 }
@@ -1678,31 +1760,78 @@ async function deleteStudioMedia(request, env, site, mediaId) {
   if (request.method !== "DELETE") return fail(405, "method_not_allowed", "Use DELETE to remove this media item.");
   if (!env.MEDIA) return fail(503, "media_storage_unavailable", "Image storage is not configured for this hosting deployment.");
   const row = await env.DB.prepare(
-    "SELECT id, object_key, status FROM media_assets WHERE site_id = ? AND id = ? LIMIT 1",
+    "SELECT id, wordpress_source_id, object_key, content_type, byte_length, width, height, sha256, alt_text, status, uploaded_by_token_id, created_at FROM media_assets WHERE site_id = ? AND id = ? LIMIT 1",
   ).bind(site.id, mediaId).first();
   if (!row) return fail(404, "media_not_found", "Media item not found.");
+  if (row.status !== "pending" && row.status !== "active" && row.status !== "deleting") {
+    return fail(409, "media_state_conflict", "The media item's upload state cannot be safely reconciled.");
+  }
+  const uploadAction = await mediaUploadActionProof(env, site, row);
+  if (!uploadAction) {
+    return fail(409, "media_upload_outcome_unknown", "The completed upload cannot be proven. The image remains private or unchanged, and its storage reservation is retained.");
+  }
   if (!await countMediaWrite(env, MEDIA_WRITES_PER_DAY_LIMIT)) {
     return fail(429, "media_daily_write_limit", "The shared free media upload and delete allowance is exhausted for today. Try again after 00:00 UTC.");
   }
-  await env.DB.prepare("UPDATE media_assets SET status = 'deleting' WHERE site_id = ? AND id = ? AND status IN ('pending', 'active', 'deleting')")
-    .bind(site.id, mediaId).run();
+  if (row.status !== "deleting") {
+    const fenced = await env.DB.prepare(
+      "UPDATE media_assets SET status = 'deleting' WHERE site_id = ? AND id = ? AND status IN ('pending', 'active')",
+    ).bind(site.id, mediaId).run();
+    if (fenced.meta?.changes !== 1) {
+      return fail(409, "media_state_conflict", "The media state changed before its deletion could be safely fenced. Retry after checking the current state.");
+    }
+  }
+
+  let object;
   try {
-    await env.MEDIA.delete(row.object_key);
+    object = await env.MEDIA.head(row.object_key);
   } catch {
-    return fail(503, "media_delete_pending", "The item is hidden from publication, but object removal is pending. Retry later.");
+    return fail(503, "media_delete_pending", "The item is hidden from publication, but its object state could not be verified. Retry reconciliation later.");
+  }
+  if (object) {
+    const metadataMatches = object.size === Number(row.byte_length)
+      && object.httpMetadata?.contentType === row.content_type
+      && object.customMetadata?.mediaId === String(row.id)
+      && object.customMetadata?.sha256 === row.sha256;
+    if (!metadataMatches) {
+      return fail(503, "media_object_mismatch", "The stored object does not match its reserved media record. It remains hidden and reserved for operator reconciliation.");
+    }
+    try {
+      await env.MEDIA.delete(row.object_key);
+      if (await env.MEDIA.head(row.object_key)) {
+        return fail(503, "media_delete_pending", "The item is hidden from publication, but object removal has not been confirmed. Retry reconciliation later.");
+      }
+    } catch {
+      return fail(503, "media_delete_pending", "The item is hidden from publication, but object removal has not been confirmed. Retry reconciliation later.");
+    }
   }
   const now = new Date().toISOString();
   try {
     const result = await env.DB.batch([
       env.DB.prepare("DELETE FROM media_assets WHERE site_id = ? AND id = ? AND status = 'deleting'").bind(site.id, mediaId),
-      env.DB.prepare("INSERT INTO media_actions (id, site_id, media_id, token_id, action, created_at, metadata_json) VALUES (?, ?, ?, ?, 'media-deleted', ?, '{}')")
-        .bind(crypto.randomUUID(), site.id, mediaId, owner.tokenId, now),
+      env.DB.prepare("INSERT OR IGNORE INTO media_actions (id, site_id, media_id, token_id, action, created_at, metadata_json) VALUES (?, ?, ?, ?, 'media-deleted', ?, '{}')")
+        .bind(`media-deleted:${site.id}:${mediaId}`, site.id, mediaId, owner.tokenId, now),
     ]);
-    if (result[0]?.meta?.changes !== 1) throw new Error("media metadata removal failed");
+    if (result[0]?.meta?.changes === 1) return json({ media_id: mediaId, deleted: true });
+    const current = await env.DB.prepare(
+      "SELECT id FROM media_assets WHERE site_id = ? AND id = ? LIMIT 1",
+    ).bind(site.id, mediaId).first();
+    if (!current) return json({ media_id: mediaId, deleted: true });
+    throw new Error("media metadata removal failed");
   } catch {
-    return fail(503, "media_delete_pending", "The object was removed, but metadata cleanup is pending. Retry later.");
+    try {
+      const current = await env.DB.prepare(
+        "SELECT id FROM media_assets WHERE site_id = ? AND id = ? LIMIT 1",
+      ).bind(site.id, mediaId).first();
+      const deletedAction = await env.DB.prepare(
+        "SELECT id FROM media_actions WHERE site_id = ? AND media_id = ? AND action = 'media-deleted' LIMIT 1",
+      ).bind(site.id, mediaId).first();
+      if (!current && deletedAction) return json({ media_id: mediaId, deleted: true });
+    } catch {
+      // Preserve the deleting reservation when database read-back is uncertain.
+    }
+    return fail(503, "media_delete_pending", "The object was removed, but metadata cleanup could not be confirmed. Its reservation remains for safe reconciliation.");
   }
-  return json({ media_id: mediaId, deleted: true });
 }
 
 async function serveMedia(request, env, site, mediaId) {
