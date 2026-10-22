@@ -96,6 +96,12 @@ publishing. Owner identity provisioning remains out of band.
 
 ## Cloudflare hosting
 
+An alternative static publication plane may keep approved visitor pages off
+the dynamic Worker, but host-isolated asset routing, route precedence, and the
+standalone publishing pipeline have not been qualified. See the
+[static publication design](mithrilpress-static-publication.md). It does not
+change the current fail-closed route gate.
+
 The initial runtime is a single MithrilPress Worker, D1, and R2. The default
 hostname `*.sites.mithril.love` uses the existing parent zone; it does not need
 a child zone or NS delegation. Cloudflare standalone subdomain-zone setup is
