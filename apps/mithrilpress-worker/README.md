@@ -37,6 +37,12 @@ explicitly published tenant revision.
   plugin, shortcode, script, style, form, or dynamic-block execution. Only
   separately validated owner-uploaded R2 media may render inline or as a
   featured image.
+- A `site:publish`-scoped immutable snapshot endpoint and local Pages artifact
+  exporter for the current owner-approved publication. The exporter verifies
+  the snapshot digest and every media object's SHA-256, then writes static HTML,
+  taxonomy archives, a sitemap, an RSS feed, robots.txt, and referenced images.
+  It creates local files only; it does not call the Cloudflare Pages API or
+  publish a deployment.
 
 The checked-in Mithril native-JS modules own platform subdomain validation,
 WordPress post/page record admission, individual taxonomy-term admission, and
@@ -78,6 +84,32 @@ per day. Cloudflare's R2 Standard free tier currently includes
 operations per month; those allowances are account-wide and shared with other
 workloads. The application caps do not guarantee a zero bill when the account
 has other R2 usage. No paid fallback is configured. See [R2 pricing](https://developers.cloudflare.com/r2/pricing/).
+
+### Static publication artifact
+
+After a site owner separately approves and publishes a revision, a publisher
+with a short-lived `site:publish` token can read the current snapshot and its
+referenced media. Load `MITHRILPRESS_OWNER_TOKEN` from the approved local secret
+store into the process environment; do not put it in a command argument or
+commit it. Select the exact site origin and a new, nonexistent output path:
+
+```sh
+MITHRILPRESS_CONTROL_URL=https://control.mithril.love \
+MITHRILPRESS_SITE_ID=00000000-0000-4000-8000-000000000000 \
+MITHRILPRESS_OUTPUT_DIR=/tmp/example-pages \
+npm run export:pages
+```
+
+The site ID and token must belong to the same tenant. Set the token in the same
+process environment before running the command. The control-plane origin must
+route the authenticated site publication endpoint; no such Cloudflare route is
+provisioned by this package. An optional `MITHRILPRESS_EXPECTED_REVISION` makes
+the exporter fail if the published revision changed before the snapshot read.
+The output is a local artifact only. A standalone publisher must re-read the
+current revision and digest immediately before any future Pages upload, verify
+the exact Pages deployment and host afterward, and retain the previous
+known-good deployment. Pages credentials and R2 objects are never sent to the
+tenant-facing Worker.
 
 ## Tenant provisioning data
 
@@ -216,6 +248,8 @@ write and storage caps; reaching a cap stops the import without a paid fallback.
 | `GET` | `/_mithrilpress/preview/{revision-id}/{slug}` | `revision:preview` | View sanitized revision HTML with `noindex` headers. |
 | `POST` | `/_mithrilpress/api/revisions/{revision-id}/approve` | `revision:approve` | Record owner approval for a complete sanitized revision. |
 | `POST` | `/_mithrilpress/api/revisions/{revision-id}/publish` | `site:publish` | Make the approved revision the public site revision. |
+| `GET` / `HEAD` | `/_mithrilpress/api/control/sites/{site-id}/publication/current` | `site:publish` | Read a digest-bound snapshot of only the current owner-approved published revision on the separate control-plane origin. |
+| `GET` / `HEAD` | `/_mithrilpress/api/control/sites/{site-id}/publication/revisions/{revision-id}/media/{id}` | `site:publish` | Read a referenced media object only while that revision is still current; reads count against existing image-delivery caps. |
 | `GET` / `POST` | `/_mithrilpress/api/domains` | `site:domains` | List custom hostnames or start a 24-hour ownership TXT challenge. Unverified requests do not reserve hostnames or shared capacity. Expired claims are released before per-site capacity checks; a detached hostname can be claimed by another site after fresh proof. |
 | `POST` | `/_mithrilpress/api/domains/{hostname-id}/verify` | `site:domains` | Verify ownership TXT and provision the Cloudflare for SaaS hostname and certificate. |
 | `POST` | `/_mithrilpress/api/domains/{hostname-id}/refresh` | `site:domains` | Read provider/TLS status and verify the public DNS-only CNAME. |

@@ -1,9 +1,11 @@
 # MithrilPress static publication plane
 
-**Status: design candidate; not implemented or deployed.** This document records
-the candidate public-delivery path for MithrilPress. The current dynamic Worker
-remains the prototype. This design does not create a Pages project, DNS record,
-custom domain, Worker route, or paid subscription, and does not enable R2.
+**Status: local artifact export implemented; not qualified or deployed.** The
+Worker exposes a `site:publish`-scoped digest-bound snapshot and referenced-media
+endpoint, and `apps/mithrilpress-worker/scripts/export-static-pages.mjs` builds
+a local static artifact. Pages upload, custom-domain provisioning, DNS, and
+certificate automation remain unimplemented and disabled. No Pages project,
+DNS record, custom domain, Worker route, or paid subscription has been created.
 
 ## Why split public delivery from the editor
 
@@ -24,7 +26,7 @@ References:
 [Pages Functions routing](https://developers.cloudflare.com/pages/functions/routing/),
 and [R2 pricing](https://developers.cloudflare.com/r2/pricing/).
 
-## Candidate topology
+## Target topology
 
 ```text
 Owner chat and WordPress import
@@ -51,13 +53,42 @@ deployment. The publisher should run outside the tenant-facing Worker under
 the existing standalone release authority; no Pages or DNS credential belongs
 in a tenant request handler.
 
-The publisher would build one complete, immutable asset set from the published
+The publisher will build one complete, immutable asset set from the published
 snapshot. The Pages project's root would contain that site's sanitized HTML,
 styles, owner-uploaded media, sitemap, feed, and static WordPress-compatible
 JSON files explicitly included in the parity contract. It must never include
 another site's files, drafts, chat history, owner sessions, or private
 previews. Unsupported dynamic WordPress queries would be called out in the
 owner's migration report.
+
+The public Pages hostname cannot also serve the current Worker Studio and owner
+API paths. Keep those on a separate authenticated control-plane origin. The
+snapshot implementation accepts an exact site UUID in the control API path and
+still verifies that the supplied `site:publish` token belongs to that tenant;
+the UUID is only a lookup key, never authorization. The package does not create
+or route the control-plane hostname. Studio/API relocation and that exact
+control route must be qualified before Pages can replace a tenant's current
+Worker hostname.
+
+### Current local artifact boundary
+
+`GET /_mithrilpress/api/control/sites/{site-id}/publication/current` requires
+`site:publish`, checks the current revision's published state and owner-approval
+proof, then returns the published entries, taxonomy terms, and only referenced
+active media metadata. The response carries a SHA-256 over the exact snapshot.
+Media reads use the same site-scoped path and are bound to that current
+revision; they consume the existing per-site and deployment media-read
+allowances. The exporter compares the revision and digest again before it
+commits its local output directory. If the revision changes during export or a
+media read fails, the export fails without a final artifact directory.
+
+The local exporter verifies the snapshot and each media object's length and
+SHA-256, rejects unsafe or colliding paths, and caps output at 5,000 files,
+300 MB total, and Pages' 25 MiB per-file limit. It emits static entry pages,
+taxonomy archives, a sitemap, RSS, robots.txt, security headers, and referenced
+media. The output is not uploaded. It currently does not emit a WordPress REST
+API implementation or a Pages Functions `_routes.json`; query-dependent REST
+parity remains a separate metered feature gate.
 
 ## Host isolation and routing
 
