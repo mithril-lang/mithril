@@ -20,15 +20,16 @@ refresh a suspended hostname after the checks pass.
 
 | Type | Setup | Control | Initial availability |
 | --- | --- | --- | --- |
-| MithrilPress subdomain | MithrilPress assigns one unique label, such as `example.sites.mithril.love` | MithrilPress controls the wildcard zone and hostname registry | First release target; requires the wildcard route and tenant provisioning |
+| MithrilPress subdomain | MithrilPress creates one Pages Direct Upload project and attaches one exact name, such as `example.sites.mithril.love`; the existing Cloudflare zone adds its CNAME after confirmation | MithrilPress controls the Pages project and exact hostname registry; the owner keeps their registrar and nameservers | Candidate first release; requires isolated deep-host TLS qualification and the Pages project cap |
 | Customer-owned hostname | Customer adds owner-proof and provider TLS TXT records plus a DNS-only CNAME; MithrilPress verifies ownership and provisions a Cloudflare for SaaS custom hostname | Customer retains DNS and registrar control | Subdomains only; apex and wildcard customer hostnames are excluded from this prototype |
 | Nameserver migration plan | Owner proves control, uploads or reads source and staged destination zones, reviews exact record diff, approves a digest, then changes registrar settings manually | Owner retains DNS-provider and registrar control; any Cloudflare API token is zone-scoped and request-only | Optional guided plan; provider import is disabled by default pending isolated-zone qualification |
 
 Cloudflare for SaaS custom hostnames and Workers for Platforms solve different
-problems. MithrilPress should use SaaS custom hostnames for customer domains;
-the renderer runs MithrilPress code and does not execute tenant code. Keep the
-default product on the supplied `sites.mithril.love` subdomain if the customer
-does not choose or qualify a custom domain.
+problems. MithrilPress should use SaaS custom hostnames for customer-owned
+domains; the renderer runs MithrilPress code and does not execute tenant code.
+The default product hostname uses an exact Pages custom domain under
+`sites.mithril.love`, not a wildcard DNS record or Worker Route. Assigning this
+hostname does not transfer nameservers or registrar control.
 
 ## Customer hostname state machine
 
