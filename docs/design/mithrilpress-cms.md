@@ -105,6 +105,18 @@ executed. Attachment remains gated on scoped Custom Domains credentials,
 managed-certificate and HTTPS read-back, the 90-domain stop, operator cost
 controls, exact-source qualification, and rollback.
 
+The 90-host limit is a bounded first cohort, not the worldwide hosting end
+state. Cloudflare recommends a wildcard Worker Route when a platform needs
+more than 100 Custom Domains per zone. The scale candidate is one proxied
+`*.sites.mithril.love` DNS record and one shared Worker Route, retaining exact
+D1 hostname resolution and failing closed for unknown hosts. This requires a
+certificate for `*.sites.mithril.love`: Universal SSL on the full
+`mithril.love` zone does not cover that depth, while Advanced Certificate
+Manager is a paid add-on and its one-level wildcard fits the requested host
+pattern. Keep this path disabled until wildcard TLS, host-aware abuse controls,
+an enforceable provider-cost stop, rollback, and operator cost are approved and
+qualified. Never charge site owners or upgrade them automatically.
+
 The separate [optional static publication design](mithrilpress-static-publication.md)
 can publish an owner-approved revision to one capped Cloudflare Pages project
 with one exact custom hostname per selected site. It does not replace or
@@ -272,10 +284,10 @@ the deployed Cron Trigger have been read back successfully.
 
 This flow is disabled until the Cloudflare for SaaS entitlement, fallback
 origin, hostname route and DNS, scoped `SSL and Certificates Write` token, and
-current hostname capacity have all been provisioned and read back. Use the
-verified SaaS fallback zone on the existing parent-zone account; do not assume
-or create a child zone for `sites.mithril.love`. Cloudflare for SaaS routing
-must not intercept unrelated `mithril.love` websites. Keep
+current hostname capacity have all been provisioned and read back. Use a
+verified SaaS fallback zone in the selected account; do not assume or create a
+child zone for `sites.mithril.love`. Cloudflare for SaaS routing must not
+intercept unrelated `mithril.love` websites. Keep
 `CUSTOM_DOMAINS_MONITORING_READY=false` until the Cron Trigger's successful
 deployed invocation is visible. Cloudflare for SaaS currently
 includes 100 custom hostnames and charges $0.10 per additional hostname;
@@ -293,15 +305,17 @@ HTTP/TLS service health or every geographic resolver. Cloudflare's
 [Workers-as-fallback-origin guide](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/start/advanced-settings/worker-as-origin/)
 describes routing custom-hostname traffic through the SaaS zone's Worker route.
 
-The Cloudflare product the original idea may have been recalling is
-**Workers for Platforms**. Its dispatch namespaces suit a service that executes
-customer Workers. MithrilPress owns the renderer and does not accept tenant
-code, so the current static-hosting candidate uses one Pages project and exact
-custom domain per site. The Pages account limit is 100 projects; if the
-product reaches its 90-site hard cap, stop onboarding and revisit a separately
-funded scale design. Do not switch to Workers for Platforms automatically.
-See [Workers for Platforms](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/)
-and [Cloudflare hostname routing](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/configuration/hostname-routing/).
+**Workers for Platforms** is intended for services that execute customer
+Workers. MithrilPress owns the renderer and does not accept tenant code, so it
+is not required for the shared-renderer design. Pages remains an optional
+static publication path with its own 100-project account limit; it does not
+replace the default Worker. If the 90 exact-host first cohort fills, the scale
+candidate is the gated shared wildcard Worker Route and deep wildcard
+certificate described above, not automatic onboarding or an assumed Pages
+expansion. Do not switch to Workers for Platforms or paid resources
+automatically. See [Workers for Platforms](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/),
+[Cloudflare hostname routing](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/configuration/hostname-routing/),
+and [Pages limits](https://developers.cloudflare.com/pages/platform/limits/).
 
 The feature gates, implemented DNS migration steps, and remaining operator
 requirements are specified in [MithrilPress domain lifecycle](mithrilpress-domain-lifecycle.md).

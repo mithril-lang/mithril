@@ -20,7 +20,7 @@ refresh a suspended hostname after the checks pass.
 
 | Type | Setup | Control | Initial availability |
 | --- | --- | --- | --- |
-| MithrilPress subdomain (default) | One shared MithrilPress Worker and D1 registry; attach one exact Worker Custom Domain per registered `label.sites.mithril.love` host | MithrilPress controls the platform zone and exact hostname registry; the owner keeps their registrar and nameservers | Required default topology; no wildcard DNS/route; cap at 90; qualify managed TLS, cost, rollback, and exact source |
+| MithrilPress subdomain (default) | First cohort: one shared MithrilPress Worker and D1 registry; attach one exact Worker Custom Domain per registered `label.sites.mithril.love` host | MithrilPress controls the platform zone and exact hostname registry; the owner keeps their registrar and nameservers | Bounded first cohort capped at 90; no wildcard DNS/route in this stage; qualify managed TLS, cost, rollback, and exact source |
 | Optional static publication | A separately selected Pages Direct Upload project attaches one exact name, such as `example.sites.mithril.love`; the existing Cloudflare zone adds its CNAME after confirmation | MithrilPress controls that Pages project and exact hostname; the owner keeps their registrar and nameservers | Optional and capped at 90 projects; requires exact-host TLS, cutover/rollback, and separate release qualification |
 | Customer-owned hostname | Customer adds owner-proof and provider TLS TXT records plus a DNS-only CNAME; MithrilPress verifies ownership and provisions a Cloudflare for SaaS custom hostname | Customer retains DNS and registrar control | Subdomains only; apex and wildcard customer hostnames are excluded from this prototype |
 | Nameserver migration plan | Owner proves control, uploads or reads source and staged destination zones, reviews exact record diff, approves a digest, then changes registrar settings manually | Owner retains DNS-provider and registrar control; any Cloudflare API token is zone-scoped and request-only | Optional guided plan; provider import is disabled by default pending isolated-zone qualification |
@@ -36,6 +36,19 @@ tenant registry. The optional Pages publication mode uses an exact custom
 domain per selected site and requires an owner-approved cutover and rollback;
 it does not change other tenants' default Worker attachments. Neither path
 transfers customer nameservers or registrar control.
+
+The 90 exact-host capacity is a first cohort, not the worldwide hosting end
+state. Cloudflare documents a 100 Worker Custom Domains per-zone limit and
+recommends wildcard routes when more are needed. The scale candidate is one
+proxied wildcard DNS record and one shared Worker Route, retaining exact D1
+hostname lookup and failing closed for unknown hosts. `*.sites.mithril.love`
+is deeper than the parent zone's Universal SSL coverage; an Advanced
+Certificate Manager wildcard for that exact pattern fits one label, but ACM
+is a paid add-on. Keep the scale route disabled until wildcard TLS,
+host-aware abuse controls, provider-enforced no-overage limits, rollback, and
+operator budget are qualified. Do not charge site owners or upgrade them
+automatically. Cloudflare for SaaS is a separate customer-owned-hostname path,
+not verified platform capacity for this scale stage.
 
 ## Customer hostname state machine
 
@@ -181,25 +194,28 @@ Registrar changes remain manual.
   to D1, and should be revoked after use; grant `DNS Write` only for the
   explicit additive import operation.
 
-## Rollout gates
+## Optional customer-owned Cloudflare for SaaS rollout gates
 
-The implementation remains disabled until the following are read back: a
-dedicated `sites.mithril.love` SaaS zone delegated safely from `mithril.love`,
-an originless fallback DNS record, the fallback Worker, wildcard DNS and a
-wildcard Worker route that cannot intercept unrelated Mithril properties, a
-scoped Cloudflare token, and at least one verified hostname slot. Set
+These gates apply only to customer-owned hostnames, not the default platform
+host or its future wildcard scale path. Do not assume a separate
+`sites.mithril.love` child zone is available. Keep the customer-owned flow
+disabled until the selected SaaS fallback topology, originless fallback DNS
+record, fallback Worker, customer-hostname routing, scoped Cloudflare token,
+and at least one verified hostname slot are read back. Set
 `CUSTOM_DOMAINS_ROUTING_READY=true` only after this exact topology is confirmed.
-The operator must set `CF_SAAS_CAPACITY_REMAINING` from current provider state;
-the Worker caps it at 90 to reserve 10 of the current Free plan's 100 included
-hostnames. Set `CUSTOM_DOMAINS_MONITORING_READY=true` only after the scheduled
+The operator must set `CF_SAAS_CAPACITY_REMAINING` from the quota actually
+assigned to this account; do not derive it from the separate Worker Custom
+Domains cap or assume that a published plan allocation was provisioned. The
+quota API currently returns no allocated quota for `fund-mithril`. Set
+`CUSTOM_DOMAINS_MONITORING_READY=true` only after the scheduled
 health check has a successful deployed read-back. A standalone qualification
 profile must cover onboarding, unknown-host isolation, TLS activation,
 suspension, detachment, stale DNS, three consecutive monitor failures, and
 recovery. Release evidence must include provider read-back, public DNS answers,
 HTTPS verification, a cross-tenant negative check, and a demonstrated rollback.
 Track the code gate and account entitlement in Linear issue MITHRIL-293.
-Cloudflare for SaaS currently charges $0.10 per hostname beyond the included
-100, excludes wildcard custom hostnames and apex proxying from Free, and
+Cloudflare for SaaS plan pricing lists included hostnames and charges for
+additional hostnames, excludes wildcard custom hostnames and apex proxying from Free, and
 requires payment information on non-enterprise accounts to enable the product.
 Verify the current [plans](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/plans/)
 and [enablement requirements](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/start/enable/)

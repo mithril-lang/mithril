@@ -571,6 +571,20 @@ keeps unregistered labels from reaching the Worker. Hosting is free to site
 owners; the operator is responsible for provider charges. MithrilPress does not
 bill owners or automatically upgrade a Cloudflare plan.
 
+The 90-domain stop is a first-cohort limit, not completion of the worldwide
+hosting objective. Cloudflare recommends a wildcard Worker Route when a
+platform needs more than 100 Worker Custom Domains per zone. For
+`*.sites.mithril.love`, that scale path needs a proxied wildcard DNS record and
+a certificate for the deep hostname; the parent zone's Universal SSL does not
+cover it. Advanced Certificate Manager supports the required one-level
+wildcard but is a paid add-on. Keep this path disabled until wildcard TLS,
+host-aware abuse controls, an enforceable provider-cost stop, rollback, and the
+operator budget are qualified. Site owners remain free; there is no automatic
+upgrade or owner billing. See [Worker limits](https://developers.cloudflare.com/workers/platform/limits/),
+[hostname routing](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/configuration/hostname-routing/),
+[Universal SSL limits](https://developers.cloudflare.com/ssl/edge-certificates/universal-ssl/limitations/), and
+[Advanced Certificate Manager](https://developers.cloudflare.com/ssl/edge-certificates/advanced-certificate-manager/).
+
 MithrilPress does not use Workers for Platforms in the initial design. That
 product's dispatch namespaces isolate and route customer-authored Worker code;
 MithrilPress runs one reviewed renderer over tenant content and does not execute

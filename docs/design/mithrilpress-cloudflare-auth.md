@@ -33,10 +33,20 @@ creation. See [Custom Domains](https://developers.cloudflare.com/workers/configu
 
 The product may serve eligible owners worldwide; that audience target does not
 mean an unlimited number of sites can be hosted at once. Keep the default
-free-to-site-owners cohort capped at 90 exact hostnames and stop new onboarding
-when the cap is reached. This leaves operational headroom below Cloudflare's
-documented 100 Worker Custom Domains per zone limit. Do not silently switch to
-paid resources or charge owners when the cohort fills. See [Workers limits](https://developers.cloudflare.com/workers/platform/limits/).
+free-to-site-owners first cohort capped at 90 exact hostnames and stop new
+onboarding when the cap is reached. This leaves headroom below Cloudflare's
+documented 100 Worker Custom Domains per zone limit. It is not the worldwide
+scale end state: Cloudflare recommends a wildcard Worker Route beyond 100
+domains. A shared wildcard route with exact D1 tenant resolution could preserve
+the requested URL pattern, but `*.sites.mithril.love` needs a deep wildcard
+certificate. Advanced Certificate Manager is a paid add-on; its one-level
+wildcard fits this hostname. Keep that scale path unselected until TLS,
+host-aware abuse controls, provider-enforced no-overage behavior, rollback, and
+the operator budget are verified. Do not silently switch to paid resources or
+charge owners. See [Workers limits](https://developers.cloudflare.com/workers/platform/limits/),
+[hostname routing](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/configuration/hostname-routing/),
+[Universal SSL limitations](https://developers.cloudflare.com/ssl/edge-certificates/universal-ssl/limitations/), and
+[Advanced Certificate Manager](https://developers.cloudflare.com/ssl/edge-certificates/advanced-certificate-manager/).
 
 Cloudflare for SaaS is not an approved zero-cost scale-up for this account.
 Its current public plan table lists 100 included custom hostnames, a 50,000
@@ -50,11 +60,12 @@ cost boundary, and rollback are qualified. Do not present its 50,000-host
 maximum as free capacity. See [Cloudflare for SaaS plans](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/plans/), [quota and billing](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/quotas-and-billing/), and [Universal SSL limitations](https://developers.cloudflare.com/ssl/edge-certificates/universal-ssl/limitations/).
 
 Pages is not an unbounded fallback: Cloudflare documents a 100-project account
-limit. If the free cohort fills, hold new onboarding requests in a manual
-waitlist. Do not ingest source content until a hosting slot is available and
-the owner authorizes the import. Resume onboarding only after a separately
-qualified and explicitly funded capacity plan exists; do not create extra
-projects or hostnames automatically. See [Pages limits](https://developers.cloudflare.com/pages/platform/limits/).
+limit. If the exact-host cohort fills, hold new onboarding requests in a manual
+waitlist. Do not ingest source content until an approved hosting slot is
+available and the owner authorizes the import. Resume onboarding only after
+the separately gated wildcard scale path or another capacity plan is
+qualified and explicitly funded; do not create extra projects or hostnames
+automatically. See [Pages limits](https://developers.cloudflare.com/pages/platform/limits/).
 
 Do not grant DNS Write for default-host attachment: Cloudflare manages the
 exact DNS record as part of the Custom Domain operation. Keep customer-owned
