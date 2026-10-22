@@ -326,6 +326,47 @@ copy any source content. Current provisioning is operator-driven; account
 registration, email verification, and direct self-service tenant signup are not
 implemented yet.
 
+### Exact platform-host attachment
+
+Each registered `label.sites.mithril.love` host can attach to the shared
+`mithrilpress` Worker as an exact Cloudflare Worker Custom Domain. This avoids a
+wildcard DNS record and wildcard route, so unknown labels do not reach the
+Worker. Cloudflare creates the exact DNS mapping and managed certificate. The
+zone-wide cap is 90 Worker Domains, leaving ten slots below Cloudflare's
+100-domain limit; D1 also rejects a 91st non-deleted platform site. Onboarding
+stops at either cap and never upgrades the account.
+
+Create the tenant row first with `provision:site`, then run the attachment
+command with an operator credential stored in the process environment. The
+token must be able to read the account, zone, Worker scripts, Worker Domains,
+and exact DNS records, and write Worker Scripts/Custom Domains. The command
+verifies the account reads back as `fund-mithril`, the zone as `mithril.love`,
+the named Worker exists, the exact hostname is unused, and the zone count is
+below 90. `--apply` is required for the provider write; without it the command
+prints a plan. It then reads back the Worker Domain and verifies the noindex
+Studio shell over HTTPS. An incomplete TLS/HTTPS read-back leaves the exact
+domain in place for manual reconciliation; the command never removes provider
+resources automatically. Migration `0012_platform_site_capacity.sql` caps
+non-deleted platform sites at 90 in D1, including concurrent tenant inserts.
+
+```sh
+export CLOUDFLARE_API_TOKEN='from the operator secret manager'
+npm run attach:platform-host -- \
+  --account-id <fund-mithril-account-id> \
+  --zone-id <mithril-love-zone-id> \
+  --hostname studio-example.sites.mithril.love \
+  --confirm-hostname studio-example.sites.mithril.love
+```
+
+Review the dry-run output and repeat the same command with `--apply` only after
+the D1 tenant and shared Worker are deployed and ready. This CLI does not create
+or change customer-owned DNS, registrar delegation, Worker code, D1, or R2. It
+does not make the bounded host cohort unlimited; the separate Cloudflare for
+SaaS customer-domain workflow and Pages static-export path have their own limits
+and release gates. Production attachment still requires isolated deep-host
+TLS/renewal proof, an enforceable operator cost stop, rollback planning, and
+exact-source/current-main standalone qualification.
+
 ### Manual D1 reference
 
 The operator CLI is preferred. For controlled recovery, the equivalent site
