@@ -157,6 +157,15 @@ function mediaPath(media) {
   return `/_mithrilpress/media/${media.id}.${extension}`;
 }
 
+function rewritePublishedMedia(html, mediaById, absoluteHostname = null) {
+  return String(html ?? "").replace(/\/_mithrilpress\/media\/([1-9][0-9]*)(?:\.[a-zA-Z0-9]+)?/g, (match, rawId) => {
+    const media = mediaById.get(Number(rawId));
+    if (!media) fail("Published HTML references media outside the approved snapshot.");
+    const path = mediaPath(media);
+    return absoluteHostname ? canonicalUrl(absoluteHostname, path) : path;
+  });
+}
+
 function metadataFor(entry) {
   let metadata;
   try {
@@ -172,12 +181,7 @@ function renderEntry(hostname, entry, mediaById, mediaBySourceId) {
   const metadata = metadataFor(entry);
   const title = metadata._yoast_wpseo_title || metadata.rank_math_title || entry.title;
   const description = metadata._yoast_wpseo_metadesc || metadata.rank_math_description || "";
-  let safeHtml = String(entry.safe_html ?? "");
-  safeHtml = safeHtml.replace(/\/_mithrilpress\/media\/([1-9][0-9]*)/g, (match, rawId) => {
-    const media = mediaById.get(Number(rawId));
-    if (!media) fail("Published HTML references media outside the approved snapshot.");
-    return mediaPath(media);
-  });
+  const safeHtml = rewritePublishedMedia(entry.safe_html, mediaById);
   const featuredId = Number(entry.featured_media_id);
   const featured = Number.isSafeInteger(featuredId) && featuredId > 0
     ? mediaBySourceId.get(featuredId) ?? mediaById.get(featuredId)
@@ -297,7 +301,11 @@ function buildStaticFiles(snapshot) {
 
   const sitemapRoutes = [...routes].sort();
   add("/sitemap.xml", `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${sitemapRoutes.map((route) => `<url><loc>${escapeXml(canonicalUrl(snapshot.hostname, route))}</loc></url>`).join("")}</urlset>`);
-  add("/feed.xml", `<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>${escapeXml(snapshot.hostname)}</title><link>${escapeXml(canonicalUrl(snapshot.hostname, "/"))}</link><description>${escapeXml(snapshot.hostname)} articles</description>${posts.slice(0, 50).map((entry) => `<item><title>${escapeXml(entry.title)}</title><link>${escapeXml(canonicalUrl(snapshot.hostname, routeForEntry(entry)))}</link><guid isPermaLink="true">${escapeXml(canonicalUrl(snapshot.hostname, routeForEntry(entry)))}</guid>${entry.source_date ? `<pubDate>${escapeXml(new Date(entry.source_date).toUTCString())}</pubDate>` : ""}<description><![CDATA[${String(entry.safe_html ?? "").replace(/]]>/g, "]]]]><![CDATA[>")}]]></description></item>`).join("")}</channel></rss>`);
+  add("/feed.xml", `<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>${escapeXml(snapshot.hostname)}</title><link>${escapeXml(canonicalUrl(snapshot.hostname, "/"))}</link><description>${escapeXml(snapshot.hostname)} articles</description>${posts.slice(0, 50).map((entry) => {
+    const content = rewritePublishedMedia(entry.safe_html, mediaById, snapshot.hostname).replace(/]]>/g, "]]]]><![CDATA[>");
+    const link = canonicalUrl(snapshot.hostname, routeForEntry(entry));
+    return `<item><title>${escapeXml(entry.title)}</title><link>${escapeXml(link)}</link><guid isPermaLink="true">${escapeXml(link)}</guid>${entry.source_date ? `<pubDate>${escapeXml(new Date(entry.source_date).toUTCString())}</pubDate>` : ""}<description><![CDATA[${content}]]></description></item>`;
+  }).join("")}</channel></rss>`);
   add("/robots.txt", `User-agent: *\nAllow: /\nSitemap: ${canonicalUrl(snapshot.hostname, "/sitemap.xml")}\n`);
   add("/_headers", "/*\n  X-Content-Type-Options: nosniff\n  X-Frame-Options: DENY\n  Referrer-Policy: no-referrer\n  Permissions-Policy: camera=(), microphone=(), geolocation=()\n  Content-Security-Policy: default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'; img-src 'self'; style-src 'none'; connect-src 'none'\n");
 
