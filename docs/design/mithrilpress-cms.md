@@ -121,6 +121,15 @@ daily Free allocation. On Workers Paid, usage above that allocation is billable,
 so this mode must not be deployed there. The example deployment keeps Studio AI
 disabled and the plan confirmation false.
 
+Owners may also create a draft without AI by entering a title and up to 1,800
+characters of plain text. The Worker escapes the text into paragraphs, passes
+it through the same content boundary and sanitizer, stores it as an unpublished
+revision, and records `ai_used: false`. It does not consume the AI request or
+Neuron reservation. It uses the same owner approval and separate publication
+steps. The D1 conversation triggers enforce the 40-message, per-site, and
+deployment-wide conversation/text caps for both AI and manual drafts; a quota
+failure rolls back the complete save.
+
 At the currently published rate for this model (26,668 input and 204,805
 output Neurons per million tokens), the reservation formula caps one accepted
 request at 821 Neurons: at most 10,000 input bytes including message/schema

@@ -11,6 +11,11 @@ const loginStatus = document.querySelector("#login-status");
 const studioStatus = document.querySelector("#studio-status");
 const chatMessages = document.querySelector("#chat-messages");
 const chatInput = document.querySelector("#chat-input");
+const manualForm = document.querySelector("#manual-form");
+const manualModeToggle = document.querySelector("#manual-mode-toggle");
+const manualTitle = document.querySelector("#manual-title");
+const manualContent = document.querySelector("#manual-content");
+const manualLanguage = document.querySelector("#manual-language");
 const conversationList = document.querySelector("#conversation-list");
 const draftPanel = document.querySelector("#draft-panel");
 const previewLink = document.querySelector("#preview-link");
@@ -135,6 +140,14 @@ function showDraft(draft, revisionId, state, previewUrl) {
   document.querySelector("#publish-button").hidden = state !== "approved";
 }
 
+function showManualMode(enabled) {
+  document.querySelector("#chat-form").hidden = enabled;
+  manualForm.hidden = !enabled;
+  manualModeToggle.textContent = enabled ? "Back to chat" : "Write without AI";
+  if (enabled) manualTitle.focus();
+  else chatInput.focus();
+}
+
 function resetConversation() {
   activeConversationId = null;
   selectedFeaturedMediaId = null;
@@ -148,6 +161,10 @@ function resetConversation() {
   chatMessages.append(emptyState);
   showDraft(null, null, null);
   document.querySelector("#send-button").textContent = "Create draft";
+  manualTitle.value = "";
+  manualContent.value = "";
+  manualLanguage.value = "";
+  showManualMode(false);
   showStatus(studioStatus);
 }
 
@@ -188,9 +205,16 @@ async function openConversation(id) {
       showDraft(result.conversation.draft, result.conversation.draft_revision_id, result.conversation.draft_state);
       document.querySelector("#content-kind").value = result.conversation.draft.kind;
       document.querySelector("#send-button").textContent = "Update draft";
+      manualTitle.value = result.conversation.draft.title || "";
+      const parsedDraft = new DOMParser().parseFromString(result.conversation.draft.safe_html || "", "text/html");
+      manualContent.value = parsedDraft.body.textContent || "";
+      manualLanguage.value = result.conversation.draft.language_code === "und" ? "" : (result.conversation.draft.language_code || "");
     } else {
       showDraft(null, null, null);
       document.querySelector("#send-button").textContent = "Create draft";
+      manualTitle.value = "";
+      manualContent.value = "";
+      manualLanguage.value = "";
     }
     await refreshConversations();
   } catch (error) {
@@ -920,6 +944,53 @@ document.querySelector("#chat-form").addEventListener("submit", async (event) =>
     button.disabled = false;
     button.textContent = "Update draft";
     chatInput.focus();
+  }
+});
+
+manualModeToggle.addEventListener("click", () => showManualMode(manualForm.hidden));
+
+manualForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const title = manualTitle.value.trim();
+  const content = manualContent.value.trim();
+  if (!title || !content) return;
+  const isNewConversation = !activeConversationId;
+  const button = document.querySelector("#manual-save-button");
+  button.disabled = true;
+  button.textContent = "Saving…";
+  showStatus(studioStatus);
+  try {
+    const body = {
+      conversation_id: activeConversationId,
+      title,
+      content,
+      language: manualLanguage.value.trim(),
+      kind: document.querySelector("#content-kind").value,
+    };
+    if (ownerScopes.includes("media:write")) body.featured_media_id = selectedFeaturedMediaId;
+    const result = await api("/_mithrilpress/api/studio/manual-draft", {
+      method: "POST",
+      headers: requestHeader,
+      body,
+    });
+    activeConversationId = result.conversation_id;
+    document.querySelector("#editor-title").textContent = "Refine your draft";
+    document.querySelector("#delete-conversation").hidden = false;
+    if (isNewConversation) clearMessages();
+    renderMessage("user", content);
+    renderMessage("assistant", result.message);
+    showDraft(result.draft, result.draft.revision_id, result.draft.state, result.preview_url);
+    document.querySelector("#content-kind").value = result.draft.kind;
+    showStatus(studioStatus, "Private draft saved without AI. Review it before approval and publication.");
+    await refreshConversations();
+    await refreshUsage();
+  } catch (error) {
+    renderMessage("assistant", error.message, true);
+    showStatus(studioStatus, "The text remains unpublished.");
+  } finally {
+    button.disabled = false;
+    button.textContent = "Save private draft";
+    manualContent.focus();
   }
 });
 
