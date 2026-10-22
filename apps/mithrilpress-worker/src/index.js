@@ -2164,13 +2164,13 @@ async function publicationSnapshot(request, env, site) {
 
   const [entryRows, termRows, mediaRows] = await Promise.all([
     env.DB.prepare(
-      `SELECT api_id, kind, slug, title, safe_html, language_code, source_date, categories_json, tags_json, featured_media_id, ${SEO_METADATA_SELECT} FROM entries WHERE site_id = ? AND revision_id = ? AND publication_status = 'published' AND rendering_admission = 'ready' ORDER BY kind ASC, api_id ASC`,
+      `SELECT api_id, source_id, kind, slug, title, safe_html, language_code, source_date, source_date_gmt, source_modified, source_modified_gmt, categories_json, tags_json, featured_media_id, ${SEO_METADATA_SELECT} FROM entries WHERE site_id = ? AND revision_id = ? AND publication_status = 'published' AND rendering_admission = 'ready' ORDER BY kind ASC, api_id ASC`,
     ).bind(site.id, revision.id).all(),
     env.DB.prepare(
       "SELECT taxonomy, term_id, slug, name, description_html, parent_term_id FROM taxonomy_terms WHERE site_id = ? AND revision_id = ? ORDER BY taxonomy ASC, term_id ASC",
     ).bind(site.id, revision.id).all(),
     env.DB.prepare(
-      "SELECT DISTINCT a.id, a.wordpress_source_id, a.content_type, a.byte_length, a.sha256, a.alt_text FROM media_assets a WHERE a.site_id = ? AND a.status = 'active' AND EXISTS (SELECT 1 FROM entries e WHERE e.site_id = a.site_id AND e.revision_id = ? AND e.publication_status = 'published' AND (e.featured_media_id IN (a.id, a.wordpress_source_id) OR EXISTS (SELECT 1 FROM entry_media em WHERE em.site_id = e.site_id AND em.revision_id = e.revision_id AND em.entry_id = e.entry_id AND em.media_id = a.id))) ORDER BY a.id ASC",
+      "SELECT DISTINCT a.id, a.wordpress_source_id, a.content_type, a.byte_length, a.sha256, a.width, a.height, a.alt_text, a.created_at FROM media_assets a WHERE a.site_id = ? AND a.status = 'active' AND EXISTS (SELECT 1 FROM entries e WHERE e.site_id = a.site_id AND e.revision_id = ? AND e.publication_status = 'published' AND (e.featured_media_id IN (a.id, a.wordpress_source_id) OR EXISTS (SELECT 1 FROM entry_media em WHERE em.site_id = e.site_id AND em.revision_id = e.revision_id AND em.entry_id = e.entry_id AND em.media_id = a.id))) ORDER BY a.id ASC",
     ).bind(site.id, revision.id).all(),
   ]);
   const entries = entryRows.results ?? [];

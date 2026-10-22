@@ -33,6 +33,7 @@ function checkedManifest(manifest) {
       || !/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.sites\.mithril\.love$/.test(manifest.hostname ?? "")
       || !/^[a-f0-9-]{36}$/.test(manifest.revision_id ?? "")
       || !/^[a-f0-9]{64}$/.test(manifest.snapshot_sha256 ?? "")
+      || (manifest.pages_function_sha256 !== undefined && !/^[a-f0-9]{64}$/.test(manifest.pages_function_sha256))
       || !Array.isArray(manifest.files) || manifest.files.length < 1 || manifest.files.length > MAX_FILES
       || !/^[a-f0-9]{64}$/.test(manifest.artifact_sha256 ?? "")) {
     fail("The exporter returned a malformed or unsupported publication manifest.");
@@ -59,12 +60,15 @@ function checkedManifest(manifest) {
         || segment === "." || segment === ".." || segment.includes("\0"))) {
       fail("The publication manifest contains a path separator or traversal after decoding.");
     }
-    if (file.path === "/_routes.json" || file.path === "/_worker.js"
+    if ((file.path === "/_routes.json" && !manifest.pages_function_sha256) || file.path === "/_worker.js"
         || file.path.startsWith("/functions/") || file.path.startsWith("/.wrangler/")) {
-      fail("Only static assets may be published; Pages Functions and runtime bundles are disabled.");
+      fail("The publication contains an unsupported Pages runtime or route file.");
     }
     paths.add(file.path);
     previousPath = file.path;
+  }
+  if (Boolean(manifest.pages_function_sha256) !== paths.has("/_routes.json")) {
+    fail("The publication manifest must bind Pages Function routing to its exact runtime source.");
   }
   const base = { ...manifest };
   delete base.artifact_sha256;
@@ -117,6 +121,36 @@ async function inspectArtifact(root, suppliedManifest) {
     const found = actual.get(expected.path);
     if (!found || found.byte_length !== expected.byte_length || found.sha256 !== expected.sha256) {
       fail("A Pages artifact file differs from the owner-approved manifest.");
+    }
+  }
+  if (manifest.pages_function_sha256) {
+    const functionsRoot = resolve(PACKAGE_ROOT, "functions");
+    const runtimePath = resolve(functionsRoot, "wp-json/wp/v2/[[path]].js");
+    const runtimeFiles = [];
+    async function visitFunctions(directory) {
+      const directoryInfo = await lstat(directory);
+      if (!directoryInfo.isDirectory() || directoryInfo.isSymbolicLink()) fail("The Pages Functions tree contains a symlink or special directory.");
+      for (const child of await readdir(directory, { withFileTypes: true })) {
+        const childPath = resolve(directory, child.name);
+        const childInfo = await lstat(childPath);
+        if (child.isDirectory()) await visitFunctions(childPath);
+        else if (child.isFile() && childInfo.isFile() && !childInfo.isSymbolicLink()) {
+          runtimeFiles.push(relative(functionsRoot, childPath).split(sep).join("/"));
+        } else fail("The Pages Functions tree contains an unsupported file.");
+      }
+    }
+    await visitFunctions(functionsRoot);
+    const runtimeInfo = await lstat(runtimePath);
+    if (runtimeFiles.length !== 1 || runtimeFiles[0] !== "wp-json/wp/v2/[[path]].js"
+        || !runtimeInfo.isFile() || runtimeInfo.isSymbolicLink()
+        || sha256(await readFile(runtimePath)) !== manifest.pages_function_sha256) {
+      fail("Only the digest-bound WordPress REST Pages Function may be deployed.");
+    }
+    let routeConfig;
+    try { routeConfig = JSON.parse(await readFile(resolve(root, "_routes.json"), "utf8")); }
+    catch { fail("The Pages Function route manifest is invalid JSON."); }
+    if (JSON.stringify(routeConfig) !== JSON.stringify({ version: 1, include: ["/wp-json/wp/v2/*"], exclude: [] })) {
+      fail("Pages Functions may run only on the fixed read-only WordPress REST path.");
     }
   }
   return { manifest, totalBytes };
@@ -211,7 +245,7 @@ function accountApiPath(accountId, projectName, suffix = "") {
 
 async function readProjectAndDomain(accountId, projectName, hostname, token) {
   const project = await cloudflarePagesJson(accountId, accountApiPath(accountId, projectName), token);
-  if (!project || project.name !== projectName || project.uses_functions !== false
+  if (!project || project.name !== projectName || typeof project.uses_functions !== "boolean"
       || !project.production_branch || !/^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$/.test(project.production_branch)
       || project.subdomain !== `${projectName}.pages.dev`
       || (project.source && Object.keys(project.source).length > 0)) {
@@ -238,10 +272,11 @@ async function listProductionDeployments(accountId, projectName, token) {
     .sort((a, b) => String(b.created_on).localeCompare(String(a.created_on)));
 }
 
-function validateDeployment(deployment, projectName) {
+function validateDeployment(deployment, projectName, requireFunctions = false) {
   if (!deployment || deployment.project_name !== projectName || !deployment.id
       || deployment.environment !== "production" || deployment.is_skipped
-      || deployment.latest_stage?.status !== "success" || deployment.uses_functions !== false) {
+      || deployment.latest_stage?.status !== "success" || typeof deployment.uses_functions !== "boolean"
+      || (requireFunctions && deployment.uses_functions !== true)) {
     fail("The Pages production deployment is not in a successful, readable state.");
   }
   const url = new URL(deployment.url);
@@ -275,10 +310,13 @@ async function loadPreviousReceipt(path, accountId, projectName, manifest, activ
   if (receipt.revision_id !== previousManifest.revision_id
       || receipt.artifact_sha256 !== previousManifest.artifact_sha256
       || receipt.snapshot_sha256 !== previousManifest.snapshot_sha256
-      || receipt.verified_file_count !== previousManifest.files.filter((file) => file.path !== "/_headers").length
+      || receipt.verified_file_count !== previousManifest.files.filter((file) => file.path !== "/_headers" && file.path !== "/_routes.json").length
       || !receipt.deployment_commit_message
       || receipt.deployment_commit_message !== activeDeployment.deployment_trigger?.metadata?.commit_message) {
     fail("The previous receipt's publication identity or read-back count is inconsistent with its manifest.");
+  }
+  if (activeDeployment.uses_functions !== Boolean(previousManifest.pages_function_sha256)) {
+    fail("The previous receipt's runtime manifest does not match the active Pages deployment.");
   }
   const deploymentUrl = new URL(receipt.deployment_url);
   if (deploymentUrl.protocol !== "https:"
@@ -289,7 +327,7 @@ async function loadPreviousReceipt(path, accountId, projectName, manifest, activ
 }
 
 function publicAssetPath(pathname) {
-  if (pathname === "/_headers") return null;
+  if (pathname === "/_headers" || pathname === "/_routes.json") return null;
   if (pathname.endsWith("/index.html")) return pathname.slice(0, -"index.html".length);
   if (pathname === "/index.html") return "/";
   return pathname;
@@ -314,7 +352,7 @@ async function fetchBounded(response, expectedLength) {
 }
 
 async function verifyManifestAtHostname(hostname, manifest) {
-  const files = manifest.files.filter((file) => file.path !== "/_headers");
+  const files = manifest.files.filter((file) => file.path !== "/_headers" && file.path !== "/_routes.json");
   let next = 0;
   let firstError = null;
   const workers = Array.from({ length: Math.min(4, files.length) }, async () => {
@@ -352,6 +390,90 @@ async function verifyManifestAtHostname(hostname, manifest) {
   await Promise.all(workers);
   if (firstError) throw firstError;
   return files.length;
+}
+
+async function fetchWordPressApiJson(hostname, pathname, expected) {
+  const response = await fetch(`https://${hostname}${pathname}`, {
+    headers: { Accept: "application/json", "Accept-Encoding": "identity" },
+    redirect: "error",
+    signal: AbortSignal.timeout(20_000),
+  });
+  const contentType = response.headers.get("Content-Type")?.split(";")[0].trim().toLowerCase();
+  if (response.status !== 200 || contentType !== "application/json") {
+    fail(`The published WordPress REST endpoint ${pathname} did not return JSON HTTP 200.`);
+  }
+  const text = await response.text();
+  if (Buffer.byteLength(text, "utf8") > 8 * 1024 * 1024) fail("A WordPress REST read-back exceeded its 8 MiB check limit.");
+  let actual;
+  try { actual = JSON.parse(text); } catch { fail(`The published WordPress REST endpoint ${pathname} returned invalid JSON.`); }
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+    fail(`The published WordPress REST endpoint ${pathname} does not match the approved static API data.`);
+  }
+}
+
+async function verifyWordPressApiAtHostname(hostname, artifactRoot) {
+  let catalog;
+  try { catalog = JSON.parse(await readFile(resolve(artifactRoot, "_mithrilpress-wp-api/index.json"), "utf8")); }
+  catch { fail("The exported WordPress REST index is unavailable for publication read-back."); }
+  const entries = Array.isArray(catalog?.entries) ? catalog.entries : [];
+  for (const [endpoint, kind] of [["posts", "post"], ["pages", "page"]]) {
+    const candidates = entries.filter((entry) => entry.kind === kind).sort((left, right) => {
+      const date = (entry) => {
+        const value = entry.date_gmt ?? entry.date;
+        const timestamp = value ? Date.parse(value) : Number.NaN;
+        return Number.isFinite(timestamp) ? timestamp : -1;
+      };
+      return date(right) - date(left) || left.api_id - right.api_id;
+    });
+    const expected = candidates.length
+      ? [JSON.parse(await readFile(resolve(artifactRoot, `.${candidates[0].record_path}`), "utf8"))]
+      : [];
+    await fetchWordPressApiJson(hostname, `/wp-json/wp/v2/${endpoint}?page=1&per_page=1`, expected);
+  }
+  for (const [endpoint, taxonomy] of [["categories", "category"], ["tags", "post_tag"]]) {
+    const terms = (Array.isArray(catalog.terms) ? catalog.terms : [])
+      .filter((term) => term.taxonomy === taxonomy)
+      .sort((a, b) => {
+        const left = a.name.toLowerCase();
+        const right = b.name.toLowerCase();
+        return (left < right ? -1 : left > right ? 1 : a.term_id - b.term_id);
+      });
+    const first = terms[0];
+    const expected = first ? [{
+      id: first.term_id,
+      count: first.count,
+      description: first.description_html,
+      link: `https://${hostname}/${taxonomy === "category" ? "category" : "tag"}/${encodeURIComponent(first.slug)}/`,
+      name: first.name,
+      slug: first.slug,
+      taxonomy,
+      meta: {},
+      ...(taxonomy === "category" ? { parent: first.parent_term_id } : {}),
+    }] : [];
+    await fetchWordPressApiJson(hostname, `/wp-json/wp/v2/${endpoint}?hide_empty=false&page=1&per_page=1`, expected);
+  }
+  const media = Array.isArray(catalog.media) ? catalog.media : [];
+  if (media.length) {
+    const asset = media.find((item) => item.wordpress_source_id !== null) ?? media[0];
+    const id = asset.wordpress_source_id ?? asset.id;
+    const link = `https://${hostname}${asset.path}`;
+    await fetchWordPressApiJson(hostname, `/wp-json/wp/v2/media/${id}`, {
+      id,
+      date: asset.created_at,
+      slug: `media-${asset.id}`,
+      status: "inherit",
+      type: "attachment",
+      link,
+      title: { rendered: asset.alt_text || `Image ${asset.id}` },
+      author: 0,
+      media_type: "image",
+      mime_type: asset.content_type,
+      media_details: { width: asset.width, height: asset.height, file: `media-${asset.id}` },
+      post: 0,
+      source_url: link,
+      alt_text: asset.alt_text,
+    });
+  }
 }
 
 async function assertHttpsHostReady(hostname) {
@@ -455,6 +577,10 @@ function assertExpectedPageHostname(hostname) {
 function bootstrapManifest(sourceManifest) {
   const files = [
     {
+      path: "/_routes.json",
+      bytes: Buffer.from('{"version":1,"include":["/wp-json/wp/v2/*"],"exclude":[]}\n', "utf8"),
+    },
+    {
       path: "/_headers",
       bytes: Buffer.from("/*\n  X-Robots-Tag: noindex, nofollow, noarchive\n  Cache-Control: no-store\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: no-referrer\n  Content-Security-Policy: default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'\n", "utf8"),
     },
@@ -474,6 +600,7 @@ function bootstrapManifest(sourceManifest) {
     hostname: sourceManifest.hostname,
     revision_id: sourceManifest.revision_id,
     snapshot_sha256: sourceManifest.snapshot_sha256,
+    pages_function_sha256: sourceManifest.pages_function_sha256,
     files: files.map(({ path, byte_length, sha256: digest }) => ({ path, byte_length, sha256: digest })),
   };
   return {
@@ -760,6 +887,7 @@ async function deployBootstrapPlaceholder({
   const deployment = validateDeployment(
     await waitForNewProduction(accountId, projectName, null, token, startedAt, message),
     projectName,
+    true,
   );
   const verifiedFiles = await verifyManifestAtHostname(project.subdomain, placeholderManifest);
   const previousReceipt = await writeNewReceipt(previousReceiptPath, {
@@ -863,6 +991,12 @@ async function main() {
     fail("Use --confirm-publication after reviewing the approved revision. For the first publish, also pass --initialize-hostname <exact-site-hostname>.");
   }
   if (isInitialPublication) assertExpectedPageHostname(initialHostname);
+  if (requiredEnvironment("MITHRILPRESS_FUNCTIONS_PLAN_CONFIRMATION") !== "workers-free") {
+    fail("Pages Functions publication requires the account to be verified on Workers Free to prevent paid overage.");
+  }
+  if (requiredEnvironment("MITHRILPRESS_FUNCTIONS_EXHAUSTION_CONFIRMATION") !== "fail-closed") {
+    fail("Pages Functions publication requires the project runtime to be verified as fail-closed at its free request limit.");
+  }
   const controlUrl = new URL(requiredEnvironment("MITHRILPRESS_CONTROL_URL"));
   if (controlUrl.origin !== CONTROL_ORIGIN || controlUrl.pathname !== "/" || controlUrl.search || controlUrl.hash
       || controlUrl.username || controlUrl.password) {
@@ -968,7 +1102,8 @@ async function main() {
       fail("The local exporter returned an unexpected destination or revision.");
     }
     manifest = checkedManifest(exported.artifact_manifest);
-    if (manifest.site_id !== siteId || manifest.revision_id !== expectedRevision
+    if (!manifest.pages_function_sha256
+        || manifest.site_id !== siteId || manifest.revision_id !== expectedRevision
         || exported.artifact_sha256 !== manifest.artifact_sha256) {
       fail("The exported artifact is not bound to the requested site and owner-approved revision.");
     }
@@ -997,6 +1132,7 @@ async function main() {
       });
       project = bootstrap.project;
       if (bootstrap.alreadyPublished) {
+        await verifyWordPressApiAtHostname(manifest.hostname, artifactRoot);
         await assertRevisionStillCurrent(siteId, ownerToken, manifest);
         const receipt = await writeNewReceipt(publishReceiptPath, {
           schema_version: 1,
@@ -1052,8 +1188,9 @@ async function main() {
     deployment = await waitForNewProduction(
       accountId, projectName, previous.id, cloudflareToken, deploymentStartedAt, expectedDeploymentMessage,
     );
-    validateDeployment(deployment, projectName);
+    validateDeployment(deployment, projectName, true);
     const verifiedFiles = await verifyManifestAtHostname(manifest.hostname, manifest);
+    await verifyWordPressApiAtHostname(manifest.hostname, artifactRoot);
     await assertRevisionStillCurrent(siteId, ownerToken, manifest);
     const receipt = await writeNewReceipt(publishReceiptPath, {
       schema_version: 1,

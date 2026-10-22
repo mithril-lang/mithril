@@ -1,13 +1,16 @@
 import { createHash, randomUUID } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { lstat, mkdir, readdir, rename, rm, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
+import { selectWordPressSeoMetadata } from "../src/wordpress_seo.js";
 
 const MAX_SNAPSHOT_BYTES = 40 * 1024 * 1024;
 const MAX_MEDIA_BYTES = 262_144_000;
 const MAX_OUTPUT_BYTES = 300_000_000;
 const MAX_OUTPUT_FILES = 5_000;
 const CONTROL_ORIGIN = "https://control.mithril.love";
+const PAGES_FUNCTION_PATH = resolve(dirname(fileURLToPath(import.meta.url)), "../functions/wp-json/wp/v2/[[path]].js");
 const MEDIA_CONTENT_TYPES = new Map([
   ["image/jpeg", "jpg"],
   ["image/png", "png"],
@@ -202,6 +205,107 @@ function publishedPosts(entries) {
   return entries.filter((entry) => entry.kind === "post");
 }
 
+function wordpressRecord(hostname, entry, mediaById) {
+  const path = entry.kind === "page" && entry.slug === "home" ? "/" : `/${encodeURIComponent(entry.slug)}/`;
+  const link = `https://${hostname}${path}`;
+  const date = entry.source_date ?? null;
+  const mediaHtml = rewritePublishedMedia(entry.safe_html, mediaById);
+  return {
+    id: entry.source_id ?? entry.api_id,
+    date,
+    date_gmt: entry.source_date_gmt ?? null,
+    guid: { rendered: link },
+    modified: entry.source_modified ?? date,
+    modified_gmt: entry.source_modified_gmt ?? null,
+    slug: entry.slug,
+    status: "publish",
+    type: entry.kind,
+    link,
+    title: { rendered: entry.title },
+    content: { rendered: mediaHtml, protected: false },
+    excerpt: { rendered: "", protected: false },
+    author: 0,
+    featured_media: entry.featured_media_id ?? 0,
+    comment_status: "closed",
+    ping_status: "closed",
+    sticky: false,
+    template: "",
+    categories: [...entryTermIds(entry, "category")],
+    tags: [...entryTermIds(entry, "post_tag")],
+    meta: selectWordPressSeoMetadata(JSON.parse(entry.seo_metadata_json ?? "{}")).metadata,
+  };
+}
+
+function wordpressApiFiles(snapshot, mediaById) {
+  const files = new Map();
+  const add = (pathname, body) => {
+    if (files.has(pathname)) fail(`The WordPress API export contains a duplicate path: ${pathname}`);
+    files.set(pathname, Buffer.from(JSON.stringify(body), "utf8"));
+  };
+  const entries = [];
+  for (const entry of snapshot.entries) {
+    const kind = entry.kind === "page" ? "pages" : "posts";
+    const record = wordpressRecord(snapshot.hostname, entry, mediaById);
+    const id = Number(record.id);
+    if (!Number.isSafeInteger(id) || id < 1) fail("A published WordPress record has an invalid public ID.");
+    const recordPath = `/_mithrilpress-wp-api/entries/${kind}/${id}.json`;
+    add(recordPath, record);
+    entries.push({
+      kind: entry.kind,
+      id,
+      api_id: Number(entry.api_id),
+      slug: entry.slug,
+      title: entry.title,
+      date: entry.source_date ?? null,
+      date_gmt: entry.source_date_gmt ?? null,
+      modified: entry.source_modified ?? entry.source_date ?? null,
+      modified_gmt: entry.source_modified_gmt ?? entry.source_date_gmt ?? null,
+      categories: record.categories,
+      tags: record.tags,
+      record_path: recordPath,
+    });
+  }
+
+  const termCounts = new Map();
+  for (const entry of entries.filter((item) => item.kind === "post")) {
+    for (const [taxonomy, ids] of [["category", entry.categories], ["post_tag", entry.tags]]) {
+      for (const id of ids) {
+        const key = `${taxonomy}:${id}`;
+        termCounts.set(key, (termCounts.get(key) ?? 0) + 1);
+      }
+    }
+  }
+  const terms = snapshot.terms.map((term) => ({
+    taxonomy: term.taxonomy,
+    term_id: Number(term.term_id),
+    slug: term.slug,
+    name: term.name,
+    description_html: term.description_html,
+    parent_term_id: term.parent_term_id,
+    count: termCounts.get(`${term.taxonomy}:${term.term_id}`) ?? 0,
+  }));
+  const media = snapshot.media.map((asset) => ({
+    id: Number(asset.id),
+    wordpress_source_id: asset.wordpress_source_id === null ? null : Number(asset.wordpress_source_id),
+    content_type: asset.content_type,
+    width: Number(asset.width),
+    height: Number(asset.height),
+    alt_text: asset.alt_text,
+    created_at: asset.created_at,
+    path: mediaPath(asset),
+  }));
+  add("/_mithrilpress-wp-api/index.json", {
+    schema_version: 1,
+    hostname: snapshot.hostname,
+    revision_id: snapshot.revision.id,
+    entries,
+    terms,
+    media,
+  });
+  add("/_routes.json", { version: 1, include: ["/wp-json/wp/v2/*"], exclude: [] });
+  return files;
+}
+
 function entryTermIds(entry, taxonomy) {
   const key = taxonomy === "category" ? "categories_json" : "tags_json";
   let ids;
@@ -238,7 +342,7 @@ function buildStaticFiles(snapshot) {
     if (!path.startsWith("/") || path.split("/").some((part) => part === "." || part === "..") || files.has(path)) {
       fail(`The publication has a duplicate or unsafe output path: ${path}`);
     }
-    files.set(path, Buffer.from(body, "utf8"));
+    files.set(path, Buffer.isBuffer(body) ? body : Buffer.from(body, "utf8"));
   };
 
   const entries = [...snapshot.entries].sort((left, right) => {
@@ -254,6 +358,10 @@ function buildStaticFiles(snapshot) {
     if (routes.has(rendered.route)) fail(`Two entries resolve to the same public route: ${rendered.route}`);
     routes.add(rendered.route);
     add(rendered.path, rendered.html);
+  }
+
+  for (const [pathname, bytes] of wordpressApiFiles(snapshot, mediaById)) {
+    add(pathname, bytes);
   }
 
   if (!routes.has("/")) {
@@ -431,12 +539,14 @@ async function hashPublicationArtifact(root, snapshot) {
   await visit(root);
   if (files.length < 1) fail("The publication artifact is empty.");
   files.sort((left, right) => left.path < right.path ? -1 : left.path > right.path ? 1 : 0);
+  const pagesFunctionSha256 = createHash("sha256").update(await readFile(PAGES_FUNCTION_PATH)).digest("hex");
   const manifest = {
     schema_version: 1,
     site_id: snapshot.site_id,
     hostname: snapshot.hostname,
     revision_id: snapshot.revision.id,
     snapshot_sha256: snapshot.digest_sha256,
+    pages_function_sha256: pagesFunctionSha256,
     files,
   };
   const artifactSha256 = createHash("sha256").update(JSON.stringify(manifest)).digest("hex");

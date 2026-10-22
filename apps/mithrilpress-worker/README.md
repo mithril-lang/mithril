@@ -129,8 +129,10 @@ installs a publisher at runtime. The publisher re-exports the exact
 `MITHRILPRESS_EXPECTED_REVISION`, checks every local file against the
 digest-bound manifest, and confirms the account ID against the separately
 pinned standalone-publisher value. The project name is derived as
-`mp-<site UUID>`. The project must use the expected production branch and have
-Pages Functions disabled before an owner-approved artifact is deployed.
+`mp-<site UUID>`. The project must use the expected production branch. The
+only deployed Function is the package-owned read-only WordPress REST handler;
+the exporter binds its source digest and exact `/wp-json/wp/v2/*` invocation
+route into the publication manifest.
 
 Initial publication validates the exact hostname against the owner's published
 snapshot and confirms the configured zone is `mithril.love` in the expected
@@ -164,11 +166,31 @@ unique deployment message bound to the site, revision, artifact digest, and
 publish attempt. If a concurrent publisher changed production, rollback is
 withheld.
 
-The publisher refuses `_routes.json`, `_worker.js`, Functions directories,
-extra files, symlinks, and bundles above the existing 5,000-file / 300 MB
-product caps. Pages' `_headers` configuration file is part of the hashed
-manifest but is not a public URL, so it is excluded from HTTP asset read-back.
-Dynamic WordPress REST routes remain unsupported on this static-only path.
+The fixed Pages Function serves the read-only WordPress REST subset at
+`/wp-json/wp/v2/*`. Its source digest is bound into the publication manifest;
+the publisher verifies that only this REST route invokes Functions and reads
+back posts, pages, taxonomies, and media through the live HTTPS API. The
+published static data contains only the owner-approved public revision. REST
+search matches titles on this static path; the Worker API retains its broader
+search behavior.
+
+All other routes are excluded from Function invocation, so HTML and media keep
+the Pages static-asset request model. The REST routes consume Pages Functions
+requests. Cloudflare documents a daily free request limit and a per-project
+fail-open/fail-closed control. Before publishing, verify the `fund-mithril`
+account is on Workers Free and set the Pages project to fail-closed in
+**Settings > Runtime > Fail open / closed**. The publisher requires the
+operator attestations `MITHRILPRESS_FUNCTIONS_PLAN_CONFIRMATION=workers-free`
+and `MITHRILPRESS_FUNCTIONS_EXHAUSTION_CONFIRMATION=fail-closed` on every
+publication; these values do not replace checking the account and project
+settings in Cloudflare. Paid/Standard plans or fail-open settings are not
+eligible for the no-overage hosting path.
+
+The publisher refuses `_worker.js`, arbitrary Functions routes, extra files,
+symlinks, and bundles above the existing 5,000-file / 300 MB product caps.
+The exact `_routes.json` and Pages' `_headers` configuration are included in
+the manifest but are not public assets, so they are excluded from HTTPS
+file-by-file read-back.
 
 Set credentials from the approved local secret store, never on the command
 line. `MITHRILPRESS_EXPECTED_CLOUDFLARE_ACCOUNT_ID` must match
@@ -194,6 +216,8 @@ MITHRILPRESS_SITE_ID=00000000-0000-4000-8000-000000000000 \
 MITHRILPRESS_EXPECTED_REVISION=00000000-0000-4000-8000-000000000001 \
 MITHRILPRESS_EXPECTED_CLOUDFLARE_ACCOUNT_ID=<pinned-account-id> \
 MITHRILPRESS_EXPECTED_CLOUDFLARE_ZONE_ID=<pinned-mithril-love-zone-id> \
+MITHRILPRESS_FUNCTIONS_PLAN_CONFIRMATION=workers-free \
+MITHRILPRESS_FUNCTIONS_EXHAUSTION_CONFIRMATION=fail-closed \
 MITHRILPRESS_PREVIOUS_RECEIPT_PATH=/secure/evidence/placeholder.json \
 MITHRILPRESS_PUBLISH_RECEIPT_PATH=/secure/evidence/first-publish.json \
 MITHRILPRESS_SCRATCH_DIR=/path/to/existing-scratch-directory \
@@ -208,6 +232,8 @@ the previous successful publication receipt:
 MITHRILPRESS_CONTROL_URL=https://control.mithril.love \
 MITHRILPRESS_SITE_ID=00000000-0000-4000-8000-000000000000 \
 MITHRILPRESS_EXPECTED_REVISION=00000000-0000-4000-8000-000000000002 \
+MITHRILPRESS_FUNCTIONS_PLAN_CONFIRMATION=workers-free \
+MITHRILPRESS_FUNCTIONS_EXHAUSTION_CONFIRMATION=fail-closed \
 MITHRILPRESS_SCRATCH_DIR=/path/to/existing-scratch-directory \
 MITHRILPRESS_PREVIOUS_RECEIPT_PATH=/secure/evidence/previous.json \
 MITHRILPRESS_PUBLISH_RECEIPT_PATH=/secure/evidence/next.json \
@@ -581,7 +607,7 @@ through its R2 binding rather than an R2 API token.
 
 ## WordPress REST subset
 
-Public post/page list requests support `page`, `per_page` (1–100), `slug`,
+Worker-hosted public post/page list requests support `page`, `per_page` (1–100), `slug`,
 `search`, `after`, `before`, `modified_after`, `modified_before`, `order`, and
 `orderby` (`date`, `modified`, `id`, `title`, `slug`, or `relevance`; relevance
 requires a search term), plus `context` `view`/`embed`. Search matches the
@@ -601,6 +627,12 @@ Responses include standard `X-WP-Total`, `X-WP-TotalPages`, and pagination
 `Link` headers. Category/tag archives render published-entry lists. Editing
 contexts, term and media writes, media listings, users, comments, custom post
 types, and WordPress authentication plugins are not implemented here.
+
+The Pages static publication serves the same read-only post/page, category/tag,
+and individual-media routes through its fixed Pages Function. Its bounded
+catalog supports pagination, slug, date, modified-date, ordering, and title
+search filters. Content search, write endpoints, authentication plugins, and
+other WordPress REST resources remain unsupported on the static path.
 
 The importer also accepts WordPress WXR 1.2 exports. It imports up to 500
 posts/pages per file, with the channel origin, source IDs, slugs, title/body,
