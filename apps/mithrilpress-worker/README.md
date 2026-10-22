@@ -78,7 +78,13 @@ shared tenant-aware Worker and D1 hostname registry, with one exact Worker
 Custom Domain for each registered `label.sites.mithril.love` site. This keeps
 the requested public hostname pattern without a wildcard DNS record or route;
 Cloudflare creates the exact DNS mapping and managed certificate. The platform
-cohort stops at 90 domains. Production attachment, certificate read-back,
+cohort stops at 90 domains. The global owner audience and the number of
+simultaneously hosted preview sites are separate limits: queue additional
+owner-authorized imports when the cohort is full, and never switch to paid
+hosting automatically. Cloudflare for SaaS lists 100 included hostnames but
+charges $0.10 per additional hostname and reserves wildcard custom hostnames
+for Enterprise; the `fund-mithril` quota and entitlement are not verified, so
+that is not an approved scale-up path. Production attachment, certificate read-back,
 operator cost controls, real D1 IDs, zone ownership, exact-source standalone
 qualification, rollback, and live read-back remain release gates. The optional
 Pages adapter attaches one exact hostname per selected site and remains an
@@ -170,7 +176,7 @@ are not one atomic operation.
 Cloudflare Pages allows 100 projects per account; the publisher's 90-project
 cap leaves ten slots for other account projects and operational headroom. It
 does not provide an all-world scale path: onboarding stops at the cap until a
-separately qualified hosting architecture is available. See [Pages limits](https://developers.cloudflare.com/pages/platform/limits/).
+separately qualified and funded hosting architecture is available. See [Pages limits](https://developers.cloudflare.com/pages/platform/limits/).
 
 The initial placeholder remains the rollback target until the first approved
 publication passes read-back. Later updates require the current production

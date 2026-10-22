@@ -28,6 +28,31 @@ NS delegation is part of this topology. An exact Custom Domain routes all paths
 for that hostname to its Worker, and an existing conflicting CNAME prevents
 creation. See [Custom Domains](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/).
 
+## Global audience and hosted-site capacity
+
+The product may serve eligible owners worldwide; that audience target does not
+mean an unlimited number of sites can be hosted at once. Keep the default
+free-to-site-owners cohort capped at 90 exact hostnames and stop new onboarding
+when the cap is reached. This leaves operational headroom below Cloudflare's
+documented 100 Worker Custom Domains per zone limit. Do not silently switch to
+paid resources or charge owners when the cohort fills. See [Workers limits](https://developers.cloudflare.com/workers/platform/limits/).
+
+Cloudflare for SaaS is not an approved zero-cost scale-up for this account.
+Its current public plan table lists 100 included custom hostnames, a 50,000
+hostname maximum, and $0.10 per additional hostname; wildcard custom hostnames
+are Enterprise-only. The `fund-mithril` quota read returned 403, so its SaaS
+entitlement and usable hostname quota are not verified. Universal SSL also
+covers only the zone apex and one subdomain level; each
+`label.sites.mithril.love` needs its own valid certificate path. Keep SaaS as an
+unselected architecture option until the exact hostname flow, entitlement,
+cost boundary, and rollback are qualified. Do not present its 50,000-host
+maximum as free capacity. See [Cloudflare for SaaS plans](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/plans/), [quota and billing](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/quotas-and-billing/), and [Universal SSL limitations](https://developers.cloudflare.com/ssl/edge-certificates/universal-ssl/limitations/).
+
+Pages is not an unbounded fallback: Cloudflare documents a 100-project account
+limit. If the free cohort fills, retain approved imports in the onboarding
+queue until a separately qualified and explicitly funded capacity plan exists;
+do not create extra projects or hostnames automatically. See [Pages limits](https://developers.cloudflare.com/pages/platform/limits/).
+
 Do not grant DNS Write for default-host attachment: Cloudflare manages the
 exact DNS record as part of the Custom Domain operation. Keep customer-owned
 DNS migration permissions separate; those remain owner-supplied and zone-scoped.
