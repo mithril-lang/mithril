@@ -14,6 +14,7 @@ const usage = `Attach one registered MithrilPress platform hostname to the share
 Required:
   --account-id <Cloudflare account ID>
   --zone-id <mithril.love zone ID>
+  --database-id <MithrilPress D1 database UUID>
   --hostname <label>.sites.mithril.love
   --confirm-hostname <same exact hostname>
 
@@ -21,9 +22,13 @@ Optional:
   --apply     Create the exact Worker Custom Domain after read-only preflight.
   --help
 
-Without --apply, the command performs the same identity, Worker, DNS, and quota
-read checks and prints a plan. It never creates a wildcard DNS record or route.
+Without --apply, the command performs the same identity, D1, Worker, DNS, and
+quota checks and prints a plan. It never creates a wildcard DNS record or route.
 Set CLOUDFLARE_API_TOKEN in the operator environment; never pass it as an argument.
+Set CLOUDFLARE_D1_READ_TOKEN separately to a D1 Read token limited to the
+fund-mithril account. Cloudflare scopes D1 Read at the account level, so this
+token can read other D1 databases in that account. This command only reads the
+specified MithrilPress database and never writes to D1.
 
 The selected account and zone must read back as fund-mithril / mithril.love.
 The shared zone-wide Worker Custom Domain cap is 90, preserving ten slots under
@@ -37,7 +42,7 @@ function fail(message) {
 
 function parseArgs(argv) {
   const values = new Map();
-  const known = new Set(["--account-id", "--zone-id", "--hostname", "--confirm-hostname"]);
+  const known = new Set(["--account-id", "--zone-id", "--database-id", "--hostname", "--confirm-hostname"]);
   let apply = false;
   for (let index = 0; index < argv.length; index += 1) {
     const flag = argv[index];
@@ -56,11 +61,14 @@ function parseArgs(argv) {
   }
 
   const options = Object.fromEntries([...values].map(([key, value]) => [key.slice(2).replaceAll("-", "_"), value]));
-  for (const key of ["account_id", "zone_id", "hostname", "confirm_hostname"]) {
+  for (const key of ["account_id", "zone_id", "database_id", "hostname", "confirm_hostname"]) {
     if (!options[key]) fail(`Missing --${key.replaceAll("_", "-")}\n\n${usage}`);
   }
   if (!/^[a-f0-9]{32}$/iu.test(options.account_id)) fail("--account-id must be a 32-character Cloudflare ID.");
   if (!/^[a-f0-9]{32}$/iu.test(options.zone_id)) fail("--zone-id must be a 32-character Cloudflare ID.");
+  if (!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/iu.test(options.database_id)) {
+    fail("--database-id must be a D1 UUID.");
+  }
   const hostname = siteHostname(options.hostname);
   if (!hostname || hostname !== options.hostname || options.confirm_hostname !== hostname) {
     fail("--hostname must be canonical lowercase and --confirm-hostname must match it exactly.");
@@ -130,6 +138,47 @@ async function listDomains(token, accountId, query) {
   return payload;
 }
 
+async function verifyActiveTenant(token, accountId, databaseId, hostname) {
+  const database = await cloudflareRequest(
+    token,
+    "GET",
+    `/accounts/${encodeURIComponent(accountId)}/d1/database/${encodeURIComponent(databaseId)}`,
+  );
+  if (database.result?.uuid?.toLowerCase() !== databaseId.toLowerCase()
+      || database.result?.name !== "mithrilpress") {
+    fail("The selected D1 database did not read back as the MithrilPress database in the selected account. No provider write was made.");
+  }
+
+  const payload = await cloudflareRequest(
+    token,
+    "POST",
+    `/accounts/${encodeURIComponent(accountId)}/d1/database/${encodeURIComponent(databaseId)}/query`,
+    undefined,
+    {
+      sql: "SELECT id, hostname, status FROM sites WHERE hostname = ? LIMIT 2",
+      params: [hostname],
+    },
+  );
+  const statement = Array.isArray(payload.result) && payload.result.length === 1
+    ? payload.result[0]
+    : null;
+  if (statement?.success !== true || !Array.isArray(statement.results)) {
+    fail("D1 did not return a reliable tenant mapping read-back. No Worker Domain was created.");
+  }
+  if (statement.meta?.changed_db === true || Number(statement.meta?.rows_written ?? 0) > 0) {
+    fail("The D1 mapping query did not confirm a read-only operation. No Worker Domain was created.");
+  }
+  const rows = statement.results;
+  if (rows.length !== 1
+      || rows[0]?.hostname !== hostname
+      || rows[0]?.status !== "active"
+      || typeof rows[0]?.id !== "string"
+      || !rows[0].id) {
+    fail("The exact hostname must map to one active site in the selected MithrilPress D1 database. No Worker Domain was created.");
+  }
+  return rows[0].id;
+}
+
 async function verifyHttps(hostname) {
   const url = `https://${hostname}/_mithrilpress/studio`;
   let lastFailure = "HTTPS endpoint did not become ready.";
@@ -164,6 +213,11 @@ async function main(argv) {
   }
   const token = process.env.CLOUDFLARE_API_TOKEN;
   if (!token || /[\r\n]/u.test(token)) fail("Set CLOUDFLARE_API_TOKEN in the operator environment.");
+  const d1ReadToken = process.env.CLOUDFLARE_D1_READ_TOKEN;
+  if (!d1ReadToken || /[\r\n]/u.test(d1ReadToken)) {
+    fail("Set CLOUDFLARE_D1_READ_TOKEN to a separate D1 Read token limited to the fund-mithril account.");
+  }
+  if (d1ReadToken === token) fail("Use a separate D1 Read token; do not reuse the Worker attachment credential.");
 
   const accountPath = `/accounts/${encodeURIComponent(options.account_id)}`;
   const account = await cloudflareRequest(token, "GET", accountPath);
@@ -184,6 +238,8 @@ async function main(argv) {
   if (!Array.isArray(scripts.result) || !scripts.result.some((script) => script?.id === WORKER_SERVICE)) {
     fail(`Worker ${WORKER_SERVICE} is not present in ${EXPECTED_ACCOUNT_NAME}. No provider write was made.`);
   }
+
+  const tenantSiteId = await verifyActiveTenant(d1ReadToken, options.account_id, options.database_id, options.hostname);
 
   const exactDomains = await listDomains(token, options.account_id, {
     zone_id: options.zone_id,
@@ -222,12 +278,14 @@ async function main(argv) {
         plan: "attach_exact_worker_custom_domain",
         account: EXPECTED_ACCOUNT_NAME,
         zone: EXPECTED_ZONE_NAME,
+        database: "mithrilpress",
+        site_id: tenantSiteId,
         hostname: options.hostname,
         worker: WORKER_SERVICE,
         existing_zone_worker_domains: total,
         next_zone_worker_domains: total + 1,
         provider_writes: 0,
-        command: "rerun with --apply after the tenant exists in the pinned D1 database",
+        command: "rerun with --apply after reviewing the exact D1 mapping and provider plan",
       }, null, 2));
       return;
     }
@@ -255,6 +313,8 @@ async function main(argv) {
     result: created ? "attached_and_verified" : "already_attached_and_verified",
     account: EXPECTED_ACCOUNT_NAME,
     zone: EXPECTED_ZONE_NAME,
+    database: "mithrilpress",
+    site_id: tenantSiteId,
     hostname: domain.hostname,
     worker: domain.service,
     worker_domain_id: domain.id,

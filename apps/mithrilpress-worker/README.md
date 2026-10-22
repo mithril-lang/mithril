@@ -347,11 +347,13 @@ zone-wide cap is 90 Worker Domains, leaving ten slots below Cloudflare's
 100-domain limit; D1 also rejects a 91st non-deleted platform site. Onboarding
 stops at either cap and never upgrades the account.
 
-Create the tenant row first with `provision:site`, then independently read back
-the D1 row that maps this exact hostname to that site. The attachment command
-does not query D1; confirming that registration is an operator precondition
-before `--apply`. The Worker serves content only when its own exact D1 hostname
-lookup resolves to an active tenant.
+Create the tenant row first with `provision:site`. The attachment command then
+checks that the exact hostname maps to one active row in the named MithrilPress
+D1 database before planning or `--apply`. It uses a separate D1 Read token and
+a single parameterized `SELECT`; the token must be limited to `fund-mithril`
+because Cloudflare scopes D1 Read at the account level, not per database. The
+command never writes to D1. The Worker serves content only when its own exact
+D1 hostname lookup resolves to an active tenant.
 
 Use an operator credential from the approved secret store, passed through the
 process environment. Cloudflare requires Editor access to the existing Worker
@@ -376,9 +378,11 @@ and [Workers authorization](https://developers.cloudflare.com/workers/authorizat
 
 ```sh
 export CLOUDFLARE_API_TOKEN='from the operator secret manager'
+export CLOUDFLARE_D1_READ_TOKEN='separate D1 Read token for fund-mithril'
 npm run attach:platform-host -- \
   --account-id <fund-mithril-account-id> \
   --zone-id <mithril-love-zone-id> \
+  --database-id <mithrilpress-d1-database-uuid> \
   --hostname studio-example.sites.mithril.love \
   --confirm-hostname studio-example.sites.mithril.love
 ```

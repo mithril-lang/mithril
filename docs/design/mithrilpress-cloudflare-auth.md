@@ -10,6 +10,7 @@ access to any Cloudflare account.
 | --- | --- | --- |
 | Worker and route deployment | A deployment credential with only the Worker, D1, and route permissions needed for the verified target account and zone. Create or select the D1 database and R2 bucket separately before binding them. | Keep it in the approved local credential store. Never commit it or place it in Studio. |
 | Default platform hostname attachment | Cloudflare requires Editor access to the Worker and `Workers Routes Write` scoped to the affected `mithril.love` zone. The API also needs account, zone, Worker, and exact-host preflight reads. | Use the `fund-mithril` account and the exact active zone. Cloudflare currently does not support per-Worker roles for Custom Domains. If the required Editor grant cannot be isolated to `mithrilpress`, treat its wider Worker access as a blocker and leave `--apply` disabled. |
+| Verify platform hostname registration | A separate `D1 Read` token limited to the `fund-mithril` account. Cloudflare scopes D1 permissions at the account level, not per database. | The attachment CLI uses this token only to check that the exact hostname maps to one active row in the named `mithrilpress` database. It runs one parameterized `SELECT`, checks that the D1 API reports no writes, and never writes to D1. Store it separately from the Worker attachment credential. |
 | Customer media at runtime | The Worker `MEDIA` R2 binding points to the pre-created `mithrilpress-media` bucket. Tenant authorization and random tenant-scoped object keys are enforced in the Worker. | No R2 API token is sent to the Worker. |
 | Optional S3-compatible media access | An R2 `Object Read & Write` API token scoped to the single MithrilPress bucket. | Use only for an authorized S3 client. It does not provision a Worker binding. |
 | Cloudflare for SaaS hostnames | `CF_SAAS_API_TOKEN` with `SSL and Certificates Write` on the verified SaaS fallback zone only. | Store as a Worker secret. Do not grant customer-zone DNS access. Keep hostname feature flags false until routing, fallback, capacity, certificate monitoring, and rollback are verified. |
@@ -93,7 +94,9 @@ Do not create a production bucket, Worker Custom Domain, Pages project, or SaaS
 hostname configuration until the exact Worker source has passed its approved
 standalone qualification and the target account, zone, host, cost boundary, and
 rollback procedure have been read back. Configure the bucket binding only
-after the bucket exists. The initial sample Wrangler config keeps `workers_dev`
+after the bucket exists. The platform-host CLI requires the separate,
+account-limited D1 Read credential above and fails closed if it cannot verify
+the exact active site mapping. The initial sample Wrangler config keeps `workers_dev`
 and customer-domain features disabled and contains no production route or
 database identifier. Keep the exact-host provisioning command in dry-run mode
 until a reviewed credential can perform only the required operation.
