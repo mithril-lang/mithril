@@ -138,6 +138,20 @@ async function listDomains(token, accountId, query) {
   return payload;
 }
 
+async function verifyWorkerD1Binding(token, accountId, databaseId) {
+  const settings = await cloudflareRequest(
+    token,
+    "GET",
+    `/accounts/${encodeURIComponent(accountId)}/workers/scripts/${encodeURIComponent(WORKER_SERVICE)}/settings`,
+  );
+  const d1Bindings = Array.isArray(settings.result?.bindings)
+    ? settings.result.bindings.filter((binding) => binding?.type === "d1" && binding?.name === "DB")
+    : [];
+  if (d1Bindings.length !== 1 || d1Bindings[0]?.database_id?.toLowerCase() !== databaseId.toLowerCase()) {
+    fail("The deployed mithrilpress Worker DB binding does not match the selected MithrilPress D1 database. No Worker Domain was created.");
+  }
+}
+
 async function verifyActiveTenant(token, accountId, databaseId, hostname) {
   const database = await cloudflareRequest(
     token,
@@ -239,6 +253,7 @@ async function main(argv) {
     fail(`Worker ${WORKER_SERVICE} is not present in ${EXPECTED_ACCOUNT_NAME}. No provider write was made.`);
   }
 
+  await verifyWorkerD1Binding(token, options.account_id, options.database_id);
   const tenantSiteId = await verifyActiveTenant(d1ReadToken, options.account_id, options.database_id, options.hostname);
 
   const exactDomains = await listDomains(token, options.account_id, {

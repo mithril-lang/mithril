@@ -347,10 +347,11 @@ zone-wide cap is 90 Worker Domains, leaving ten slots below Cloudflare's
 100-domain limit; D1 also rejects a 91st non-deleted platform site. Onboarding
 stops at either cap and never upgrades the account.
 
-Create the tenant row first with `provision:site`. The attachment command then
-checks that the exact hostname maps to one active row in the named MithrilPress
-D1 database before planning or `--apply`. It uses a separate D1 Read token and
-a single parameterized `SELECT`; the token must be limited to `fund-mithril`
+Create the tenant row first with `provision:site`. The attachment command
+checks that its `--database-id` matches the deployed Worker `DB` binding and
+the `mithrilpress` database, then confirms that the exact hostname maps to one
+active site row before planning or `--apply`. It uses a separate D1 Read token
+and one parameterized `SELECT`; the token must be limited to `fund-mithril`
 because Cloudflare scopes D1 Read at the account level, not per database. The
 command never writes to D1. The Worker serves content only when its own exact
 D1 hostname lookup resolves to an active tenant.
