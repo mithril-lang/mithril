@@ -59,19 +59,34 @@ WordPress-compatible JSON endpoints explicitly included in the parity
 contract. Unsupported dynamic WordPress queries would remain on the API
 Worker and be documented as such.
 
-## Host isolation and routing hypothesis
+## Host isolation and routing
 
-Workers Static Assets match by URL pathname, not by hostname. Cloudflare
-Transform Rules are available on all zone plans, with up to ten active rules
-on Free; URL Rewrite Rules can use dynamic request-property expressions and
-run before later request-processing features. A candidate rule would rewrite a
-public request path using both the incoming host and path, so each site maps to
-its own asset prefix. This is a hypothesis until verified on an isolated
-Cloudflare zone.
+Workers Static Assets match by URL pathname, not by hostname. Cloudflare URL
+Rewrite Rules support expression-built paths: the Rules language provides
+`concat()`, and `http.host` exposes the original client host. URL Rewrite Rules
+run before later request-processing features. This is enough to express a
+host-prefixed asset path, such as mapping a canonical tenant hostname and the
+original path to `/sites/<host>/<path>`.
 
 References: [Transform Rules availability and execution order](https://developers.cloudflare.com/rules/transform/),
 [URL Rewrite Rules](https://developers.cloudflare.com/rules/transform/url-rewrite/),
+[dynamic URL rewrite expression example](https://developers.cloudflare.com/rules/transform/url-rewrite/create-api/),
+[the `http.host` field](https://developers.cloudflare.com/ruleset-engine/rules-language/fields/reference/http.host/),
 and [Workers Routes](https://developers.cloudflare.com/workers/configuration/routing/routes/).
+
+The documentation does not establish how a rewritten path is consumed by
+Workers Static Assets before Worker-route dispatch, nor the cache key and
+negative-asset behavior for this topology. Keep the mapping unverified until a
+two-host fixture proves that exact host-to-prefix resolution, normalization,
+and missing-asset behavior on an isolated zone. A rewrite changes a path; it
+does not establish tenant identity or authorization.
+
+The current example Worker config sets `assets.run_worker_first: true`, which
+invokes the Worker for every request and does not qualify as a static-delivery
+path. A separate publication config must let public asset matches bypass Worker
+code and send only explicitly dynamic routes to the CMS Worker. Confirm that
+Cloudflare's deployed route and asset configuration preserves this behavior
+after the host-based rewrite.
 
 Before production, prove all of the following:
 
@@ -150,6 +165,17 @@ size remains bounded: Workers Free allows 20,000 files per Worker version and
 account. Static assets packaged in a Worker version do not consume the
 MithrilPress R2 media allowance; any upload or media path backed by R2 still
 does.
+
+Cloudflare Pages is not an unlimited per-tenant project path: the Free plan
+allows 100 projects and 100 custom domains per project. Cloudflare directs
+platforms hosting more than 100 sites toward Workers for Platforms or Workers
+Static Assets. Workers for Platforms removes the per-account Worker count
+limit, but it is a separate paid product and does not supply a free hard stop.
+For MithrilPress, one shared static asset bundle remains the lower-cost
+candidate because it runs one reviewed renderer and does not execute tenant
+code; its file-count and publication-size limits still bound the number of
+sites. See [Pages limits](https://developers.cloudflare.com/pages/platform/limits/)
+and [Workers for Platforms pricing](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/reference/pricing/).
 
 The dynamic Worker has a separate account-wide daily request limit on Workers
 Free (100,000 requests); at the limit Cloudflare can fail a route open or
