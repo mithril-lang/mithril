@@ -9,6 +9,9 @@ const platformHost = "*.sites.mithril.love";
 const routePattern = "*.sites.mithril.love/*";
 const placeholderIpv4 = "192.0.2.0";
 const routingDnsTypes = new Set(["A", "AAAA", "CNAME", "HTTPS", "NS", "SVCB"]);
+// This non-overridable source gate stays closed until the CLI can verify real
+// ingress-abuse protection and provider-level usage stops for every resource.
+const publicHostingBlockedReason = "Public wildcard hosting is disabled until a host-aware abuse control and enforceable provider-cost stop are verified for Worker, D1, and R2; this CLI cannot verify either control yet (MITHRIL-292).";
 
 const usage = `Inspect, enable, or disable the single MithrilPress wildcard host route.
 
@@ -18,10 +21,10 @@ Usage:
     [--apply --confirm-platform-host '*.sites.mithril.love']
 
 status is read-only. enable and disable are read-only plans unless --apply and
-the exact platform-host confirmation are supplied. Enable requires an active
-Worker and an active edge certificate covering *.sites.mithril.love. This CLI
-never orders certificates, changes an account plan, or creates a wildcard route
-until those preconditions pass.
+the exact platform-host confirmation are supplied. Enable is currently blocked
+until a host-aware abuse control and enforceable provider-cost stop are verified
+for this deployment. This CLI never orders certificates, changes an account
+plan, or creates a wildcard route until all gates pass.
 
 The provider credential is read from CLOUDFLARE_API_TOKEN and is never printed.
 No tenant-specific DNS records or customer-owned zones are managed here.`;
@@ -332,12 +335,24 @@ async function inspect(token, config, zoneId) {
   };
 }
 
-function plan(action, state, workerName) {
+function enableBlockers(state) {
   const blockedBy = [];
-  if (action === "enable" && !state.workerExists) blockedBy.push("Worker mithrilpress is not deployed.");
-  if (action === "enable" && !state.activeWildcardCertificate) {
+  if (!state.workerExists) blockedBy.push("Worker mithrilpress is not deployed.");
+  if (!state.activeWildcardCertificate) {
     blockedBy.push("No active certificate covers *.sites.mithril.love; enable/order a suitable certificate separately.");
   }
+  blockedBy.push(publicHostingBlockedReason);
+  if (!state.route && state.dnsRecords.length > 0) {
+    blockedBy.push("Wildcard DNS exists without the managed Worker route; resolve this partial state manually before enabling routing.");
+  }
+  if (state.route && state.dnsRecords.length === 0) {
+    blockedBy.push("Wildcard Worker route exists without managed wildcard DNS; resolve this partial state manually before enabling DNS.");
+  }
+  return blockedBy;
+}
+
+function plan(action, state, workerName) {
+  const blockedBy = action === "enable" ? enableBlockers(state) : [];
   if (action === "disable") {
     const changes = [];
     if (state.route) {
@@ -360,16 +375,37 @@ function plan(action, state, workerName) {
 }
 
 async function enable(token, zoneId, state, workerName) {
+  const blockers = enableBlockers(state);
+  if (blockers.length > 0) fail(`Refusing to enable public hosting: ${blockers.join(" ")}`);
   let createdRouteId = null;
   let createdDnsId = null;
+  let routeAttempted = false;
+  let dnsAttempted = false;
   try {
     if (!state.route) {
-      const created = await cloudflareRequest(token, "POST", `/zones/${zoneId}/workers/routes`, {}, {
-        pattern: routePattern,
-        script: workerName,
-      });
-      createdRouteId = created.result?.id ?? null;
-      if (!createdRouteId) fail("Wildcard route create returned no route ID; inspect Cloudflare before retrying.");
+      routeAttempted = true;
+      let createError = null;
+      try {
+        const created = await cloudflareRequest(token, "POST", `/zones/${zoneId}/workers/routes`, {}, {
+          pattern: routePattern,
+          script: workerName,
+        });
+        createdRouteId = created.result?.id ?? null;
+      } catch (error) {
+        createError = error;
+      }
+      if (!createdRouteId) {
+        const routes = await readRoutes(token, zoneId);
+        const matches = routes.filter((route) => route.pattern === routePattern);
+        if (matches.length === 0 && createError) {
+          fail(`${createError.message}. No exact wildcard route is visible in immediate read-back; inspect Cloudflare before retrying because provider completion may be ambiguous.`);
+        } else if (matches.length === 0) {
+          fail("Wildcard route create returned no ID and no exact route is visible in immediate read-back; inspect Cloudflare before retrying.");
+        } else {
+          const candidateIds = matches.map((route) => route.id ?? "unknown").join(", ");
+          fail(`Wildcard route create outcome is ambiguous; exact route candidate IDs: ${candidateIds}. Inspect Cloudflare before retrying.`);
+        }
+      }
       const routes = await readRoutes(token, zoneId);
       const readBack = routes.filter((route) => route.pattern === routePattern && route.script === workerName);
       if (readBack.length !== 1 || readBack[0].id !== createdRouteId) {
@@ -377,16 +413,33 @@ async function enable(token, zoneId, state, workerName) {
       }
     }
     if (state.dnsRecords.length === 0) {
-      const created = await cloudflareRequest(token, "POST", `/zones/${zoneId}/dns_records`, {}, {
-        type: "A",
-        name: platformHost,
-        content: placeholderIpv4,
-        proxied: true,
-        ttl: 1,
-        comment: "MithrilPress platform wildcard host",
-      });
-      createdDnsId = created.result?.id ?? null;
-      if (!createdDnsId) fail("Wildcard DNS create returned no record ID; inspect Cloudflare before retrying.");
+      dnsAttempted = true;
+      let createError = null;
+      try {
+        const created = await cloudflareRequest(token, "POST", `/zones/${zoneId}/dns_records`, {}, {
+          type: "A",
+          name: platformHost,
+          content: placeholderIpv4,
+          proxied: true,
+          ttl: 1,
+          comment: "MithrilPress platform wildcard host",
+        });
+        createdDnsId = created.result?.id ?? null;
+      } catch (error) {
+        createError = error;
+      }
+      if (!createdDnsId) {
+        const records = await readDnsRecords(token, zoneId);
+        const matches = records.filter((record) => record.name?.toLowerCase() === platformHost);
+        if (matches.length === 0 && createError) {
+          fail(`${createError.message}. No exact wildcard DNS record is visible in immediate read-back; inspect Cloudflare before retrying because provider completion may be ambiguous.`);
+        } else if (matches.length === 0) {
+          fail("Wildcard DNS create returned no ID and no exact record is visible in immediate read-back; inspect Cloudflare before retrying.");
+        } else {
+          const candidateIds = matches.map((record) => record.id ?? "unknown").join(", ");
+          fail(`Wildcard DNS create outcome is ambiguous; exact record candidate IDs: ${candidateIds}. Inspect Cloudflare before retrying.`);
+        }
+      }
       const records = await readDnsRecords(token, zoneId);
       if (records.length !== 1 || !expectedDnsRecord(records[0]) || records[0].id !== createdDnsId) {
         fail("Wildcard DNS create completed but exact record read-back failed.");
@@ -401,24 +454,16 @@ async function enable(token, zoneId, state, workerName) {
     return after;
   } catch (error) {
     const rollbackErrors = [];
-    if (createdRouteId) {
+    if (routeAttempted) {
       try {
-        await cloudflareRequest(token, "DELETE", `/zones/${zoneId}/workers/routes/${encodeURIComponent(createdRouteId)}`);
-        const routes = await readRoutes(token, zoneId);
-        if (routes.some((route) => route.id === createdRouteId)) {
-          fail("new Worker route remains after rollback");
-        }
+        await rollbackCreatedRoute(token, zoneId, workerName, createdRouteId);
       } catch (rollbackError) {
         rollbackErrors.push(`route rollback failed: ${rollbackError.message}`);
       }
     }
-    if (createdDnsId) {
+    if (dnsAttempted) {
       try {
-        await cloudflareRequest(token, "DELETE", `/zones/${zoneId}/dns_records/${encodeURIComponent(createdDnsId)}`);
-        const records = await readDnsRecords(token, zoneId);
-        if (records.some((record) => record.id === createdDnsId)) {
-          fail("new wildcard DNS record remains after rollback");
-        }
+        await rollbackCreatedDnsRecord(token, zoneId, createdDnsId);
       } catch (rollbackError) {
         rollbackErrors.push(`DNS rollback failed: ${rollbackError.message}`);
       }
@@ -430,20 +475,110 @@ async function enable(token, zoneId, state, workerName) {
   }
 }
 
-async function disable(token, zoneId, state) {
-  if (state.route) {
-    await cloudflareRequest(token, "DELETE", `/zones/${zoneId}/workers/routes/${encodeURIComponent(state.route.id)}`);
-    const routes = await readRoutes(token, zoneId);
-    if (routes.some((route) => route.pattern === routePattern)) {
-      fail("Route deletion did not read back as absent; DNS was left untouched.");
-    }
+async function rollbackCreatedRoute(token, zoneId, workerName, createdId) {
+  const routes = await readRoutes(token, zoneId);
+  const exact = routes.filter((route) => route.pattern === routePattern);
+  if (!createdId) {
+    if (exact.length === 0) return;
+    const candidateIds = exact.map((route) => route.id ?? "unknown").join(", ");
+    fail(`exact wildcard route remains (candidate IDs: ${candidateIds}); refusing deletion because the create response did not identify ownership`);
   }
-  if (state.dnsRecords.length === 1) {
-    const record = state.dnsRecords[0];
-    if (!record.expected) fail("Refusing to delete a DNS record that does not match the managed wildcard record.");
-    await cloudflareRequest(token, "DELETE", `/zones/${zoneId}/dns_records/${encodeURIComponent(record.id)}`);
-    const records = await readDnsRecords(token, zoneId);
-    if (records.length > 0) fail("Wildcard DNS deletion did not read back as absent.");
+  if (!routes.some((route) => route.id === createdId)) {
+    if (exact.length === 0) {
+      fail(`created wildcard route ID ${createdId} is not visible in read-back; inspect Cloudflare before retrying`);
+    }
+    fail("a different exact wildcard route exists after the failed create");
+  }
+  if (exact.length !== 1 || exact[0].script !== workerName
+      || exact[0].id !== createdId || !exact[0].id) {
+    fail("the exact wildcard route is not uniquely identifiable for rollback");
+  }
+  await deleteRouteAndVerify(token, zoneId, exact[0].id, "Route rollback");
+}
+
+async function rollbackCreatedDnsRecord(token, zoneId, createdId) {
+  const records = await readDnsRecords(token, zoneId);
+  const exact = records.filter((record) => record.name?.toLowerCase() === platformHost);
+  if (!createdId) {
+    if (exact.length === 0) return;
+    const candidateIds = exact.map((record) => record.id ?? "unknown").join(", ");
+    fail(`exact wildcard DNS record remains (candidate IDs: ${candidateIds}); refusing deletion because the create response did not identify ownership`);
+  }
+  if (!records.some((record) => record.id === createdId)) {
+    if (exact.length === 0) {
+      fail(`created wildcard DNS record ID ${createdId} is not visible in read-back; inspect Cloudflare before retrying`);
+    }
+    fail("a different exact wildcard DNS record exists after the failed create");
+  }
+  if (exact.length !== 1 || !expectedDnsRecord(exact[0])
+      || exact[0].id !== createdId || !exact[0].id) {
+    fail("the exact wildcard DNS record is not uniquely identifiable for rollback");
+  }
+  await deleteDnsRecordAndVerify(token, zoneId, exact[0].id, "DNS rollback");
+}
+
+async function deleteRouteAndVerify(token, zoneId, routeId, operation) {
+  let deleteError = null;
+  try {
+    await cloudflareRequest(token, "DELETE", `/zones/${zoneId}/workers/routes/${encodeURIComponent(routeId)}`);
+  } catch (error) {
+    deleteError = error;
+  }
+  const after = await readRoutes(token, zoneId);
+  if (after.some((route) => route.pattern === routePattern)) {
+    const detail = deleteError ? ` after an ambiguous delete response (${deleteError.message})` : "";
+    fail(`${operation} did not remove the exact wildcard route${detail}`);
+  }
+}
+
+async function deleteDnsRecordAndVerify(token, zoneId, recordId, operation) {
+  let deleteError = null;
+  try {
+    await cloudflareRequest(token, "DELETE", `/zones/${zoneId}/dns_records/${encodeURIComponent(recordId)}`);
+  } catch (error) {
+    deleteError = error;
+  }
+  const after = await readDnsRecords(token, zoneId);
+  if (after.some((record) => record.name?.toLowerCase() === platformHost)) {
+    const detail = deleteError ? ` after an ambiguous delete response (${deleteError.message})` : "";
+    fail(`${operation} did not remove the exact wildcard DNS record${detail}`);
+  }
+}
+
+async function disable(token, zoneId, state) {
+  const routes = await readRoutes(token, zoneId);
+  const exactRoutes = routes.filter((route) => route.pattern === routePattern);
+  if (exactRoutes.length > 1 || routes.some((route) => route.pattern !== routePattern
+      && mayOverlapPlatformRoute(route))) {
+    fail("Worker routes changed since inspection; refusing to disable through a conflicting route state.");
+  }
+  if (state.route) {
+    if (exactRoutes.length === 1) {
+      const liveRoute = exactRoutes[0];
+      if (liveRoute.id !== state.route.id || liveRoute.script !== state.route.script) {
+        fail("The wildcard route changed since inspection; refusing to delete a different route.");
+      }
+      await deleteRouteAndVerify(token, zoneId, liveRoute.id, "Route deletion");
+    }
+  } else if (exactRoutes.length > 0) {
+    fail("A wildcard route appeared since inspection; refusing to delete an unplanned route.");
+  }
+
+  const dnsRecords = await readDnsRecords(token, zoneId);
+  if (dnsRecords.length > 1 || (dnsRecords.length === 1 && !expectedDnsRecord(dnsRecords[0]))) {
+    fail("Routing DNS records changed since inspection; refusing to delete a conflicting record.");
+  }
+  if (state.dnsRecords.length === 0) {
+    if (dnsRecords.length > 0) {
+      fail("Wildcard DNS appeared since inspection; refusing to delete an unplanned record.");
+    }
+  } else if (dnsRecords.length === 1) {
+    const initialRecord = state.dnsRecords[0];
+    const liveRecord = dnsRecords[0];
+    if (liveRecord.id !== initialRecord.id || !initialRecord.expected) {
+      fail("The managed wildcard DNS record changed since inspection; refusing to delete a different record.");
+    }
+    await deleteDnsRecordAndVerify(token, zoneId, liveRecord.id, "DNS deletion");
   }
   return { route: null, dnsRecords: [] };
 }

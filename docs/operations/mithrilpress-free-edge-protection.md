@@ -5,6 +5,19 @@ been created.** This guide covers the default `*.sites.mithril.love` namespace
 in the existing parent zone. It does not authorize changes to customer-owned
 DNS or optional Cloudflare for SaaS hostnames.
 
+## Latest read-only account inventory
+
+On 2026-10-22, Cloudflare API reads scoped to the user-confirmed `fund-mithril`
+account (`62e1fda53188460698f8c66d3aef59c6`) found the active `mithril.love`
+zone (`d9f6a932ebbaa5fc56e1055f910c092d`, Free Website plan), no
+`mithrilpress` Worker, no matching Worker route, an empty zone DNS inventory,
+and no active certificate covering
+`*.sites.mithril.love`. The zone's `http_ratelimit` phase has no entrypoint
+ruleset. These reads do not verify the account-level Workers subscription,
+current usage, R2 billing stop, or all legacy security settings. The separate
+2026-10-21 dashboard record in Linear MITHRIL-292 reported Workers Paid; verify
+that account-level subscription again before any release decision.
+
 ## Wildcard routing model
 
 The selected Cloudflare account is `fund-mithril`, and its active
@@ -67,13 +80,21 @@ overages.
 
 The CLI in `apps/mithrilpress-worker/scripts/provision-platform-route.mjs`
 is read-only unless `--apply` and the exact
-`--confirm-platform-host '*.sites.mithril.love'` are supplied. It checks the
-exact account/zone, deployed Worker, overlapping routes, routing-capable DNS
-records under the namespace, and a matching active certificate before it
-plans writes. It creates the route before DNS, removes the route before DNS,
-and verifies cleanup of newly created resources if final read-back fails.
-The CLI cannot buy a certificate, change the account plan, approve tenant
-publication, or supply the missing abuse and cost controls.
+`--confirm-platform-host '*.sites.mithril.love'` are supplied. `enable` remains
+blocked even with those flags: the CLI cannot verify a host-aware abuse
+control or an enforceable provider-cost stop for Worker, D1, and R2. A WAF rate
+limit and application counters are not provider billing stops. The command
+checks the exact account/zone, deployed Worker, overlapping routes, and
+routing-capable DNS records under the namespace, plus the matching active
+certificate for status and planning. Enable refuses to activate either partial
+state: wildcard DNS without the route, or the route without managed wildcard
+DNS. Disable may clean up these partial states after a fresh read. For a failed
+create, it reads Cloudflare state again and deletes only a
+resource whose create response returned its ID, then reads deletion back. If
+the response did not provide an ID, the CLI never deletes by a matching guess.
+A remaining match is reported as incomplete rollback; if no match is
+immediately visible, the ambiguous outcome still requires manual inspection
+before retrying. `disable` remains available to remove the route before DNS.
 
 ## Cloudflare references
 

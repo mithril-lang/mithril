@@ -358,12 +358,19 @@ again before each release.
 
 The platform route CLI manages only the single wildcard route and DNS record.
 It is read-only by default. `enable` and `disable` require `--apply` plus an
-exact namespace confirmation; `enable` also requires a deployed Worker and an
-active certificate for `*.sites.mithril.love`. DNS is created only after the
-route has been read back, so a failed DNS write leaves the route without a new
-public DNS name. If final read-back fails, the CLI removes only resources it
-created and verifies that rollback. `disable` removes the route first and DNS
-second.
+exact namespace confirmation. `enable` remains blocked because this CLI cannot
+verify a host-aware abuse control or an enforceable provider-cost stop for
+Worker, D1, and R2. A WAF rule or application counter alone is not a provider
+billing stop. It also requires a deployed Worker and an active certificate for
+`*.sites.mithril.love`; those checks do not override the abuse/cost gate. The
+CLI refuses to create the route when wildcard DNS already exists without it.
+It also refuses to enable from either partial state: DNS without the route, or
+the route without managed DNS. For a failed create, the CLI reads Cloudflare
+state again and deletes only a resource whose create response returned its ID.
+When that ID is missing, it never deletes by a matching guess. A remaining
+match is reported as incomplete rollback; if no match is immediately visible,
+the ambiguous outcome still requires manual inspection before retrying.
+`disable` removes the route first and DNS second.
 
 ```sh
 npm run provision:platform-route -- status --config wrangler.production.jsonc \
@@ -383,9 +390,10 @@ environment; never pass it on the command line or put it in the Worker. The
 scoped token needs Zone Read, DNS Read/Write, Workers Routes Read/Write,
 Workers Scripts Read, and SSL and Certificates Read. Limit these permissions to
 the `mithril.love` zone/account where Cloudflare supports that scope. `status`
-performs provider reads only. Do not run `enable` until the certificate,
-account plan, abuse controls, free-tier stop behavior, exact-source
-qualification, and rollback are approved and read back.
+performs provider reads only. Do not run `enable` until a future CLI change can
+verify the certificate, account plan, abuse controls, provider-level stop,
+exact-source qualification, and rollback readback; passing `--apply` and the
+namespace confirmation cannot bypass that gate.
 
 Cloudflare for SaaS customer-hostname onboarding is a separate,
 disabled-by-default feature. It asks the owner to publish a short-lived TXT
