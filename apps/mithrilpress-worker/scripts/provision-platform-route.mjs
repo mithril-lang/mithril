@@ -9,9 +9,11 @@ const platformHost = "*.sites.mithril.love";
 const routePattern = "*.sites.mithril.love/*";
 const placeholderIpv4 = "192.0.2.0";
 const routingDnsTypes = new Set(["A", "AAAA", "CNAME", "HTTPS", "NS", "SVCB"]);
-// This non-overridable source gate stays closed until the CLI can verify real
-// ingress-abuse protection and provider-level usage stops for every resource.
-const publicHostingBlockedReason = "Public wildcard hosting is disabled until a host-aware abuse control and enforceable provider-cost stop are verified for Worker, D1, and R2; this CLI cannot verify either control yet (MITHRIL-292).";
+// This non-overridable source gate stays closed until the CLI can verify the
+// account plan, ingress-abuse protection, and provider-level usage boundary.
+// Workers Free's daily request limit is account-wide and does not stop R2
+// overages; it only fails closed when the matching route is fail-closed.
+const publicHostingBlockedReason = "Public wildcard hosting is disabled until a host-aware abuse control, verified Workers plan, and enforceable provider-cost boundary for Worker, D1, and R2 are confirmed; this CLI cannot verify those account-level controls yet (MITHRIL-292).";
 
 const usage = `Inspect, enable, or disable the single MithrilPress wildcard host route.
 
@@ -22,9 +24,11 @@ Usage:
 
 status is read-only. enable and disable are read-only plans unless --apply and
 the exact platform-host confirmation are supplied. Enable is currently blocked
-until a host-aware abuse control and enforceable provider-cost stop are verified
-for this deployment. This CLI never orders certificates, changes an account
-plan, or creates a wildcard route until all gates pass.
+until the Workers plan, a host-aware abuse control, and enforceable
+provider-cost boundaries are verified for this deployment. A Workers Free
+request cap only stops safely when the route is fail-closed. This CLI never
+orders certificates, changes an account plan, or creates a wildcard route
+until all gates pass.
 
 The provider credential is read from CLOUDFLARE_API_TOKEN and is never printed.
 No tenant-specific DNS records or customer-owned zones are managed here.`;
@@ -329,6 +333,7 @@ async function inspect(token, config, zoneId) {
       id: exactRoutes[0].id,
       pattern: exactRoutes[0].pattern,
       script: exactRoutes[0].script,
+      request_limit_fail_open: exactRoutes[0].request_limit_fail_open,
     } : null,
     certificates: matchingCertificates,
     activeWildcardCertificate,
@@ -340,6 +345,9 @@ function enableBlockers(state) {
   if (!state.workerExists) blockedBy.push("Worker mithrilpress is not deployed.");
   if (!state.activeWildcardCertificate) {
     blockedBy.push("No active certificate covers *.sites.mithril.love; enable/order a suitable certificate separately.");
+  }
+  if (state.route && state.route.request_limit_fail_open !== false) {
+    blockedBy.push("The existing wildcard route is not verified fail-closed for the Workers Free request limit; request_limit_fail_open must read back as false.");
   }
   blockedBy.push(publicHostingBlockedReason);
   if (!state.route && state.dnsRecords.length > 0) {
@@ -365,7 +373,13 @@ function plan(action, state, workerName) {
   }
   if (action === "enable") {
     const changes = [];
-    if (!state.route) changes.push({ method: "POST", resource: "wildcard Worker route", pattern: routePattern, script: workerName });
+    if (!state.route) changes.push({
+      method: "POST",
+      resource: "wildcard Worker route",
+      pattern: routePattern,
+      script: workerName,
+      expected_request_limit_fail_open: false,
+    });
     if (state.dnsRecords.length === 0) {
       changes.push({ method: "POST", resource: "proxied wildcard DNS A record after route read-back", name: platformHost, content: placeholderIpv4 });
     }
@@ -406,10 +420,13 @@ async function enable(token, zoneId, state, workerName) {
           fail(`Wildcard route create outcome is ambiguous; exact route candidate IDs: ${candidateIds}. Inspect Cloudflare before retrying.`);
         }
       }
+      // The route API's create schema does not expose the fail-open setting.
+      // Require its documented response field to confirm the fail-closed default.
       const routes = await readRoutes(token, zoneId);
       const readBack = routes.filter((route) => route.pattern === routePattern && route.script === workerName);
-      if (readBack.length !== 1 || readBack[0].id !== createdRouteId) {
-        fail("Wildcard route create completed but exact route read-back failed.");
+      if (readBack.length !== 1 || readBack[0].id !== createdRouteId
+          || readBack[0].request_limit_fail_open !== false) {
+        fail("Wildcard route create completed but exact, fail-closed route read-back failed.");
       }
     }
     if (state.dnsRecords.length === 0) {
@@ -447,6 +464,7 @@ async function enable(token, zoneId, state, workerName) {
     }
     const after = await inspect(token, { accountId: accountIdExpected, workerName }, zoneId);
     if (!after.route || after.route.script !== workerName
+        || after.route.request_limit_fail_open !== false
         || after.dnsRecords.length !== 1 || !after.dnsRecords[0].expected
         || !after.activeWildcardCertificate) {
       fail("Wildcard route enable did not pass DNS, route, and TLS read-back.");

@@ -53,12 +53,24 @@ plan, rule scope, and enforcement behavior before relying on it.
 
 MithrilPress caps requests per site and across its deployment. Those app caps
 run after a Worker invocation and D1 counter write, so they do not limit cost
-for requests rejected at the app layer. Workers Free has a daily account-wide
-hard request limit shared by unrelated Workers; Workers Paid has no account
-daily hard stop. D1 and R2 have separate account-wide allowances, and R2
-overages can be billed without a provider hard stop. Site owners pay nothing,
-and the service must stop at its cap; that promise does not authorize operator
-overages.
+for requests rejected at the app layer. Workers Free has a 100,000 request
+daily account-wide limit shared by unrelated Workers; it returns Error 1027
+when exhausted. A Worker Route can either fail open (bypass the Worker) or
+fail closed (return the 1027 error page). Public hosting must use a route whose
+`request_limit_fail_open` value reads back as `false`; otherwise limit
+exhaustion could bypass tenant and owner-auth checks. Workers Paid has no
+account daily hard stop. D1 and R2 have separate account-wide allowances, and
+R2 overages can be billed without a provider hard stop. Site owners pay
+nothing, and the service must stop at its cap; that promise does not authorize
+operator overages.
+
+The `fund-mithril` Workers subscription remains unverified because Billing
+Read is unavailable to the current Cloudflare connection. Do not infer a Free
+Workers plan from the parent zone's Free Website plan. Even if the account is
+on Workers Free and the route is fail-closed, its request cap is shared with
+other Workers in the account; it is not an isolated MithrilPress allowance and
+does not stop R2 overages. Keep the public route blocked until the plan and all
+provider-cost boundaries are read back.
 
 ## Gate before public route enablement
 
@@ -86,7 +98,9 @@ control or an enforceable provider-cost stop for Worker, D1, and R2. A WAF rate
 limit and application counters are not provider billing stops. The command
 checks the exact account/zone, deployed Worker, overlapping routes, and
 routing-capable DNS records under the namespace, plus the matching active
-certificate for status and planning. Enable refuses to activate either partial
+certificate for status and planning. It displays `request_limit_fail_open`,
+blocks an existing route unless that value is `false`, and checks the same
+fail-closed value after route creation. Enable refuses to activate either partial
 state: wildcard DNS without the route, or the route without managed wildcard
 DNS. Disable may clean up these partial states after a fresh read. For a failed
 create, it reads Cloudflare state again and deletes only a
@@ -106,5 +120,6 @@ before retrying. `disable` remains available to remove the route before DNS.
 - [Rate-limiting rule availability and supported fields](https://developers.cloudflare.com/waf/rate-limiting-rules/)
 - [Rate-limit request counting and data-center locality](https://developers.cloudflare.com/waf/rate-limiting-rules/request-rate/)
 - [Workers Free request limits](https://developers.cloudflare.com/workers/platform/limits/)
+- [Workers Routes API response behavior](https://developers.cloudflare.com/changelog/post/2025-04-15-workers-api-fixes/)
 - [D1 Free behavior](https://developers.cloudflare.com/d1/reference/faq/)
 - [R2 pricing and free allowances](https://developers.cloudflare.com/r2/pricing/)
