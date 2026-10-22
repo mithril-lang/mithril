@@ -96,23 +96,27 @@ publishing. Owner identity provisioning remains out of band.
 
 ## Cloudflare hosting
 
-The current prototype is a MithrilPress Worker, D1, and R2. Public delivery is
-not deployed. The candidate publication design uses one Cloudflare Pages
-Direct Upload project per site and an exact Pages custom domain such as
-`example.sites.mithril.love`; see the
-[static publication design](mithrilpress-static-publication.md). It avoids a
-shared wildcard route and does not require site owners to move nameservers.
-Cloudflare-managed DNS can create the exact CNAME when the Pages custom domain
-is confirmed. Deep-host TLS, the per-account Pages cap, paid control-plane
-usage, and rollback still require qualification before provisioning.
+The current prototype is a tenant-aware MithrilPress Worker, D1, and R2. Public
+delivery is not deployed. The required default topology is one shared Worker
+with an exact D1 hostname registry, reached through the requested wildcard
+host `*.sites.mithril.love`. No tenant code is executed. Provisioning this
+route remains gated on deep-host TLS, host-scoped ingress protection, account
+cost controls, exact-source qualification, and rollback.
 
-Do not create a wildcard DNS record or Worker route for
-`*.sites.mithril.love`. Each Pages project is static-first and has its own
-asset root. A Pages Function may serve only explicitly supported WordPress REST
-paths after `_routes.json` proves other public requests bypass Functions.
+The separate [optional static publication design](mithrilpress-static-publication.md)
+can publish an owner-approved revision to one capped Cloudflare Pages project
+with one exact custom hostname per selected site. It does not replace or
+provision the default wildcard Worker route. Pages may create the exact CNAME
+in Cloudflare-managed DNS after confirmation. Deep-host TLS, per-account Pages
+cap, paid control-plane usage, and rollback still require qualification.
+Because a Pages project's `*.pages.dev` hostname is also public, only
+owner-approved published revisions may be deployed there.
+
 Keep private preview, chat, import, and owner APIs on the authenticated
-MithrilPress Worker. A Pages project's `*.pages.dev` hostname is also public,
-so only owner-approved published revisions may be deployed there.
+MithrilPress Worker. If the optional Pages adapter is used, a Pages Function
+may serve only explicitly supported WordPress REST paths after `_routes.json`
+proves other public requests bypass Functions. Pages static assets do not make
+control-plane, Function, D1, AI, or R2 usage free.
 
 Keep `workers.dev` disabled for the control Worker. It normalizes the hostname,
 rejects reserved and unknown labels, then looks up the complete hostname in
@@ -131,9 +135,10 @@ setting.
 The parent zone serves unrelated hostnames. Cloudflare Free rate-limiting rules
 support path and Verified Bot fields, but not host matching. A path-only rule
 would also affect unrelated hosts, so no parent-zone Free rate-limit rule is a
-safe MithrilPress edge guard. Pages static delivery avoids a shared wildcard
-Worker ingress, but does not make control-plane, Pages Function, D1, AI, or R2
-usage free. See the
+safe MithrilPress edge guard. The wildcard Worker ingress remains disabled
+until a safe host-scoped control or isolated zone is qualified. Optional Pages
+static delivery avoids that shared ingress for selected exact-host sites, but
+does not make control-plane, Pages Function, D1, AI, or R2 usage free. See the
 [edge-protection gate](../operations/mithrilpress-free-edge-protection.md).
 
 `apps/mithrilpress-worker/` provides the Worker handler, D1 migration, token
@@ -149,8 +154,8 @@ WordPress media URLs or remove image metadata.
 
 The checked-in Wrangler example has no route and disables `workers.dev`. No
 MithrilPress Pages project, custom domain, DNS record, production credential,
-or public hostname has been created. Pages deployment remains separate release
-work.
+or public hostname has been created. The default wildcard Worker route and the
+optional Pages publication path both remain separate release work.
 
 The pricing policy is free for site owners; the hosting operator is responsible
 for provider charges. This is not a zero-cost provider commitment. Workers Free

@@ -1,18 +1,21 @@
 # MithrilPress Wildcard Worker Route Gate
 
-**Status: not selected for the default static site plane. No WAF rule or
-production route has been created.** This guide records why the older shared
-`*.sites.mithril.love` Worker-route candidate remains disabled. The current
-candidate is one Pages project and exact custom domain per site; see
-`docs/design/mithrilpress-static-publication.md`. This file does not authorize
-changes to customer-owned DNS or optional Cloudflare for SaaS hostnames.
+**Status: required default topology, but not provisioned. No WAF rule or
+production route has been created.** The requested shared
+`*.sites.mithril.love` Worker route remains disabled until a host-scoped edge
+guard, deep-host TLS, provider cost boundary, and rollback pass read-back. The
+optional capped Pages exact-host path is separate and does not replace this
+default; see `docs/design/mithrilpress-static-publication.md`. This file does
+not authorize changes to customer-owned DNS or optional Cloudflare for SaaS
+hostnames.
 
 ## Request and quota boundary
 
-The legacy wildcard Worker route would share the existing parent zone with
-unrelated hostnames. A Cloudflare route can match the platform wildcard, but a
-Free WAF rate-limiting rule cannot safely protect it by itself. Pages exact
-custom domains do not need this wildcard ingress.
+The wildcard Worker route would share the existing parent zone with unrelated
+hostnames. A Cloudflare route can match the platform wildcard, but a Free WAF
+rate-limiting rule cannot safely protect it by itself. Optional Pages exact
+custom domains do not need this wildcard ingress; the default Worker still
+does.
 
 Cloudflare's current Free rate-limiting rules support only Path and Verified Bot
 fields in the rule expression. They do not support host matching. A path rule
@@ -21,9 +24,10 @@ their paths match. Do not create or enable the previously proposed path-only
 MithrilPress rule on the parent zone.
 
 Cloudflare documents standalone subdomain-zone setup as Enterprise-only. Keep
-the legacy wildcard Worker route and onboarding disabled. The Pages candidate
-instead binds each exact hostname to its own static project and still requires
-isolated-zone TLS and account-cap qualification.
+the wildcard Worker route and onboarding disabled until a host-scoped control
+or approved isolated hosting zone is available. The optional Pages path binds
+each selected exact hostname to its own static project and still requires
+deep-host TLS and account-cap qualification.
 
 ## Gate before provisioning
 

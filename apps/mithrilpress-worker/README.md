@@ -43,6 +43,8 @@ explicitly published tenant revision.
   taxonomy archives, a sitemap, an RSS feed, robots.txt, and referenced images.
   It creates local files only; it does not call the Cloudflare Pages API or
   publish a deployment.
+- An optional, capped Cloudflare Pages Direct Upload adapter for approved static
+  publications. It does not replace the shared Worker/D1 default host plane.
 
 The checked-in Mithril native-JS modules own platform subdomain validation,
 WordPress post/page record admission, individual taxonomy-term admission, and
@@ -71,10 +73,13 @@ Mithril workspace's `kbb` compiler.
 5. Run `npm run dev` to work against local D1.
 
 The example config deliberately has no route and disables `workers.dev`. It is
-not a production deployment config. Production routing, real D1 IDs, zone
-ownership, exact-source standalone qualification, rollback, and live read-back
-remain release gates. Pages custom domains are attached one exact hostname at
-a time; this package does not create wildcard DNS or wildcard Worker routes.
+not a production deployment config. The required default hosting topology is a
+shared tenant-aware Worker and D1 hostname registry on
+`*.sites.mithril.love`. Production routing, deep-host TLS, a host-scoped ingress
+guard, real D1 IDs, zone ownership, exact-source standalone qualification,
+rollback, and live read-back remain release gates. This package creates no
+wildcard DNS record or Worker route. The optional Pages adapter attaches one
+exact hostname per site and remains an independently gated publication path.
 
 The R2 adapter stores objects with random site-scoped keys and keeps metadata
 and ownership references in D1. The application caps storage at 250 MiB per
@@ -86,7 +91,14 @@ operations per month; those allowances are account-wide and shared with other
 workloads. The application caps do not guarantee a zero bill when the account
 has other R2 usage. No paid fallback is configured. See [R2 pricing](https://developers.cloudflare.com/r2/pricing/).
 
-### Static publication artifact
+### Optional static publication artifact
+
+This capped Pages path is an optional publication adapter, not the default
+hosting plane. The shared tenant-aware Worker and D1 registry remain the
+default for `*.sites.mithril.love`; the Pages publisher neither provisions nor
+replaces that wildcard route. Pages projects, exact custom domains, and REST
+Functions remain disabled until their separate qualification and cost gates
+pass.
 
 After a site owner separately approves and publishes a revision, a publisher
 with a short-lived `site:publish` token can read the current snapshot and its
@@ -119,7 +131,11 @@ to the site, hostname, published revision, and source snapshot digest. Preserve
 that result with the standalone publisher receipt so the upload can be tied to
 the exact local bundle.
 
-### Guarded Pages Direct Upload
+### Optional guarded Pages Direct Upload
+
+This exact-host flow is separate from the default shared Worker route. It is
+limited to the capped Pages publication path and does not change routing for
+tenants that remain on the shared Worker.
 
 `npm run publish:pages -- --confirm-publication` updates an already established
 static Pages site. The first publish uses the explicit

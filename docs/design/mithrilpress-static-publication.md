@@ -1,8 +1,17 @@
-# MithrilPress static publication plane
+# MithrilPress optional static publication plane
 
-**Status: local artifact export, a guarded Direct Upload updater, an explicit
-first-publish mode, and a fixed read-only REST Function with shared D1 request
-caps are implemented on the current unqualified branch; none is deployed.**
+**Scope boundary:** this is an optional, capped publication adapter, not the
+default hosting topology. The requested default remains one shared
+tenant-aware Worker and D1 hostname registry for `*.sites.mithril.love`, as
+tracked in [MITHRIL-275](https://linear.app/kotobalabs/issue/MITHRIL-275/implement-mithrilpress-cloudflare-worker-routing-and-private-previews).
+This Pages path uses one exact hostname per project and neither provisions nor
+replaces the wildcard Worker route.
+
+**Status: the executable publication source at
+`8931a87fc7aff7d5d9c5ecb28abda794e3cadde1` passed the pinned
+`mithrilpress-worker` standalone profile (35/35 tests, including owner-auth and
+tenant-isolation checks). This follow-up changes documentation only and passes
+`git diff --check`; none of the Pages resources or routes is deployed.**
 The Worker exposes a
 `site:publish`-scoped digest-bound snapshot and referenced-media endpoint,
 `apps/mithrilpress-worker/scripts/export-static-pages.mjs` builds a local static
@@ -11,10 +20,10 @@ initialization path. The initializer can create one Pages project, publish a
 noindex placeholder, attach one exact custom hostname, add its exact proxied
 CNAME when no conflicting DNS record exists, and wait for domain/TLS/HTTPS
 read-back before deploying owner-approved content. Later updates perform full
-HTTPS asset read-back and attempt a guarded rollback on failure. This source
-has not been qualified or deployed. No MithrilPress Pages project, DNS record,
-custom domain, Worker route, or MithrilPress D1 database exists in the selected
-`fund-mithril` account.
+HTTPS asset read-back and attempt a guarded rollback on failure. The qualified
+source is not deployed. No MithrilPress Pages project, DNS record, custom
+domain, wildcard Worker route, or MithrilPress D1 database exists in the
+selected `fund-mithril` account.
 
 ## Why split public delivery from the editor
 
@@ -37,6 +46,10 @@ References:
 and [R2 pricing](https://developers.cloudflare.com/r2/pricing/).
 
 ## Target topology
+
+The diagram below applies only when an owner and operator separately select
+the optional Pages publication path for a site. It does not describe the
+default shared Worker route.
 
 ```text
 Owner chat and WordPress import
