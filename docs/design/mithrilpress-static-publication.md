@@ -88,6 +88,30 @@ code and send only explicitly dynamic routes to the CMS Worker. Confirm that
 Cloudflare's deployed route and asset configuration preserves this behavior
 after the host-based rewrite.
 
+### Hostname and certificate gate
+
+The live `fund-mithril` read-back on 2026-10-22 found one active Universal SSL
+certificate covering `mithril.love` and `*.mithril.love`. It does not cover
+`*.sites.mithril.love`, and the zone's custom-certificate quota is zero. On a
+full-setup Free Website zone, Universal SSL does not cover deeper subdomains.
+A partial/CNAME zone setup issues certificates at any subdomain depth, but
+Cloudflare requires a Business or Enterprise zone plan for that setup.
+
+For a no-add-on MVP, exact Workers Custom Domains are the candidate: Cloudflare
+creates DNS and a certificate for each registered hostname, including a deep
+hostname, without a separate Advanced Certificate Manager subscription.
+Custom Domains are exact-host only and limited to 100 per zone. The site owner
+can still receive a hostname under `*.sites.mithril.love`; provisioning must
+register that exact host, then read back its Worker mapping and certificate.
+Enforce a hard platform hostname cap of 100 and stop new onboarding at the cap
+or earlier when the shared asset bundle reaches its limits. Do not switch to a
+wildcard DNS/route or buy a deeper wildcard certificate automatically.
+
+References: [Universal SSL hostname limitations](https://developers.cloudflare.com/ssl/edge-certificates/universal-ssl/limitations/),
+[partial setup availability](https://developers.cloudflare.com/dns/zone-setups/partial-setup/setup/),
+[Workers Custom Domains and certificates](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/),
+and [Workers per-zone limits](https://developers.cloudflare.com/workers/platform/limits/).
+
 Before production, prove all of the following:
 
 * A two-tenant fixture cannot read the other tenant's root, page, media, feed,
@@ -101,9 +125,9 @@ Before production, prove all of the following:
 * Studio, private preview, migration, and owner API routes are excluded from
   public rewriting and continue to reach the dynamic Worker with their current
   authentication, noindex, same-origin, audit, and tenant-boundary checks.
-* Wildcard route matching and precedence between static and dynamic routes are
-  read back on an isolated zone. The current parent zone has no Transform
-  Rules entrypoint or Worker route.
+* Exact-host Custom Domain matching and precedence between URL rewrites, static
+  assets, and dynamic Worker paths are read back on an isolated zone. The
+  current parent zone has no MithrilPress Worker route or host records.
 
 Do not rely on path-prefix isolation until the traversal and normalization
 cases above have been demonstrated. URL rewriting changes only the path; it
