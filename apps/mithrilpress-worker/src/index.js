@@ -3053,6 +3053,10 @@ async function handleRequest(request, env) {
       if (invalidControlHostLimit) return invalidControlHostLimit;
       return fail(404, "site_not_found", "Site not found.");
     }
+    if (url.search) {
+      const sharedLimit = await checkHostingRequest(env, null, requestDate);
+      return sharedLimit ?? fail(400, "invalid_publication_request", "Publication control requests do not accept query parameters.");
+    }
     const siteId = controlPublicationCurrentMatch?.[1] ?? controlPublicationMediaMatch[1];
     const site = await env.DB.prepare(
       "SELECT id, hostname, status, current_revision_id FROM sites WHERE id = ? LIMIT 1",
@@ -3064,7 +3068,6 @@ async function handleRequest(request, env) {
     }
     const siteLimit = await checkHostingRequest(env, site.id, requestDate);
     if (siteLimit) return siteLimit;
-    if (url.search) return fail(400, "invalid_publication_request", "Publication control requests do not accept query parameters.");
     if (controlPublicationCurrentMatch) return await publicationSnapshot(request, env, site);
     const mediaId = Number(controlPublicationMediaMatch[3]);
     if (!Number.isSafeInteger(mediaId) || mediaId < 1) return fail(404, "media_not_found", "Media item not found.");
