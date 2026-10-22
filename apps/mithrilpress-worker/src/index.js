@@ -1882,15 +1882,16 @@ async function importWordPress(request, env, site) {
     if (rowBytes + seoMetadataBytes > MAX_D1_ROW_BYTES) return fail(413, "entry_row_too_large", "An entry exceeds the D1 row budget.");
   }
 
+  const omittedSeoFields = parsedWxr
+    ? Number(parsedWxr.omitted.custom_fields ?? 0)
+    : entries.reduce((sum, entry) => sum + entry.seoMetadataOmittedFields, 0);
   const migrationReport = {
     version: 1,
     gutenberg: gutenbergReport,
     seo_metadata: {
       entries_with_metadata: entries.filter((entry) => Object.keys(entry.seoMetadata).length > 0).length,
       imported_fields: entries.reduce((sum, entry) => sum + Object.keys(entry.seoMetadata).length, 0),
-      omitted_fields: parsedWxr
-        ? Number(parsedWxr.omitted.custom_fields ?? 0)
-        : entries.reduce((sum, entry) => sum + entry.seoMetadataOmittedFields, 0),
+      omitted_fields: omittedSeoFields,
     },
     inline_media: {
       wp_image_class_references: wordpressMediaReferences.class_references,
@@ -1911,7 +1912,7 @@ async function importWordPress(request, env, site) {
       || omittedInlineImages > 0
       || unresolvedSourceSiteLinks > 0
       || removedUnsafeLinks > 0
-      || migrationReport.seo_metadata.omitted_fields > 0
+      || omittedSeoFields > 0
       || Object.values(parsedWxr?.omitted ?? {}).some((count) => Number(count) > 0),
   };
 
