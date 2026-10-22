@@ -125,6 +125,22 @@ function renderMessage(role, body, error = false) {
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
+function draftHtmlToText(html) {
+  const parsed = new DOMParser().parseFromString(String(html || ""), "text/html");
+  const blockTags = new Set(["BLOCKQUOTE", "DIV", "H1", "H2", "H3", "H4", "H5", "H6", "LI", "OL", "P", "PRE", "UL"]);
+  const textOf = (node) => {
+    if (node.nodeType === 3) return node.nodeValue || "";
+    if (node.nodeType !== 1) return "";
+    if (node.tagName === "BR") return "\n";
+    const content = Array.from(node.childNodes).map(textOf).join("");
+    return blockTags.has(node.tagName) ? `${content}\n\n` : content;
+  };
+  return Array.from(parsed.body.childNodes).map(textOf).join("")
+    .replace(/[ \t]*\n[ \t]*/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function showDraft(draft, revisionId, state, previewUrl) {
   if (!draft || !revisionId) {
     activeDraft = null;
@@ -206,8 +222,7 @@ async function openConversation(id) {
       document.querySelector("#content-kind").value = result.conversation.draft.kind;
       document.querySelector("#send-button").textContent = "Update draft";
       manualTitle.value = result.conversation.draft.title || "";
-      const parsedDraft = new DOMParser().parseFromString(result.conversation.draft.safe_html || "", "text/html");
-      manualContent.value = parsedDraft.body.textContent || "";
+      manualContent.value = draftHtmlToText(result.conversation.draft.safe_html);
       manualLanguage.value = result.conversation.draft.language_code === "und" ? "" : (result.conversation.draft.language_code || "");
     } else {
       showDraft(null, null, null);
