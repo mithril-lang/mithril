@@ -96,23 +96,29 @@ publishing. Owner identity provisioning remains out of band.
 
 ## Cloudflare hosting
 
-The initial runtime is a single MithrilPress Worker, D1, and R2. Production must
-put these resources in a dedicated Cloudflare account on the Workers Free plan,
-separate from the existing `fund-mithril` Workers Paid account and unrelated
-workloads. Add `sites.mithril.love` as a child zone in that account and delegate
-it from the parent `mithril.love` zone with NS records. Cloudflare supports a
-subdomain zone in a different account; this isolates the Workers and R2 quota
-pools from the existing account.
+The initial runtime is a single MithrilPress Worker, D1, and R2. The default
+hostname `*.sites.mithril.love` uses the existing parent zone; it does not need
+a child zone or NS delegation. Cloudflare standalone subdomain-zone setup is
+Enterprise-only. Create a proxied wildcard DNS record and a Worker route
+`*.sites.mithril.love/*` on the parent zone only after the hosting plan,
+security controls, cost boundary, and rollback have been verified.
 
-A proxied wildcard DNS record and wildcard Worker route in the child zone cover
-`*.sites.mithril.love/*`. Keep `workers.dev` disabled and configure the route to
-fail closed when the Free plan's daily Worker request limit is reached. Cloudflare
-returns Error 1027 at that limit; fail-open routing bypasses the Worker. The
-Worker normalizes the hostname, rejects reserved and unknown labels, then looks
-up the complete hostname in D1. Host labels never grant tenant identity. Content
-queries carry both site and revision IDs and use prepared statements. Owner
-credentials are per-site salted SHA-256 token hashes with narrowly scoped
-permissions; plaintext tokens are provisioned out of band.
+Keep `workers.dev` disabled and configure the route to fail closed when the
+Workers Free account-wide daily request limit is reached. Cloudflare returns
+Error 1027 at that limit; fail-open routing bypasses the Worker. The Free limit
+is shared across the account and does not apply as a hard daily stop on Workers
+Paid. The Worker normalizes the hostname, rejects reserved and unknown labels,
+then looks up the complete hostname in D1. Host labels never grant tenant
+identity. Content queries carry both site and revision IDs and use prepared
+statements. Owner credentials are per-site salted SHA-256 token hashes with
+narrowly scoped permissions; plaintext tokens are provisioned out of band.
+
+The parent zone serves unrelated hostnames. Cloudflare Free rate-limiting rules
+support path and Verified Bot fields, but not host matching. A path-only rule
+would also affect unrelated hosts, so no parent-zone Free rate-limit rule is a
+safe MithrilPress edge guard. Keep public routing disabled until a host-scoped
+edge guard or an approved isolated hosting zone is available. See the
+[edge-protection gate](../operations/mithrilpress-free-edge-protection.md).
 
 `apps/mithrilpress-worker/` provides the Worker handler, D1 migration, token
 generator, chat-first Studio assets, and non-production Wrangler example. It
@@ -131,10 +137,12 @@ created by this implementation. Production route configuration and deployment
 remain separate release work.
 
 The pricing policy is free for site owners; the hosting operator is responsible
-for provider charges. This is not a zero-cost provider commitment. Do not run
-the MithrilPress runtime in the existing Workers Paid account: its requests are
-unlimited and do not provide a hard daily request stop. The product never bills
-site owners or automatically switches a hosting account to a paid tier. See
+for provider charges. This is not a zero-cost provider commitment. Workers Free
+provides a 100,000-request daily account limit; Workers Paid has no daily
+request limit and may bill usage. The product never bills site owners or
+automatically switches a hosting account to a paid tier. Keep public routing
+disabled until the account plan and an enforceable provider cost boundary have
+been verified. See
 [Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/),
 [D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/),
 [R2 pricing](https://developers.cloudflare.com/r2/pricing/), and
@@ -169,17 +177,18 @@ The Workers Free plan enforces a 100,000-request daily account limit. D1 Free
 enforces daily limits of 5 million rows read and 100,000 rows written, and a
 5 GB total storage allowance; daily query limits fail closed and storage
 exhaustion prevents new writes. These provider limits are a second stop after
-the MithrilPress application caps, provided the deployment read-back confirms
-that it remains on Workers Free. If it is on Workers Paid, the same request cap
-does not prevent provider metering or overage. Import and rendering CPU usage
-has not been qualified against the Free plan's 10 ms per-request limit.
+the MithrilPress application caps only if the deployment is verified as
+Workers Free. If it is on Workers Paid, the same app request cap does not
+prevent Worker metering or overage. Import and rendering CPU usage has not been
+qualified against the Free plan's 10 ms per-request limit.
 
-Before public routing, provision the one-rule Free WAF burst guard on the
-delegated `sites.mithril.love` child zone and verify that blocked requests do
-not invoke the Worker. Its IP counters are local to each Cloudflare data center
-and do not provide a global request budget. See the [Free edge-protection
-runbook](../operations/mithrilpress-free-edge-protection.md) for the current
-rule shape, scoped token, rollout checks, and limitations.
+Cloudflare Free rate-limiting rules cannot match the request host; they support
+path and Verified Bot fields only. A rule on the parent zone would also affect
+unrelated sites with matching paths. Do not use it as a MithrilPress burst
+guard. Keep public routing disabled until a host-scoped edge control or an
+approved isolated hosting zone is available. The
+[edge-protection gate](../operations/mithrilpress-free-edge-protection.md)
+records this limitation and the checks still needed.
 
 R2 has monthly account-wide allowances of 10 GB-month Standard storage, 1
 million Class A operations, and 10 million Class B operations; usage above
@@ -187,18 +196,15 @@ those allowances is billed. The current application bounds retained media to
 8 GiB per deployment, reads to 50,000/day, and uploads/deletes to 10,000/day.
 Even over a 31-day month, those caps bound ordinary reads to 1.55 million and
 write requests to 310,000; one cleanup delete after a failed upload can at most
-double the latter to 620,000 Class A calls. This stays below the listed R2 Free
-allowances only while the dedicated account and bucket have no other R2 usage,
-the Worker remains the only media access path, and the documented provider
-limits remain current. R2 itself does not reject billable overage. Keep public
-onboarding disabled unless the account separation, plan, and route fail mode
-are read back. Disable media writes and delivery if the usage bounds or provider
-allowances cannot be maintained.
+double the latter to 620,000 Class A calls. These application bounds are only a
+source-level estimate. R2 free allowances are shared across the account, usage
+above them is billed, and R2 does not enforce a hard stop at the included
+limits. Keep media writes and delivery disabled until total account usage, the
+R2 plan, and the operator's cost stop are read back. Disable media if other
+account workloads could consume the remaining allowance.
 
-No usage in the separate account can protect against an operator changing its
-plan, an external R2 client, a provider limit change, or a new unbounded code
-path. The product never bills site owners, but do not advertise zero provider
-cost. Revalidate the provider limits and all media-operation paths before each
+The product never bills site owners, but do not advertise zero provider cost.
+Revalidate the provider limits and all media-operation paths before each
 release. Track these release requirements in Linear MITHRIL-292. Check
 [Workers limits](https://developers.cloudflare.com/workers/platform/limits/),
 [D1 Free quota behavior](https://developers.cloudflare.com/d1/reference/faq/),
@@ -238,11 +244,12 @@ suspends mismatches or mappings with three consecutive provider/DNS read
 failures. Re-enable remains blocked until both the dedicated routing setup and
 the deployed Cron Trigger have been read back successfully.
 
-This flow is disabled until a dedicated `sites.mithril.love` SaaS zone,
-fallback origin, wildcard Worker route, wildcard DNS, safe subzone delegation,
-scoped `SSL and Certificates Write` token, and current hostname capacity have
-all been provisioned and read back. Cloudflare for SaaS's catch-all route must
-not intercept unrelated `mithril.love` websites. Keep
+This flow is disabled until the Cloudflare for SaaS entitlement, fallback
+origin, hostname route and DNS, scoped `SSL and Certificates Write` token, and
+current hostname capacity have all been provisioned and read back. Use the
+verified SaaS fallback zone on the existing parent-zone account; do not assume
+or create a child zone for `sites.mithril.love`. Cloudflare for SaaS routing
+must not intercept unrelated `mithril.love` websites. Keep
 `CUSTOM_DOMAINS_MONITORING_READY=false` until the Cron Trigger's successful
 deployed invocation is visible. Cloudflare for SaaS currently
 includes 100 custom hostnames and charges $0.10 per additional hostname;
