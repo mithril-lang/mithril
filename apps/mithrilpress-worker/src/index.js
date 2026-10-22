@@ -1681,11 +1681,50 @@ async function deleteStudioMedia(request, env, site, mediaId) {
     "SELECT id, object_key, status FROM media_assets WHERE site_id = ? AND id = ? LIMIT 1",
   ).bind(site.id, mediaId).first();
   if (!row) return fail(404, "media_not_found", "Media item not found.");
+  if (!new Set(["pending", "active", "deleting"]).has(row.status)) {
+    return fail(409, "media_state_changed", "This image changed state. Refresh the media library before retrying.");
+  }
   if (!await countMediaWrite(env, MEDIA_WRITES_PER_DAY_LIMIT)) {
     return fail(429, "media_daily_write_limit", "The shared free media upload and delete allowance is exhausted for today. Try again after 00:00 UTC.");
   }
-  await env.DB.prepare("UPDATE media_assets SET status = 'deleting' WHERE site_id = ? AND id = ? AND status IN ('pending', 'active', 'deleting')")
-    .bind(site.id, mediaId).run();
+  if (row.status !== "deleting") {
+    const marked = await env.DB.prepare(
+      "UPDATE media_assets SET status = 'deleting' WHERE site_id = ? AND id = ? AND status = ? RETURNING id",
+    ).bind(site.id, mediaId, row.status).first();
+    if (!marked) return fail(409, "media_state_changed", "This image changed state. Refresh the media library before retrying.");
+  }
+  const referenced = await env.DB.prepare(
+    "SELECT 1 FROM media_assets a WHERE a.site_id = ? AND a.id = ? AND ("
+      + "EXISTS (SELECT 1 FROM entries e JOIN site_revisions r ON r.site_id = e.site_id AND r.id = e.revision_id "
+      + "WHERE e.site_id = a.site_id AND r.state IN ('importing', 'private-preview', 'approved', 'published') "
+      + "AND e.featured_media_id IN (a.id, a.wordpress_source_id)) "
+      + "OR EXISTS (SELECT 1 FROM entry_media em JOIN site_revisions r ON r.site_id = em.site_id AND r.id = em.revision_id "
+      + "WHERE em.site_id = a.site_id AND em.media_id = a.id AND r.state IN ('importing', 'private-preview', 'approved', 'published'))"
+      + ") LIMIT 1",
+  ).bind(site.id, mediaId).first();
+  if (referenced) {
+    if (row.status !== "deleting") {
+      try {
+        const restored = await env.DB.prepare(
+          "UPDATE media_assets SET status = ? WHERE site_id = ? AND id = ? AND status = 'deleting'",
+        ).bind(row.status, site.id, mediaId).run();
+        if (restored.meta?.changes !== 1) throw new Error("media status restore failed");
+      } catch {
+        return fail(503, "media_delete_pending", "This image is still referenced, but its active state could not be restored. Retry later.");
+      }
+    } else if (row.status === "deleting") {
+      try {
+        if (await env.MEDIA.head(row.object_key)) {
+          await env.DB.prepare(
+            "UPDATE media_assets SET status = 'active' WHERE site_id = ? AND id = ? AND status = 'deleting'",
+          ).bind(site.id, mediaId).run();
+        }
+      } catch {
+        return fail(503, "media_delete_pending", "This image is still referenced and needs owner reconciliation before deletion can continue.");
+      }
+    }
+    return fail(409, "media_in_use", "This image is used by an importing, private-preview, approved, or published revision. Remove it from those revisions before deleting it.");
+  }
   try {
     await env.MEDIA.delete(row.object_key);
   } catch {
