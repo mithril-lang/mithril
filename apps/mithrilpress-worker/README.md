@@ -72,8 +72,9 @@ Mithril workspace's `kbb` compiler.
 
 The example config deliberately has no route and disables `workers.dev`. It is
 not a production deployment config. Production routing, real D1 IDs, zone
-ownership, wildcard DNS, exact-source standalone qualification, rollback, and
-live read-back remain release gates.
+ownership, exact-source standalone qualification, rollback, and live read-back
+remain release gates. Pages custom domains are attached one exact hostname at
+a time; this package does not create wildcard DNS or wildcard Worker routes.
 
 The R2 adapter stores objects with random site-scoped keys and keeps metadata
 and ownership references in D1. The application caps storage at 250 MiB per
@@ -120,28 +121,48 @@ the exact local bundle.
 
 ### Guarded Pages Direct Upload
 
-`npm run publish:pages -- --confirm-publication` is the operator path for
-updating an already established static Pages site. It uses the package-lock
-Wrangler v4 entrypoint directly; it never uses `npx` or installs a publisher at
-runtime. Before upload, it re-exports the exact `MITHRILPRESS_EXPECTED_REVISION`,
-checks every local file against the digest-bound manifest, confirms the
-expected Cloudflare account ID, and reads back the existing project and its
-single active custom hostname. The project name is derived as `mp-<site UUID>`.
-The project must use its configured production branch and have Pages Functions
-disabled. The publisher does not create a project, attach a hostname, write
-DNS, or modify a zone.
+`npm run publish:pages -- --confirm-publication` updates an already established
+static Pages site. The first publish uses the explicit
+`--confirm-publication --initialize-hostname <exact-hostname>` mode. Both modes
+use the package-lock Wrangler v4 entrypoint directly; neither uses `npx` or
+installs a publisher at runtime. The publisher re-exports the exact
+`MITHRILPRESS_EXPECTED_REVISION`, checks every local file against the
+digest-bound manifest, and confirms the account ID against the separately
+pinned standalone-publisher value. The project name is derived as
+`mp-<site UUID>`. The project must use the expected production branch and have
+Pages Functions disabled before an owner-approved artifact is deployed.
 
-The first public deployment is deliberately outside this update command. An
-update requires the current production deployment and its previous successful
-publisher receipt. It first verifies the live files against that receipt, then
-checks the revision again immediately before Direct Upload. After upload it
-reads back every public file over the exact HTTPS custom hostname and compares
-the returned byte length and SHA-256 with the approved manifest. On a failed
-read-back it attempts the Pages rollback API only if the deployment it just
-published is still current, then verifies the previous receipt's files again.
-Each Direct Upload carries a unique deployment message bound to the site,
-revision, artifact digest, and publish attempt. If a concurrent publisher
-changed production, rollback is withheld.
+Initial publication validates the exact hostname against the owner's published
+snapshot and confirms the configured zone is `mithril.love` in the expected
+Cloudflare account. It checks the exact hostname's DNS records before writing,
+creates the static Pages project when absent, and stops before creating a new
+project when the account has 90 or more Pages projects. It first uploads a
+small `noindex` setup placeholder to the project's `pages.dev` host, then
+attaches the exact custom hostname and creates a proxied CNAME only if the exact
+hostname has no DNS records. It waits for the Pages domain, validation, and
+verification states to become active and verifies the placeholder over HTTPS
+before uploading owner-approved content. If a provider step fails, already
+created project, deployment, domain, or DNS resources remain for a safe retry;
+the script does not attempt destructive cleanup. The Pages API and DNS writes
+are not one atomic operation.
+
+Cloudflare Pages allows 100 projects per account; the publisher's 90-project
+cap leaves ten slots for other account projects and operational headroom. It
+does not provide an all-world scale path: onboarding stops at the cap until a
+separately qualified hosting architecture is available. See [Pages limits](https://developers.cloudflare.com/pages/platform/limits/).
+
+The initial placeholder remains the rollback target until the first approved
+publication passes read-back. Later updates require the current production
+deployment and its previous successful publisher receipt. They first verify
+the live files against that receipt, then check the revision again immediately
+before Direct Upload. After upload they read back every public file over the
+exact HTTPS custom hostname and compare the returned byte length and SHA-256
+with the approved manifest. On a failed read-back the publisher attempts the
+Pages rollback API only if the deployment it just published is still current,
+then verifies the previous receipt's files again. Each Direct Upload carries a
+unique deployment message bound to the site, revision, artifact digest, and
+publish attempt. If a concurrent publisher changed production, rollback is
+withheld.
 
 The publisher refuses `_routes.json`, `_worker.js`, Functions directories,
 extra files, symlinks, and bundles above the existing 5,000-file / 300 MB
@@ -151,20 +172,42 @@ Dynamic WordPress REST routes remain unsupported on this static-only path.
 
 Set credentials from the approved local secret store, never on the command
 line. `MITHRILPRESS_EXPECTED_CLOUDFLARE_ACCOUNT_ID` must match
-`CLOUDFLARE_ACCOUNT_ID`; the standalone publisher should pin both to the
-intended account. The Cloudflare API token needs Pages project read/edit access
-for that account. The command also requires the owner token, the reviewed
-revision UUID, a path to the previous successful receipt, and a new receipt
-path. The receipt stores deployment IDs, the manifest, and public read-back
-result; keep it with the signed standalone publisher evidence. Its self-checksum
-detects accidental edits but is not a digital signature, so the standalone
-release authority must sign and retain it before it is treated as release
-evidence.
+`CLOUDFLARE_ACCOUNT_ID`; the standalone publisher pins both to the intended
+account (the hosted MithrilPress profile must select `fund-mithril`). Initial
+publication also requires `CLOUDFLARE_ZONE_ID` to match the separately pinned
+`MITHRILPRESS_EXPECTED_CLOUDFLARE_ZONE_ID`. The zone must read back as
+`mithril.love` and belong to that account. The token needs Pages Read and Write
+for the account, Zone Read for the zone, and DNS Read and Write for the zone.
+The command also requires the owner token, the reviewed revision UUID, a path
+to the previous successful receipt, and a new receipt path. For the initial
+publish, the previous-receipt path is a new file for the verified placeholder
+baseline. The receipt stores deployment IDs, the manifest, and public
+read-back result; keep it with signed standalone publisher evidence. Its
+self-checksum detects accidental edits but is not a digital signature, so the
+standalone release authority must sign and retain it before it is treated as
+release evidence. Select an existing local scratch directory according to the
+operator's storage policy.
 
 ```sh
 MITHRILPRESS_CONTROL_URL=https://control.mithril.love \
 MITHRILPRESS_SITE_ID=00000000-0000-4000-8000-000000000000 \
 MITHRILPRESS_EXPECTED_REVISION=00000000-0000-4000-8000-000000000001 \
+MITHRILPRESS_EXPECTED_CLOUDFLARE_ACCOUNT_ID=<pinned-account-id> \
+MITHRILPRESS_EXPECTED_CLOUDFLARE_ZONE_ID=<pinned-mithril-love-zone-id> \
+MITHRILPRESS_PREVIOUS_RECEIPT_PATH=/secure/evidence/placeholder.json \
+MITHRILPRESS_PUBLISH_RECEIPT_PATH=/secure/evidence/first-publish.json \
+MITHRILPRESS_SCRATCH_DIR=/path/to/existing-scratch-directory \
+npm run publish:pages -- --confirm-publication \
+  --initialize-hostname blue-widget.sites.mithril.love
+```
+
+An update omits `CLOUDFLARE_ZONE_ID` and uses the same receipt variables with
+the previous successful publication receipt:
+
+```sh
+MITHRILPRESS_CONTROL_URL=https://control.mithril.love \
+MITHRILPRESS_SITE_ID=00000000-0000-4000-8000-000000000000 \
+MITHRILPRESS_EXPECTED_REVISION=00000000-0000-4000-8000-000000000002 \
 MITHRILPRESS_SCRATCH_DIR=/path/to/existing-scratch-directory \
 MITHRILPRESS_PREVIOUS_RECEIPT_PATH=/secure/evidence/previous.json \
 MITHRILPRESS_PUBLISH_RECEIPT_PATH=/secure/evidence/next.json \
@@ -172,8 +215,9 @@ npm run publish:pages -- --confirm-publication
 ```
 
 Before running the command, load `MITHRILPRESS_OWNER_TOKEN`,
-`CLOUDFLARE_API_TOKEN`, and both account ID variables from the approved local
-secret/profile configuration.
+`CLOUDFLARE_API_TOKEN`, and the account and zone ID pairs from the approved
+local secret/profile configuration. The IDs are configuration values, not
+credentials; the API token is secret.
 
 This command is not a release authorization or qualification receipt. The
 current repository still requires exact-source standalone qualification,

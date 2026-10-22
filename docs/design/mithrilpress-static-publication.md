@@ -1,16 +1,18 @@
 # MithrilPress static publication plane
 
-**Status: local artifact export and a guarded Direct Upload updater are
-implemented; neither is qualified or deployed.** The Worker exposes a
+**Status: local artifact export, a guarded Direct Upload updater, and an
+explicit first-publish mode are implemented; none is qualified or deployed.**
+The Worker exposes a
 `site:publish`-scoped digest-bound snapshot and referenced-media endpoint,
 `apps/mithrilpress-worker/scripts/export-static-pages.mjs` builds a local static
-artifact, and `publish-static-pages.mjs` updates an existing Pages project only
-after read-only account, project, hostname, prior-receipt, and revision checks.
-The updater also performs full HTTPS asset read-back and attempts a guarded
-rollback on failure. First deployment, Pages project creation, custom-domain
-provisioning, DNS, and certificate automation remain unimplemented and
-disabled. No MithrilPress Pages project, DNS record, custom domain, or Worker
-route has been created.
+artifact, and `publish-static-pages.mjs` supports both updates and an explicit
+initialization path. The initializer can create one Pages project, publish a
+noindex placeholder, attach one exact custom hostname, add its exact proxied
+CNAME when no conflicting DNS record exists, and wait for domain/TLS/HTTPS
+read-back before deploying owner-approved content. Later updates perform full
+HTTPS asset read-back and attempt a guarded rollback on failure. This source
+has not been qualified or deployed. No MithrilPress Pages project, DNS record,
+custom domain, or Worker route has been created.
 
 ## Why split public delivery from the editor
 
@@ -102,20 +104,38 @@ implementation or a Pages Functions `_routes.json`; query-dependent REST
 parity remains a separate metered feature gate.
 
 The guarded publisher accepts only the exact site UUID-derived Pages project
-name (`mp-<site UUID>`), the pinned Cloudflare account ID, a project with Pages
-Functions disabled, and one active exact custom domain. It does not create the
-project or hostname and does not write DNS. Updates require a previous
-successful receipt whose unique deployment message matches the current
-production deployment, verify the
-currently served files against it, and verify the approved revision again
-immediately before upload. Wrangler is invoked from the package's locked local
-installation without `npx`; after upload, all public artifact paths are fetched
-over the exact HTTPS hostname and checked against the new manifest. A failed
-read-back triggers rollback only if the attempted deployment is still current.
-The first public deployment remains a separate bootstrap gate because it has no
-known-good deployment to restore. The publisher receipt carries a self-checksum
-for accidental-edit detection; the standalone release authority must sign it
-before treating it as release evidence.
+name (`mp-<site UUID>`), the Cloudflare account and zone IDs pinned by the
+standalone profile, a project without Pages Functions, and one exact custom
+hostname. Updates require a previous successful receipt whose unique deployment
+message matches the current production deployment, verify the currently served
+files against it, and verify the approved revision again immediately before
+upload. Wrangler is invoked from the package's locked local installation
+without `npx`; after upload, all public artifact paths are fetched over the
+exact HTTPS hostname and checked against the new manifest. A failed read-back
+triggers rollback only if the attempted deployment is still current.
+
+First publication requires an additional exact-host confirmation. Before the
+first provider write, the initializer checks the pinned account and `mithril.love`
+zone, the published snapshot hostname, the exact hostname's existing DNS
+records, and the Pages project inventory. It stops before creating a new
+project at 90 Pages projects in the account. A new project first receives a
+noindex placeholder on its `pages.dev` alias. The initializer then associates
+the custom hostname, creates a proxied CNAME only when the exact name has no DNS
+records, waits for the Pages domain, validation, and verification states, and
+checks the placeholder over HTTPS. Only then does the common publication path
+upload the owner-approved artifact. Retries resume a recognized project,
+deployment, domain, and DNS state. Provider setup is not atomic: any completed
+provider resources remain in place after an error and require reconciliation
+or a safe retry. The receipt carries a self-checksum for accidental-edit
+detection; the standalone release authority must sign it before treating it as
+release evidence.
+
+The 90-project gate reserves ten of Cloudflare Pages' 100 projects per-account
+limit for unrelated resources and operational headroom. It is an MVP capacity
+boundary, not a global scaling design. Onboarding stops at the cap. A larger
+deployment needs a separately qualified multi-tenant hosting plane; it must
+not bypass the guard by spreading tenant sites across unreviewed accounts.
+See [Pages limits](https://developers.cloudflare.com/pages/platform/limits/).
 
 ## Host isolation and routing
 
@@ -140,13 +160,15 @@ before touching the production parent zone. The validation path
 `/.well-known/acme-challenge/*` must remain reachable while the certificate is
 being issued.
 
-Only the Pages API's exact project domain is eligible for provisioning. The
-operator CLI must validate that the requested host is a normalized,
-reserved-name-safe label below `sites.mithril.love`, belongs to the authenticated
-site, and has no conflicting Pages project or DNS record. It must read back the
-project, domain, CNAME, certificate, and public DNS answer before marking the
-host active. Detach must stop serving the old project before the DNS record or
-custom-domain association is removed.
+Only one Pages API exact project domain is eligible for provisioning. The
+initializer confirms that the requested canonical hostname matches the
+owner-approved published snapshot, checks the pinned `mithril.love` zone and
+Cloudflare account, rejects an existing conflicting DNS record, and checks the
+Pages project association and validation state. It reads back the exact
+provider DNS CNAME, active certificate/validation states, and HTTPS placeholder
+before publishing owner-approved files. Public DNS and HTTPS results remain
+part of the production release read-back. Detach must stop serving the old
+project before the DNS record or custom-domain association is removed.
 
 Pages also publishes a project-specific `*.pages.dev` address. Treat it as a
 public alias: do not put private previews or unapproved content in a Pages
@@ -285,7 +307,7 @@ subscription is unverified. Do not infer the Workers plan, change an account
 plan, or enable a paid product as part of this design.
 
 The design requires an isolated-zone proof, exact-source standalone
-qualification, 90-site capacity enforcement, a signed Pages artifact, rollback
-evidence, and live DNS/TLS/HTTP read-back before the first project is
+qualification, 90-project capacity enforcement, a signed Pages artifact,
+rollback evidence, and live DNS/TLS/HTTP read-back before the first project is
 provisioned. Track this work in Linear MITHRIL-362 and keep MITHRIL-275 and
 MITHRIL-292 in progress.

@@ -9,6 +9,8 @@ const MAX_FILE_BYTES = 25 * 1024 * 1024;
 const MAX_TOTAL_BYTES = 300_000_000;
 const CONTROL_ORIGIN = "https://control.mithril.love";
 const PAGES_API_ORIGIN = "https://api.cloudflare.com/client/v4";
+const PINNED_ZONE_NAME = "mithril.love";
+const MAX_MITHRILPRESS_PAGES_PROJECTS = 90;
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 function fail(message) {
@@ -146,29 +148,61 @@ async function assertRevisionStillCurrent(siteId, token, manifest) {
   }
 }
 
-async function cloudflareJson(pathname, token, method = "GET") {
+class CloudflareApiError extends Error {
+  constructor(message, status) {
+    super(message);
+    this.name = "CloudflareApiError";
+    this.status = status;
+  }
+}
+
+async function cloudflareJson(pathname, token, method, body, scopePrefix) {
   const url = new URL(pathname, PAGES_API_ORIGIN);
-  if (url.origin !== PAGES_API_ORIGIN || !url.pathname.startsWith("/client/v4/accounts/")) {
-    fail("Refusing a Cloudflare API request outside the selected account.");
+  if (url.origin !== PAGES_API_ORIGIN || !scopePrefix || !url.pathname.startsWith(scopePrefix)) {
+    fail("Refusing a Cloudflare API request outside the pinned Pages account or DNS zone.");
   }
   const response = await fetch(url, {
     method,
-    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/json",
+      ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+    },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     redirect: "error",
     signal: AbortSignal.timeout(30_000),
   });
-  const body = await response.text();
+  const responseBody = await response.text();
   let parsed;
   try {
-    parsed = JSON.parse(body);
+    parsed = JSON.parse(responseBody);
   } catch {
     fail(`Cloudflare returned a non-JSON response for ${method} ${url.pathname}.`);
   }
   if (!response.ok || parsed.success !== true) {
     const codes = Array.isArray(parsed.errors) ? parsed.errors.map((item) => item.code).filter(Number.isSafeInteger) : [];
-    fail(`Cloudflare Pages API ${method} failed with HTTP ${response.status}${codes.length ? ` (error ${codes.join(",")})` : ""}.`);
+    throw new CloudflareApiError(
+      `Cloudflare API ${method} failed with HTTP ${response.status}${codes.length ? ` (error ${codes.join(",")})` : ""}.`,
+      response.status,
+    );
   }
   return parsed.result;
+}
+
+function accountPagesPrefix(accountId) {
+  return `/client/v4/accounts/${encodeURIComponent(accountId)}/pages/`;
+}
+
+function zoneDnsPrefix(zoneId) {
+  return `/client/v4/zones/${encodeURIComponent(zoneId)}/dns_records`;
+}
+
+async function cloudflarePagesJson(accountId, pathname, token, method = "GET", body) {
+  return cloudflareJson(pathname, token, method, body, accountPagesPrefix(accountId));
+}
+
+async function cloudflareDnsJson(zoneId, pathname, token, method = "GET", body) {
+  return cloudflareJson(pathname, token, method, body, zoneDnsPrefix(zoneId));
 }
 
 function accountApiPath(accountId, projectName, suffix = "") {
@@ -176,14 +210,14 @@ function accountApiPath(accountId, projectName, suffix = "") {
 }
 
 async function readProjectAndDomain(accountId, projectName, hostname, token) {
-  const project = await cloudflareJson(accountApiPath(accountId, projectName), token);
+  const project = await cloudflarePagesJson(accountId, accountApiPath(accountId, projectName), token);
   if (!project || project.name !== projectName || project.uses_functions !== false
       || !project.production_branch || !/^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$/.test(project.production_branch)
       || project.subdomain !== `${projectName}.pages.dev`
       || (project.source && Object.keys(project.source).length > 0)) {
     fail("The existing Pages project is not the expected static-only Direct Upload project.");
   }
-  const domains = await cloudflareJson(accountApiPath(accountId, projectName, "/domains"), token);
+  const domains = await cloudflarePagesJson(accountId, accountApiPath(accountId, projectName, "/domains"), token);
   if (!Array.isArray(domains) || domains.length !== 1) {
     fail("The Pages project must have exactly one custom domain attached.");
   }
@@ -196,8 +230,8 @@ async function readProjectAndDomain(accountId, projectName, hostname, token) {
 }
 
 async function listProductionDeployments(accountId, projectName, token) {
-  const result = await cloudflareJson(
-    `${accountApiPath(accountId, projectName, "/deployments")}?env=production&per_page=10`, token,
+  const result = await cloudflarePagesJson(
+    accountId, `${accountApiPath(accountId, projectName, "/deployments")}?env=production&per_page=10`, token,
   );
   if (!Array.isArray(result)) fail("Cloudflare returned an invalid Pages deployment list.");
   return result.filter((item) => item?.environment === "production" && !item.is_skipped)
@@ -397,7 +431,7 @@ async function rollbackAndVerify(accountId, projectName, previousDeployment, fai
       || current.deployment_trigger?.metadata?.commit_message !== failedMessage) {
     fail("A newer Pages publication exists; automatic rollback was withheld to avoid overwriting another publisher.");
   }
-  await cloudflareJson(accountApiPath(accountId, projectName, `/deployments/${encodeURIComponent(previousDeployment.id)}/rollback`), token, "POST");
+  await cloudflarePagesJson(accountId, accountApiPath(accountId, projectName, `/deployments/${encodeURIComponent(previousDeployment.id)}/rollback`), token, "POST");
   let restored = false;
   for (let attempt = 0; attempt < 30; attempt += 1) {
     const deployments = await listProductionDeployments(accountId, projectName, token);
@@ -412,11 +446,423 @@ async function rollbackAndVerify(accountId, projectName, previousDeployment, fai
   if (!restored) fail("The previous Pages deployment rollback could not be verified.");
 }
 
-async function main() {
-  if (!process.argv.slice(2).includes("--confirm-publication")
-      || process.argv.slice(2).some((arg) => arg !== "--confirm-publication")) {
-    fail("Run this command with --confirm-publication only after reviewing the exact owner-approved revision.");
+function assertExpectedPageHostname(hostname) {
+  if (!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.sites\.mithril\.love$/.test(hostname ?? "")) {
+    fail("The initial-publication confirmation must be one canonical hostname under sites.mithril.love.");
   }
+}
+
+function bootstrapManifest(sourceManifest) {
+  const files = [
+    {
+      path: "/_headers",
+      bytes: Buffer.from("/*\n  X-Robots-Tag: noindex, nofollow, noarchive\n  Cache-Control: no-store\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: no-referrer\n  Content-Security-Policy: default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'\n", "utf8"),
+    },
+    {
+      path: "/index.html",
+      bytes: Buffer.from("<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><meta name=\"robots\" content=\"noindex,nofollow,noarchive\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>Site setup in progress</title><body><main><h1>Site setup in progress</h1><p>The site owner has not published this site yet.</p></main></body></html>\n", "utf8"),
+    },
+    {
+      path: "/robots.txt",
+      bytes: Buffer.from("User-agent: *\nDisallow: /\n", "utf8"),
+    },
+  ].map(({ path, bytes }) => ({ path, bytes, byte_length: bytes.byteLength, sha256: sha256(bytes) }))
+    .sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
+  const base = {
+    schema_version: 1,
+    site_id: sourceManifest.site_id,
+    hostname: sourceManifest.hostname,
+    revision_id: sourceManifest.revision_id,
+    snapshot_sha256: sourceManifest.snapshot_sha256,
+    files: files.map(({ path, byte_length, sha256: digest }) => ({ path, byte_length, sha256: digest })),
+  };
+  return {
+    manifest: { ...base, artifact_sha256: sha256(JSON.stringify(base)) },
+    files,
+  };
+}
+
+async function writeBootstrapArtifact(root, sourceManifest) {
+  const built = bootstrapManifest(sourceManifest);
+  await mkdir(root, { recursive: true });
+  for (const file of built.files) {
+    const target = resolve(root, `.${file.path}`);
+    await mkdir(dirname(target), { recursive: true });
+    await writeFile(target, file.bytes, { flag: "wx", mode: 0o644 });
+  }
+  await inspectArtifact(root, built.manifest);
+  return built.manifest;
+}
+
+async function listPagesProjects(accountId, token) {
+  const projects = await cloudflarePagesJson(
+    accountId,
+    `/client/v4/accounts/${encodeURIComponent(accountId)}/pages/projects?page=1&per_page=100`,
+    token,
+  );
+  if (!Array.isArray(projects)) fail("Cloudflare returned an invalid Pages project inventory.");
+  return projects;
+}
+
+async function readProjectOrMissing(accountId, projectName, token) {
+  try {
+    return await cloudflarePagesJson(accountId, accountApiPath(accountId, projectName), token);
+  } catch (error) {
+    if (error instanceof CloudflareApiError && error.status === 404) return null;
+    throw error;
+  }
+}
+
+function validateBootstrapProject(project, projectName) {
+  if (!project || typeof project.id !== "string" || !project.id || project.name !== projectName
+      || project.subdomain !== `${projectName}.pages.dev`
+      || project.production_branch !== "main"
+      || (project.source && Object.keys(project.source).length > 0)) {
+    fail("The Pages project is not the expected direct-upload static project for this site.");
+  }
+  return project;
+}
+
+async function getPagesDomains(accountId, projectName, token) {
+  const result = await cloudflarePagesJson(accountId, accountApiPath(accountId, projectName, "/domains"), token);
+  if (!Array.isArray(result)) fail("Cloudflare returned an invalid Pages custom-domain list.");
+  return result;
+}
+
+async function readPinnedZone(accountId, zoneId, token) {
+  const zone = await cloudflareJson(
+    `/client/v4/zones/${encodeURIComponent(zoneId)}`,
+    token,
+    "GET",
+    undefined,
+    `/client/v4/zones/${encodeURIComponent(zoneId)}`,
+  );
+  if (zone?.id !== zoneId || zone?.name !== PINNED_ZONE_NAME || zone?.account?.id !== accountId) {
+    fail("The pinned Cloudflare zone does not belong to the selected Pages account.");
+  }
+  return zone;
+}
+
+async function getHostnameDnsRecords(zoneId, hostname, token) {
+  const query = new URLSearchParams({ name: hostname, per_page: "100" });
+  const records = await cloudflareDnsJson(
+    zoneId,
+    `${zoneDnsPrefix(zoneId)}?${query.toString()}`,
+    token,
+  );
+  if (!Array.isArray(records)) fail("Cloudflare returned an invalid DNS record list for the exact hostname.");
+  return records;
+}
+
+function isExpectedPagesCname(record, hostname, pagesSubdomain) {
+  return record?.type === "CNAME"
+    && record.name === hostname
+    && String(record.content).replace(/\.$/u, "") === pagesSubdomain
+    && record.proxied === true;
+}
+
+async function ensurePagesCname(zoneId, hostname, pagesSubdomain, token) {
+  let records = await getHostnameDnsRecords(zoneId, hostname, token);
+  if (records.length === 0) {
+    try {
+      await cloudflareDnsJson(zoneId, zoneDnsPrefix(zoneId), token, "POST", {
+        type: "CNAME",
+        name: hostname,
+        content: pagesSubdomain,
+        proxied: true,
+        ttl: 1,
+      });
+    } catch (error) {
+      records = await getHostnameDnsRecords(zoneId, hostname, token);
+      if (records.length !== 1 || !isExpectedPagesCname(records[0], hostname, pagesSubdomain)) throw error;
+    }
+    records = await getHostnameDnsRecords(zoneId, hostname, token);
+  }
+  if (records.length !== 1 || !isExpectedPagesCname(records[0], hostname, pagesSubdomain)) {
+    fail("The exact Pages hostname has a DNS record that does not match this site's proxied Pages CNAME.");
+  }
+  return records[0];
+}
+
+async function ensurePagesProject(accountId, projectName, hostname, token) {
+  let project = await readProjectOrMissing(accountId, projectName, token);
+  if (project) return { project: validateBootstrapProject(project, projectName), created: false };
+
+  let projects = await listPagesProjects(accountId, token);
+  if (projects.some((item) => item.name !== projectName && Array.isArray(item.domains) && item.domains.includes(hostname))) {
+    fail("The requested hostname is already attached to another Pages project.");
+  }
+  if (projects.length >= MAX_MITHRILPRESS_PAGES_PROJECTS) {
+    fail(`MithrilPress reached its ${MAX_MITHRILPRESS_PAGES_PROJECTS}-project account cap; onboarding stopped before a provider write.`);
+  }
+
+  // Re-read immediately before the create to minimize races with other account users.
+  projects = await listPagesProjects(accountId, token);
+  if (projects.length >= MAX_MITHRILPRESS_PAGES_PROJECTS || projects.some((item) => item.name === projectName)) {
+    fail("The Pages inventory changed during bootstrap preflight; no project was created.");
+  }
+  const created = await cloudflarePagesJson(
+    accountId,
+    `/client/v4/accounts/${encodeURIComponent(accountId)}/pages/projects`,
+    token,
+    "POST",
+    { name: projectName, production_branch: "main" },
+  );
+  if (!created || created.name !== projectName || !created.id
+      || created.subdomain !== `${projectName}.pages.dev`
+      || created.production_branch !== "main") {
+    fail("Cloudflare did not return the expected new Direct Upload Pages project.");
+  }
+  return { project: validateBootstrapProject(created, projectName), created: true };
+}
+
+async function addOrResumePagesDomain(accountId, projectName, hostname, project, zoneId, token) {
+  let domains = await getPagesDomains(accountId, projectName, token);
+  if (domains.length === 0) {
+    const projects = await listPagesProjects(accountId, token);
+    if (projects.some((item) => item.name !== projectName && Array.isArray(item.domains) && item.domains.includes(hostname))) {
+      fail("The requested hostname was claimed by another Pages project during bootstrap.");
+    }
+    const dnsBefore = await getHostnameDnsRecords(zoneId, hostname, token);
+    if (dnsBefore.length > 0) {
+      fail("The exact hostname already has DNS records; bootstrap will not replace or adopt them.");
+    }
+    await cloudflarePagesJson(
+      accountId,
+      accountApiPath(accountId, projectName, "/domains"),
+      token,
+      "POST",
+      { name: hostname },
+    );
+    domains = await getPagesDomains(accountId, projectName, token);
+  }
+  if (domains.length !== 1 || domains[0]?.name !== hostname) {
+    fail("The Pages project must have exactly the requested custom hostname before activation.");
+  }
+  await ensurePagesCname(zoneId, hostname, project.subdomain, token);
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    domains = await getPagesDomains(accountId, projectName, token);
+    if (domains.length !== 1 || domains[0]?.name !== hostname) {
+      fail("The Pages custom-domain association changed during activation.");
+    }
+    const domain = domains[0];
+    if (domain.status === "active"
+        && domain.validation_data?.status === "active"
+        && domain.verification_data?.status === "active") {
+      await assertHttpsHostReady(hostname);
+      return domain;
+    }
+    const domainStatuses = [domain.status, domain.validation_data?.status, domain.verification_data?.status];
+    const rejectedStatus = domainStatuses.find((status) => ["deactivated", "blocked", "error"].includes(status));
+    if (rejectedStatus) {
+      fail(`The Pages custom hostname validation entered status ${rejectedStatus}.`);
+    }
+    const knownStatuses = new Set(["initializing", "pending", "pending_validation", "pending_ssl", "active"]);
+    if (domainStatuses.some((status) => !knownStatuses.has(status))) {
+      fail("Cloudflare returned an unknown custom-domain validation status; refusing publication.");
+    }
+    if (attempt < 29) await new Promise((resolveDelay) => setTimeout(resolveDelay, 2_000));
+  }
+  fail("The exact Pages hostname remains pending TLS or DNS validation. The project and owner-approved content remain available on pages.dev; rerun the same initial-publication command after provider validation completes.");
+}
+
+function deploymentMatchesManifest(deployment, projectName, manifest) {
+  const message = deployment?.deployment_trigger?.metadata?.commit_message;
+  const prefix = `MithrilPress site ${manifest.site_id} revision ${manifest.revision_id} artifact ${manifest.artifact_sha256} attempt `;
+  return deployment?.project_name === projectName
+    && deployment.environment === "production"
+    && typeof message === "string"
+    && message.startsWith(prefix)
+    && /^[0-9a-f-]{36}$/u.test(message.slice(prefix.length));
+}
+
+async function pathExists(path) {
+  try {
+    await lstat(path);
+    return true;
+  } catch (error) {
+    if (error?.code === "ENOENT") return false;
+    throw error;
+  }
+}
+
+async function deployBootstrapPlaceholder({
+  accountId,
+  projectName,
+  project,
+  sourceManifest,
+  previousReceiptPath,
+  scratch,
+  wranglerPath,
+  token,
+  env,
+}) {
+  const placeholderRoot = resolve(scratch, "bootstrap-placeholder");
+  const placeholderManifest = await writeBootstrapArtifact(placeholderRoot, sourceManifest);
+  const deployments = await listProductionDeployments(accountId, projectName, token);
+  if (deployments.length > 0) {
+    const active = validateDeployment(deployments[0], projectName);
+    if (deploymentMatchesManifest(active, projectName, sourceManifest)) {
+      await verifyManifestAtHostname(project.subdomain, sourceManifest);
+      return { deployment: active, previousReceipt: null, alreadyPublished: true, manifest: sourceManifest };
+    }
+
+    let receipt = null;
+    if (await pathExists(previousReceiptPath)) {
+      try {
+        receipt = await loadPreviousReceipt(previousReceiptPath, accountId, projectName, sourceManifest, active);
+      } catch (error) {
+        // A previous successful first publish may have completed before its final receipt was written.
+        // It is accepted only when the current deployment independently matches the owner-approved manifest.
+        throw error;
+      }
+      const recordedManifest = checkedManifest(receipt.artifact_manifest);
+      await verifyManifestAtHostname(project.subdomain, recordedManifest);
+      return { deployment: active, previousReceipt: receipt, alreadyPublished: false, manifest: recordedManifest };
+    }
+
+    if (!deploymentMatchesManifest(active, projectName, placeholderManifest)) {
+      fail("The Pages project has an unrecognized production deployment and no matching bootstrap receipt; refusing to overwrite it.");
+    }
+    const verifiedFiles = await verifyManifestAtHostname(project.subdomain, placeholderManifest);
+    receipt = await writeNewReceipt(previousReceiptPath, {
+      schema_version: 1,
+      account_id: accountId,
+      project_name: projectName,
+      site_id: placeholderManifest.site_id,
+      hostname: placeholderManifest.hostname,
+      revision_id: placeholderManifest.revision_id,
+      artifact_sha256: placeholderManifest.artifact_sha256,
+      snapshot_sha256: placeholderManifest.snapshot_sha256,
+      previous_deployment_id: null,
+      deployment_id: active.id,
+      deployment_commit_message: active.deployment_trigger?.metadata?.commit_message,
+      deployment_url: active.url,
+      production_branch: project.production_branch,
+      artifact_manifest: placeholderManifest,
+      verified_file_count: verifiedFiles,
+      verified_at: new Date().toISOString(),
+      status: "production-readback-passed",
+    });
+    return { deployment: active, previousReceipt: receipt, alreadyPublished: false, manifest: placeholderManifest };
+  }
+
+  if (await pathExists(previousReceiptPath)) {
+    fail("A bootstrap receipt exists but the Pages project has no production deployment; reconcile the receipt before retrying.");
+  }
+  const attemptId = randomUUID();
+  const message = deploymentMessage(placeholderManifest, attemptId);
+  const startedAt = Date.now();
+  const outputPath = resolve(scratch, "wrangler-bootstrap-output.ndjson");
+  await writeFile(outputPath, "", { flag: "wx", mode: 0o600 });
+  await runWrangler(wranglerPath, outputPath, projectName, project.production_branch, message, placeholderRoot, env);
+  await readStructuredDeployResult(outputPath);
+  const deployment = validateDeployment(
+    await waitForNewProduction(accountId, projectName, null, token, startedAt, message),
+    projectName,
+  );
+  const verifiedFiles = await verifyManifestAtHostname(project.subdomain, placeholderManifest);
+  const previousReceipt = await writeNewReceipt(previousReceiptPath, {
+    schema_version: 1,
+    account_id: accountId,
+    project_name: projectName,
+    site_id: placeholderManifest.site_id,
+    hostname: placeholderManifest.hostname,
+    revision_id: placeholderManifest.revision_id,
+    artifact_sha256: placeholderManifest.artifact_sha256,
+    snapshot_sha256: placeholderManifest.snapshot_sha256,
+    previous_deployment_id: null,
+    deployment_id: deployment.id,
+    deployment_commit_message: message,
+    deployment_url: deployment.url,
+    production_branch: project.production_branch,
+    artifact_manifest: placeholderManifest,
+    verified_file_count: verifiedFiles,
+    verified_at: new Date().toISOString(),
+    status: "production-readback-passed",
+  });
+  return { deployment, previousReceipt, alreadyPublished: false, manifest: placeholderManifest };
+}
+
+async function prepareInitialPagesPublication({
+  accountId,
+  zoneId,
+  projectName,
+  hostname,
+  manifest,
+  previousReceiptPath,
+  scratch,
+  wranglerPath,
+  cloudflareToken,
+  wranglerEnv,
+}) {
+  await readPinnedZone(accountId, zoneId, cloudflareToken);
+  let project = await readProjectOrMissing(accountId, projectName, cloudflareToken);
+  const projectWasPresent = Boolean(project);
+  if (!project) {
+    if (await pathExists(previousReceiptPath)) {
+      fail("A bootstrap receipt exists without its Pages project; reconcile the orphaned receipt before creating provider resources.");
+    }
+    const records = await getHostnameDnsRecords(zoneId, hostname, cloudflareToken);
+    if (records.length > 0) fail("The requested hostname already has DNS records; no Pages project was created.");
+  }
+  const ensured = await ensurePagesProject(accountId, projectName, hostname, cloudflareToken);
+  project = ensured.project;
+  if (!projectWasPresent && !ensured.created) {
+    fail("A Pages project appeared during bootstrap preflight; refusing to adopt it.");
+  }
+  const projectDomains = await getPagesDomains(accountId, projectName, cloudflareToken);
+  if (projectDomains.some((domain) => domain?.name !== hostname)) {
+    fail("The Pages project already has a different custom domain; bootstrap will not detach it.");
+  }
+
+  const bootstrap = await deployBootstrapPlaceholder({
+    accountId,
+    projectName,
+    project,
+    sourceManifest: manifest,
+    previousReceiptPath,
+    scratch,
+    wranglerPath,
+    token: cloudflareToken,
+    env: wranglerEnv,
+  });
+
+  if (bootstrap.alreadyPublished) {
+    await addOrResumePagesDomain(accountId, projectName, hostname, project, zoneId, cloudflareToken);
+    await readProjectAndDomain(accountId, projectName, hostname, cloudflareToken);
+    const verifiedFiles = await verifyManifestAtHostname(hostname, manifest);
+    return { project, deployment: bootstrap.deployment, previousReceipt: bootstrap.previousReceipt, alreadyPublished: true, verifiedFiles };
+  }
+
+  // A newly initialized project contains only the noindex placeholder until the custom
+  // hostname has a verified Pages association, exact CNAME, active TLS, and HTTPS read-back.
+  await addOrResumePagesDomain(accountId, projectName, hostname, project, zoneId, cloudflareToken);
+  await readProjectAndDomain(accountId, projectName, hostname, cloudflareToken);
+  await verifyManifestAtHostname(hostname, bootstrap.manifest);
+  return {
+    project,
+    deployment: bootstrap.deployment,
+    previousReceipt: bootstrap.previousReceipt,
+    alreadyPublished: false,
+    verifiedFiles: 0,
+  };
+}
+
+async function main() {
+  const args = process.argv.slice(2);
+  const initializeIndex = args.indexOf("--initialize-hostname");
+  const initialHostname = initializeIndex >= 0 ? args[initializeIndex + 1] : null;
+  const isInitialPublication = initialHostname !== null;
+  if (!args.includes("--confirm-publication")
+      || (isInitialPublication
+        ? args.length !== 3 || args.filter((arg) => arg === "--confirm-publication").length !== 1
+          || args.filter((arg) => arg === "--initialize-hostname").length !== 1
+          || !initialHostname || initialHostname.startsWith("--")
+        : args.length !== 1 || args[0] !== "--confirm-publication")) {
+    fail("Use --confirm-publication after reviewing the approved revision. For the first publish, also pass --initialize-hostname <exact-site-hostname>.");
+  }
+  if (isInitialPublication) assertExpectedPageHostname(initialHostname);
   const controlUrl = new URL(requiredEnvironment("MITHRILPRESS_CONTROL_URL"));
   if (controlUrl.origin !== CONTROL_ORIGIN || controlUrl.pathname !== "/" || controlUrl.search || controlUrl.hash
       || controlUrl.username || controlUrl.password) {
@@ -432,9 +878,23 @@ async function main() {
   if (!/^[a-f0-9]{32}$/.test(accountId) || accountId !== expectedAccountId) {
     fail("CLOUDFLARE_ACCOUNT_ID must exactly match the standalone publisher's pinned account ID.");
   }
+  const zoneId = isInitialPublication ? requiredEnvironment("CLOUDFLARE_ZONE_ID") : null;
+  const expectedZoneId = isInitialPublication
+    ? requiredEnvironment("MITHRILPRESS_EXPECTED_CLOUDFLARE_ZONE_ID")
+    : null;
+  if (isInitialPublication
+      && (!/^[a-f0-9]{32}$/.test(zoneId) || zoneId !== expectedZoneId)) {
+    fail("CLOUDFLARE_ZONE_ID must exactly match the standalone publisher's pinned mithril.love zone ID.");
+  }
   const cloudflareToken = requiredEnvironment("CLOUDFLARE_API_TOKEN");
   const publishReceiptPath = requiredEnvironment("MITHRILPRESS_PUBLISH_RECEIPT_PATH");
   const previousReceiptPath = requiredEnvironment("MITHRILPRESS_PREVIOUS_RECEIPT_PATH");
+  if (resolve(publishReceiptPath) === resolve(previousReceiptPath)) {
+    fail("MITHRILPRESS_PUBLISH_RECEIPT_PATH and MITHRILPRESS_PREVIOUS_RECEIPT_PATH must be different files.");
+  }
+  if (!isAbsolute(publishReceiptPath) || !isAbsolute(previousReceiptPath)) {
+    fail("Publisher receipt paths must be absolute local paths.");
+  }
   const scratchRoot = requiredEnvironment("MITHRILPRESS_SCRATCH_DIR");
   if (!isAbsolute(scratchRoot)) fail("MITHRILPRESS_SCRATCH_DIR must be an existing absolute scratch directory.");
   const scratchInfo = await lstat(scratchRoot);
@@ -452,11 +912,8 @@ async function main() {
     fail("Install this package with npm ci before invoking the Pages publisher; network installs are disabled here.");
   }
 
-  try {
-    await lstat(publishReceiptPath);
+  if (await pathExists(publishReceiptPath)) {
     fail("MITHRILPRESS_PUBLISH_RECEIPT_PATH already exists; choose a fresh path.");
-  } catch (error) {
-    if (error?.code !== "ENOENT") throw error;
   }
 
   const scratch = await mkdtemp(resolve(scratchRoot, "mithrilpress-pages-publish-"));
@@ -517,13 +974,64 @@ async function main() {
     }
     await inspectArtifact(artifactRoot, manifest);
 
-    const { project } = await readProjectAndDomain(accountId, projectName, manifest.hostname, cloudflareToken);
-    const activeDeployments = await listProductionDeployments(accountId, projectName, cloudflareToken);
-    previous = validateDeployment(activeDeployments[0], projectName);
-    previousReceipt = await loadPreviousReceipt(previousReceiptPath, accountId, projectName, manifest, previous);
-    await verifyManifestAtHostname(manifest.hostname, previousReceipt.artifact_manifest);
-    await assertHttpsHostReady(manifest.hostname);
-    await assertRevisionStillCurrent(siteId, ownerToken, manifest);
+    let project;
+    if (isInitialPublication) {
+      if (manifest.hostname !== initialHostname) {
+        fail("The confirmed initial hostname does not match the owner-approved publication snapshot.");
+      }
+      const bootstrap = await prepareInitialPagesPublication({
+        accountId,
+        zoneId,
+        projectName,
+        hostname: initialHostname,
+        manifest,
+        previousReceiptPath,
+        scratch,
+        wranglerPath,
+        cloudflareToken,
+        wranglerEnv: {
+          ...process.env,
+          CLOUDFLARE_ACCOUNT_ID: accountId,
+          CLOUDFLARE_API_TOKEN: cloudflareToken,
+        },
+      });
+      project = bootstrap.project;
+      if (bootstrap.alreadyPublished) {
+        await assertRevisionStillCurrent(siteId, ownerToken, manifest);
+        const receipt = await writeNewReceipt(publishReceiptPath, {
+          schema_version: 1,
+          account_id: accountId,
+          project_name: projectName,
+          site_id: siteId,
+          hostname: manifest.hostname,
+          revision_id: manifest.revision_id,
+          artifact_sha256: manifest.artifact_sha256,
+          snapshot_sha256: manifest.snapshot_sha256,
+          previous_deployment_id: bootstrap.previousReceipt?.deployment_id ?? null,
+          deployment_id: bootstrap.deployment.id,
+          deployment_commit_message: bootstrap.deployment.deployment_trigger?.metadata?.commit_message,
+          deployment_url: bootstrap.deployment.url,
+          production_branch: project.production_branch,
+          artifact_manifest: manifest,
+          verified_file_count: bootstrap.verifiedFiles,
+          verified_at: new Date().toISOString(),
+          status: "production-readback-passed",
+        });
+        process.stdout.write(`${JSON.stringify({ ...receipt, receipt_path: publishReceiptPath }, null, 2)}\n`);
+        return;
+      }
+      previous = bootstrap.deployment;
+      previousReceipt = bootstrap.previousReceipt;
+    } else {
+      const established = await readProjectAndDomain(accountId, projectName, manifest.hostname, cloudflareToken);
+      project = established.project;
+      const activeDeployments = await listProductionDeployments(accountId, projectName, cloudflareToken);
+      previous = validateDeployment(activeDeployments[0], projectName);
+      previousReceipt = await loadPreviousReceipt(previousReceiptPath, accountId, projectName, manifest, previous);
+      await verifyManifestAtHostname(manifest.hostname, previousReceipt.artifact_manifest);
+      await assertHttpsHostReady(manifest.hostname);
+      await assertRevisionStillCurrent(siteId, ownerToken, manifest);
+    }
 
     const recheckedDeployments = await listProductionDeployments(accountId, projectName, cloudflareToken);
     if (recheckedDeployments[0]?.id !== previous.id) {
