@@ -79,9 +79,10 @@ Custom Domain for each registered `label.sites.mithril.love` site. This keeps
 the requested public hostname pattern without a wildcard DNS record or route;
 Cloudflare creates the exact DNS mapping and managed certificate. The platform
 cohort stops at 90 domains. The global owner audience and the number of
-simultaneously hosted preview sites are separate limits: queue additional
-owner-authorized imports when the cohort is full, and never switch to paid
-hosting automatically. Cloudflare for SaaS lists 100 included hostnames but
+simultaneously hosted preview sites are separate limits: hold additional
+onboarding requests in a manual waitlist when the cohort is full. Do not ingest
+source content until a slot is available and the owner authorizes the import;
+never switch to paid hosting automatically. Cloudflare for SaaS lists 100 included hostnames but
 charges $0.10 per additional hostname and reserves wildcard custom hostnames
 for Enterprise; the `fund-mithril` quota and entitlement are not verified, so
 that is not an approved scale-up path. Production attachment, certificate read-back,

@@ -49,9 +49,11 @@ cost boundary, and rollback are qualified. Do not present its 50,000-host
 maximum as free capacity. See [Cloudflare for SaaS plans](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/plans/), [quota and billing](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/quotas-and-billing/), and [Universal SSL limitations](https://developers.cloudflare.com/ssl/edge-certificates/universal-ssl/limitations/).
 
 Pages is not an unbounded fallback: Cloudflare documents a 100-project account
-limit. If the free cohort fills, retain approved imports in the onboarding
-queue until a separately qualified and explicitly funded capacity plan exists;
-do not create extra projects or hostnames automatically. See [Pages limits](https://developers.cloudflare.com/pages/platform/limits/).
+limit. If the free cohort fills, hold new onboarding requests in a manual
+waitlist. Do not ingest source content until a hosting slot is available and
+the owner authorizes the import. Resume onboarding only after a separately
+qualified and explicitly funded capacity plan exists; do not create extra
+projects or hostnames automatically. See [Pages limits](https://developers.cloudflare.com/pages/platform/limits/).
 
 Do not grant DNS Write for default-host attachment: Cloudflare manages the
 exact DNS record as part of the Custom Domain operation. Keep customer-owned
