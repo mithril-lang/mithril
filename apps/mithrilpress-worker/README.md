@@ -351,8 +351,9 @@ process environment. Cloudflare requires Editor access to the existing Worker
 and `Workers Routes Write` scoped to the affected `mithril.love` zone to add a
 Custom Domain. The command also needs read access to the account, zone, Worker
 scripts, Worker Domains, and exact DNS records. Cloudflare currently does not
-support per-Worker roles for Custom Domains, so keep provider writes disabled
-if the required grant cannot be limited to the reviewed account and zone. The
+support per-Worker roles for Custom Domains. Keep provider writes disabled if
+the required Editor grant cannot be isolated to `mithrilpress`; a zone-scoped
+Routes permission does not make the Worker Editor grant service-specific. The
 command verifies that the account reads back as `fund-mithril`, the zone as
 `mithril.love`, the named Worker exists, the exact hostname is unused, and the
 zone count is below 90. Cloudflare creates the exact DNS record and managed
