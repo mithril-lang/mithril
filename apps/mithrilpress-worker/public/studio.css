@@ -34,7 +34,7 @@ main { max-width: 1180px; margin: 0 auto; padding: 38px 24px 60px; }
 .login-panel h1, .editor-heading h1 { margin: 8px 0 10px; font-size: clamp(24px, 4vw, 34px); letter-spacing: -0.04em; }
 .login-panel p { color: #5c6b63; line-height: 1.55; }
 .login-panel form { display: grid; gap: 10px; margin-top: 24px; }
-.login-panel input, .chat-form textarea, .content-kind-label select { border: 1px solid #ccd7cf; border-radius: 10px; background: #fff; color: #17211d; }
+.login-panel input, .chat-form input, .chat-form textarea, .content-kind-label select { border: 1px solid #ccd7cf; border-radius: 10px; background: #fff; color: #17211d; }
 .login-panel input { min-height: 46px; padding: 0 12px; }
 
 .button { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 0 16px; border: 1px solid transparent; border-radius: 9px; cursor: pointer; font-size: 14px; font-weight: 650; text-decoration: none; }
@@ -82,8 +82,12 @@ main { max-width: 1180px; margin: 0 auto; padding: 38px 24px 60px; }
 .message-error { align-self: flex-start; border: 1px solid #efd0c8; background: #fff8f6; color: #8b3f2d; }
 
 .chat-form { border: 1px solid #cbd7ce; border-radius: 13px; padding: 10px 12px 8px; }
+.chat-form label:not(.visually-hidden) { display: block; margin: 8px 0 5px; color: #5c6b63; font-size: 12px; font-weight: 650; }
+.chat-form input { width: 100%; min-height: 40px; padding: 8px 10px; }
 .chat-form textarea { display: block; width: 100%; min-height: 70px; padding: 9px 3px; border: 0; resize: vertical; outline: none; }
 .chat-form textarea:focus-visible { outline: 2px solid #83b496; outline-offset: 3px; border-radius: 4px; }
+.manual-mode-prompt { margin: 5px 0 12px; color: #748078; font-size: 12px; }
+.manual-mode-prompt .button { min-height: 32px; padding: 0 8px; }
 .composer-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .composer-footer p { max-width: 520px; margin: 5px 0; color: #748078; font-size: 11px; line-height: 1.45; }
 
