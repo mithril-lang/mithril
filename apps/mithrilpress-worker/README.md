@@ -28,6 +28,13 @@ explicitly published tenant revision.
 - Short-lived, host-only browser sessions exchanged from a scoped owner token;
   conversation messages and AI drafts remain in the tenant's D1 database until
   the owner deletes the conversation.
+- Owner-authorized, single-use links for a specific private revision. Links
+  expire after seven days by default (up to 30 days), exchange into a read-only
+  session lasting at most one hour, and can be revoked to end open sessions.
+  A site can have up to 10 active links at a time.
+  Recipients can view only published posts and pages from that immutable
+  revision; drafts remain private. Link creation and exchange are audited without
+  recording the bearer secret, and the service does not send email.
 - Authenticated, `noindex` private preview; separate revision-approval and
   publication actions with audit receipts.
 - Read-only WordPress REST-compatible `GET` endpoints for public posts/pages,
@@ -62,12 +69,63 @@ Mithril workspace's `kbb` compiler.
    the Worker stores only a salted SHA-256 digest. The Studio accepts a one-time
    HTTPS token exchange and keeps the resulting session in a Secure, HttpOnly,
    SameSite=Strict cookie.
-5. Run `npm run dev` to work against local D1.
+5. In Studio, create a limited private preview link only for a revision still in
+   `private-preview`. The one-time URL is shown once and its secret is held in a
+   URL fragment, then exchanged for a read-only cookie. Share it only with a
+   reviewer you selected; the site sends no email. The owner can revoke links
+   from that revision in Studio, which also blocks sessions already opened from
+   them. Approval or publication closes access because shared sessions require
+   the revision to remain `private-preview`.
+6. Run `npm run dev` to work against local D1.
 
 The example config deliberately has no route and disables `workers.dev`. It is
 not a production deployment config. Production routing, real D1 IDs, zone
 ownership, wildcard DNS, exact-source standalone qualification, rollback, and
 live read-back remain release gates.
+
+## Private review links
+
+Studio owners with both `content:write` and `revision:preview` can create a
+single-use link for a revision whose state is `private-preview`. The default
+expiry is seven days; the API accepts 300 seconds through 30 days. Each site can
+have at most 10 unrevoked, unexpired links for private-preview revisions.
+Recipients must explicitly select **Open private preview**; a link scanner's
+GET request does not consume the capability. The secret is carried in the URL
+fragment, removed from browser history before exchange, and stored only as a
+SHA-256 digest. The exchange creates a host-only, Secure, HttpOnly,
+SameSite=Strict cookie scoped to shared preview routes. It cannot authenticate
+to Studio or WordPress API routes. The read-only session lasts at most one hour
+and ends sooner if the link expires, the owner revokes it, or the revision is
+approved, published, or otherwise leaves `private-preview`.
+
+The shared view exposes only entries marked published in that exact revision
+and only media referenced by those entries. It sends `noindex`, no-referrer,
+and no-store headers and loads no third-party resources. The owner can list and
+revoke links from Studio. The create response returns the full URL only once;
+the list API never returns the secret. No email is sent. Treat the URL as a
+bearer capability and share it only with an intended reviewer. Studio requires
+the owner to confirm that the reviewer is authorized to see the supplied content
+and that there is a valid basis for sharing the link. The existing hosting and
+media request caps bound application use; they do not guarantee a provider-level
+billing stop.
+
+The feature is disabled unless the Worker environment binding
+`PRIVATE_PREVIEW_SHARES_ENABLED` is exactly `true`. Leave it unset until the
+exact source passes the standalone profile and the control-plane host, provider
+cost boundary, and live read-back are qualified.
+
+The owner API endpoints are:
+
+- `POST /_mithrilpress/api/revisions/{revision_id}/shares` with `{}` or
+  `{"expires_in_seconds": 604800}` creates a link.
+- `GET /_mithrilpress/api/revisions/{revision_id}/shares` lists link state,
+  expiry, and exchange time without revealing secrets.
+- `DELETE /_mithrilpress/api/revisions/{revision_id}/shares/{share_id}` revokes
+  the link and any session created from it.
+
+Link exchange is performed by the landing page at
+`/_mithrilpress/share/{share_id}`. These routes use the same site's owner
+session and origin protections as other Studio mutations.
 
 The R2 adapter stores objects with random site-scoped keys and keeps metadata
 and ownership references in D1. The application caps storage at 250 MiB per

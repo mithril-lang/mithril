@@ -93,6 +93,15 @@ main { max-width: 1180px; margin: 0 auto; padding: 38px 24px 60px; }
 .featured-image-control { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 10px 0; }
 .featured-image-control[hidden], .media-panel[hidden] { display: none; }
 .publish-actions { display: flex; justify-content: flex-end; gap: 8px; grid-column: 1 / -1; }
+.share-controls { display: grid; gap: 10px; grid-column: 1 / -1; padding: 14px; border: 1px solid #dce3dd; border-radius: 10px; background: #f8faf8; }
+.share-controls[hidden], .share-controls [hidden] { display: none; }
+.share-controls h3 { margin: 0; color: #244833; font-size: 14px; }
+.share-controls p { margin: 0; color: #5c6b63; font-size: 12px; line-height: 1.55; }
+.share-controls > div { display: grid; justify-items: start; gap: 8px; }
+.share-controls label { color: #52645a; font-size: 12px; font-weight: 650; }
+.share-link-value { display: block; max-width: 100%; padding: 9px; border-radius: 7px; background: #eef2ee; color: #24392c; font-size: 11px; overflow-wrap: anywhere; user-select: all; }
+.share-list { display: grid; gap: 8px; padding: 0; margin: 0; list-style: none; }
+.share-list-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 8px; border-top: 1px solid #e1e8e2; color: #52645a; font-size: 11px; }
 
 .domains-panel { min-height: 68vh; padding: 26px; border: 1px solid #dce3dd; border-radius: 16px; background: #fff; }
 .media-panel { min-height: 68vh; padding: 26px; border: 1px solid #dce3dd; border-radius: 16px; background: #fff; }

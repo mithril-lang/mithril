@@ -30,6 +30,9 @@ const SITE_MEDIA_READS_PER_DAY_LIMIT = 5_000;
 const MEDIA_WRITES_PER_DAY_LIMIT = 10_000;
 const HOSTING_REQUESTS_PER_DAY_LIMIT = 25_000;
 const SITE_HOSTING_REQUESTS_PER_DAY_LIMIT = 5_000;
+function privatePreviewSharesEnabled(env) {
+  return env.PRIVATE_PREVIEW_SHARES_ENABLED === "true";
+}
 const ENTRY_SLUG = /^[^/?#\\\u0000-\u001f\u007f]{1,200}$/;
 const mithrilHostnameCore = instantiateMithrilNative({});
 const mithrilContentBoundary = instantiateContentBoundary({ Array, Number, Set });
@@ -545,6 +548,10 @@ function sameOriginStudioMutation(request, site) {
 
 function studioCookie(value, maxAge) {
   return `mithrilpress_session=${value}; Path=/; Max-Age=${maxAge}; Secure; HttpOnly; SameSite=Strict`;
+}
+
+function privatePreviewShareCookie(value, maxAge) {
+  return `mithrilpress_share_session=${value}; Path=/_mithrilpress/shared/; Max-Age=${maxAge}; Secure; HttpOnly; SameSite=Strict`;
 }
 
 function customHostname(value) {
@@ -1111,7 +1118,8 @@ async function studioSession(request, env, site) {
       ? await env.DB.prepare("SELECT expires_at FROM studio_sessions WHERE site_id = ? AND session_id = ? AND revoked_at IS NULL LIMIT 1")
         .bind(site.id, owner.sessionId).first()
       : null;
-    return json({ authenticated: true, owner: owner.ownerLabel, scopes: owner.scopes ?? [], expires_at: session?.expires_at ?? null });
+    return json({ authenticated: true, owner: owner.ownerLabel, scopes: owner.scopes ?? [], expires_at: session?.expires_at ?? null,
+      features: { private_preview_shares: privatePreviewSharesEnabled(env) } });
   }
 
   if (request.method === "POST") {
@@ -1139,7 +1147,8 @@ async function studioSession(request, env, site) {
       "INSERT INTO studio_sessions (site_id, session_id, token_id, salt_hex, secret_hash_hex, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
     ).bind(site.id, sessionId, owner.tokenId, saltHex, hashHex, nowDate.toISOString(), expiresAt).run();
     const maxAge = Math.max(0, Math.floor((Date.parse(expiresAt) - nowDate.getTime()) / 1000));
-    return json({ authenticated: true, owner: owner.ownerLabel, scopes: owner.scopes ?? [], expires_at: expiresAt }, 200, {
+    return json({ authenticated: true, owner: owner.ownerLabel, scopes: owner.scopes ?? [], expires_at: expiresAt,
+      features: { private_preview_shares: privatePreviewSharesEnabled(env) } }, 200, {
       "Set-Cookie": studioCookie(`${sessionId}.${secret}`, maxAge),
     });
   }
@@ -1157,6 +1166,27 @@ async function studioSession(request, env, site) {
   }
 
   return fail(405, "method_not_allowed", "Use GET, POST, or DELETE for studio session management.");
+}
+
+async function privatePreviewShareSession(request, env, site, shareId) {
+  if (!/^[a-f0-9-]{36}$/.test(shareId ?? "")) return null;
+  const cookie = request.headers.get("Cookie") ?? "";
+  const session = /(?:^|;\s*)mithrilpress_share_session=([a-f0-9]{24})\.([A-Za-z0-9_-]{43})(?:;|$)/.exec(cookie);
+  if (!session) return null;
+  const now = new Date().toISOString();
+  const row = await env.DB.prepare(
+    "SELECT s.session_id, s.salt_hex, s.secret_hash_hex, p.revision_id FROM private_preview_share_sessions s JOIN private_preview_shares p ON p.site_id = s.site_id AND p.share_id = s.share_id JOIN site_revisions r ON r.site_id = p.site_id AND r.id = p.revision_id WHERE s.site_id = ? AND s.session_id = ? AND s.share_id = ? AND s.revoked_at IS NULL AND s.expires_at > ? AND p.revoked_at IS NULL AND p.exchanged_at IS NOT NULL AND p.expires_at > ? AND r.state = 'private-preview' LIMIT 1",
+  ).bind(site.id, session[1], shareId, now, now).first();
+  if (!row) return null;
+  const expected = hex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${row.salt_hex}.${session[2]}`)));
+  if (!constantTimeHexEqual(expected, row.secret_hash_hex)) return null;
+  return { sessionId: row.session_id, shareId, revisionId: row.revision_id };
+}
+
+async function privatePreviewShareOwner(request, env, site) {
+  const owner = await ownerToken(request, env, site, "revision:preview");
+  if (!owner || !owner.scopes?.includes("content:write")) return null;
+  return owner;
 }
 
 const STUDIO_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
@@ -1724,14 +1754,21 @@ async function deleteStudioMedia(request, env, site, mediaId) {
   return json({ media_id: mediaId, deleted: true });
 }
 
-async function serveMedia(request, env, site, mediaId) {
+async function serveMedia(request, env, site, mediaId, shareId = null) {
   if (request.method !== "GET" && request.method !== "HEAD") return fail(405, "method_not_allowed", "Published media is read-only.");
   if (!env.MEDIA) return fail(503, "media_storage_unavailable", "Image storage is not configured for this hosting deployment.");
   const url = new URL(request.url);
   const revisionId = url.searchParams.get("revision");
   let asset = null;
   let privateRead = false;
-  if (revisionId !== null) {
+  if (shareId !== null) {
+    const share = await privatePreviewShareSession(request, env, site, shareId);
+    if (!share) return fail(404, "media_not_found", "Media item not found.");
+    asset = await env.DB.prepare(
+      "SELECT a.id, a.object_key, a.content_type, a.byte_length, a.sha256, a.alt_text FROM media_assets a JOIN site_revisions r ON r.site_id = a.site_id AND r.id = ? WHERE a.site_id = ? AND a.id = ? AND a.status = 'active' AND r.state = 'private-preview' AND EXISTS (SELECT 1 FROM entries e WHERE e.site_id = a.site_id AND e.revision_id = r.id AND e.publication_status = 'published' AND (e.featured_media_id IN (a.id, a.wordpress_source_id) OR EXISTS (SELECT 1 FROM entry_media em WHERE em.site_id = e.site_id AND em.revision_id = e.revision_id AND em.entry_id = e.entry_id AND em.media_id = a.id))) LIMIT 1",
+    ).bind(share.revisionId, site.id, mediaId).first();
+    privateRead = true;
+  } else if (revisionId !== null) {
     const owner = await ownerToken(request, env, site, "revision:preview");
     if (!owner || !/^[a-f0-9-]{36}$/.test(revisionId)) return fail(404, "media_not_found", "Media item not found.");
     asset = await env.DB.prepare(
@@ -1765,6 +1802,7 @@ async function serveMedia(request, env, site, mediaId) {
     "Content-Length": String(asset.byte_length),
     "ETag": object.httpEtag ?? object.etag,
     "Cache-Control": privateRead ? "private, no-store" : "public, max-age=3600, immutable",
+    ...(privateRead ? { "X-Robots-Tag": "noindex, nofollow, noarchive" } : {}),
     "X-Content-Type-Options": "nosniff",
     "Content-Security-Policy": "default-src 'none'; sandbox",
     "Cross-Origin-Resource-Policy": "same-site",
@@ -2095,6 +2133,234 @@ async function previewRevision(request, env, site, revisionId, slug) {
     safe_html: await previewHtmlWithRevisionMedia(entry.safe_html, revisionId),
   };
   return htmlDocument(site.hostname, previewEntry, true, false, media, revisionId);
+}
+
+const PRIVATE_PREVIEW_SHARE_DEFAULT_TTL_SECONDS = 7 * 24 * 60 * 60;
+const PRIVATE_PREVIEW_SHARE_MAX_TTL_SECONDS = 30 * 24 * 60 * 60;
+const PRIVATE_PREVIEW_SHARE_MAX_ACTIVE_PER_SITE = 10;
+
+function privatePreviewShareLanding(request, shareId) {
+  if (request.method !== "GET" && request.method !== "HEAD") return fail(405, "method_not_allowed", "Private preview links are read-only.");
+  const nonce = hex(crypto.getRandomValues(new Uint8Array(16)));
+  const safeShareId = JSON.stringify(shareId);
+  const script = `(()=>{const shareId=${safeShareId};let token=window.location.hash.slice(1);history.replaceState(null,"",location.pathname);const status=document.getElementById("status");const button=document.getElementById("open-preview");if(!/^[A-Za-z0-9_-]{43}$/.test(token)){status.textContent="This private preview link is invalid or has already been used.";button.hidden=true;return}button.addEventListener("click",async()=>{button.disabled=true;status.textContent="Opening your private preview…";const exchangeToken=token;token="";try{const result=await fetch("/_mithrilpress/api/shares/"+shareId+"/exchange",{method:"POST",headers:{"Content-Type":"application/json","X-MithrilPress-Request":"1"},credentials:"same-origin",cache:"no-store",body:JSON.stringify({token:exchangeToken})});if(!result.ok)throw new Error("This private preview link is invalid, expired, or has already been used.");location.replace("/_mithrilpress/shared/"+shareId+"/")}catch(error){status.textContent=error.message||"This private preview is unavailable."}})})();`;
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex, nofollow, noarchive"><title>Private MithrilPress preview</title></head><body><main><h1>Private preview</h1><p id="status" role="status" aria-live="polite">Select the button to open this private preview. This link can be exchanged once.</p><button id="open-preview" type="button">Open private preview</button></main><script nonce="${nonce}">${script}</script></body></html>`;
+  return response(request.method === "HEAD" ? null : html, 200, {
+    "Content-Type": "text/html; charset=utf-8",
+    "Content-Security-Policy": `default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'; script-src 'nonce-${nonce}'; connect-src 'self'`,
+    "X-Robots-Tag": "noindex, nofollow, noarchive",
+  });
+}
+
+async function createPrivatePreviewShare(request, env, site, revisionId) {
+  if (request.method !== "POST") return fail(405, "method_not_allowed", "Use POST to create a private preview link.");
+  const owner = await privatePreviewShareOwner(request, env, site);
+  if (!owner) return fail(401, "owner_authorization_required", "A content:write owner session with revision:preview scope is required.");
+  const body = await readBoundedJson(request);
+  const ttlSeconds = body?.expires_in_seconds ?? PRIVATE_PREVIEW_SHARE_DEFAULT_TTL_SECONDS;
+  if (!Number.isSafeInteger(ttlSeconds) || ttlSeconds < 300 || ttlSeconds > PRIVATE_PREVIEW_SHARE_MAX_TTL_SECONDS) {
+    return fail(400, "invalid_share_expiry", "Share links must expire within 5 minutes to 30 days.");
+  }
+  const nowDate = new Date();
+  const now = nowDate.toISOString();
+  const expiresAt = new Date(nowDate.getTime() + ttlSeconds * 1000).toISOString();
+  const revision = await env.DB.prepare(
+    "SELECT id FROM site_revisions WHERE site_id = ? AND id = ? AND state = 'private-preview' LIMIT 1",
+  ).bind(site.id, revisionId).first();
+  if (!revision) return fail(409, "revision_not_shareable", "Only an active private-preview revision can be shared.");
+
+  const shareId = crypto.randomUUID();
+  const token = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32))))
+    .replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
+  const tokenHashHex = hex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token)));
+  const results = await env.DB.batch([
+    env.DB.prepare(
+      "INSERT INTO private_preview_shares (site_id, share_id, revision_id, token_hash_hex, created_by_token_id, created_at, expires_at) SELECT ?, ?, ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM site_revisions r JOIN sites s ON s.id = r.site_id WHERE r.site_id = ? AND r.id = ? AND r.state = 'private-preview' AND s.status = 'active') AND (SELECT COUNT(*) FROM private_preview_shares p JOIN site_revisions r ON r.site_id = p.site_id AND r.id = p.revision_id WHERE p.site_id = ? AND p.revoked_at IS NULL AND p.expires_at > ? AND r.state = 'private-preview') < ?",
+    ).bind(site.id, shareId, revisionId, tokenHashHex, owner.tokenId, now, expiresAt, site.id, revisionId, site.id, now, PRIVATE_PREVIEW_SHARE_MAX_ACTIVE_PER_SITE),
+    env.DB.prepare(
+      "INSERT INTO private_preview_share_events (id, site_id, share_id, revision_id, token_id, action, created_at, metadata_json) SELECT ?, ?, ?, ?, ?, 'created', ?, ? WHERE EXISTS (SELECT 1 FROM private_preview_shares WHERE site_id = ? AND share_id = ?)",
+    ).bind(crypto.randomUUID(), site.id, shareId, revisionId, owner.tokenId, now, JSON.stringify({ expires_at: expiresAt }), site.id, shareId),
+  ]);
+  if (results[0]?.meta?.changes !== 1 || results[1]?.meta?.changes !== 1) {
+    const latest = await env.DB.prepare(
+      "SELECT state FROM site_revisions WHERE site_id = ? AND id = ? LIMIT 1",
+    ).bind(site.id, revisionId).first();
+    if (latest?.state !== "private-preview") return fail(409, "revision_not_shareable", "Only an active private-preview revision can be shared.");
+    return fail(429, "private_preview_share_limit", "This site already has 10 active private preview links. Revoke or wait for one to expire before creating another.");
+  }
+  return json({
+    share_id: shareId,
+    preview_url: `https://${site.hostname}/_mithrilpress/share/${shareId}#${token}`,
+    expires_at: expiresAt,
+    exchange_limit: 1,
+  }, 201);
+}
+
+async function listPrivatePreviewShares(request, env, site, revisionId) {
+  if (request.method !== "GET") return fail(405, "method_not_allowed", "Use GET to list private preview links.");
+  const owner = await privatePreviewShareOwner(request, env, site);
+  if (!owner) return fail(401, "owner_authorization_required", "A content:write owner session with revision:preview scope is required.");
+  const rows = await env.DB.prepare(
+    "SELECT p.share_id, p.created_at, p.expires_at, p.exchanged_at, p.revoked_at, r.state AS revision_state FROM private_preview_shares p JOIN site_revisions r ON r.site_id = p.site_id AND r.id = p.revision_id WHERE p.site_id = ? AND p.revision_id = ? ORDER BY p.created_at DESC LIMIT 20",
+  ).bind(site.id, revisionId).all();
+  const now = Date.now();
+  return json({ shares: (rows.results ?? []).map((row) => ({
+    share_id: row.share_id,
+    created_at: row.created_at,
+    expires_at: row.expires_at,
+    exchanged_at: row.exchanged_at,
+    revoked_at: row.revoked_at,
+    usable: !row.revoked_at && !row.exchanged_at && row.revision_state === "private-preview" && Date.parse(row.expires_at) > now,
+  })) }, 200, { "Cache-Control": "private, no-store" });
+}
+
+async function revokePrivatePreviewShare(request, env, site, revisionId, shareId) {
+  if (request.method !== "DELETE") return fail(405, "method_not_allowed", "Use DELETE to revoke a private preview link.");
+  const owner = await privatePreviewShareOwner(request, env, site);
+  if (!owner) return fail(401, "owner_authorization_required", "A content:write owner session with revision:preview scope is required.");
+  const now = new Date().toISOString();
+  const revocationId = crypto.randomUUID();
+  const results = await env.DB.batch([
+    env.DB.prepare(
+      "UPDATE private_preview_shares SET revoked_at = ?, revocation_id = ? WHERE site_id = ? AND revision_id = ? AND share_id = ? AND revoked_at IS NULL",
+    ).bind(now, revocationId, site.id, revisionId, shareId),
+    env.DB.prepare(
+      "INSERT INTO private_preview_share_events (id, site_id, share_id, revision_id, token_id, action, created_at, metadata_json) SELECT ?, ?, ?, ?, ?, 'revoked', ?, '{}' WHERE EXISTS (SELECT 1 FROM private_preview_shares WHERE site_id = ? AND revision_id = ? AND share_id = ? AND revocation_id = ?)",
+    ).bind(crypto.randomUUID(), site.id, shareId, revisionId, owner.tokenId, now, site.id, revisionId, shareId, revocationId),
+  ]);
+  if (results[0]?.meta?.changes !== 1) {
+    const existing = await env.DB.prepare(
+      "SELECT revoked_at FROM private_preview_shares WHERE site_id = ? AND revision_id = ? AND share_id = ? LIMIT 1",
+    ).bind(site.id, revisionId, shareId).first();
+    if (!existing) return fail(404, "private_preview_share_not_found", "Private preview link not found.");
+    return json({ share_id: shareId, revoked: Boolean(existing.revoked_at), already_revoked: true });
+  }
+  if (results[1]?.meta?.changes !== 1) return fail(503, "private_preview_share_audit_unavailable", "The link was revoked, but its audit event could not be confirmed.");
+  return json({ share_id: shareId, revoked: true });
+}
+
+async function exchangePrivatePreviewShare(request, env, site, shareId) {
+  if (request.method !== "POST") return fail(405, "method_not_allowed", "Use POST to open a private preview link.");
+  if (!sameOriginStudioMutation(request, site)) return fail(403, "same_origin_required", "The private preview link must be opened on its site.");
+  const body = await readBoundedJson(request);
+  if (typeof body?.token !== "string" || !/^[A-Za-z0-9_-]{43}$/.test(body.token)) {
+    return fail(404, "private_preview_unavailable", "This private preview link is invalid, expired, or has already been used.");
+  }
+  const nowDate = new Date();
+  const now = nowDate.toISOString();
+  const tokenHashHex = hex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(body.token)));
+  const share = await env.DB.prepare(
+    "SELECT p.revision_id, p.created_by_token_id, p.expires_at FROM private_preview_shares p JOIN site_revisions r ON r.site_id = p.site_id AND r.id = p.revision_id JOIN sites s ON s.id = p.site_id WHERE p.site_id = ? AND p.share_id = ? AND p.token_hash_hex = ? AND p.revoked_at IS NULL AND p.exchanged_at IS NULL AND p.expires_at > ? AND r.state = 'private-preview' AND s.status = 'active' LIMIT 1",
+  ).bind(site.id, shareId, tokenHashHex, now).first();
+  if (!share) return fail(404, "private_preview_unavailable", "This private preview link is invalid, expired, or has already been used.");
+
+  const sessionId = hex(crypto.getRandomValues(new Uint8Array(12)));
+  const secret = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32))))
+    .replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
+  const saltHex = hex(crypto.getRandomValues(new Uint8Array(16)));
+  const hashHex = hex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${saltHex}.${secret}`)));
+  const expiresAt = new Date(Math.min(nowDate.getTime() + 60 * 60 * 1000, Date.parse(share.expires_at))).toISOString();
+  const exchangeId = crypto.randomUUID();
+  const results = await env.DB.batch([
+    env.DB.prepare(
+      "UPDATE private_preview_shares SET exchanged_at = ?, exchange_id = ? WHERE site_id = ? AND share_id = ? AND token_hash_hex = ? AND exchanged_at IS NULL AND revoked_at IS NULL AND expires_at > ? AND EXISTS (SELECT 1 FROM site_revisions r JOIN sites s ON s.id = r.site_id WHERE r.site_id = private_preview_shares.site_id AND r.id = private_preview_shares.revision_id AND r.state = 'private-preview' AND s.status = 'active')",
+    ).bind(now, exchangeId, site.id, shareId, tokenHashHex, now),
+    env.DB.prepare(
+      "INSERT INTO private_preview_share_sessions (site_id, session_id, share_id, salt_hex, secret_hash_hex, created_at, expires_at) SELECT ?, ?, ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM private_preview_shares p JOIN site_revisions r ON r.site_id = p.site_id AND r.id = p.revision_id WHERE p.site_id = ? AND p.share_id = ? AND p.exchange_id = ? AND p.revoked_at IS NULL AND p.expires_at > ? AND r.state = 'private-preview')",
+    ).bind(site.id, sessionId, shareId, saltHex, hashHex, now, expiresAt, site.id, shareId, exchangeId, now),
+    env.DB.prepare(
+      "INSERT INTO private_preview_share_events (id, site_id, share_id, revision_id, token_id, action, created_at, metadata_json) SELECT ?, ?, ?, ?, ?, 'exchanged', ?, '{}' WHERE EXISTS (SELECT 1 FROM private_preview_shares WHERE site_id = ? AND share_id = ? AND exchange_id = ?)",
+    ).bind(crypto.randomUUID(), site.id, shareId, share.revision_id, share.created_by_token_id, now, site.id, shareId, exchangeId),
+  ]);
+  if (results[0]?.meta?.changes !== 1 || results[1]?.meta?.changes !== 1 || results[2]?.meta?.changes !== 1) {
+    return fail(404, "private_preview_unavailable", "This private preview link is invalid, expired, or has already been used.");
+  }
+  const maxAge = Math.max(0, Math.floor((Date.parse(expiresAt) - nowDate.getTime()) / 1000));
+  return response(null, 204, {
+    "Set-Cookie": privatePreviewShareCookie(`${sessionId}.${secret}`, maxAge),
+    "X-Robots-Tag": "noindex, nofollow, noarchive",
+  });
+}
+
+function sharedPreviewRouteMap(entries, shareId) {
+  const targets = new Map();
+  for (const entry of entries) {
+    const sourcePath = entry.kind === "page" && entry.slug === "home"
+      ? "/"
+      : `/${encodeURIComponent(entry.slug)}/`;
+    if (!targets.has(sourcePath)) {
+      targets.set(sourcePath, `/_mithrilpress/shared/${shareId}/${entry.kind}/${encodeURIComponent(entry.slug)}`);
+    }
+  }
+  return targets;
+}
+
+async function previewHtmlWithSharedMedia(source, shareId, hostname, entries) {
+  const routeMap = sharedPreviewRouteMap(entries, shareId);
+  const rewriter = new HTMLRewriter().on("img", {
+    element(element) {
+      const src = element.getAttribute("src") ?? "";
+      const match = /^\/_mithrilpress\/media\/([1-9][0-9]*)(?:\?revision=[a-f0-9-]{36})?$/.exec(src);
+      if (match) element.setAttribute("src", `/_mithrilpress/shared/${shareId}/media/${match[1]}`);
+    },
+  }).on("a", {
+    element(element) {
+      const href = element.getAttribute("href") ?? "";
+      if (href.startsWith("#")) return;
+      let target;
+      try {
+        target = new URL(href, `https://${hostname}/`);
+      } catch {
+        element.removeAttribute("href");
+        return;
+      }
+      if (target.hostname !== hostname || (target.protocol !== "https:" && target.protocol !== "http:")) return;
+      const route = routeMap.get(target.pathname);
+      if (!route) {
+        element.removeAttribute("href");
+        return;
+      }
+      element.setAttribute("href", `${route}${target.hash}`);
+    },
+  });
+  return await rewriter.transform(new Response(source, {
+    headers: { "Content-Type": "text/html; charset=utf-8" },
+  })).text();
+}
+
+async function sharedPreview(request, env, site, shareId, kind = null, slug = null) {
+  if (request.method !== "GET" && request.method !== "HEAD") return fail(405, "method_not_allowed", "Shared private previews are read-only.");
+  const session = await privatePreviewShareSession(request, env, site, shareId);
+  if (!session) return fail(404, "private_preview_unavailable", "This private preview is no longer available.");
+  const navigation = `<nav aria-label="Preview navigation"><a href="/_mithrilpress/shared/${shareId}/">All published pages and posts</a></nav>`;
+  if (kind === null) {
+    const rows = await env.DB.prepare(
+      "SELECT e.kind, e.slug, e.title FROM entries e JOIN site_revisions r ON r.site_id = e.site_id AND r.id = e.revision_id WHERE e.site_id = ? AND e.revision_id = ? AND e.publication_status = 'published' AND r.state = 'private-preview' ORDER BY CASE e.kind WHEN 'page' THEN 0 ELSE 1 END, e.slug LIMIT 500",
+    ).bind(site.id, session.revisionId).all();
+    if (!(rows.results ?? []).length) return fail(404, "private_preview_unavailable", "This private preview has no published pages or posts.");
+    const items = rows.results.map((row) => `<li><a href="/_mithrilpress/shared/${shareId}/${row.kind}/${encodeURIComponent(row.slug)}">${escapeHtml(row.title)}</a><span> ${row.kind}</span></li>`).join("");
+    const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex, nofollow, noarchive"><title>Private MithrilPress preview</title></head><body><main><h1>Private preview</h1><ul>${items}</ul></main></body></html>`;
+    return response(request.method === "HEAD" ? null : html, 200, {
+      "Content-Type": "text/html; charset=utf-8",
+      "X-Robots-Tag": "noindex, nofollow, noarchive",
+    });
+  }
+  if (!new Set(["page", "post"]).has(kind) || typeof slug !== "string" || !ENTRY_SLUG.test(slug)) {
+    return fail(404, "private_preview_unavailable", "This private preview page is not available.");
+  }
+  const entry = await env.DB.prepare(
+    `SELECT kind, slug, title, safe_html, language_code, source_date, featured_media_id, ${SEO_METADATA_SELECT} FROM entries WHERE site_id = ? AND revision_id = ? AND kind = ? AND slug = ? AND publication_status = 'published' AND EXISTS (SELECT 1 FROM site_revisions r WHERE r.site_id = entries.site_id AND r.id = entries.revision_id AND r.state = 'private-preview') LIMIT 1`,
+  ).bind(site.id, session.revisionId, kind, slug).first();
+  if (!entry) return fail(404, "private_preview_unavailable", "This private preview page is not available.");
+  const linkEntries = await env.DB.prepare(
+    "SELECT kind, slug FROM entries WHERE site_id = ? AND revision_id = ? AND publication_status = 'published' ORDER BY CASE kind WHEN 'page' THEN 0 ELSE 1 END, slug LIMIT 500",
+  ).bind(site.id, session.revisionId).all();
+  const media = await featuredMediaForEntry(env, site, entry);
+  const previewEntry = {
+    ...entry,
+    safe_html: await previewHtmlWithSharedMedia(entry.safe_html, shareId, site.hostname, linkEntries.results ?? []),
+  };
+  return htmlDocument(site.hostname, previewEntry, true, request.method === "HEAD", media, session.revisionId, shareId, navigation);
 }
 
 async function approveRevision(request, env, site, revisionId) {
@@ -2460,18 +2726,24 @@ function escapeHtml(value) {
   })[character]);
 }
 
-function htmlDocument(hostname, entry, privatePreview = false, headOnly = false, media = null, previewRevisionId = null) {
-  const canonical = canonicalUrl(hostname, entry.slug, entry.kind);
+function htmlDocument(hostname, entry, privatePreview = false, headOnly = false, media = null, previewRevisionId = null, shareId = null, navigationHtml = "") {
+  const canonical = shareId ? "" : canonicalUrl(hostname, entry.slug, entry.kind);
+  const canonicalTag = canonical ? `<link rel="canonical" href="${escapeHtml(canonical)}">` : "";
   const robots = privatePreview ? "noindex, nofollow, noarchive" : "index, follow";
   const language = normalizedLanguageTag(entry.language_code) ?? "und";
   const seo = selectWordPressSeoMetadata(JSON.parse(entry.seo_metadata_json ?? "{}")).metadata;
   const seoTitle = seo._yoast_wpseo_title || seo.rank_math_title || entry.title;
   const seoDescription = seo._yoast_wpseo_metadesc || seo.rank_math_description;
   const description = seoDescription ? `<meta name="description" content="${escapeHtml(seoDescription)}">` : "";
-  const image = media
-    ? `<img src="/_mithrilpress/media/${media.id}${privatePreview ? `?revision=${encodeURIComponent(previewRevisionId)}` : ""}" alt="${escapeHtml(media.alt_text)}" loading="lazy" decoding="async">`
+  const mediaUrl = media
+    ? shareId
+      ? `/_mithrilpress/shared/${shareId}/media/${media.id}`
+      : `/_mithrilpress/media/${media.id}${privatePreview ? `?revision=${encodeURIComponent(previewRevisionId)}` : ""}`
     : "";
-  const body = `<!doctype html><html lang="${escapeHtml(language)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="${robots}">${description}<title>${escapeHtml(seoTitle)}</title><link rel="canonical" href="${escapeHtml(canonical)}"></head><body><main><article><h1>${escapeHtml(entry.title)}</h1>${image}<div>${entry.safe_html}</div></article></main></body></html>`;
+  const image = media
+    ? `<img src="${mediaUrl}" alt="${escapeHtml(media.alt_text)}" loading="lazy" decoding="async">`
+    : "";
+  const body = `<!doctype html><html lang="${escapeHtml(language)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="${robots}">${description}<title>${escapeHtml(seoTitle)}</title>${canonicalTag}</head><body><main><article><h1>${escapeHtml(entry.title)}</h1>${image}<div>${entry.safe_html}</div></article>${navigationHtml}</main></body></html>`;
   const headers = {
     "Content-Type": "text/html; charset=utf-8",
     "Content-Security-Policy": "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'; img-src 'self'; style-src 'none'; connect-src 'none'",
@@ -2564,6 +2836,44 @@ async function handleRequest(request, env) {
   }
   if (url.pathname === "/_mithrilpress/studio.js") return await studioAsset(request, env, "/studio.js");
   if (url.pathname === "/_mithrilpress/studio.css") return await studioAsset(request, env, "/studio.css");
+
+  const privateShareLandingMatch = /^\/_mithrilpress\/share\/([a-f0-9-]{36})\/?$/.exec(url.pathname);
+  if (privateShareLandingMatch) {
+    if (!privatePreviewSharesEnabled(env)) return fail(503, "private_preview_sharing_disabled", "Private preview sharing is not enabled on this hosting deployment.");
+    return privatePreviewShareLanding(request, privateShareLandingMatch[1]);
+  }
+  const privateShareExchangeMatch = /^\/_mithrilpress\/api\/shares\/([a-f0-9-]{36})\/exchange$/.exec(url.pathname);
+  if (privateShareExchangeMatch) {
+    if (!privatePreviewSharesEnabled(env)) return fail(503, "private_preview_sharing_disabled", "Private preview sharing is not enabled on this hosting deployment.");
+    return await exchangePrivatePreviewShare(request, env, site, privateShareExchangeMatch[1]);
+  }
+  const revisionSharesMatch = /^\/_mithrilpress\/api\/revisions\/([a-f0-9-]{36})\/shares(?:\/([a-f0-9-]{36}))?$/.exec(url.pathname);
+  if (revisionSharesMatch) {
+    if (!privatePreviewSharesEnabled(env)) return fail(503, "private_preview_sharing_disabled", "Private preview sharing is not enabled on this hosting deployment.");
+    if (revisionSharesMatch[2]) return await revokePrivatePreviewShare(request, env, site, revisionSharesMatch[1], revisionSharesMatch[2]);
+    if (request.method === "GET") return await listPrivatePreviewShares(request, env, site, revisionSharesMatch[1]);
+    if (request.method === "POST") return await createPrivatePreviewShare(request, env, site, revisionSharesMatch[1]);
+    return fail(405, "method_not_allowed", "Use GET or POST for private preview links.");
+  }
+  const sharedMediaMatch = /^\/_mithrilpress\/shared\/([a-f0-9-]{36})\/media\/(\d+)$/.exec(url.pathname);
+  if (sharedMediaMatch) {
+    if (!privatePreviewSharesEnabled(env)) return fail(503, "private_preview_sharing_disabled", "Private preview sharing is not enabled on this hosting deployment.");
+    const mediaId = Number(sharedMediaMatch[2]);
+    if (!Number.isSafeInteger(mediaId) || mediaId < 1) return fail(404, "media_not_found", "Media item not found.");
+    return await serveMedia(request, env, site, mediaId, sharedMediaMatch[1]);
+  }
+  const sharedEntryMatch = /^\/_mithrilpress\/shared\/([a-f0-9-]{36})\/(page|post)\/([^/]+)\/?$/.exec(url.pathname);
+  if (sharedEntryMatch) {
+    if (!privatePreviewSharesEnabled(env)) return fail(503, "private_preview_sharing_disabled", "Private preview sharing is not enabled on this hosting deployment.");
+    const slug = parsePathSegment(sharedEntryMatch[3]);
+    if (!slug) return fail(404, "private_preview_unavailable", "This private preview page is not available.");
+    return await sharedPreview(request, env, site, sharedEntryMatch[1], sharedEntryMatch[2], slug);
+  }
+  const sharedRootMatch = /^\/_mithrilpress\/shared\/([a-f0-9-]{36})\/?$/.exec(url.pathname);
+  if (sharedRootMatch) {
+    if (!privatePreviewSharesEnabled(env)) return fail(503, "private_preview_sharing_disabled", "Private preview sharing is not enabled on this hosting deployment.");
+    return await sharedPreview(request, env, site, sharedRootMatch[1]);
+  }
 
   if (url.pathname === "/_mithrilpress/api/studio/session") return await studioSession(request, env, site);
   if (url.pathname.startsWith("/_mithrilpress/api/dns-migrations")) {

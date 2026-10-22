@@ -2,6 +2,7 @@ const requestHeader = { "X-MithrilPress-Request": "1" };
 let activeConversationId = null;
 let activeDraft = null;
 let ownerScopes = [];
+let privatePreviewSharesFeatureEnabled = false;
 let selectedFeaturedMediaId = null;
 let mediaItems = [];
 
@@ -16,6 +17,12 @@ const draftPanel = document.querySelector("#draft-panel");
 const previewLink = document.querySelector("#preview-link");
 const draftTitle = document.querySelector("#draft-title");
 const draftState = document.querySelector("#draft-state");
+const shareControls = document.querySelector("#share-controls");
+const shareStatus = document.querySelector("#share-status");
+const shareList = document.querySelector("#share-list");
+const createdShareLink = document.querySelector("#created-share-link");
+const shareLinkValue = document.querySelector("#share-link-value");
+const shareRecipientAuthorized = document.querySelector("#share-recipient-authorized");
 const contentPanel = document.querySelector("#content-panel");
 const contentTab = document.querySelector("#content-tab");
 const mediaPanel = document.querySelector("#media-panel");
@@ -91,8 +98,9 @@ function showStudioView(name) {
   usageTab.setAttribute("aria-current", showUsage ? "page" : "false");
 }
 
-function setOwnerScopes(scopes = []) {
+function setOwnerScopes(scopes = [], features = {}) {
   ownerScopes = Array.isArray(scopes) ? scopes : [];
+  privatePreviewSharesFeatureEnabled = features?.private_preview_shares === true;
   defaultHostname.textContent = "";
   showStudioView(ownerScopes.includes("content:write") ? "content"
     : ownerScopes.includes("media:write") ? "media"
@@ -124,7 +132,17 @@ function showDraft(draft, revisionId, state, previewUrl) {
   if (!draft || !revisionId) {
     activeDraft = null;
     draftPanel.hidden = true;
+    shareControls.hidden = true;
+    shareList.replaceChildren();
+    createdShareLink.hidden = true;
+    shareLinkValue.textContent = "";
     return;
+  }
+  if (activeDraft?.revisionId !== revisionId) {
+    createdShareLink.hidden = true;
+    shareLinkValue.textContent = "";
+    shareRecipientAuthorized.checked = false;
+    showStatus(shareStatus);
   }
   activeDraft = { revisionId, state };
   draftPanel.hidden = false;
@@ -133,6 +151,53 @@ function showDraft(draft, revisionId, state, previewUrl) {
   previewLink.href = previewUrl || `/_mithrilpress/preview/${revisionId}/${encodeURIComponent(draft.slug)}`;
   document.querySelector("#approve-button").hidden = state !== "private-preview";
   document.querySelector("#publish-button").hidden = state !== "approved";
+  const canManageShares = privatePreviewSharesFeatureEnabled && ownerScopes.includes("content:write") && ownerScopes.includes("revision:preview");
+  shareControls.hidden = !canManageShares;
+  const createShareButton = document.querySelector("#create-share-link");
+  createShareButton.hidden = state !== "private-preview";
+  createShareButton.disabled = state !== "private-preview" || !shareRecipientAuthorized.checked;
+  if (canManageShares) void refreshPrivateShares(revisionId);
+}
+
+async function refreshPrivateShares(revisionId) {
+  try {
+    const result = await api(`/_mithrilpress/api/revisions/${encodeURIComponent(revisionId)}/shares`);
+    if (activeDraft?.revisionId !== revisionId) return;
+    shareList.replaceChildren();
+    for (const share of result.shares || []) {
+      const item = document.createElement("li");
+      item.className = "share-list-item";
+      const details = document.createElement("span");
+      const status = share.revoked_at ? "Revoked"
+        : share.exchanged_at ? "Opened; session may still be active"
+          : share.usable ? "Ready" : "Expired or closed";
+      details.textContent = `${status} · created ${share.created_at} · expires ${share.expires_at}`;
+      item.append(details);
+      if (!share.revoked_at) {
+        const revoke = document.createElement("button");
+        revoke.type = "button";
+        revoke.className = "button button-small";
+        revoke.textContent = "Revoke";
+        revoke.addEventListener("click", async () => {
+          revoke.disabled = true;
+          try {
+            await api(`/_mithrilpress/api/revisions/${encodeURIComponent(revisionId)}/shares/${encodeURIComponent(share.share_id)}`, { method: "DELETE", body: {} });
+            if (activeDraft?.revisionId === revisionId) {
+              showStatus(shareStatus, "The link and any open preview session were revoked.");
+              await refreshPrivateShares(revisionId);
+            }
+          } catch (error) {
+            showStatus(shareStatus, error.message);
+            revoke.disabled = false;
+          }
+        });
+        item.append(revoke);
+      }
+      shareList.append(item);
+    }
+  } catch (error) {
+    if (activeDraft?.revisionId === revisionId) showStatus(shareStatus, error.message);
+  }
 }
 
 function resetConversation() {
@@ -200,7 +265,7 @@ async function openConversation(id) {
 
 async function signIn(token) {
   const result = await api("/_mithrilpress/api/studio/session", { method: "POST", body: { token }, headers: requestHeader });
-  setOwnerScopes(result.scopes);
+  setOwnerScopes(result.scopes, result.features);
   loginPanel.hidden = true;
   studioPanel.hidden = false;
   document.querySelector("#studio-nav").hidden = false;
@@ -945,12 +1010,56 @@ document.querySelector("#publish-button").addEventListener("click", async () => 
   }
 });
 
+document.querySelector("#create-share-link").addEventListener("click", async () => {
+  if (!activeDraft || activeDraft.state !== "private-preview" || !shareRecipientAuthorized.checked) return;
+  const revisionId = activeDraft.revisionId;
+  const button = document.querySelector("#create-share-link");
+  button.disabled = true;
+  showStatus(shareStatus, "Creating a single-use link…");
+  createdShareLink.hidden = true;
+  shareLinkValue.textContent = "";
+  try {
+    const result = await api(`/_mithrilpress/api/revisions/${encodeURIComponent(revisionId)}/shares`, {
+      method: "POST",
+      headers: requestHeader,
+      body: {},
+    });
+    if (activeDraft?.revisionId !== revisionId) return;
+    shareLinkValue.textContent = result.preview_url;
+    createdShareLink.hidden = false;
+    shareRecipientAuthorized.checked = false;
+    button.disabled = true;
+    showStatus(shareStatus, `The one-time link expires at ${result.expires_at}. Copy it now; it cannot be recovered after you leave this revision.`);
+    await refreshPrivateShares(revisionId);
+  } catch (error) {
+    showStatus(shareStatus, error.message);
+  } finally {
+    button.disabled = !activeDraft || activeDraft.state !== "private-preview" || !shareRecipientAuthorized.checked;
+  }
+});
+
+shareRecipientAuthorized.addEventListener("change", () => {
+  const button = document.querySelector("#create-share-link");
+  button.disabled = !activeDraft || activeDraft.state !== "private-preview" || !shareRecipientAuthorized.checked;
+});
+
+document.querySelector("#copy-share-link").addEventListener("click", async () => {
+  const value = shareLinkValue.textContent;
+  if (!value) return;
+  try {
+    await navigator.clipboard.writeText(value);
+    showStatus(shareStatus, "Copied. The recipient can exchange this link once; their read-only session lasts up to one hour.");
+  } catch {
+    showStatus(shareStatus, "Copy was blocked. Select the one-time link above and copy it manually.");
+  }
+});
+
 (async () => {
   try {
     const session = await api("/_mithrilpress/api/studio/session");
     if (session.authenticated) {
       loginPanel.hidden = true;
-      setOwnerScopes(session.scopes);
+      setOwnerScopes(session.scopes, session.features);
       studioPanel.hidden = false;
       document.querySelector("#studio-nav").hidden = false;
       document.querySelector("#logout-button").hidden = false;

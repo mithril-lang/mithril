@@ -93,6 +93,19 @@
               <button id="approve-button" class="button button-secondary" type="button">Approve revision</button>
               <button id="publish-button" class="button button-primary" type="button" hidden>Publish approved revision</button>
             </div>
+            <section id="share-controls" class="share-controls" aria-labelledby="share-controls-title" hidden>
+              <h3 id="share-controls-title">Limited private preview</h3>
+              <p>Create a single-use link for a reviewer. It expires in seven days, and the reviewer session ends within one hour. The link is shown once; copy it before leaving this revision. You choose whether and how to send it.</p>
+              <label class="share-authorization"><input id="share-recipient-authorized" type="checkbox"> I confirmed the intended reviewer is authorized to see this owner-supplied content and that I have a valid basis to share the link with them.</label>
+              <button id="create-share-link" class="button button-secondary" type="button" disabled>Create a seven-day link</button>
+              <p id="share-status" class="status" role="status" aria-live="polite"></p>
+              <div id="created-share-link" hidden>
+                <label for="share-link-value">One-time private link</label>
+                <code id="share-link-value" class="share-link-value"></code>
+                <button id="copy-share-link" class="button button-small" type="button">Copy link</button>
+              </div>
+              <ul id="share-list" class="share-list" aria-label="Private preview links"></ul>
+            </section>
           </section>
 
           <p id="studio-status" class="status" role="status" aria-live="polite"></p>
