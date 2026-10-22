@@ -109,6 +109,17 @@ and that there is a valid basis for sharing the link. The existing hosting and
 media request caps bound application use; they do not guarantee a provider-level
 billing stop.
 
+Private-preview lifecycle storage is also bounded by D1 triggers: at most 2,000
+share rows, 2,000 session rows, and 10,000 event rows per site, with deployment
+caps of 20,000, 20,000, and 100,000 rows respectively. Expired sessions are
+deleted in batches by the five-minute scheduled task. Share rows and their
+events become eligible for deletion 90 days after expiry or revocation, then
+are deleted in batches of at most 10 rows per table every five minutes. If an
+event-row cap is reached, new shares and exchanges pause;
+owners can still revoke a link, and the response reports when its event could
+not be retained. These are application row caps, not Cloudflare D1 billing or
+storage limits.
+
 The feature is disabled unless the Worker environment binding
 `PRIVATE_PREVIEW_SHARES_ENABLED` is exactly `true`. Leave it unset until the
 exact source passes the standalone profile and the control-plane host, provider

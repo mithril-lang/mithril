@@ -2138,6 +2138,34 @@ async function previewRevision(request, env, site, revisionId, slug) {
 const PRIVATE_PREVIEW_SHARE_DEFAULT_TTL_SECONDS = 7 * 24 * 60 * 60;
 const PRIVATE_PREVIEW_SHARE_MAX_TTL_SECONDS = 30 * 24 * 60 * 60;
 const PRIVATE_PREVIEW_SHARE_MAX_ACTIVE_PER_SITE = 10;
+const PRIVATE_PREVIEW_SHARE_CLEANUP_BATCH_SIZE = 10;
+
+function privatePreviewShareQuotaCode(error) {
+  const message = String(error?.message ?? error ?? "");
+  return message.match(/private_preview_(?:site|deployment)_(?:share|session|event)_row_limit/)?.[0] ?? null;
+}
+
+function privatePreviewShareQuotaResponse(code) {
+  return code.startsWith("private_preview_site_")
+    ? fail(409, "private_preview_site_retention_limit", "This site's retained private preview history reached its application limit. Older records are cleaned up after 90 days.")
+    : fail(503, "private_preview_deployment_retention_limit", "The shared private preview history reached its application limit. New preview links are paused while retained records age out.");
+}
+
+async function cleanupPrivatePreviewShareRecords(env, now = new Date()) {
+  const nowIso = now.toISOString();
+  const results = await env.DB.batch([
+    env.DB.prepare(
+      "DELETE FROM private_preview_share_sessions WHERE (site_id, session_id) IN (SELECT site_id, session_id FROM private_preview_share_sessions WHERE expires_at <= ? ORDER BY expires_at ASC LIMIT ?)",
+    ).bind(nowIso, PRIVATE_PREVIEW_SHARE_CLEANUP_BATCH_SIZE),
+    env.DB.prepare(
+      "DELETE FROM private_preview_share_events WHERE id IN (SELECT e.id FROM private_preview_shares p JOIN private_preview_share_events e ON e.site_id = p.site_id AND e.share_id = p.share_id WHERE p.cleanup_after <= ? ORDER BY p.cleanup_after ASC, e.created_at ASC LIMIT ?)",
+    ).bind(nowIso, PRIVATE_PREVIEW_SHARE_CLEANUP_BATCH_SIZE),
+  ]);
+  if (results[1]?.meta?.changes === PRIVATE_PREVIEW_SHARE_CLEANUP_BATCH_SIZE) return;
+  await env.DB.prepare(
+    "DELETE FROM private_preview_shares WHERE (site_id, share_id) IN (SELECT p.site_id, p.share_id FROM private_preview_shares p WHERE p.cleanup_after <= ? AND NOT EXISTS (SELECT 1 FROM private_preview_share_sessions s WHERE s.site_id = p.site_id AND s.share_id = p.share_id) AND NOT EXISTS (SELECT 1 FROM private_preview_share_events e WHERE e.site_id = p.site_id AND e.share_id = p.share_id) ORDER BY p.cleanup_after ASC LIMIT ?)",
+  ).bind(nowIso, PRIVATE_PREVIEW_SHARE_CLEANUP_BATCH_SIZE).run();
+}
 
 function privatePreviewShareLanding(request, shareId) {
   if (request.method !== "GET" && request.method !== "HEAD") return fail(405, "method_not_allowed", "Private preview links are read-only.");
@@ -2220,14 +2248,36 @@ async function revokePrivatePreviewShare(request, env, site, revisionId, shareId
   if (!owner) return fail(401, "owner_authorization_required", "A content:write owner session with revision:preview scope is required.");
   const now = new Date().toISOString();
   const revocationId = crypto.randomUUID();
-  const results = await env.DB.batch([
-    env.DB.prepare(
+  let results;
+  try {
+    results = await env.DB.batch([
+      env.DB.prepare(
+        "UPDATE private_preview_shares SET revoked_at = ?, revocation_id = ? WHERE site_id = ? AND revision_id = ? AND share_id = ? AND revoked_at IS NULL",
+      ).bind(now, revocationId, site.id, revisionId, shareId),
+      env.DB.prepare(
+        "INSERT INTO private_preview_share_events (id, site_id, share_id, revision_id, token_id, action, created_at, metadata_json) SELECT ?, ?, ?, ?, ?, 'revoked', ?, '{}' WHERE EXISTS (SELECT 1 FROM private_preview_shares WHERE site_id = ? AND revision_id = ? AND share_id = ? AND revocation_id = ?)",
+      ).bind(crypto.randomUUID(), site.id, shareId, revisionId, owner.tokenId, now, site.id, revisionId, shareId, revocationId),
+    ]);
+  } catch (error) {
+    const quotaCode = privatePreviewShareQuotaCode(error);
+    if (!quotaCode?.endsWith("_event_row_limit")) throw error;
+    const revoked = await env.DB.prepare(
       "UPDATE private_preview_shares SET revoked_at = ?, revocation_id = ? WHERE site_id = ? AND revision_id = ? AND share_id = ? AND revoked_at IS NULL",
-    ).bind(now, revocationId, site.id, revisionId, shareId),
-    env.DB.prepare(
-      "INSERT INTO private_preview_share_events (id, site_id, share_id, revision_id, token_id, action, created_at, metadata_json) SELECT ?, ?, ?, ?, ?, 'revoked', ?, '{}' WHERE EXISTS (SELECT 1 FROM private_preview_shares WHERE site_id = ? AND revision_id = ? AND share_id = ? AND revocation_id = ?)",
-    ).bind(crypto.randomUUID(), site.id, shareId, revisionId, owner.tokenId, now, site.id, revisionId, shareId, revocationId),
-  ]);
+    ).bind(now, revocationId, site.id, revisionId, shareId).run();
+    if (revoked.meta?.changes === 1) {
+      return json({
+        share_id: shareId,
+        revoked: true,
+        audit_event_recorded: false,
+        warning: "The link was revoked, but the audit event could not be retained because the configured event capacity was reached.",
+      });
+    }
+    const existing = await env.DB.prepare(
+      "SELECT revoked_at FROM private_preview_shares WHERE site_id = ? AND revision_id = ? AND share_id = ? LIMIT 1",
+    ).bind(site.id, revisionId, shareId).first();
+    if (!existing) return fail(404, "private_preview_share_not_found", "Private preview link not found.");
+    return json({ share_id: shareId, revoked: Boolean(existing.revoked_at), already_revoked: true });
+  }
   if (results[0]?.meta?.changes !== 1) {
     const existing = await env.DB.prepare(
       "SELECT revoked_at FROM private_preview_shares WHERE site_id = ? AND revision_id = ? AND share_id = ? LIMIT 1",
@@ -2970,6 +3020,8 @@ export default {
     try {
       return await handleRequest(request, env);
     } catch (error) {
+      const privatePreviewQuota = privatePreviewShareQuotaCode(error);
+      if (privatePreviewQuota) return privatePreviewShareQuotaResponse(privatePreviewQuota);
       if (d1ProviderLimitReached(error)) {
         return fail(503, "provider_usage_limit", "Hosting is temporarily unavailable because a Cloudflare D1 usage limit has been reached.");
       }
@@ -2979,6 +3031,7 @@ export default {
     }
   },
   async scheduled(controller, env) {
+    await cleanupPrivatePreviewShareRecords(env);
     await monitorActiveCustomHostnames(env);
   },
 };
