@@ -8,6 +8,7 @@
     "types": "wrangler types --config wrangler.example.jsonc",
     "import:wordpress": "node scripts/import-wxr-media.mjs",
     "export:pages": "node scripts/export-static-pages.mjs",
+    "publish:pages": "node scripts/publish-static-pages.mjs",
     "provision:site": "node scripts/provision-site.mjs",
     "test": "node --test src/*.test.js"
   },

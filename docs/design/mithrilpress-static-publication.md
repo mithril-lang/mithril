@@ -1,11 +1,16 @@
 # MithrilPress static publication plane
 
-**Status: local artifact export implemented; not qualified or deployed.** The
-Worker exposes a `site:publish`-scoped digest-bound snapshot and referenced-media
-endpoint, and `apps/mithrilpress-worker/scripts/export-static-pages.mjs` builds
-a local static artifact. Pages upload, custom-domain provisioning, DNS, and
-certificate automation remain unimplemented and disabled. No Pages project,
-DNS record, custom domain, Worker route, or paid subscription has been created.
+**Status: local artifact export and a guarded Direct Upload updater are
+implemented; neither is qualified or deployed.** The Worker exposes a
+`site:publish`-scoped digest-bound snapshot and referenced-media endpoint,
+`apps/mithrilpress-worker/scripts/export-static-pages.mjs` builds a local static
+artifact, and `publish-static-pages.mjs` updates an existing Pages project only
+after read-only account, project, hostname, prior-receipt, and revision checks.
+The updater also performs full HTTPS asset read-back and attempts a guarded
+rollback on failure. First deployment, Pages project creation, custom-domain
+provisioning, DNS, and certificate automation remain unimplemented and
+disabled. No MithrilPress Pages project, DNS record, custom domain, or Worker
+route has been created.
 
 ## Why split public delivery from the editor
 
@@ -95,6 +100,22 @@ standalone-publisher receipt and verify its digest before any future upload.
 The output is not uploaded. It currently does not emit a WordPress REST API
 implementation or a Pages Functions `_routes.json`; query-dependent REST
 parity remains a separate metered feature gate.
+
+The guarded publisher accepts only the exact site UUID-derived Pages project
+name (`mp-<site UUID>`), the pinned Cloudflare account ID, a project with Pages
+Functions disabled, and one active exact custom domain. It does not create the
+project or hostname and does not write DNS. Updates require a previous
+successful receipt whose unique deployment message matches the current
+production deployment, verify the
+currently served files against it, and verify the approved revision again
+immediately before upload. Wrangler is invoked from the package's locked local
+installation without `npx`; after upload, all public artifact paths are fetched
+over the exact HTTPS hostname and checked against the new manifest. A failed
+read-back triggers rollback only if the attempted deployment is still current.
+The first public deployment remains a separate bootstrap gate because it has no
+known-good deployment to restore. The publisher receipt carries a self-checksum
+for accidental-edit detection; the standalone release authority must sign it
+before treating it as release evidence.
 
 ## Host isolation and routing
 
