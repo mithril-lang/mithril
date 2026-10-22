@@ -8,6 +8,7 @@
     "types": "wrangler types --config wrangler.example.jsonc",
     "import:wordpress": "node scripts/import-wxr-media.mjs",
     "provision:site": "node scripts/provision-site.mjs",
+    "provision:worker-domain": "node scripts/provision-worker-domain.mjs",
     "test": "node --test src/*.test.js"
   },
   "devDependencies": {

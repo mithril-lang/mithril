@@ -66,8 +66,9 @@ Mithril workspace's `kbb` compiler.
 
 The example config deliberately has no route and disables `workers.dev`. It is
 not a production deployment config. Production routing, real D1 IDs, zone
-ownership, wildcard DNS, exact-source standalone qualification, rollback, and
-live read-back remain release gates.
+ownership, an exact Worker Custom Domain for each published hostname,
+exact-source standalone qualification, rollback, and live read-back remain
+release gates.
 
 The R2 adapter stores objects with random site-scoped keys and keeps metadata
 and ownership references in D1. The application caps storage at 250 MiB per
@@ -290,12 +291,16 @@ cannot consume the provider limit.
 
 ## Hosting and custom domains
 
-The intended runtime is one Worker, D1, and a proxied wildcard route for
-`*.sites.mithril.love`. Hosting is free to site owners; the operator pays the
-provider bill. Cloudflare's Workers Paid plan currently has a $5/month minimum,
-10 million included requests per month, and metered overages. D1, R2, and
-Workers AI have separate account-level allowances and pricing. MithrilPress
-does not bill site owners or automatically upgrade a plan.
+The intended runtime is one Worker, D1, and R2. Site addresses use the
+`*.sites.mithril.love` namespace, but Cloudflare receives one exact Worker
+Custom Domain per hostname; MithrilPress does not use wildcard DNS or a
+wildcard Worker route. Cloudflare creates DNS and TLS for each attached
+hostname. Its current documented limit is 100 Custom Domains per zone. Hosting
+is free to site owners; the operator is responsible for provider charges.
+Cloudflare's Workers Paid plan has a $5/month minimum, included requests, and
+metered overages; D1, R2, and Workers AI have separate account-level
+allowances and pricing. MithrilPress does not bill site owners or automatically
+upgrade a plan.
 
 MithrilPress does not use Workers for Platforms in the initial design. That
 product's dispatch namespaces isolate and route customer-authored Worker code;
@@ -338,15 +343,45 @@ See [Workers pricing](https://developers.cloudflare.com/workers/platform/pricing
 [Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/)
 again before each release.
 
-The default address is an owner-provisioned hostname under
-`*.sites.mithril.love`. Studio custom-hostname onboarding is implemented behind
-a disabled-by-default feature gate. It asks the owner to publish a short-lived
-TXT proof, creates the Cloudflare for SaaS hostname only after that proof
-resolves, returns the provider's TLS validation records, and activates the
-tenant mapping only after Cloudflare reports an active hostname and
-certificate and public DNS shows the expected CNAME. The customer adds a
-DNS-only CNAME; MithrilPress never asks for their DNS-provider password and
-does not write to their DNS zone.
+The default address is one exact hostname under `*.sites.mithril.love`. Attach
+it to the MithrilPress Worker with Cloudflare Workers Custom Domains; Cloudflare
+creates the DNS record and certificate. This routes that entire hostname to
+the Worker immediately, so attach only after the site owner has approved public
+publication and the release gates below pass. Do not create wildcard DNS or a
+wildcard Worker route. The command is read-only unless `--apply` and the exact
+`--confirm-hostname` are supplied. `attach` additionally requires
+`--confirm-publication` with the same hostname after owner approval is verified:
+
+```sh
+npm run provision:worker-domain -- status --config wrangler.production.jsonc \
+  --zone-id <mithril.love-zone-id> --hostname shop.sites.mithril.love
+npm run provision:worker-domain -- attach --config wrangler.production.jsonc \
+  --zone-id <mithril.love-zone-id> --hostname shop.sites.mithril.love \
+  --apply --confirm-hostname shop.sites.mithril.love \
+  --confirm-publication shop.sites.mithril.love
+```
+
+Use a production Wrangler config with the exact `account_id`, Worker `name`,
+and `workers_dev: false`. For this deployment, the selected Cloudflare account
+is `fund-mithril` and the active `mithril.love` zone is Free Website. The
+account-level Workers subscription still needs an authorized read-back before
+public hosting. Set `CLOUDFLARE_API_TOKEN` in the operator's secure environment;
+never pass it on the command line or put it in the Worker. The token needs
+Workers Routes Read/Write for the `mithril.love` zone plus Zone Read and DNS
+Read for preflight and read-back. It does not need DNS Write because Workers
+Custom Domains manages its DNS record. Verify public DNS and HTTPS before
+sharing the hostname. The command supports `detach`; suspend the tenant first
+if it must stop serving immediately, then verify the Worker Domain and DNS
+record are gone. The current Cloudflare limit is 100 Worker Custom Domains per
+zone.
+
+Cloudflare for SaaS customer-hostname onboarding is a separate,
+disabled-by-default feature. It asks the owner to publish a short-lived TXT
+proof, creates a SaaS hostname only after that proof resolves, returns the
+provider's TLS validation records, and activates the tenant mapping only after
+Cloudflare reports an active hostname and certificate and public DNS shows the
+expected CNAME. The customer adds a DNS-only CNAME; MithrilPress never asks for
+their DNS-provider password and does not write to their DNS zone.
 
 To enable the feature, the operator must supply `CF_SAAS_API_TOKEN` as a Worker
 secret and configure `CF_SAAS_ZONE_ID`, `CF_SAAS_CNAME_TARGET`,

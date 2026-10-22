@@ -97,27 +97,29 @@ publishing. Owner identity provisioning remains out of band.
 ## Cloudflare hosting
 
 The initial runtime is a single MithrilPress Worker, D1, and R2. The default
-hostname `*.sites.mithril.love` uses the existing parent zone; it does not need
-a child zone or NS delegation. Cloudflare standalone subdomain-zone setup is
-Enterprise-only. Create a proxied wildcard DNS record and a Worker route
-`*.sites.mithril.love/*` on the parent zone only after the hosting plan,
-security controls, cost boundary, and rollback have been verified.
+address namespace `*.sites.mithril.love` uses the existing `mithril.love`
+parent zone in Cloudflare account `fund-mithril`; it does not need a child zone
+or NS delegation. Attach each approved hostname as an exact Worker Custom
+Domain. Cloudflare creates the DNS record and certificate and routes that whole
+hostname to the Worker. Do not create wildcard DNS or a wildcard Worker route.
+The current Cloudflare limit is 100 Worker Custom Domains per zone.
 
-Keep `workers.dev` disabled and configure the route to fail closed when the
-Workers Free account-wide daily request limit is reached. Cloudflare returns
-Error 1027 at that limit; fail-open routing bypasses the Worker. The Free limit
-is shared across the account and does not apply as a hard daily stop on Workers
-Paid. The Worker normalizes the hostname, rejects reserved and unknown labels,
-then looks up the complete hostname in D1. Host labels never grant tenant
-identity. Content queries carry both site and revision IDs and use prepared
-statements. Owner credentials are per-site salted SHA-256 token hashes with
-narrowly scoped permissions; plaintext tokens are provisioned out of band.
+Keep `workers.dev` disabled. The Worker normalizes the hostname, rejects
+reserved labels, then looks up the complete hostname in D1. Host labels never
+grant tenant identity. Content queries carry both site and revision IDs and
+use prepared statements. Owner credentials are per-site salted SHA-256 token
+hashes with narrowly scoped permissions; plaintext tokens are provisioned out
+of band. Exact Worker Custom Domains leave unregistered labels without a DNS
+record, but each attached hostname invokes the Worker and still needs active
+host abuse controls.
 
 The parent zone serves unrelated hostnames. Cloudflare Free rate-limiting rules
 support path and Verified Bot fields, but not host matching. A path-only rule
 would also affect unrelated hosts, so no parent-zone Free rate-limit rule is a
-safe MithrilPress edge guard. Keep public routing disabled until a host-scoped
-edge guard or an approved isolated hosting zone is available. See the
+safe MithrilPress edge guard. Exact Custom Domains do not provide a request
+rate or billing cap. Keep public hostname attachment disabled until the
+account-level Workers plan, enforceable cost boundary, active-host abuse
+control, and rollback are verified. See the
 [edge-protection gate](../operations/mithrilpress-free-edge-protection.md).
 
 `apps/mithrilpress-worker/` provides the Worker handler, D1 migration, token
@@ -131,18 +133,20 @@ random site-scoped object keys and D1 metadata. Uploads check file signatures,
 declared dimensions, MIME type, and byte length. They do not fetch external
 WordPress media URLs or remove image metadata.
 
-The checked-in Wrangler example has no custom route and disables `workers.dev`.
-No Cloudflare resources, wildcard DNS, credentials, or public hostnames were
-created by this implementation. Production route configuration and deployment
-remain separate release work.
+The checked-in Wrangler example has no custom domain and disables `workers.dev`.
+No MithrilPress Worker Custom Domain, DNS record, production credential, or
+public hostname has been created. Production hostname attachment and
+deployment remain separate release work.
 
 The pricing policy is free for site owners; the hosting operator is responsible
 for provider charges. This is not a zero-cost provider commitment. Workers Free
 provides a 100,000-request daily account limit; Workers Paid has no daily
 request limit and may bill usage. The product never bills site owners or
-automatically switches a hosting account to a paid tier. Keep public routing
-disabled until the account plan and an enforceable provider cost boundary have
-been verified. See
+automatically switches a hosting account to a paid tier. The `fund-mithril`
+zone read confirms `mithril.love` is Free Website, but the account-level
+Workers subscription still needs an authorized read-back. Keep public
+hostname attachment disabled until the plan and an enforceable provider cost
+boundary have been verified. See
 [Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/),
 [D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/),
 [R2 pricing](https://developers.cloudflare.com/r2/pricing/), and
@@ -185,8 +189,10 @@ qualified against the Free plan's 10 ms per-request limit.
 Cloudflare Free rate-limiting rules cannot match the request host; they support
 path and Verified Bot fields only. A rule on the parent zone would also affect
 unrelated sites with matching paths. Do not use it as a MithrilPress burst
-guard. Keep public routing disabled until a host-scoped edge control or an
-approved isolated hosting zone is available. The
+guard. Exact Worker Custom Domains restrict routing to registered hostnames,
+but they do not protect an attached hostname from request floods or stop
+provider metering. Keep public routing disabled until an active-host edge
+control or enforceable provider cost boundary is available. The
 [edge-protection gate](../operations/mithrilpress-free-edge-protection.md)
 records this limitation and the checks still needed.
 
@@ -270,9 +276,10 @@ describes routing custom-hostname traffic through the SaaS zone's Worker route.
 The Cloudflare product the original idea may have been recalling is
 **Workers for Platforms**. Its dispatch namespaces suit a service that executes
 customer Workers. MithrilPress owns the renderer and does not accept tenant
-code, so one ordinary Worker with a wildcard route and D1 is the suitable first
-version. Revisit Workers for Platforms only if customer-authored code becomes a
-reviewed product requirement. See [Workers for Platforms](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/)
+code, so one ordinary Worker, D1, and exact per-host Worker Custom Domains are
+the suitable first version. The optional Cloudflare for SaaS customer-hostname
+path has its own fallback-zone route. Revisit Workers for Platforms only if
+customer-authored code becomes a reviewed product requirement. See [Workers for Platforms](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/)
 and [Cloudflare hostname routing](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/configuration/hostname-routing/).
 
 The feature gates, implemented DNS migration steps, and remaining operator

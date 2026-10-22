@@ -20,7 +20,7 @@ refresh a suspended hostname after the checks pass.
 
 | Type | Setup | Control | Initial availability |
 | --- | --- | --- | --- |
-| MithrilPress subdomain | MithrilPress assigns one unique label, such as `example.sites.mithril.love` | MithrilPress controls the wildcard zone and hostname registry | First release target; requires the wildcard route and tenant provisioning |
+| MithrilPress subdomain | MithrilPress assigns one unique label, such as `example.sites.mithril.love`, then an operator attaches that exact hostname as a Worker Custom Domain | MithrilPress controls the parent zone and exact hostname registry | First release target; requires per-host Custom Domain attachment and tenant provisioning |
 | Customer-owned hostname | Customer adds owner-proof and provider TLS TXT records plus a DNS-only CNAME; MithrilPress verifies ownership and provisions a Cloudflare for SaaS custom hostname | Customer retains DNS and registrar control | Subdomains only; apex and wildcard customer hostnames are excluded from this prototype |
 | Nameserver migration plan | Owner proves control, uploads or reads source and staged destination zones, reviews exact record diff, approves a digest, then changes registrar settings manually | Owner retains DNS-provider and registrar control; any Cloudflare API token is zone-scoped and request-only | Optional guided plan; provider import is disabled by default pending isolated-zone qualification |
 
@@ -29,6 +29,33 @@ problems. MithrilPress should use SaaS custom hostnames for customer domains;
 the renderer runs MithrilPress code and does not execute tenant code. Keep the
 default product on the supplied `sites.mithril.love` subdomain if the customer
 does not choose or qualify a custom domain.
+
+## Platform-managed subdomain routing
+
+`*.sites.mithril.love` describes the address namespace; it is not a wildcard
+DNS record or Worker route. In Cloudflare account `fund-mithril`, the active
+`mithril.love` parent zone is Free Website. Attach each assigned hostname to
+the MithrilPress Worker with Cloudflare Workers Custom Domains. Cloudflare
+creates DNS and TLS for that exact hostname. An unregistered label has no
+platform DNS record and does not invoke the Worker. The Worker still resolves
+the full hostname against the exact tenant registry and serves only an active
+site's published revision; do not trust a hostname label as tenant identity.
+
+Custom Domain attachment routes the entire hostname to the Worker as soon as
+Cloudflare enables it. Require owner approval for publication, exact-source
+qualification, a verified provider-cost boundary, and an operator rollback
+before attaching a production hostname. Suspend a site before detaching when
+immediate content removal is required, then read back both the Worker Domain
+and DNS state. Cloudflare currently limits a zone to 100 Worker Custom
+Domains; plan another routing design before reaching the provider limit. The
+operator CLI and token scope are documented in the Worker README and
+`mithrilpress-cloudflare-auth.md`.
+
+Exact Custom Domains prevent arbitrary, unregistered subdomains from reaching
+the Worker. They do not rate-limit requests to an attached hostname or cap
+Worker billing. The app's shared request counter also runs after invocation.
+Keep public routing disabled until the active-host abuse controls and account
+cost boundary are verified.
 
 ## Customer hostname state machine
 
