@@ -373,39 +373,35 @@ function cloudflareBatchRecord(record) {
     return payload;
   }
   if (record.type === "MX") {
-    const priority = Number(record.rdata_tokens[0]);
-    if (!Number.isInteger(priority) || priority < 0 || priority > 65_535 || record.rdata_tokens.length !== 2) {
+    if (record.rdata_tokens.length !== 2) {
       throw apiError(422, "cloudflare_record_format_unsupported", "An MX record could not be represented safely for Cloudflare. Import it manually.");
     }
-    payload.priority = priority;
+    payload.priority = cloudflareUnsignedInteger(record.rdata_tokens[0], 65_535, "MX", "priority");
     const exchange = record.rdata_tokens[1];
     payload.content = exchange === "." ? "." : exchange.replace(/\.$/, "");
     return payload;
   }
   if (record.type === "SRV") {
     const [priority, weight, port, target] = record.rdata_tokens;
-    const numbers = [priority, weight, port].map(Number);
-    if (record.rdata_tokens.length !== 4 || numbers.some((value) => !Number.isInteger(value) || value < 0 || value > 65_535)) {
+    if (record.rdata_tokens.length !== 4) {
       throw apiError(422, "cloudflare_record_format_unsupported", "An SRV record could not be represented safely for Cloudflare. Import it manually.");
     }
     payload.data = {
-      priority: numbers[0],
-      weight: numbers[1],
-      port: numbers[2],
+      priority: cloudflareUnsignedInteger(priority, 65_535, "SRV", "priority"),
+      weight: cloudflareUnsignedInteger(weight, 65_535, "SRV", "weight"),
+      port: cloudflareUnsignedInteger(port, 65_535, "SRV", "port"),
       target: target === "." ? target : target.replace(/\.$/, ""),
     };
     return payload;
   }
   if (record.type === "URI") {
     const [priority, weight, ...target] = record.rdata_tokens;
-    const numbers = [Number(priority), Number(weight)];
-    if (record.rdata_tokens.length !== 3 || target.length !== 1
-        || numbers.some((value) => !Number.isInteger(value) || value < 0 || value > 65_535)) {
+    if (record.rdata_tokens.length !== 3 || target.length !== 1) {
       throw apiError(422, "cloudflare_record_format_unsupported", "A URI record could not be represented safely for Cloudflare. Import it manually.");
     }
-    payload.priority = numbers[0];
+    payload.priority = cloudflareUnsignedInteger(priority, 65_535, "URI", "priority");
     payload.data = {
-      weight: numbers[1],
+      weight: cloudflareUnsignedInteger(weight, 65_535, "URI", "weight"),
       target: cloudflareStringContent(target, { recordType: "URI" }),
     };
     return payload;
