@@ -31,7 +31,9 @@ record and certificate and routes the full hostname to the Worker. The zone
 currently supports 100 Custom Domains. Verify site-owner publication approval,
 the active tenant mapping, exact-source qualification, cost boundary, and
 rollback before each attach. The command is in
-`apps/mithrilpress-worker/scripts/provision-worker-domain.mjs`.
+`apps/mithrilpress-worker/scripts/provision-worker-domain.mjs`; it rejects a
+Wrangler config unless it names Worker `mithrilpress` in the
+`fund-mithril` account.
 
 For the operator CLI, scope `Workers Routes Read/Write` to the `mithril.love`
 zone. `Zone Read` validates the active zone/account; `DNS Read` checks for

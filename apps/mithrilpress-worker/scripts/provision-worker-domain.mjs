@@ -6,6 +6,8 @@ import { instantiateMithrilNative } from "../src/platform_hostname.js";
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const apiRoot = "https://api.cloudflare.com/client/v4/";
 const platformZone = "mithril.love";
+const platformAccountId = "62e1fda53188460698f8c66d3aef59c6";
+const platformWorker = "mithrilpress";
 const { siteHostname } = instantiateMithrilNative({});
 
 const usage = `Attach, inspect, or detach one MithrilPress default hostname.
@@ -137,9 +139,15 @@ function readWorkerConfig(configPath) {
   if (typeof config.name !== "string" || !/^[a-z0-9][a-z0-9-]{0,62}$/u.test(config.name)) {
     fail("Wrangler config must declare a valid Worker name.");
   }
+  if (config.name !== platformWorker) {
+    fail(`Wrangler config must target the ${platformWorker} production Worker.`);
+  }
   if (typeof config.account_id !== "string" || !/^[a-f0-9]{32}$/iu.test(config.account_id)
       || /^0{32}$/u.test(config.account_id)) {
     fail("Wrangler config must declare the exact non-placeholder account_id.");
+  }
+  if (config.account_id.toLowerCase() !== platformAccountId) {
+    fail("Wrangler config must target the user-confirmed fund-mithril account.");
   }
   if (config.workers_dev !== false) fail("Production Wrangler config must explicitly set workers_dev to false.");
   return { accountId: config.account_id.toLowerCase(), service: config.name };

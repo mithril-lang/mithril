@@ -362,8 +362,9 @@ npm run provision:worker-domain -- attach --config wrangler.production.jsonc \
 ```
 
 Use a production Wrangler config with the exact `account_id`, Worker `name`,
-and `workers_dev: false`. For this deployment, the selected Cloudflare account
-is `fund-mithril` and the active `mithril.love` zone is Free Website. The
+and `workers_dev: false`. The command rejects configs unless the account is
+`fund-mithril` and the Worker name is exactly `mithrilpress`. The active
+`mithril.love` zone is Free Website. The
 account-level Workers subscription still needs an authorized read-back before
 public hosting. Set `CLOUDFLARE_API_TOKEN` in the operator's secure environment;
 never pass it on the command line or put it in the Worker. The token needs
