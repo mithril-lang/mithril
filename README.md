@@ -18,6 +18,12 @@ compression, Zstd/gzip, exact RDF-term reconstruction and Arrow/Parquet intercha
 The Python SDK installs from source and requires Node.js. A stable binary format,
 S3 partial reads and Iceberg catalog integration are proposed, not released.
 
+## Mithril language reference
+
+The [language reference](docs/language/README.md) describes Mithril Form
+syntax, its reader grammar, and the Kotoba/Amu execution architecture. Its
+intended public host is `https://lang.mithril.fund/`.
+
 
 The name is a metaphor: mithril is the imagined metal, used here for a source
 surface whose graph semantics stay inspectable through compilation. It does
@@ -25,10 +31,11 @@ not name Tolkien's work or imply compatibility with another Mithril project.
 
 Mithril is an ontology-based programming language with a canonical,
 Kotoba-shaped typed S-expression surface. Both `.mith` and `.mithril` are
-aliases. New source uses `application/vnd.mithril.form`; the compiler also
-accepts the existing JSON-LD 1.1 spelling (`application/ld+json`) without a
-migration flag. Both lower to one pinned JSON-LD projection and therefore one
-canonical RDF Dataset identity.
+aliases. New source uses `application/vnd.mithril.form`. Mithril Form and
+JSON-LD 1.1 (`application/ld+json`) are distinct, mutually convertible source
+representations. The compiler uses a pinned JSON-LD context for semantic
+projection; representations that denote the same graph share one canonical
+RDF Dataset identity.
 
 The Form reader admits `mithril/module` with a module-specific context and
 inert Function/Call/Local/Literal/If/Let/Sequence and guest
@@ -92,8 +99,8 @@ and Amu provide the typed, capability-bounded runtime and Wasm compiler.
 
 ```text
 program.mith / program.mithril
-  -> inert Mithril Form reader OR compatible JSON-LD reader
-  -> one pinned JSON-LD projection
+  -> Mithril Form ⇄ JSON-LD 1.1 source conversion
+  -> pinned JSON-LD semantic projection
   -> canonical RDF Dataset digest
   -> Mithril vocabulary and shape admission
   -> :oak.transaction/v1
@@ -120,8 +127,8 @@ Mithril does not make RDF the program-execution IR and does not put OWL inside
 Osaho. The boundaries are:
 
 ```text
-Mithril Form                    compact typed semantic/action syntax
-  -> JSON-LD / RDF Dataset      facts, OWL 2 RL and SHACL interoperability
+Mithril Form ⇄ JSON-LD 1.1      distinct, mutually convertible representations
+  -> RDF Dataset                facts, OWL 2 RL and SHACL interoperability
   -> typed semantic delta       assert / retract / query / infer / compile / stop
   -> deterministic executor     validates and applies the delta
   -> Kotoba HIR -> Osaho        checked executable semantics and DefCID
