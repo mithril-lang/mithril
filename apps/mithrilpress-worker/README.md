@@ -37,6 +37,14 @@ explicitly published tenant revision.
   plugin, shortcode, script, style, form, or dynamic-block execution. Only
   separately validated owner-uploaded R2 media may render inline or as a
   featured image.
+- A `site:publish`-scoped immutable snapshot endpoint and local Pages artifact
+  exporter for the current owner-approved publication. The exporter verifies
+  the snapshot digest and every media object's SHA-256, then writes static HTML,
+  taxonomy archives, a sitemap, an RSS feed, robots.txt, and referenced images.
+  It creates local files only; it does not call the Cloudflare Pages API or
+  publish a deployment.
+- An optional, capped Cloudflare Pages Direct Upload adapter for approved static
+  publications. It does not replace the shared Worker/D1 default host plane.
 
 The checked-in Mithril native-JS modules own platform subdomain validation,
 WordPress post/page record admission, individual taxonomy-term admission, and
@@ -65,9 +73,13 @@ Mithril workspace's `kbb` compiler.
 5. Run `npm run dev` to work against local D1.
 
 The example config deliberately has no route and disables `workers.dev`. It is
-not a production deployment config. Production routing, real D1 IDs, zone
-ownership, wildcard DNS, exact-source standalone qualification, rollback, and
-live read-back remain release gates.
+not a production deployment config. The required default hosting topology is a
+shared tenant-aware Worker and D1 hostname registry on
+`*.sites.mithril.love`. Production routing, deep-host TLS, a host-scoped ingress
+guard, real D1 IDs, zone ownership, exact-source standalone qualification,
+rollback, and live read-back remain release gates. This package creates no
+wildcard DNS record or Worker route. The optional Pages adapter attaches one
+exact hostname per site and remains an independently gated publication path.
 
 The R2 adapter stores objects with random site-scoped keys and keeps metadata
 and ownership references in D1. The application caps storage at 250 MiB per
@@ -78,6 +90,193 @@ per day. Cloudflare's R2 Standard free tier currently includes
 operations per month; those allowances are account-wide and shared with other
 workloads. The application caps do not guarantee a zero bill when the account
 has other R2 usage. No paid fallback is configured. See [R2 pricing](https://developers.cloudflare.com/r2/pricing/).
+
+### Optional static publication artifact
+
+This capped Pages path is an optional publication adapter, not the default
+hosting plane. The shared tenant-aware Worker and D1 registry remain the
+default for `*.sites.mithril.love`; the Pages publisher neither provisions nor
+replaces that wildcard route. Pages projects, exact custom domains, and REST
+Functions remain disabled until their separate qualification and cost gates
+pass.
+
+After a site owner separately approves and publishes a revision, a publisher
+with a short-lived `site:publish` token can read the current snapshot and its
+referenced media. Load `MITHRILPRESS_OWNER_TOKEN` from the approved local secret
+store into the process environment; do not put it in a command argument or
+commit it. Select the exact site origin and a new, nonexistent output path:
+
+```sh
+MITHRILPRESS_CONTROL_URL=https://control.mithril.love \
+MITHRILPRESS_SITE_ID=00000000-0000-4000-8000-000000000000 \
+MITHRILPRESS_OUTPUT_DIR=/tmp/example-pages \
+npm run export:pages
+```
+
+The site ID and token must belong to the same tenant. Set the token in the same
+process environment before running the command. The control-plane origin must
+route the authenticated site publication endpoint; no such Cloudflare route is
+provisioned by this package. The exporter accepts only the exact
+`https://control.mithril.love` origin so the bearer token is not sent to an
+arbitrary tenant hostname or `workers.dev` endpoint. An optional
+`MITHRILPRESS_EXPECTED_REVISION` makes the exporter fail if the published
+revision changed before the snapshot read.
+The output is a local artifact only. A standalone publisher must re-read the
+current revision and digest immediately before any future Pages upload, verify
+the exact Pages deployment and host afterward, and retain the previous
+known-good deployment. Pages credentials and R2 objects are never sent to the
+tenant-facing Worker. The command's JSON result includes a sorted per-file
+manifest with each path, byte length, and SHA-256, plus an artifact digest bound
+to the site, hostname, published revision, and source snapshot digest. Preserve
+that result with the standalone publisher receipt so the upload can be tied to
+the exact local bundle.
+
+### Optional guarded Pages Direct Upload
+
+This exact-host flow is separate from the default shared Worker route. It is
+limited to the capped Pages publication path and does not change routing for
+tenants that remain on the shared Worker.
+
+`npm run publish:pages -- --confirm-publication` updates an already established
+static Pages site. The first publish uses the explicit
+`--confirm-publication --initialize-hostname <exact-hostname>` mode. Both modes
+use the package-lock Wrangler v4 entrypoint directly; neither uses `npx` or
+installs a publisher at runtime. The publisher re-exports the exact
+`MITHRILPRESS_EXPECTED_REVISION`, checks every local file against the
+digest-bound manifest, and confirms the account ID against the separately
+pinned standalone-publisher value. The project name is derived as
+`mp-<site UUID>`. The project must use the expected production branch. The
+only deployed Function is the package-owned read-only WordPress REST handler;
+the exporter binds its source digest and exact `/wp-json/wp/v2/*` invocation
+route into the publication manifest.
+
+Initial publication validates the exact hostname against the owner's published
+snapshot and confirms the configured zone is `mithril.love` in the expected
+Cloudflare account. It checks the exact hostname's DNS records before writing,
+creates the static Pages project when absent, and stops before creating a new
+project when the account has 90 or more Pages projects. It first uploads a
+small `noindex` setup placeholder to the project's `pages.dev` host, then
+attaches the exact custom hostname and creates a proxied CNAME only if the exact
+hostname has no DNS records. It waits for the Pages domain, validation, and
+verification states to become active and verifies the placeholder over HTTPS
+before uploading owner-approved content. If a provider step fails, already
+created project, deployment, domain, or DNS resources remain for a safe retry;
+the script does not attempt destructive cleanup. The Pages API and DNS writes
+are not one atomic operation.
+
+Cloudflare Pages allows 100 projects per account; the publisher's 90-project
+cap leaves ten slots for other account projects and operational headroom. It
+does not provide an all-world scale path: onboarding stops at the cap until a
+separately qualified hosting architecture is available. See [Pages limits](https://developers.cloudflare.com/pages/platform/limits/).
+
+The initial placeholder remains the rollback target until the first approved
+publication passes read-back. Later updates require the current production
+deployment and its previous successful publisher receipt. They first verify
+the live files against that receipt, then check the revision again immediately
+before Direct Upload. After upload they read back every public file over the
+exact HTTPS custom hostname and compare the returned byte length and SHA-256
+with the approved manifest. On a failed read-back the publisher attempts the
+Pages rollback API only if the deployment it just published is still current,
+then verifies the previous receipt's files again. Each Direct Upload carries a
+unique deployment message bound to the site, revision, artifact digest, and
+publish attempt. If a concurrent publisher changed production, rollback is
+withheld.
+
+The fixed Pages Function serves the read-only WordPress REST subset at
+`/wp-json/wp/v2/*`. Its source digest is bound into the publication manifest;
+the publisher verifies that only this REST route invokes Functions and reads
+back posts, pages, taxonomies, and media through the live HTTPS API. The
+published static data contains only the owner-approved public revision. REST
+search matches published titles on this static path; the authenticated Worker
+API retains its broader search behavior.
+
+All other routes stay on Pages static assets, whose requests are free and
+unlimited. Each REST Function request increments the same trigger-enforced D1
+request counters as the MithrilPress Worker: 5,000 requests per site/day and
+25,000 requests across the deployment/day. The publisher verifies the exact
+`mithrilpress` D1 database in the pinned account and binds it as `DB` on a new
+Pages project before the first deployment. The Function checks both counters
+before filtering or returning content and fails closed when D1 is unavailable
+or a limit is reached. The digest covers both the Function and its shared quota
+helper. Site owners are never charged; Pages Function requests are still
+metered to the operator, and application caps are not a provider billing cap
+on a Workers Paid account. Each over-cap REST attempt still invokes the
+Function and a metered D1 transaction to enforce the application counter; the
+shared and site counters are charged atomically, so a rejected site request
+does not consume the deployment allowance.
+
+The publisher refuses `_worker.js`, arbitrary Functions routes, extra files,
+symlinks, and bundles above the existing 5,000-file / 300 MB product caps.
+The exact `_routes.json` and Pages' `_headers` configuration are included in
+the manifest but are not public assets, so they are excluded from HTTPS
+file-by-file read-back.
+
+Set credentials from the approved local secret store, never on the command
+line. `MITHRILPRESS_EXPECTED_CLOUDFLARE_ACCOUNT_ID` must match
+`CLOUDFLARE_ACCOUNT_ID`; the standalone publisher pins both to the intended
+account (the hosted MithrilPress profile must select `fund-mithril`). Initial
+publication also requires `CLOUDFLARE_ZONE_ID` to match the separately pinned
+`MITHRILPRESS_EXPECTED_CLOUDFLARE_ZONE_ID`. The zone must read back as
+`mithril.love` and belong to that account. The token needs Pages Read and Write
+and D1 Read for the account, Zone Read for the zone, and DNS Read and Write
+for the zone. The deployment profile pins
+`MITHRILPRESS_EXPECTED_D1_DATABASE_ID`; the command requires the matching
+`MITHRILPRESS_D1_DATABASE_ID` and verifies that the database is named
+`mithrilpress` in the same account before using it. The Pages production
+configuration must read back the exact `DB` binding. The publisher does not
+claim to configure or verify Cloudflare's separate request-limit exhaustion
+behavior; the application quota stops content responses, not Worker request
+metering.
+The command also requires the owner token, the reviewed revision UUID, a path
+to the previous successful receipt, and a new receipt path. For the initial
+publish, the previous-receipt path is a new file for the verified placeholder
+baseline. The receipt stores deployment IDs, the manifest, and public
+read-back result; keep it with signed standalone publisher evidence. Its
+self-checksum detects accidental edits but is not a digital signature, so the
+standalone release authority must sign and retain it before it is treated as
+release evidence. Select an existing local scratch directory according to the
+operator's storage policy.
+
+```sh
+MITHRILPRESS_CONTROL_URL=https://control.mithril.love \
+MITHRILPRESS_SITE_ID=00000000-0000-4000-8000-000000000000 \
+MITHRILPRESS_EXPECTED_REVISION=00000000-0000-4000-8000-000000000001 \
+MITHRILPRESS_EXPECTED_CLOUDFLARE_ACCOUNT_ID=<pinned-account-id> \
+MITHRILPRESS_EXPECTED_CLOUDFLARE_ZONE_ID=<pinned-mithril-love-zone-id> \
+MITHRILPRESS_D1_DATABASE_ID=<mithrilpress-d1-id> \
+MITHRILPRESS_EXPECTED_D1_DATABASE_ID=<pinned-mithrilpress-d1-id> \
+MITHRILPRESS_PREVIOUS_RECEIPT_PATH=/secure/evidence/placeholder.json \
+MITHRILPRESS_PUBLISH_RECEIPT_PATH=/secure/evidence/first-publish.json \
+MITHRILPRESS_SCRATCH_DIR=/path/to/existing-scratch-directory \
+npm run publish:pages -- --confirm-publication \
+  --initialize-hostname blue-widget.sites.mithril.love
+```
+
+An update omits `CLOUDFLARE_ZONE_ID` and uses the same receipt variables with
+the previous successful publication receipt:
+
+```sh
+MITHRILPRESS_CONTROL_URL=https://control.mithril.love \
+MITHRILPRESS_SITE_ID=00000000-0000-4000-8000-000000000000 \
+MITHRILPRESS_EXPECTED_REVISION=00000000-0000-4000-8000-000000000002 \
+MITHRILPRESS_EXPECTED_CLOUDFLARE_ACCOUNT_ID=<pinned-account-id> \
+MITHRILPRESS_D1_DATABASE_ID=<mithrilpress-d1-id> \
+MITHRILPRESS_EXPECTED_D1_DATABASE_ID=<pinned-mithrilpress-d1-id> \
+MITHRILPRESS_SCRATCH_DIR=/path/to/existing-scratch-directory \
+MITHRILPRESS_PREVIOUS_RECEIPT_PATH=/secure/evidence/previous.json \
+MITHRILPRESS_PUBLISH_RECEIPT_PATH=/secure/evidence/next.json \
+npm run publish:pages -- --confirm-publication
+```
+
+Before running the command, load `MITHRILPRESS_OWNER_TOKEN`,
+`CLOUDFLARE_API_TOKEN`, and the account and zone ID pairs from the approved
+local secret/profile configuration. The IDs are configuration values, not
+credentials; the API token is secret.
+
+This command is not a release authorization or qualification receipt. The
+current repository still requires exact-source standalone qualification,
+account/domain readiness, signed evidence, rollback qualification, and live
+read-back before a production publication.
 
 ## Tenant provisioning data
 
@@ -216,6 +415,8 @@ write and storage caps; reaching a cap stops the import without a paid fallback.
 | `GET` | `/_mithrilpress/preview/{revision-id}/{slug}` | `revision:preview` | View sanitized revision HTML with `noindex` headers. |
 | `POST` | `/_mithrilpress/api/revisions/{revision-id}/approve` | `revision:approve` | Record owner approval for a complete sanitized revision. |
 | `POST` | `/_mithrilpress/api/revisions/{revision-id}/publish` | `site:publish` | Make the approved revision the public site revision. |
+| `GET` / `HEAD` | `/_mithrilpress/api/control/sites/{site-id}/publication/current` | `site:publish` | Read a digest-bound snapshot of only the current owner-approved published revision on the separate control-plane origin. |
+| `GET` / `HEAD` | `/_mithrilpress/api/control/sites/{site-id}/publication/revisions/{revision-id}/media/{id}` | `site:publish` | Read a referenced media object only while that revision is still current; reads count against existing image-delivery caps. |
 | `GET` / `POST` | `/_mithrilpress/api/domains` | `site:domains` | List custom hostnames or start a 24-hour ownership TXT challenge. Unverified requests do not reserve hostnames or shared capacity. Expired claims are released before per-site capacity checks; a detached hostname can be claimed by another site after fresh proof. |
 | `POST` | `/_mithrilpress/api/domains/{hostname-id}/verify` | `site:domains` | Verify ownership TXT and provision the Cloudflare for SaaS hostname and certificate. |
 | `POST` | `/_mithrilpress/api/domains/{hostname-id}/refresh` | `site:domains` | Read provider/TLS status and verify the public DNS-only CNAME. |
@@ -434,7 +635,7 @@ through its R2 binding rather than an R2 API token.
 
 ## WordPress REST subset
 
-Public post/page list requests support `page`, `per_page` (1–100), `slug`,
+Worker-hosted public post/page list requests support `page`, `per_page` (1–100), `slug`,
 `search`, `after`, `before`, `modified_after`, `modified_before`, `order`, and
 `orderby` (`date`, `modified`, `id`, `title`, `slug`, or `relevance`; relevance
 requires a search term), plus `context` `view`/`embed`. Search matches the
@@ -454,6 +655,12 @@ Responses include standard `X-WP-Total`, `X-WP-TotalPages`, and pagination
 `Link` headers. Category/tag archives render published-entry lists. Editing
 contexts, term and media writes, media listings, users, comments, custom post
 types, and WordPress authentication plugins are not implemented here.
+
+The Pages static publication serves the same read-only post/page, category/tag,
+and individual-media routes through its fixed Pages Function. Its bounded
+catalog supports pagination, slug, date, modified-date, ordering, and title
+search filters. Content search, write endpoints, authentication plugins, and
+other WordPress REST resources remain unsupported on the static path.
 
 The importer also accepts WordPress WXR 1.2 exports. It imports up to 500
 posts/pages per file, with the channel origin, source IDs, slugs, title/body,

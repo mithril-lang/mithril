@@ -1,15 +1,21 @@
-# MithrilPress Free Edge Protection
+# MithrilPress Wildcard Worker Route Gate
 
-**Status: deployment gate only. No WAF rule or production route has been
-created.** This guide covers the default `*.sites.mithril.love` platform host
-in the existing parent zone; it does not authorize changes to customer-owned
-DNS or optional Cloudflare for SaaS hostnames.
+**Status: required default topology, but not provisioned. No WAF rule or
+production route has been created.** The requested shared
+`*.sites.mithril.love` Worker route remains disabled until a host-scoped edge
+guard, deep-host TLS, provider cost boundary, and rollback pass read-back. The
+optional capped Pages exact-host path is separate and does not replace this
+default; see `docs/design/mithrilpress-static-publication.md`. This file does
+not authorize changes to customer-owned DNS or optional Cloudflare for SaaS
+hostnames.
 
 ## Request and quota boundary
 
-The default host `*.sites.mithril.love` shares the existing parent zone with
-unrelated hostnames. A Cloudflare route can match the platform wildcard, but a
-Free WAF rate-limiting rule cannot safely protect it by itself.
+The wildcard Worker route would share the existing parent zone with unrelated
+hostnames. A Cloudflare route can match the platform wildcard, but a Free WAF
+rate-limiting rule cannot safely protect it by itself. Optional Pages exact
+custom domains do not need this wildcard ingress; the default Worker still
+does.
 
 Cloudflare's current Free rate-limiting rules support only Path and Verified Bot
 fields in the rule expression. They do not support host matching. A path rule
@@ -17,11 +23,11 @@ on the parent zone would count and block requests to unrelated hosts whenever
 their paths match. Do not create or enable the previously proposed path-only
 MithrilPress rule on the parent zone.
 
-Cloudflare documents standalone subdomain-zone setup as Enterprise-only. The
-default hostname therefore cannot be isolated into a child zone under the
-current parent-zone arrangement. Keep the public Worker route and onboarding
-disabled until a host-scoped edge guard or an approved isolated hosting zone is
-available.
+Cloudflare documents standalone subdomain-zone setup as Enterprise-only. Keep
+the wildcard Worker route and onboarding disabled until a host-scoped control
+or approved isolated hosting zone is available. The optional Pages path binds
+each selected exact hostname to its own static project and still requires
+deep-host TLS and account-cap qualification.
 
 ## Gate before provisioning
 
@@ -39,7 +45,8 @@ available.
    still behave normally.
 5. Record the provider read-back, canary evidence, rollback action, and owner.
    If host scoping, plan, cost boundary, or rollback cannot be verified, keep
-   the wildcard route disabled.
+   the wildcard route disabled. For the Pages candidate, follow the separate
+   project, exact-domain, static-asset, and capacity gates in the design doc.
 
 ## Limits that remain
 

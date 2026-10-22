@@ -96,28 +96,49 @@ publishing. Owner identity provisioning remains out of band.
 
 ## Cloudflare hosting
 
-The initial runtime is a single MithrilPress Worker, D1, and R2. The default
-hostname `*.sites.mithril.love` uses the existing parent zone; it does not need
-a child zone or NS delegation. Cloudflare standalone subdomain-zone setup is
-Enterprise-only. Create a proxied wildcard DNS record and a Worker route
-`*.sites.mithril.love/*` on the parent zone only after the hosting plan,
-security controls, cost boundary, and rollback have been verified.
+The current prototype is a tenant-aware MithrilPress Worker, D1, and R2. Public
+delivery is not deployed. The required default topology is one shared Worker
+with an exact D1 hostname registry, reached through the requested wildcard
+host `*.sites.mithril.love`. No tenant code is executed. Provisioning this
+route remains gated on deep-host TLS, host-scoped ingress protection, account
+cost controls, exact-source qualification, and rollback.
 
-Keep `workers.dev` disabled and configure the route to fail closed when the
-Workers Free account-wide daily request limit is reached. Cloudflare returns
-Error 1027 at that limit; fail-open routing bypasses the Worker. The Free limit
-is shared across the account and does not apply as a hard daily stop on Workers
-Paid. The Worker normalizes the hostname, rejects reserved and unknown labels,
-then looks up the complete hostname in D1. Host labels never grant tenant
-identity. Content queries carry both site and revision IDs and use prepared
-statements. Owner credentials are per-site salted SHA-256 token hashes with
-narrowly scoped permissions; plaintext tokens are provisioned out of band.
+The separate [optional static publication design](mithrilpress-static-publication.md)
+can publish an owner-approved revision to one capped Cloudflare Pages project
+with one exact custom hostname per selected site. It does not replace or
+provision the default wildcard Worker route. Pages may create the exact CNAME
+in Cloudflare-managed DNS after confirmation. Deep-host TLS, per-account Pages
+cap, paid control-plane usage, and rollback still require qualification.
+Because a Pages project's `*.pages.dev` hostname is also public, only
+owner-approved published revisions may be deployed there.
+
+Keep private preview, chat, import, and owner APIs on the authenticated
+MithrilPress Worker. If the optional Pages adapter is used, a Pages Function
+may serve only explicitly supported WordPress REST paths after `_routes.json`
+proves other public requests bypass Functions. Pages static assets do not make
+control-plane, Function, D1, AI, or R2 usage free.
+
+Keep `workers.dev` disabled for the control Worker. It normalizes the hostname,
+rejects reserved and unknown labels, then looks up the complete hostname in
+D1. Host labels never grant tenant identity. Content queries carry both site
+and revision IDs and use prepared statements. Owner credentials are per-site
+salted SHA-256 token hashes with narrowly scoped permissions; plaintext tokens
+are provisioned out of band. A separate Pages Function or control-plane
+request can still consume account Workers usage. The candidate Pages REST
+Function uses MithrilPress D1 counters to stop returning content at application
+caps, but every over-cap attempt still invokes a metered Function. The account
+plan is not verified, so do not enable those paths until the provider usage
+boundary is read back. The Pages API `fail_open` field concerns deployment
+configuration failures; it is not the Pages Free daily request-exhaustion
+setting.
 
 The parent zone serves unrelated hostnames. Cloudflare Free rate-limiting rules
 support path and Verified Bot fields, but not host matching. A path-only rule
 would also affect unrelated hosts, so no parent-zone Free rate-limit rule is a
-safe MithrilPress edge guard. Keep public routing disabled until a host-scoped
-edge guard or an approved isolated hosting zone is available. See the
+safe MithrilPress edge guard. The wildcard Worker ingress remains disabled
+until a safe host-scoped control or isolated zone is qualified. Optional Pages
+static delivery avoids that shared ingress for selected exact-host sites, but
+does not make control-plane, Pages Function, D1, AI, or R2 usage free. See the
 [edge-protection gate](../operations/mithrilpress-free-edge-protection.md).
 
 `apps/mithrilpress-worker/` provides the Worker handler, D1 migration, token
@@ -131,10 +152,10 @@ random site-scoped object keys and D1 metadata. Uploads check file signatures,
 declared dimensions, MIME type, and byte length. They do not fetch external
 WordPress media URLs or remove image metadata.
 
-The checked-in Wrangler example has no custom route and disables `workers.dev`.
-No Cloudflare resources, wildcard DNS, credentials, or public hostnames were
-created by this implementation. Production route configuration and deployment
-remain separate release work.
+The checked-in Wrangler example has no route and disables `workers.dev`. No
+MithrilPress Pages project, custom domain, DNS record, production credential,
+or public hostname has been created. The default wildcard Worker route and the
+optional Pages publication path both remain separate release work.
 
 The pricing policy is free for site owners; the hosting operator is responsible
 for provider charges. This is not a zero-cost provider commitment. Workers Free
@@ -270,9 +291,11 @@ describes routing custom-hostname traffic through the SaaS zone's Worker route.
 The Cloudflare product the original idea may have been recalling is
 **Workers for Platforms**. Its dispatch namespaces suit a service that executes
 customer Workers. MithrilPress owns the renderer and does not accept tenant
-code, so one ordinary Worker with a wildcard route and D1 is the suitable first
-version. Revisit Workers for Platforms only if customer-authored code becomes a
-reviewed product requirement. See [Workers for Platforms](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/)
+code, so the current static-hosting candidate uses one Pages project and exact
+custom domain per site. The Pages account limit is 100 projects; if the
+product reaches its 90-site hard cap, stop onboarding and revisit a separately
+funded scale design. Do not switch to Workers for Platforms automatically.
+See [Workers for Platforms](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/)
 and [Cloudflare hostname routing](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/configuration/hostname-routing/).
 
 The feature gates, implemented DNS migration steps, and remaining operator

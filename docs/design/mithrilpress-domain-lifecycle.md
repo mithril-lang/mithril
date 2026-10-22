@@ -20,15 +20,21 @@ refresh a suspended hostname after the checks pass.
 
 | Type | Setup | Control | Initial availability |
 | --- | --- | --- | --- |
-| MithrilPress subdomain | MithrilPress assigns one unique label, such as `example.sites.mithril.love` | MithrilPress controls the wildcard zone and hostname registry | First release target; requires the wildcard route and tenant provisioning |
+| MithrilPress subdomain (default) | One shared MithrilPress Worker and D1 registry serves `*.sites.mithril.love` through a wildcard DNS record and Worker route | MithrilPress controls the platform zone and exact hostname registry; the owner keeps their registrar and nameservers | Required default topology; disabled pending deep-host TLS, host-scoped ingress, cost, rollback, and release qualification |
+| Optional static publication | A separately selected Pages Direct Upload project attaches one exact name, such as `example.sites.mithril.love`; the existing Cloudflare zone adds its CNAME after confirmation | MithrilPress controls that Pages project and exact hostname; the owner keeps their registrar and nameservers | Optional and capped at 90 projects; requires isolated deep-host TLS and separate release qualification |
 | Customer-owned hostname | Customer adds owner-proof and provider TLS TXT records plus a DNS-only CNAME; MithrilPress verifies ownership and provisions a Cloudflare for SaaS custom hostname | Customer retains DNS and registrar control | Subdomains only; apex and wildcard customer hostnames are excluded from this prototype |
 | Nameserver migration plan | Owner proves control, uploads or reads source and staged destination zones, reviews exact record diff, approves a digest, then changes registrar settings manually | Owner retains DNS-provider and registrar control; any Cloudflare API token is zone-scoped and request-only | Optional guided plan; provider import is disabled by default pending isolated-zone qualification |
 
 Cloudflare for SaaS custom hostnames and Workers for Platforms solve different
-problems. MithrilPress should use SaaS custom hostnames for customer domains;
-the renderer runs MithrilPress code and does not execute tenant code. Keep the
-default product on the supplied `sites.mithril.love` subdomain if the customer
-does not choose or qualify a custom domain.
+problems. MithrilPress should use SaaS custom hostnames for customer-owned
+domains; the renderer runs MithrilPress code and does not execute tenant code.
+The default product hostname uses the shared Worker with a wildcard DNS record
+and Worker route for `*.sites.mithril.love`; each request resolves the complete
+hostname through the tenant registry. This route remains disabled until the
+deep-host certificate and host-scoped ingress guard are qualified. The optional
+Pages publication mode uses an exact custom domain per selected site and does
+not change the default topology. Neither path transfers customer nameservers
+or registrar control.
 
 ## Customer hostname state machine
 

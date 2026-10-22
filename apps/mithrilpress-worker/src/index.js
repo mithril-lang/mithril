@@ -6,8 +6,10 @@ import { collectWordPressMediaReferences, inspectWordPressBlocks } from "./wordp
 import { buildWordPressPermalinkMap, rewriteWordPressLink } from "./wordpress_links.js";
 import { selectWordPressSeoMetadata } from "./wordpress_seo.js";
 import { parseWordPressWxr } from "./wxr_import.js";
+import { consumeHostingRequest } from "./hosting_request_limits.js";
 
 const SITE_ZONE = "sites.mithril.love";
+const CONTROL_HOST = "control.mithril.love";
 const CUSTOM_DOMAIN_LIMIT_PER_SITE = 10;
 const CUSTOM_DOMAIN_LIMIT_PER_DEPLOYMENT = 90;
 const CUSTOM_DOMAIN_HEALTH_BATCH_SIZE = 30;
@@ -136,13 +138,6 @@ function mediaQuotaResponse(code) {
     : fail(409, "deployment_media_quota_exceeded", "The shared image storage pool is full. New image uploads are paused until the operator removes media.");
 }
 
-function hostingRequestQuotaCode(error) {
-  const message = String(error?.message ?? error ?? "");
-  if (message.includes("site_daily_hosting_request_limit")) return "site_daily_hosting_request_limit";
-  if (message.includes("deployment_daily_hosting_request_limit")) return "deployment_daily_hosting_request_limit";
-  return null;
-}
-
 function d1ProviderLimitReached(error) {
   const message = String(error?.message ?? error ?? "").toLowerCase();
   return message.includes("exceeded d1's free tier daily row read limit")
@@ -164,22 +159,8 @@ function hostingRequestQuotaResponse(code, date = new Date()) {
 }
 
 async function checkHostingRequest(env, siteId = null, date = new Date()) {
-  const dayUtc = date.toISOString().slice(0, 10);
-  try {
-    const statement = siteId === null
-      ? env.DB.prepare(
-        "INSERT INTO mithrilpress_deployment_daily_requests (singleton, day_utc, request_count) VALUES (1, ?, 1) ON CONFLICT(singleton) DO UPDATE SET day_utc = excluded.day_utc, request_count = CASE WHEN mithrilpress_deployment_daily_requests.day_utc = excluded.day_utc THEN mithrilpress_deployment_daily_requests.request_count + 1 ELSE 1 END",
-      ).bind(dayUtc)
-      : env.DB.prepare(
-          "INSERT INTO mithrilpress_site_daily_requests (site_id, day_utc, request_count) VALUES (?, ?, 1) ON CONFLICT(site_id) DO UPDATE SET day_utc = excluded.day_utc, request_count = CASE WHEN mithrilpress_site_daily_requests.day_utc = excluded.day_utc THEN mithrilpress_site_daily_requests.request_count + 1 ELSE 1 END",
-        ).bind(siteId, dayUtc);
-    await env.DB.batch([statement]);
-    return null;
-  } catch (error) {
-    const code = hostingRequestQuotaCode(error);
-    if (code) return hostingRequestQuotaResponse(code, date);
-    throw error;
-  }
+  const code = await consumeHostingRequest(env, siteId, date);
+  return code ? hostingRequestQuotaResponse(code, date) : null;
 }
 
 async function countMediaWrite(env, limit, date = new Date()) {
@@ -2146,6 +2127,102 @@ async function publishRevision(request, env, site, revisionId) {
   return json({ revision_id: revisionId, state: "published", published_at: now });
 }
 
+async function publicationSnapshot(request, env, site) {
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    return fail(405, "method_not_allowed", "Publication snapshots are read-only.");
+  }
+  const owner = await ownerToken(request, env, site, "site:publish");
+  if (!owner) return fail(401, "owner_authorization_required", "An active site:publish owner token is required.");
+  if (site.status !== "active" || !site.current_revision_id) {
+    return fail(404, "publication_not_found", "This site has no published revision.");
+  }
+
+  const revision = await env.DB.prepare(
+    "SELECT r.id, r.published_at, r.approval_proof_id, r.entry_count FROM site_revisions r WHERE r.site_id = ? AND r.id = ? AND r.state = 'published' AND r.approval_proof_id IS NOT NULL AND EXISTS (SELECT 1 FROM owner_approvals a WHERE a.site_id = r.site_id AND a.revision_id = r.id AND a.proof_id = r.approval_proof_id) LIMIT 1",
+  ).bind(site.id, site.current_revision_id).first();
+  if (!revision) return fail(404, "publication_not_found", "This site has no owner-approved published revision.");
+
+  const [entryRows, termRows, mediaRows] = await Promise.all([
+    env.DB.prepare(
+      `SELECT api_id, source_id, kind, slug, title, safe_html, language_code, source_date, source_date_gmt, source_modified, source_modified_gmt, categories_json, tags_json, featured_media_id, ${SEO_METADATA_SELECT} FROM entries WHERE site_id = ? AND revision_id = ? AND publication_status = 'published' AND rendering_admission = 'ready' ORDER BY kind ASC, api_id ASC`,
+    ).bind(site.id, revision.id).all(),
+    env.DB.prepare(
+      "SELECT taxonomy, term_id, slug, name, description_html, parent_term_id FROM taxonomy_terms WHERE site_id = ? AND revision_id = ? ORDER BY taxonomy ASC, term_id ASC",
+    ).bind(site.id, revision.id).all(),
+    env.DB.prepare(
+      "SELECT DISTINCT a.id, a.wordpress_source_id, a.content_type, a.byte_length, a.sha256, a.width, a.height, a.alt_text, a.created_at FROM media_assets a WHERE a.site_id = ? AND a.status = 'active' AND EXISTS (SELECT 1 FROM entries e WHERE e.site_id = a.site_id AND e.revision_id = ? AND e.publication_status = 'published' AND (e.featured_media_id IN (a.id, a.wordpress_source_id) OR EXISTS (SELECT 1 FROM entry_media em WHERE em.site_id = e.site_id AND em.revision_id = e.revision_id AND em.entry_id = e.entry_id AND em.media_id = a.id))) ORDER BY a.id ASC",
+    ).bind(site.id, revision.id).all(),
+  ]);
+  const entries = entryRows.results ?? [];
+  const terms = termRows.results ?? [];
+  const media = mediaRows.results ?? [];
+  if (entries.length === 0 || entries.length > revision.entry_count) {
+    return fail(503, "publication_snapshot_incomplete", "The published revision is incomplete and cannot be exported.");
+  }
+
+  const payload = {
+    schema_version: 1,
+    site_id: site.id,
+    hostname: site.hostname,
+    revision: {
+      id: revision.id,
+      published_at: revision.published_at,
+      approval_proof_id: revision.approval_proof_id,
+      source_entry_count: Number(revision.entry_count),
+      published_entry_count: entries.length,
+    },
+    entries,
+    terms,
+    media,
+  };
+  const digest = hex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(payload))));
+  if (request.method === "HEAD") {
+    return response(null, 200, {
+      "Content-Type": "application/json; charset=utf-8",
+      "X-MithrilPress-Revision": revision.id,
+      "X-MithrilPress-Snapshot-SHA256": digest,
+      "Cache-Control": "private, no-store",
+    });
+  }
+  return json({ ...payload, digest_sha256: digest }, 200, {
+    "X-MithrilPress-Revision": revision.id,
+    "Cache-Control": "private, no-store",
+  });
+}
+
+async function publicationMedia(request, env, site, revisionId, mediaId) {
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    return fail(405, "method_not_allowed", "Publication media is read-only.");
+  }
+  const owner = await ownerToken(request, env, site, "site:publish");
+  if (!owner) return fail(401, "owner_authorization_required", "An active site:publish owner token is required.");
+  if (!env.MEDIA) return fail(503, "media_storage_unavailable", "Image storage is not configured for this hosting deployment.");
+  if (!/^[a-f0-9-]{36}$/.test(revisionId) || site.current_revision_id !== revisionId) {
+    return fail(404, "publication_not_found", "The requested revision is not the current publication.");
+  }
+
+  const asset = await env.DB.prepare(
+    "SELECT a.id, a.object_key, a.content_type, a.byte_length, a.sha256 FROM media_assets a WHERE a.site_id = ? AND a.id = ? AND a.status = 'active' AND EXISTS (SELECT 1 FROM site_revisions r WHERE r.site_id = a.site_id AND r.id = ? AND r.state = 'published' AND r.approval_proof_id IS NOT NULL AND EXISTS (SELECT 1 FROM owner_approvals o WHERE o.site_id = r.site_id AND o.revision_id = r.id AND o.proof_id = r.approval_proof_id)) AND EXISTS (SELECT 1 FROM entries e WHERE e.site_id = a.site_id AND e.revision_id = ? AND e.publication_status = 'published' AND (e.featured_media_id IN (a.id, a.wordpress_source_id) OR EXISTS (SELECT 1 FROM entry_media em WHERE em.site_id = e.site_id AND em.revision_id = e.revision_id AND em.entry_id = e.entry_id AND em.media_id = a.id))) LIMIT 1",
+  ).bind(site.id, mediaId, revisionId, revisionId).first();
+  if (!asset) return fail(404, "media_not_found", "Media item not found in the current publication.");
+
+  const readLimit = await countMediaRead(env, site.id);
+  if (readLimit === "site") return fail(429, "site_media_daily_read_limit", "This site's daily image delivery allowance is exhausted. It resets at 00:00 UTC.");
+  if (readLimit === "deployment") return fail(429, "deployment_media_daily_read_limit", "The shared free image delivery allowance is exhausted for today. It resets at 00:00 UTC.");
+  const object = request.method === "HEAD" ? await env.MEDIA.head(asset.object_key) : await env.MEDIA.get(asset.object_key);
+  if (!object) return fail(404, "media_not_found", "Media item not found.");
+  return response(request.method === "HEAD" ? null : object.body, 200, {
+    "Content-Type": asset.content_type,
+    "Content-Length": String(asset.byte_length),
+    "ETag": object.httpEtag ?? object.etag,
+    "X-MithrilPress-Media-SHA256": asset.sha256,
+    "X-Content-Type-Options": "nosniff",
+    "Content-Security-Policy": "default-src 'none'; sandbox",
+    "Cache-Control": "private, no-store",
+    "Cross-Origin-Resource-Policy": "same-site",
+  });
+}
+
 function parsePathSegment(value) {
   try {
     return decodeURIComponent(value);
@@ -2551,13 +2628,30 @@ async function handleRequest(request, env) {
   const deploymentLimit = await checkHostingRequest(env);
   if (deploymentLimit) return deploymentLimit;
 
+  const url = new URL(request.url);
+  const controlPublicationCurrentMatch = /^\/_mithrilpress\/api\/control\/sites\/([a-f0-9-]{36})\/publication\/current$/.exec(url.pathname);
+  const controlPublicationMediaMatch = /^\/_mithrilpress\/api\/control\/sites\/([a-f0-9-]{36})\/publication\/revisions\/([a-f0-9-]{36})\/media\/(\d+)$/.exec(url.pathname);
+  if (controlPublicationCurrentMatch || controlPublicationMediaMatch) {
+    if (url.hostname !== CONTROL_HOST) return fail(404, "site_not_found", "Site not found.");
+    if (url.search) return fail(400, "invalid_publication_request", "Publication control requests do not accept query parameters.");
+    const siteId = controlPublicationCurrentMatch?.[1] ?? controlPublicationMediaMatch[1];
+    const site = await env.DB.prepare(
+      "SELECT id, hostname, status, current_revision_id FROM sites WHERE id = ? LIMIT 1",
+    ).bind(siteId).first();
+    if (!site || site.status !== "active") return fail(404, "site_not_found", "Site not found.");
+    const siteLimit = await checkHostingRequest(env, site.id);
+    if (siteLimit) return siteLimit;
+    if (controlPublicationCurrentMatch) return await publicationSnapshot(request, env, site);
+    const mediaId = Number(controlPublicationMediaMatch[3]);
+    if (!Number.isSafeInteger(mediaId) || mediaId < 1) return fail(404, "media_not_found", "Media item not found.");
+    return await publicationMedia(request, env, site, controlPublicationMediaMatch[2], mediaId);
+  }
+
   const site = await resolveSite(request, env);
   if (!site || site.status !== "active") return fail(404, "site_not_found", "Site not found.");
 
   const siteLimit = await checkHostingRequest(env, site.id);
   if (siteLimit) return siteLimit;
-
-  const url = new URL(request.url);
 
   if (url.pathname === "/_mithrilpress/studio" || url.pathname === "/_mithrilpress/studio/" || url.pathname === "/_mithrilpress/studio.html") {
     return await studioAsset(request, env, "/studio.html");
