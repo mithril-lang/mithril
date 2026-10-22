@@ -1,4 +1,4 @@
-import { consumeHostingRequest } from "../../../../src/hosting_request_limits.js";
+import { consumeHostingRequestForSite } from "../../../../src/hosting_request_limits.js";
 
 const INDEX_PATH = "/_mithrilpress-wp-api/index.json";
 const MAX_INDEX_BYTES = 25 * 1024 * 1024;
@@ -319,10 +319,8 @@ export async function onRequest(context) {
     return fail(503, "publication_data_unavailable", "The published WordPress compatibility index is unavailable.");
   }
   try {
-    const deploymentLimit = await consumeHostingRequest(context.env);
-    if (deploymentLimit) return requestQuotaFailure(deploymentLimit);
-    const siteLimit = await consumeHostingRequest(context.env, catalog.site_id);
-    if (siteLimit) return requestQuotaFailure(siteLimit);
+    const quotaLimit = await consumeHostingRequestForSite(context.env, catalog.site_id);
+    if (quotaLimit) return requestQuotaFailure(quotaLimit);
   } catch (error) {
     if (d1ProviderLimitReached(error)) {
       return fail(503, "provider_usage_limit", "Hosting is temporarily unavailable because a Cloudflare D1 usage limit has been reached.");

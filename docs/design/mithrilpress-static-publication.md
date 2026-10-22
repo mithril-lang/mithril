@@ -293,13 +293,15 @@ Worker and any REST Function. Workers Free has a 100,000-request daily account
 limit; a Workers Standard/Paid account can bill overages and does not supply
 this daily hard stop. The REST Function uses the shared MithrilPress D1 caps
 to stop returning content after 5,000 requests per site/day or 25,000 requests
-across the deployment/day. Each over-cap attempt still invokes the Function
-and can consume provider usage, so these application caps are not a billing
-hard stop. The current Cloudflare connection lacks Billing Read, so the
-subscription is unverified. Keep production REST Functions and paid
-control-plane use disabled until the account billing state and an enforceable
-operator budget are read back. Keep site-owner plans free; at every product
-cap, stop new writes, uploads, AI requests, and onboarding without switching
+across the deployment/day. The Function charges both counters in one D1
+transaction; a rejected site request rolls back the shared counter update.
+Each over-cap attempt still invokes the Function and can consume provider
+usage, so these application caps are not a billing hard stop. The current
+Cloudflare connection lacks Billing Read, so the subscription is unverified.
+Keep production REST Functions and paid control-plane use disabled until the
+account billing state and an enforceable operator budget are read back. Keep
+site-owner plans free; at every product cap, stop new writes, uploads, AI
+requests, and onboarding without switching
 tiers or billing the owner. The publisher does not configure or verify the
 separate Pages Free request-exhaustion behavior.
 

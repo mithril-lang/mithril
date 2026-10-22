@@ -184,8 +184,10 @@ before filtering or returning content and fails closed when D1 is unavailable
 or a limit is reached. The digest covers both the Function and its shared quota
 helper. Site owners are never charged; Pages Function requests are still
 metered to the operator, and application caps are not a provider billing cap
-on a Workers Paid account. Each over-cap REST attempt still invokes a metered
-Function to read the application counter.
+on a Workers Paid account. Each over-cap REST attempt still invokes the
+Function and a metered D1 transaction to enforce the application counter; the
+shared and site counters are charged atomically, so a rejected site request
+does not consume the deployment allowance.
 
 The publisher refuses `_worker.js`, arbitrary Functions routes, extra files,
 symlinks, and bundles above the existing 5,000-file / 300 MB product caps.
