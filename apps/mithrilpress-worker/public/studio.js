@@ -4,6 +4,8 @@ let activeDraft = null;
 let ownerScopes = [];
 let selectedFeaturedMediaId = null;
 let mediaItems = [];
+let pendingMediaItems = [];
+let pendingMediaTruncated = false;
 
 const loginPanel = document.querySelector("#login-panel");
 const studioPanel = document.querySelector("#studio-panel");
@@ -417,8 +419,51 @@ function renderMediaList() {
   if (!mediaItems.length) {
     const empty = document.createElement("li");
     empty.className = "empty-state";
-    empty.textContent = "No images have been uploaded.";
+    empty.textContent = "No images are available in this library.";
     mediaList.append(empty);
+  }
+  const pendingList = document.querySelector("#media-pending-list");
+  pendingList.replaceChildren();
+  for (const item of pendingMediaItems) {
+    const card = document.createElement("li");
+    card.className = "media-card";
+    const details = document.createElement("div");
+    details.className = "media-details";
+    const title = document.createElement("strong");
+    title.textContent = item.status === "deleting" ? `Removal pending · Image ${item.id}` : `Upload pending · Image ${item.id}`;
+    const metadata = document.createElement("span");
+    metadata.textContent = item.safe_to_remove
+      ? "The completed storage write is verified. You can safely retry removal."
+      : "The storage result is unknown. This image remains private and its reservation remains counted; contact the hosting operator before retrying the import.";
+    details.append(title, metadata);
+    const actions = document.createElement("div");
+    actions.className = "media-actions";
+    if (item.safe_to_remove) {
+      actions.append(domainButton("Retry safe removal", "domain-remove", async () => {
+        try {
+          await api(`/_mithrilpress/api/media/${item.id}`, { method: "DELETE", headers: requestHeader });
+          await refreshMedia();
+          await refreshUsage();
+          showStatus(mediaStatus, "The image and its storage reservation were removed.");
+        } catch (error) {
+          showStatus(mediaStatus, error.message);
+        }
+      }));
+    }
+    card.append(details, actions);
+    pendingList.append(card);
+  }
+  if (!pendingMediaItems.length) {
+    const empty = document.createElement("li");
+    empty.className = "empty-state";
+    empty.textContent = "No uploads need reconciliation.";
+    pendingList.append(empty);
+  }
+  if (pendingMediaTruncated) {
+    const notice = document.createElement("li");
+    notice.className = "empty-state";
+    notice.textContent = "More than 25 uploads need reconciliation. Contact the hosting operator before retrying an import.";
+    pendingList.append(notice);
   }
   renderFeaturedImageSelection();
 }
@@ -429,6 +474,8 @@ async function refreshMedia() {
   try {
     const result = await api("/_mithrilpress/api/media");
     mediaItems = result.media || [];
+    pendingMediaItems = result.pending_uploads || [];
+    pendingMediaTruncated = result.pending_uploads_truncated === true;
     const used = (Number(result.storage.used_bytes) / (1024 * 1024)).toFixed(2);
     const limit = (Number(result.storage.site_limit_bytes) / (1024 * 1024)).toFixed(0);
     document.querySelector("#media-storage-usage").textContent = `${used} MiB of ${limit} MiB used`;
@@ -864,6 +911,7 @@ document.querySelector("#media-upload-form").addEventListener("submit", async (e
     await refreshMedia();
     await refreshUsage();
   } catch (error) {
+    await refreshMedia();
     showStatus(mediaStatus, error.message);
   } finally {
     button.disabled = false;
