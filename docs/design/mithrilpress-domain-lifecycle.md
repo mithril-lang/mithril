@@ -20,7 +20,7 @@ refresh a suspended hostname after the checks pass.
 
 | Type | Setup | Control | Initial availability |
 | --- | --- | --- | --- |
-| MithrilPress subdomain | MithrilPress assigns one unique label, such as `example.sites.mithril.love`, then an operator attaches that exact hostname as a Worker Custom Domain | MithrilPress controls the parent zone and exact hostname registry | First release target; requires per-host Custom Domain attachment and tenant provisioning |
+| MithrilPress subdomain | One platform-wide proxied wildcard DNS record and Worker Route send `*.sites.mithril.love` to MithrilPress; an owner-approved D1 mapping activates one site | MithrilPress controls the parent zone and exact hostname registry | First release target; requires wildcard TLS certificate, edge abuse control, provider-cost stop, and tenant approval |
 | Customer-owned hostname | Customer adds owner-proof and provider TLS TXT records plus a DNS-only CNAME; MithrilPress verifies ownership and provisions a Cloudflare for SaaS custom hostname | Customer retains DNS and registrar control | Subdomains only; apex and wildcard customer hostnames are excluded from this prototype |
 | Nameserver migration plan | Owner proves control, uploads or reads source and staged destination zones, reviews exact record diff, approves a digest, then changes registrar settings manually | Owner retains DNS-provider and registrar control; any Cloudflare API token is zone-scoped and request-only | Optional guided plan; provider import is disabled by default pending isolated-zone qualification |
 
@@ -32,30 +32,26 @@ does not choose or qualify a custom domain.
 
 ## Platform-managed subdomain routing
 
-`*.sites.mithril.love` describes the address namespace; it is not a wildcard
-DNS record or Worker route. In Cloudflare account `fund-mithril`, the active
-`mithril.love` parent zone is Free Website. Attach each assigned hostname to
-the MithrilPress Worker with Cloudflare Workers Custom Domains. Cloudflare
-creates DNS and TLS for that exact hostname. An unregistered label has no
-platform DNS record and does not invoke the Worker. The Worker still resolves
-the full hostname against the exact tenant registry and serves only an active
-site's published revision; do not trust a hostname label as tenant identity.
+`*.sites.mithril.love` is implemented as one proxied wildcard DNS record and
+one wildcard Worker Route in the existing `fund-mithril` account's active
+`mithril.love` zone. The wildcard route matches site subdomains, not the
+`sites.mithril.love` apex. It sends arbitrary labels to the Worker, so a D1
+tenant record alone does not prevent unknown-host traffic from consuming
+Worker and D1 resources. The Worker resolves the full hostname against the
+exact tenant registry and serves only an active site's published revision; do
+not trust a hostname label as tenant identity.
 
-Custom Domain attachment routes the entire hostname to the Worker as soon as
-Cloudflare enables it. Require owner approval for publication, exact-source
-qualification, a verified provider-cost boundary, and an operator rollback
-before attaching a production hostname. Suspend a site before detaching when
-immediate content removal is required, then read back both the Worker Domain
-and DNS state. Cloudflare currently limits a zone to 100 Worker Custom
-Domains; plan another routing design before reaching the provider limit. The
-operator CLI and token scope are documented in the Worker README and
-`mithrilpress-cloudflare-auth.md`.
-
-Exact Custom Domains prevent arbitrary, unregistered subdomains from reaching
-the Worker. They do not rate-limit requests to an attached hostname or cap
-Worker billing. The app's shared request counter also runs after invocation.
-Keep public routing disabled until the active-host abuse controls and account
-cost boundary are verified.
+The latest read-only inventory found only Universal SSL coverage for
+`mithril.love` and `*.mithril.love`, not `*.sites.mithril.love`. Do not enable
+the wildcard DNS or route until an active deeper wildcard certificate is read
+back, its cost is explicitly accepted, the account Workers plan is verified,
+edge abuse controls and a provider-cost stop are in place, exact-source
+qualification has passed, and rollback is demonstrated. Per-site publication
+still requires a separate owner approval and exact active D1 mapping. Suspend
+the site mapping first when content must stop immediately; to disable the
+platform route, remove the route before removing the wildcard DNS record. The
+read-only-by-default operator CLI and token scope are documented in the Worker
+README and `mithrilpress-cloudflare-auth.md`.
 
 ## Customer hostname state machine
 
@@ -201,7 +197,7 @@ Registrar changes remain manual.
   to D1, and should be revoked after use; grant `DNS Write` only for the
   explicit additive import operation.
 
-## Rollout gates
+## Optional Cloudflare for SaaS rollout gates
 
 The implementation remains disabled until the following are read back: a
 dedicated `sites.mithril.love` SaaS zone delegated safely from `mithril.love`,

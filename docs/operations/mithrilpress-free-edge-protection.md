@@ -1,74 +1,86 @@
 # MithrilPress Free Edge Protection
 
-**Status: deployment gate only. No MithrilPress Worker Custom Domain, DNS
-record, or public hostname has been created.** This guide covers the default
-`*.sites.mithril.love` address namespace in the existing parent zone. It does
-not authorize changes to customer-owned DNS or optional Cloudflare for SaaS
-hostnames.
+**Status: deployment gate only. No MithrilPress Worker route or DNS record has
+been created.** This guide covers the default `*.sites.mithril.love` namespace
+in the existing parent zone. It does not authorize changes to customer-owned
+DNS or optional Cloudflare for SaaS hostnames.
 
-## Exact-host routing
+## Wildcard routing model
 
-The selected Cloudflare account is `fund-mithril` and the active
-`mithril.love` zone is Free Website. Cloudflare Workers Custom Domains is the
-default-host routing model: attach one exact hostname, and Cloudflare creates
-its DNS record and certificate and routes the entire hostname to the Worker.
-The current limit is 100 Custom Domains per zone. Do not create a wildcard DNS
-record or wildcard Worker route. An unregistered label has no MithrilPress DNS
-record and cannot invoke the Worker.
+The selected Cloudflare account is `fund-mithril`, and its active
+`mithril.love` zone is Free Website. Global subdomain hosting requires one
+proxied wildcard DNS record and one Worker Route for
+`*.sites.mithril.love/*`. Cloudflare limits Worker Custom Domains to 100 per
+zone and recommends wildcard routes for larger sets; MithrilPress does not
+need per-site Worker Custom Domains because one Worker resolves exact tenant
+hostnames in D1.
 
-An attached hostname is public as soon as Cloudflare enables it. Before
-attaching, verify the exact tenant mapping, owner publication approval,
-exact-source standalone qualification, Workers account plan, provider-cost
-boundary, and rollback. The operator CLI requires `--apply` and an exact
-`--confirm-hostname`; `attach` also requires `--confirm-publication` after
-checking owner approval. Its read-only `status` action checks the Worker Domain
-and DNS records. See [domain lifecycle](../design/mithrilpress-domain-lifecycle.md)
-and [Cloudflare credential boundaries](../design/mithrilpress-cloudflare-auth.md).
+The latest read-only certificate inventory found Universal SSL coverage for
+`mithril.love` and `*.mithril.love`, but not `*.sites.mithril.love`. A wildcard
+route must stay disabled until an active certificate covers that deeper name.
+The certificate option and its cost require an explicit operator decision.
+The Cloudflare account Workers subscription also needs an authorized read-back
+before public hosting.
+
+Wildcard DNS sends arbitrary labels, including unregistered names, to the
+Worker. MithrilPress currently increments its shared D1 request counter before
+hostname resolution. Unknown-host floods can therefore consume Worker
+invocations and D1 writes before the app returns 404 or reaches its cap. A
+wildcard route is not safe to expose until the service has a host-aware edge
+abuse control and a verified provider-cost stop.
 
 ## Active-host abuse and cost boundary
 
-Exact-host routing does not rate-limit an attached hostname. The shared
-MithrilPress request counter executes after Worker invocation, so requests
-rejected at the application cap can still consume Worker and D1 resources.
 Cloudflare Free rate-limiting expressions support Path and Verified Bot fields,
-but not Host matching. A path-only rule on the parent zone would affect
-unrelated `mithril.love` hosts; do not use one for MithrilPress protection.
+but not Host matching. A path-only rule on `mithril.love` would also affect
+unrelated websites in the parent zone, so do not use it as MithrilPress
+protection. Pro provides host matching, but its request counting still uses IP
+characteristics and does not itself stop account charges. Verify the actual
+plan, rule scope, and enforcement behavior before relying on it.
 
-The `fund-mithril` zone plan read is not the account-level Workers plan. The
-subscription endpoint could not be read with the current Cloudflare connection;
-a prior dashboard snapshot recorded Workers Paid. Workers Paid has no
-account-wide daily request hard stop. Workers Free has an account-wide daily
-limit, but the account shares it with unrelated Workers. D1 and R2 have separate
-account-wide quotas, and R2 excess usage can be billed without a provider
-hard-stop. Application caps do not establish a zero-cost provider boundary.
-Site owners pay nothing, and MithrilPress must stop processing at its caps;
-that promise does not authorize provider overages.
+MithrilPress caps requests per site and across its deployment. Those app caps
+run after a Worker invocation and D1 counter write, so they do not limit cost
+for requests rejected at the app layer. Workers Free has a daily account-wide
+hard request limit shared by unrelated Workers; Workers Paid has no account
+daily hard stop. D1 and R2 have separate account-wide allowances, and R2
+overages can be billed without a provider hard stop. Site owners pay nothing,
+and the service must stop at its cap; that promise does not authorize operator
+overages.
 
-## Gate before public hostname attachment
+## Gate before public route enablement
 
-1. Keep `workers.dev` disabled and do not create wildcard DNS or a wildcard
-   Worker route.
-2. Read back the account-level Workers subscription and current shared usage
-   through an authorized Cloudflare connection. Confirm that the selected plan
-   and its behavior can enforce the service's stop policy.
-3. Verify a control that limits floods to attached hostnames before they
-   consume unbounded provider resources, or keep public onboarding disabled.
-   Do not deploy a parent-zone Free path-only rate-limit rule.
-4. Qualify the exact Worker source and verify the tenant mapping and owner
-   publication approval before attaching a hostname. Canary application caps
-   and confirm that capped requests return the expected response.
-5. Record exact hostname, account, zone, Worker, DNS/TLS read-back, cap canary,
-   rollback, and responsible operator. To roll back, suspend serving first,
-   detach the exact Worker Domain, then verify it and its DNS record are gone.
+1. Keep `workers.dev`, wildcard DNS, and the wildcard Worker Route disabled.
+2. Read back the account-level Workers subscription, shared usage, R2 and D1
+   allowances, and the `*.sites.mithril.love` certificate. Resolve the
+   certificate entitlement and cost before ordering or enabling it.
+3. Establish a host-aware abuse control that protects the wildcard endpoint
+   without changing unrelated `mithril.love` sites. Confirm that unknown-host
+   traffic cannot cause unbounded D1 work or provider charges.
+4. Verify the stop-at-cap behavior for Worker, D1, R2, and AI usage. Account
+   budgets and application counters alone are not provider hard stops.
+5. Qualify the exact Worker source, then verify the wildcard DNS record, route,
+   certificate, tenant isolation, owner publication approval, and rollback.
+   Only then may the operator enable the platform route.
+6. Record account, zone, Worker, certificate, route, DNS, cap canary, rollback,
+   and responsible operator. To roll back, suspend public tenant mappings,
+   remove the wildcard route, then remove its DNS record and read back both.
 
-The product namespace currently fits within Cloudflare's documented 100 Custom
-Domains per zone. Plan another hosting topology before reaching that limit.
-Recheck provider quotas and pricing before each release.
+The CLI in `apps/mithrilpress-worker/scripts/provision-platform-route.mjs`
+is read-only unless `--apply` and the exact
+`--confirm-platform-host '*.sites.mithril.love'` are supplied. It checks the
+exact account/zone, deployed Worker, overlapping routes, routing-capable DNS
+records under the namespace, and a matching active certificate before it
+plans writes. It creates the route before DNS, removes the route before DNS,
+and verifies cleanup of newly created resources if final read-back fails.
+The CLI cannot buy a certificate, change the account plan, approve tenant
+publication, or supply the missing abuse and cost controls.
 
 ## Cloudflare references
 
-- [Workers Custom Domains](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/)
+- [Workers routes and wildcard patterns](https://developers.cloudflare.com/workers/configuration/routing/routes/)
 - [Workers limits, including Custom Domains per zone](https://developers.cloudflare.com/workers/platform/limits/)
+- [Universal SSL limitations](https://developers.cloudflare.com/ssl/edge-certificates/universal-ssl/limitations/)
+- [Advanced Certificate Manager](https://developers.cloudflare.com/ssl/edge-certificates/advanced-certificate-manager/)
 - [Workers authorization and route permissions](https://developers.cloudflare.com/workers/authorization/workers/)
 - [Rate-limiting rule availability and supported fields](https://developers.cloudflare.com/waf/rate-limiting-rules/)
 - [Rate-limit request counting and data-center locality](https://developers.cloudflare.com/waf/rate-limiting-rules/request-rate/)
