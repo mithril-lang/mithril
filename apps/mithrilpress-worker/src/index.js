@@ -1495,14 +1495,17 @@ async function studioChat(request, env, site) {
   const sameKindEntries = (baseEntries.results ?? []).filter((entry) => entry.kind === kind);
   const occupied = new Set(sameKindEntries.map((entry) => entry.slug));
   const occupiedRoutes = new Set((baseEntries.results ?? []).map((entry) => entry.route_path));
-  let routePath = currentDraft?.slug === slug && currentDraft.route_path
-    ? currentDraft.route_path
-    : defaultRoutePath({ kind, slug });
+  const hasStableDraftRoute = Boolean(currentDraft?.route_path);
+  // A revised title may produce a new WordPress slug, but the route selected
+  // for this conversation stays stable across private draft revisions.
+  let routePath = currentDraft?.route_path || defaultRoutePath({ kind, slug });
   if (occupied.has(slug) || occupiedRoutes.has(routePath)) {
     const suffix = conversation.id.replaceAll("-", "").slice(0, 10);
     const prefix = slug.slice(0, 180 - suffix.length - 1).replace(/-+$/g, "") || "entry";
     slug = `${prefix}-${suffix}`;
-    routePath = defaultRoutePath({ kind, slug });
+    if (!hasStableDraftRoute || occupiedRoutes.has(routePath)) {
+      routePath = defaultRoutePath({ kind, slug });
+    }
   }
   const apiId = Math.max(0, ...sameKindEntries.map((entry) => Number(entry.api_id) || 0)) + 1;
   if (!Number.isSafeInteger(apiId)) return fail(409, "site_content_limit", "The site has reached the WordPress-compatible identifier limit.");
@@ -1707,14 +1710,17 @@ async function studioManualDraft(request, env, site) {
   const sameKindEntries = (baseEntries.results ?? []).filter((entry) => entry.kind === kind);
   const occupied = new Set(sameKindEntries.map((entry) => entry.slug));
   const occupiedRoutes = new Set((baseEntries.results ?? []).map((entry) => entry.route_path));
-  let routePath = currentDraft?.slug === slug && currentDraft.route_path
-    ? currentDraft.route_path
-    : defaultRoutePath({ kind, slug });
+  const hasStableDraftRoute = Boolean(currentDraft?.route_path);
+  // Keep the conversation's chosen permalink stable when the owner edits the
+  // title or body of a private draft.
+  let routePath = currentDraft?.route_path || defaultRoutePath({ kind, slug });
   if (occupied.has(slug) || occupiedRoutes.has(routePath)) {
     const suffix = conversation.id.replaceAll("-", "").slice(0, 10);
     const prefix = slug.slice(0, 180 - suffix.length - 1).replace(/-+$/g, "") || "entry";
     slug = `${prefix}-${suffix}`;
-    routePath = defaultRoutePath({ kind, slug });
+    if (!hasStableDraftRoute || occupiedRoutes.has(routePath)) {
+      routePath = defaultRoutePath({ kind, slug });
+    }
   }
   const apiId = Math.max(0, ...sameKindEntries.map((entry) => Number(entry.api_id) || 0)) + 1;
   if (!Number.isSafeInteger(apiId)) return fail(409, "site_content_limit", "The site has reached the WordPress-compatible identifier limit.");
