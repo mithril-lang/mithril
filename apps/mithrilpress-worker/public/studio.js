@@ -2,6 +2,8 @@ const requestHeader = { "X-MithrilPress-Request": "1" };
 let activeConversationId = null;
 let activeDraft = null;
 let ownerScopes = [];
+let mediaSessionGeneration = 0;
+let mediaRefreshSequence = 0;
 let selectedFeaturedMediaId = null;
 let mediaItems = [];
 let pendingMediaItems = [];
@@ -99,6 +101,8 @@ function showStudioView(name) {
 }
 
 function setOwnerScopes(scopes = []) {
+  mediaSessionGeneration += 1;
+  mediaRefreshSequence += 1;
   ownerScopes = Array.isArray(scopes) ? scopes : [];
   defaultHostname.textContent = "";
   showStudioView(ownerScopes.includes("content:write") ? "content"
@@ -470,9 +474,14 @@ function renderMediaList() {
 
 async function refreshMedia() {
   if (!ownerScopes.includes("media:write")) return;
+  const sessionGeneration = mediaSessionGeneration;
+  const refreshSequence = ++mediaRefreshSequence;
   showStatus(mediaStatus);
   try {
     const result = await api("/_mithrilpress/api/media");
+    if (sessionGeneration !== mediaSessionGeneration
+        || refreshSequence !== mediaRefreshSequence
+        || !ownerScopes.includes("media:write")) return;
     mediaItems = result.media || [];
     pendingMediaItems = result.pending_uploads || [];
     pendingMediaTruncated = result.pending_uploads_truncated === true;
@@ -481,6 +490,9 @@ async function refreshMedia() {
     document.querySelector("#media-storage-usage").textContent = `${used} MiB of ${limit} MiB used`;
     renderMediaList();
   } catch (error) {
+    if (sessionGeneration !== mediaSessionGeneration
+        || refreshSequence !== mediaRefreshSequence
+        || !ownerScopes.includes("media:write")) return;
     showStatus(mediaStatus, error.message);
   }
 }
@@ -830,6 +842,8 @@ document.querySelector("#login-form").addEventListener("submit", async (event) =
 });
 
 document.querySelector("#logout-button").addEventListener("click", async () => {
+  mediaSessionGeneration += 1;
+  mediaRefreshSequence += 1;
   try {
     await api("/_mithrilpress/api/studio/session", { method: "DELETE", headers: requestHeader });
   } finally {
