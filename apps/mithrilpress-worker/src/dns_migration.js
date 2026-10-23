@@ -1007,14 +1007,14 @@ async function eraseOrCancel(request, env, site, migration, owner, api) {
   if (update.meta?.changes !== 1) {
     const latest = await getMigration(env, site, migration.id);
     if (latest?.snapshots_erased_at) {
-      return api.json({ migration: migrationSummary(latest), message: "The DNS migration snapshots have already been erased." });
+      return api.json({ migration: migrationSummary(latest), message: "The DNS migration snapshots have already been removed from active MithrilPress state. Cloudflare may retain earlier D1 states during its provider restore window." });
     }
-    return api.fail(409, "dns_migration_state_changed", "The DNS migration changed. Reload the current snapshot before erasing it.");
+    return api.fail(409, "dns_migration_state_changed", "The DNS migration changed. Reload the current snapshot before removing its active snapshot fields.");
   }
   const latest = await getMigration(env, site, migration.id);
   return api.json({ migration: migrationSummary(latest), message: completed
-    ? "Zone snapshots and TXT values were erased. The verification hashes and audit receipt remain."
-    : "The migration was cancelled and zone snapshots and TXT values were erased. No registrar or DNS provider changes were made by MithrilPress." });
+    ? "Zone snapshots and TXT values were removed from active D1 state. Verification hashes and the audit receipt remain. Cloudflare may retain earlier D1 states during its provider restore window."
+    : "The migration was cancelled and zone snapshots and TXT values were removed from active D1 state. Cloudflare may retain earlier D1 states during its provider restore window. No registrar or DNS provider changes were made by MithrilPress." });
 }
 
 async function listMigrations(env, site) {
