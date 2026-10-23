@@ -186,7 +186,7 @@ try {
   const port = await freePort();
   worker = spawn(wrangler, [
     "dev", "--local", "--ip", "127.0.0.1", "--port", String(port), "--persist-to", persistPath, "--config", config,
-    "--log-level", "error", "--var", "MITHRILPRESS_OWNER_AUTH_DIAGNOSTICS:true",
+    "--log-level", "warn", "--var", "MITHRILPRESS_OWNER_AUTH_DIAGNOSTICS:true",
   ], { cwd: root, env: cleanEnvironment(), stdio: ["ignore", "pipe", "pipe"] });
   const captureWorkerDiagnostics = (chunk) => {
     workerDiagnostics = `${workerDiagnostics}${chunk.toString("utf8")}`.slice(-8192);
