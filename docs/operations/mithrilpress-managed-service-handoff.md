@@ -15,7 +15,7 @@ claim that a managed team is staffed.
 | Target market and locale | Explicit country/region and supported language; Japan is excluded from marketing |
 | Content authorization | Exact owner-provided WXR/REST export and the permitted processing scope |
 | Data handling contact | Named owner and approved method for transfer, retention, and deletion |
-| Service proposal | Separate scope and cost worksheet; acceptance date and approver |
+| Service proposal | [Separate scope and cost worksheet](mithrilpress-service-cost-worksheet.md); acceptance date and approver |
 
 Public website content, a public email address, or a WordPress detection result
 does not establish contact authority. Never scan or clone a prospect site to
