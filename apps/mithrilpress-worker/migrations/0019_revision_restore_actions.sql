@@ -6,7 +6,7 @@ CREATE TABLE owner_actions_new (
   site_id TEXT NOT NULL,
   revision_id TEXT,
   token_id TEXT NOT NULL,
-  action TEXT NOT NULL CHECK (action IN ('import', 'approve', 'publish', 'restore', 'chat-generate')),
+  action TEXT NOT NULL CHECK (action IN ('import', 'approve', 'publish', 'restore', 'chat-generate', 'manual-draft')),
   created_at TEXT NOT NULL,
   metadata_json TEXT NOT NULL DEFAULT '{}',
   FOREIGN KEY (site_id) REFERENCES sites(id),
