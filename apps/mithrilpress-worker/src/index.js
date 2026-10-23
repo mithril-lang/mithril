@@ -635,7 +635,8 @@ async function verifyOwnerTokenParts(env, site, tokenId, secret, requiredScope, 
 }
 
 function sameOriginStudioMutation(request, site) {
-  return request.headers.get("Origin") === `https://${site.hostname}`
+  const requestHostname = site.request_hostname ?? site.hostname;
+  return request.headers.get("Origin") === `https://${requestHostname}`
     && request.headers.get("X-MithrilPress-Request") === "1";
 }
 
