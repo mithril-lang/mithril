@@ -1,0 +1,56 @@
+(mithril/native-js-module
+ :name "mithrilpress.studio_ai_policy"
+ :imports []
+ :exports ["isWorkersFreeAiEnabled" "workersFreeAiMode"]
+ :functions
+ [(mithril/function
+   :name "isWorkersFreeAiEnabled"
+   :params [(rdf/node :name "env" :datatype "js-value")
+            (rdf/node :name "expectedMode" :datatype "js-value")]
+   :returns "js-value"
+   :body
+   (mithril/host-logical
+    :operator "&&"
+    :left
+    (mithril/host-logical
+     :operator "&&"
+     :left
+     (mithril/host-binary
+      :operator "==="
+      :left (mithril/host-optional-get
+             :object (mithril/local :name "env")
+             :key (mithril/literal :datatype "js-value" :value "STUDIO_AI_ENABLED"))
+      :right (mithril/literal :datatype "js-value" :value "true"))
+     :right
+     (mithril/host-binary
+      :operator "==="
+      :left (mithril/host-optional-get
+             :object (mithril/local :name "env")
+             :key (mithril/literal :datatype "js-value" :value "STUDIO_AI_MODE"))
+      :right (mithril/local :name "expectedMode")))
+    :right
+    (mithril/host-logical
+     :operator "&&"
+     :left
+     (mithril/host-binary
+      :operator "==="
+      :left (mithril/host-optional-get
+             :object (mithril/local :name "env")
+             :key (mithril/literal :datatype "js-value" :value "STUDIO_AI_FREE_PLAN_CONFIRMED"))
+      :right (mithril/literal :datatype "js-value" :value "true"))
+     :right
+     (mithril/host-binary
+      :operator "==="
+      :left (mithril/host-unary
+             :operator "typeof"
+             :value (mithril/host-optional-get
+                     :object (mithril/host-optional-get
+                              :object (mithril/local :name "env")
+                              :key (mithril/literal :datatype "js-value" :value "AI"))
+                     :key (mithril/literal :datatype "js-value" :value "run")))
+      :right (mithril/literal :datatype "js-value" :value "function")))))
+  (mithril/function
+   :name "workersFreeAiMode"
+   :params []
+   :returns "js-value"
+   :body (mithril/literal :datatype "js-value" :value "workers-free-only"))])

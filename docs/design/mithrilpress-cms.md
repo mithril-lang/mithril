@@ -7,15 +7,21 @@ REST-compatible subset, chat-first owner Studio, and supervised sales-process
 docs are in the public repository. The exact Worker source passed its approved
 standalone qualification before integration. No production Worker, D1
 database, R2 bucket, wildcard DNS record, or public route has been provisioned
-and read back. This is not a production release or full WordPress parity.
+and read back. A follow-up branch adds source-permalink route preservation but
+has not been qualified or integrated. This is not a production release or full
+WordPress parity.
 
 ## Product boundary
 
 “WordPress compatible” means importing an explicitly owner-authorized subset of
 posts and pages, preserving source IDs, slugs, dates, taxonomy IDs, media
-references, and source permalinks, and serving a documented read-only subset of
-the WordPress REST API. It does not include PHP, themes, plugins, shortcodes,
-custom post types, or arbitrary Gutenberg rendering.
+references, and safe source URL paths, and serving a documented read-only
+subset of the WordPress REST API. Safe multi-segment source paths can be served
+on MithrilPress and are used for canonical URLs and rewritten internal links.
+Query-based, reserved, and otherwise unsupported paths fall back to a slug route
+and are reported for owner review; colliding routes reject the import. This
+does not include PHP, themes, plugins, shortcodes, custom post types, or
+arbitrary Gutenberg rendering.
 
 WordPress REST post records carry `content` and `title` objects. Raw content is
 provided in the `edit` context, so the importer needs owner-authorized API access
@@ -38,12 +44,23 @@ and [block markup specification](https://developer.wordpress.org/block-editor/ge
    and `nofollow`; previews require an owner token and are not prospect pages.
 4. Record an explicit revision approval, then a separate publication action.
    Public requests resolve only the site's current published revision. Older
-   revisions remain stored, but a guided rollback flow is future work.
+   revisions remain immutable and can be restored only when the owner names
+   both the exact historical target and current revision. The Worker verifies
+   the original approval and completeness, records a distinct restore action,
+   and switches the current pointer in one guarded D1 batch.
 5. Compare the migrated site with the owner-provided source and report omitted
    assets, unsupported blocks, and URL changes before the owner publishes.
 6. Owners can also create and revise a draft through MithrilPress Studio. The
    AI response stays private; the owner must review the preview, approve the
    revision, and then take a separate publish action.
+
+The Worker loads the generated `migration_policy.js` native module compiled from
+`apps/mithrilpress-worker/src/migration_policy.mith`. Mithril decides the
+supported-subset parity status and fail-closed approve, publish, and restore
+eligibility; D1 statements repeat the revision, approval, and completeness
+guards at the state-change boundary. See the [synthetic local migration demo
+runbook](../operations/mithrilpress-migration-demo-runbook.md) and the
+[managed-service handoff packet](../operations/mithrilpress-managed-service-handoff.md).
 
 ## Mithril content model
 
@@ -62,62 +79,129 @@ taxonomy terms, assets, import receipts, hostnames, and owner approvals.
   tenant-bound owner approval is present.
 
 The Worker runtime contracts are authored in
-`apps/mithrilpress-worker/src/platform_hostname.mith` and
-`apps/mithrilpress-worker/src/content_boundary.mith`, compiled with Mithril's
+`apps/mithrilpress-worker/src/platform_hostname.mith`,
+`apps/mithrilpress-worker/src/content_boundary.mith`, and
+`apps/mithrilpress-worker/src/studio_ai_policy.mith`, compiled with Mithril's
 native JavaScript emitter, and called at the hostname, WordPress record,
-taxonomy-term, and chat-proposal boundaries. The chat contract returns an
-untrusted, blocked, private-draft envelope; the host attaches bounded sanitized
-HTML before opening the rendering gate. The pure `.cljk` boundary remains the
-platform-neutral reference model. The Worker keeps host I/O and stateful work
-in JavaScript, including cross-record taxonomy integrity, D1/R2 and AI calls,
-HTML sanitization, language-tag canonicalization, slug collision resolution,
-and publication transactions.
+taxonomy-term, chat-proposal, and Workers Free AI-admission boundaries. The chat
+contract returns an untrusted, blocked, private-draft envelope; the host
+attaches bounded sanitized HTML before opening the rendering gate. The AI
+policy contract requires explicit enablement, the `workers-free-only` mode,
+operator confirmation of the Workers Free plan, and an available AI binding
+before inference. The pure `.cljk` boundary remains the platform-neutral
+reference model. The Worker keeps host I/O and stateful work in JavaScript,
+including cross-record taxonomy integrity, D1/R2 and AI calls, HTML
+sanitization, language-tag canonicalization, slug collision resolution, and
+publication transactions.
 
 The adapter does not fetch WordPress itself: owners provide the content through
 a scoped token. The importer accepts a
 bounded WordPress WXR 1.2 subset as well as REST records. It retains posts and
 pages, source IDs, dates, permalinks, category/tag IDs, and featured-media IDs.
-WXR attachments, media bytes, custom fields, page-parent relations, users,
+WXR attachments, media bytes, custom fields, users,
 comments, custom post types, password-protected posts/pages, and custom
-taxonomies remain outside the supported slice. Standard category/tag terms and
-category parent links are preserved. The importer reports omitted attachments
-and metadata and rejects DTDs, custom entities, malformed XML, and unresolved
-category/tag references. Owner-provided media upload and delivery are
-implemented; broad Gutenberg support remains follow-up work.
+taxonomies remain outside the supported slice. Standard category/tag terms,
+category parent links, and page-parent links are preserved when referenced
+records are present in the same revision. Cyclic, unresolved, and over-depth
+page hierarchies are omitted and reported for owner review. The importer reports
+omitted attachments and metadata and rejects DTDs, custom entities, malformed
+XML, and unresolved category/tag references. Owner-provided media upload and
+delivery are implemented; broad Gutenberg support remains follow-up work.
 
 Studio uses a short-lived owner token exchange, a one-hour `HttpOnly`, `Secure`,
 `SameSite=Strict` cookie session, same-origin mutation checks, prepared D1
-queries, bounded chat history, HTML sanitization, and a daily AI generation cap.
-It stores conversations in D1 until the owner deletes them. Workers AI processes
-the conversation and current draft to produce a proposal; the proposal is not
-fact-checked and must not be published without owner review. The current Studio
-UI requires owner scopes for content writing, private preview, approval, and
-publishing. Owner identity provisioning remains out of band.
+queries, bounded chat history, HTML sanitization, and an eight-generation daily
+app cap. D1 triggers cap each conversation at 40 messages, a site at 50 saved
+conversations and 4 MiB of UTF-8 message text, and the deployment at 1,000
+conversations and 64 MiB of message text. The Usage view reports those text
+estimates, and deleting a conversation releases its message allowance. This is
+not a physical D1 database-size measurement. Workers AI processes the
+conversation and current draft to produce a proposal; the proposal is not
+fact-checked and must not be published without owner review. The default
+free-hosting path uses `@cf/meta/llama-3.3-70b-instruct-fp8-fast` directly
+through the Workers AI binding, with no AI Gateway or paid fallback. The model
+is listed as supporting Workers AI JSON Mode, matching Studio's JSON Schema
+request. Enable it only when the target account is verified as Workers Free and set
+`STUDIO_AI_FREE_PLAN_CONFIRMED=true` and `STUDIO_AI_MODE=workers-free-only`;
+the confirmation is an operator-controlled deployment gate, not a runtime query
+of Cloudflare's account plan. Studio caps generations at eight per UTC day,
+limits the conservative prompt-input estimate to 10,000 bytes and output to 700
+tokens, and atomically reserves a two-times Neuron estimate against an 8,000
+Neuron application budget. Failed and ambiguous calls keep their reservations.
+These estimates use published model rates and are not provider metering; recheck
+pricing before release. The provider stops inference at its shared 10,000-Neuron
+daily Free allocation. On Workers Paid, usage above that allocation is billable,
+so this mode must not be deployed there. The example deployment keeps Studio AI
+disabled and the plan confirmation false.
+
+At the currently published rate for this model (26,668 input and 204,805
+output Neurons per million tokens), the reservation formula caps one accepted
+request at 821 Neurons: at most 10,000 input bytes including message/schema
+overhead, at most 700 output tokens, and a two-times safety multiplier. Eight
+maximum-size requests reserve at most 6,568 Neurons. This bounds only the
+application's estimate, not provider usage or other account workloads. See
+[Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/)
+and recheck the model rates, limits, and account plan before release.
 
 ## Cloudflare hosting
 
-The initial runtime is a single MithrilPress Worker, D1, and R2. The default
-hostname `*.sites.mithril.love` uses the existing parent zone; it does not need
-a child zone or NS delegation. Cloudflare standalone subdomain-zone setup is
-Enterprise-only. Create a proxied wildcard DNS record and a Worker route
-`*.sites.mithril.love/*` on the parent zone only after the hosting plan,
-security controls, cost boundary, and rollback have been verified.
+The current prototype is a tenant-aware MithrilPress Worker, D1, and R2. Public
+delivery is not deployed. The required default topology is one shared Worker
+with an exact D1 hostname registry and one exact Worker Custom Domain for each
+registered `label.sites.mithril.love` site. This preserves the requested public
+host pattern without a wildcard DNS record or route. No tenant code is
+executed. Attachment remains gated on scoped Custom Domains credentials,
+managed-certificate and HTTPS read-back, the 90-domain stop, operator cost
+controls, exact-source qualification, and rollback.
 
-Keep `workers.dev` disabled and configure the route to fail closed when the
-Workers Free account-wide daily request limit is reached. Cloudflare returns
-Error 1027 at that limit; fail-open routing bypasses the Worker. The Free limit
-is shared across the account and does not apply as a hard daily stop on Workers
-Paid. The Worker normalizes the hostname, rejects reserved and unknown labels,
-then looks up the complete hostname in D1. Host labels never grant tenant
-identity. Content queries carry both site and revision IDs and use prepared
-statements. Owner credentials are per-site salted SHA-256 token hashes with
-narrowly scoped permissions; plaintext tokens are provisioned out of band.
+The 90-host limit is a bounded first cohort, not the worldwide hosting end
+state. Cloudflare recommends a wildcard Worker Route when a platform needs
+more than 100 Custom Domains per zone. The scale candidate is one proxied
+`*.sites.mithril.love` DNS record and one shared Worker Route, retaining exact
+D1 hostname resolution and failing closed for unknown hosts. This requires a
+certificate for `*.sites.mithril.love`: Universal SSL on the full
+`mithril.love` zone does not cover that depth, while Advanced Certificate
+Manager is a paid add-on and its one-level wildcard fits the requested host
+pattern. Keep this path disabled until wildcard TLS, host-aware abuse controls,
+an enforceable provider-cost stop, rollback, and operator cost are approved and
+qualified. Never charge site owners or upgrade them automatically.
 
-The parent zone serves unrelated hostnames. Cloudflare Free rate-limiting rules
-support path and Verified Bot fields, but not host matching. A path-only rule
-would also affect unrelated hosts, so no parent-zone Free rate-limit rule is a
-safe MithrilPress edge guard. Keep public routing disabled until a host-scoped
-edge guard or an approved isolated hosting zone is available. See the
+The separate [optional static publication design](mithrilpress-static-publication.md)
+can publish an owner-approved revision to one capped Cloudflare Pages project
+with one exact custom hostname per selected site. It does not replace or
+provision the default Worker Custom Domain. Pages may create the exact CNAME in
+Cloudflare-managed DNS after confirmation. Certificate issuance, the per-account
+Pages cap, paid control-plane usage, and rollback still require qualification.
+Because a Pages project's `*.pages.dev` hostname is also public, only
+owner-approved published revisions may be deployed there.
+
+Keep private preview, chat, import, and owner APIs on the authenticated
+MithrilPress Worker. If the optional Pages adapter is used, a Pages Function
+may serve only explicitly supported WordPress REST paths after `_routes.json`
+proves other public requests bypass Functions. Pages static assets do not make
+control-plane, Function, D1, AI, or R2 usage free.
+
+Keep `workers.dev` disabled for the control Worker. It normalizes the hostname,
+rejects reserved and unknown labels, then looks up the complete hostname in
+D1. Host labels never grant tenant identity. Content queries carry both site
+and revision IDs and use prepared statements. Owner credentials are per-site
+salted SHA-256 token hashes with narrowly scoped permissions; plaintext tokens
+are provisioned out of band. A separate Pages Function or control-plane
+request can still consume account Workers usage. The candidate Pages REST
+Function uses MithrilPress D1 counters to stop returning content at application
+caps, but every over-cap attempt still invokes a metered Function. The account
+plan is not verified, so do not enable those paths until the provider usage
+boundary is read back. The Pages API `fail_open` field concerns deployment
+configuration failures; it is not the Pages Free daily request-exhaustion
+setting.
+
+The parent zone serves unrelated hostnames. Do not install a path-only
+parent-zone rate-limit rule for MithrilPress: it would also affect unrelated
+hosts. Exact Worker Custom Domains attach only registered hostnames, so unknown
+labels have no MithrilPress DNS or Worker attachment. Known-host requests still
+invoke the Worker and consume provider resources even when the application
+stops returning content at its cap. Optional Pages static delivery likewise
+does not make control-plane, Pages Function, D1, AI, or R2 usage free. See the
 [edge-protection gate](../operations/mithrilpress-free-edge-protection.md).
 
 `apps/mithrilpress-worker/` provides the Worker handler, D1 migration, token
@@ -131,18 +215,19 @@ random site-scoped object keys and D1 metadata. Uploads check file signatures,
 declared dimensions, MIME type, and byte length. They do not fetch external
 WordPress media URLs or remove image metadata.
 
-The checked-in Wrangler example has no custom route and disables `workers.dev`.
-No Cloudflare resources, wildcard DNS, credentials, or public hostnames were
-created by this implementation. Production route configuration and deployment
-remain separate release work.
+The checked-in Wrangler example has no route and disables `workers.dev`. No
+MithrilPress Pages project, Worker Custom Domain, DNS record, production
+credential, or public hostname has been created. The default per-tenant Worker
+Custom Domain attachment and optional Pages publication path both remain
+separate release work.
 
 The pricing policy is free for site owners; the hosting operator is responsible
-for provider charges. This is not a zero-cost provider commitment. Workers Free
-provides a 100,000-request daily account limit; Workers Paid has no daily
+for provider charges. This is not a zero-cost provider commitment. Cloudflare
+Workers Free has an account-wide daily request limit; Workers Paid has no daily
 request limit and may bill usage. The product never bills site owners or
-automatically switches a hosting account to a paid tier. Keep public routing
-disabled until the account plan and an enforceable provider cost boundary have
-been verified. See
+automatically switches a hosting account to a paid tier. Keep public hosting
+disabled until the account plan, shared usage, and an enforceable provider cost
+boundary have been verified. See
 [Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/),
 [D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/),
 [R2 pricing](https://developers.cloudflare.com/r2/pricing/), and
@@ -153,23 +238,31 @@ The Cloudflare product that offers isolated per-customer Worker runtimes is
 Its dispatch namespace is designed for customer-authored or AI-generated code
 that must execute in isolated Workers. MithrilPress renders tenant content
 with one operator-owned codebase, so its first version should use one ordinary
-Worker, D1, and R2. Workers for Platforms is a separate paid offering (listed
-at $25/month plus usage overages when checked on 2026-10-21); it does not
-provide a free-hosting hard stop. Reconsider it only if executing tenant code
-becomes a reviewed requirement. See [Workers for Platforms pricing](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/reference/pricing/).
+Worker, D1, and R2. Workers for Platforms is a separate product with its own
+pricing; it does not provide a free-hosting hard stop. Reconsider it only if
+executing tenant code becomes a reviewed requirement. See [Workers for
+Platforms pricing](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/reference/pricing/).
 
-Every request that reaches the Worker is subject to application hard stops of
-25,000 requests across the deployment per UTC day. A request that resolves to
-an active site is also subject to that site's 5,000-request daily cap; this
-includes Studio, domain, DNS, media, preview, REST, and public-page routes. The
-shared counter runs before hostname lookup, so requests to missing or inactive
-hosts count toward the deployment cap and otherwise return 404. The site counter
-runs after active-site resolution and before route dispatch. The request that
-reaches an allowance is handled; later requests receive HTTP 429 for a site
-limit or HTTP 503 for the shared limit until the next UTC day. These limits are
-tracked atomically in D1. The Worker invocation and shared-counter write happen
-before a capped response, so rejected requests can still be provider-metered. R2
-application caps allow 250 MiB per site and 8 GiB per deployment,
+Every request first reads the shared deployment counter before hostname
+resolution. If its 25,000-request UTC-day cap is reached, the Worker returns 503
+without another tenant-registry lookup. After resolution, an active-site request
+increments the shared counter and that site's 5,000-request daily counter in
+one D1 batch. If the site limit rejects the request, the shared increment rolls
+back as well. Unknown or inactive hosts and invalid control-host requests
+consume only the shared counter after resolution. This covers Studio, domain,
+DNS, media, preview, REST, and public-page routes. The final request within an
+allowance is handled; later requests receive HTTP 429 for a site limit or HTTP
+503 for the shared limit until the next UTC day.
+
+This application quota does not stop Worker invocations or the shared-counter
+preflight read after the cap. It bounds tenant lookups and served work, but does
+not guarantee zero provider charges. Unknown-host requests can still consume
+the shared allowance, and the app counter cannot block an invocation before it
+reaches the Worker. Verify a host-scoped ingress control and the provider cost
+boundary before configuring a public production route. The caps preserve the
+site-owner free tier; they do not guarantee zero operator charges.
+
+R2 application caps allow 250 MiB per site and 8 GiB per deployment,
 5,000 image reads/day per site and 50,000 across the deployment, and 10,000
 upload/delete operations/day. Studio generation is capped at eight requests per
 UTC day across this deployment, and stops rather than switching to paid AI use.
@@ -213,26 +306,32 @@ and [R2 pricing](https://developers.cloudflare.com/r2/pricing/) before release.
 D1 triggers enforce a 16 MiB retained-import content limit per site, including
 entries and imported taxonomy terms, and a 256 MiB deployment-wide limit across
 immutable revisions. The Studio shows the site's estimate and daily public
-request count, the shared app-level AI request count, R2 image storage, and
-per-site and shared daily image operations.
-The content estimate excludes
-indexes, database metadata,
-conversations, audit rows, and the physical D1 database size. Account-level
-Worker requests outside public page/REST routes, D1 reads/writes/storage, and
-Workers AI neuron use are not measured in the Studio and must be monitored in
-Cloudflare. Provider limits can stop service before MithrilPress application
-limits are reached. Track these release requirements in Linear MITHRIL-292.
+request count, the shared app-level AI request count and conservative Neuron
+reservation, R2 image storage, and per-site and shared daily image operations.
+The retained-content estimate excludes indexes, database metadata, chat-history
+rows (which have separate application quotas), DNS snapshots, audit rows, and
+the physical D1 database size. Account-level
+Worker requests outside public page/REST routes and D1
+reads/writes/storage are not measured in the Studio and must be monitored in
+Cloudflare. Workers AI neurons are also not tenant-metered, but the dedicated
+Workers Free account enforces its 10,000-Neuron daily provider stop. Other
+account workloads can exhaust that shared allowance sooner, causing Studio
+drafting to fail closed. Provider limits can stop service before MithrilPress
+application limits are reached. Track these release requirements in
+Linear MITHRIL-292.
 Check [Workers limits](https://developers.cloudflare.com/workers/platform/limits/)
 again before release because provider quotas can change.
 
 ### Domain and DNS management
 
-The initial address is one owner-assigned subdomain under `sites.mithril.love`.
-Support for customer-owned domains should use Cloudflare for SaaS custom
-hostnames and a Worker wildcard route; Workers for Platforms would be excessive
-because MithrilPress renders tenant content and does not run tenant code. The
-hostname must be verified and explicitly mapped to a tenant before any content
-is served. The Worker now has an owner-only, feature-gated custom-hostname flow:
+The default address is an owner-assigned exact hostname under
+`sites.mithril.love`; each registered tenant gets an exact Worker Custom Domain
+on the shared Worker. Customer-owned domains are a separate optional feature
+that uses Cloudflare for SaaS custom hostnames and a separately qualified
+routing zone. Workers for Platforms would be excessive because MithrilPress
+renders tenant content and does not run tenant code. Every hostname must be
+verified and explicitly mapped to a tenant before any content is served. The
+Worker now has an owner-only, feature-gated customer-domain flow:
 it issues a TXT ownership challenge, provisions Cloudflare for SaaS only after
 that challenge resolves, returns provider TLS validation records, and activates
 the exact tenant mapping only after provider, certificate, and public DNS
@@ -246,10 +345,10 @@ the deployed Cron Trigger have been read back successfully.
 
 This flow is disabled until the Cloudflare for SaaS entitlement, fallback
 origin, hostname route and DNS, scoped `SSL and Certificates Write` token, and
-current hostname capacity have all been provisioned and read back. Use the
-verified SaaS fallback zone on the existing parent-zone account; do not assume
-or create a child zone for `sites.mithril.love`. Cloudflare for SaaS routing
-must not intercept unrelated `mithril.love` websites. Keep
+current hostname capacity have all been provisioned and read back. Use a
+verified SaaS fallback zone in the selected account; do not assume or create a
+child zone for `sites.mithril.love`. Cloudflare for SaaS routing must not
+intercept unrelated `mithril.love` websites. Keep
 `CUSTOM_DOMAINS_MONITORING_READY=false` until the Cron Trigger's successful
 deployed invocation is visible. Cloudflare for SaaS currently
 includes 100 custom hostnames and charges $0.10 per additional hostname;
@@ -267,13 +366,17 @@ HTTP/TLS service health or every geographic resolver. Cloudflare's
 [Workers-as-fallback-origin guide](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/start/advanced-settings/worker-as-origin/)
 describes routing custom-hostname traffic through the SaaS zone's Worker route.
 
-The Cloudflare product the original idea may have been recalling is
-**Workers for Platforms**. Its dispatch namespaces suit a service that executes
-customer Workers. MithrilPress owns the renderer and does not accept tenant
-code, so one ordinary Worker with a wildcard route and D1 is the suitable first
-version. Revisit Workers for Platforms only if customer-authored code becomes a
-reviewed product requirement. See [Workers for Platforms](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/)
-and [Cloudflare hostname routing](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/configuration/hostname-routing/).
+**Workers for Platforms** is intended for services that execute customer
+Workers. MithrilPress owns the renderer and does not accept tenant code, so it
+is not required for the shared-renderer design. Pages remains an optional
+static publication path with its own 100-project account limit; it does not
+replace the default Worker. If the 90 exact-host first cohort fills, the scale
+candidate is the gated shared wildcard Worker Route and deep wildcard
+certificate described above, not automatic onboarding or an assumed Pages
+expansion. Do not switch to Workers for Platforms or paid resources
+automatically. See [Workers for Platforms](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/),
+[Cloudflare hostname routing](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/configuration/hostname-routing/),
+and [Pages limits](https://developers.cloudflare.com/pages/platform/limits/).
 
 The feature gates, implemented DNS migration steps, and remaining operator
 requirements are specified in [MithrilPress domain lifecycle](mithrilpress-domain-lifecycle.md).
@@ -289,7 +392,9 @@ expose parent IDs. These routes support bounded pagination, `slug`, `search`,
 and `hide_empty`. Single-item `GET` and `HEAD` routes at
 `/wp-json/wp/v2/posts/{id}` and `/wp-json/wp/v2/pages/{id}` return one published
 entry by its WordPress source ID, or by the MithrilPress API ID for a
-chat-authored entry. Only the active published revision is addressable; private
+chat-authored entry. Pages expose a `parent` source ID only when the referenced
+parent is also published in the active revision; otherwise the public value is
+`0`. Only the active published revision is addressable; private
 previews, drafts, and IDs for another post type return 404.
 Public edit context is denied. `GET /wp-json/wp/v2/media/{id}` exposes metadata
 only for a featured image referenced by the published revision. Term and media
@@ -315,13 +420,19 @@ entries whose source status was `publish`.
 `POST /api/wordpress/import` also accepts a raw WordPress WXR 1.2 XML export
 with `application/rss+xml`, `application/xml`, or `text/xml`. The importer uses
 the WXR channel link to bind the source origin and retains standard category
-and tag terms, category parents, and entry term IDs. REST JSON imports may
-include a `taxonomy_terms` array; every referenced category/tag ID must resolve
-to an imported term. Term descriptions are sanitized before storage. The API
+and tag terms, category parents, page-parent links, and entry term IDs. REST
+JSON imports may include a `taxonomy_terms` array; every referenced category/
+tag ID must resolve to an imported term. Page-parent links must resolve to
+another imported page in the same revision; cycles, missing parents, and
+hierarchies deeper than 64 are omitted and flagged for owner review. Term
+descriptions are sanitized before storage. The API
 returns omission counts for content it does not migrate. It does not fetch
 attachment URLs; owners must upload image files they control and review the
-private preview and omissions before publishing. This does not provide full
-WordPress content parity.
+private preview and omissions before publishing. Safe source permalink paths,
+including nested paths, are retained for public rendering, API links, canonical
+URLs, and imported internal-link rewriting. Sources that use query URLs or
+paths reserved by MithrilPress use a slug fallback and are explicitly marked
+for owner review. This does not provide full WordPress content parity.
 
 ## Outreach workflow
 

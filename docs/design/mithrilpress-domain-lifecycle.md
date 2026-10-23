@@ -1,18 +1,20 @@
 # MithrilPress domain lifecycle
 
 **Status: custom-hostname onboarding is implemented behind a disabled-by-default
-operator gate. DNS migration planning is owner-guided. Its optional Cloudflare
-record-import path is implemented as an owner-confirmed create-only batch
-operation, but remains disabled pending isolated-zone qualification.** The
-owner Studio can issue a TXT ownership challenge, create a Cloudflare for SaaS
-custom-hostname record after proof, display TLS validation records, check
-provider/certificate status, verify a DNS-only CNAME, activate the exact tenant
-mapping, and detach a hostname. MithrilPress does not change customer registrar,
-nameserver-delegation, or DNSSEC state. Owner-guided zone snapshots, record
-comparison, cutover approval, and NS/DS propagation checks are implemented;
-automatic nameserver changes and registrar transfers are not. Do not enable the
-custom-hostname feature until its dedicated SaaS zone and route have been
-provisioned and read back. A five-minute Cron Trigger
+operator gate. DNS migration planning is owner-guided and does not mutate customer
+DNS or registrar state.** The owner Studio can issue a TXT ownership challenge,
+create a Cloudflare for SaaS custom-hostname record after proof, display TLS
+validation records, check provider/certificate status, verify a DNS-only CNAME,
+activate the exact tenant mapping, and detach a hostname. The code does not
+write the customer's DNS as part of hostname onboarding. Owner-guided zone
+snapshots, record comparison, cutover approval, and NS/DS propagation checks
+are implemented. A separate owner-confirmed additive Cloudflare DNS import is
+implemented as a create-only batch operation and can submit missing records
+when the destination has no extra or changed records; it remains disabled by
+default pending isolated-zone qualification. Automatic nameserver changes and
+registrar transfers are not implemented. Do not enable the customer-owned-domain
+feature until its dedicated SaaS zone and route have been provisioned and read
+back. A five-minute Cron Trigger
 rechecks active hostnames in batches of 30; at the 90-hostname deployment cap,
 every mapping is checked within 15 minutes. Mismatches suspend immediately;
 three consecutive provider/DNS read failures also suspend. An owner must
@@ -22,15 +24,35 @@ refresh a suspended hostname after the checks pass.
 
 | Type | Setup | Control | Initial availability |
 | --- | --- | --- | --- |
-| MithrilPress subdomain | MithrilPress assigns one unique label, such as `example.sites.mithril.love` | MithrilPress controls the wildcard zone and hostname registry | First release target; requires the wildcard route and tenant provisioning |
+| MithrilPress subdomain (default) | First cohort: one shared MithrilPress Worker and D1 registry; attach one exact Worker Custom Domain per registered `label.sites.mithril.love` host | MithrilPress controls the platform zone and exact hostname registry; the owner keeps their registrar and nameservers | Bounded first cohort capped at 90; no wildcard DNS/route in this stage; qualify managed TLS, cost, rollback, and exact source |
+| Optional static publication | A separately selected Pages Direct Upload project attaches one exact name, such as `example.sites.mithril.love`; the existing Cloudflare zone adds its CNAME after confirmation | MithrilPress controls that Pages project and exact hostname; the owner keeps their registrar and nameservers | Optional and capped at 90 projects; requires exact-host TLS, cutover/rollback, and separate release qualification |
 | Customer-owned hostname | Customer adds owner-proof and provider TLS TXT records plus a DNS-only CNAME; MithrilPress verifies ownership and provisions a Cloudflare for SaaS custom hostname | Customer retains DNS and registrar control | Subdomains only; apex and wildcard customer hostnames are excluded from this prototype |
 | Nameserver migration plan | Owner proves control, uploads or reads source and staged destination zones, reviews exact record diff, approves a digest, then changes registrar settings manually | Owner retains DNS-provider and registrar control; any Cloudflare API token is zone-scoped and request-only | Optional guided plan; provider import is disabled by default pending isolated-zone qualification |
 
 Cloudflare for SaaS custom hostnames and Workers for Platforms solve different
-problems. MithrilPress should use SaaS custom hostnames for customer domains;
-the renderer runs MithrilPress code and does not execute tenant code. Keep the
-default product on the supplied `sites.mithril.love` subdomain if the customer
-does not choose or qualify a custom domain.
+problems. MithrilPress should use SaaS custom hostnames for customer-owned
+domains; the renderer runs MithrilPress code and does not execute tenant code.
+The default public URL pattern is `*.sites.mithril.love`, implemented with one
+exact Worker Custom Domain per registered tenant on the shared Worker. Cloudflare
+creates each exact DNS mapping and managed certificate; no wildcard record or
+route is required. Each request resolves the complete hostname through the
+tenant registry. The optional Pages publication mode uses an exact custom
+domain per selected site and requires an owner-approved cutover and rollback;
+it does not change other tenants' default Worker attachments. Neither path
+transfers customer nameservers or registrar control.
+
+The 90 exact-host capacity is a first cohort, not the worldwide hosting end
+state. Cloudflare documents a 100 Worker Custom Domains per-zone limit and
+recommends wildcard routes when more are needed. The scale candidate is one
+proxied wildcard DNS record and one shared Worker Route, retaining exact D1
+hostname lookup and failing closed for unknown hosts. `*.sites.mithril.love`
+is deeper than the parent zone's Universal SSL coverage; an Advanced
+Certificate Manager wildcard for that exact pattern fits one label, but ACM
+is a paid add-on. Keep the scale route disabled until wildcard TLS,
+host-aware abuse controls, provider-enforced no-overage limits, rollback, and
+operator budget are qualified. Do not charge site owners or upgrade them
+automatically. Cloudflare for SaaS is a separate customer-owned-hostname path,
+not verified platform capacity for this scale stage.
 
 ## Customer hostname state machine
 
@@ -193,25 +215,28 @@ delegation during a write. Registrar changes remain manual.
   also performs zone and record reads, so grant `Zone Read`, `DNS Read`, and
   `DNS Write` only on the exact target zone.
 
-## Rollout gates
+## Optional customer-owned Cloudflare for SaaS rollout gates
 
-The implementation remains disabled until the following are read back: a
-dedicated `sites.mithril.love` SaaS zone delegated safely from `mithril.love`,
-an originless fallback DNS record, the fallback Worker, wildcard DNS and a
-wildcard Worker route that cannot intercept unrelated Mithril properties, a
-scoped Cloudflare token, and at least one verified hostname slot. Set
+These gates apply only to customer-owned hostnames, not the default platform
+host or its future wildcard scale path. Do not assume a separate
+`sites.mithril.love` child zone is available. Keep the customer-owned flow
+disabled until the selected SaaS fallback topology, originless fallback DNS
+record, fallback Worker, customer-hostname routing, scoped Cloudflare token,
+and at least one verified hostname slot are read back. Set
 `CUSTOM_DOMAINS_ROUTING_READY=true` only after this exact topology is confirmed.
-The operator must set `CF_SAAS_CAPACITY_REMAINING` from current provider state;
-the Worker caps it at 90 to reserve 10 of the current Free plan's 100 included
-hostnames. Set `CUSTOM_DOMAINS_MONITORING_READY=true` only after the scheduled
+The operator must set `CF_SAAS_CAPACITY_REMAINING` from the quota actually
+assigned to this account; do not derive it from the separate Worker Custom
+Domains cap or assume that a published plan allocation was provisioned. The
+quota API currently returns no allocated quota for `fund-mithril`. Set
+`CUSTOM_DOMAINS_MONITORING_READY=true` only after the scheduled
 health check has a successful deployed read-back. A standalone qualification
 profile must cover onboarding, unknown-host isolation, TLS activation,
 suspension, detachment, stale DNS, three consecutive monitor failures, and
 recovery. Release evidence must include provider read-back, public DNS answers,
 HTTPS verification, a cross-tenant negative check, and a demonstrated rollback.
 Track the code gate and account entitlement in Linear issue MITHRIL-293.
-Cloudflare for SaaS currently charges $0.10 per hostname beyond the included
-100, excludes wildcard custom hostnames and apex proxying from Free, and
+Cloudflare for SaaS plan pricing lists included hostnames and charges for
+additional hostnames, excludes wildcard custom hostnames and apex proxying from Free, and
 requires payment information on non-enterprise accounts to enable the product.
 Verify the current [plans](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/plans/)
 and [enablement requirements](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/start/enable/)

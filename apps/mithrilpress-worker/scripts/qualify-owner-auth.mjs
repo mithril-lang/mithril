@@ -297,7 +297,7 @@ try {
   const chatApiId = 9500;
   const chatEntryId = "mithrilpress:chat:single-item-read-fixture";
   const chatFixtureSql = [
-    `INSERT INTO entries (site_id, revision_id, entry_id, kind, slug, title, source_html, safe_html, entry_origin, publication_status, language_code, api_id, source_id, source_status, source_date, source_date_gmt, source_modified, source_modified_gmt, source_permalink, categories_json, tags_json, featured_media_id, rendering_admission) VALUES (${sqlText(siteId)}, ${sqlText(importedBody.revision_id)}, ${sqlText(chatEntryId)}, 'post', 'chat-authored-api-id', 'Chat authored API ID', '<p>Chat-authored item fixture.</p>', '<p>Chat-authored item fixture.</p>', 'chat', 'draft', 'en', ${chatApiId}, NULL, 'draft', ${sqlText(createdAt)}, ${sqlText(createdAt)}, ${sqlText(createdAt)}, ${sqlText(createdAt)}, NULL, '[]', '[]', NULL, 'ready');`,
+    `INSERT INTO entries (site_id, revision_id, entry_id, kind, slug, route_path, title, source_html, safe_html, entry_origin, publication_status, language_code, api_id, source_id, source_status, source_date, source_date_gmt, source_modified, source_modified_gmt, source_permalink, categories_json, tags_json, featured_media_id, rendering_admission) VALUES (${sqlText(siteId)}, ${sqlText(importedBody.revision_id)}, ${sqlText(chatEntryId)}, 'post', 'chat-authored-api-id', '/chat-authored-api-id/', 'Chat authored API ID', '<p>Chat-authored item fixture.</p>', '<p>Chat-authored item fixture.</p>', 'chat', 'draft', 'en', ${chatApiId}, NULL, 'draft', ${sqlText(createdAt)}, ${sqlText(createdAt)}, ${sqlText(createdAt)}, ${sqlText(createdAt)}, NULL, '[]', '[]', NULL, 'ready');`,
     `UPDATE site_revisions SET entry_count = entry_count + 1 WHERE site_id = ${sqlText(siteId)} AND id = ${sqlText(importedBody.revision_id)} AND state = 'private-preview';`,
   ].join("\n");
   runWrangler([
@@ -350,6 +350,27 @@ try {
   assert.equal(approved.status, 200, `Owner approval failed: ${approved.body}`);
   const published = await request(port, "POST", `/_mithrilpress/api/revisions/${importedBody.revision_id}/publish`, { token: siteToken.token });
   assert.equal(published.status, 200, `Owner publication failed: ${published.body}`);
+
+  const publicationPath = `/_mithrilpress/api/control/sites/${siteId}/publication/current`;
+  const publicationOnSiteHost = await request(port, "GET", publicationPath, { hostname: testHostname, token: siteToken.token });
+  assert.equal(publicationOnSiteHost.status, 404, "Publication control routes must not be exposed on public site hosts.");
+  const anonymousPublication = await request(port, "GET", publicationPath, { hostname: "control.mithril.love" });
+  assert.equal(anonymousPublication.status, 401, "Publication snapshots must require a site:publish owner token.");
+  const crossTenantPublication = await request(port, "GET", publicationPath, { hostname: "control.mithril.love", token: otherSiteToken.token });
+  assert.equal(crossTenantPublication.status, 401, "A different tenant token must not read a publication snapshot.");
+  const currentPublication = await request(port, "GET", publicationPath, { hostname: "control.mithril.love", token: siteToken.token });
+  assert.equal(currentPublication.status, 200, `Owner publication snapshot failed: ${currentPublication.body}`);
+  const currentPublicationBody = JSON.parse(currentPublication.body);
+  assert.equal(currentPublicationBody.site_id, siteId);
+  assert.equal(currentPublicationBody.revision.id, importedBody.revision_id);
+  assert.ok(currentPublicationBody.media.length > 0, "The published fixture must include owner-mapped media.");
+  const publicationMedia = currentPublicationBody.media[0];
+  const publicationMediaPath = `/_mithrilpress/api/control/sites/${siteId}/publication/revisions/${importedBody.revision_id}/media/${publicationMedia.id}`;
+  const mediaOnSiteHost = await request(port, "GET", publicationMediaPath, { hostname: testHostname, token: siteToken.token });
+  assert.equal(mediaOnSiteHost.status, 404, "Publication media routes must not be exposed on public site hosts.");
+  const currentPublicationMedia = await request(port, "GET", publicationMediaPath, { hostname: "control.mithril.love", token: siteToken.token });
+  assert.equal(currentPublicationMedia.status, 200, `Owner publication media failed: ${currentPublicationMedia.body}`);
+  assert.match(currentPublicationMedia.headers["content-type"] ?? "", /^image\//);
   const publicSeoPage = await request(port, "GET", "/private-migration-preview/");
   assert.equal(publicSeoPage.status, 200);
   assert.match(publicSeoPage.body, /<title>Owner SEO &amp; summary<\/title>/);
@@ -423,7 +444,7 @@ try {
   const missingRelevanceSearch = await request(port, "GET", "/wp-json/wp/v2/posts?orderby=relevance");
   assert.equal(missingRelevanceSearch.status, 400);
 
-  process.stdout.write("MithrilPress local owner-auth qualification passed: anonymous denial, tenant-token isolation, owner media idempotency/conflicts, owner-uploaded inline media mapping, Gutenberg and SEO metadata reports, escaped private and published SEO tags, WordPress REST source/API item and collection reads, and pre-publication privacy.\n");
+  process.stdout.write("MithrilPress local owner-auth qualification passed: anonymous denial, tenant-token isolation, owner media idempotency/conflicts, owner-uploaded inline media mapping, Gutenberg and SEO metadata reports, escaped private and published SEO tags, publication control host isolation, WordPress REST source/API item and collection reads, and pre-publication privacy.\n");
 } finally {
   if (worker && worker.exitCode === null) {
     worker.kill("SIGTERM");
