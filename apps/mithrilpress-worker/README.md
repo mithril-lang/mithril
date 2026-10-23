@@ -615,16 +615,21 @@ owners; the operator is responsible for provider charges. MithrilPress does not
 bill owners or automatically upgrade a Cloudflare plan.
 
 The 90-domain stop is a first-cohort limit, not completion of the worldwide
-hosting objective. Cloudflare recommends a wildcard Worker Route when a
-platform needs more than 100 Worker Custom Domains per zone. For
-`*.sites.mithril.love`, that scale path needs a proxied wildcard DNS record and
-a certificate for the deep hostname; the parent zone's Universal SSL does not
-cover it. Advanced Certificate Manager supports the required one-level
-wildcard but is a paid add-on. Keep this path disabled until wildcard TLS,
-host-aware abuse controls, an enforceable provider-cost stop, rollback, and the
-operator budget are qualified. Site owners remain free; there is no automatic
-upgrade or owner billing. See [Worker limits](https://developers.cloudflare.com/workers/platform/limits/),
-[hostname routing](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/configuration/hostname-routing/),
+hosting objective. Cloudflare currently documents limits of 100 Worker Custom
+Domains and 1,000 Worker Routes per zone. One wildcard Worker Route and one
+proxied wildcard DNS record are a candidate scale path for this shared
+renderer. Cloudflare's Routes guidance recommends Custom Domains when a Worker
+is the application origin, so this direct-Worker-origin route is an explicit
+design exception that must pass isolated-zone qualification before production.
+For `*.sites.mithril.love`, it also needs a certificate for the deep hostname;
+the parent zone's Universal SSL does not cover it. Advanced Certificate
+Manager supports the required wildcard coverage and is a paid add-on. Keep this
+path disabled until wildcard TLS, host-aware abuse controls, an enforceable
+provider-cost stop, rollback, and the operator budget are qualified. Site
+owners remain free; there is no automatic upgrade or owner billing. See the
+[wildcard hosting rollout runbook](../../docs/operations/mithrilpress-wildcard-hosting-rollout.md),
+[Worker limits](https://developers.cloudflare.com/workers/platform/limits/),
+[Routes](https://developers.cloudflare.com/workers/configuration/routing/routes/),
 [Universal SSL limits](https://developers.cloudflare.com/ssl/edge-certificates/universal-ssl/limitations/), and
 [Advanced Certificate Manager](https://developers.cloudflare.com/ssl/edge-certificates/advanced-certificate-manager/).
 

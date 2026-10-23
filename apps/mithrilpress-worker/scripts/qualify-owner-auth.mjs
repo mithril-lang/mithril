@@ -207,6 +207,13 @@ try {
   };
   worker.stdout?.on("data", captureWorkerDiagnostics);
   worker.stderr?.on("data", captureWorkerDiagnostics);
+  const waitForOwnerAuthDiagnostic = async () => {
+    const marker = "mithrilpress_owner_auth_diagnostic";
+    const deadline = Date.now() + 2_000;
+    while (!workerDiagnostics.includes(marker) && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+  };
   worker.on("error", () => {});
 
   let ready = false;
@@ -324,6 +331,11 @@ try {
     contentType: "application/json",
     headers: { origin: `https://${testHostname}`, "x-mithrilpress-request": "1" },
   });
+  if (manualDraft.status !== 201) {
+    const responseDiagnostic = manualDraft.headers["x-mithrilpress-owner-auth-diagnostic"];
+    if (responseDiagnostic) workerDiagnostics = `mithrilpress_owner_auth_diagnostic ${responseDiagnostic}`;
+    else await waitForOwnerAuthDiagnostic();
+  }
   assert.equal(manualDraft.status, 201, `A 100,000-character manual draft should save: ${manualDraft.body}\nWorker diagnostics: ${workerDiagnostics || "none emitted"}`);
   const manualDraftBody = JSON.parse(manualDraft.body);
   assert.equal(manualDraftBody.draft.state, "private-preview");

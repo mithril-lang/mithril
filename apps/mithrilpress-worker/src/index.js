@@ -635,7 +635,8 @@ async function verifyOwnerTokenParts(env, site, tokenId, secret, requiredScope, 
 }
 
 function sameOriginStudioMutation(request, site) {
-  return request.headers.get("Origin") === `https://${site.hostname}`
+  const requestHostname = site.request_hostname ?? site.hostname;
+  return request.headers.get("Origin") === `https://${requestHostname}`
     && request.headers.get("X-MithrilPress-Request") === "1";
 }
 
@@ -1607,7 +1608,7 @@ async function studioManualDraft(request, env, site) {
       } catch {
         // The diagnostic records only parsed origin metadata, never request content.
       }
-      console.error("mithrilpress_owner_auth_diagnostic", JSON.stringify({
+      const diagnostic = JSON.stringify({
         originHost: parsedOrigin?.host ?? null,
         originProtocol: parsedOrigin?.protocol ?? null,
         originMatchesExpected: origin === `https://${site.hostname}`,
@@ -1615,7 +1616,11 @@ async function studioManualDraft(request, env, site) {
         siteHostname: site.hostname,
         requestHostname: site.request_hostname ?? null,
         workerUrlOrigin: new URL(request.url).origin,
-      }));
+      });
+      console.error("mithrilpress_owner_auth_diagnostic", diagnostic);
+      return fail(403, "same_origin_required", "Studio changes must come from this site.", {
+        "X-MithrilPress-Owner-Auth-Diagnostic": diagnostic,
+      });
     }
     return fail(403, "same_origin_required", "Studio changes must come from this site.");
   }
