@@ -100,9 +100,13 @@ delivery are implemented; broad Gutenberg support remains follow-up work.
 Studio uses a short-lived owner token exchange, a one-hour `HttpOnly`, `Secure`,
 `SameSite=Strict` cookie session, same-origin mutation checks, prepared D1
 queries, bounded chat history, HTML sanitization, and an eight-generation daily
-app cap. It stores conversations in D1 until the owner deletes them. Workers AI
-processes the conversation and current draft to produce a proposal; the proposal
-is not fact-checked and must not be published without owner review. The default
+app cap. D1 triggers cap each conversation at 40 messages, a site at 50 saved
+conversations and 4 MiB of UTF-8 message text, and the deployment at 1,000
+conversations and 64 MiB of message text. The Usage view reports those text
+estimates, and deleting a conversation releases its message allowance. This is
+not a physical D1 database-size measurement. Workers AI processes the
+conversation and current draft to produce a proposal; the proposal is not
+fact-checked and must not be published without owner review. The default
 free-hosting path uses `@cf/meta/llama-3.3-70b-instruct-fp8-fast` directly
 through the Workers AI binding, with no AI Gateway or paid fallback. The model
 is listed as supporting Workers AI JSON Mode, matching Studio's JSON Schema
@@ -118,6 +122,15 @@ pricing before release. The provider stops inference at its shared 10,000-Neuron
 daily Free allocation. On Workers Paid, usage above that allocation is billable,
 so this mode must not be deployed there. The example deployment keeps Studio AI
 disabled and the plan confirmation false.
+
+Owners may also create a draft without AI by entering a title and up to 100,000
+characters of plain text. The Worker escapes the text into paragraphs, passes
+it through the same content boundary and sanitizer, stores it as an unpublished
+revision, and records `ai_used: false`. It does not consume the AI request or
+Neuron reservation. It uses the same owner approval and separate publication
+steps. The D1 conversation triggers enforce the 40-message, per-site, and
+deployment-wide conversation/text caps for both AI and manual drafts; a quota
+failure rolls back the complete save.
 
 At the currently published rate for this model (26,668 input and 204,805
 output Neurons per million tokens), the reservation formula caps one accepted
@@ -293,9 +306,9 @@ entries and imported taxonomy terms, and a 256 MiB deployment-wide limit across
 immutable revisions. The Studio shows the site's estimate and daily public
 request count, the shared app-level AI request count and conservative Neuron
 reservation, R2 image storage, and per-site and shared daily image operations.
-The content estimate excludes
-indexes, database metadata,
-conversations, audit rows, and the physical D1 database size. Account-level
+The retained-content estimate excludes indexes, database metadata, chat-history
+rows (which have separate application quotas), DNS snapshots, audit rows, and
+the physical D1 database size. Account-level
 Worker requests outside public page/REST routes and D1
 reads/writes/storage are not measured in the Studio and must be monitored in
 Cloudflare. Workers AI neurons are also not tenant-metered, but the dedicated

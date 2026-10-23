@@ -15,6 +15,11 @@ const loginStatus = document.querySelector("#login-status");
 const studioStatus = document.querySelector("#studio-status");
 const chatMessages = document.querySelector("#chat-messages");
 const chatInput = document.querySelector("#chat-input");
+const manualForm = document.querySelector("#manual-form");
+const manualModeToggle = document.querySelector("#manual-mode-toggle");
+const manualTitle = document.querySelector("#manual-title");
+const manualContent = document.querySelector("#manual-content");
+const manualLanguage = document.querySelector("#manual-language");
 const conversationList = document.querySelector("#conversation-list");
 const draftPanel = document.querySelector("#draft-panel");
 const previewLink = document.querySelector("#preview-link");
@@ -126,6 +131,22 @@ function renderMessage(role, body, error = false) {
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
+function draftHtmlToText(html) {
+  const parsed = new DOMParser().parseFromString(String(html || ""), "text/html");
+  const blockTags = new Set(["BLOCKQUOTE", "DIV", "H1", "H2", "H3", "H4", "H5", "H6", "LI", "OL", "P", "PRE", "UL"]);
+  const textOf = (node) => {
+    if (node.nodeType === 3) return node.nodeValue || "";
+    if (node.nodeType !== 1) return "";
+    if (node.tagName === "BR") return "\n";
+    const content = Array.from(node.childNodes).map(textOf).join("");
+    return blockTags.has(node.tagName) ? `${content}\n\n` : content;
+  };
+  return Array.from(parsed.body.childNodes).map(textOf).join("")
+    .replace(/[ \t]*\n[ \t]*/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function showDraft(draft, revisionId, state, previewUrl) {
   if (!draft || !revisionId) {
     activeDraft = null;
@@ -141,6 +162,14 @@ function showDraft(draft, revisionId, state, previewUrl) {
   document.querySelector("#publish-button").hidden = state !== "approved";
 }
 
+function showManualMode(enabled) {
+  document.querySelector("#chat-form").hidden = enabled;
+  manualForm.hidden = !enabled;
+  manualModeToggle.textContent = enabled ? "Back to chat" : "Write without AI";
+  if (enabled) manualTitle.focus();
+  else chatInput.focus();
+}
+
 function resetConversation() {
   activeConversationId = null;
   selectedFeaturedMediaId = null;
@@ -154,6 +183,10 @@ function resetConversation() {
   chatMessages.append(emptyState);
   showDraft(null, null, null);
   document.querySelector("#send-button").textContent = "Create draft";
+  manualTitle.value = "";
+  manualContent.value = "";
+  manualLanguage.value = "";
+  showManualMode(false);
   showStatus(studioStatus);
 }
 
@@ -194,9 +227,15 @@ async function openConversation(id) {
       showDraft(result.conversation.draft, result.conversation.draft_revision_id, result.conversation.draft_state);
       document.querySelector("#content-kind").value = result.conversation.draft.kind;
       document.querySelector("#send-button").textContent = "Update draft";
+      manualTitle.value = result.conversation.draft.title || "";
+      manualContent.value = draftHtmlToText(result.conversation.draft.safe_html);
+      manualLanguage.value = result.conversation.draft.language_code === "und" ? "" : (result.conversation.draft.language_code || "");
     } else {
       showDraft(null, null, null);
       document.querySelector("#send-button").textContent = "Create draft";
+      manualTitle.value = "";
+      manualContent.value = "";
+      manualLanguage.value = "";
     }
     await refreshConversations();
   } catch (error) {
@@ -313,6 +352,14 @@ async function refreshUsage() {
     progress.value = Math.min(stored, limit);
     const sharedLimit = Math.max(0, Number(result.storage.shared_deployment_limit_bytes) || 0);
     document.querySelector("#shared-storage-limit").textContent = `Shared retained-content ceiling: ${(sharedLimit / (1024 * 1024)).toFixed(0)} MiB across this hosting deployment. Aggregate usage is managed by the host operator.`;
+    const chat = result.conversation_history;
+    const chatUsed = Math.max(0, Number(chat.site_message_bytes_used) || 0);
+    const chatLimit = Math.max(1, Number(chat.site_message_bytes_limit) || 1);
+    const chatProgress = document.querySelector("#chat-history-progress");
+    chatProgress.max = chatLimit;
+    chatProgress.value = Math.min(chatUsed, chatLimit);
+    document.querySelector("#chat-history-usage").textContent = `${(chatUsed / (1024 * 1024)).toFixed(2)} MiB of ${(chatLimit / (1024 * 1024)).toFixed(0)} MiB; ${chat.site_conversations_used} of ${chat.site_conversations_limit} conversations`;
+    document.querySelector("#chat-history-detail").textContent = `Shared hosting usage: ${(Number(chat.deployment_message_bytes_used) / (1024 * 1024)).toFixed(2)} of ${(Number(chat.deployment_message_bytes_limit) / (1024 * 1024)).toFixed(0)} MiB and ${chat.deployment_conversations_used} of ${chat.deployment_conversations_limit} conversations. Delete old conversations to release this site's allowance. Text-byte estimate; not physical D1 size.`;
     document.querySelector("#site-hosting-usage").textContent = `${result.hosting_requests.site_requests_used} of ${result.hosting_requests.site_daily_limit} site requests today (UTC)`;
     document.querySelector("#site-hosting-reset").textContent = `Shared deployment usage: ${result.hosting_requests.deployment_requests_used} of ${result.hosting_requests.shared_deployment_daily_limit} requests today. This includes unknown or inactive hosts that reach the Worker; active tenant requests also consume their site's allowance. Unknown-host traffic can exhaust the shared cap for all sites. The cap is checked before tenant lookup. Resets at ${result.hosting_requests.resets_at_utc}.`;
     document.querySelector("#ai-usage").textContent = `${result.ai_drafting.requests_used} of ${result.ai_drafting.daily_app_limit} shared requests today (UTC)`;
@@ -974,8 +1021,55 @@ document.querySelector("#chat-form").addEventListener("submit", async (event) =>
     showStatus(studioStatus, "The conversation remains unpublished.");
   } finally {
     button.disabled = false;
-    button.textContent = "Update draft";
+    button.textContent = activeDraft ? "Update draft" : "Create draft";
     chatInput.focus();
+  }
+});
+
+manualModeToggle.addEventListener("click", () => showManualMode(manualForm.hidden));
+
+manualForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const title = manualTitle.value.trim();
+  const content = manualContent.value.trim();
+  if (!title || !content) return;
+  const isNewConversation = !activeConversationId;
+  const button = document.querySelector("#manual-save-button");
+  button.disabled = true;
+  button.textContent = "Saving…";
+  showStatus(studioStatus);
+  try {
+    const body = {
+      conversation_id: activeConversationId,
+      title,
+      content,
+      language: manualLanguage.value.trim(),
+      kind: document.querySelector("#content-kind").value,
+    };
+    if (ownerScopes.includes("media:write")) body.featured_media_id = selectedFeaturedMediaId;
+    const result = await api("/_mithrilpress/api/studio/manual-draft", {
+      method: "POST",
+      headers: requestHeader,
+      body,
+    });
+    activeConversationId = result.conversation_id;
+    document.querySelector("#editor-title").textContent = "Refine your draft";
+    document.querySelector("#delete-conversation").hidden = false;
+    if (isNewConversation) clearMessages();
+    renderMessage("user", content);
+    renderMessage("assistant", result.message);
+    showDraft(result.draft, result.draft.revision_id, result.draft.state, result.preview_url);
+    document.querySelector("#content-kind").value = result.draft.kind;
+    showStatus(studioStatus, "Private draft saved without AI. Review it before approval and publication.");
+    await refreshConversations();
+    await refreshUsage();
+  } catch (error) {
+    renderMessage("assistant", error.message, true);
+    showStatus(studioStatus, "The text remains unpublished.");
+  } finally {
+    button.disabled = false;
+    button.textContent = "Save private draft";
+    manualContent.focus();
   }
 });
 
