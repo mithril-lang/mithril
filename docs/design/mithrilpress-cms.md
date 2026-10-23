@@ -7,15 +7,21 @@ REST-compatible subset, chat-first owner Studio, and supervised sales-process
 docs are in the public repository. The exact Worker source passed its approved
 standalone qualification before integration. No production Worker, D1
 database, R2 bucket, wildcard DNS record, or public route has been provisioned
-and read back. This is not a production release or full WordPress parity.
+and read back. A follow-up branch adds source-permalink route preservation but
+has not been qualified or integrated. This is not a production release or full
+WordPress parity.
 
 ## Product boundary
 
 “WordPress compatible” means importing an explicitly owner-authorized subset of
 posts and pages, preserving source IDs, slugs, dates, taxonomy IDs, media
-references, and source permalinks, and serving a documented read-only subset of
-the WordPress REST API. It does not include PHP, themes, plugins, shortcodes,
-custom post types, or arbitrary Gutenberg rendering.
+references, and safe source URL paths, and serving a documented read-only
+subset of the WordPress REST API. Safe multi-segment source paths can be served
+on MithrilPress and are used for canonical URLs and rewritten internal links.
+Query-based, reserved, and otherwise unsupported paths fall back to a slug route
+and are reported for owner review; colliding routes reject the import. This
+does not include PHP, themes, plugins, shortcodes, custom post types, or
+arbitrary Gutenberg rendering.
 
 WordPress REST post records carry `content` and `title` objects. Raw content is
 provided in the `edit` context, so the importer needs owner-authorized API access
@@ -81,13 +87,15 @@ The adapter does not fetch WordPress itself: owners provide the content through
 a scoped token. The importer accepts a
 bounded WordPress WXR 1.2 subset as well as REST records. It retains posts and
 pages, source IDs, dates, permalinks, category/tag IDs, and featured-media IDs.
-WXR attachments, media bytes, custom fields, page-parent relations, users,
+WXR attachments, media bytes, custom fields, users,
 comments, custom post types, password-protected posts/pages, and custom
-taxonomies remain outside the supported slice. Standard category/tag terms and
-category parent links are preserved. The importer reports omitted attachments
-and metadata and rejects DTDs, custom entities, malformed XML, and unresolved
-category/tag references. Owner-provided media upload and delivery are
-implemented; broad Gutenberg support remains follow-up work.
+taxonomies remain outside the supported slice. Standard category/tag terms,
+category parent links, and page-parent links are preserved when referenced
+records are present in the same revision. Cyclic, unresolved, and over-depth
+page hierarchies are omitted and reported for owner review. The importer reports
+omitted attachments and metadata and rejects DTDs, custom entities, malformed
+XML, and unresolved category/tag references. Owner-provided media upload and
+delivery are implemented; broad Gutenberg support remains follow-up work.
 
 Studio uses a short-lived owner token exchange, a one-hour `HttpOnly`, `Secure`,
 `SameSite=Strict` cookie session, same-origin mutation checks, prepared D1
@@ -369,7 +377,9 @@ expose parent IDs. These routes support bounded pagination, `slug`, `search`,
 and `hide_empty`. Single-item `GET` and `HEAD` routes at
 `/wp-json/wp/v2/posts/{id}` and `/wp-json/wp/v2/pages/{id}` return one published
 entry by its WordPress source ID, or by the MithrilPress API ID for a
-chat-authored entry. Only the active published revision is addressable; private
+chat-authored entry. Pages expose a `parent` source ID only when the referenced
+parent is also published in the active revision; otherwise the public value is
+`0`. Only the active published revision is addressable; private
 previews, drafts, and IDs for another post type return 404.
 Public edit context is denied. `GET /wp-json/wp/v2/media/{id}` exposes metadata
 only for a featured image referenced by the published revision. Term and media
@@ -395,13 +405,19 @@ entries whose source status was `publish`.
 `POST /api/wordpress/import` also accepts a raw WordPress WXR 1.2 XML export
 with `application/rss+xml`, `application/xml`, or `text/xml`. The importer uses
 the WXR channel link to bind the source origin and retains standard category
-and tag terms, category parents, and entry term IDs. REST JSON imports may
-include a `taxonomy_terms` array; every referenced category/tag ID must resolve
-to an imported term. Term descriptions are sanitized before storage. The API
+and tag terms, category parents, page-parent links, and entry term IDs. REST
+JSON imports may include a `taxonomy_terms` array; every referenced category/
+tag ID must resolve to an imported term. Page-parent links must resolve to
+another imported page in the same revision; cycles, missing parents, and
+hierarchies deeper than 64 are omitted and flagged for owner review. Term
+descriptions are sanitized before storage. The API
 returns omission counts for content it does not migrate. It does not fetch
 attachment URLs; owners must upload image files they control and review the
-private preview and omissions before publishing. This does not provide full
-WordPress content parity.
+private preview and omissions before publishing. Safe source permalink paths,
+including nested paths, are retained for public rendering, API links, canonical
+URLs, and imported internal-link rewriting. Sources that use query URLs or
+paths reserved by MithrilPress use a slug fallback and are explicitly marked
+for owner review. This does not provide full WordPress content parity.
 
 ## Outreach workflow
 
