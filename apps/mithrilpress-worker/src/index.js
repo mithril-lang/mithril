@@ -1,6 +1,7 @@
 import { handleDnsMigrations } from "./dns_migration.js";
 import { MAX_MEDIA_BYTES, validateImageUpload } from "./media_validation.js";
 import { instantiateMithrilNative as instantiateContentBoundary } from "./content_boundary.js";
+import { instantiateMithrilNative as instantiateMigrationPolicy } from "./migration_policy.js";
 import { instantiateMithrilNative } from "./platform_hostname.js";
 import { collectWordPressMediaReferences, inspectWordPressBlocks } from "./wordpress_blocks.js";
 import { buildWordPressPermalinkMap, rewriteWordPressLink, wordpressRoutePath } from "./wordpress_links.js";
@@ -44,6 +45,7 @@ const SITE_HOSTING_REQUESTS_PER_DAY_LIMIT = 5_000;
 const ENTRY_SLUG = /^[^/?#\\\u0000-\u001f\u007f]{1,200}$/;
 const mithrilHostnameCore = instantiateMithrilNative({});
 const mithrilContentBoundary = instantiateContentBoundary({ Array, Number, Set });
+const mithrilMigrationPolicy = instantiateMigrationPolicy({});
 const HTML_TAGS = new Set([
   "a", "b", "blockquote", "br", "code", "dd", "del", "div", "dl", "dt",
   "em", "figcaption", "figure", "h1", "h2", "h3", "h4", "h5", "h6", "hr",
@@ -2106,8 +2108,32 @@ async function importWordPress(request, env, site) {
   const omittedSeoFields = parsedWxr
     ? Number(parsedWxr.omitted.custom_fields ?? 0)
     : entries.reduce((sum, entry) => sum + entry.seoMetadataOmittedFields, 0);
+  const sourceOmissionCount = Object.values(parsedWxr?.omitted ?? {})
+    .reduce((sum, count) => sum + Number(count ?? 0), 0);
+  const parityStatus = mithrilMigrationPolicy.migrationParityStatus({
+    recordsReconcile: entries.length === records.length,
+    blockScanComplete: gutenbergReport.scan_truncated !== true,
+    noSourceOmissions: sourceOmissionCount === 0,
+    noMediaOmissions: omittedInlineImages === 0,
+    noUnsupportedBlocks: gutenbergReport.unknown_blocks === 0,
+    noLayoutDegradation: gutenbergReport.layout_degraded_blocks === 0,
+    noDynamicBlocks: gutenbergReport.dynamic_blocks === 0,
+    noUnsafeLinkRemovals: removedUnsafeLinks === 0,
+    noUnresolvedLinks: unresolvedSourceSiteLinks === 0,
+    noMetadataAndRouteOmissions: omittedSeoFields === 0
+      && preservedRouteCount === entries.length
+      && pageHierarchy.omitted === 0,
+  });
   const migrationReport = {
-    version: 1,
+    version: 2,
+    parity_status: parityStatus,
+    reconciliation: {
+      source_records: records.length,
+      imported_records: entries.length,
+      records_match: entries.length === records.length,
+      owner_supplied_taxonomy_terms: taxonomyTerms.length,
+      mapped_images: mediaBySourceId.size,
+    },
     gutenberg: gutenbergReport,
     seo_metadata: {
       entries_with_metadata: entries.filter((entry) => Object.keys(entry.seoMetadata).length > 0).length,
@@ -2138,14 +2164,7 @@ async function importWordPress(request, env, site) {
       maximum_depth: 64,
     },
     source_omissions: parsedWxr?.omitted ?? null,
-    needs_owner_review: gutenbergReport.needs_owner_review
-      || omittedInlineImages > 0
-      || unresolvedSourceSiteLinks > 0
-      || removedUnsafeLinks > 0
-      || pageHierarchy.omitted > 0
-      || omittedSeoFields > 0
-      || preservedRouteCount < entries.length
-      || Object.values(parsedWxr?.omitted ?? {}).some((count) => Number(count) > 0),
+    needs_owner_review: parityStatus !== "supported-slice-complete",
   };
 
   let safeTermBytes = 0;
@@ -2324,9 +2343,34 @@ async function previewRevision(request, env, site, revisionId, slug) {
   return htmlDocument(site.hostname, previewEntry, true, false, media, revisionId);
 }
 
+async function revisionLifecycle(env, site, revisionId) {
+  return env.DB.prepare(
+    `SELECT r.id, r.state, r.parent_revision_id, r.entry_count, r.published_at,
+      r.approval_proof_id, s.status AS site_status, s.current_revision_id,
+      (SELECT COUNT(*) FROM entries e WHERE e.site_id = r.site_id AND e.revision_id = r.id AND e.rendering_admission = 'ready') AS ready_entry_count,
+      EXISTS (SELECT 1 FROM owner_approvals a WHERE a.site_id = r.site_id AND a.revision_id = r.id AND a.proof_id = r.approval_proof_id AND r.approval_proof_id IS NOT NULL) AS valid_owner_approval
+     FROM site_revisions r JOIN sites s ON s.id = r.site_id
+     WHERE r.site_id = ? AND r.id = ? LIMIT 1`,
+  ).bind(site.id, revisionId).first();
+}
+
+function revisionEntriesComplete(revision) {
+  return Boolean(revision)
+    && Number(revision.entry_count) > 0
+    && Number(revision.entry_count) === Number(revision.ready_entry_count);
+}
+
 async function approveRevision(request, env, site, revisionId) {
   const owner = await ownerToken(request, env, site, "revision:approve");
   if (!owner) return fail(401, "owner_authorization_required", "A scoped site owner token is required.");
+  const revision = await revisionLifecycle(env, site, revisionId);
+  if (!mithrilMigrationPolicy.canApproveRevision({
+    siteActive: revision?.site_status === "active",
+    privatePreview: revision?.state === "private-preview",
+    parentMatches: revision?.parent_revision_id === revision?.current_revision_id,
+    entriesComplete: revisionEntriesComplete(revision),
+    exactRevision: revision?.id === revisionId,
+  })) return fail(409, "revision_not_approvable", "Only the exact complete private revision based on the current publication can be approved.");
   const now = new Date().toISOString();
   const proofId = crypto.randomUUID();
   const approvalId = crypto.randomUUID();
@@ -2349,13 +2393,21 @@ async function approveRevision(request, env, site, revisionId) {
 async function publishRevision(request, env, site, revisionId) {
   const owner = await ownerToken(request, env, site, "site:publish");
   if (!owner) return fail(401, "owner_authorization_required", "A scoped site owner token is required.");
+  const revision = await revisionLifecycle(env, site, revisionId);
+  if (!mithrilMigrationPolicy.canPublishRevision({
+    siteActive: revision?.site_status === "active",
+    approved: revision?.state === "approved",
+    parentMatches: revision?.parent_revision_id === revision?.current_revision_id,
+    validOwnerApproval: Number(revision?.valid_owner_approval ?? 0) === 1,
+    entriesComplete: revisionEntriesComplete(revision),
+  })) return fail(409, "revision_not_publishable", "Only a complete exact revision with a recorded owner approval can be published.");
   const now = new Date().toISOString();
   const results = await env.DB.batch([
     env.DB.prepare(
-      "UPDATE site_revisions SET state = 'superseded' WHERE site_id = ? AND id = (SELECT current_revision_id FROM sites WHERE id = ? AND status = 'active') AND id <> ? AND state = 'published' AND EXISTS (SELECT 1 FROM site_revisions r WHERE r.site_id = ? AND r.id = ? AND r.state = 'approved' AND r.parent_revision_id IS (SELECT current_revision_id FROM sites s WHERE s.id = r.site_id AND s.status = 'active') AND r.entry_count = (SELECT COUNT(*) FROM entries e WHERE e.site_id = r.site_id AND e.revision_id = r.id AND e.rendering_admission = 'ready'))",
+      "UPDATE site_revisions SET state = 'superseded' WHERE site_id = ? AND id = (SELECT current_revision_id FROM sites WHERE id = ? AND status = 'active') AND id <> ? AND state = 'published' AND EXISTS (SELECT 1 FROM owner_approvals a WHERE a.site_id = site_revisions.site_id AND a.revision_id = site_revisions.id AND a.proof_id = site_revisions.approval_proof_id) AND EXISTS (SELECT 1 FROM site_revisions r WHERE r.site_id = ? AND r.id = ? AND r.state = 'approved' AND r.parent_revision_id IS (SELECT current_revision_id FROM sites s WHERE s.id = r.site_id AND s.status = 'active') AND r.entry_count = (SELECT COUNT(*) FROM entries e WHERE e.site_id = r.site_id AND e.revision_id = r.id AND e.rendering_admission = 'ready') AND EXISTS (SELECT 1 FROM owner_approvals a WHERE a.site_id = r.site_id AND a.revision_id = r.id AND a.proof_id = r.approval_proof_id))",
     ).bind(site.id, site.id, revisionId, site.id, revisionId),
     env.DB.prepare(
-      "UPDATE site_revisions SET state = 'published', published_at = ?, published_by = ? WHERE site_id = ? AND id = ? AND state = 'approved' AND EXISTS (SELECT 1 FROM sites s WHERE s.id = ? AND s.status = 'active' AND site_revisions.parent_revision_id IS s.current_revision_id) AND entry_count = (SELECT COUNT(*) FROM entries e WHERE e.site_id = site_revisions.site_id AND e.revision_id = site_revisions.id AND e.rendering_admission = 'ready')",
+      "UPDATE site_revisions SET state = 'published', published_at = ?, published_by = ? WHERE site_id = ? AND id = ? AND state = 'approved' AND EXISTS (SELECT 1 FROM sites s WHERE s.id = ? AND s.status = 'active' AND site_revisions.parent_revision_id IS s.current_revision_id) AND entry_count = (SELECT COUNT(*) FROM entries e WHERE e.site_id = site_revisions.site_id AND e.revision_id = site_revisions.id AND e.rendering_admission = 'ready') AND EXISTS (SELECT 1 FROM owner_approvals a WHERE a.site_id = site_revisions.site_id AND a.revision_id = site_revisions.id AND a.proof_id = site_revisions.approval_proof_id)",
     ).bind(now, owner.ownerLabel, site.id, revisionId, site.id),
     env.DB.prepare(
       "UPDATE entries SET publication_status = 'published' WHERE site_id = ? AND revision_id = ? AND entry_origin = 'chat' AND publication_status = 'draft' AND EXISTS (SELECT 1 FROM site_revisions WHERE site_id = ? AND id = ? AND state = 'published')",
@@ -2371,6 +2423,57 @@ async function publishRevision(request, env, site, revisionId) {
     return fail(409, "revision_not_publishable", "Only a fully approved private revision for an active site can be published.");
   }
   return json({ revision_id: revisionId, state: "published", published_at: now });
+}
+
+async function restorePublishedRevision(request, env, site, revisionId) {
+  const owner = await ownerToken(request, env, site, "site:publish");
+  if (!owner) return fail(401, "owner_authorization_required", "A scoped site:publish owner token is required.");
+  if (request.method !== "POST") return fail(405, "method_not_allowed", "Use POST to restore an owner-approved publication.");
+  const body = await readBoundedJson(request);
+  const expectedCurrentRevisionId = site.current_revision_id;
+  if (typeof body?.revision_id !== "string"
+      || body.revision_id !== revisionId
+      || typeof body?.current_revision_id !== "string"
+      || body.current_revision_id !== expectedCurrentRevisionId) {
+    return fail(409, "restore_confirmation_required", "Confirm both the historical revision and the current publication before restoring.");
+  }
+
+  const revision = await revisionLifecycle(env, site, revisionId);
+  if (!mithrilMigrationPolicy.canRestorePublishedRevision({
+    siteActive: revision?.site_status === "active",
+    targetWasPublished: Boolean(revision?.published_at),
+    targetSuperseded: revision?.state === "superseded",
+    validOwnerApproval: Number(revision?.valid_owner_approval ?? 0) === 1,
+    entriesComplete: revisionEntriesComplete(revision),
+    currentRevisionDiffers: revision?.current_revision_id === expectedCurrentRevisionId
+      && expectedCurrentRevisionId !== revisionId,
+  })) return fail(409, "revision_not_restorable", "Restore requires a different complete historical publication with its original owner approval.");
+
+  const now = new Date().toISOString();
+  const results = await env.DB.batch([
+    env.DB.prepare(
+      "UPDATE site_revisions SET state = 'superseded' WHERE site_id = ? AND id = ? AND state = 'published' AND EXISTS (SELECT 1 FROM sites s WHERE s.id = ? AND s.status = 'active' AND s.current_revision_id = ?) AND EXISTS (SELECT 1 FROM owner_approvals a WHERE a.site_id = site_revisions.site_id AND a.revision_id = site_revisions.id AND a.proof_id = site_revisions.approval_proof_id) AND EXISTS (SELECT 1 FROM site_revisions r WHERE r.site_id = ? AND r.id = ? AND r.state = 'superseded' AND r.published_at IS NOT NULL AND r.entry_count = (SELECT COUNT(*) FROM entries e WHERE e.site_id = r.site_id AND e.revision_id = r.id AND e.rendering_admission = 'ready') AND EXISTS (SELECT 1 FROM owner_approvals a WHERE a.site_id = r.site_id AND a.revision_id = r.id AND a.proof_id = r.approval_proof_id))",
+    ).bind(site.id, expectedCurrentRevisionId, site.id, expectedCurrentRevisionId, site.id, revisionId),
+    env.DB.prepare(
+      "UPDATE site_revisions SET state = 'published' WHERE site_id = ? AND id = ? AND state = 'superseded' AND published_at IS NOT NULL AND entry_count = (SELECT COUNT(*) FROM entries e WHERE e.site_id = site_revisions.site_id AND e.revision_id = site_revisions.id AND e.rendering_admission = 'ready') AND EXISTS (SELECT 1 FROM owner_approvals a WHERE a.site_id = site_revisions.site_id AND a.revision_id = site_revisions.id AND a.proof_id = site_revisions.approval_proof_id) AND EXISTS (SELECT 1 FROM sites s WHERE s.id = ? AND s.status = 'active' AND s.current_revision_id = ?) AND EXISTS (SELECT 1 FROM site_revisions c WHERE c.site_id = ? AND c.id = ? AND c.state = 'superseded' AND EXISTS (SELECT 1 FROM owner_approvals a WHERE a.site_id = c.site_id AND a.revision_id = c.id AND a.proof_id = c.approval_proof_id))",
+    ).bind(site.id, revisionId, site.id, expectedCurrentRevisionId, site.id, expectedCurrentRevisionId),
+    env.DB.prepare(
+      "UPDATE sites SET current_revision_id = ? WHERE id = ? AND status = 'active' AND current_revision_id = ? AND EXISTS (SELECT 1 FROM site_revisions c WHERE c.site_id = sites.id AND c.id = ? AND c.state = 'superseded' AND EXISTS (SELECT 1 FROM owner_approvals a WHERE a.site_id = c.site_id AND a.revision_id = c.id AND a.proof_id = c.approval_proof_id)) AND EXISTS (SELECT 1 FROM site_revisions r WHERE r.site_id = sites.id AND r.id = ? AND r.state = 'published' AND r.approval_proof_id IS NOT NULL AND EXISTS (SELECT 1 FROM owner_approvals a WHERE a.site_id = r.site_id AND a.revision_id = r.id AND a.proof_id = r.approval_proof_id))",
+    ).bind(revisionId, site.id, expectedCurrentRevisionId, expectedCurrentRevisionId, revisionId),
+    env.DB.prepare(
+      "INSERT INTO owner_actions (id, site_id, revision_id, token_id, action, created_at, metadata_json) SELECT ?, ?, ?, ?, 'restore', ?, ? WHERE EXISTS (SELECT 1 FROM sites s WHERE s.id = ? AND s.current_revision_id = ?)",
+    ).bind(crypto.randomUUID(), site.id, revisionId, owner.tokenId, now,
+      JSON.stringify({ restored_from_revision_id: expectedCurrentRevisionId }), site.id, revisionId),
+  ]);
+  if (results[0]?.meta?.changes !== 1 || results[1]?.meta?.changes !== 1 || results[2]?.meta?.changes !== 1) {
+    return fail(409, "revision_restore_conflict", "The current publication changed or the historical revision is no longer restorable.");
+  }
+  return json({
+    revision_id: revisionId,
+    state: "published",
+    restored_from_revision_id: expectedCurrentRevisionId,
+    restored_at: now,
+  });
 }
 
 async function publicationSnapshot(request, env, site) {
@@ -2967,6 +3070,9 @@ async function handleRequest(request, env) {
   if (migrationReportMatch) {
     return await revisionMigrationReport(request, env, site, migrationReportMatch[1]);
   }
+
+  const restoreRevisionMatch = /^\/_mithrilpress\/api\/revisions\/([a-f0-9-]{36})\/restore$/.exec(url.pathname);
+  if (restoreRevisionMatch) return await restorePublishedRevision(request, env, site, restoreRevisionMatch[1]);
 
   const approvalMatch = /^\/_mithrilpress\/api\/revisions\/([a-f0-9-]{36})\/(approve|publish)$/.exec(url.pathname);
   if (approvalMatch && request.method === "POST") {

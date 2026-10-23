@@ -3,13 +3,15 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build:mithril": "kbb --backend sci --classpath ../../src ../../bin/mithril-native-js.cljk src/platform_hostname.mith --target js --output src/platform_hostname.js && kbb --backend sci --classpath ../../src ../../bin/mithril-native-js.cljk src/content_boundary.mith --target js --output src/content_boundary.js && kbb --backend sci --classpath ../../src ../../bin/mithril-native-js.cljk src/studio_ai_policy.mith --target js --output src/studio_ai_policy.js",
+    "build:mithril": "kbb --backend sci --classpath ../../src ../../bin/mithril-native-js.cljk src/platform_hostname.mith --target js --output src/platform_hostname.js && kbb --backend sci --classpath ../../src ../../bin/mithril-native-js.cljk src/content_boundary.mith --target js --output src/content_boundary.js && kbb --backend sci --classpath ../../src ../../bin/mithril-native-js.cljk src/studio_ai_policy.mith --target js --output src/studio_ai_policy.js && kbb --backend sci --classpath ../../src ../../bin/mithril-native-js.cljk src/migration_policy.mith --target js --output src/migration_policy.js",
     "dev": "wrangler dev --config wrangler.example.jsonc --local",
     "types": "wrangler types --config wrangler.example.jsonc",
     "import:wordpress": "node scripts/import-wxr-media.mjs",
+    "demo:migration": "node scripts/run-migration-demo.mjs",
     "export:pages": "node scripts/export-static-pages.mjs",
     "publish:pages": "node scripts/publish-static-pages.mjs",
     "provision:site": "node scripts/provision-site.mjs",
+    "token:import:local": "node scripts/provision-local-import-token.mjs",
     "attach:platform-host": "node scripts/attach-platform-host.mjs",
     "test": "node --test src/*.test.js"
   },

@@ -44,12 +44,23 @@ and [block markup specification](https://developer.wordpress.org/block-editor/ge
    and `nofollow`; previews require an owner token and are not prospect pages.
 4. Record an explicit revision approval, then a separate publication action.
    Public requests resolve only the site's current published revision. Older
-   revisions remain stored, but a guided rollback flow is future work.
+   revisions remain immutable and can be restored only when the owner names
+   both the exact historical target and current revision. The Worker verifies
+   the original approval and completeness, records a distinct restore action,
+   and switches the current pointer in one guarded D1 batch.
 5. Compare the migrated site with the owner-provided source and report omitted
    assets, unsupported blocks, and URL changes before the owner publishes.
 6. Owners can also create and revise a draft through MithrilPress Studio. The
    AI response stays private; the owner must review the preview, approve the
    revision, and then take a separate publish action.
+
+The Worker loads the generated `migration_policy.js` native module compiled from
+`apps/mithrilpress-worker/src/migration_policy.mith`. Mithril decides the
+supported-subset parity status and fail-closed approve, publish, and restore
+eligibility; D1 statements repeat the revision, approval, and completeness
+guards at the state-change boundary. See the [synthetic local migration demo
+runbook](../operations/mithrilpress-migration-demo-runbook.md) and the
+[managed-service handoff packet](../operations/mithrilpress-managed-service-handoff.md).
 
 ## Mithril content model
 
