@@ -26,6 +26,10 @@ const CUSTOM_DOMAIN_HEALTH_FAILURE_LIMIT = 3;
 const MAX_BODY_BYTES = 12_000_000;
 const MAX_RECORDS = 500;
 const MAX_CONTENT_CHARS = 250_000;
+const MAX_MANUAL_DRAFT_CHARS = 100_000;
+const MAX_CHAT_DRAFT_HTML_CHARS = 250_000;
+// Worst case: every input character is a double quote (six escaped chars), plus <p></p>.
+const MAX_MANUAL_DRAFT_HTML_CHARS = 600_007;
 const MAX_IMPORT_CHARS = 10_000_000;
 const MAX_IMPORTED_TERMS = 5_000;
 const MAX_IMPORTED_TERM_BYTES = 1_000_000;
@@ -132,6 +136,36 @@ function storageQuotaResponse(code) {
   return code === "site_storage_quota_exceeded"
     ? fail(409, code, "This site's retained content has reached its application storage limit. Reduce the import size or contact the hosting operator.")
     : fail(409, "deployment_storage_quota_exceeded", "The shared hosting content pool is full. This site cannot accept more content right now; contact the hosting operator.");
+}
+
+function conversationQuotaCode(error) {
+  const message = String(error?.message ?? error ?? "");
+  for (const code of [
+    "site_conversation_limit_exceeded",
+    "deployment_conversation_limit_exceeded",
+    "conversation_message_limit_exceeded",
+    "site_conversation_storage_quota_exceeded",
+    "deployment_conversation_storage_quota_exceeded",
+  ]) {
+    if (message.includes(code)) return code;
+  }
+  return null;
+}
+
+function conversationQuotaResponse(code) {
+  if (code === "site_conversation_limit_exceeded") {
+    return fail(409, code, "This site has reached its 50 saved-conversation limit. Delete an old conversation before starting another.");
+  }
+  if (code === "deployment_conversation_limit_exceeded") {
+    return fail(503, code, "The shared hosting conversation limit has been reached. Delete unused conversation history or contact the hosting operator.");
+  }
+  if (code === "conversation_message_limit_exceeded") {
+    return fail(409, code, "This conversation has reached its 40-message limit. Start a new conversation to continue drafting.");
+  }
+  if (code === "site_conversation_storage_quota_exceeded") {
+    return fail(409, code, "This site's saved chat text has reached its 4 MiB allowance. Delete old conversations before drafting again.");
+  }
+  return fail(503, "deployment_conversation_storage_quota_exceeded", "The shared hosting chat-history allowance is full. Delete unused conversation history or contact the hosting operator.");
 }
 
 function mediaQuotaCode(error) {
@@ -1221,6 +1255,12 @@ async function studioSession(request, env, site) {
 const STUDIO_DAILY_GENERATION_LIMIT = 8;
 const STUDIO_MAX_MESSAGES = 40;
 const STUDIO_CONTEXT_MESSAGES = 8;
+const STUDIO_MAX_CONVERSATIONS_PER_SITE = 50;
+const STUDIO_MAX_CONVERSATIONS_PER_DEPLOYMENT = 1000;
+const STUDIO_CONVERSATION_BYTES_PER_SITE = 4 * 1024 * 1024;
+const STUDIO_CONVERSATION_BYTES_PER_DEPLOYMENT = 64 * 1024 * 1024;
+// studio_messages.body permits at most 3,000 Unicode characters; reserve the UTF-8 worst case.
+const STUDIO_MAX_ASSISTANT_MESSAGE_BYTES = 12_000;
 const STUDIO_RESPONSE_SCHEMA = {
   type: "object",
   properties: {
@@ -1315,7 +1355,9 @@ async function studioChat(request, env, site) {
     const count = await env.DB.prepare(
       "SELECT COUNT(*) AS total FROM studio_messages WHERE site_id = ? AND conversation_id = ?",
     ).bind(site.id, conversation.id).first();
-    if (Number(count?.total ?? 0) >= STUDIO_MAX_MESSAGES) return fail(429, "conversation_limit", "Start a new conversation to continue drafting.");
+    if (Number(count?.total ?? 0) + 2 > STUDIO_MAX_MESSAGES) {
+      return fail(429, "conversation_message_limit_exceeded", "This conversation has reached its 40-message limit. Start a new conversation to continue drafting.");
+    }
   } else {
     conversation = {
       id: crypto.randomUUID(),
@@ -1324,6 +1366,29 @@ async function studioChat(request, env, site) {
       draft_revision_id: null,
       draft_state: null,
     };
+  }
+
+  const [siteConversationUsage, deploymentConversationUsage] = await Promise.all([
+    env.DB.prepare("SELECT message_bytes, conversation_count FROM mithrilpress_site_conversation_usage WHERE site_id = ? LIMIT 1")
+      .bind(site.id).first(),
+    env.DB.prepare("SELECT message_bytes, conversation_count FROM mithrilpress_deployment_conversation_usage WHERE singleton = 1 LIMIT 1")
+      .first(),
+  ]);
+  if (!requestedConversationId
+      && Number(siteConversationUsage?.conversation_count ?? 0) >= STUDIO_MAX_CONVERSATIONS_PER_SITE) {
+    return conversationQuotaResponse("site_conversation_limit_exceeded");
+  }
+  if (!requestedConversationId
+      && Number(deploymentConversationUsage?.conversation_count ?? 0) >= STUDIO_MAX_CONVERSATIONS_PER_DEPLOYMENT) {
+    return conversationQuotaResponse("deployment_conversation_limit_exceeded");
+  }
+  const reservedMessageBytes = new TextEncoder().encode(body.message.trim()).byteLength
+    + STUDIO_MAX_ASSISTANT_MESSAGE_BYTES;
+  if (Number(siteConversationUsage?.message_bytes ?? 0) + reservedMessageBytes > STUDIO_CONVERSATION_BYTES_PER_SITE) {
+    return conversationQuotaResponse("site_conversation_storage_quota_exceeded");
+  }
+  if (Number(deploymentConversationUsage?.message_bytes ?? 0) + reservedMessageBytes > STUDIO_CONVERSATION_BYTES_PER_DEPLOYMENT) {
+    return conversationQuotaResponse("deployment_conversation_storage_quota_exceeded");
   }
 
   const historyRows = await env.DB.prepare(
@@ -1403,8 +1468,8 @@ async function studioChat(request, env, site) {
     return fail(502, "invalid_ai_response", "The drafting service returned an incomplete proposal. No draft was saved.");
   }
   const candidateSlug = studioSlug(proposal?.slug, typeof proposal?.title === "string" ? proposal.title : "");
-  const admittedDraft = mithrilContentBoundary.prepareChatDraft(
-    site.id, owner.tokenId, conversation.id, kind, candidateSlug, proposal, languageCode,
+  const admittedDraft = mithrilContentBoundary.prepareStudioDraft(
+    site.id, owner.tokenId, conversation.id, kind, candidateSlug, proposal, languageCode, MAX_CHAT_DRAFT_HTML_CHARS,
   );
   if (!admittedDraft.ok || admittedDraft.status !== "private-draft"
       || admittedDraft.publicationAdmitted !== false || admittedDraft.tenantId !== site.id
@@ -1506,6 +1571,8 @@ async function studioChat(request, env, site) {
   try {
     saved = await env.DB.batch(statements);
   } catch (error) {
+    const conversationCode = conversationQuotaCode(error);
+    if (conversationCode) return conversationQuotaResponse(conversationCode);
     const quotaCode = storageQuotaCode(error);
     if (quotaCode) return storageQuotaResponse(quotaCode);
     return fail(503, "draft_not_saved", "The private draft could not be saved. No content was published.");
@@ -1527,6 +1594,208 @@ async function studioChat(request, env, site) {
   }, 201);
 }
 
+async function studioManualDraft(request, env, site) {
+  if (!sameOriginStudioMutation(request, site)) return fail(403, "same_origin_required", "Studio changes must come from this site.");
+  const owner = await ownerToken(request, env, site, "content:write");
+  if (!owner) return fail(401, "studio_login_required", "An active content:write session is required.");
+
+  const body = await readBoundedJson(request);
+  if (!textValue(body?.title, 200)) return fail(422, "invalid_title", "Enter a title of up to 200 characters.");
+  if (!textValue(body?.content, MAX_MANUAL_DRAFT_CHARS)) {
+    return fail(422, "invalid_content", "Enter text of up to 100,000 characters.");
+  }
+  const requestedKind = body.kind === "page" ? "page" : "post";
+  const requestedConversationId = body.conversation_id ?? null;
+  if (requestedConversationId !== null && !/^[a-f0-9-]{36}$/.test(requestedConversationId)) {
+    return fail(422, "invalid_conversation", "The studio conversation identifier is invalid.");
+  }
+  let languageCode = "und";
+  if (body.language !== undefined && body.language !== "") {
+    languageCode = normalizedLanguageTag(body.language);
+    if (!languageCode) return fail(422, "invalid_language", "Enter a valid BCP 47 content language tag or leave the field empty.");
+  }
+
+  const hasFeaturedMedia = Object.hasOwn(body, "featured_media_id");
+  let requestedFeaturedMediaId = null;
+  if (hasFeaturedMedia && body.featured_media_id !== null) {
+    if (!Number.isSafeInteger(body.featured_media_id) || body.featured_media_id <= 0) {
+      return fail(422, "invalid_featured_media", "Select a media item from this site's library.");
+    }
+    if (!owner.scopes.includes("media:write")) {
+      return fail(403, "media_scope_required", "A media:write owner scope is required to set a featured image.");
+    }
+    const selectedMedia = await env.DB.prepare(
+      "SELECT id FROM media_assets WHERE site_id = ? AND id = ? AND status = 'active' LIMIT 1",
+    ).bind(site.id, body.featured_media_id).first();
+    if (!selectedMedia) return fail(422, "invalid_featured_media", "Select an active image from this site's media library.");
+    requestedFeaturedMediaId = selectedMedia.id;
+  }
+
+  const now = new Date();
+  const nowIso = now.toISOString();
+  let conversation;
+  if (requestedConversationId) {
+    conversation = await env.DB.prepare(
+      "SELECT c.id, c.token_id, c.base_revision_id, c.draft_revision_id, r.state AS draft_state FROM studio_conversations c LEFT JOIN site_revisions r ON r.site_id = c.site_id AND r.id = c.draft_revision_id WHERE c.site_id = ? AND c.id = ? LIMIT 1",
+    ).bind(site.id, requestedConversationId).first();
+    if (!conversation || conversation.token_id !== owner.tokenId) return fail(404, "conversation_not_found", "Studio conversation not found.");
+    if (conversation.base_revision_id !== site.current_revision_id) {
+      return fail(409, "site_changed", "The published site changed since this conversation began. Start a new conversation from the latest revision.");
+    }
+    if (conversation.draft_state && conversation.draft_state !== "private-preview") {
+      return fail(409, "draft_locked", "This conversation draft has been approved or published. Start a new conversation to continue editing.");
+    }
+    const count = await env.DB.prepare(
+      "SELECT COUNT(*) AS total FROM studio_messages WHERE site_id = ? AND conversation_id = ?",
+    ).bind(site.id, conversation.id).first();
+    if (Number(count?.total ?? 0) + 2 > STUDIO_MAX_MESSAGES) {
+      return conversationQuotaResponse("conversation_message_limit_exceeded");
+    }
+  } else {
+    conversation = {
+      id: crypto.randomUUID(),
+      token_id: owner.tokenId,
+      base_revision_id: site.current_revision_id,
+      draft_revision_id: null,
+      draft_state: null,
+    };
+  }
+
+  const currentDraft = conversation.draft_revision_id
+    ? await env.DB.prepare(
+      "SELECT kind, slug, route_path, featured_media_id FROM entries WHERE site_id = ? AND revision_id = ? AND entry_id = ? LIMIT 1",
+    ).bind(site.id, conversation.draft_revision_id, `mithrilpress:chat:${conversation.id}`).first()
+    : null;
+  const featuredMediaId = hasFeaturedMedia ? requestedFeaturedMediaId : (currentDraft?.featured_media_id ?? null);
+  const kind = currentDraft?.kind ?? requestedKind;
+  const title = body.title.trim();
+  const paragraphs = body.content.trim().split(/\n{2,}/).map((paragraph) =>
+    `<p>${escapeHtml(paragraph).replace(/\r?\n/g, "<br>")}</p>`
+  );
+  const sourceHtml = paragraphs.join("");
+  const proposal = {
+    assistant_message: "Your text was saved as a private draft without AI.",
+    title,
+    html: sourceHtml,
+  };
+  const candidateSlug = studioSlug(title, title);
+  const admittedDraft = mithrilContentBoundary.prepareStudioDraft(
+    site.id, owner.tokenId, conversation.id, kind, candidateSlug, proposal, languageCode, MAX_MANUAL_DRAFT_HTML_CHARS,
+  );
+  if (!admittedDraft.ok || admittedDraft.status !== "private-draft"
+      || admittedDraft.publicationAdmitted !== false || admittedDraft.tenantId !== site.id
+      || admittedDraft.authorizationProofId !== owner.tokenId || admittedDraft.conversationId !== conversation.id
+      || admittedDraft.entry.tenantId !== site.id || admittedDraft.entry.kind !== kind
+      || admittedDraft.entry.id !== `mithrilpress:chat:${conversation.id}` || admittedDraft.entry.language !== languageCode
+      || admittedDraft.entry.trust !== "untrusted" || admittedDraft.entry.renderingAdmission !== "blocked"
+      || admittedDraft.entry.publicationState !== "draft") {
+    return fail(422, "invalid_manual_draft", "The text could not be prepared as a private draft.");
+  }
+  const chatEntry = admittedDraft.entry;
+  const safeHtml = await sanitizeHtml(chatEntry.source);
+  if (!textValue(safeHtml, MAX_SAFE_HTML_CHARS)) return fail(422, "empty_manual_draft", "Enter text that can be saved as a draft.");
+
+  let slug = chatEntry.slug;
+  const baseEntries = conversation.base_revision_id
+    ? await env.DB.prepare(
+      "SELECT kind, slug, api_id, route_path FROM entries WHERE site_id = ? AND revision_id = ?",
+    ).bind(site.id, conversation.base_revision_id).all()
+    : { results: [] };
+  const sameKindEntries = (baseEntries.results ?? []).filter((entry) => entry.kind === kind);
+  const occupied = new Set(sameKindEntries.map((entry) => entry.slug));
+  const occupiedRoutes = new Set((baseEntries.results ?? []).map((entry) => entry.route_path));
+  let routePath = currentDraft?.slug === slug && currentDraft.route_path
+    ? currentDraft.route_path
+    : defaultRoutePath({ kind, slug });
+  if (occupied.has(slug) || occupiedRoutes.has(routePath)) {
+    const suffix = conversation.id.replaceAll("-", "").slice(0, 10);
+    const prefix = slug.slice(0, 180 - suffix.length - 1).replace(/-+$/g, "") || "entry";
+    slug = `${prefix}-${suffix}`;
+    routePath = defaultRoutePath({ kind, slug });
+  }
+  const apiId = Math.max(0, ...sameKindEntries.map((entry) => Number(entry.api_id) || 0)) + 1;
+  if (!Number.isSafeInteger(apiId)) return fail(409, "site_content_limit", "The site has reached the WordPress-compatible identifier limit.");
+  const baseCount = conversation.base_revision_id
+    ? Number((await env.DB.prepare("SELECT COUNT(*) AS total FROM entries WHERE site_id = ? AND revision_id = ?").bind(site.id, conversation.base_revision_id).first())?.total ?? 0)
+    : 0;
+  if (baseCount >= MAX_RECORDS) return fail(409, "site_content_limit", "This revision has reached the 500-entry limit. Import or archive content before adding another post.");
+
+  const revisionId = crypto.randomUUID();
+  const entryId = chatEntry.id;
+  const assistantAt = new Date(now.getTime() + 1).toISOString();
+  const baseRevisionId = conversation.base_revision_id;
+  const statements = [];
+  const newConversationOffset = requestedConversationId === null ? 1 : 0;
+  if (newConversationOffset) {
+    statements.push(
+      env.DB.prepare(
+        "INSERT INTO studio_conversations (site_id, id, token_id, base_revision_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+      ).bind(site.id, conversation.id, owner.tokenId, baseRevisionId, nowIso, nowIso),
+    );
+  }
+  statements.push(
+    env.DB.prepare(
+      "UPDATE site_revisions SET state = 'superseded' WHERE site_id = ? AND id = (SELECT draft_revision_id FROM studio_conversations WHERE site_id = ? AND id = ?) AND state = 'private-preview'",
+    ).bind(site.id, site.id, conversation.id),
+    env.DB.prepare(
+      "INSERT INTO site_revisions (id, site_id, parent_revision_id, state, revision_origin, source_origin, import_proof_id, import_token_id, imported_at, entry_count) SELECT ?, ?, ?, 'importing', 'chat', NULL, NULL, NULL, ?, ? WHERE EXISTS (SELECT 1 FROM studio_conversations c JOIN sites s ON s.id = c.site_id WHERE c.site_id = ? AND c.id = ? AND c.token_id = ? AND c.base_revision_id IS ? AND c.draft_revision_id IS ? AND (c.draft_revision_id IS NULL OR EXISTS (SELECT 1 FROM site_revisions d WHERE d.site_id = c.site_id AND d.id = c.draft_revision_id AND d.state = 'private-preview')) AND s.current_revision_id IS ? AND s.status = 'active')",
+    ).bind(revisionId, site.id, baseRevisionId, nowIso, baseCount + 1,
+      site.id, conversation.id, owner.tokenId, baseRevisionId, conversation.draft_revision_id, site.current_revision_id),
+    env.DB.prepare(
+      "INSERT INTO entries (site_id, revision_id, entry_id, kind, slug, route_path, title, source_html, safe_html, entry_origin, publication_status, language_code, api_id, source_id, source_status, source_date, source_date_gmt, source_modified, source_modified_gmt, source_permalink, categories_json, tags_json, featured_media_id, rendering_admission) SELECT site_id, ?, entry_id, kind, slug, route_path, title, source_html, safe_html, entry_origin, publication_status, language_code, api_id, source_id, source_status, source_date, source_date_gmt, source_modified, source_modified_gmt, source_permalink, categories_json, tags_json, featured_media_id, rendering_admission FROM entries WHERE site_id = ? AND revision_id = ?",
+    ).bind(revisionId, site.id, baseRevisionId),
+    env.DB.prepare(
+      "INSERT INTO entry_seo_metadata (site_id, revision_id, entry_id, metadata_json) SELECT site_id, ?, entry_id, metadata_json FROM entry_seo_metadata WHERE site_id = ? AND revision_id = ?",
+    ).bind(revisionId, site.id, baseRevisionId),
+    env.DB.prepare(
+      "INSERT INTO entry_media (site_id, revision_id, entry_id, media_id, created_at) SELECT site_id, ?, entry_id, media_id, created_at FROM entry_media WHERE site_id = ? AND revision_id = ?",
+    ).bind(revisionId, site.id, baseRevisionId),
+    env.DB.prepare(
+      "INSERT INTO taxonomy_terms (site_id, revision_id, taxonomy, term_id, slug, name, description_html, parent_term_id) SELECT site_id, ?, taxonomy, term_id, slug, name, description_html, parent_term_id FROM taxonomy_terms WHERE site_id = ? AND revision_id = ?",
+    ).bind(revisionId, site.id, baseRevisionId),
+    env.DB.prepare(
+      "INSERT INTO entries (site_id, revision_id, entry_id, kind, slug, route_path, title, source_html, safe_html, entry_origin, publication_status, language_code, api_id, source_id, source_status, source_date, source_date_gmt, source_modified, source_modified_gmt, source_permalink, categories_json, tags_json, featured_media_id, rendering_admission) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'chat', 'draft', ?, ?, NULL, 'draft', ?, ?, ?, ?, NULL, '[]', '[]', ?, 'ready')",
+    ).bind(site.id, revisionId, entryId, kind, slug, routePath, chatEntry.title.trim(), chatEntry.source, safeHtml,
+      languageCode, apiId, nowIso, nowIso, nowIso, nowIso, featuredMediaId),
+    env.DB.prepare(
+      "UPDATE site_revisions SET state = 'private-preview' WHERE site_id = ? AND id = ? AND state = 'importing' AND entry_count = (SELECT COUNT(*) FROM entries WHERE site_id = ? AND revision_id = ? AND rendering_admission = 'ready')",
+    ).bind(site.id, revisionId, site.id, revisionId),
+    env.DB.prepare(
+      "UPDATE studio_conversations SET draft_revision_id = ?, updated_at = ? WHERE site_id = ? AND id = ? AND token_id = ? AND base_revision_id IS ?",
+    ).bind(revisionId, assistantAt, site.id, conversation.id, owner.tokenId, baseRevisionId),
+    env.DB.prepare(
+      "INSERT INTO studio_messages (site_id, conversation_id, id, role, body, created_at) VALUES (?, ?, ?, 'user', ?, ?)",
+    ).bind(site.id, conversation.id, crypto.randomUUID(), body.content.trim(), nowIso),
+    env.DB.prepare(
+      "INSERT INTO studio_messages (site_id, conversation_id, id, role, body, created_at) VALUES (?, ?, ?, 'assistant', ?, ?)",
+    ).bind(site.id, conversation.id, crypto.randomUUID(), chatEntry.assistantMessage.trim(), assistantAt),
+    env.DB.prepare(
+      "INSERT INTO owner_actions (id, site_id, revision_id, token_id, action, created_at, metadata_json) SELECT ?, ?, ?, ?, 'manual-draft', ?, ? WHERE EXISTS (SELECT 1 FROM site_revisions WHERE site_id = ? AND id = ? AND state = 'private-preview')",
+    ).bind(crypto.randomUUID(), site.id, revisionId, owner.tokenId, assistantAt,
+      JSON.stringify({ conversation_id: conversation.id, entry_id: entryId, ai_used: false }), site.id, revisionId),
+  );
+  let saved;
+  try {
+    saved = await env.DB.batch(statements);
+  } catch (error) {
+    const conversationCode = conversationQuotaCode(error);
+    if (conversationCode) return conversationQuotaResponse(conversationCode);
+    const quotaCode = storageQuotaCode(error);
+    if (quotaCode) return storageQuotaResponse(quotaCode);
+    return fail(503, "draft_not_saved", "The private draft could not be saved. No content was published.");
+  }
+  if (saved[7 + newConversationOffset]?.meta?.changes !== 1
+      || saved[8 + newConversationOffset]?.meta?.changes !== 1) {
+    return fail(503, "draft_not_saved", "The private draft could not be saved. No content was published.");
+  }
+  return json({
+    conversation_id: conversation.id,
+    message: chatEntry.assistantMessage.trim(),
+    draft: { revision_id: revisionId, title: chatEntry.title.trim(), slug, kind, state: "private-preview", featured_media_id: featuredMediaId },
+    preview_url: `/_mithrilpress/preview/${revisionId}/${encodeURIComponent(slug)}`,
+  }, 201);
+}
+
 async function studioConversation(request, env, site, conversationId, owner) {
   const conversation = await env.DB.prepare(
     "SELECT c.id, c.base_revision_id, c.draft_revision_id, c.created_at, c.updated_at, r.state AS draft_state FROM studio_conversations c LEFT JOIN site_revisions r ON r.site_id = c.site_id AND r.id = c.draft_revision_id WHERE c.site_id = ? AND c.id = ? AND c.token_id = ? LIMIT 1",
@@ -1537,7 +1806,7 @@ async function studioConversation(request, env, site, conversationId, owner) {
   ).bind(site.id, conversationId, STUDIO_MAX_MESSAGES).all();
   const draft = conversation.draft_revision_id
     ? await env.DB.prepare(
-      "SELECT title, slug, kind, route_path, featured_media_id FROM entries WHERE site_id = ? AND revision_id = ? AND entry_id = ? LIMIT 1",
+      "SELECT title, slug, kind, route_path, safe_html, language_code, featured_media_id FROM entries WHERE site_id = ? AND revision_id = ? AND entry_id = ? LIMIT 1",
     ).bind(site.id, conversation.draft_revision_id, `mithrilpress:chat:${conversationId}`).first()
     : null;
   return json({
@@ -1572,7 +1841,7 @@ async function studioUsage(request, env, site) {
   const now = new Date();
   const dayUtc = now.toISOString().slice(0, 10);
   const resetsAtUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)).toISOString();
-  const [storage, aiUsage, siteMedia, deploymentMedia, mediaOperations, siteMediaReads, siteHostingRequests, deploymentHostingRequests] = await Promise.all([
+  const [storage, aiUsage, siteMedia, deploymentMedia, mediaOperations, siteMediaReads, siteHostingRequests, deploymentHostingRequests, siteConversationUsage, deploymentConversationUsage] = await Promise.all([
     env.DB.prepare("SELECT content_bytes FROM mithrilpress_site_storage_usage WHERE site_id = ? LIMIT 1").bind(site.id).first(),
     env.DB.prepare("SELECT request_count, estimated_neurons FROM studio_ai_usage WHERE day_utc = ? LIMIT 1").bind(dayUtc).first(),
     env.DB.prepare("SELECT asset_bytes FROM mithrilpress_site_media_usage WHERE site_id = ? LIMIT 1").bind(site.id).first(),
@@ -1581,6 +1850,8 @@ async function studioUsage(request, env, site) {
     env.DB.prepare("SELECT day_utc, read_count FROM media_site_daily_reads WHERE site_id = ? LIMIT 1").bind(site.id).first(),
     env.DB.prepare("SELECT day_utc, request_count FROM mithrilpress_site_daily_requests WHERE site_id = ? LIMIT 1").bind(site.id).first(),
     env.DB.prepare("SELECT day_utc, request_count FROM mithrilpress_deployment_daily_requests WHERE singleton = 1 LIMIT 1").first(),
+    env.DB.prepare("SELECT message_bytes, conversation_count FROM mithrilpress_site_conversation_usage WHERE site_id = ? LIMIT 1").bind(site.id).first(),
+    env.DB.prepare("SELECT message_bytes, conversation_count FROM mithrilpress_deployment_conversation_usage WHERE singleton = 1 LIMIT 1").first(),
   ]);
   return json({
     storage: {
@@ -1609,6 +1880,17 @@ async function studioUsage(request, env, site) {
       deployment_requests_used: deploymentHostingRequests?.day_utc === dayUtc ? Number(deploymentHostingRequests.request_count ?? 0) : 0,
       shared_deployment_daily_limit: HOSTING_REQUESTS_PER_DAY_LIMIT,
       resets_at_utc: resetsAtUtc,
+    },
+    conversation_history: {
+      estimate_type: "utf8_message_body_bytes",
+      site_message_bytes_used: Number(siteConversationUsage?.message_bytes ?? 0),
+      site_message_bytes_limit: STUDIO_CONVERSATION_BYTES_PER_SITE,
+      deployment_message_bytes_used: Number(deploymentConversationUsage?.message_bytes ?? 0),
+      deployment_message_bytes_limit: STUDIO_CONVERSATION_BYTES_PER_DEPLOYMENT,
+      site_conversations_used: Number(siteConversationUsage?.conversation_count ?? 0),
+      site_conversations_limit: STUDIO_MAX_CONVERSATIONS_PER_SITE,
+      deployment_conversations_used: Number(deploymentConversationUsage?.conversation_count ?? 0),
+      deployment_conversations_limit: STUDIO_MAX_CONVERSATIONS_PER_DEPLOYMENT,
     },
     r2_media: {
       site_used_bytes: Number(siteMedia?.asset_bytes ?? 0),
@@ -2953,6 +3235,9 @@ async function handleRequest(request, env) {
   }
   if (url.pathname === "/_mithrilpress/api/studio/chat" && request.method === "POST") {
     return await studioChat(request, env, site);
+  }
+  if (url.pathname === "/_mithrilpress/api/studio/manual-draft" && request.method === "POST") {
+    return await studioManualDraft(request, env, site);
   }
   const studioConversationMatch = /^\/_mithrilpress\/api\/studio\/conversations\/([a-f0-9-]{36})$/.exec(url.pathname);
   if (studioConversationMatch) {

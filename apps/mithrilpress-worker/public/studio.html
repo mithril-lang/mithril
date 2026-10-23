@@ -82,6 +82,20 @@
             </div>
           </form>
 
+          <p class="manual-mode-prompt">Prefer to write it yourself? <button id="manual-mode-toggle" class="button button-quiet" type="button">Write without AI</button></p>
+          <form id="manual-form" class="chat-form" hidden>
+            <label for="manual-title">Title</label>
+            <input id="manual-title" name="title" type="text" maxlength="200" required>
+            <label for="manual-content">Draft text</label>
+            <textarea id="manual-content" name="content" rows="10" maxlength="100000" placeholder="Write the text you want to save as a private draft." required></textarea>
+            <label for="manual-language">Content language (BCP 47, optional)</label>
+            <input id="manual-language" name="language" type="text" maxlength="64" placeholder="For example: en or fr-CA" autocomplete="off" spellcheck="false">
+            <div class="composer-footer">
+              <p>Text is saved as plain paragraphs, up to 100,000 characters. MithrilPress does not send it to an AI provider; site storage caps still apply.</p>
+              <button id="manual-save-button" class="button button-primary" type="submit">Save private draft</button>
+            </div>
+          </form>
+
           <section id="draft-panel" class="draft-panel" aria-labelledby="draft-title" hidden>
             <div>
               <div class="eyebrow">PRIVATE REVISION</div>
@@ -187,6 +201,12 @@
               <p class="usage-detail">Application estimate across retained content revisions.</p>
             </article>
             <article class="usage-card">
+              <h2>Chat history for this site</h2>
+              <p id="chat-history-usage" class="usage-value">Loading…</p>
+              <progress id="chat-history-progress" max="4194304" value="0" aria-label="Site chat history text allowance"></progress>
+              <p id="chat-history-detail" class="usage-detail">Loading…</p>
+            </article>
+            <article class="usage-card">
               <h2>AI drafting requests</h2>
               <p id="ai-usage" class="usage-value">Loading…</p>
               <p id="ai-usage-reset" class="usage-detail"></p>
@@ -198,6 +218,7 @@
           </div>
           <p id="shared-storage-limit" class="usage-detail"></p>
           <p class="usage-notice">MithrilPress is free for site owners within these allowances. Every request reaching the Worker is checked against the shared deployment cap before hostname lookup, including unknown or inactive hosts; active-site requests also consume that site's cap. Anonymous unknown-host traffic can exhaust the shared cap and deny service to every site, so public routing needs a host-scoped control before Worker invocation. A site cap returns 429; the shared cap returns 503 until 00:00 UTC. The Worker invocation and D1 counter statement still use provider capacity, including when a cap rejects a request. These application limits are not Cloudflare account telemetry or a guarantee against provider charges. Infrastructure costs are paid by the hosting operator; MithrilPress does not bill site owners or switch to paid usage automatically. DNS migration snapshots are not included in the retained-content estimate.</p>
+          <p class="usage-detail">Studio history is separately capped at 40 messages per conversation, 50 conversations per site and 1,000 across this deployment, with 4 MiB of message text per site and 64 MiB shared. Delete old conversations to release their message-text allowance. These byte estimates do not measure physical D1 size.</p>
           <p id="usage-status" class="status" role="status" aria-live="polite"></p>
         </section>
       </section>
