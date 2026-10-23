@@ -2200,7 +2200,7 @@ async function studioMedia(request, env, site) {
   return json({ media: mediaSummary(site, reserved) }, 201, { "Cache-Control": "private, no-store" });
 }
 
-async function deleteStudioMedia(request, env, site, mediaId) {
+async function deleteStudioMedia(request, env, site, mediaId, reconciliationRetry = false) {
   const owner = await ownerToken(request, env, site, "media:write");
   if (!owner) return fail(401, "media_owner_required", "An active site owner token with media:write scope is required.");
   if (request.method !== "DELETE") return fail(405, "method_not_allowed", "Use DELETE to remove this media item.");
@@ -2211,6 +2211,9 @@ async function deleteStudioMedia(request, env, site, mediaId) {
   if (!row) return fail(404, "media_not_found", "Media item not found.");
   if (!new Set(["pending", "active", "deleting"]).has(row.status)) {
     return fail(409, "media_state_conflict", "The media item's upload state cannot be safely reconciled.");
+  }
+  if (reconciliationRetry && row.status === "active") {
+    return fail(409, "media_state_conflict", "This upload is now active. Refresh the media library before choosing an action.");
   }
   const uploadAction = await mediaUploadActionProof(env, site, row);
   if (!uploadAction) {
@@ -3546,11 +3549,11 @@ async function handleRequest(request, env) {
   }
 
   if (url.pathname === "/_mithrilpress/api/media") return await studioMedia(request, env, site);
-  const studioMediaMatch = /^\/_mithrilpress\/api\/media\/(\d+)$/.exec(url.pathname);
+  const studioMediaMatch = /^\/_mithrilpress\/api\/media\/(\d+)(\/reconcile)?$/.exec(url.pathname);
   if (studioMediaMatch) {
     const mediaId = Number(studioMediaMatch[1]);
     if (!Number.isSafeInteger(mediaId) || mediaId < 1) return fail(404, "media_not_found", "Media item not found.");
-    return await deleteStudioMedia(request, env, site, mediaId);
+    return await deleteStudioMedia(request, env, site, mediaId, Boolean(studioMediaMatch[2]));
   }
   const mediaRouteMatch = /^\/_mithrilpress\/media\/(\d+)$/.exec(url.pathname);
   if (mediaRouteMatch) {

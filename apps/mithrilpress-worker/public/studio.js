@@ -441,7 +441,7 @@ function renderMediaList() {
     if (item.safe_to_remove) {
       actions.append(domainButton("Retry safe removal", "domain-remove", async () => {
         try {
-          await api(`/_mithrilpress/api/media/${item.id}`, { method: "DELETE", headers: requestHeader });
+          await api(`/_mithrilpress/api/media/${item.id}/reconcile`, { method: "DELETE", headers: requestHeader });
           await refreshMedia();
           await refreshUsage();
           showStatus(mediaStatus, "The image and its storage reservation were removed.");
@@ -840,6 +840,8 @@ document.querySelector("#logout-button").addEventListener("click", async () => {
     setOwnerScopes([]);
     resetConversation();
     mediaItems = [];
+    pendingMediaItems = [];
+    pendingMediaTruncated = false;
     renderMediaList();
     conversationList.replaceChildren();
     domainList.replaceChildren();
