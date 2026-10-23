@@ -1532,9 +1532,6 @@ async function studioChat(request, env, site) {
   }
   statements.push(
     env.DB.prepare(
-      "UPDATE site_revisions SET state = 'superseded' WHERE site_id = ? AND id = (SELECT draft_revision_id FROM studio_conversations WHERE site_id = ? AND id = ?) AND state = 'private-preview'",
-    ).bind(site.id, site.id, conversation.id),
-    env.DB.prepare(
       "INSERT INTO site_revisions (id, site_id, parent_revision_id, state, revision_origin, source_origin, import_proof_id, import_token_id, imported_at, entry_count) SELECT ?, ?, ?, 'importing', 'chat', NULL, NULL, NULL, ?, ? WHERE EXISTS (SELECT 1 FROM studio_conversations c JOIN sites s ON s.id = c.site_id WHERE c.site_id = ? AND c.id = ? AND c.token_id = ? AND c.base_revision_id IS ? AND c.draft_revision_id IS ? AND (c.draft_revision_id IS NULL OR EXISTS (SELECT 1 FROM site_revisions d WHERE d.site_id = c.site_id AND d.id = c.draft_revision_id AND d.state = 'private-preview')) AND s.current_revision_id IS ? AND s.status = 'active')",
     ).bind(revisionId, site.id, baseRevisionId, nowIso, baseCount + 1,
       site.id, conversation.id, owner.tokenId, baseRevisionId, conversation.draft_revision_id, site.current_revision_id),
@@ -1562,8 +1559,11 @@ async function studioChat(request, env, site) {
       "UPDATE site_revisions SET state = 'private-preview' WHERE site_id = ? AND id = ? AND state = 'importing' AND entry_count = (SELECT COUNT(*) FROM entries WHERE site_id = ? AND revision_id = ? AND rendering_admission = 'ready')",
     ).bind(site.id, revisionId, site.id, revisionId),
     env.DB.prepare(
-      "UPDATE studio_conversations SET draft_revision_id = ?, updated_at = ? WHERE site_id = ? AND id = ? AND token_id = ? AND base_revision_id IS ?",
-    ).bind(revisionId, assistantAt, site.id, conversation.id, owner.tokenId, baseRevisionId),
+      "UPDATE site_revisions SET state = 'superseded' WHERE site_id = ? AND id = ? AND state = 'private-preview'",
+    ).bind(site.id, conversation.draft_revision_id),
+    env.DB.prepare(
+      "UPDATE studio_conversations SET draft_revision_id = ?, updated_at = ? WHERE site_id = ? AND id = ? AND token_id = ? AND base_revision_id IS ? AND draft_revision_id IS ?",
+    ).bind(revisionId, assistantAt, site.id, conversation.id, owner.tokenId, baseRevisionId, conversation.draft_revision_id),
     env.DB.prepare(
       "INSERT INTO studio_messages (site_id, conversation_id, id, role, body, created_at) VALUES (?, ?, ?, 'user', ?, ?)",
     ).bind(site.id, conversation.id, crypto.randomUUID(), body.message.trim(), nowIso),
@@ -1586,11 +1586,11 @@ async function studioChat(request, env, site) {
     return fail(503, "draft_not_saved", "The private draft could not be saved. No content was published.");
   }
   const inheritedParentResults = saved.slice(
-    3 + newConversationOffset,
-    3 + newConversationOffset + inheritedPageParents.length,
+    2 + newConversationOffset,
+    2 + newConversationOffset + inheritedPageParents.length,
   );
   if (inheritedParentResults.some((result) => result?.meta?.changes !== 1)
-      || saved[7 + newConversationOffset + inheritedPageParents.length]?.meta?.changes !== 1
+      || saved[6 + newConversationOffset + inheritedPageParents.length]?.meta?.changes !== 1
       || saved[8 + newConversationOffset + inheritedPageParents.length]?.meta?.changes !== 1) {
     return fail(503, "draft_not_saved", "The private draft could not be saved. No content was published.");
   }
@@ -1767,9 +1767,6 @@ async function studioManualDraft(request, env, site) {
   }
   statements.push(
     env.DB.prepare(
-      "UPDATE site_revisions SET state = 'superseded' WHERE site_id = ? AND id = (SELECT draft_revision_id FROM studio_conversations WHERE site_id = ? AND id = ?) AND state = 'private-preview'",
-    ).bind(site.id, site.id, conversation.id),
-    env.DB.prepare(
       "INSERT INTO site_revisions (id, site_id, parent_revision_id, state, revision_origin, source_origin, import_proof_id, import_token_id, imported_at, entry_count) SELECT ?, ?, ?, 'importing', 'chat', NULL, NULL, NULL, ?, ? WHERE EXISTS (SELECT 1 FROM studio_conversations c JOIN sites s ON s.id = c.site_id WHERE c.site_id = ? AND c.id = ? AND c.token_id = ? AND c.base_revision_id IS ? AND c.draft_revision_id IS ? AND (c.draft_revision_id IS NULL OR EXISTS (SELECT 1 FROM site_revisions d WHERE d.site_id = c.site_id AND d.id = c.draft_revision_id AND d.state = 'private-preview')) AND s.current_revision_id IS ? AND s.status = 'active')",
     ).bind(revisionId, site.id, baseRevisionId, nowIso, baseCount + 1,
       site.id, conversation.id, owner.tokenId, baseRevisionId, conversation.draft_revision_id, site.current_revision_id),
@@ -1793,8 +1790,11 @@ async function studioManualDraft(request, env, site) {
       "UPDATE site_revisions SET state = 'private-preview' WHERE site_id = ? AND id = ? AND state = 'importing' AND entry_count = (SELECT COUNT(*) FROM entries WHERE site_id = ? AND revision_id = ? AND rendering_admission = 'ready')",
     ).bind(site.id, revisionId, site.id, revisionId),
     env.DB.prepare(
-      "UPDATE studio_conversations SET draft_revision_id = ?, updated_at = ? WHERE site_id = ? AND id = ? AND token_id = ? AND base_revision_id IS ?",
-    ).bind(revisionId, assistantAt, site.id, conversation.id, owner.tokenId, baseRevisionId),
+      "UPDATE site_revisions SET state = 'superseded' WHERE site_id = ? AND id = ? AND state = 'private-preview'",
+    ).bind(site.id, conversation.draft_revision_id),
+    env.DB.prepare(
+      "UPDATE studio_conversations SET draft_revision_id = ?, updated_at = ? WHERE site_id = ? AND id = ? AND token_id = ? AND base_revision_id IS ? AND draft_revision_id IS ?",
+    ).bind(revisionId, assistantAt, site.id, conversation.id, owner.tokenId, baseRevisionId, conversation.draft_revision_id),
     env.DB.prepare(
       "INSERT INTO studio_messages (site_id, conversation_id, id, role, body, created_at) VALUES (?, ?, ?, 'user', ?, ?)",
     ).bind(site.id, conversation.id, crypto.randomUUID(), body.content.trim(), nowIso),
@@ -1816,7 +1816,7 @@ async function studioManualDraft(request, env, site) {
     if (quotaCode) return storageQuotaResponse(quotaCode);
     return fail(503, "draft_not_saved", "The private draft could not be saved. No content was published.");
   }
-  if (saved[7 + newConversationOffset]?.meta?.changes !== 1
+  if (saved[6 + newConversationOffset]?.meta?.changes !== 1
       || saved[8 + newConversationOffset]?.meta?.changes !== 1) {
     return fail(503, "draft_not_saved", "The private draft could not be saved. No content was published.");
   }
