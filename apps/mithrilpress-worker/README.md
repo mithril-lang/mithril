@@ -53,6 +53,15 @@ explicitly published tenant revision.
   publish a deployment.
 - An optional, capped Cloudflare Pages Direct Upload adapter for approved static
   publications. It does not replace the shared Worker/D1 default host plane.
+- Owner-guided DNS migration planning with TXT ownership proof, private BIND
+  snapshots, exact record comparison, digest-bound cutover approval, and public
+  NS/DS verification. Owners retain control of their DNS providers and
+  registrar; MithrilPress does not change nameserver delegation. Zone snapshots
+  are scheduled for erasure after 30 days without a state-changing owner action;
+  the retention window pauses while an approved cutover awaits delegation
+  verification or rollback.
+  Optional Cloudflare record import is disabled by default until isolated-zone
+  behavior is qualified.
 
 The checked-in Mithril native-JS modules own platform subdomain validation,
 WordPress post/page record admission, individual taxonomy-term admission, the

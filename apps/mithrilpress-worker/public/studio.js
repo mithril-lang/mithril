@@ -516,6 +516,15 @@ function renderDnsMigrationDetail(migration) {
   if (dnsStateCaptured) dnsDetails(dnsMigrationWorkflow.lastElementChild, "Captured source nameservers", originalNs);
   if (dnsStateCaptured) dnsDetails(dnsMigrationWorkflow.lastElementChild, "Captured source DNSSEC DS records", originalDs);
 
+  const retentionStatus = migration.snapshots_erased_at
+    ? `Private DNS migration snapshots were erased at ${new Date(migration.snapshots_erased_at).toLocaleString()}. Hashes and audit receipts remain.`
+    : migration.status === "ownership_pending"
+      ? `This unverified ownership challenge expires and is erased at ${migration.snapshot_retention_expires_at ? new Date(migration.snapshot_retention_expires_at).toLocaleString() : "its challenge deadline"}.`
+      : migration.status === "owner_approved"
+        ? "Snapshots are retained while the approved DNS cutover awaits delegation verification or rollback. The inactivity retention window starts after that state is resolved."
+      : `Private DNS snapshots become eligible for scheduled erasure after 30 days without a state-changing owner action. Current retention deadline: ${migration.snapshot_retention_expires_at ? new Date(migration.snapshot_retention_expires_at).toLocaleString() : "unavailable"}. Opening this plan does not extend the deadline.`;
+  dnsBlock("Automatic snapshot erasure", retentionStatus);
+
   if (migration.status === "ownership_pending") {
     const block = dnsBlock("1. Verify domain control", `Publish this TXT record before ${migration.ownership_expires_at || "the challenge expires"}.`);
     if (migration.ownership_record) {
@@ -527,7 +536,7 @@ function renderDnsMigrationDetail(migration) {
   }
 
   if (["source_pending", "source_loaded"].includes(migration.status)) {
-    const block = dnsBlock("2. Upload the source DNS zone", "Paste a complete BIND export from the current authoritative provider. Zone snapshots can contain sensitive TXT values and stay private to this site.");
+    const block = dnsBlock("2. Upload the source DNS zone", "Paste a complete BIND export from the current authoritative provider. Zone snapshots can contain sensitive TXT values and stay private to this site. MithrilPress schedules them for erasure after 30 days without a state-changing owner action; you can cancel and erase them sooner.");
     const source = dnsField(block, "Source BIND zone file", { multiline: true, rows: 10, placeholder: "$ORIGIN example.com.\nwww 300 IN A 192.0.2.10" });
     dnsActionButton(block, migration.source_record_count ? "Replace source snapshot" : "Validate source zone", () => {
       void runDnsMigrationAction(migration.id, "source", { zone_file: source.value });

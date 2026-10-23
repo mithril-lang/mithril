@@ -9,6 +9,8 @@ import {
 
 const MAX_ACTIVE_MIGRATIONS_PER_SITE = 3;
 const MAX_TARGET_NAMESERVERS = 4;
+const DNS_SNAPSHOT_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+const DNS_SNAPSHOT_CLEANUP_BATCH_SIZE = 20;
 const CLOUDFLARE_API_ROOT = "https://api.cloudflare.com/client/v4";
 const CLOUDFLARE_TOKEN_HEADER = "X-MithrilPress-Cloudflare-Token";
 const MAX_CLOUDFLARE_API_TOKEN_CHARS = 512;
@@ -43,6 +45,18 @@ function parseJson(value, fallback) {
   } catch {
     return fallback;
   }
+}
+
+function snapshotRetentionDeadline(row) {
+  if (row.snapshots_erased_at) return null;
+  if (row.status === "ownership_pending") return row.ownership_expires_at ?? null;
+  // Preserve the rollback snapshot while a registrar cutover is awaiting an
+  // owner's verification or rollback decision.
+  if (row.status === "owner_approved") return null;
+  const updatedAt = Date.parse(row.updated_at);
+  return Number.isFinite(updatedAt)
+    ? new Date(updatedAt + DNS_SNAPSHOT_RETENTION_MS).toISOString()
+    : null;
 }
 
 function zoneNotAllowed(zoneName) {
@@ -86,6 +100,8 @@ function migrationSummary(row, includeDetails = false) {
     ownership_verified_at: row.ownership_verified_at,
     owner_approved_at: row.owner_approved_at,
     delegation_verified_at: row.delegation_verified_at,
+    snapshot_retention_expires_at: snapshotRetentionDeadline(row),
+    snapshots_erased_at: row.snapshots_erased_at ?? null,
   };
   if (includeDetails) {
     result.import_zone_text = row.import_zone_text;
@@ -113,20 +129,71 @@ async function audit(env, site, migration, owner, action, metadata = {}) {
 
 async function expirePendingMigrations(env, siteId, zoneName, nowIso) {
   const rows = await env.DB.prepare(
-    "SELECT * FROM dns_migrations WHERE status = 'ownership_pending' AND ownership_expires_at <= ? AND (site_id = ? OR zone_name = ?) ORDER BY ownership_expires_at ASC",
+    "SELECT * FROM dns_migrations WHERE status = 'ownership_pending' AND ownership_expires_at <= ? AND snapshots_erased_at IS NULL AND (site_id = ? OR zone_name = ?) ORDER BY ownership_expires_at ASC",
   ).bind(nowIso, siteId, zoneName).all();
   for (const migration of rows.results ?? []) {
-    const update = await env.DB.prepare(
-      "UPDATE dns_migrations SET status = 'cancelled', ownership_txt_value = NULL, updated_at = ? WHERE site_id = ? AND id = ? AND status = 'ownership_pending' AND ownership_expires_at <= ?",
-    ).bind(nowIso, migration.site_id, migration.id, nowIso).run();
-    if (update.meta?.changes === 1) {
-      await audit(env, { id: migration.site_id }, migration, { tokenId: migration.owner_token_id }, "cancelled", {
-        zone_name: migration.zone_name,
-        reason: "ownership_challenge_expired",
-        expired_at: migration.ownership_expires_at,
-      });
-    }
+    const metadata = JSON.stringify({
+      zone_name: migration.zone_name,
+      previous_status: migration.status,
+      reason: "ownership_challenge_expired",
+      expired_at: migration.ownership_expires_at,
+      source_zone_sha256: migration.source_zone_sha256,
+      target_zone_sha256: migration.target_zone_sha256,
+    });
+    await env.DB.batch([
+      env.DB.prepare(
+        "UPDATE dns_migrations SET status = 'cancelled', ownership_txt_name = NULL, ownership_txt_value = NULL, source_nameservers_json = '[]', source_ds_json = '[]', source_dns_state_captured_at = NULL, source_zone_text = NULL, target_zone_text = NULL, diff_json = NULL, import_zone_text = NULL, target_nameservers_json = NULL, target_provider = NULL, target_provider_zone_id = NULL, approval_digest = NULL, snapshots_erased_at = ?, updated_at = ? WHERE site_id = ? AND id = ? AND status = 'ownership_pending' AND ownership_expires_at <= ? AND updated_at = ? AND snapshots_erased_at IS NULL",
+      ).bind(nowIso, nowIso, migration.site_id, migration.id, nowIso, migration.updated_at),
+      env.DB.prepare(
+        "INSERT INTO dns_migration_actions (id, site_id, migration_id, token_id, action, created_at, metadata_json) SELECT ?, site_id, id, owner_token_id, 'snapshots-erased', ?, ? FROM dns_migrations WHERE site_id = ? AND id = ? AND status = 'cancelled' AND updated_at = ? AND snapshots_erased_at = ? AND NOT EXISTS (SELECT 1 FROM dns_migration_actions WHERE site_id = ? AND migration_id = ? AND action = 'snapshots-erased' AND created_at = ? AND metadata_json = ?)",
+      ).bind(crypto.randomUUID(), nowIso, metadata, migration.site_id, migration.id, nowIso, nowIso, migration.site_id, migration.id, nowIso, metadata),
+    ]);
   }
+}
+
+function retentionCleanupStatements(env, migration, nowIso, reason, retentionCutoff) {
+  const nextStatus = ["delegation_verified", "rolled_back", "archived"].includes(migration.status)
+    ? "archived"
+    : "cancelled";
+  const expiresAt = migration.status === "ownership_pending"
+    ? migration.ownership_expires_at
+    : new Date(Date.parse(migration.updated_at) + DNS_SNAPSHOT_RETENTION_MS).toISOString();
+  const metadata = JSON.stringify({
+    reason,
+    previous_status: migration.status,
+    expires_at: expiresAt,
+    source_zone_sha256: migration.source_zone_sha256,
+    target_zone_sha256: migration.target_zone_sha256,
+  });
+  return [
+    env.DB.prepare(
+      "UPDATE dns_migrations SET status = ?, ownership_txt_name = NULL, ownership_txt_value = NULL, source_nameservers_json = '[]', source_ds_json = '[]', source_dns_state_captured_at = NULL, source_zone_text = NULL, source_record_count = NULL, source_apex_soa_present = NULL, source_apex_ns_count = NULL, target_zone_text = NULL, target_record_count = NULL, target_nameservers_json = NULL, diff_json = NULL, import_zone_text = NULL, target_provider = NULL, target_provider_zone_id = NULL, approval_digest = NULL, delegation_check_json = NULL, rollback_check_json = NULL, snapshots_erased_at = ?, updated_at = ? WHERE site_id = ? AND id = ? AND status = ? AND updated_at = ? AND snapshots_erased_at IS NULL AND ((status = 'ownership_pending' AND ownership_expires_at <= ?) OR (status <> 'ownership_pending' AND updated_at <= ?))",
+    ).bind(nextStatus, nowIso, nowIso, migration.site_id, migration.id, migration.status, migration.updated_at, nowIso, retentionCutoff),
+    env.DB.prepare(
+      "INSERT INTO dns_migration_actions (id, site_id, migration_id, token_id, action, created_at, metadata_json) SELECT ?, site_id, id, owner_token_id, 'snapshots-erased', ?, ? FROM dns_migrations WHERE site_id = ? AND id = ? AND status = ? AND updated_at = ? AND snapshots_erased_at = ? AND NOT EXISTS (SELECT 1 FROM dns_migration_actions WHERE site_id = ? AND migration_id = ? AND action = 'snapshots-erased' AND created_at = ? AND metadata_json = ?)",
+    ).bind(crypto.randomUUID(), nowIso, metadata, migration.site_id, migration.id, nextStatus, nowIso, nowIso, migration.site_id, migration.id, nowIso, metadata),
+  ];
+}
+
+export async function cleanupDnsMigrationSnapshots(env, now = new Date()) {
+  const nowIso = now.toISOString();
+  const retentionCutoff = new Date(now.getTime() - DNS_SNAPSHOT_RETENTION_MS).toISOString();
+  const challengeLimit = Math.floor(DNS_SNAPSHOT_CLEANUP_BATCH_SIZE / 2);
+  const expiredChallenges = await env.DB.prepare(
+    "SELECT * FROM dns_migrations WHERE status = 'ownership_pending' AND ownership_expires_at <= ? AND snapshots_erased_at IS NULL ORDER BY ownership_expires_at ASC, id ASC LIMIT ?",
+  ).bind(nowIso, challengeLimit).all();
+  const staleLimit = DNS_SNAPSHOT_CLEANUP_BATCH_SIZE - (expiredChallenges.results ?? []).length;
+  const stalePlans = staleLimit > 0 ? await env.DB.prepare(
+    "SELECT * FROM dns_migrations WHERE status <> 'ownership_pending' AND status <> 'owner_approved' AND snapshots_erased_at IS NULL AND updated_at <= ? AND (status IN ('source_pending', 'source_loaded', 'target_loaded', 'delegation_verified', 'rolled_back') OR (status IN ('cancelled', 'archived') AND (ownership_txt_name IS NOT NULL OR ownership_txt_value IS NOT NULL OR source_nameservers_json <> '[]' OR source_ds_json <> '[]' OR source_dns_state_captured_at IS NOT NULL OR source_zone_text IS NOT NULL OR target_zone_text IS NOT NULL OR diff_json IS NOT NULL OR import_zone_text IS NOT NULL OR target_nameservers_json IS NOT NULL OR target_provider IS NOT NULL OR target_provider_zone_id IS NOT NULL OR approval_digest IS NOT NULL OR delegation_check_json IS NOT NULL OR rollback_check_json IS NOT NULL))) AND NOT EXISTS (SELECT 1 FROM dns_migration_actions a WHERE a.site_id = dns_migrations.site_id AND a.migration_id = dns_migrations.id AND a.action = 'cloudflare-import-started' AND a.created_at >= ?) ORDER BY updated_at ASC, id ASC LIMIT ?",
+  ).bind(retentionCutoff, new Date(now.getTime() - 60_000).toISOString(), staleLimit).all() : { results: [] };
+  const plans = [
+    ...(expiredChallenges.results ?? []).map((migration) => ({ migration, reason: "ownership_challenge_expired" })),
+    ...(stalePlans.results ?? []).map((migration) => ({ migration, reason: "inactive_snapshot_retention_expired" })),
+  ];
+  if (!plans.length) return 0;
+  const statements = plans.flatMap(({ migration, reason }) => retentionCleanupStatements(env, migration, nowIso, reason, retentionCutoff));
+  await env.DB.batch(statements);
+  return plans.length;
 }
 
 async function getMigration(env, site, migrationId) {
@@ -361,11 +428,20 @@ async function cloudflareZoneSnapshot(token, zoneId, expectedZoneName) {
 
 async function claimCloudflareImport(env, site, migration, owner, zoneId) {
   const now = new Date().toISOString();
+  const rateLimitSince = new Date(Date.now() - 60_000).toISOString();
   const id = crypto.randomUUID();
-  return await env.DB.prepare(
-    "INSERT INTO dns_migration_actions (id, site_id, migration_id, token_id, action, created_at, metadata_json) SELECT ?, ?, ?, ?, 'cloudflare-import-started', ?, ? WHERE (SELECT COUNT(*) FROM dns_migration_actions WHERE site_id = ? AND token_id = ? AND action = 'cloudflare-import-started' AND created_at >= ?) < 1 RETURNING id",
-  ).bind(id, site.id, migration.id, owner.tokenId, now, JSON.stringify({ zone_id: zoneId }),
-    site.id, owner.tokenId, new Date(Date.now() - 60_000).toISOString()).first();
+  const results = await env.DB.batch([
+    env.DB.prepare(
+      "UPDATE dns_migrations SET updated_at = ? WHERE site_id = ? AND id = ? AND status = 'target_loaded' AND updated_at = ? AND target_zone_sha256 = ? AND target_provider_zone_id = ? AND snapshots_erased_at IS NULL AND (SELECT COUNT(*) FROM dns_migration_actions WHERE site_id = ? AND token_id = ? AND action = 'cloudflare-import-started' AND created_at >= ?) < 1",
+    ).bind(now, site.id, migration.id, migration.updated_at, migration.target_zone_sha256, zoneId,
+      site.id, owner.tokenId, rateLimitSince),
+    env.DB.prepare(
+      "INSERT INTO dns_migration_actions (id, site_id, migration_id, token_id, action, created_at, metadata_json) SELECT ?, ?, ?, ?, 'cloudflare-import-started', ?, ? WHERE EXISTS (SELECT 1 FROM dns_migrations WHERE site_id = ? AND id = ? AND status = 'target_loaded' AND updated_at = ? AND target_zone_sha256 = ? AND target_provider_zone_id = ? AND snapshots_erased_at IS NULL) AND (SELECT COUNT(*) FROM dns_migration_actions WHERE site_id = ? AND token_id = ? AND action = 'cloudflare-import-started' AND created_at >= ?) < 1",
+    ).bind(id, site.id, migration.id, owner.tokenId, now, JSON.stringify({ zone_id: zoneId }),
+      site.id, migration.id, now, migration.target_zone_sha256, zoneId,
+      site.id, owner.tokenId, rateLimitSince),
+  ]);
+  return results[1]?.meta?.changes === 1;
 }
 
 async function cloudflareReadCount(env, site, owner) {
@@ -554,7 +630,14 @@ async function importCloudflareMissingRecords(request, env, site, migration, own
     return api.fail(429, "cloudflare_read_limit", "Wait before importing so MithrilPress can safely read the zone both before and after the write.");
   }
   const claimed = await claimCloudflareImport(env, site, migration, owner, migration.target_provider_zone_id);
-  if (!claimed) return api.fail(429, "cloudflare_import_limit", "This owner token can start one Cloudflare DNS import per minute.");
+  if (!claimed) {
+    const latest = await getMigration(env, site, migration.id);
+    if (!latest || latest.status !== "target_loaded" || latest.snapshots_erased_at
+        || latest.updated_at !== migration.updated_at || latest.target_zone_sha256 !== migration.target_zone_sha256) {
+      return api.fail(409, "cloudflare_import_state_changed", "The DNS migration changed or expired. Reload it and review the current destination-zone snapshot.");
+    }
+    return api.fail(429, "cloudflare_import_limit", "This owner token can start one Cloudflare DNS import per minute.");
+  }
 
   const beforeReadError = await recordCloudflareRead(env, site, migration, owner, migration.target_provider_zone_id, "pre-import-check");
   if (beforeReadError) {
@@ -889,7 +972,8 @@ async function eraseOrCancel(request, env, site, migration, owner, api) {
   if (request.method !== "DELETE" || !api.sameOriginStudioMutation(request, site)) {
     return api.fail(403, "same_origin_required", "Removing DNS migration data requires a same-origin Studio request.");
   }
-  if (migration.status === "archived" || migration.status === "cancelled") {
+  const alreadyClosed = migration.status === "archived" || migration.status === "cancelled";
+  if (alreadyClosed && migration.snapshots_erased_at) {
     return api.json({ migration: migrationSummary(migration), message: "This migration plan is already closed." });
   }
   if (migration.status === "owner_approved") {
@@ -901,15 +985,24 @@ async function eraseOrCancel(request, env, site, migration, owner, api) {
   if (Number(recentCloudflareImport?.total ?? 0) > 0) {
     return api.fail(409, "cloudflare_import_in_progress", "A Cloudflare import was started recently. Refresh and verify the target-zone readback before erasing its rollback snapshots.");
   }
-  const completed = migration.status === "delegation_verified" || migration.status === "rolled_back";
+  const completed = migration.status === "delegation_verified" || migration.status === "rolled_back" || migration.status === "archived";
   const status = completed ? "archived" : "cancelled";
   const now = new Date().toISOString();
-  await env.DB.prepare(
-    "UPDATE dns_migrations SET status = ?, ownership_txt_value = NULL, source_zone_text = NULL, target_zone_text = NULL, diff_json = NULL, import_zone_text = NULL, target_nameservers_json = NULL, approval_digest = NULL, updated_at = ? WHERE site_id = ? AND id = ?",
-  ).bind(status, now, site.id, migration.id).run();
+  const update = await env.DB.prepare(
+    "UPDATE dns_migrations SET status = ?, ownership_txt_name = NULL, ownership_txt_value = NULL, source_nameservers_json = '[]', source_ds_json = '[]', source_dns_state_captured_at = NULL, source_zone_text = NULL, source_record_count = NULL, source_apex_soa_present = NULL, source_apex_ns_count = NULL, target_zone_text = NULL, target_record_count = NULL, target_nameservers_json = NULL, diff_json = NULL, import_zone_text = NULL, target_provider = NULL, target_provider_zone_id = NULL, approval_digest = NULL, delegation_check_json = NULL, rollback_check_json = NULL, snapshots_erased_at = ?, updated_at = ? WHERE site_id = ? AND id = ? AND status = ? AND updated_at = ? AND snapshots_erased_at IS NULL",
+  ).bind(status, now, now, site.id, migration.id, migration.status, migration.updated_at).run();
+  if (update.meta?.changes !== 1) {
+    const latest = await getMigration(env, site, migration.id);
+    if (latest?.snapshots_erased_at) {
+      return api.json({ migration: migrationSummary(latest), message: "The DNS migration snapshots have already been erased." });
+    }
+    return api.fail(409, "dns_migration_state_changed", "The DNS migration changed. Reload the current snapshot before erasing it.");
+  }
   const latest = await getMigration(env, site, migration.id);
-  await audit(env, site, latest, owner, completed ? "snapshots-erased" : "cancelled", {
+  await audit(env, site, latest, owner, completed || alreadyClosed ? "snapshots-erased" : "cancelled", {
     zone_name: migration.zone_name,
+    previous_status: migration.status,
+    reason: completed || alreadyClosed ? "owner_requested_erase" : "owner_cancelled",
     source_zone_sha256: migration.source_zone_sha256,
     target_zone_sha256: migration.target_zone_sha256,
   });

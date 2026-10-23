@@ -19,6 +19,20 @@ every mapping is checked within 15 minutes. Mismatches suspend immediately;
 three consecutive provider/DNS read failures also suspend. An owner must
 refresh a suspended hostname after the checks pass.
 
+DNS migration plans expose their retention deadline in Studio. Unverified TXT
+ownership challenges are erased at their existing expiry; source and target
+zone snapshots, record diffs, provider identifiers, and captured NS/DS state are
+scheduled for erasure after 30 days without a state-changing owner action.
+Completed plans retain their rollback snapshot for the same inactivity window.
+The retention window pauses while an approved cutover awaits delegation
+verification or rollback, so the rollback snapshot cannot expire mid-cutover.
+Owners can cancel and erase a plan sooner when no cutover is awaiting
+verification. The existing five-minute Worker schedule processes at most 20
+expired plans per invocation and writes the erasure receipt with the row update
+in one D1 batch. Audit receipts retain only the plan identity, prior status,
+reason, expiry, and source/target hashes; opening a plan does not extend its
+retention window.
+
 ## Address types
 
 | Type | Setup | Control | Initial availability |

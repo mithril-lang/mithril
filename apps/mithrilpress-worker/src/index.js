@@ -1,4 +1,4 @@
-import { handleDnsMigrations } from "./dns_migration.js";
+import { cleanupDnsMigrationSnapshots, handleDnsMigrations } from "./dns_migration.js";
 import { MAX_MEDIA_BYTES, validateImageUpload } from "./media_validation.js";
 import { instantiateMithrilNative as instantiateContentBoundary } from "./content_boundary.js";
 import { instantiateMithrilNative as instantiateMigrationPolicy } from "./migration_policy.js";
@@ -3139,6 +3139,15 @@ export default {
     }
   },
   async scheduled(controller, env) {
-    await monitorActiveCustomHostnames(env);
+    const results = await Promise.allSettled([
+      monitorActiveCustomHostnames(env),
+      cleanupDnsMigrationSnapshots(env),
+    ]);
+    if (results[0].status === "rejected") {
+      console.error(JSON.stringify({ event: "scheduled_task_failed", task: "custom_hostname_monitor" }));
+    }
+    if (results[1].status === "rejected") {
+      console.error(JSON.stringify({ event: "scheduled_task_failed", task: "dns_snapshot_retention" }));
+    }
   },
 };

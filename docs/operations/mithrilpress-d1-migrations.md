@@ -1,10 +1,11 @@
 # MithrilPress D1 migration order
 
-**Status: source coordination only. No migration in this proposed sequence has
-been applied to a production database.** Current `main` contains migrations
-through `0016_studio_conversation_quotas.sql`; the remaining entries are pending
-feature migrations and must be applied only through the database owner's
-approved release procedure.
+**Status: source coordination only.** Current `main` contains migrations
+`0001` through `0016` and `0019_revision_restore_actions.sql`; versions `0017`
+and `0018` are unused. PRs #140 and #141 propose `0020` and `0021`, and
+MITHRIL-1479 proposes `0022`. No database migration in this table is applied
+automatically; read back the selected production database before release and
+use only the database owner's approved procedure.
 
 Use this sequence for the currently tracked MithrilPress feature stack so each
 pending migration has one stable version number and its prerequisites are
@@ -17,9 +18,10 @@ available first:
 | 0014 | `wordpress_permalink_routes` | Merged in PR #127 |
 | 0015 | `wordpress_page_hierarchy` | Merged in PR #127 |
 | 0016 | `studio_conversation_quotas` | PR #129, merged |
-| 0017 | `manual_draft_audit_action` | PR #140, pending |
-| 0018 | `media_reference_guards` | PR #141, pending |
-| 0019 | `revision_restore_actions` | MITHRIL-1426, proposed |
+| 0019 | `revision_restore_actions` | Merged in PR #143 |
+| 0020 | `manual_draft_audit_action` | PR #140, pending |
+| 0021 | `media_reference_guards` | PR #141, pending |
+| 0022 | `dns_migration_snapshot_retention` | MITHRIL-1479, proposed |
 
 Before qualifying or merging a branch, rebase it onto the current main and
 rename only migrations that have not been applied. Do not change the name or
