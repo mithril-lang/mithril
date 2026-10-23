@@ -1,72 +1,49 @@
-# MithrilPress Wildcard Worker Route Gate
+# MithrilPress exact-host attachment and cost gate
 
-**Status: required default topology, but not provisioned. No WAF rule or
-production route has been created.** The requested shared
-`*.sites.mithril.love` Worker route remains disabled until a host-scoped edge
-guard, deep-host TLS, provider cost boundary, and rollback pass read-back. The
-optional capped Pages exact-host path is separate and does not replace this
-default; see `docs/design/mithrilpress-static-publication.md`. This file does
-not authorize changes to customer-owned DNS or optional Cloudflare for SaaS
-hostnames.
+**Status: exact Worker Custom Domains are the required default host method, but
+none is provisioned.** The public URL pattern remains
+`label.sites.mithril.love` under `*.sites.mithril.love`. The shared Worker
+accepts only individually attached, registered tenant hostnames. It creates no
+wildcard DNS record or wildcard Worker Route; unknown labels have no public
+MithrilPress attachment. The optional capped Pages path is separate and can
+replace an exact hostname only through an owner-approved cutover; see
+`docs/design/mithrilpress-static-publication.md`.
 
-## Request and quota boundary
+## Exact-host controls
 
-The wildcard Worker route would share the existing parent zone with unrelated
-hostnames. A Cloudflare route can match the platform wildcard, but a Free WAF
-rate-limiting rule cannot safely protect it by itself. Optional Pages exact
-custom domains do not need this wildcard ingress; the default Worker still
-does.
+1. Read back the selected `fund-mithril` account, active `mithril.love` zone,
+   shared `mithrilpress` Worker, exact hostname, and D1 tenant mapping before
+   attaching a domain.
+2. Require an explicit hostname confirmation and a scoped operator credential
+   for Worker Custom Domains. The CLI defaults to read-only dry run and requires
+   `--apply` for the provider write.
+3. Keep a hard cap of 90 non-deleted sites and 90 Worker Domains, leaving ten
+   slots below Cloudflare's 100 Custom Domains per-zone limit. Stop at the cap;
+   do not auto-upgrade or reuse a domain that still exists in the provider.
+4. Read back the exact Worker Domain (including its certificate ID), the exact
+   proxied DNS record, and the HTTPS response before marking a site attached.
+   A successful HTTPS handshake verifies that the managed certificate is
+   serving; the Worker Domain API does not expose a separate certificate
+   status field. Test deletion and rollback in an isolated zone; reconcile
+   partial API writes manually.
+5. Keep all content queries bound to the exact D1 tenant and current revision.
+   Unknown, detached, or unregistered hosts return no content.
 
-Cloudflare's current Free rate-limiting rules support only Path and Verified Bot
-fields in the rule expression. They do not support host matching. A path rule
-on the parent zone would count and block requests to unrelated hosts whenever
-their paths match. Do not create or enable the previously proposed path-only
-MithrilPress rule on the parent zone.
+## Cost boundary
 
-Cloudflare documents standalone subdomain-zone setup as Enterprise-only. Keep
-the wildcard Worker route and onboarding disabled until a host-scoped control
-or approved isolated hosting zone is available. The optional Pages path binds
-each selected exact hostname to its own static project and still requires
-deep-host TLS and account-cap qualification.
+The application stops serving content at its per-site and deployment caps, but
+each request still invokes the Worker before it can return a capped response.
+The app counters therefore do not cap provider-billed invocations. Workers Free
+has an account-wide daily request limit; Workers Paid has no daily request
+limit. The `fund-mithril` account contains other Workers and its subscription
+read requires Billing Read, so the account plan and enforceable cost boundary
+must be verified before enabling public host attachments. D1 and R2 limits are
+also account-wide; confirm their provider behavior and shared workloads.
 
-## Gate before provisioning
-
-1. Do not create a parent-zone Free rate-limit rule for MithrilPress. Its
-   path-only expression would affect unrelated `mithril.love` hosts.
-2. Verify a host-scoped ingress control that can match only platform hostnames,
-   or approve a separate zone and plan that supports it. Do not create a child
-   zone for `sites.mithril.love` on a plan that does not support subdomain-zone
-   setup.
-3. Read back the Workers plan and shared usage, exact wildcard DNS record and
-   Worker route, fail-closed setting, and the account-wide cost boundary.
-4. For any future guard, read back its expression and scope. Before public
-   onboarding, canary one request below and one above its threshold; confirm
-   blocked requests do not invoke the Worker and unrelated parent-zone hosts
-   still behave normally.
-5. Record the provider read-back, canary evidence, rollback action, and owner.
-   If host scoping, plan, cost boundary, or rollback cannot be verified, keep
-   the wildcard route disabled. For the Pages candidate, follow the separate
-   project, exact-domain, static-asset, and capacity gates in the design doc.
-
-## Limits that remain
-
-Application request caps execute after the Worker starts. Workers Free has an
-account-wide daily request hard limit, but Workers Paid has no daily request
-limit. D1 Free rejects queries after its daily row limits. R2 allowances are
-account-wide and usage above them is billed without a provider-enforced hard
-stop. A plan change, other account workloads, or a new access path invalidates
-application-level budget assumptions.
-
-Revalidate the plan and any approved host-scoped guard before each release.
-Keep production routing off until the provider state and blocked-request
-behavior have been read back.
-
-## Cloudflare references
-
-- [Rate-limiting rule availability and supported fields](https://developers.cloudflare.com/waf/rate-limiting-rules/)
-- [Rate-limit request counting and data-center locality](https://developers.cloudflare.com/waf/rate-limiting-rules/request-rate/)
-- [Create a zone rate-limiting rule with the API](https://developers.cloudflare.com/waf/rate-limiting-rules/create-api/)
-- [Worker execution follows the Cloudflare WAF](https://developers.cloudflare.com/learning-paths/mtls/mtls-workers/)
-- [Workers Free request limits](https://developers.cloudflare.com/workers/platform/limits/)
-- [D1 Free behavior](https://developers.cloudflare.com/d1/reference/faq/)
-- [R2 pricing and free allowances](https://developers.cloudflare.com/r2/pricing/)
+No exact host, DNS record, certificate, or Worker Domain may be created until
+scoped Worker Custom Domains access, exact-source standalone qualification,
+current-main qualification, cost limits, rollback, and provider read-back are
+ready. See [Workers limits](https://developers.cloudflare.com/workers/platform/limits/),
+[Worker Custom Domains](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/),
+[D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/), and
+[R2 pricing](https://developers.cloudflare.com/r2/pricing/).
