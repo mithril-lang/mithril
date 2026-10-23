@@ -2,9 +2,10 @@
 
 **Status: source coordination only. No migration in this proposed sequence has
 been applied to a production database.** Current `main` contains both tracked
-`0015` migrations and `0016_studio_conversation_quotas.sql`; the remaining
-entries are pending feature migrations and must be applied only through the
-database owner's approved release procedure.
+`0015_wordpress_page_hierarchy.sql` and
+`0016_studio_conversation_quotas.sql`; the remaining entries are pending
+feature migrations and must be applied only through the database owner's
+approved release procedure.
 
 Use this sequence for the currently tracked MithrilPress feature stack so each
 pending migration has one stable version number and its prerequisites are
@@ -15,7 +16,6 @@ available first:
 | 0012 | `platform_site_capacity` | Merged in PR #138 |
 | 0013 | `studio_ai_neuron_reservations` | Merged in PR #126 |
 | 0014 | `wordpress_permalink_routes` | Merged in PR #127 |
-| 0015 | `manual_draft_audit_action` | Present in current main |
 | 0015 | `wordpress_page_hierarchy` | Merged in PR #127 |
 | 0016 | `studio_conversation_quotas` | Merged in PR #129 |
 | 0017 | `manual_draft_storage_and_audit` | PR #140, pending |
