@@ -643,10 +643,20 @@ See [Workers pricing](https://developers.cloudflare.com/workers/platform/pricing
 [Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/)
 again before each release.
 
+Studio history has separate D1 trigger-enforced limits: 40 messages per
+conversation, 50 conversations per site, 1,000 conversations across the
+deployment, 4 MiB of UTF-8 message text per site, and 64 MiB across the
+deployment. The Studio displays the text-byte estimate and conversation counts.
+Deleting a conversation releases its message-text allowance. This is an
+application estimate, not physical D1 database size; the provider's Free-plan
+row and storage limits remain the final hard stop.
+
 The default address is one exact Worker Custom Domain per registered tenant
-under the requested `*.sites.mithril.love` URL pattern. Customer-owned-domain
-onboarding is implemented behind a separate disabled-by-default feature gate.
-It asks the owner to publish a short-lived
+under the requested `*.sites.mithril.love` URL pattern; the platform host is
+attached one exact hostname at a time after owner and capacity checks.
+
+Customer-owned-domain onboarding is implemented behind a separate
+disabled-by-default feature gate. It asks the owner to publish a short-lived
 TXT proof, creates the Cloudflare for SaaS hostname only after that proof
 resolves, returns the provider's TLS validation records, and activates the
 tenant mapping only after Cloudflare reports an active hostname and

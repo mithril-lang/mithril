@@ -307,6 +307,14 @@ async function refreshUsage() {
     progress.value = Math.min(stored, limit);
     const sharedLimit = Math.max(0, Number(result.storage.shared_deployment_limit_bytes) || 0);
     document.querySelector("#shared-storage-limit").textContent = `Shared retained-content ceiling: ${(sharedLimit / (1024 * 1024)).toFixed(0)} MiB across this hosting deployment. Aggregate usage is managed by the host operator.`;
+    const chat = result.conversation_history;
+    const chatUsed = Math.max(0, Number(chat.site_message_bytes_used) || 0);
+    const chatLimit = Math.max(1, Number(chat.site_message_bytes_limit) || 1);
+    const chatProgress = document.querySelector("#chat-history-progress");
+    chatProgress.max = chatLimit;
+    chatProgress.value = Math.min(chatUsed, chatLimit);
+    document.querySelector("#chat-history-usage").textContent = `${(chatUsed / (1024 * 1024)).toFixed(2)} MiB of ${(chatLimit / (1024 * 1024)).toFixed(0)} MiB; ${chat.site_conversations_used} of ${chat.site_conversations_limit} conversations`;
+    document.querySelector("#chat-history-detail").textContent = `Shared hosting usage: ${(Number(chat.deployment_message_bytes_used) / (1024 * 1024)).toFixed(2)} of ${(Number(chat.deployment_message_bytes_limit) / (1024 * 1024)).toFixed(0)} MiB and ${chat.deployment_conversations_used} of ${chat.deployment_conversations_limit} conversations. Delete old conversations to release this site's allowance. Text-byte estimate; not physical D1 size.`;
     document.querySelector("#site-hosting-usage").textContent = `${result.hosting_requests.site_requests_used} of ${result.hosting_requests.site_daily_limit} site requests today (UTC)`;
     document.querySelector("#site-hosting-reset").textContent = `Shared deployment usage: ${result.hosting_requests.deployment_requests_used} of ${result.hosting_requests.shared_deployment_daily_limit} requests today. This includes unknown or inactive hosts that reach the Worker; active tenant requests also consume their site's allowance. Unknown-host traffic can exhaust the shared cap for all sites. The cap is checked before tenant lookup. Resets at ${result.hosting_requests.resets_at_utc}.`;
     document.querySelector("#ai-usage").textContent = `${result.ai_drafting.requests_used} of ${result.ai_drafting.daily_app_limit} shared requests today (UTC)`;

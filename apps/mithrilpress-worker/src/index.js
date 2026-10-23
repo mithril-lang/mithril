@@ -134,6 +134,36 @@ function storageQuotaResponse(code) {
     : fail(409, "deployment_storage_quota_exceeded", "The shared hosting content pool is full. This site cannot accept more content right now; contact the hosting operator.");
 }
 
+function conversationQuotaCode(error) {
+  const message = String(error?.message ?? error ?? "");
+  for (const code of [
+    "site_conversation_limit_exceeded",
+    "deployment_conversation_limit_exceeded",
+    "conversation_message_limit_exceeded",
+    "site_conversation_storage_quota_exceeded",
+    "deployment_conversation_storage_quota_exceeded",
+  ]) {
+    if (message.includes(code)) return code;
+  }
+  return null;
+}
+
+function conversationQuotaResponse(code) {
+  if (code === "site_conversation_limit_exceeded") {
+    return fail(409, code, "This site has reached its 50 saved-conversation limit. Delete an old conversation before starting another.");
+  }
+  if (code === "deployment_conversation_limit_exceeded") {
+    return fail(503, code, "The shared hosting conversation limit has been reached. Delete unused conversation history or contact the hosting operator.");
+  }
+  if (code === "conversation_message_limit_exceeded") {
+    return fail(409, code, "This conversation has reached its 40-message limit. Start a new conversation to continue drafting.");
+  }
+  if (code === "site_conversation_storage_quota_exceeded") {
+    return fail(409, code, "This site's saved chat text has reached its 4 MiB allowance. Delete old conversations before drafting again.");
+  }
+  return fail(503, "deployment_conversation_storage_quota_exceeded", "The shared hosting chat-history allowance is full. Delete unused conversation history or contact the hosting operator.");
+}
+
 function mediaQuotaCode(error) {
   const message = String(error?.message ?? error ?? "");
   if (message.includes("site_media_quota_exceeded")) return "site_media_quota_exceeded";
@@ -1221,6 +1251,12 @@ async function studioSession(request, env, site) {
 const STUDIO_DAILY_GENERATION_LIMIT = 8;
 const STUDIO_MAX_MESSAGES = 40;
 const STUDIO_CONTEXT_MESSAGES = 8;
+const STUDIO_MAX_CONVERSATIONS_PER_SITE = 50;
+const STUDIO_MAX_CONVERSATIONS_PER_DEPLOYMENT = 1000;
+const STUDIO_CONVERSATION_BYTES_PER_SITE = 4 * 1024 * 1024;
+const STUDIO_CONVERSATION_BYTES_PER_DEPLOYMENT = 64 * 1024 * 1024;
+// studio_messages.body permits at most 3,000 Unicode characters; reserve the UTF-8 worst case.
+const STUDIO_MAX_ASSISTANT_MESSAGE_BYTES = 12_000;
 const STUDIO_RESPONSE_SCHEMA = {
   type: "object",
   properties: {
@@ -1315,7 +1351,9 @@ async function studioChat(request, env, site) {
     const count = await env.DB.prepare(
       "SELECT COUNT(*) AS total FROM studio_messages WHERE site_id = ? AND conversation_id = ?",
     ).bind(site.id, conversation.id).first();
-    if (Number(count?.total ?? 0) >= STUDIO_MAX_MESSAGES) return fail(429, "conversation_limit", "Start a new conversation to continue drafting.");
+    if (Number(count?.total ?? 0) + 2 > STUDIO_MAX_MESSAGES) {
+      return fail(429, "conversation_message_limit_exceeded", "This conversation has reached its 40-message limit. Start a new conversation to continue drafting.");
+    }
   } else {
     conversation = {
       id: crypto.randomUUID(),
@@ -1324,6 +1362,29 @@ async function studioChat(request, env, site) {
       draft_revision_id: null,
       draft_state: null,
     };
+  }
+
+  const [siteConversationUsage, deploymentConversationUsage] = await Promise.all([
+    env.DB.prepare("SELECT message_bytes, conversation_count FROM mithrilpress_site_conversation_usage WHERE site_id = ? LIMIT 1")
+      .bind(site.id).first(),
+    env.DB.prepare("SELECT message_bytes, conversation_count FROM mithrilpress_deployment_conversation_usage WHERE singleton = 1 LIMIT 1")
+      .first(),
+  ]);
+  if (!requestedConversationId
+      && Number(siteConversationUsage?.conversation_count ?? 0) >= STUDIO_MAX_CONVERSATIONS_PER_SITE) {
+    return conversationQuotaResponse("site_conversation_limit_exceeded");
+  }
+  if (!requestedConversationId
+      && Number(deploymentConversationUsage?.conversation_count ?? 0) >= STUDIO_MAX_CONVERSATIONS_PER_DEPLOYMENT) {
+    return conversationQuotaResponse("deployment_conversation_limit_exceeded");
+  }
+  const reservedMessageBytes = new TextEncoder().encode(body.message.trim()).byteLength
+    + STUDIO_MAX_ASSISTANT_MESSAGE_BYTES;
+  if (Number(siteConversationUsage?.message_bytes ?? 0) + reservedMessageBytes > STUDIO_CONVERSATION_BYTES_PER_SITE) {
+    return conversationQuotaResponse("site_conversation_storage_quota_exceeded");
+  }
+  if (Number(deploymentConversationUsage?.message_bytes ?? 0) + reservedMessageBytes > STUDIO_CONVERSATION_BYTES_PER_DEPLOYMENT) {
+    return conversationQuotaResponse("deployment_conversation_storage_quota_exceeded");
   }
 
   const historyRows = await env.DB.prepare(
@@ -1506,6 +1567,8 @@ async function studioChat(request, env, site) {
   try {
     saved = await env.DB.batch(statements);
   } catch (error) {
+    const conversationCode = conversationQuotaCode(error);
+    if (conversationCode) return conversationQuotaResponse(conversationCode);
     const quotaCode = storageQuotaCode(error);
     if (quotaCode) return storageQuotaResponse(quotaCode);
     return fail(503, "draft_not_saved", "The private draft could not be saved. No content was published.");
@@ -1572,7 +1635,7 @@ async function studioUsage(request, env, site) {
   const now = new Date();
   const dayUtc = now.toISOString().slice(0, 10);
   const resetsAtUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)).toISOString();
-  const [storage, aiUsage, siteMedia, deploymentMedia, mediaOperations, siteMediaReads, siteHostingRequests, deploymentHostingRequests] = await Promise.all([
+  const [storage, aiUsage, siteMedia, deploymentMedia, mediaOperations, siteMediaReads, siteHostingRequests, deploymentHostingRequests, siteConversationUsage, deploymentConversationUsage] = await Promise.all([
     env.DB.prepare("SELECT content_bytes FROM mithrilpress_site_storage_usage WHERE site_id = ? LIMIT 1").bind(site.id).first(),
     env.DB.prepare("SELECT request_count, estimated_neurons FROM studio_ai_usage WHERE day_utc = ? LIMIT 1").bind(dayUtc).first(),
     env.DB.prepare("SELECT asset_bytes FROM mithrilpress_site_media_usage WHERE site_id = ? LIMIT 1").bind(site.id).first(),
@@ -1581,6 +1644,8 @@ async function studioUsage(request, env, site) {
     env.DB.prepare("SELECT day_utc, read_count FROM media_site_daily_reads WHERE site_id = ? LIMIT 1").bind(site.id).first(),
     env.DB.prepare("SELECT day_utc, request_count FROM mithrilpress_site_daily_requests WHERE site_id = ? LIMIT 1").bind(site.id).first(),
     env.DB.prepare("SELECT day_utc, request_count FROM mithrilpress_deployment_daily_requests WHERE singleton = 1 LIMIT 1").first(),
+    env.DB.prepare("SELECT message_bytes, conversation_count FROM mithrilpress_site_conversation_usage WHERE site_id = ? LIMIT 1").bind(site.id).first(),
+    env.DB.prepare("SELECT message_bytes, conversation_count FROM mithrilpress_deployment_conversation_usage WHERE singleton = 1 LIMIT 1").first(),
   ]);
   return json({
     storage: {
@@ -1609,6 +1674,17 @@ async function studioUsage(request, env, site) {
       deployment_requests_used: deploymentHostingRequests?.day_utc === dayUtc ? Number(deploymentHostingRequests.request_count ?? 0) : 0,
       shared_deployment_daily_limit: HOSTING_REQUESTS_PER_DAY_LIMIT,
       resets_at_utc: resetsAtUtc,
+    },
+    conversation_history: {
+      estimate_type: "utf8_message_body_bytes",
+      site_message_bytes_used: Number(siteConversationUsage?.message_bytes ?? 0),
+      site_message_bytes_limit: STUDIO_CONVERSATION_BYTES_PER_SITE,
+      deployment_message_bytes_used: Number(deploymentConversationUsage?.message_bytes ?? 0),
+      deployment_message_bytes_limit: STUDIO_CONVERSATION_BYTES_PER_DEPLOYMENT,
+      site_conversations_used: Number(siteConversationUsage?.conversation_count ?? 0),
+      site_conversations_limit: STUDIO_MAX_CONVERSATIONS_PER_SITE,
+      deployment_conversations_used: Number(deploymentConversationUsage?.conversation_count ?? 0),
+      deployment_conversations_limit: STUDIO_MAX_CONVERSATIONS_PER_DEPLOYMENT,
     },
     r2_media: {
       site_used_bytes: Number(siteMedia?.asset_bytes ?? 0),
