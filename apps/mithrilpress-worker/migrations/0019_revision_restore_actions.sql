@@ -21,3 +21,17 @@ DROP TABLE owner_actions;
 ALTER TABLE owner_actions_new RENAME TO owner_actions;
 
 CREATE INDEX owner_actions_by_site_time ON owner_actions(site_id, created_at);
+
+-- Rebuilding owner_actions drops table-bound triggers from migration 0017.
+-- Restore the append-only audit guard after the table replacement.
+CREATE TRIGGER owner_actions_immutable_update
+BEFORE UPDATE ON owner_actions
+BEGIN
+  SELECT RAISE(ABORT, 'owner_action_immutable');
+END;
+
+CREATE TRIGGER owner_actions_immutable_delete
+BEFORE DELETE ON owner_actions
+BEGIN
+  SELECT RAISE(ABORT, 'owner_action_immutable');
+END;
