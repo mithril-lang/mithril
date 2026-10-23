@@ -634,9 +634,13 @@ async function verifyOwnerTokenParts(env, site, tokenId, secret, requiredScope, 
   return { tokenId: token.token_id, ownerLabel: token.owner_label, scopes, expiresAt: token.expires_at };
 }
 
-function sameOriginStudioMutation(request, site) {
+function expectedStudioOrigin(site) {
   const requestHostname = site.request_hostname ?? site.hostname;
-  return request.headers.get("Origin") === `https://${requestHostname}`
+  return `https://${requestHostname}`;
+}
+
+function sameOriginStudioMutation(request, site) {
+  return request.headers.get("Origin") === expectedStudioOrigin(site)
     && request.headers.get("X-MithrilPress-Request") === "1";
 }
 
@@ -1611,7 +1615,7 @@ async function studioManualDraft(request, env, site) {
       const diagnostic = JSON.stringify({
         originHost: parsedOrigin?.host ?? null,
         originProtocol: parsedOrigin?.protocol ?? null,
-        originMatchesExpected: origin === `https://${site.hostname}`,
+        originMatchesExpected: origin === expectedStudioOrigin(site),
         requestMarkerMatches: request.headers.get("X-MithrilPress-Request") === "1",
         siteHostname: site.hostname,
         requestHostname: site.request_hostname ?? null,
