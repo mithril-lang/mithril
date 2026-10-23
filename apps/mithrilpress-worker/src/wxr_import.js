@@ -51,8 +51,9 @@ function parseId(value) {
 }
 
 function positiveNumberOrZero(value) {
-  if (value === undefined || value === "" || value === "0") return 0;
-  return parseId(value) ?? null;
+  const normalized = typeof value === "string" ? value.trim() : value;
+  if (normalized === undefined || normalized === "" || normalized === "0") return 0;
+  return parseId(normalized) ?? null;
 }
 
 function setUniqueField(fields, key, value) {
@@ -186,18 +187,20 @@ function importRecords(pendingItems, terms, omittedSourceCounts) {
     const uniqueCategories = [...new Set(categories)];
     const uniqueTags = [...new Set(tags)];
     const sourceId = parseId(fields.postId);
+    const parentId = positiveNumberOrZero(fields.parentId);
+    if (parentId === null) fail("invalid_wxr_page_parent");
     const featuredMedia = item.meta.filter((meta) => meta.key === "_thumbnail_id");
     if (featuredMedia.length > 1) fail("duplicate_wxr_media_reference");
     const mediaId = positiveNumberOrZero(featuredMedia[0]?.value);
     if (mediaId === null) fail("invalid_wxr_media_reference");
     if (mediaId > 0 || fields.attachmentUrl) omitted.media_references += 1;
-    if (parseId(fields.parentId)) omitted.parent_page_relations += 1;
     const seo = selectWordPressSeoMetadata(item.meta);
     omitted.custom_fields += seo.omittedFields;
 
     records.push({
       id: sourceId,
       type,
+      ...(type === "page" && parentId > 0 ? { parent: parentId } : {}),
       slug: fields.slug?.trim(),
       title: { raw: fields.title?.trim() ?? "" },
       content: { raw: fields.content ?? "" },
@@ -216,6 +219,11 @@ function importRecords(pendingItems, terms, omittedSourceCounts) {
   }
 
   if (records.length === 0) fail("wxr_has_no_supported_entries");
+  const importedPageIds = new Set(records
+    .filter((record) => record.type === "page")
+    .map((record) => record.id));
+  omitted.parent_page_relations = records.filter((record) => record.type === "page"
+    && record.parent > 0 && !importedPageIds.has(record.parent)).length;
   return { records, omitted };
 }
 
