@@ -20,9 +20,12 @@ replace an exact hostname only through an owner-approved cutover; see
 3. Keep a hard cap of 90 non-deleted sites and 90 Worker Domains, leaving ten
    slots below Cloudflare's 100 Custom Domains per-zone limit. Stop at the cap;
    do not auto-upgrade or reuse a domain that still exists in the provider.
-4. Read back the exact Worker Domain, DNS record, managed certificate status,
-   and HTTPS response before marking a site attached. Test deletion and
-   rollback in an isolated zone; reconcile partial API writes manually.
+4. Read back the exact Worker Domain (including its certificate ID), the exact
+   proxied DNS record, and the HTTPS response before marking a site attached.
+   A successful HTTPS handshake verifies that the managed certificate is
+   serving; the Worker Domain API does not expose a separate certificate
+   status field. Test deletion and rollback in an isolated zone; reconcile
+   partial API writes manually.
 5. Keep all content queries bound to the exact D1 tenant and current revision.
    Unknown, detached, or unregistered hosts return no content.
 

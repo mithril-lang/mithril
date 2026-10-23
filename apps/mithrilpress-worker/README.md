@@ -369,8 +369,11 @@ command verifies that the account reads back as `fund-mithril`, the zone as
 zone count is below 90. Cloudflare creates the exact DNS record and managed
 certificate; no DNS Write permission, wildcard record, or Worker Route is used
 for this attachment. `--apply` is required for the provider write; without it
-the command prints a plan. It then reads back the Worker Domain and verifies
-the noindex Studio shell over HTTPS. An incomplete TLS/HTTPS read-back leaves
+the command prints a plan. After attachment it reads back the Worker Domain
+and the exact proxied DNS record, requires a certificate ID, and verifies the
+noindex Studio shell over HTTPS. The HTTPS request confirms the managed
+certificate is serving the hostname; the Worker Domain API does not expose a
+separate certificate status field. An incomplete DNS/TLS/HTTPS read-back leaves
 the exact domain in place for manual reconciliation; the command never removes
 provider resources automatically. Migration `0012_platform_site_capacity.sql`
 caps non-deleted platform sites at 90 in D1, including concurrent tenant

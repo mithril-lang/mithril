@@ -219,6 +219,30 @@ async function verifyHttps(hostname) {
   fail(`${lastFailure} The Worker Domain was created and was not deleted; rerun without --apply to inspect provider state, then reconcile manually.`);
 }
 
+async function verifyDnsRecord(token, zoneId, hostname) {
+  const dns = await cloudflareRequest(
+    token,
+    "GET",
+    `/zones/${encodeURIComponent(zoneId)}/dns_records`,
+    { name: hostname, per_page: 100, page: 1 },
+  );
+  if (!Array.isArray(dns.result)) fail("Cloudflare DNS read-back returned an invalid result list.");
+  const total = Number(dns.result_info?.total_count);
+  if (!Number.isSafeInteger(total) || total !== dns.result.length) {
+    fail("Cloudflare DNS read-back did not return the complete exact-host record set.");
+  }
+  const records = dns.result.filter((record) => typeof record?.name === "string"
+    && record.name.toLowerCase() === hostname);
+  if (records.length === 0 || records.some((record) => record?.proxied !== true)) {
+    fail("Exact-host DNS read-back is missing or not fully proxied. The Worker Domain was not deleted; inspect provider state and reconcile it manually.");
+  }
+  return {
+    record_count: records.length,
+    record_types: [...new Set(records.map((record) => record.type).filter((type) => typeof type === "string"))].sort(),
+    proxied: true,
+  };
+}
+
 async function main(argv) {
   const options = parseArgs(argv);
   if (options.help) {
@@ -323,6 +347,7 @@ async function main(argv) {
     domain = assertDomain(readback.result, options.hostname, options.zone_id);
   }
 
+  const dns = await verifyDnsRecord(token, options.zone_id, options.hostname);
   const https = await verifyHttps(options.hostname);
   console.log(JSON.stringify({
     result: created ? "attached_and_verified" : "already_attached_and_verified",
@@ -336,6 +361,7 @@ async function main(argv) {
     certificate_id: domain.cert_id,
     enabled: domain.enabled,
     previews_enabled: domain.previews_enabled,
+    dns,
     https,
     provider_writes: created ? 1 : 0,
   }, null, 2));
