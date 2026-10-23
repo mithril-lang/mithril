@@ -95,3 +95,15 @@ FROM owner_actions;
 DROP TABLE owner_actions;
 ALTER TABLE owner_actions_rebuilt RENAME TO owner_actions;
 CREATE INDEX owner_actions_by_site_time ON owner_actions(site_id, created_at);
+
+CREATE TRIGGER owner_actions_immutable_update
+BEFORE UPDATE ON owner_actions
+BEGIN
+  SELECT RAISE(ABORT, 'owner_action_immutable');
+END;
+
+CREATE TRIGGER owner_actions_immutable_delete
+BEFORE DELETE ON owner_actions
+BEGIN
+  SELECT RAISE(ABORT, 'owner_action_immutable');
+END;
