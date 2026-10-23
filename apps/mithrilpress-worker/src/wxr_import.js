@@ -105,7 +105,7 @@ function putTerm(terms, termRecords, termRecordsById, node) {
 }
 
 function resolveTermParents(termRecords, terms) {
-  return mithrilWordPressTaxonomy.resolveTermParents(termRecords, terms, MAX_WXR_DEPTH, fail);
+  return mithrilWordPressTaxonomy.resolveTermParents(termRecords, terms, fail);
 }
 
 function completeItem(node, pendingItems) {

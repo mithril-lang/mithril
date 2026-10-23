@@ -102,9 +102,12 @@ WXR attachments, media bytes, custom fields, users,
 comments, custom post types, password-protected posts/pages, and custom
 taxonomies remain outside the supported slice. Standard category/tag terms,
 category parent links, and page-parent links are preserved when referenced
-records are present in the same revision. Cyclic, unresolved, and over-depth
-page hierarchies are omitted and reported for owner review. The importer reports
-omitted attachments and metadata and rejects DTDs, custom entities, malformed
+records are present in the same revision. Category parent resolution is
+iterative and bounded by the 5,000-term import limit, so valid category chains
+do not inherit the XML element nesting limit. Cyclic and unresolved category
+graphs are rejected. Cyclic, unresolved, and over-depth page hierarchies are
+omitted and reported for owner review. The importer reports omitted attachments
+and metadata and rejects DTDs, custom entities, malformed
 XML, and unresolved category/tag references. Owner-provided media upload and
 delivery are implemented; broad Gutenberg support remains follow-up work.
 

@@ -454,7 +454,6 @@ function normalizeTaxonomyTerms(value, entries) {
       if (pathIds.has(key)) invalid("cyclic_taxonomy_parent");
       pathIds.add(key);
       path.push(current);
-      if (path.length > 64) invalid("taxonomy_parent_depth_exceeded");
       current = current.parentId ? byKey.get(`category:${current.parentId}`) : null;
     }
     for (const node of path) visited.add(`${node.taxonomy}:${node.id}`);

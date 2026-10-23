@@ -187,15 +187,13 @@ test("rejects self-parent and cyclic category graphs", () => {
   );
 });
 
-test("accepts the maximum taxonomy depth and rejects a deeper hierarchy", () => {
+test("preserves category hierarchies deeper than the XML nesting guard", () => {
   const nestedCategories = (count) => Array.from({ length: count }, (_, index) =>
     categoryTerm(index + 1, `category-${index}`, index > 0 ? `category-${index - 1}` : "")
   ).join("");
-  assert.equal(parseWordPressWxr(taxonomyExport(nestedCategories(64))).taxonomyTerms.length, 64);
-  assert.throws(
-    () => parseWordPressWxr(taxonomyExport(nestedCategories(65))),
-    { code: "wxr_term_depth_limit_exceeded", status: 413 },
-  );
+  const taxonomyTerms = parseWordPressWxr(taxonomyExport(nestedCategories(256))).taxonomyTerms;
+  assert.equal(taxonomyTerms.length, 256);
+  assert.equal(taxonomyTerms[255].parentId, 255);
 });
 
 test("Mithril taxonomy policy rejects a parent on a non-category term", () => {
@@ -212,7 +210,7 @@ test("Mithril taxonomy policy rejects a parent on a non-category term", () => {
     throw Object.assign(new Error(code), { code, status });
   };
   assert.throws(
-    () => mithrilWordPressTaxonomy.resolveTermParents(termRecords, new Map(), 64, fail),
+    () => mithrilWordPressTaxonomy.resolveTermParents(termRecords, new Map(), fail),
     { code: "invalid_wxr_term_parent" },
   );
 });

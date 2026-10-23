@@ -7,7 +7,6 @@
    :name "resolveTermParents"
    :params [(rdf/node :name "termRecords" :datatype "js-value")
             (rdf/node :name "terms" :datatype "js-value")
-            (rdf/node :name "maxDepth" :datatype "js-value")
             (rdf/node :name "fail" :datatype "js-value")]
    :returns "js-value"
    :body
@@ -15,6 +14,10 @@
     :bindings [(rdf/node :name "byId"
                          :value (mithril/host-construct
                                  :constructor (mithril/host-import :name "Map")
+                                 :args []))
+               (rdf/node :name "completedTerms"
+                         :value (mithril/host-construct
+                                 :constructor (mithril/host-import :name "Set")
                                  :args []))
                (rdf/node :name "resolvedTerms" :value (mithril/host-array :items []))]
     :body
@@ -114,8 +117,7 @@
                              :value (mithril/host-construct
                                      :constructor (mithril/host-import :name "Set")
                                      :args []))
-                   (rdf/node :name "current" :value (mithril/local :name "term") :mutable true)
-                   (rdf/node :name "depth" :value (mithril/literal :datatype "js-value" :value 0) :mutable true)]
+                   (rdf/node :name "current" :value (mithril/local :name "term") :mutable true)]
         :body
         (mithril/host-while
          :condition (mithril/local :name "current")
@@ -144,28 +146,25 @@
                   :function (mithril/local :name "fail")
                   :args [(mithril/literal :datatype "js-value" :value "cyclic_wxr_term_parent")])
            :else
-           (mithril/sequence
-            :expressions
-            [(mithril/host-method
-              :object (mithril/local :name "pathIds")
-              :key (mithril/literal :datatype "js-value" :value "add")
-              :args [(mithril/local :name "currentKey")])
-             (mithril/local-set
-              :name "depth"
-              :value (mithril/host-binary
-                      :operator "+"
-                      :left (mithril/local :name "depth")
-                      :right (mithril/literal :datatype "js-value" :value 1)))
-             (mithril/if
-              :condition (mithril/host-binary
-                          :operator ">"
-                          :left (mithril/local :name "depth")
-                          :right (mithril/local :name "maxDepth"))
-              :then (mithril/host-invoke
-                     :function (mithril/local :name "fail")
-                     :args [(mithril/literal :datatype "js-value" :value "wxr_term_depth_limit_exceeded")
-                            (mithril/literal :datatype "js-value" :value 413)])
-              :else
+           (mithril/if
+            :condition (mithril/host-method
+                        :object (mithril/local :name "completedTerms")
+                        :key (mithril/literal :datatype "js-value" :value "has")
+                        :args [(mithril/local :name "current")])
+            :then (mithril/local-set
+                   :name "current"
+                   :value (mithril/literal :datatype "js-value" :value nil))
+            :else
+            (mithril/sequence
+             :expressions
+             [(mithril/host-method
+               :object (mithril/local :name "pathIds")
+               :key (mithril/literal :datatype "js-value" :value "add")
+               :args [(mithril/local :name "currentKey")])
+              (mithril/host-method
+               :object (mithril/local :name "completedTerms")
+               :key (mithril/literal :datatype "js-value" :value "add")
+               :args [(mithril/local :name "current")])
               (mithril/if
                :condition (mithril/host-get
                            :object (mithril/local :name "current")
@@ -183,7 +182,7 @@
                                               :key (mithril/literal :datatype "js-value" :value "parentId")))]))
                :else (mithril/local-set
                       :name "current"
-                      :value (mithril/literal :datatype "js-value" :value nil))))]))))))
+                      :value (mithril/literal :datatype "js-value" :value nil)))])))))))
       (mithril/host-for-of
        :iterable (mithril/local :name "termRecords")
        :binding "term"
