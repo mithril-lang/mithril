@@ -7,6 +7,7 @@ import { collectWordPressMediaReferences, inspectWordPressBlocks } from "./wordp
 import { buildWordPressPermalinkMap, rewriteWordPressLink, wordpressRoutePath } from "./wordpress_links.js";
 import { selectWordPressSeoMetadata } from "./wordpress_seo.js";
 import { parseWordPressWxr } from "./wxr_import.js";
+import { matchesPageHierarchyReadback } from "./wordpress_page_hierarchy.js";
 import { consumeHostingRequest, consumeHostingRequestForSite } from "./hosting_request_limits.js";
 import {
   isWorkersFreeAiEnabled,
@@ -2208,10 +2209,13 @@ async function importWordPress(request, env, site) {
       const statements = parentEntries.slice(start, start + 50).map((entry) => parentUpdate.bind(
         entry.parentSourceId, site.id, revisionId, entry.entryId,
       ));
-      const results = await env.DB.batch(statements);
-      if (results.some((result) => result?.meta?.changes !== 1)) {
-        throw new Error("page hierarchy relation was not committed");
-      }
+      await env.DB.batch(statements);
+    }
+    const hierarchyReadback = await env.DB.prepare(
+      "SELECT entry_id, parent_source_id FROM entries WHERE site_id = ? AND revision_id = ? AND kind = 'page' AND parent_source_id IS NOT NULL",
+    ).bind(site.id, revisionId).all();
+    if (!matchesPageHierarchyReadback(parentEntries, hierarchyReadback.results ?? [])) {
+      throw new Error("page hierarchy relation was not committed");
     }
     const metadataEntries = entries.filter((entry) => Object.keys(entry.seoMetadata).length > 0);
     const metadataInsert = env.DB.prepare(
