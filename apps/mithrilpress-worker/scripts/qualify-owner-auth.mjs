@@ -350,6 +350,27 @@ try {
   assert.equal(approved.status, 200, `Owner approval failed: ${approved.body}`);
   const published = await request(port, "POST", `/_mithrilpress/api/revisions/${importedBody.revision_id}/publish`, { token: siteToken.token });
   assert.equal(published.status, 200, `Owner publication failed: ${published.body}`);
+
+  const publicationPath = `/_mithrilpress/api/control/sites/${siteId}/publication/current`;
+  const publicationOnSiteHost = await request(port, "GET", publicationPath, { hostname: testHostname, token: siteToken.token });
+  assert.equal(publicationOnSiteHost.status, 404, "Publication control routes must not be exposed on public site hosts.");
+  const anonymousPublication = await request(port, "GET", publicationPath, { hostname: "control.mithril.love" });
+  assert.equal(anonymousPublication.status, 401, "Publication snapshots must require a site:publish owner token.");
+  const crossTenantPublication = await request(port, "GET", publicationPath, { hostname: "control.mithril.love", token: otherSiteToken.token });
+  assert.equal(crossTenantPublication.status, 401, "A different tenant token must not read a publication snapshot.");
+  const currentPublication = await request(port, "GET", publicationPath, { hostname: "control.mithril.love", token: siteToken.token });
+  assert.equal(currentPublication.status, 200, `Owner publication snapshot failed: ${currentPublication.body}`);
+  const currentPublicationBody = JSON.parse(currentPublication.body);
+  assert.equal(currentPublicationBody.site_id, siteId);
+  assert.equal(currentPublicationBody.revision.id, importedBody.revision_id);
+  assert.ok(currentPublicationBody.media.length > 0, "The published fixture must include owner-mapped media.");
+  const publicationMedia = currentPublicationBody.media[0];
+  const publicationMediaPath = `/_mithrilpress/api/control/sites/${siteId}/publication/revisions/${importedBody.revision_id}/media/${publicationMedia.id}`;
+  const mediaOnSiteHost = await request(port, "GET", publicationMediaPath, { hostname: testHostname, token: siteToken.token });
+  assert.equal(mediaOnSiteHost.status, 404, "Publication media routes must not be exposed on public site hosts.");
+  const currentPublicationMedia = await request(port, "GET", publicationMediaPath, { hostname: "control.mithril.love", token: siteToken.token });
+  assert.equal(currentPublicationMedia.status, 200, `Owner publication media failed: ${currentPublicationMedia.body}`);
+  assert.match(currentPublicationMedia.headers["content-type"] ?? "", /^image\//);
   const publicSeoPage = await request(port, "GET", "/private-migration-preview/");
   assert.equal(publicSeoPage.status, 200);
   assert.match(publicSeoPage.body, /<title>Owner SEO &amp; summary<\/title>/);
@@ -423,7 +444,7 @@ try {
   const missingRelevanceSearch = await request(port, "GET", "/wp-json/wp/v2/posts?orderby=relevance");
   assert.equal(missingRelevanceSearch.status, 400);
 
-  process.stdout.write("MithrilPress local owner-auth qualification passed: anonymous denial, tenant-token isolation, owner media idempotency/conflicts, owner-uploaded inline media mapping, Gutenberg and SEO metadata reports, escaped private and published SEO tags, WordPress REST source/API item and collection reads, and pre-publication privacy.\n");
+  process.stdout.write("MithrilPress local owner-auth qualification passed: anonymous denial, tenant-token isolation, owner media idempotency/conflicts, owner-uploaded inline media mapping, Gutenberg and SEO metadata reports, escaped private and published SEO tags, publication control host isolation, WordPress REST source/API item and collection reads, and pre-publication privacy.\n");
 } finally {
   if (worker && worker.exitCode === null) {
     worker.kill("SIGTERM");
