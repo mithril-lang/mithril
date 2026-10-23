@@ -988,9 +988,22 @@ async function eraseOrCancel(request, env, site, migration, owner, api) {
   const completed = migration.status === "delegation_verified" || migration.status === "rolled_back" || migration.status === "archived";
   const status = completed ? "archived" : "cancelled";
   const now = new Date().toISOString();
-  const update = await env.DB.prepare(
-    "UPDATE dns_migrations SET status = ?, ownership_txt_name = NULL, ownership_txt_value = NULL, source_nameservers_json = '[]', source_ds_json = '[]', source_dns_state_captured_at = NULL, source_zone_text = NULL, source_record_count = NULL, source_apex_soa_present = NULL, source_apex_ns_count = NULL, target_zone_text = NULL, target_record_count = NULL, target_nameservers_json = NULL, diff_json = NULL, import_zone_text = NULL, target_provider = NULL, target_provider_zone_id = NULL, approval_digest = NULL, delegation_check_json = NULL, rollback_check_json = NULL, snapshots_erased_at = ?, updated_at = ? WHERE site_id = ? AND id = ? AND status = ? AND updated_at = ? AND snapshots_erased_at IS NULL",
-  ).bind(status, now, now, site.id, migration.id, migration.status, migration.updated_at).run();
+  const action = completed || alreadyClosed ? "snapshots-erased" : "cancelled";
+  const metadata = JSON.stringify({
+    zone_name: migration.zone_name,
+    previous_status: migration.status,
+    reason: completed || alreadyClosed ? "owner_requested_erase" : "owner_cancelled",
+    source_zone_sha256: migration.source_zone_sha256,
+    target_zone_sha256: migration.target_zone_sha256,
+  });
+  const [update] = await env.DB.batch([
+    env.DB.prepare(
+      "UPDATE dns_migrations SET status = ?, ownership_txt_name = NULL, ownership_txt_value = NULL, source_nameservers_json = '[]', source_ds_json = '[]', source_dns_state_captured_at = NULL, source_zone_text = NULL, source_record_count = NULL, source_apex_soa_present = NULL, source_apex_ns_count = NULL, target_zone_text = NULL, target_record_count = NULL, target_nameservers_json = NULL, diff_json = NULL, import_zone_text = NULL, target_provider = NULL, target_provider_zone_id = NULL, approval_digest = NULL, delegation_check_json = NULL, rollback_check_json = NULL, snapshots_erased_at = ?, updated_at = ? WHERE site_id = ? AND id = ? AND status = ? AND updated_at = ? AND snapshots_erased_at IS NULL",
+    ).bind(status, now, now, site.id, migration.id, migration.status, migration.updated_at),
+    env.DB.prepare(
+      "INSERT INTO dns_migration_actions (id, site_id, migration_id, token_id, action, created_at, metadata_json) SELECT ?, site_id, id, ?, ?, ?, ? FROM dns_migrations WHERE site_id = ? AND id = ? AND status = ? AND updated_at = ? AND snapshots_erased_at = ? AND NOT EXISTS (SELECT 1 FROM dns_migration_actions WHERE site_id = ? AND migration_id = ? AND action = ? AND created_at = ? AND metadata_json = ?)",
+    ).bind(crypto.randomUUID(), owner.tokenId, action, now, metadata, site.id, migration.id, status, now, now, site.id, migration.id, action, now, metadata),
+  ]);
   if (update.meta?.changes !== 1) {
     const latest = await getMigration(env, site, migration.id);
     if (latest?.snapshots_erased_at) {
@@ -999,13 +1012,6 @@ async function eraseOrCancel(request, env, site, migration, owner, api) {
     return api.fail(409, "dns_migration_state_changed", "The DNS migration changed. Reload the current snapshot before erasing it.");
   }
   const latest = await getMigration(env, site, migration.id);
-  await audit(env, site, latest, owner, completed || alreadyClosed ? "snapshots-erased" : "cancelled", {
-    zone_name: migration.zone_name,
-    previous_status: migration.status,
-    reason: completed || alreadyClosed ? "owner_requested_erase" : "owner_cancelled",
-    source_zone_sha256: migration.source_zone_sha256,
-    target_zone_sha256: migration.target_zone_sha256,
-  });
   return api.json({ migration: migrationSummary(latest), message: completed
     ? "Zone snapshots and TXT values were erased. The verification hashes and audit receipt remain."
     : "The migration was cancelled and zone snapshots and TXT values were erased. No registrar or DNS provider changes were made by MithrilPress." });
