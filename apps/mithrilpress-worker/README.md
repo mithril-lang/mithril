@@ -617,6 +617,8 @@ upgrade or owner billing. See [Worker limits](https://developers.cloudflare.com/
 [hostname routing](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/configuration/hostname-routing/),
 [Universal SSL limits](https://developers.cloudflare.com/ssl/edge-certificates/universal-ssl/limitations/), and
 [Advanced Certificate Manager](https://developers.cloudflare.com/ssl/edge-certificates/advanced-certificate-manager/).
+The required DNS, certificate, route, live-readback, and rollback gates are in
+the [wildcard hosting rollout runbook](../../docs/operations/mithrilpress-wildcard-hosting-rollout.md).
 
 MithrilPress does not use Workers for Platforms in the initial design. That
 product's dispatch namespaces isolate and route customer-authored Worker code;
