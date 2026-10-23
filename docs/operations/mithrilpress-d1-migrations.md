@@ -17,7 +17,7 @@ available first:
 | 0014 | `wordpress_permalink_routes` | Merged in PR #127 |
 | 0015 | `wordpress_page_hierarchy` | Merged in PR #127 |
 | 0016 | `studio_conversation_quotas` | PR #129, merged |
-| 0017 | `manual_draft_audit_action` | PR #140, pending |
+| 0017 | `manual_draft_audit_action` | PR #140, pending; also raises the transcript limit for manual drafts to 100,000 characters |
 | 0018 | `media_reference_guards` | PR #141, pending |
 | 0019 | `revision_restore_actions` | MITHRIL-1426, proposed |
 

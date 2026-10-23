@@ -161,9 +161,10 @@ const tempBase = process.env.MITHRILPRESS_QUALIFICATION_TMP
 await access(tempBase);
 const tempRoot = await mkdtemp(join(tempBase, "mithrilpress-owner-auth-"));
 const persistPath = join(tempRoot, "wrangler-state");
-const siteToken = makeToken("MithrilPress local integration", ["content:import", "revision:preview", "media:write", "revision:approve", "site:publish"]);
+const siteToken = makeToken("MithrilPress local integration", ["content:import", "content:write", "revision:preview", "media:write", "revision:approve", "site:publish"]);
 const otherSiteToken = makeToken("MithrilPress cross-tenant integration", ["content:import", "revision:preview"]);
 let worker;
+let workerDiagnostics = "";
 
 try {
   runWrangler([
@@ -184,8 +185,14 @@ try {
 
   const port = await freePort();
   worker = spawn(wrangler, [
-    "dev", "--local", "--ip", "127.0.0.1", "--port", String(port), "--persist-to", persistPath, "--config", config, "--log-level", "error",
-  ], { cwd: root, env: cleanEnvironment(), stdio: "ignore" });
+    "dev", "--local", "--ip", "127.0.0.1", "--port", String(port), "--persist-to", persistPath, "--config", config,
+    "--log-level", "error", "--var", "MITHRILPRESS_OWNER_AUTH_DIAGNOSTICS:true",
+  ], { cwd: root, env: cleanEnvironment(), stdio: ["ignore", "pipe", "pipe"] });
+  const captureWorkerDiagnostics = (chunk) => {
+    workerDiagnostics = `${workerDiagnostics}${chunk.toString("utf8")}`.slice(-8192);
+  };
+  worker.stdout?.on("data", captureWorkerDiagnostics);
+  worker.stderr?.on("data", captureWorkerDiagnostics);
   worker.on("error", () => {});
 
   let ready = false;
@@ -292,6 +299,45 @@ try {
     omitted_fields: 1,
   });
   assert.equal(importedBody.migration_report.needs_owner_review, true);
+
+  const manualPrefix = "Manual draft original start: ";
+  const manualSuffix = " :manual-original-end";
+  const longManualContent = `${manualPrefix}${"あ".repeat(100_000 - manualPrefix.length - manualSuffix.length)}${manualSuffix}`;
+  assert.equal(longManualContent.length, 100_000);
+  const manualDraft = await request(port, "POST", "/_mithrilpress/api/studio/manual-draft", {
+    token: siteToken.token,
+    body: JSON.stringify({ title: "Long manual draft", content: longManualContent, kind: "post" }),
+    contentType: "application/json",
+    headers: { origin: `https://${testHostname}`, "x-mithrilpress-request": "1" },
+  });
+  assert.equal(manualDraft.status, 201, `A 100,000-character manual draft should save: ${manualDraft.body}\nWorker diagnostics: ${workerDiagnostics || "none emitted"}`);
+  const manualDraftBody = JSON.parse(manualDraft.body);
+  assert.equal(manualDraftBody.draft.state, "private-preview");
+  const longManualPreview = await request(port, "GET", manualDraftBody.preview_url, { token: siteToken.token });
+  assert.equal(longManualPreview.status, 200, `A long manual draft should remain privately previewable: ${longManualPreview.body}`);
+  assert.match(longManualPreview.headers["x-robots-tag"] ?? "", /noindex/);
+  assert.ok(longManualPreview.body.includes(manualSuffix), "The private preview should retain the end of the full manual draft.");
+
+  const updatedManualContent = "Updated manual draft paragraph. ".repeat(140);
+  const updatedManualDraft = await request(port, "POST", "/_mithrilpress/api/studio/manual-draft", {
+    token: siteToken.token,
+    body: JSON.stringify({
+      title: "Updated manual draft",
+      content: updatedManualContent,
+      kind: "post",
+      conversation_id: manualDraftBody.conversation_id,
+    }),
+    contentType: "application/json",
+    headers: { origin: `https://${testHostname}`, "x-mithrilpress-request": "1" },
+  });
+  assert.equal(updatedManualDraft.status, 201, `An existing private draft should be replaceable: ${updatedManualDraft.body}`);
+  const updatedManualDraftBody = JSON.parse(updatedManualDraft.body);
+  assert.equal(updatedManualDraftBody.conversation_id, manualDraftBody.conversation_id);
+  assert.notEqual(updatedManualDraftBody.draft.revision_id, manualDraftBody.draft.revision_id);
+  const updatedManualPreview = await request(port, "GET", updatedManualDraftBody.preview_url, { token: siteToken.token });
+  assert.equal(updatedManualPreview.status, 200);
+  assert.match(updatedManualPreview.body, /Updated manual draft paragraph/);
+  assert.equal(updatedManualPreview.body.includes(manualSuffix), false, "The revised preview should no longer expose the superseded draft body.");
 
   // Seed a ready chat-origin draft to exercise API-ID lookup without a live AI provider.
   const chatApiId = 9500;

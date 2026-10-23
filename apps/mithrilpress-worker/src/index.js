@@ -1598,7 +1598,27 @@ async function studioChat(request, env, site) {
 }
 
 async function studioManualDraft(request, env, site) {
-  if (!sameOriginStudioMutation(request, site)) return fail(403, "same_origin_required", "Studio changes must come from this site.");
+  if (!sameOriginStudioMutation(request, site)) {
+    if (env.MITHRILPRESS_OWNER_AUTH_DIAGNOSTICS === "true") {
+      const origin = request.headers.get("Origin");
+      let parsedOrigin = null;
+      try {
+        parsedOrigin = origin ? new URL(origin) : null;
+      } catch {
+        // The diagnostic records only parsed origin metadata, never request content.
+      }
+      console.error("mithrilpress_owner_auth_diagnostic", JSON.stringify({
+        originHost: parsedOrigin?.host ?? null,
+        originProtocol: parsedOrigin?.protocol ?? null,
+        originMatchesExpected: origin === `https://${site.hostname}`,
+        requestMarkerMatches: request.headers.get("X-MithrilPress-Request") === "1",
+        siteHostname: site.hostname,
+        requestHostname: site.request_hostname ?? null,
+        workerUrlOrigin: new URL(request.url).origin,
+      }));
+    }
+    return fail(403, "same_origin_required", "Studio changes must come from this site.");
+  }
   const owner = await ownerToken(request, env, site, "content:write");
   if (!owner) return fail(401, "studio_login_required", "An active content:write session is required.");
 
