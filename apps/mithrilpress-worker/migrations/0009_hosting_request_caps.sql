@@ -1,9 +1,9 @@
 PRAGMA foreign_keys = ON;
 
--- Requests that resolve to an active site consume both a shared deployment
--- allowance and that site's allowance in one D1 transaction. Unknown hosts
--- consume neither. These counters are application guardrails, separate from
--- media operation caps.
+-- Every request that reaches the Worker consumes the shared deployment
+-- allowance before tenant lookup. Active-site requests also consume that
+-- site's allowance after resolution; unknown hosts consume only the shared
+-- cap. These counters are application guardrails, separate from media caps.
 -- One row per site and deployment is reused at UTC rollover.
 CREATE TABLE mithrilpress_deployment_daily_requests (
   singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
