@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { matchesPageHierarchyReadback } from "./wordpress_page_hierarchy.js";
+import { instantiateMithrilNative as instantiateWordPressPageHierarchy } from "./wordpress_page_hierarchy.js";
+
+const mithrilWordPressPageHierarchy = instantiateWordPressPageHierarchy({ Array, Map, Set });
+const { matchesPageHierarchyReadback } = mithrilWordPressPageHierarchy;
 
 test("accepts exact WordPress page hierarchy readback without relying on affected-row metadata", () => {
   const expected = [
@@ -29,6 +32,13 @@ test("rejects missing, extra, duplicate, and mismatched hierarchy rows", () => {
   assert.equal(matchesPageHierarchyReadback([
     ...expected,
     { entryId: "wordpress:page:103", parentSourceId: 102 },
+  ], [
+    { entry_id: "wordpress:page:103", parent_source_id: 102 },
+    { entry_id: "wordpress:page:103", parent_source_id: 102 },
+  ]), false);
+  assert.equal(matchesPageHierarchyReadback([
+    { entryId: "wordpress:page:103", parentSourceId: 102 },
+    { entryId: "wordpress:page:104", parentSourceId: 102 },
   ], [
     { entry_id: "wordpress:page:103", parent_source_id: 102 },
     { entry_id: "wordpress:page:103", parent_source_id: 102 },

@@ -1,0 +1,129 @@
+; Page hierarchy persistence readback is an exact Mithril-authored policy.
+(mithril/native-js-module
+ :name "mithrilpress.wordpress_page_hierarchy"
+ :imports ["Array" "Map" "Set"]
+ :functions
+ [(mithril/function
+   :name "matchesPageHierarchyReadback"
+   :params [(rdf/node :name "expectedEntries" :datatype "js-value")
+            (rdf/node :name "actualRows" :datatype "js-value")]
+   :returns "js-value"
+   :body
+   (mithril/if
+    :condition
+    (mithril/host-logical
+     :operator "||"
+     :left
+     (mithril/host-logical
+      :operator "||"
+      :left
+      (mithril/host-unary
+       :operator "!"
+       :value
+       (mithril/host-method
+        :object (mithril/host-import :name "Array")
+        :key (mithril/literal :datatype "js-value" :value "isArray")
+        :args [(mithril/local :name "expectedEntries")]))
+      :right
+      (mithril/host-unary
+       :operator "!"
+       :value
+       (mithril/host-method
+        :object (mithril/host-import :name "Array")
+        :key (mithril/literal :datatype "js-value" :value "isArray")
+        :args [(mithril/local :name "actualRows")])))
+     :right
+     (mithril/host-binary
+      :operator "!=="
+      :left (mithril/host-get :object (mithril/local :name "actualRows")
+                              :key (mithril/literal :datatype "js-value" :value "length"))
+      :right (mithril/host-get :object (mithril/local :name "expectedEntries")
+                               :key (mithril/literal :datatype "js-value" :value "length"))))
+    :then (mithril/literal :datatype "js-value" :value false)
+    :else
+    (mithril/let
+     :bindings [(rdf/node :name "expectedParents"
+                          :value (mithril/host-construct
+                                  :constructor (mithril/host-import :name "Map")
+                                  :args []))
+                (rdf/node :name "seenRows"
+                          :value (mithril/host-construct
+                                  :constructor (mithril/host-import :name "Set")
+                                  :args []))
+                (rdf/node :name "matches"
+                          :value (mithril/literal :datatype "js-value" :value true)
+                          :mutable true)]
+     :body
+     (mithril/sequence
+      :expressions
+      [(mithril/host-for-of
+        :iterable (mithril/local :name "expectedEntries")
+        :binding "entry"
+        :result (mithril/host-undefined)
+        :body
+        (mithril/host-method
+         :object (mithril/local :name "expectedParents")
+         :key (mithril/literal :datatype "js-value" :value "set")
+         :args [(mithril/host-get :object (mithril/local :name "entry")
+                                  :key (mithril/literal :datatype "js-value" :value "entryId"))
+                (mithril/host-get :object (mithril/local :name "entry")
+                                  :key (mithril/literal :datatype "js-value" :value "parentSourceId"))]))
+       (mithril/if
+        :condition
+        (mithril/host-binary
+         :operator "!=="
+         :left (mithril/host-get :object (mithril/local :name "expectedParents")
+                                 :key (mithril/literal :datatype "js-value" :value "size"))
+         :right (mithril/host-get :object (mithril/local :name "expectedEntries")
+                                  :key (mithril/literal :datatype "js-value" :value "length")))
+        :then (mithril/literal :datatype "js-value" :value false)
+        :else
+        (mithril/sequence
+         :expressions
+         [(mithril/host-for-of
+           :iterable (mithril/local :name "actualRows")
+           :binding "row"
+           :result (mithril/host-undefined)
+           :body
+           (mithril/let
+            :bindings [(rdf/node :name "entryId"
+                                 :value (mithril/host-get :object (mithril/local :name "row")
+                                                          :key (mithril/literal :datatype "js-value" :value "entry_id")))]
+            :body
+            (mithril/if
+             :condition
+             (mithril/host-logical
+              :operator "&&"
+              :left
+              (mithril/host-unary
+               :operator "!"
+               :value (mithril/host-method
+                       :object (mithril/local :name "seenRows")
+                       :key (mithril/literal :datatype "js-value" :value "has")
+                       :args [(mithril/local :name "entryId")]))
+              :right
+              (mithril/host-logical
+               :operator "&&"
+               :left (mithril/host-method
+                      :object (mithril/local :name "expectedParents")
+                      :key (mithril/literal :datatype "js-value" :value "has")
+                      :args [(mithril/local :name "entryId")])
+               :right
+               (mithril/host-binary
+                :operator "==="
+                :left (mithril/host-method
+                       :object (mithril/local :name "expectedParents")
+                       :key (mithril/literal :datatype "js-value" :value "get")
+                       :args [(mithril/local :name "entryId")])
+                :right (mithril/host-get :object (mithril/local :name "row")
+                                         :key (mithril/literal :datatype "js-value" :value "parent_source_id")))))
+             :then (mithril/host-method
+                    :object (mithril/local :name "seenRows")
+                    :key (mithril/literal :datatype "js-value" :value "add")
+                    :args [(mithril/local :name "entryId")])
+             :else (mithril/local-set
+                    :name "matches"
+                    :value (mithril/literal :datatype "js-value" :value false)))))
+          (mithril/local :name "matches")]))]))))]
+ :exports [(rdf/node :name "matchesPageHierarchyReadback"
+                     :value (mithril/function-ref :name "matchesPageHierarchyReadback"))])

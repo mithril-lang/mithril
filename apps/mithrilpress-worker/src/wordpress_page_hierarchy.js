@@ -1,9 +1,8 @@
-export function matchesPageHierarchyReadback(expectedEntries, actualRows) {
-  if (!Array.isArray(expectedEntries) || !Array.isArray(actualRows)
-      || actualRows.length !== expectedEntries.length) return false;
-
-  const expectedParents = new Map(expectedEntries.map((entry) => [entry.entryId, entry.parentSourceId]));
-  if (expectedParents.size !== expectedEntries.length) return false;
-
-  return actualRows.every((row) => expectedParents.get(row.entry_id) === row.parent_source_id);
+// Mithril native JS host module; explicit grants; native runtime semantics.
+export function instantiateMithrilNative(__mithril_native_grants){
+if(__mithril_native_grants===null||typeof __mithril_native_grants!=='object')throw new Error('host-grant-mismatch');
+const __mithril_native_keys=Reflect.ownKeys(__mithril_native_grants);
+if(__mithril_native_keys.length!==3||__mithril_native_keys.some(k=>!["Array","Map","Set"].includes(k)))throw new Error('host-grant-mismatch');
+const __mithril_native_f0=function matchesPageHierarchyReadback(__mithril_native_v1,__mithril_native_v2){return ((((! (__mithril_native_grants["Array"])["isArray"](__mithril_native_v1))||(! (__mithril_native_grants["Array"])["isArray"](__mithril_native_v2)))||((__mithril_native_v2)["length"]!==(__mithril_native_v1)["length"]))?false:(()=>{const __mithril_native_v3=new (__mithril_native_grants["Map"])();const __mithril_native_v4=new (__mithril_native_grants["Set"])();let __mithril_native_v5=true;return ((()=>{for(const __mithril_native_v6 of __mithril_native_v1){(__mithril_native_v3)["set"]((__mithril_native_v6)["entryId"],(__mithril_native_v6)["parentSourceId"]);}return (void 0);})(),(((__mithril_native_v3)["size"]!==(__mithril_native_v1)["length"])?false:((()=>{for(const __mithril_native_v7 of __mithril_native_v2){(()=>{const __mithril_native_v8=(__mithril_native_v7)["entry_id"];return (((! (__mithril_native_v4)["has"](__mithril_native_v8))&&((__mithril_native_v3)["has"](__mithril_native_v8)&&((__mithril_native_v3)["get"](__mithril_native_v8)===(__mithril_native_v7)["parent_source_id"])))?(__mithril_native_v4)["add"](__mithril_native_v8):(__mithril_native_v5=false));})();}return (void 0);})(),__mithril_native_v5)));})());};
+return {["matchesPageHierarchyReadback"]:__mithril_native_f0};
 }

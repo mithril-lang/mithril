@@ -7,7 +7,7 @@ import { collectWordPressMediaReferences, inspectWordPressBlocks } from "./wordp
 import { buildWordPressPermalinkMap, rewriteWordPressLink, wordpressRoutePath } from "./wordpress_links.js";
 import { selectWordPressSeoMetadata } from "./wordpress_seo.js";
 import { parseWordPressWxr } from "./wxr_import.js";
-import { matchesPageHierarchyReadback } from "./wordpress_page_hierarchy.js";
+import { instantiateMithrilNative as instantiateWordPressPageHierarchy } from "./wordpress_page_hierarchy.js";
 import { consumeHostingRequest, consumeHostingRequestForSite } from "./hosting_request_limits.js";
 import {
   isWorkersFreeAiEnabled,
@@ -47,6 +47,7 @@ const ENTRY_SLUG = /^[^/?#\\\u0000-\u001f\u007f]{1,200}$/;
 const mithrilHostnameCore = instantiateMithrilNative({});
 const mithrilContentBoundary = instantiateContentBoundary({ Array, Number, Set });
 const mithrilMigrationPolicy = instantiateMigrationPolicy({});
+const mithrilWordPressPageHierarchy = instantiateWordPressPageHierarchy({ Array, Map, Set });
 const HTML_TAGS = new Set([
   "a", "b", "blockquote", "br", "code", "dd", "del", "div", "dl", "dt",
   "em", "figcaption", "figure", "h1", "h2", "h3", "h4", "h5", "h6", "hr",
@@ -2213,7 +2214,7 @@ async function importWordPress(request, env, site) {
     const hierarchyReadback = await env.DB.prepare(
       "SELECT entry_id, parent_source_id FROM entries WHERE site_id = ? AND revision_id = ? AND kind = 'page' AND parent_source_id IS NOT NULL",
     ).bind(site.id, revisionId).all();
-    if (!matchesPageHierarchyReadback(parentEntries, hierarchyReadback.results ?? [])) {
+    if (!mithrilWordPressPageHierarchy.matchesPageHierarchyReadback(parentEntries, hierarchyReadback.results ?? [])) {
       throw new Error("page hierarchy relation was not committed");
     }
     const metadataEntries = entries.filter((entry) => Object.keys(entry.seoMetadata).length > 0);
