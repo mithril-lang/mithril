@@ -2,10 +2,10 @@
 
 This package is the first host adapter for the MithrilPress content
 model in `src/mithril/sites_cms.cljk` and `ontology/sites-cms-v1.mith`. Platform
-tenant hostname validation and the Workers Free AI admission policy are authored
-in Mithril at `src/platform_hostname.mith` and `src/studio_ai_policy.mith`, then
-compiled to checked-in Worker modules. It uses Cloudflare D1 and R2, and serves
-only an explicitly published tenant revision.
+tenant hostname validation is authored in Mithril at
+`apps/mithrilpress-worker/src/platform_hostname.mith` and compiled to the
+checked-in Worker module. It uses Cloudflare D1 and R2, and serves only an
+explicitly published tenant revision.
 
 ## Supported in this slice
 
@@ -13,9 +13,11 @@ only an explicitly published tenant revision.
   D1 hostname lookup. A hostname label never grants tenant identity.
 - Owner-scoped WordPress REST and WXR 1.2 subset import for posts and pages.
   Imports are bounded, sanitized, immutable revisions that remain private.
-  Standard WXR categories, tags, category parents, and term IDs are retained;
-  a small static SEO field allowlist is retained, while other custom fields,
-  page-parent links, and source media files require manual migration. Every
+  Standard WXR categories, tags, category parents, page-parent links, and term
+  IDs are retained when referenced records are present. Cyclic, unresolved, or
+  over-depth page hierarchies are reported for owner review; a small static SEO
+  field allowlist is retained, while other custom fields and source media files
+  require manual migration. Every
   import returns link, block, asset, SEO metadata, and permalink reconciliation
   counts. Safe multi-segment source URL paths are preserved for published
   routes; query-based and reserved paths fall back to a slug route and are
@@ -33,7 +35,10 @@ only an explicitly published tenant revision.
   conversation messages and AI drafts remain in the tenant's D1 database until
   the owner deletes the conversation.
 - Authenticated, `noindex` private preview; separate revision-approval and
-  publication actions with audit receipts.
+  publication actions with audit receipts. A `site:publish` owner can restore
+  a complete previously published revision by confirming both target and
+  current IDs; the old approval is rechecked and a distinct restore action is
+  recorded.
 - Read-only WordPress REST-compatible `GET` endpoints for public posts/pages,
   categories/tags, and published featured or inline media, including
   pagination headers. Public `edit` context is denied.
@@ -41,19 +46,33 @@ only an explicitly published tenant revision.
   plugin, shortcode, script, style, form, or dynamic-block execution. Only
   separately validated owner-uploaded R2 media may render inline or as a
   featured image.
+- A `site:publish`-scoped immutable snapshot endpoint and local Pages artifact
+  exporter for the current owner-approved publication. The exporter verifies
+  the snapshot digest and every media object's SHA-256, then writes static HTML,
+  taxonomy archives, a sitemap, an RSS feed, robots.txt, and referenced images.
+  It creates local files only; it does not call the Cloudflare Pages API or
+  publish a deployment.
+- An optional, capped Cloudflare Pages Direct Upload adapter for approved static
+  publications. It does not replace the shared Worker/D1 default host plane.
 
 The checked-in Mithril native-JS modules own platform subdomain validation,
-Workers Free-only AI admission, WordPress post/page record admission, individual
-taxonomy-term admission, and the private chat-draft proposal envelope. The
-Worker calls those contracts at the hostname, inference, import, taxonomy, and
-AI proposal boundaries. It retains host responsibility for cross-record
-taxonomy references and cycles, D1/R2 and AI I/O, HTML sanitization,
-language-tag canonicalization, and slug collision resolution. The `.cljk`
-model remains the platform-neutral reference boundary; the `.mith` modules are
-the executable Worker contracts. Regenerate all checked-in modules from the
-repository root or this package directory with `npm run build:mithril` after
-changing their `.mith` source. The build uses the Mithril workspace's `kbb`
-compiler.
+WordPress post/page record admission, individual taxonomy-term admission, the
+private chat-draft proposal envelope, migration parity classification, and
+revision approval/publication/restore eligibility. The Worker calls those
+contracts at the hostname, import, taxonomy, AI proposal, and revision
+lifecycle boundaries. It retains host
+responsibility for cross-record taxonomy references and cycles, D1/R2 and AI
+I/O, HTML sanitization, language-tag canonicalization, and slug collision
+resolution. The `.cljk` model remains the platform-neutral reference boundary;
+the `.mith` modules are the executable Worker contracts. Regenerate all
+checked-in modules from the repository root or this package directory with
+`npm run build:mithril` after changing their `.mith` source. The build uses the
+Mithril workspace's `kbb` compiler.
+
+To walk through a synthetic 24-page, 6-post WordPress migration entirely on the
+local Worker/D1/R2 emulator, follow the [migration demo runbook](../../docs/operations/mithrilpress-migration-demo-runbook.md).
+The optional migration/content-operations boundaries are in the [managed
+service handoff packet](../../docs/operations/mithrilpress-managed-service-handoff.md).
 
 ## Local setup
 
@@ -69,10 +88,29 @@ compiler.
    SameSite=Strict cookie.
 5. Run `npm run dev` to work against local D1.
 
+The D1 migrations use a coordinated sequence because several feature branches
+were created from older schema snapshots. See the [MithrilPress migration
+order](../../docs/operations/mithrilpress-d1-migrations.md) before rebasing or
+applying a migration.
+
 The example config deliberately has no route and disables `workers.dev`. It is
-not a production deployment config. Production routing, real D1 IDs, zone
-ownership, wildcard DNS, exact-source standalone qualification, rollback, and
-live read-back remain release gates.
+not a production deployment config. The required default hosting topology is a
+shared tenant-aware Worker and D1 hostname registry, with one exact Worker
+Custom Domain for each registered `label.sites.mithril.love` site. This keeps
+the requested public hostname pattern without a wildcard DNS record or route;
+Cloudflare creates the exact DNS mapping and managed certificate. The platform
+cohort stops at 90 domains. The global owner audience and the number of
+simultaneously hosted preview sites are separate limits: hold additional
+onboarding requests in a manual waitlist when the cohort is full. Do not ingest
+source content until a slot is available and the owner authorizes the import;
+never switch to paid hosting automatically. Cloudflare for SaaS lists 100 included hostnames but
+charges $0.10 per additional hostname and reserves wildcard custom hostnames
+for Enterprise; the `fund-mithril` quota and entitlement are not verified, so
+that is not an approved scale-up path. Production attachment, certificate read-back,
+operator cost controls, real D1 IDs, zone ownership, exact-source standalone
+qualification, rollback, and live read-back remain release gates. The optional
+Pages adapter attaches one exact hostname per selected site and remains an
+independently gated publication path.
 
 The R2 adapter stores objects with random site-scoped keys and keeps metadata
 and ownership references in D1. The application caps storage at 250 MiB per
@@ -83,6 +121,193 @@ per day. Cloudflare's R2 Standard free tier currently includes
 operations per month; those allowances are account-wide and shared with other
 workloads. The application caps do not guarantee a zero bill when the account
 has other R2 usage. No paid fallback is configured. See [R2 pricing](https://developers.cloudflare.com/r2/pricing/).
+
+### Optional static publication artifact
+
+This capped Pages path is an optional publication adapter, not the default
+hosting plane. The shared tenant-aware Worker and D1 registry remain the
+default for registered exact hostnames under `*.sites.mithril.love`; the Pages
+publisher does not provision or replace those Worker Custom Domains. Pages
+projects, exact custom domains, and REST Functions remain disabled until their
+separate qualification and cost gates pass.
+
+After a site owner separately approves and publishes a revision, a publisher
+with a short-lived `site:publish` token can read the current snapshot and its
+referenced media. Load `MITHRILPRESS_OWNER_TOKEN` from the approved local secret
+store into the process environment; do not put it in a command argument or
+commit it. Select the exact site origin and a new, nonexistent output path:
+
+```sh
+MITHRILPRESS_CONTROL_URL=https://control.mithril.love \
+MITHRILPRESS_SITE_ID=00000000-0000-4000-8000-000000000000 \
+MITHRILPRESS_OUTPUT_DIR=/tmp/example-pages \
+npm run export:pages
+```
+
+The site ID and token must belong to the same tenant. Set the token in the same
+process environment before running the command. The control-plane origin must
+route the authenticated site publication endpoint; no such Cloudflare route is
+provisioned by this package. The exporter accepts only the exact
+`https://control.mithril.love` origin so the bearer token is not sent to an
+arbitrary tenant hostname or `workers.dev` endpoint. An optional
+`MITHRILPRESS_EXPECTED_REVISION` makes the exporter fail if the published
+revision changed before the snapshot read.
+The output is a local artifact only. A standalone publisher must re-read the
+current revision and digest immediately before any future Pages upload, verify
+the exact Pages deployment and host afterward, and retain the previous
+known-good deployment. Pages credentials and R2 objects are never sent to the
+tenant-facing Worker. The command's JSON result includes a sorted per-file
+manifest with each path, byte length, and SHA-256, plus an artifact digest bound
+to the site, hostname, published revision, and source snapshot digest. Preserve
+that result with the standalone publisher receipt so the upload can be tied to
+the exact local bundle.
+
+### Optional guarded Pages Direct Upload
+
+This exact-host flow is separate from the default shared Worker Custom Domain
+attachment. It is limited to the capped Pages publication path and does not
+change routing for tenants that remain on the shared Worker.
+
+`npm run publish:pages -- --confirm-publication` updates an already established
+static Pages site. The first publish uses the explicit
+`--confirm-publication --initialize-hostname <exact-hostname>` mode. Both modes
+use the package-lock Wrangler v4 entrypoint directly; neither uses `npx` or
+installs a publisher at runtime. The publisher re-exports the exact
+`MITHRILPRESS_EXPECTED_REVISION`, checks every local file against the
+digest-bound manifest, and confirms the account ID against the separately
+pinned standalone-publisher value. The project name is derived as
+`mp-<site UUID>`. The project must use the expected production branch. The
+only deployed Function is the package-owned read-only WordPress REST handler;
+the exporter binds its source digest and exact `/wp-json/wp/v2/*` invocation
+route into the publication manifest.
+
+Initial publication validates the exact hostname against the owner's published
+snapshot and confirms the configured zone is `mithril.love` in the expected
+Cloudflare account. It checks the exact hostname's DNS records before writing,
+creates the static Pages project when absent, and stops before creating a new
+project when the account has 90 or more Pages projects. It first uploads a
+small `noindex` setup placeholder to the project's `pages.dev` host, then
+attaches the exact custom hostname and creates a proxied CNAME only if the exact
+hostname has no DNS records. It waits for the Pages domain, validation, and
+verification states to become active and verifies the placeholder over HTTPS
+before uploading owner-approved content. If a provider step fails, already
+created project, deployment, domain, or DNS resources remain for a safe retry;
+the script does not attempt destructive cleanup. The Pages API and DNS writes
+are not one atomic operation.
+
+Cloudflare Pages allows 100 projects per account; the publisher's 90-project
+cap leaves ten slots for other account projects and operational headroom. It
+does not provide an all-world scale path: onboarding stops at the cap until a
+separately qualified and funded hosting architecture is available. See [Pages limits](https://developers.cloudflare.com/pages/platform/limits/).
+
+The initial placeholder remains the rollback target until the first approved
+publication passes read-back. Later updates require the current production
+deployment and its previous successful publisher receipt. They first verify
+the live files against that receipt, then check the revision again immediately
+before Direct Upload. After upload they read back every public file over the
+exact HTTPS custom hostname and compare the returned byte length and SHA-256
+with the approved manifest. On a failed read-back the publisher attempts the
+Pages rollback API only if the deployment it just published is still current,
+then verifies the previous receipt's files again. Each Direct Upload carries a
+unique deployment message bound to the site, revision, artifact digest, and
+publish attempt. If a concurrent publisher changed production, rollback is
+withheld.
+
+The fixed Pages Function serves the read-only WordPress REST subset at
+`/wp-json/wp/v2/*`. Its source digest is bound into the publication manifest;
+the publisher verifies that only this REST route invokes Functions and reads
+back posts, pages, taxonomies, and media through the live HTTPS API. The
+published static data contains only the owner-approved public revision. REST
+search matches published titles on this static path; the authenticated Worker
+API retains its broader search behavior.
+
+All other routes stay on Pages static assets, whose requests are free and
+unlimited. Each REST Function request increments the same trigger-enforced D1
+request counters as the MithrilPress Worker: 5,000 requests per site/day and
+25,000 requests across the deployment/day. The publisher verifies the exact
+`mithrilpress` D1 database in the pinned account and binds it as `DB` on a new
+Pages project before the first deployment. The Function checks both counters
+before filtering or returning content and fails closed when D1 is unavailable
+or a limit is reached. The digest covers both the Function and its shared quota
+helper. Site owners are never charged; Pages Function requests are still
+metered to the operator, and application caps are not a provider billing cap
+on a Workers Paid account. Each over-cap REST attempt still invokes the
+Function and a metered D1 transaction to enforce the application counter; the
+shared and site counters are charged atomically, so a rejected site request
+does not consume the deployment allowance.
+
+The publisher refuses `_worker.js`, arbitrary Functions routes, extra files,
+symlinks, and bundles above the existing 5,000-file / 300 MB product caps.
+The exact `_routes.json` and Pages' `_headers` configuration are included in
+the manifest but are not public assets, so they are excluded from HTTPS
+file-by-file read-back.
+
+Set credentials from the approved local secret store, never on the command
+line. `MITHRILPRESS_EXPECTED_CLOUDFLARE_ACCOUNT_ID` must match
+`CLOUDFLARE_ACCOUNT_ID`; the standalone publisher pins both to the intended
+account (the hosted MithrilPress profile must select `fund-mithril`). Initial
+publication also requires `CLOUDFLARE_ZONE_ID` to match the separately pinned
+`MITHRILPRESS_EXPECTED_CLOUDFLARE_ZONE_ID`. The zone must read back as
+`mithril.love` and belong to that account. The token needs Pages Read and Write
+and D1 Read for the account, Zone Read for the zone, and DNS Read and Write
+for the zone. The deployment profile pins
+`MITHRILPRESS_EXPECTED_D1_DATABASE_ID`; the command requires the matching
+`MITHRILPRESS_D1_DATABASE_ID` and verifies that the database is named
+`mithrilpress` in the same account before using it. The Pages production
+configuration must read back the exact `DB` binding. The publisher does not
+claim to configure or verify Cloudflare's separate request-limit exhaustion
+behavior; the application quota stops content responses, not Worker request
+metering.
+The command also requires the owner token, the reviewed revision UUID, a path
+to the previous successful receipt, and a new receipt path. For the initial
+publish, the previous-receipt path is a new file for the verified placeholder
+baseline. The receipt stores deployment IDs, the manifest, and public
+read-back result; keep it with signed standalone publisher evidence. Its
+self-checksum detects accidental edits but is not a digital signature, so the
+standalone release authority must sign and retain it before it is treated as
+release evidence. Select an existing local scratch directory according to the
+operator's storage policy.
+
+```sh
+MITHRILPRESS_CONTROL_URL=https://control.mithril.love \
+MITHRILPRESS_SITE_ID=00000000-0000-4000-8000-000000000000 \
+MITHRILPRESS_EXPECTED_REVISION=00000000-0000-4000-8000-000000000001 \
+MITHRILPRESS_EXPECTED_CLOUDFLARE_ACCOUNT_ID=<pinned-account-id> \
+MITHRILPRESS_EXPECTED_CLOUDFLARE_ZONE_ID=<pinned-mithril-love-zone-id> \
+MITHRILPRESS_D1_DATABASE_ID=<mithrilpress-d1-id> \
+MITHRILPRESS_EXPECTED_D1_DATABASE_ID=<pinned-mithrilpress-d1-id> \
+MITHRILPRESS_PREVIOUS_RECEIPT_PATH=/secure/evidence/placeholder.json \
+MITHRILPRESS_PUBLISH_RECEIPT_PATH=/secure/evidence/first-publish.json \
+MITHRILPRESS_SCRATCH_DIR=/path/to/existing-scratch-directory \
+npm run publish:pages -- --confirm-publication \
+  --initialize-hostname blue-widget.sites.mithril.love
+```
+
+An update omits `CLOUDFLARE_ZONE_ID` and uses the same receipt variables with
+the previous successful publication receipt:
+
+```sh
+MITHRILPRESS_CONTROL_URL=https://control.mithril.love \
+MITHRILPRESS_SITE_ID=00000000-0000-4000-8000-000000000000 \
+MITHRILPRESS_EXPECTED_REVISION=00000000-0000-4000-8000-000000000002 \
+MITHRILPRESS_EXPECTED_CLOUDFLARE_ACCOUNT_ID=<pinned-account-id> \
+MITHRILPRESS_D1_DATABASE_ID=<mithrilpress-d1-id> \
+MITHRILPRESS_EXPECTED_D1_DATABASE_ID=<pinned-mithrilpress-d1-id> \
+MITHRILPRESS_SCRATCH_DIR=/path/to/existing-scratch-directory \
+MITHRILPRESS_PREVIOUS_RECEIPT_PATH=/secure/evidence/previous.json \
+MITHRILPRESS_PUBLISH_RECEIPT_PATH=/secure/evidence/next.json \
+npm run publish:pages -- --confirm-publication
+```
+
+Before running the command, load `MITHRILPRESS_OWNER_TOKEN`,
+`CLOUDFLARE_API_TOKEN`, and the account and zone ID pairs from the approved
+local secret/profile configuration. The IDs are configuration values, not
+credentials; the API token is secret.
+
+This command is not a release authorization or qualification receipt. The
+current repository still requires exact-source standalone qualification,
+account/domain readiness, signed evidence, rollback qualification, and live
+read-back before a production publication.
 
 ## Tenant provisioning data
 
@@ -131,6 +356,70 @@ owner-approved HTTPS WordPress origin for a later import. It does not fetch or
 copy any source content. Current provisioning is operator-driven; account
 registration, email verification, and direct self-service tenant signup are not
 implemented yet.
+
+### Exact platform-host attachment
+
+The public URL pattern is `*.sites.mithril.love`; each registered
+`label.sites.mithril.love` host attaches to the shared
+`mithrilpress` Worker as an exact Cloudflare Worker Custom Domain. This avoids a
+wildcard DNS record and wildcard route, so unknown labels do not reach the
+Worker. Cloudflare creates the exact DNS mapping and managed certificate. The
+zone-wide cap is 90 Worker Domains, leaving ten slots below Cloudflare's
+100-domain limit; D1 also rejects a 91st non-deleted platform site. Onboarding
+stops at either cap and never upgrades the account.
+
+Create the tenant row first with `provision:site`. The attachment command
+checks that its `--database-id` matches the deployed Worker `DB` binding and
+the `mithrilpress` database, then confirms that the exact hostname maps to one
+active site row before planning or `--apply`. It uses a separate D1 Read token
+and one parameterized `SELECT`; the token must be limited to `fund-mithril`
+because Cloudflare scopes D1 Read at the account level, not per database. The
+command never writes to D1. The Worker serves content only when its own exact
+D1 hostname lookup resolves to an active tenant.
+
+Use an operator credential from the approved secret store, passed through the
+process environment. Cloudflare requires Editor access to the existing Worker
+and `Workers Routes Write` scoped to the affected `mithril.love` zone to add a
+Custom Domain. The command also needs read access to the account, zone, Worker
+scripts, Worker Domains, and exact DNS records. Cloudflare currently does not
+support per-Worker roles for Custom Domains. Keep provider writes disabled if
+the required Editor grant cannot be isolated to `mithrilpress`; a zone-scoped
+Routes permission does not make the Worker Editor grant service-specific. The
+command verifies that the account reads back as `fund-mithril`, the zone as
+`mithril.love`, the named Worker exists, the exact hostname is unused, and the
+zone count is below 90. Cloudflare creates the exact DNS record and managed
+certificate; no DNS Write permission, wildcard record, or Worker Route is used
+for this attachment. `--apply` is required for the provider write; without it
+the command prints a plan. After attachment it reads back the Worker Domain
+and the exact proxied DNS record, requires a certificate ID, and verifies the
+noindex Studio shell over HTTPS. The HTTPS request confirms the managed
+certificate is serving the hostname; the Worker Domain API does not expose a
+separate certificate status field. An incomplete DNS/TLS/HTTPS read-back leaves
+the exact domain in place for manual reconciliation; the command never removes
+provider resources automatically. Migration `0012_platform_site_capacity.sql`
+caps non-deleted platform sites at 90 in D1, including concurrent tenant
+inserts. See the Cloudflare [Custom Domains](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/)
+and [Workers authorization](https://developers.cloudflare.com/workers/authorization/workers/) documentation.
+
+```sh
+export CLOUDFLARE_API_TOKEN='from the operator secret manager'
+export CLOUDFLARE_D1_READ_TOKEN='separate D1 Read token for fund-mithril'
+npm run attach:platform-host -- \
+  --account-id <fund-mithril-account-id> \
+  --zone-id <mithril-love-zone-id> \
+  --database-id <mithrilpress-d1-database-uuid> \
+  --hostname studio-example.sites.mithril.love \
+  --confirm-hostname studio-example.sites.mithril.love
+```
+
+Review the dry-run output and repeat the same command with `--apply` only after
+the D1 tenant and shared Worker are deployed and ready. This CLI does not create
+or change customer-owned DNS, registrar delegation, Worker code, D1, or R2. It
+does not make the bounded host cohort unlimited; the separate Cloudflare for
+SaaS customer-domain workflow and Pages static-export path have their own limits
+and release gates. Production attachment still requires isolated deep-host
+TLS/renewal proof, an enforceable operator cost stop, rollback planning, and
+exact-source/current-main standalone qualification.
 
 ### Manual D1 reference
 
@@ -200,12 +489,7 @@ only referenced local images and creates a private preview revision. It never
 approves or publishes the revision. The owner must inspect the saved migration
 report, approve the complete revision, and publish it in a separate action.
 The report lists ready/mapped media, missing references, rejected files, and
-unreferenced attachments. On a definite import rejection, the CLI deletes media
-it uploaded during that attempt; failed cleanup is listed in the error report
-for operator follow-up. If the import response is ambiguous, the CLI leaves the
-uploads in place rather than risk deleting media referenced by a private
-revision. An ambiguous upload response is listed by WordPress media ID for
-operator reconciliation. The worker enforces the tenant's existing daily media
+unreferenced attachments. The worker enforces the tenant's existing daily media
 write and storage caps; reaching a cap stops the import without a paid fallback.
 
 ## Endpoints
@@ -214,6 +498,7 @@ write and storage caps; reaching a cap stops the import without a paid fallback.
 | --- | --- | --- | --- |
 | `POST` | `/api/wordpress/import` | `content:import` | Import JSON `{ "source_site": "https://…", "records": [...] }` or a raw `application/rss+xml`, `application/xml`, or `text/xml` WXR 1.2 export into a private sanitized revision. WXR source origin is read from `<channel><link>`. |
 | `GET` / `HEAD` | `/_mithrilpress/api/revisions/{revision-id}/migration-report` | `revision:preview` | Read the saved Gutenberg block, internal-link, asset mapping, and source omission report before approving a migrated revision. |
+| `POST` | `/_mithrilpress/api/revisions/{revision-id}/restore` | `site:publish` | Restore an earlier published revision only when its original approval still verifies and the request confirms both that revision and the current publication ID. |
 | `GET` / `POST` / `DELETE` | `/_mithrilpress/api/studio/session` | `content:write`, `media:write`, `site:domains`, or `site:dns-migrate` | Exchange a short-lived owner token for a one-hour browser session, inspect it, or revoke it. |
 | `GET` | `/_mithrilpress/studio` | public shell; noindex | Open the chat-first post/page Studio. The API requires a site-owner session. |
 | `POST` | `/_mithrilpress/api/studio/chat` | `content:write` | Generate or revise one private draft; no model response is published. |
@@ -227,6 +512,8 @@ write and storage caps; reaching a cap stops the import without a paid fallback.
 | `GET` | `/_mithrilpress/preview/{revision-id}/{slug}` | `revision:preview` | View sanitized revision HTML with `noindex` headers. |
 | `POST` | `/_mithrilpress/api/revisions/{revision-id}/approve` | `revision:approve` | Record owner approval for a complete sanitized revision. |
 | `POST` | `/_mithrilpress/api/revisions/{revision-id}/publish` | `site:publish` | Make the approved revision the public site revision. |
+| `GET` / `HEAD` | `/_mithrilpress/api/control/sites/{site-id}/publication/current` | `site:publish` | Read a digest-bound snapshot of only the current owner-approved published revision on the separate control-plane origin. |
+| `GET` / `HEAD` | `/_mithrilpress/api/control/sites/{site-id}/publication/revisions/{revision-id}/media/{id}` | `site:publish` | Read a referenced media object only while that revision is still current; reads count against existing image-delivery caps. |
 | `GET` / `POST` | `/_mithrilpress/api/domains` | `site:domains` | List custom hostnames or start a 24-hour ownership TXT challenge. Unverified requests do not reserve hostnames or shared capacity. Expired claims are released before per-site capacity checks; a detached hostname can be claimed by another site after fresh proof. |
 | `POST` | `/_mithrilpress/api/domains/{hostname-id}/verify` | `site:domains` | Verify ownership TXT and provision the Cloudflare for SaaS hostname and certificate. |
 | `POST` | `/_mithrilpress/api/domains/{hostname-id}/refresh` | `site:domains` | Read provider/TLS status and verify the public DNS-only CNAME. |
@@ -270,47 +557,21 @@ The Worker enforces a conservative 1.8 MB encoded-size budget for each content
 row, below Cloudflare D1's documented 2 MB maximum row/string size.
 Imported non-public WordPress statuses remain available only in the private
 owner preview; public routes expose records whose source status was `publish`.
-Chat-created entries are draft-only until their containing revision is
-approved and explicitly published. Workers AI receives the bounded
-conversation and current draft to generate a proposal; it is not fact-checked,
-and the owner must review it before publication. Studio uses
-`@cf/meta/llama-3.3-70b-instruct-fp8-fast` directly through the Workers AI
-binding in `workers-free-only` mode. This model is listed as supporting
-Cloudflare Workers AI JSON Mode, which matches Studio's JSON Schema request.
-This deliberately does not use AI Gateway, Unified
-Billing, provider credentials, or a paid fallback. Cloudflare's Workers Free
-plan includes 10,000 Neurons per account per UTC day; after that, further
-inference operations fail until the allowance resets. The prototype also caps
-Studio generations at eight per UTC day across the deployment, bounds the
-conservative prompt-input estimate to 10,000 bytes and output to 700 tokens,
-and atomically reserves a two-times neuron estimate against an 8,000-Neuron
-application budget before inference. Reservations are not returned after a
-provider error or timeout because the provider may have completed the request.
-The Studio reports these reservations separately from actual provider usage;
-Cloudflare account usage is not measured by MithrilPress. Other workloads can
-consume the account-wide free allocation first, causing drafting to stop
-earlier.
-
-At the currently published rate for this model (26,668 input and 204,805
-output Neurons per million tokens), the reservation formula caps one accepted
-request at 821 Neurons: at most 10,000 input bytes including message/schema
-overhead, at most 700 output tokens, and a two-times safety multiplier. Eight
-maximum-size requests reserve at most 6,568 Neurons. This is a bound on the
-application's estimate, not a measurement or guarantee of provider usage;
-recheck the model rates, limits, and account plan before release.
-
-The example config keeps Studio AI disabled and its mode set to `disabled`.
-Before enabling it, read back the exact target account's plan and confirm it is
-Workers Free, then set `STUDIO_AI_FREE_PLAN_CONFIRMED=true`,
-`STUDIO_AI_ENABLED=true`, and `STUDIO_AI_MODE=workers-free-only`. The
-confirmation is an operator-controlled deployment gate, not a runtime query of
-Cloudflare's account plan. Never use this mode on a Workers Paid account: usage
-above the daily free allocation is billed there. The provider stop and the
-application reservation are separate controls; the estimate depends on the
-model's current published Neuron rates and must be revalidated before release.
-See [Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/),
-[JSON Mode supported models](https://developers.cloudflare.com/workers-ai/features/json-mode/),
-and the [`llama-3.3-70b-instruct-fp8-fast` model page](https://developers.cloudflare.com/workers-ai/models/llama-3.3-70b-instruct-fp8-fast/).
+Chat-created entries are draft-only until their containing revision is approved
+and explicitly published. Workers AI receives the bounded conversation and
+current draft to generate a proposal. The prototype caps Studio generation at
+eight requests per UTC day across the deployment. Studio AI is disabled in the
+example deployment. When enabled, the Worker calls the Workers AI binding
+directly; it does not use AI Gateway or configure a paid fallback. The free-only
+mode is intended for a verified Workers Free account. Its
+`STUDIO_AI_FREE_PLAN_CONFIRMED` setting is an operator assertion, not a live
+account-plan check. Keep AI disabled until the target account and provider
+limits have been read back. Workers Paid can bill usage above its shared daily
+free neuron allocation. The app-level request cap and Neuron reservation are
+not an account-wide dollar hard stop, and bounded prompts do not guarantee zero
+operator cost. A disabled or over-budget request returns an unavailable response
+without saving or publishing a draft. See [Workers AI
+pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/).
 
 Owners may instead write a title and up to 100,000 characters directly in
 Studio. The Worker escapes the text into paragraphs, applies the manual-draft
@@ -324,8 +585,7 @@ The Worker also enforces a 16 MiB retained-import content cap per site,
 including entries and taxonomy terms, and a 256 MiB cap across the deployment.
 D1 triggers maintain these counters
 across immutable revisions and reject writes that exceed either cap; the Studio
-Usage view shows the per-site estimate, shared daily AI request count, and
-conservative shared daily Neuron reservation.
+Usage view shows the per-site estimate and the shared daily AI request count.
 The byte estimate counts retained entry text, taxonomy text, and allowlisted
 SEO metadata, not SQLite indexes, other database metadata, conversations, DNS
 migration snapshots, audit rows, or the physical D1 database size. It is an
@@ -335,49 +595,64 @@ cannot consume the provider limit.
 
 ## Hosting and custom domains
 
-The intended runtime is one Worker, D1, and a proxied wildcard route for
-`*.sites.mithril.love`. Hosting is free to site owners; the operator pays the
-provider bill. Cloudflare's Workers Paid plan currently has a $5/month minimum,
-10 million included requests per month, and metered overages. D1, R2, and
-Workers AI have separate account-level allowances and pricing. MithrilPress
-does not bill site owners or automatically upgrade a plan.
+The requested public URL pattern is `*.sites.mithril.love`. The default runtime
+is one shared tenant-aware Worker and D1 registry, with one exact Worker Custom
+Domain attached for each registered `label.sites.mithril.love` hostname. A
+Custom Domain is an exact hostname match: Cloudflare creates its DNS record and
+managed certificate, and no wildcard DNS record or Worker Route is used. This
+keeps unregistered labels from reaching the Worker. Hosting is free to site
+owners; the operator is responsible for provider charges. MithrilPress does not
+bill owners or automatically upgrade a Cloudflare plan.
+
+The 90-domain stop is a first-cohort limit, not completion of the worldwide
+hosting objective. Cloudflare recommends a wildcard Worker Route when a
+platform needs more than 100 Worker Custom Domains per zone. For
+`*.sites.mithril.love`, that scale path needs a proxied wildcard DNS record and
+a certificate for the deep hostname; the parent zone's Universal SSL does not
+cover it. Advanced Certificate Manager supports the required one-level
+wildcard but is a paid add-on. Keep this path disabled until wildcard TLS,
+host-aware abuse controls, an enforceable provider-cost stop, rollback, and the
+operator budget are qualified. Site owners remain free; there is no automatic
+upgrade or owner billing. See [Worker limits](https://developers.cloudflare.com/workers/platform/limits/),
+[hostname routing](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/configuration/hostname-routing/),
+[Universal SSL limits](https://developers.cloudflare.com/ssl/edge-certificates/universal-ssl/limitations/), and
+[Advanced Certificate Manager](https://developers.cloudflare.com/ssl/edge-certificates/advanced-certificate-manager/).
 
 MithrilPress does not use Workers for Platforms in the initial design. That
 product's dispatch namespaces isolate and route customer-authored Worker code;
 MithrilPress runs one reviewed renderer over tenant content and does not execute
-tenant code. Workers for Platforms is a separately paid service (listed at
-$25/month plus usage overages when checked on 2026-10-21), so it is not the
-mechanism for a free site-owner tier or a provider-level hard stop. Revisit it
-only if tenant-authored code becomes a product requirement. See the
-[Workers for Platforms overview](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/),
-[how dispatch works](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/how-workers-for-platforms-works/),
+tenant code. Workers for Platforms is a separate product with its own pricing,
+so it is not required for this shared-renderer design or a provider-level hard
+stop. Revisit it only if tenant-authored code becomes a product requirement.
+See the [Workers for Platforms overview](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/),
+[dispatch model](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/how-workers-for-platforms-works/),
 and [pricing](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/reference/pricing/).
 
 MithrilPress enforces 5,000 HTTP requests per active site per UTC day and
-25,000 HTTP requests across the deployment. A request must resolve to an active
-site before it consumes either application counter; unknown or inactive hosts
-return 404 without reducing tenant capacity. Each accepted tenant request
-updates the site and deployment counters in one D1 transaction, so a request
-rejected by either cap does not advance the other counter. This covers public
-pages, WordPress REST, Studio, previews, DNS, and media. The request that
-reaches a cap is handled; later requests receive 429 for a site cap or 503 for
-the shared cap until 00:00 UTC. A burst of valid requests distributed across
-multiple tenants can still exhaust the shared allowance, so production routing
-must have an independently verified edge rate limit before public launch. These
-application counters limit MithrilPress routes; they do not stop
-Worker invocations at Cloudflare's billing layer. The Worker invocation and
-hostname lookup still occur before a request can receive an application-cap
-response, and unrelated workloads in the same Cloudflare account consume the
-same provider allocations. The Studio shows MithrilPress app counters, but does
-not measure all account-wide Worker requests, D1 reads/writes/storage, or
-Workers AI neuron usage. The dedicated Workers Free plan supplies the provider
-hard stop for daily AI neurons; if other workloads consume the shared allowance,
-AI drafting fails closed earlier. Never move this runtime to Workers Paid, where
-usage above the free AI allocation is billed and Worker requests have no daily
-provider cap. A strict provider-level stop therefore requires a dedicated
-Workers Free deployment or an independently operated route shutdown, with the
-account and hostname-routing boundaries verified before launch; it is not
-provided by these app counters. On Workers Free, D1 daily read/write exhaustion
+25,000 HTTP requests across the deployment. A read-only shared-counter check
+runs before hostname resolution; when the cap is reached, the Worker returns
+503 without another tenant-registry lookup. After resolution, active-site
+requests increment the shared and site counters in one D1 batch. If a site cap
+rejects a request, the batch rolls back and shared usage is unchanged.
+Unresolved or inactive hosts and invalid control-host requests consume only the
+shared counter after resolution. These counters cover public pages, WordPress
+REST, Studio, previews, DNS, media, and unsupported routes. The final allowed
+request is served; later requests receive 429 for a site cap or 503 for the
+shared cap until 00:00 UTC.
+
+Application counters do not stop Worker invocations at Cloudflare's billing
+layer. A request at the shared cap still invokes the Worker and performs the
+read-only D1 preflight; unrelated workloads in the same Cloudflare account
+consume the same provider allocations. The Studio shows MithrilPress app
+counters, but does not measure all account-wide Worker requests, D1
+reads/writes/storage, or Workers AI neuron usage. Workers Paid has no daily
+request ceiling and meters usage beyond its included allocations; budget alerts
+notify but do not pause or cap usage. Workers Free has an account-wide daily
+request limit and rejects requests after that limit, but this protects
+MithrilPress only if the selected account is confirmed Free and shared account
+usage is bounded. A strict provider-level stop is not provided by MithrilPress's
+app counters. Keep public hosting disabled until the account plan, shared
+usage, and enforceable cost boundary are read back. On Workers Free, D1 daily read/write exhaustion
 or a D1 storage ceiling is returned as a clear 503 and requests fail closed.
 Import and rendering workloads have not been qualified against the current CPU
 limit. Usage monitoring and release gates are tracked in Linear MITHRIL-292.
@@ -396,9 +671,12 @@ Deleting a conversation releases its message-text allowance. This is an
 application estimate, not physical D1 database size; the provider's Free-plan
 row and storage limits remain the final hard stop.
 
-The default address is an owner-provisioned hostname under
-`*.sites.mithril.love`. Studio custom-hostname onboarding is implemented behind
-a disabled-by-default feature gate. It asks the owner to publish a short-lived
+The default address is one exact Worker Custom Domain per registered tenant
+under the requested `*.sites.mithril.love` URL pattern; the platform host is
+attached one exact hostname at a time after owner and capacity checks.
+
+Customer-owned-domain onboarding is implemented behind a separate
+disabled-by-default feature gate. It asks the owner to publish a short-lived
 TXT proof, creates the Cloudflare for SaaS hostname only after that proof
 resolves, returns the provider's TLS validation records, and activates the
 tenant mapping only after Cloudflare reports an active hostname and
@@ -492,7 +770,7 @@ through its R2 binding rather than an R2 API token.
 
 ## WordPress REST subset
 
-Public post/page list requests support `page`, `per_page` (1–100), `slug`,
+Worker-hosted public post/page list requests support `page`, `per_page` (1–100), `slug`,
 `search`, `after`, `before`, `modified_after`, `modified_before`, `order`, and
 `orderby` (`date`, `modified`, `id`, `title`, `slug`, or `relevance`; relevance
 requires a search term), plus `context` `view`/`embed`. Search matches the
@@ -505,13 +783,21 @@ Single-item `GET` and `HEAD` routes accept a positive numeric ID. Imported
 entries resolve by their WordPress source ID; MithrilPress-authored entries
 resolve by their MithrilPress API ID. They return only an entry in the active
 published revision, so drafts, private previews, superseded revisions, and IDs
-of another post type return 404.
+of another post type return 404. Pages expose their parent source ID only when
+that parent is also published in the active revision; otherwise the public
+`parent` value is `0`.
 Category/tag lists also support
 `search` and `hide_empty`, and individual terms can be fetched by source ID.
 Responses include standard `X-WP-Total`, `X-WP-TotalPages`, and pagination
 `Link` headers. Category/tag archives render published-entry lists. Editing
 contexts, term and media writes, media listings, users, comments, custom post
 types, and WordPress authentication plugins are not implemented here.
+
+The Pages static publication serves the same read-only post/page, category/tag,
+and individual-media routes through its fixed Pages Function. Its bounded
+catalog supports pagination, slug, date, modified-date, ordering, and title
+search filters. Content search, write endpoints, authentication plugins, and
+other WordPress REST resources remain unsupported on the static path.
 
 The importer also accepts WordPress WXR 1.2 exports. It imports up to 500
 posts/pages per file, with the channel origin, source IDs, slugs, title/body,
@@ -534,8 +820,9 @@ with its original WordPress media ID before import. Source-host links are
 rewritten only for imported permalinks; unresolved links remain visible in the
 report and still point to the source site. The report shows which image
 references were rewritten or omitted. Apart from the static SEO field allowlist
-above, the importer does not preserve custom fields, page-parent relationships,
-users, comments, or custom taxonomies.
+above, the importer does not preserve custom fields, users, comments, or custom
+taxonomies. Unresolved, cyclic, and over-depth page hierarchies are counted in
+the migration report and require owner review.
 Safe multi-segment WordPress permalink paths are used by the published site,
 the read-only REST `link` field, canonical tags, and rewritten internal links.
 Query-based, reserved, invalid, or unsupported source paths fall back to a
@@ -546,3 +833,17 @@ Unsupported post types and password-protected posts/pages are skipped and
 counted in the import report; protected content is never silently turned into
 ordinary public content. Review the report and private preview before
 publication.
+Migration report version 2 includes record reconciliation and a Mithril-authored
+`parity_status`. It reports `supported-slice-complete` only when every imported
+record reconciles and the importer reports no omitted source content, degraded
+or dynamic blocks, unsafe or unresolved links, missing media, metadata omission,
+or route fallback. Otherwise it reports `owner-review-required`; this describes
+the admitted subset and is not a claim of full WordPress parity.
+
+Restoring a prior publication does not edit its immutable content or manufacture
+a new approval. A `site:publish` owner must POST the historical revision ID and
+the current publication ID to the exact restore path. The worker requires the
+target to have been published before, remain complete, and retain its original
+owner approval, then atomically switches the current revision and records a
+distinct `restore` owner action. The publication snapshot endpoint reads back
+the resulting current revision for export.

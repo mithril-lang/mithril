@@ -308,6 +308,7 @@
                 (rdf/node :name "categories" :value (mithril/host-logical :operator "??" :left (mithril/host-get :object (mithril/local :name "record") :key (mithril/literal :datatype "js-value" :value "categories")) :right (mithril/host-array :items [])))
                 (rdf/node :name "tags" :value (mithril/host-logical :operator "??" :left (mithril/host-get :object (mithril/local :name "record") :key (mithril/literal :datatype "js-value" :value "tags")) :right (mithril/host-array :items [])))
                 (rdf/node :name "media" :value (mithril/host-logical :operator "??" :left (mithril/host-get :object (mithril/local :name "record") :key (mithril/literal :datatype "js-value" :value "featured_media")) :right (mithril/literal :datatype "js-value" :value 0)))
+                (rdf/node :name "parent" :value (mithril/host-logical :operator "??" :left (mithril/host-get :object (mithril/local :name "record") :key (mithril/literal :datatype "js-value" :value "parent")) :right (mithril/literal :datatype "js-value" :value 0)))
                 (rdf/node :name "datesValid" :value (mithril/host-logical :operator "&&"
                   :left (mithril/host-logical :operator "&&"
                     :left (mithril/host-invoke :function (mithril/function-ref :name "optionalString") :args [(mithril/host-optional-get :object (mithril/local :name "record") :key (mithril/literal :datatype "js-value" :value "date")) (mithril/literal :datatype "js-value" :value 128)])
@@ -341,7 +342,7 @@
            :then (mithril/host-invoke :function (mithril/function-ref :name "invalid") :args [(mithril/literal :datatype "js-value" :value "invalid_content")])
            :else
            (mithril/if
-            :condition (mithril/host-unary :operator "!" :value (mithril/host-logical :operator "&&" :left (mithril/host-logical :operator "&&" :left (mithril/host-invoke :function (mithril/function-ref :name "validIdList") :args [(mithril/local :name "categories")]) :right (mithril/host-invoke :function (mithril/function-ref :name "validIdList") :args [(mithril/local :name "tags")])) :right (mithril/host-invoke :function (mithril/function-ref :name "nonNegativeId") :args [(mithril/local :name "media")])))
+            :condition (mithril/host-unary :operator "!" :value (mithril/host-logical :operator "&&" :left (mithril/host-logical :operator "&&" :left (mithril/host-invoke :function (mithril/function-ref :name "validIdList") :args [(mithril/local :name "categories")]) :right (mithril/host-invoke :function (mithril/function-ref :name "validIdList") :args [(mithril/local :name "tags")])) :right (mithril/host-logical :operator "&&" :left (mithril/host-invoke :function (mithril/function-ref :name "nonNegativeId") :args [(mithril/local :name "media")]) :right (mithril/host-invoke :function (mithril/function-ref :name "nonNegativeId") :args [(mithril/local :name "parent")]))))
             :then (mithril/host-invoke :function (mithril/function-ref :name "invalid") :args [(mithril/literal :datatype "js-value" :value "invalid_taxonomy_or_media")])
             :else
             (mithril/if
@@ -362,6 +363,7 @@
                              (rdf/node :key (mithril/literal :datatype "js-value" :value "title") :value (mithril/local :name "title"))
                              (rdf/node :key (mithril/literal :datatype "js-value" :value "sourceHtml") :value (mithril/local :name "content"))
                              (rdf/node :key (mithril/literal :datatype "js-value" :value "sourceId") :value (mithril/local :name "id"))
+                             (rdf/node :key (mithril/literal :datatype "js-value" :value "parentSourceId") :value (mithril/if :condition (mithril/host-logical :operator "&&" :left (mithril/host-binary :operator "===" :left (mithril/local :name "kind") :right (mithril/literal :datatype "js-value" :value "page")) :right (mithril/host-binary :operator ">" :left (mithril/local :name "parent") :right (mithril/literal :datatype "js-value" :value 0))) :then (mithril/local :name "parent") :else (mithril/literal :datatype "js-value" :value nil)))
                              (rdf/node :key (mithril/literal :datatype "js-value" :value "sourceStatus") :value (mithril/local :name "sourceStatus"))
                              (rdf/node :key (mithril/literal :datatype "js-value" :value "sourceDate") :value (mithril/host-logical :operator "??" :left (mithril/host-optional-get :object (mithril/local :name "record") :key (mithril/literal :datatype "js-value" :value "date")) :right (mithril/literal :datatype "js-value" :value nil)))
                              (rdf/node :key (mithril/literal :datatype "js-value" :value "sourceDateGmt") :value (mithril/host-logical :operator "??" :left (mithril/host-optional-get :object (mithril/local :name "record") :key (mithril/literal :datatype "js-value" :value "date_gmt")) :right (mithril/literal :datatype "js-value" :value nil)))

@@ -1,11 +1,14 @@
 import { handleDnsMigrations } from "./dns_migration.js";
 import { MAX_MEDIA_BYTES, validateImageUpload } from "./media_validation.js";
 import { instantiateMithrilNative as instantiateContentBoundary } from "./content_boundary.js";
+import { instantiateMithrilNative as instantiateMigrationPolicy } from "./migration_policy.js";
 import { instantiateMithrilNative } from "./platform_hostname.js";
 import { collectWordPressMediaReferences, inspectWordPressBlocks } from "./wordpress_blocks.js";
 import { buildWordPressPermalinkMap, rewriteWordPressLink, wordpressRoutePath } from "./wordpress_links.js";
 import { selectWordPressSeoMetadata } from "./wordpress_seo.js";
 import { parseWordPressWxr } from "./wxr_import.js";
+import { matchesPageHierarchyReadback } from "./wordpress_page_hierarchy.js";
+import { consumeHostingRequest, consumeHostingRequestForSite } from "./hosting_request_limits.js";
 import {
   isWorkersFreeAiEnabled,
   estimateWorkersFreeAiNeurons,
@@ -17,6 +20,7 @@ import {
 } from "./studio_ai.js";
 
 const SITE_ZONE = "sites.mithril.love";
+const CONTROL_HOST = "control.mithril.love";
 const CUSTOM_DOMAIN_LIMIT_PER_SITE = 10;
 const CUSTOM_DOMAIN_LIMIT_PER_DEPLOYMENT = 90;
 const CUSTOM_DOMAIN_HEALTH_BATCH_SIZE = 30;
@@ -46,6 +50,7 @@ const SITE_HOSTING_REQUESTS_PER_DAY_LIMIT = 5_000;
 const ENTRY_SLUG = /^[^/?#\\\u0000-\u001f\u007f]{1,200}$/;
 const mithrilHostnameCore = instantiateMithrilNative({});
 const mithrilContentBoundary = instantiateContentBoundary({ Array, Number, Set });
+const mithrilMigrationPolicy = instantiateMigrationPolicy({});
 const HTML_TAGS = new Set([
   "a", "b", "blockquote", "br", "code", "dd", "del", "div", "dl", "dt",
   "em", "figcaption", "figure", "h1", "h2", "h3", "h4", "h5", "h6", "hr",
@@ -179,13 +184,6 @@ function mediaQuotaResponse(code) {
     : fail(409, "deployment_media_quota_exceeded", "The shared image storage pool is full. New image uploads are paused until the operator removes media.");
 }
 
-function hostingRequestQuotaCode(error) {
-  const message = String(error?.message ?? error ?? "");
-  if (message.includes("site_daily_hosting_request_limit")) return "site_daily_hosting_request_limit";
-  if (message.includes("deployment_daily_hosting_request_limit")) return "deployment_daily_hosting_request_limit";
-  return null;
-}
-
 function d1ProviderLimitReached(error) {
   const message = String(error?.message ?? error ?? "").toLowerCase();
   return message.includes("exceeded d1's free tier daily row read limit")
@@ -206,24 +204,22 @@ function hostingRequestQuotaResponse(code, date = new Date()) {
     : fail(503, "deployment_daily_hosting_request_limit", "The shared daily hosting allowance is used. Public pages will resume after 00:00 UTC.", { "Retry-After": retryAfter });
 }
 
-async function checkHostingRequest(env, siteId, date = new Date()) {
+async function checkDeploymentHostingRequest(env, date = new Date()) {
   const dayUtc = date.toISOString().slice(0, 10);
-  try {
-    const deploymentStatement = env.DB.prepare(
-      "INSERT INTO mithrilpress_deployment_daily_requests (singleton, day_utc, request_count) VALUES (1, ?, 1) ON CONFLICT(singleton) DO UPDATE SET day_utc = excluded.day_utc, request_count = CASE WHEN mithrilpress_deployment_daily_requests.day_utc = excluded.day_utc THEN mithrilpress_deployment_daily_requests.request_count + 1 ELSE 1 END",
-    ).bind(dayUtc);
-    const siteStatement = env.DB.prepare(
-      "INSERT INTO mithrilpress_site_daily_requests (site_id, day_utc, request_count) VALUES (?, ?, 1) ON CONFLICT(site_id) DO UPDATE SET day_utc = excluded.day_utc, request_count = CASE WHEN mithrilpress_site_daily_requests.day_utc = excluded.day_utc THEN mithrilpress_site_daily_requests.request_count + 1 ELSE 1 END",
-    ).bind(siteId, dayUtc);
-    // D1 batches are transactional: if either cap rejects the request, neither
-    // counter advances. Unknown hosts never consume either allowance.
-    await env.DB.batch([deploymentStatement, siteStatement]);
-    return null;
-  } catch (error) {
-    const code = hostingRequestQuotaCode(error);
-    if (code) return hostingRequestQuotaResponse(code, date);
-    throw error;
-  }
+  const usage = await env.DB.prepare(
+    "SELECT day_utc, request_count FROM mithrilpress_deployment_daily_requests WHERE singleton = 1 LIMIT 1",
+  ).first();
+  const currentCount = usage?.day_utc === dayUtc ? Number(usage.request_count ?? 0) : 0;
+  return currentCount >= HOSTING_REQUESTS_PER_DAY_LIMIT
+    ? hostingRequestQuotaResponse("deployment_daily_hosting_request_limit", date)
+    : null;
+}
+
+async function checkHostingRequest(env, siteId = null, date = new Date()) {
+  const code = siteId === null
+    ? await consumeHostingRequest(env, null, date)
+    : await consumeHostingRequestForSite(env, siteId, date);
+  return code ? hostingRequestQuotaResponse(code, date) : null;
 }
 
 async function countMediaWrite(env, limit, date = new Date()) {
@@ -357,8 +353,64 @@ function normalizeRecord(record) {
   const selectedSeo = selectWordPressSeoMetadata(record?.seoMetadata ?? record?.meta);
   return {
     ...admission.entry,
+    parentSourceId: admission.entry.parentSourceId ?? null,
     seoMetadata: selectedSeo.metadata,
     seoMetadataOmittedFields: selectedSeo.omittedFields,
+  };
+}
+
+function preserveWordPressPageParents(entries) {
+  const pagesBySourceId = new Map(entries
+    .filter((entry) => entry.kind === "page")
+    .map((entry) => [entry.sourceId, entry]));
+  let omitted = 0;
+  for (const entry of entries) {
+    const parentSourceId = entry.parentSourceId;
+    if (parentSourceId === null) continue;
+    const parent = pagesBySourceId.get(parentSourceId);
+    if (entry.kind !== "page" || !parent || parent.entryId === entry.entryId) {
+      entry.parentSourceId = null;
+      omitted += 1;
+    }
+  }
+
+  for (const page of pagesBySourceId.values()) {
+    const path = [];
+    const positions = new Map();
+    let current = page;
+    while (current?.parentSourceId !== null && current?.parentSourceId !== undefined) {
+      if (positions.has(current.sourceId)) {
+        for (const cyclicPage of path.slice(positions.get(current.sourceId))) {
+          if (cyclicPage.parentSourceId !== null) {
+            cyclicPage.parentSourceId = null;
+            omitted += 1;
+          }
+        }
+        break;
+      }
+      positions.set(current.sourceId, path.length);
+      path.push(current);
+      current = pagesBySourceId.get(current.parentSourceId);
+    }
+  }
+
+  for (const page of pagesBySourceId.values()) {
+    let current = page;
+    let depth = 0;
+    while (current?.parentSourceId !== null && current?.parentSourceId !== undefined) {
+      if (depth >= 64) {
+        current.parentSourceId = null;
+        omitted += 1;
+        break;
+      }
+      depth += 1;
+      current = pagesBySourceId.get(current.parentSourceId);
+    }
+  }
+
+  return {
+    preserved: [...pagesBySourceId.values()].filter((page) => page.parentSourceId !== null).length,
+    omitted,
   };
 }
 
@@ -1437,7 +1489,7 @@ async function studioChat(request, env, site) {
   let slug = chatEntry.slug;
   const baseEntries = conversation.base_revision_id
     ? await env.DB.prepare(
-      "SELECT kind, slug, api_id, route_path FROM entries WHERE site_id = ? AND revision_id = ?",
+      "SELECT entry_id, kind, slug, api_id, route_path, parent_source_id FROM entries WHERE site_id = ? AND revision_id = ?",
     ).bind(site.id, conversation.base_revision_id).all()
     : { results: [] };
   const sameKindEntries = (baseEntries.results ?? []).filter((entry) => entry.kind === kind);
@@ -1463,6 +1515,7 @@ async function studioChat(request, env, site) {
   const entryId = chatEntry.id;
   const assistantAt = new Date(now.getTime() + 1).toISOString();
   const baseRevisionId = conversation.base_revision_id;
+  const inheritedPageParents = (baseEntries.results ?? []).filter((entry) => entry.parent_source_id !== null);
   const statements = [];
   const newConversationOffset = requestedConversationId === null ? 1 : 0;
   if (newConversationOffset) {
@@ -1483,6 +1536,10 @@ async function studioChat(request, env, site) {
     env.DB.prepare(
       "INSERT INTO entries (site_id, revision_id, entry_id, kind, slug, route_path, title, source_html, safe_html, entry_origin, publication_status, language_code, api_id, source_id, source_status, source_date, source_date_gmt, source_modified, source_modified_gmt, source_permalink, categories_json, tags_json, featured_media_id, rendering_admission) SELECT site_id, ?, entry_id, kind, slug, route_path, title, source_html, safe_html, entry_origin, publication_status, language_code, api_id, source_id, source_status, source_date, source_date_gmt, source_modified, source_modified_gmt, source_permalink, categories_json, tags_json, featured_media_id, rendering_admission FROM entries WHERE site_id = ? AND revision_id = ?",
     ).bind(revisionId, site.id, baseRevisionId),
+    ...inheritedPageParents.map((entry) =>
+      env.DB.prepare(
+        "UPDATE entries SET parent_source_id = ? WHERE site_id = ? AND revision_id = ? AND entry_id = ? AND kind = 'page' AND parent_source_id IS NULL",
+      ).bind(entry.parent_source_id, site.id, revisionId, entry.entry_id)),
     env.DB.prepare(
       "INSERT INTO entry_seo_metadata (site_id, revision_id, entry_id, metadata_json) SELECT site_id, ?, entry_id, metadata_json FROM entry_seo_metadata WHERE site_id = ? AND revision_id = ?",
     ).bind(revisionId, site.id, baseRevisionId),
@@ -1523,8 +1580,13 @@ async function studioChat(request, env, site) {
     if (quotaCode) return storageQuotaResponse(quotaCode);
     return fail(503, "draft_not_saved", "The private draft could not be saved. No content was published.");
   }
-  if (saved[7 + newConversationOffset]?.meta?.changes !== 1
-      || saved[8 + newConversationOffset]?.meta?.changes !== 1) {
+  const inheritedParentResults = saved.slice(
+    3 + newConversationOffset,
+    3 + newConversationOffset + inheritedPageParents.length,
+  );
+  if (inheritedParentResults.some((result) => result?.meta?.changes !== 1)
+      || saved[7 + newConversationOffset + inheritedPageParents.length]?.meta?.changes !== 1
+      || saved[8 + newConversationOffset + inheritedPageParents.length]?.meta?.changes !== 1) {
     return fail(503, "draft_not_saved", "The private draft could not be saved. No content was published.");
   }
   return json({
@@ -2020,17 +2082,9 @@ async function studioMedia(request, env, site) {
     ]);
     if (committed[0]?.meta?.changes !== 1) throw new Error("media reservation state changed");
   } catch {
-    try {
-      await env.MEDIA.delete(idempotentObjectKey);
-    } catch {
-      // A pending database row remains private and can be cleaned up by an operator.
-    }
-    try {
-      await env.DB.prepare("DELETE FROM media_assets WHERE site_id = ? AND id = ? AND status = 'pending'")
-        .bind(site.id, reserved.id).run();
-    } catch {
-      // The row remains non-public; the database storage guard prevents further over-allocation.
-    }
+    // Keep the pending reservation and object for operator reconciliation. A
+    // failed delete must never release the D1 storage accounting while an R2
+    // object might remain stored.
     return fail(503, "media_upload_not_committed", "The image upload could not be committed. It is not available to public pages.");
   }
   return json({ media: mediaSummary(site, reserved) }, 201, { "Cache-Control": "private, no-store" });
@@ -2203,6 +2257,8 @@ async function importWordPress(request, env, site) {
   if (slugs.size !== entries.length) return fail(422, "duplicate_slug", "Each post type may contain a slug only once per revision.");
   const routePaths = new Set(entries.map((entry) => entry.routePath));
   if (routePaths.size !== entries.length) return fail(422, "duplicate_permalink_route", "Two imported items resolve to the same public URL. Resolve the source permalink collision before importing.");
+  const pageHierarchy = preserveWordPressPageParents(entries);
+  if (parsedWxr) parsedWxr.omitted.parent_page_relations = pageHierarchy.omitted;
   const totalChars = entries.reduce((sum, entry) => sum + entry.sourceHtml.length, 0);
   if (totalChars > MAX_IMPORT_CHARS) return fail(413, "import_too_large", "The imported content exceeds the site import budget.");
 
@@ -2243,6 +2299,7 @@ async function importWordPress(request, env, site) {
       + encoder.encode(entry.kind).byteLength
       + encoder.encode(entry.slug).byteLength
       + encoder.encode(entry.routePath).byteLength
+      + encoder.encode(entry.parentSourceId === null ? "" : String(entry.parentSourceId)).byteLength
       + encoder.encode(entry.title).byteLength
       + encoder.encode(entry.sourceHtml).byteLength
       + encoder.encode(entry.safeHtml).byteLength
@@ -2258,8 +2315,32 @@ async function importWordPress(request, env, site) {
   const omittedSeoFields = parsedWxr
     ? Number(parsedWxr.omitted.custom_fields ?? 0)
     : entries.reduce((sum, entry) => sum + entry.seoMetadataOmittedFields, 0);
+  const sourceOmissionCount = Object.values(parsedWxr?.omitted ?? {})
+    .reduce((sum, count) => sum + Number(count ?? 0), 0);
+  const parityStatus = mithrilMigrationPolicy.migrationParityStatus({
+    recordsReconcile: entries.length === records.length,
+    blockScanComplete: gutenbergReport.scan_truncated !== true,
+    noSourceOmissions: sourceOmissionCount === 0,
+    noMediaOmissions: omittedInlineImages === 0,
+    noUnsupportedBlocks: gutenbergReport.unknown_blocks === 0,
+    noLayoutDegradation: gutenbergReport.layout_degraded_blocks === 0,
+    noDynamicBlocks: gutenbergReport.dynamic_blocks === 0,
+    noUnsafeLinkRemovals: removedUnsafeLinks === 0,
+    noUnresolvedLinks: unresolvedSourceSiteLinks === 0,
+    noMetadataAndRouteOmissions: omittedSeoFields === 0
+      && preservedRouteCount === entries.length
+      && pageHierarchy.omitted === 0,
+  });
   const migrationReport = {
-    version: 1,
+    version: 2,
+    parity_status: parityStatus,
+    reconciliation: {
+      source_records: records.length,
+      imported_records: entries.length,
+      records_match: entries.length === records.length,
+      owner_supplied_taxonomy_terms: taxonomyTerms.length,
+      mapped_images: mediaBySourceId.size,
+    },
     gutenberg: gutenbergReport,
     seo_metadata: {
       entries_with_metadata: entries.filter((entry) => Object.keys(entry.seoMetadata).length > 0).length,
@@ -2284,14 +2365,13 @@ async function importWordPress(request, env, site) {
       source_paths_preserved: preservedRouteCount,
       fallback_paths: entries.length - preservedRouteCount,
     },
+    page_hierarchy: {
+      parent_relations_preserved: pageHierarchy.preserved,
+      parent_relations_omitted: pageHierarchy.omitted,
+      maximum_depth: 64,
+    },
     source_omissions: parsedWxr?.omitted ?? null,
-    needs_owner_review: gutenbergReport.needs_owner_review
-      || omittedInlineImages > 0
-      || unresolvedSourceSiteLinks > 0
-      || removedUnsafeLinks > 0
-      || omittedSeoFields > 0
-      || preservedRouteCount < entries.length
-      || Object.values(parsedWxr?.omitted ?? {}).some((count) => Number(count) > 0),
+    needs_owner_review: parityStatus !== "supported-slice-complete",
   };
 
   let safeTermBytes = 0;
@@ -2326,6 +2406,22 @@ async function importWordPress(request, env, site) {
         entry.featuredMediaId,
       ));
       await env.DB.batch(statements);
+    }
+    const parentEntries = entries.filter((entry) => entry.parentSourceId !== null);
+    const parentUpdate = env.DB.prepare(
+      "UPDATE entries SET parent_source_id = ? WHERE site_id = ? AND revision_id = ? AND entry_id = ? AND kind = 'page' AND parent_source_id IS NULL",
+    );
+    for (let start = 0; start < parentEntries.length; start += 50) {
+      const statements = parentEntries.slice(start, start + 50).map((entry) => parentUpdate.bind(
+        entry.parentSourceId, site.id, revisionId, entry.entryId,
+      ));
+      await env.DB.batch(statements);
+    }
+    const hierarchyReadback = await env.DB.prepare(
+      "SELECT entry_id, parent_source_id FROM entries WHERE site_id = ? AND revision_id = ? AND kind = 'page' AND parent_source_id IS NOT NULL",
+    ).bind(site.id, revisionId).all();
+    if (!matchesPageHierarchyReadback(parentEntries, hierarchyReadback.results ?? [])) {
+      throw new Error("page hierarchy relation was not committed");
     }
     const metadataEntries = entries.filter((entry) => Object.keys(entry.seoMetadata).length > 0);
     const metadataInsert = env.DB.prepare(
@@ -2457,9 +2553,34 @@ async function previewRevision(request, env, site, revisionId, slug) {
   return htmlDocument(site.hostname, previewEntry, true, false, media, revisionId);
 }
 
+async function revisionLifecycle(env, site, revisionId) {
+  return env.DB.prepare(
+    `SELECT r.id, r.state, r.parent_revision_id, r.entry_count, r.published_at,
+      r.approval_proof_id, s.status AS site_status, s.current_revision_id,
+      (SELECT COUNT(*) FROM entries e WHERE e.site_id = r.site_id AND e.revision_id = r.id AND e.rendering_admission = 'ready') AS ready_entry_count,
+      EXISTS (SELECT 1 FROM owner_approvals a WHERE a.site_id = r.site_id AND a.revision_id = r.id AND a.proof_id = r.approval_proof_id AND r.approval_proof_id IS NOT NULL) AS valid_owner_approval
+     FROM site_revisions r JOIN sites s ON s.id = r.site_id
+     WHERE r.site_id = ? AND r.id = ? LIMIT 1`,
+  ).bind(site.id, revisionId).first();
+}
+
+function revisionEntriesComplete(revision) {
+  return Boolean(revision)
+    && Number(revision.entry_count) > 0
+    && Number(revision.entry_count) === Number(revision.ready_entry_count);
+}
+
 async function approveRevision(request, env, site, revisionId) {
   const owner = await ownerToken(request, env, site, "revision:approve");
   if (!owner) return fail(401, "owner_authorization_required", "A scoped site owner token is required.");
+  const revision = await revisionLifecycle(env, site, revisionId);
+  if (!mithrilMigrationPolicy.canApproveRevision({
+    siteActive: revision?.site_status === "active",
+    privatePreview: revision?.state === "private-preview",
+    parentMatches: revision?.parent_revision_id === revision?.current_revision_id,
+    entriesComplete: revisionEntriesComplete(revision),
+    exactRevision: revision?.id === revisionId,
+  })) return fail(409, "revision_not_approvable", "Only the exact complete private revision based on the current publication can be approved.");
   const now = new Date().toISOString();
   const proofId = crypto.randomUUID();
   const approvalId = crypto.randomUUID();
@@ -2482,13 +2603,21 @@ async function approveRevision(request, env, site, revisionId) {
 async function publishRevision(request, env, site, revisionId) {
   const owner = await ownerToken(request, env, site, "site:publish");
   if (!owner) return fail(401, "owner_authorization_required", "A scoped site owner token is required.");
+  const revision = await revisionLifecycle(env, site, revisionId);
+  if (!mithrilMigrationPolicy.canPublishRevision({
+    siteActive: revision?.site_status === "active",
+    approved: revision?.state === "approved",
+    parentMatches: revision?.parent_revision_id === revision?.current_revision_id,
+    validOwnerApproval: Number(revision?.valid_owner_approval ?? 0) === 1,
+    entriesComplete: revisionEntriesComplete(revision),
+  })) return fail(409, "revision_not_publishable", "Only a complete exact revision with a recorded owner approval can be published.");
   const now = new Date().toISOString();
   const results = await env.DB.batch([
     env.DB.prepare(
-      "UPDATE site_revisions SET state = 'superseded' WHERE site_id = ? AND id = (SELECT current_revision_id FROM sites WHERE id = ? AND status = 'active') AND id <> ? AND state = 'published' AND EXISTS (SELECT 1 FROM site_revisions r WHERE r.site_id = ? AND r.id = ? AND r.state = 'approved' AND r.parent_revision_id IS (SELECT current_revision_id FROM sites s WHERE s.id = r.site_id AND s.status = 'active') AND r.entry_count = (SELECT COUNT(*) FROM entries e WHERE e.site_id = r.site_id AND e.revision_id = r.id AND e.rendering_admission = 'ready'))",
+      "UPDATE site_revisions SET state = 'superseded' WHERE site_id = ? AND id = (SELECT current_revision_id FROM sites WHERE id = ? AND status = 'active') AND id <> ? AND state = 'published' AND EXISTS (SELECT 1 FROM owner_approvals a WHERE a.site_id = site_revisions.site_id AND a.revision_id = site_revisions.id AND a.proof_id = site_revisions.approval_proof_id) AND EXISTS (SELECT 1 FROM site_revisions r WHERE r.site_id = ? AND r.id = ? AND r.state = 'approved' AND r.parent_revision_id IS (SELECT current_revision_id FROM sites s WHERE s.id = r.site_id AND s.status = 'active') AND r.entry_count = (SELECT COUNT(*) FROM entries e WHERE e.site_id = r.site_id AND e.revision_id = r.id AND e.rendering_admission = 'ready') AND EXISTS (SELECT 1 FROM owner_approvals a WHERE a.site_id = r.site_id AND a.revision_id = r.id AND a.proof_id = r.approval_proof_id))",
     ).bind(site.id, site.id, revisionId, site.id, revisionId),
     env.DB.prepare(
-      "UPDATE site_revisions SET state = 'published', published_at = ?, published_by = ? WHERE site_id = ? AND id = ? AND state = 'approved' AND EXISTS (SELECT 1 FROM sites s WHERE s.id = ? AND s.status = 'active' AND site_revisions.parent_revision_id IS s.current_revision_id) AND entry_count = (SELECT COUNT(*) FROM entries e WHERE e.site_id = site_revisions.site_id AND e.revision_id = site_revisions.id AND e.rendering_admission = 'ready')",
+      "UPDATE site_revisions SET state = 'published', published_at = ?, published_by = ? WHERE site_id = ? AND id = ? AND state = 'approved' AND EXISTS (SELECT 1 FROM sites s WHERE s.id = ? AND s.status = 'active' AND site_revisions.parent_revision_id IS s.current_revision_id) AND entry_count = (SELECT COUNT(*) FROM entries e WHERE e.site_id = site_revisions.site_id AND e.revision_id = site_revisions.id AND e.rendering_admission = 'ready') AND EXISTS (SELECT 1 FROM owner_approvals a WHERE a.site_id = site_revisions.site_id AND a.revision_id = site_revisions.id AND a.proof_id = site_revisions.approval_proof_id)",
     ).bind(now, owner.ownerLabel, site.id, revisionId, site.id),
     env.DB.prepare(
       "UPDATE entries SET publication_status = 'published' WHERE site_id = ? AND revision_id = ? AND entry_origin = 'chat' AND publication_status = 'draft' AND EXISTS (SELECT 1 FROM site_revisions WHERE site_id = ? AND id = ? AND state = 'published')",
@@ -2504,6 +2633,153 @@ async function publishRevision(request, env, site, revisionId) {
     return fail(409, "revision_not_publishable", "Only a fully approved private revision for an active site can be published.");
   }
   return json({ revision_id: revisionId, state: "published", published_at: now });
+}
+
+async function restorePublishedRevision(request, env, site, revisionId) {
+  const owner = await ownerToken(request, env, site, "site:publish");
+  if (!owner) return fail(401, "owner_authorization_required", "A scoped site:publish owner token is required.");
+  if (request.method !== "POST") return fail(405, "method_not_allowed", "Use POST to restore an owner-approved publication.");
+  const body = await readBoundedJson(request);
+  const expectedCurrentRevisionId = site.current_revision_id;
+  if (typeof body?.revision_id !== "string"
+      || body.revision_id !== revisionId
+      || typeof body?.current_revision_id !== "string"
+      || body.current_revision_id !== expectedCurrentRevisionId) {
+    return fail(409, "restore_confirmation_required", "Confirm both the historical revision and the current publication before restoring.");
+  }
+
+  const revision = await revisionLifecycle(env, site, revisionId);
+  if (!mithrilMigrationPolicy.canRestorePublishedRevision({
+    siteActive: revision?.site_status === "active",
+    targetWasPublished: Boolean(revision?.published_at),
+    targetSuperseded: revision?.state === "superseded",
+    validOwnerApproval: Number(revision?.valid_owner_approval ?? 0) === 1,
+    entriesComplete: revisionEntriesComplete(revision),
+    currentRevisionDiffers: revision?.current_revision_id === expectedCurrentRevisionId
+      && expectedCurrentRevisionId !== revisionId,
+  })) return fail(409, "revision_not_restorable", "Restore requires a different complete historical publication with its original owner approval.");
+
+  const now = new Date().toISOString();
+  const results = await env.DB.batch([
+    env.DB.prepare(
+      "UPDATE site_revisions SET state = 'superseded' WHERE site_id = ? AND id = ? AND state = 'published' AND EXISTS (SELECT 1 FROM sites s WHERE s.id = ? AND s.status = 'active' AND s.current_revision_id = ?) AND EXISTS (SELECT 1 FROM owner_approvals a WHERE a.site_id = site_revisions.site_id AND a.revision_id = site_revisions.id AND a.proof_id = site_revisions.approval_proof_id) AND EXISTS (SELECT 1 FROM site_revisions r WHERE r.site_id = ? AND r.id = ? AND r.state = 'superseded' AND r.published_at IS NOT NULL AND r.entry_count = (SELECT COUNT(*) FROM entries e WHERE e.site_id = r.site_id AND e.revision_id = r.id AND e.rendering_admission = 'ready') AND EXISTS (SELECT 1 FROM owner_approvals a WHERE a.site_id = r.site_id AND a.revision_id = r.id AND a.proof_id = r.approval_proof_id))",
+    ).bind(site.id, expectedCurrentRevisionId, site.id, expectedCurrentRevisionId, site.id, revisionId),
+    env.DB.prepare(
+      "UPDATE site_revisions SET state = 'published' WHERE site_id = ? AND id = ? AND state = 'superseded' AND published_at IS NOT NULL AND entry_count = (SELECT COUNT(*) FROM entries e WHERE e.site_id = site_revisions.site_id AND e.revision_id = site_revisions.id AND e.rendering_admission = 'ready') AND EXISTS (SELECT 1 FROM owner_approvals a WHERE a.site_id = site_revisions.site_id AND a.revision_id = site_revisions.id AND a.proof_id = site_revisions.approval_proof_id) AND EXISTS (SELECT 1 FROM sites s WHERE s.id = ? AND s.status = 'active' AND s.current_revision_id = ?) AND EXISTS (SELECT 1 FROM site_revisions c WHERE c.site_id = ? AND c.id = ? AND c.state = 'superseded' AND EXISTS (SELECT 1 FROM owner_approvals a WHERE a.site_id = c.site_id AND a.revision_id = c.id AND a.proof_id = c.approval_proof_id))",
+    ).bind(site.id, revisionId, site.id, expectedCurrentRevisionId, site.id, expectedCurrentRevisionId),
+    env.DB.prepare(
+      "UPDATE sites SET current_revision_id = ? WHERE id = ? AND status = 'active' AND current_revision_id = ? AND EXISTS (SELECT 1 FROM site_revisions c WHERE c.site_id = sites.id AND c.id = ? AND c.state = 'superseded' AND EXISTS (SELECT 1 FROM owner_approvals a WHERE a.site_id = c.site_id AND a.revision_id = c.id AND a.proof_id = c.approval_proof_id)) AND EXISTS (SELECT 1 FROM site_revisions r WHERE r.site_id = sites.id AND r.id = ? AND r.state = 'published' AND r.approval_proof_id IS NOT NULL AND EXISTS (SELECT 1 FROM owner_approvals a WHERE a.site_id = r.site_id AND a.revision_id = r.id AND a.proof_id = r.approval_proof_id))",
+    ).bind(revisionId, site.id, expectedCurrentRevisionId, expectedCurrentRevisionId, revisionId),
+    env.DB.prepare(
+      "INSERT INTO owner_actions (id, site_id, revision_id, token_id, action, created_at, metadata_json) SELECT ?, ?, ?, ?, 'restore', ?, ? WHERE EXISTS (SELECT 1 FROM sites s WHERE s.id = ? AND s.current_revision_id = ?)",
+    ).bind(crypto.randomUUID(), site.id, revisionId, owner.tokenId, now,
+      JSON.stringify({ restored_from_revision_id: expectedCurrentRevisionId }), site.id, revisionId),
+  ]);
+  if (results[0]?.meta?.changes !== 1 || results[1]?.meta?.changes !== 1 || results[2]?.meta?.changes !== 1) {
+    return fail(409, "revision_restore_conflict", "The current publication changed or the historical revision is no longer restorable.");
+  }
+  return json({
+    revision_id: revisionId,
+    state: "published",
+    restored_from_revision_id: expectedCurrentRevisionId,
+    restored_at: now,
+  });
+}
+
+async function publicationSnapshot(request, env, site) {
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    return fail(405, "method_not_allowed", "Publication snapshots are read-only.");
+  }
+  const owner = await ownerToken(request, env, site, "site:publish");
+  if (!owner) return fail(401, "owner_authorization_required", "An active site:publish owner token is required.");
+  if (site.status !== "active" || !site.current_revision_id) {
+    return fail(404, "publication_not_found", "This site has no published revision.");
+  }
+
+  const revision = await env.DB.prepare(
+    "SELECT r.id, r.published_at, r.approval_proof_id, r.entry_count FROM site_revisions r WHERE r.site_id = ? AND r.id = ? AND r.state = 'published' AND r.approval_proof_id IS NOT NULL AND EXISTS (SELECT 1 FROM owner_approvals a WHERE a.site_id = r.site_id AND a.revision_id = r.id AND a.proof_id = r.approval_proof_id) LIMIT 1",
+  ).bind(site.id, site.current_revision_id).first();
+  if (!revision) return fail(404, "publication_not_found", "This site has no owner-approved published revision.");
+
+  const [entryRows, termRows, mediaRows] = await Promise.all([
+    env.DB.prepare(
+      `SELECT api_id, source_id, kind, slug, title, safe_html, language_code, source_date, source_date_gmt, source_modified, source_modified_gmt, categories_json, tags_json, featured_media_id, ${SEO_METADATA_SELECT} FROM entries WHERE site_id = ? AND revision_id = ? AND publication_status = 'published' AND rendering_admission = 'ready' ORDER BY kind ASC, api_id ASC`,
+    ).bind(site.id, revision.id).all(),
+    env.DB.prepare(
+      "SELECT taxonomy, term_id, slug, name, description_html, parent_term_id FROM taxonomy_terms WHERE site_id = ? AND revision_id = ? ORDER BY taxonomy ASC, term_id ASC",
+    ).bind(site.id, revision.id).all(),
+    env.DB.prepare(
+      "SELECT DISTINCT a.id, a.wordpress_source_id, a.content_type, a.byte_length, a.sha256, a.width, a.height, a.alt_text, a.created_at FROM media_assets a WHERE a.site_id = ? AND a.status = 'active' AND EXISTS (SELECT 1 FROM entries e WHERE e.site_id = a.site_id AND e.revision_id = ? AND e.publication_status = 'published' AND (e.featured_media_id IN (a.id, a.wordpress_source_id) OR EXISTS (SELECT 1 FROM entry_media em WHERE em.site_id = e.site_id AND em.revision_id = e.revision_id AND em.entry_id = e.entry_id AND em.media_id = a.id))) ORDER BY a.id ASC",
+    ).bind(site.id, revision.id).all(),
+  ]);
+  const entries = entryRows.results ?? [];
+  const terms = termRows.results ?? [];
+  const media = mediaRows.results ?? [];
+  if (entries.length === 0 || entries.length > revision.entry_count) {
+    return fail(503, "publication_snapshot_incomplete", "The published revision is incomplete and cannot be exported.");
+  }
+
+  const payload = {
+    schema_version: 1,
+    site_id: site.id,
+    hostname: site.hostname,
+    revision: {
+      id: revision.id,
+      published_at: revision.published_at,
+      approval_proof_id: revision.approval_proof_id,
+      source_entry_count: Number(revision.entry_count),
+      published_entry_count: entries.length,
+    },
+    entries,
+    terms,
+    media,
+  };
+  const digest = hex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(payload))));
+  if (request.method === "HEAD") {
+    return response(null, 200, {
+      "Content-Type": "application/json; charset=utf-8",
+      "X-MithrilPress-Revision": revision.id,
+      "X-MithrilPress-Snapshot-SHA256": digest,
+      "Cache-Control": "private, no-store",
+    });
+  }
+  return json({ ...payload, digest_sha256: digest }, 200, {
+    "X-MithrilPress-Revision": revision.id,
+    "Cache-Control": "private, no-store",
+  });
+}
+
+async function publicationMedia(request, env, site, revisionId, mediaId) {
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    return fail(405, "method_not_allowed", "Publication media is read-only.");
+  }
+  const owner = await ownerToken(request, env, site, "site:publish");
+  if (!owner) return fail(401, "owner_authorization_required", "An active site:publish owner token is required.");
+  if (!env.MEDIA) return fail(503, "media_storage_unavailable", "Image storage is not configured for this hosting deployment.");
+  if (!/^[a-f0-9-]{36}$/.test(revisionId) || site.current_revision_id !== revisionId) {
+    return fail(404, "publication_not_found", "The requested revision is not the current publication.");
+  }
+
+  const asset = await env.DB.prepare(
+    "SELECT a.id, a.object_key, a.content_type, a.byte_length, a.sha256 FROM media_assets a WHERE a.site_id = ? AND a.id = ? AND a.status = 'active' AND EXISTS (SELECT 1 FROM site_revisions r WHERE r.site_id = a.site_id AND r.id = ? AND r.state = 'published' AND r.approval_proof_id IS NOT NULL AND EXISTS (SELECT 1 FROM owner_approvals o WHERE o.site_id = r.site_id AND o.revision_id = r.id AND o.proof_id = r.approval_proof_id)) AND EXISTS (SELECT 1 FROM entries e WHERE e.site_id = a.site_id AND e.revision_id = ? AND e.publication_status = 'published' AND (e.featured_media_id IN (a.id, a.wordpress_source_id) OR EXISTS (SELECT 1 FROM entry_media em WHERE em.site_id = e.site_id AND em.revision_id = e.revision_id AND em.entry_id = e.entry_id AND em.media_id = a.id))) LIMIT 1",
+  ).bind(site.id, mediaId, revisionId, revisionId).first();
+  if (!asset) return fail(404, "media_not_found", "Media item not found in the current publication.");
+
+  const readLimit = await countMediaRead(env, site.id);
+  if (readLimit === "site") return fail(429, "site_media_daily_read_limit", "This site's daily image delivery allowance is exhausted. It resets at 00:00 UTC.");
+  if (readLimit === "deployment") return fail(429, "deployment_media_daily_read_limit", "The shared free image delivery allowance is exhausted for today. It resets at 00:00 UTC.");
+  const object = request.method === "HEAD" ? await env.MEDIA.head(asset.object_key) : await env.MEDIA.get(asset.object_key);
+  if (!object) return fail(404, "media_not_found", "Media item not found.");
+  return response(request.method === "HEAD" ? null : object.body, 200, {
+    "Content-Type": asset.content_type,
+    "Content-Length": String(asset.byte_length),
+    "ETag": object.httpEtag ?? object.etag,
+    "X-MithrilPress-Media-SHA256": asset.sha256,
+    "X-Content-Type-Options": "nosniff",
+    "Content-Security-Policy": "default-src 'none'; sandbox",
+    "Cache-Control": "private, no-store",
+    "Cross-Origin-Resource-Policy": "same-site",
+  });
 }
 
 function parsePathSegment(value) {
@@ -2561,6 +2837,7 @@ function wpRecord(site, row) {
     excerpt: { rendered: "", protected: false },
     author: 0,
     featured_media: row.featured_media_id ?? 0,
+    ...(row.kind === "page" ? { parent: Number(row.parent_source_id ?? 0) } : {}),
     comment_status: "closed",
     ping_status: "closed",
     sticky: false,
@@ -2591,7 +2868,7 @@ async function wordpressRead(request, env, site, kind, itemId = null) {
     if (!Number.isSafeInteger(sourceId) || sourceId < 1) return fail(404, "entry_not_found", "Entry not found.");
     if (!site.current_revision_id || site.status !== "active") return fail(404, "entry_not_found", "Entry not found.");
     const row = await env.DB.prepare(
-      `SELECT api_id, source_id, source_date, source_date_gmt, source_modified, source_modified_gmt, featured_media_id, slug, route_path, title, safe_html, categories_json, tags_json, kind, ${SEO_METADATA_SELECT} FROM entries WHERE site_id = ? AND revision_id = ? AND kind = ? AND publication_status = 'published' AND COALESCE(source_id, api_id) = ? LIMIT 1`,
+      `SELECT api_id, source_id, CASE WHEN EXISTS (SELECT 1 FROM entries parent WHERE parent.site_id = entries.site_id AND parent.revision_id = entries.revision_id AND parent.kind = 'page' AND parent.source_id = entries.parent_source_id AND parent.publication_status = 'published') THEN parent_source_id ELSE 0 END AS parent_source_id, source_date, source_date_gmt, source_modified, source_modified_gmt, featured_media_id, slug, route_path, title, safe_html, categories_json, tags_json, kind, ${SEO_METADATA_SELECT} FROM entries WHERE site_id = ? AND revision_id = ? AND kind = ? AND publication_status = 'published' AND COALESCE(source_id, api_id) = ? LIMIT 1`,
     ).bind(site.id, site.current_revision_id, kind, sourceId).first();
     if (!row) return fail(404, "entry_not_found", "Entry not found.");
     return request.method === "HEAD"
@@ -2674,7 +2951,7 @@ async function wordpressRead(request, env, site, kind, itemId = null) {
     : orderColumns[orderby];
   const orderParams = orderby === "relevance" ? [search, search] : [];
   const rows = await env.DB.prepare(
-    `SELECT api_id, source_id, source_date, source_date_gmt, source_modified, source_modified_gmt, featured_media_id, slug, route_path, title, safe_html, categories_json, tags_json, kind, ${SEO_METADATA_SELECT} FROM entries WHERE ${where} ORDER BY ${orderExpression} ${order}, api_id ASC LIMIT ? OFFSET ?`,
+    `SELECT api_id, source_id, CASE WHEN EXISTS (SELECT 1 FROM entries parent WHERE parent.site_id = entries.site_id AND parent.revision_id = entries.revision_id AND parent.kind = 'page' AND parent.source_id = entries.parent_source_id AND parent.publication_status = 'published') THEN parent_source_id ELSE 0 END AS parent_source_id, source_date, source_date_gmt, source_modified, source_modified_gmt, featured_media_id, slug, route_path, title, safe_html, categories_json, tags_json, kind, ${SEO_METADATA_SELECT} FROM entries WHERE ${where} ORDER BY ${orderExpression} ${order}, api_id ASC LIMIT ? OFFSET ?`,
   ).bind(...params, ...orderParams, perPage, offset).all();
   const totalPages = total === 0 ? 0 : Math.ceil(total / perPage);
   const headers = { "X-WP-Total": String(total), "X-WP-TotalPages": String(totalPages) };
@@ -2909,16 +3186,51 @@ async function publicPage(request, env, site, pathname) {
 }
 
 async function handleRequest(request, env) {
-  const site = await resolveSite(request, env);
-  if (!site || site.status !== "active") return fail(404, "site_not_found", "Site not found.");
-
-  // Only active tenant requests consume the application hosting allowance.
-  // Update both caps atomically so site exhaustion cannot drain other sites'
-  // shared capacity.
-  const hostingLimit = await checkHostingRequest(env, site.id);
-  if (hostingLimit) return hostingLimit;
+  const requestDate = new Date();
+  // Read the shared counter before resolving the tenant so capped traffic does
+  // not trigger another hostname-registry query. Trigger-enforced writes below
+  // remain authoritative when requests race with the last available slot.
+  const deploymentLimit = await checkDeploymentHostingRequest(env, requestDate);
+  if (deploymentLimit) return deploymentLimit;
 
   const url = new URL(request.url);
+  const controlPublicationCurrentMatch = /^\/_mithrilpress\/api\/control\/sites\/([a-f0-9-]{36})\/publication\/current$/.exec(url.pathname);
+  const controlPublicationMediaMatch = /^\/_mithrilpress\/api\/control\/sites\/([a-f0-9-]{36})\/publication\/revisions\/([a-f0-9-]{36})\/media\/(\d+)$/.exec(url.pathname);
+  if (controlPublicationCurrentMatch || controlPublicationMediaMatch) {
+    if (url.hostname !== CONTROL_HOST) {
+      const invalidControlHostLimit = await checkHostingRequest(env, null, requestDate);
+      if (invalidControlHostLimit) return invalidControlHostLimit;
+      return fail(404, "site_not_found", "Site not found.");
+    }
+    const siteId = controlPublicationCurrentMatch?.[1] ?? controlPublicationMediaMatch[1];
+    const site = await env.DB.prepare(
+      "SELECT id, hostname, status, current_revision_id FROM sites WHERE id = ? LIMIT 1",
+    ).bind(siteId).first();
+    if (!site || site.status !== "active") {
+      const unknownSiteLimit = await checkHostingRequest(env, null, requestDate);
+      if (unknownSiteLimit) return unknownSiteLimit;
+      return fail(404, "site_not_found", "Site not found.");
+    }
+    const siteLimit = await checkHostingRequest(env, site.id, requestDate);
+    if (siteLimit) return siteLimit;
+    if (url.search) return fail(400, "invalid_publication_request", "Publication control requests do not accept query parameters.");
+    if (controlPublicationCurrentMatch) return await publicationSnapshot(request, env, site);
+    const mediaId = Number(controlPublicationMediaMatch[3]);
+    if (!Number.isSafeInteger(mediaId) || mediaId < 1) return fail(404, "media_not_found", "Media item not found.");
+    return await publicationMedia(request, env, site, controlPublicationMediaMatch[2], mediaId);
+  }
+
+  const site = await resolveSite(request, env);
+  if (!site || site.status !== "active") {
+    const unknownSiteLimit = await checkHostingRequest(env, null, requestDate);
+    if (unknownSiteLimit) return unknownSiteLimit;
+    return fail(404, "site_not_found", "Site not found.");
+  }
+
+  // Charge active tenants to both limits atomically. A site-cap failure rolls
+  // back the shared counter so one exhausted tenant cannot drain other sites.
+  const siteLimit = await checkHostingRequest(env, site.id, requestDate);
+  if (siteLimit) return siteLimit;
 
   if (url.pathname === "/_mithrilpress/studio" || url.pathname === "/_mithrilpress/studio/" || url.pathname === "/_mithrilpress/studio.html") {
     return await studioAsset(request, env, "/studio.html");
@@ -2971,6 +3283,9 @@ async function handleRequest(request, env) {
   if (migrationReportMatch) {
     return await revisionMigrationReport(request, env, site, migrationReportMatch[1]);
   }
+
+  const restoreRevisionMatch = /^\/_mithrilpress\/api\/revisions\/([a-f0-9-]{36})\/restore$/.exec(url.pathname);
+  if (restoreRevisionMatch) return await restorePublishedRevision(request, env, site, restoreRevisionMatch[1]);
 
   const approvalMatch = /^\/_mithrilpress\/api\/revisions\/([a-f0-9-]{36})\/(approve|publish)$/.exec(url.pathname);
   if (approvalMatch && request.method === "POST") {
