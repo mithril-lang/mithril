@@ -174,6 +174,14 @@ runbook treats a wildcard route to the shared renderer as an unqualified design
 exception. Advanced Certificate Manager supports deep subdomains; Universal
 SSL on `mithril.love` covers only the apex and first-level names.
 
+The Free `mithril.love` zone cannot use a separately managed child zone as a
+free TLS workaround: Cloudflare's [zone setup guidance](https://developers.cloudflare.com/dns/zone-setups/)
+says Free and Pro plans support primary full-zone setup only. A 2026-10-24
+read-only API check also returned `custom_certificate_quota: 0` for this zone.
+Do not assume an independently issued certificate can be uploaded. Keep the
+wildcard route disabled until either an eligible certificate product or an
+authorized certificate-upload path explicitly covers `*.sites.mithril.love`.
+
 ## Provider hard-stop requirements
 
 These constraints were verified against Cloudflare's documentation on
