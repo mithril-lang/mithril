@@ -34,7 +34,10 @@ explicitly published tenant revision.
   conversation messages and AI drafts remain in the tenant's D1 database until
   the owner deletes the conversation.
 - Authenticated, `noindex` private preview; separate revision-approval and
-  publication actions with audit receipts.
+  publication actions with audit receipts. A `site:publish` owner can restore
+  a complete previously published revision by confirming both target and
+  current IDs; the old approval is rechecked and a distinct restore action is
+  recorded.
 - Read-only WordPress REST-compatible `GET` endpoints for public posts/pages,
   categories/tags, and published featured or inline media, including
   pagination headers. Public `edit` context is denied.
@@ -52,9 +55,11 @@ explicitly published tenant revision.
   publications. It does not replace the shared Worker/D1 default host plane.
 
 The checked-in Mithril native-JS modules own platform subdomain validation,
-WordPress post/page record admission, individual taxonomy-term admission, and
-the private chat-draft proposal envelope. The Worker calls those contracts at
-the hostname, import, taxonomy, and AI proposal boundaries. It retains host
+WordPress post/page record admission, individual taxonomy-term admission, the
+private chat-draft proposal envelope, migration parity classification, and
+revision approval/publication/restore eligibility. The Worker calls those
+contracts at the hostname, import, taxonomy, AI proposal, and revision
+lifecycle boundaries. It retains host
 responsibility for cross-record taxonomy references and cycles, D1/R2 and AI
 I/O, HTML sanitization, language-tag canonicalization, and slug collision
 resolution. The `.cljk` model remains the platform-neutral reference boundary;
@@ -62,6 +67,11 @@ the `.mith` modules are the executable Worker contracts. Regenerate all
 checked-in modules from the repository root or this package directory with
 `npm run build:mithril` after changing their `.mith` source. The build uses the
 Mithril workspace's `kbb` compiler.
+
+To walk through a synthetic 24-page, 6-post WordPress migration entirely on the
+local Worker/D1/R2 emulator, follow the [migration demo runbook](../../docs/operations/mithrilpress-migration-demo-runbook.md).
+The optional migration/content-operations boundaries are in the [managed
+service handoff packet](../../docs/operations/mithrilpress-managed-service-handoff.md).
 
 ## Local setup
 
@@ -487,6 +497,7 @@ write and storage caps; reaching a cap stops the import without a paid fallback.
 | --- | --- | --- | --- |
 | `POST` | `/api/wordpress/import` | `content:import` | Import JSON `{ "source_site": "https://…", "records": [...] }` or a raw `application/rss+xml`, `application/xml`, or `text/xml` WXR 1.2 export into a private sanitized revision. WXR source origin is read from `<channel><link>`. |
 | `GET` / `HEAD` | `/_mithrilpress/api/revisions/{revision-id}/migration-report` | `revision:preview` | Read the saved Gutenberg block, internal-link, asset mapping, and source omission report before approving a migrated revision. |
+| `POST` | `/_mithrilpress/api/revisions/{revision-id}/restore` | `site:publish` | Restore an earlier published revision only when its original approval still verifies and the request confirms both that revision and the current publication ID. |
 | `GET` / `POST` / `DELETE` | `/_mithrilpress/api/studio/session` | `content:write`, `media:write`, `site:domains`, or `site:dns-migrate` | Exchange a short-lived owner token for a one-hour browser session, inspect it, or revoke it. |
 | `GET` | `/_mithrilpress/studio` | public shell; noindex | Open the chat-first post/page Studio. The API requires a site-owner session. |
 | `POST` | `/_mithrilpress/api/studio/chat` | `content:write` | Generate or revise one private draft; no model response is published. |
@@ -813,3 +824,17 @@ Unsupported post types and password-protected posts/pages are skipped and
 counted in the import report; protected content is never silently turned into
 ordinary public content. Review the report and private preview before
 publication.
+Migration report version 2 includes record reconciliation and a Mithril-authored
+`parity_status`. It reports `supported-slice-complete` only when every imported
+record reconciles and the importer reports no omitted source content, degraded
+or dynamic blocks, unsafe or unresolved links, missing media, metadata omission,
+or route fallback. Otherwise it reports `owner-review-required`; this describes
+the admitted subset and is not a claim of full WordPress parity.
+
+Restoring a prior publication does not edit its immutable content or manufacture
+a new approval. A `site:publish` owner must POST the historical revision ID and
+the current publication ID to the exact restore path. The worker requires the
+target to have been published before, remain complete, and retain its original
+owner approval, then atomically switches the current revision and records a
+distinct `restore` owner action. The publication snapshot endpoint reads back
+the resulting current revision for export.
