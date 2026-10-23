@@ -1835,7 +1835,16 @@ async function studioConversations(request, env, site) {
   const owner = await ownerToken(request, env, site, "content:write");
   if (!owner) return fail(401, "studio_login_required", "An active content:write session is required.");
   const rows = await env.DB.prepare(
-    "SELECT c.id, c.updated_at, c.draft_revision_id, r.state AS draft_state, (SELECT body FROM studio_messages m WHERE m.site_id = c.site_id AND m.conversation_id = c.id AND m.role = 'user' ORDER BY m.created_at ASC, m.id ASC LIMIT 1) AS title FROM studio_conversations c LEFT JOIN site_revisions r ON r.site_id = c.site_id AND r.id = c.draft_revision_id WHERE c.site_id = ? AND c.token_id = ? ORDER BY c.updated_at DESC LIMIT 20",
+    `SELECT c.id, c.updated_at, c.draft_revision_id, r.state AS draft_state,
+      substr(COALESCE(
+        NULLIF((SELECT e.title FROM entries e WHERE e.site_id = c.site_id AND e.revision_id = c.draft_revision_id AND e.entry_id = 'mithrilpress:chat:' || c.id LIMIT 1), ''),
+        (SELECT m.body FROM studio_messages m WHERE m.site_id = c.site_id AND m.conversation_id = c.id AND m.role = 'user' ORDER BY m.created_at ASC, m.id ASC LIMIT 1)
+      ), 1, 120) AS title
+    FROM studio_conversations c
+    LEFT JOIN site_revisions r ON r.site_id = c.site_id AND r.id = c.draft_revision_id
+    WHERE c.site_id = ? AND c.token_id = ?
+    ORDER BY c.updated_at DESC
+    LIMIT 20`,
   ).bind(site.id, owner.tokenId).all();
   return json({ conversations: rows.results ?? [] });
 }
