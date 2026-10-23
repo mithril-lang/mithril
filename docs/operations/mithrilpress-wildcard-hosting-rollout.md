@@ -42,6 +42,38 @@ for Platforms covers a different dispatch model and does not by itself qualify
 this topology. Workers for Platforms is not required for the current shared
 renderer because tenants do not deploy or execute Worker code.
 
+## Limited invite previews with Worker Previews
+
+Cloudflare Worker Previews offer a separate candidate for short-lived migration
+demos. Configure `sites.mithril.love` as a Preview-only custom domain
+(`previews_enabled=true`, `enabled=false`); Cloudflare creates wildcard DNS and
+an SSL certificate for `*.sites.mithril.love`, then routes
+`<preview-name>.sites.mithril.love` to the Preview with that name. This can
+provide the requested hostname and TLS for a bounded demo pool without turning
+the production tenant route into a Preview route.
+
+Treat each Preview as a branch environment, not as a durable tenant attachment.
+Free accounts allow 100 Previews per Worker; paid accounts allow 500. Cloudflare
+deletes the least recently deployed Preview when that limit is reached. Enforce
+a lower product cap and an explicit expiry/archive flow before creating any
+Preview, and do not rely on provider eviction to retain a prospect's demo.
+
+Previews are public by default. Protect them with Cloudflare Access or a
+separately reviewed, expiring invite gate, and add `X-Robots-Tag: noindex` to
+Worker responses on this custom domain. Preview configuration does not inherit
+production settings. Bind demo previews only to demo data/resources; D1, KV and
+R2 are shared unless a separate resource is configured. Do not expose an
+owner's live WordPress credentials or reuse the production database.
+
+This path is suitable only for a capped, expiring sales-demo pool. It does not
+provide persistent worldwide tenant capacity, and the current `fund-mithril`
+Workers plan and Preview quota are not verified. Validate the actual domain,
+certificate, access policy, resource bindings, expiry, deletion, and rollback in
+an isolated zone before sending external preview links. No Preview domain,
+DNS record, or deployment is provisioned by this runbook. See [Worker Preview
+custom domains](https://developers.cloudflare.com/workers/previews/custom-domains/)
+and [Preview limits and isolation](https://developers.cloudflare.com/workers/previews/).
+
 ## Required gates before production
 
 1. Qualify the exact Worker source with the approved standalone profile, then
