@@ -78,6 +78,7 @@ provider spend cap. Link the actual read-back evidence and its timestamp.
 | Cost area | Account / resource | Effective plan and meter | Forecast usage and period | Included allowance | Billable usage and rate source | Hard-stop / fail-closed evidence | Owner and status |
 | --- | --- | --- | ---: | ---: | --- | --- | --- |
 | Workers requests and CPU |  |  |  |  |  |  |  |
+| Workers for Platforms subscription, dispatch requests, CPU, and scripts |  |  |  |  |  |  |  |
 | D1 reads, writes, and storage |  |  |  |  |  |  |  |
 | R2 storage, Class A/B operations, and retrieval |  |  |  |  |  |  |  |
 | Managed `*.sites.mithril.love` wildcard certificate and route |  |  |  |  |  |  |  |
@@ -98,6 +99,7 @@ Record these release checks before estimating a customer-facing amount:
 | --- | --- | --- |
 | Cloudflare account identity and account ID |  |  |
 | Worker usage plan and billing model |  |  |
+| Workers for Platforms entitlement, subscription, and usage overages, if selected |  |  |
 | Wildcard TLS coverage and certificate cost for `*.sites.mithril.love` |  |  |
 | Cloudflare for SaaS hostname allowance, overage price, and wildcard eligibility |  |  |
 | D1 database IDs, current usage, and limits |  |  |
@@ -166,6 +168,8 @@ allowances can change:
 
 - [Workers pricing and limits](https://developers.cloudflare.com/workers/platform/pricing/)
 - [Workers runtime and account limits](https://developers.cloudflare.com/workers/platform/limits/)
+- [Workers for Platforms pricing and included usage](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/reference/pricing/)
+- [Workers for Platforms hostname routing](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/configuration/hostname-routing/)
 - [D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/)
 - [R2 pricing](https://developers.cloudflare.com/r2/pricing/)
 - [Workers Preview domains and access controls](https://developers.cloudflare.com/workers/previews/custom-domains/)
@@ -188,6 +192,18 @@ published plan table includes 100 hostnames and lists $0.10 per additional
 hostname, with wildcard custom hostnames limited to Enterprise. Keep customer
 domain costs separate from the managed MithrilPress hostname and from the $0
 site-owner price.
+
+Workers for Platforms is an optional paid runtime for platforms that execute
+tenant-authored or AI-generated code. Its current published Paid plan starts
+at $25/month and includes 20 million requests, 60 million CPU milliseconds,
+and 1,000 scripts; additional requests, CPU time, and scripts are billed at
+the listed rates. Recheck these values when estimating. MithrilPress renders
+owner-approved content in one shared Worker and does not execute tenant code,
+so per-tenant Workers are not required for the shared-renderer design. A
+wildcard route to that shared Worker remains a separate hostname and TLS
+decision. Choosing Workers for Platforms does not itself demonstrate a
+provider-wide spending hard stop; record the selected account's enforced
+budget boundary before enabling onboarding or metered features.
 
 This worksheet is not a provider quote, customer contract, security guarantee,
 or statement that MithrilPress is staffed for managed operations.
