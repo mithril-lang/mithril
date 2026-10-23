@@ -39,8 +39,10 @@ unlimited. A separate Pages project per tenant gives each site's files a
 separate root, so visitor routing does not depend on a shared hostname-to-path
 rewrite. Chat, import, preview, approval, and publication stay on the
 authenticated control plane. The fixed read-only WordPress REST route invokes
-a Pages Function; the Function uses shared D1 request counters before it
-returns any record. These invocations are metered as Workers requests.
+a Pages Function. Its production configuration binds the tenant site ID,
+canonical hostname, and shared D1 database. The Function rejects other hosts,
+charges the shared and tenant request counters, and only then reads the bounded
+REST catalog. These invocations are metered as Workers requests.
 
 References:
 [Pages pricing](https://developers.cloudflare.com/pages/functions/pricing/),
