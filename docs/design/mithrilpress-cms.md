@@ -62,16 +62,20 @@ taxonomy terms, assets, import receipts, hostnames, and owner approvals.
   tenant-bound owner approval is present.
 
 The Worker runtime contracts are authored in
-`apps/mithrilpress-worker/src/platform_hostname.mith` and
-`apps/mithrilpress-worker/src/content_boundary.mith`, compiled with Mithril's
+`apps/mithrilpress-worker/src/platform_hostname.mith`,
+`apps/mithrilpress-worker/src/content_boundary.mith`, and
+`apps/mithrilpress-worker/src/studio_ai_policy.mith`, compiled with Mithril's
 native JavaScript emitter, and called at the hostname, WordPress record,
-taxonomy-term, and chat-proposal boundaries. The chat contract returns an
-untrusted, blocked, private-draft envelope; the host attaches bounded sanitized
-HTML before opening the rendering gate. The pure `.cljk` boundary remains the
-platform-neutral reference model. The Worker keeps host I/O and stateful work
-in JavaScript, including cross-record taxonomy integrity, D1/R2 and AI calls,
-HTML sanitization, language-tag canonicalization, slug collision resolution,
-and publication transactions.
+taxonomy-term, chat-proposal, and Workers Free AI-admission boundaries. The chat
+contract returns an untrusted, blocked, private-draft envelope; the host
+attaches bounded sanitized HTML before opening the rendering gate. The AI
+policy contract requires explicit enablement, the `workers-free-only` mode,
+operator confirmation of the Workers Free plan, and an available AI binding
+before inference. The pure `.cljk` boundary remains the platform-neutral
+reference model. The Worker keeps host I/O and stateful work in JavaScript,
+including cross-record taxonomy integrity, D1/R2 and AI calls, HTML
+sanitization, language-tag canonicalization, slug collision resolution, and
+publication transactions.
 
 The adapter does not fetch WordPress itself: owners provide the content through
 a scoped token. The importer accepts a
@@ -87,12 +91,34 @@ implemented; broad Gutenberg support remains follow-up work.
 
 Studio uses a short-lived owner token exchange, a one-hour `HttpOnly`, `Secure`,
 `SameSite=Strict` cookie session, same-origin mutation checks, prepared D1
-queries, bounded chat history, HTML sanitization, and a daily AI generation cap.
-It stores conversations in D1 until the owner deletes them. Workers AI processes
-the conversation and current draft to produce a proposal; the proposal is not
-fact-checked and must not be published without owner review. The current Studio
-UI requires owner scopes for content writing, private preview, approval, and
-publishing. Owner identity provisioning remains out of band.
+queries, bounded chat history, HTML sanitization, and an eight-generation daily
+app cap. It stores conversations in D1 until the owner deletes them. Workers AI
+processes the conversation and current draft to produce a proposal; the proposal
+is not fact-checked and must not be published without owner review. The default
+free-hosting path uses `@cf/meta/llama-3.3-70b-instruct-fp8-fast` directly
+through the Workers AI binding, with no AI Gateway or paid fallback. The model
+is listed as supporting Workers AI JSON Mode, matching Studio's JSON Schema
+request. Enable it only when the target account is verified as Workers Free and set
+`STUDIO_AI_FREE_PLAN_CONFIRMED=true` and `STUDIO_AI_MODE=workers-free-only`;
+the confirmation is an operator-controlled deployment gate, not a runtime query
+of Cloudflare's account plan. Studio caps generations at eight per UTC day,
+limits the conservative prompt-input estimate to 10,000 bytes and output to 700
+tokens, and atomically reserves a two-times Neuron estimate against an 8,000
+Neuron application budget. Failed and ambiguous calls keep their reservations.
+These estimates use published model rates and are not provider metering; recheck
+pricing before release. The provider stops inference at its shared 10,000-Neuron
+daily Free allocation. On Workers Paid, usage above that allocation is billable,
+so this mode must not be deployed there. The example deployment keeps Studio AI
+disabled and the plan confirmation false.
+
+At the currently published rate for this model (26,668 input and 204,805
+output Neurons per million tokens), the reservation formula caps one accepted
+request at 821 Neurons: at most 10,000 input bytes including message/schema
+overhead, at most 700 output tokens, and a two-times safety multiplier. Eight
+maximum-size requests reserve at most 6,568 Neurons. This bounds only the
+application's estimate, not provider usage or other account workloads. See
+[Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/)
+and recheck the model rates, limits, and account plan before release.
 
 ## Cloudflare hosting
 
@@ -194,18 +220,26 @@ pricing; it does not provide a free-hosting hard stop. Reconsider it only if
 executing tenant code becomes a reviewed requirement. See [Workers for
 Platforms pricing](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/reference/pricing/).
 
-Every request that reaches the Worker is subject to application hard stops of
-25,000 requests across the deployment per UTC day. A request that resolves to
-an active site is also subject to that site's 5,000-request daily cap; this
-includes Studio, domain, DNS, media, preview, REST, and public-page routes. The
-shared counter runs before hostname lookup, so requests to missing or inactive
-hosts count toward the deployment cap and otherwise return 404. The site counter
-runs after active-site resolution and before route dispatch. The request that
-reaches an allowance is handled; later requests receive HTTP 429 for a site
-limit or HTTP 503 for the shared limit until the next UTC day. These limits are
-tracked atomically in D1. The Worker invocation and shared-counter write happen
-before a capped response, so rejected requests can still be provider-metered. R2
-application caps allow 250 MiB per site and 8 GiB per deployment,
+Every request first reads the shared deployment counter before hostname
+resolution. If its 25,000-request UTC-day cap is reached, the Worker returns 503
+without another tenant-registry lookup. After resolution, an active-site request
+increments the shared counter and that site's 5,000-request daily counter in
+one D1 batch. If the site limit rejects the request, the shared increment rolls
+back as well. Unknown or inactive hosts and invalid control-host requests
+consume only the shared counter after resolution. This covers Studio, domain,
+DNS, media, preview, REST, and public-page routes. The final request within an
+allowance is handled; later requests receive HTTP 429 for a site limit or HTTP
+503 for the shared limit until the next UTC day.
+
+This application quota does not stop Worker invocations or the shared-counter
+preflight read after the cap. It bounds tenant lookups and served work, but does
+not guarantee zero provider charges. Unknown-host requests can still consume
+the shared allowance, and the app counter cannot block an invocation before it
+reaches the Worker. Verify a host-scoped ingress control and the provider cost
+boundary before configuring a public production route. The caps preserve the
+site-owner free tier; they do not guarantee zero operator charges.
+
+R2 application caps allow 250 MiB per site and 8 GiB per deployment,
 5,000 image reads/day per site and 50,000 across the deployment, and 10,000
 upload/delete operations/day. Studio generation is capped at eight requests per
 UTC day across this deployment, and stops rather than switching to paid AI use.
@@ -249,15 +283,19 @@ and [R2 pricing](https://developers.cloudflare.com/r2/pricing/) before release.
 D1 triggers enforce a 16 MiB retained-import content limit per site, including
 entries and imported taxonomy terms, and a 256 MiB deployment-wide limit across
 immutable revisions. The Studio shows the site's estimate and daily public
-request count, the shared app-level AI request count, R2 image storage, and
-per-site and shared daily image operations.
+request count, the shared app-level AI request count and conservative Neuron
+reservation, R2 image storage, and per-site and shared daily image operations.
 The content estimate excludes
 indexes, database metadata,
 conversations, audit rows, and the physical D1 database size. Account-level
-Worker requests outside public page/REST routes, D1 reads/writes/storage, and
-Workers AI neuron use are not measured in the Studio and must be monitored in
-Cloudflare. Provider limits can stop service before MithrilPress application
-limits are reached. Track these release requirements in Linear MITHRIL-292.
+Worker requests outside public page/REST routes and D1
+reads/writes/storage are not measured in the Studio and must be monitored in
+Cloudflare. Workers AI neurons are also not tenant-metered, but the dedicated
+Workers Free account enforces its 10,000-Neuron daily provider stop. Other
+account workloads can exhaust that shared allowance sooner, causing Studio
+drafting to fail closed. Provider limits can stop service before MithrilPress
+application limits are reached. Track these release requirements in
+Linear MITHRIL-292.
 Check [Workers limits](https://developers.cloudflare.com/workers/platform/limits/)
 again before release because provider quotas can change.
 

@@ -31,14 +31,24 @@ replace an exact hostname only through an owner-approved cutover; see
 
 ## Cost boundary
 
-The application stops serving content at its per-site and deployment caps, but
-each request still invokes the Worker before it can return a capped response.
-The app counters therefore do not cap provider-billed invocations. Workers Free
-has an account-wide daily request limit; Workers Paid has no daily request
-limit. The `fund-mithril` account contains other Workers and its subscription
-read requires Billing Read, so the account plan and enforceable cost boundary
-must be verified before enabling public host attachments. D1 and R2 limits are
-also account-wide; confirm their provider behavior and shared workloads.
+The application enforces 5,000 requests per active site and 25,000 requests
+across the deployment each UTC day. It reads the shared counter before hostname
+resolution and returns 503 without another registry lookup when that counter is
+already full. Active-site requests increment the shared and site counters in
+one D1 batch; a site-cap failure rolls the shared increment back. Unresolved or
+inactive hosts and invalid control-host requests consume only the shared cap
+after resolution. The shared counter can still be exhausted by unknown-host
+traffic, so host-scoped ingress protection remains a launch requirement.
+
+Every capped request still invokes the Worker. After the shared cap, the
+preflight D1 read still runs; before that cap, a request also resolves its host
+and writes a counter. These application counters therefore do not cap
+provider-billed invocations or prove zero charges. Workers Free has an
+account-wide daily request limit; Workers Paid has no daily request limit. The
+`fund-mithril` account contains other Workers and its subscription read requires
+Billing Read, so the account plan and enforceable cost boundary must be verified
+before enabling public host attachments. D1 and R2 limits are also account-wide;
+confirm their provider behavior and shared workloads.
 
 No exact host, DNS record, certificate, or Worker Domain may be created until
 scoped Worker Custom Domains access, exact-source standalone qualification,

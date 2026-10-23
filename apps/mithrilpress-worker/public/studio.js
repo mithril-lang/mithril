@@ -308,9 +308,11 @@ async function refreshUsage() {
     const sharedLimit = Math.max(0, Number(result.storage.shared_deployment_limit_bytes) || 0);
     document.querySelector("#shared-storage-limit").textContent = `Shared retained-content ceiling: ${(sharedLimit / (1024 * 1024)).toFixed(0)} MiB across this hosting deployment. Aggregate usage is managed by the host operator.`;
     document.querySelector("#site-hosting-usage").textContent = `${result.hosting_requests.site_requests_used} of ${result.hosting_requests.site_daily_limit} site requests today (UTC)`;
-    document.querySelector("#site-hosting-reset").textContent = `Shared deployment usage: ${result.hosting_requests.deployment_requests_used} of ${result.hosting_requests.shared_deployment_daily_limit} requests today. Every hosted route consumes this allowance; unresolved hosts consume the shared cap only. Resets at ${result.hosting_requests.resets_at_utc}.`;
+    document.querySelector("#site-hosting-reset").textContent = `Shared deployment usage: ${result.hosting_requests.deployment_requests_used} of ${result.hosting_requests.shared_deployment_daily_limit} requests today. This includes unknown or inactive hosts that reach the Worker; active tenant requests also consume their site's allowance. Unknown-host traffic can exhaust the shared cap for all sites. The cap is checked before tenant lookup. Resets at ${result.hosting_requests.resets_at_utc}.`;
     document.querySelector("#ai-usage").textContent = `${result.ai_drafting.requests_used} of ${result.ai_drafting.daily_app_limit} shared requests today (UTC)`;
-    document.querySelector("#ai-usage-reset").textContent = `Resets at ${result.ai_drafting.resets_at_utc}.`;
+    const estimatedNeurons = Math.max(0, Number(result.ai_drafting.estimated_neurons_reserved) || 0);
+    const estimatedNeuronLimit = Math.max(0, Number(result.ai_drafting.estimated_neuron_reservation_limit) || 0);
+    document.querySelector("#ai-usage-reset").textContent = `App reservation: ${estimatedNeurons.toLocaleString()} of ${estimatedNeuronLimit.toLocaleString()} estimated Neurons today (2× safety estimate, not provider metering). Workers Free stops inference after ${result.ai_drafting.provider_free_neurons_per_day.toLocaleString()} account-wide Neurons per UTC day; other workloads may use this allowance first. Actual usage is available only in Cloudflare. Resets at ${result.ai_drafting.resets_at_utc}.`;
     const media = result.r2_media;
     const mediaUsed = (Number(media.site_used_bytes) / (1024 * 1024)).toFixed(2);
     const mediaLimit = (Number(media.site_limit_bytes) / (1024 * 1024)).toFixed(0);
@@ -879,9 +881,9 @@ document.querySelector("#delete-conversation").addEventListener("click", async (
 
 document.querySelector("#chat-form").addEventListener("submit", async (event) => {
   event.preventDefault();
-  const message = chatInput.value.trim();
+  const submittedText = chatInput.value;
+  const message = submittedText.trim();
   if (!message) return;
-  chatInput.value = "";
   renderMessage("user", message);
   const button = document.querySelector("#send-button");
   button.disabled = true;
@@ -893,6 +895,7 @@ document.querySelector("#chat-form").addEventListener("submit", async (event) =>
       headers: requestHeader,
       body: { conversation_id: activeConversationId, message, kind: document.querySelector("#content-kind").value },
     });
+    if (chatInput.value === submittedText) chatInput.value = "";
     activeConversationId = result.conversation_id;
     document.querySelector("#editor-title").textContent = "Refine your draft";
     document.querySelector("#delete-conversation").hidden = false;

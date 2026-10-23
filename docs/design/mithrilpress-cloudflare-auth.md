@@ -122,3 +122,19 @@ hard stop. Application quotas run after the Worker starts and do not guarantee
 zero infrastructure charges. Read back the Workers plan and shared usage,
 verify an enforceable cost boundary, and keep production routing and media
 writes disabled until those conditions and rollback are confirmed.
+
+The shared deployment request cap runs before tenant lookup; each request still
+invokes the Worker and attempts the D1 counter statement, including requests
+rejected at the cap. Site owners never pay automatically, but rejected requests
+can still use provider capacity. Keep a verified plan, cost boundary, and
+operator-controlled shutdown path as release requirements.
+
+Workers AI requires an explicit `STUDIO_AI_FREE_PLAN_CONFIRMED=true` deployment
+flag after the operator reads back the exact account plan. MithrilPress also
+limits prompt bytes, output tokens, generations per day, and a conservative
+shared Neuron reservation; the reservation is not Cloudflare provider metering
+and can be wrong if model pricing changes.
+
+R2 usage above its included monthly allowances is billed rather than
+automatically stopped. Deployment caps stay below those allowances only if the
+account has no other R2 traffic and the limits are revalidated before release.

@@ -72,6 +72,11 @@ Mithril workspace's `kbb` compiler.
    SameSite=Strict cookie.
 5. Run `npm run dev` to work against local D1.
 
+The D1 migrations use a coordinated sequence because several feature branches
+were created from older schema snapshots. See the [MithrilPress migration
+order](../../docs/operations/mithrilpress-d1-migrations.md) before rebasing or
+applying a migration.
+
 The example config deliberately has no route and disables `workers.dev`. It is
 not a production deployment config. The required default hosting topology is a
 shared tenant-aware Worker and D1 hostname registry, with one exact Worker
@@ -599,27 +604,30 @@ See the [Workers for Platforms overview](https://developers.cloudflare.com/cloud
 and [pricing](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/reference/pricing/).
 
 MithrilPress enforces 5,000 HTTP requests per active site per UTC day and
-25,000 HTTP requests across the deployment. Every routed request counts,
-including public pages, WordPress REST, Studio, previews, DNS, media, and
-unsupported routes. The shared counter increments before hostname resolution,
-so unresolved hosts also consume the shared cap and requests after the shared
-cap are rejected before the hostname registry is read. Resolved active sites
-then consume their site allowance. The request that reaches a cap is handled;
-later requests receive 429 for a site cap or 503 for the shared cap until 00:00
-UTC. These application counters limit MithrilPress routes; they do not stop
-Worker invocations at Cloudflare's billing layer. The Worker invocation and
-one D1 counter write still occur before a request can receive the shared-cap
-response, and unrelated workloads in the same Cloudflare account consume the
-same provider allocations. The Studio shows MithrilPress app counters, but does
-not measure all account-wide Worker requests, D1 reads/writes/storage, or
-Workers AI neuron usage. Workers Paid has no daily request ceiling and meters
-usage beyond its included allocations; budget alerts notify but do not pause or
-cap usage. Workers Free has an account-wide daily request limit and rejects
-requests after that limit, but this protects MithrilPress only if the selected
-account is confirmed Free and shared account usage is bounded. A strict
-provider-level stop is not provided by MithrilPress's app counters. Keep public
-hosting disabled until the account plan, shared usage, and enforceable cost
-boundary are read back. On Workers Free, D1 daily read/write exhaustion
+25,000 HTTP requests across the deployment. A read-only shared-counter check
+runs before hostname resolution; when the cap is reached, the Worker returns
+503 without another tenant-registry lookup. After resolution, active-site
+requests increment the shared and site counters in one D1 batch. If a site cap
+rejects a request, the batch rolls back and shared usage is unchanged.
+Unresolved or inactive hosts and invalid control-host requests consume only the
+shared counter after resolution. These counters cover public pages, WordPress
+REST, Studio, previews, DNS, media, and unsupported routes. The final allowed
+request is served; later requests receive 429 for a site cap or 503 for the
+shared cap until 00:00 UTC.
+
+Application counters do not stop Worker invocations at Cloudflare's billing
+layer. A request at the shared cap still invokes the Worker and performs the
+read-only D1 preflight; unrelated workloads in the same Cloudflare account
+consume the same provider allocations. The Studio shows MithrilPress app
+counters, but does not measure all account-wide Worker requests, D1
+reads/writes/storage, or Workers AI neuron usage. Workers Paid has no daily
+request ceiling and meters usage beyond its included allocations; budget alerts
+notify but do not pause or cap usage. Workers Free has an account-wide daily
+request limit and rejects requests after that limit, but this protects
+MithrilPress only if the selected account is confirmed Free and shared account
+usage is bounded. A strict provider-level stop is not provided by MithrilPress's
+app counters. Keep public hosting disabled until the account plan, shared
+usage, and enforceable cost boundary are read back. On Workers Free, D1 daily read/write exhaustion
 or a D1 storage ceiling is returned as a clear 503 and requests fail closed.
 Import and rendering workloads have not been qualified against the current CPU
 limit. Usage monitoring and release gates are tracked in Linear MITHRIL-292.
