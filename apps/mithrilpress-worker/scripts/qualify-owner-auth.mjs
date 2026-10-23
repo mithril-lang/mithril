@@ -164,6 +164,7 @@ const persistPath = join(tempRoot, "wrangler-state");
 const siteToken = makeToken("MithrilPress local integration", ["content:import", "content:write", "revision:preview", "media:write", "revision:approve", "site:publish"]);
 const otherSiteToken = makeToken("MithrilPress cross-tenant integration", ["content:import", "revision:preview"]);
 let worker;
+let workerDiagnostics = "";
 
 try {
   runWrangler([
@@ -184,8 +185,14 @@ try {
 
   const port = await freePort();
   worker = spawn(wrangler, [
-    "dev", "--local", "--ip", "127.0.0.1", "--port", String(port), "--persist-to", persistPath, "--config", config, "--log-level", "error",
-  ], { cwd: root, env: cleanEnvironment(), stdio: "ignore" });
+    "dev", "--local", "--ip", "127.0.0.1", "--port", String(port), "--persist-to", persistPath, "--config", config,
+    "--log-level", "error", "--var", "MITHRILPRESS_OWNER_AUTH_DIAGNOSTICS:true",
+  ], { cwd: root, env: cleanEnvironment(), stdio: ["ignore", "pipe", "pipe"] });
+  const captureWorkerDiagnostics = (chunk) => {
+    workerDiagnostics = `${workerDiagnostics}${chunk.toString("utf8")}`.slice(-8192);
+  };
+  worker.stdout?.on("data", captureWorkerDiagnostics);
+  worker.stderr?.on("data", captureWorkerDiagnostics);
   worker.on("error", () => {});
 
   let ready = false;
@@ -303,7 +310,7 @@ try {
     contentType: "application/json",
     headers: { origin: `https://${testHostname}`, "x-mithrilpress-request": "1" },
   });
-  assert.equal(manualDraft.status, 201, `A 100,000-character manual draft should save: ${manualDraft.body}`);
+  assert.equal(manualDraft.status, 201, `A 100,000-character manual draft should save: ${manualDraft.body}\nWorker diagnostics: ${workerDiagnostics || "none emitted"}`);
   const manualDraftBody = JSON.parse(manualDraft.body);
   assert.equal(manualDraftBody.draft.state, "private-preview");
   const longManualPreview = await request(port, "GET", manualDraftBody.preview_url, { token: siteToken.token });
