@@ -4,6 +4,7 @@ import { instantiateMithrilNative as instantiateContentBoundary } from "./conten
 import { instantiateMithrilNative as instantiateMigrationPolicy } from "./migration_policy.js";
 import { instantiateMithrilNative } from "./platform_hostname.js";
 import { collectWordPressMediaReferences, inspectWordPressBlocks } from "./wordpress_blocks.js";
+import { isWordPressSafeHtmlTag, restoreWordPressSafeAttributes } from "./wordpress_html_policy.js";
 import { buildWordPressPermalinkMap, rewriteWordPressLink, wordpressRoutePath } from "./wordpress_links.js";
 import { selectWordPressSeoMetadata } from "./wordpress_seo.js";
 import { parseWordPressWxr } from "./wxr_import.js";
@@ -47,12 +48,6 @@ const ENTRY_SLUG = /^[^/?#\\\u0000-\u001f\u007f]{1,200}$/;
 const mithrilHostnameCore = instantiateMithrilNative({});
 const mithrilContentBoundary = instantiateContentBoundary({ Array, Number, Set });
 const mithrilMigrationPolicy = instantiateMigrationPolicy({});
-const HTML_TAGS = new Set([
-  "a", "b", "blockquote", "br", "code", "dd", "del", "div", "dl", "dt",
-  "em", "figcaption", "figure", "h1", "h2", "h3", "h4", "h5", "h6", "hr",
-  "i", "ins", "li", "ol", "p", "pre", "s", "span", "strong", "sub", "sup",
-  "table", "tbody", "td", "th", "thead", "tr", "u", "ul",
-]);
 const DROP_SUBTREE_TAGS = new Set([
   "audio", "button", "canvas", "embed", "form", "iframe", "input", "link",
   "math", "meta", "noscript", "object", "option", "script", "select", "source",
@@ -67,17 +62,14 @@ const safeHtmlRewriter = new HTMLRewriter()
         element.remove();
         return;
       }
-      if (!HTML_TAGS.has(tag)) {
+      if (!isWordPressSafeHtmlTag(tag)) {
         element.removeAndKeepContent();
         return;
       }
 
       const href = tag === "a" ? element.getAttribute("href") : null;
-      for (const [name] of [...element.attributes]) element.removeAttribute(name);
-      if (tag === "a" && href !== null) {
-        const safeHref = safeLink(href);
-        if (safeHref !== null) element.setAttribute("href", safeHref);
-      }
+      const safeHref = href === null ? null : safeLink(href);
+      restoreWordPressSafeAttributes(element, safeHref);
     },
     comments(comment) {
       comment.remove();
@@ -526,20 +518,19 @@ async function sanitizeImportedWordPressHtml(source, mediaBySourceId, linkContex
         element.remove();
         return;
       }
-      if (!HTML_TAGS.has(tag)) {
+      if (!isWordPressSafeHtmlTag(tag)) {
         element.removeAndKeepContent();
         return;
       }
 
       const href = tag === "a" ? element.getAttribute("href") : null;
       const rewrittenLink = href === null ? null : rewriteWordPressLink(href, linkContext);
-      for (const [name] of [...element.attributes]) element.removeAttribute(name);
+      restoreWordPressSafeAttributes(element, rewrittenLink?.href ?? null);
       if (tag === "a" && rewrittenLink) {
         if (rewrittenLink.sourceSite) sourceSiteLinks += 1;
         if (rewrittenLink.rewritten) rewrittenLinks += 1;
         if (rewrittenLink.unresolved) unresolvedSourceSiteLinks += 1;
         if (rewrittenLink.removed) removedUnsafeLinks += 1;
-        if (rewrittenLink.href !== null) element.setAttribute("href", rewrittenLink.href);
       }
     },
     comments(comment) {
