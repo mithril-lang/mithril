@@ -1,6 +1,21 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { parseWordPressWxr } from "./wxr_import.js";
+import { instantiateMithrilNative as instantiateWordPressTaxonomy } from "./wordpress_taxonomy.js";
+
+const mithrilWordPressTaxonomy = instantiateWordPressTaxonomy({ Map, Set });
+
+function taxonomyExport(terms) {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:wp="http://wordpress.org/export/1.2/">
+  <channel><title>Taxonomy fixture</title><link>https://wordpress.example</link><wp:wxr_version>1.2</wp:wxr_version>${terms}</channel>
+</rss>`;
+}
+
+function categoryTerm(id, slug, parentSlug = "") {
+  const parent = parentSlug ? `<wp:category_parent>${parentSlug}</wp:category_parent>` : "";
+  return `<wp:category><wp:term_id>${id}</wp:term_id><wp:category_nicename>${slug}</wp:category_nicename><wp:cat_name>${slug}</wp:cat_name>${parent}</wp:category>`;
+}
 
 const exportXml = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0"
@@ -149,6 +164,57 @@ test("refuses ambiguous duplicate source metadata", () => {
 test("refuses an unresolved supported taxonomy term instead of dropping it", () => {
   const unresolved = exportXml.replace('nicename="news"', 'nicename="missing"');
   assert.throws(() => parseWordPressWxr(unresolved), { code: "unresolved_wxr_term" });
+});
+
+test("resolves category parents independent of WXR declaration order and preserves the legacy projection", () => {
+  const parsed = parseWordPressWxr(taxonomyExport(
+    `${categoryTerm(12, "child", "parent")}${categoryTerm(11, "parent")}`,
+  ));
+  assert.deepEqual(parsed.taxonomyTerms, [
+    { id: 12, taxonomy: "category", slug: "child", name: "child", description: "", parentId: 11 },
+    { id: 11, taxonomy: "category", slug: "parent", name: "parent", description: "", parentId: 0 },
+  ]);
+});
+
+test("rejects self-parent and cyclic category graphs", () => {
+  assert.throws(
+    () => parseWordPressWxr(taxonomyExport(categoryTerm(21, "self", "self"))),
+    { code: "unresolved_wxr_term_parent" },
+  );
+  assert.throws(
+    () => parseWordPressWxr(taxonomyExport(`${categoryTerm(31, "first", "second")}${categoryTerm(32, "second", "first")}`)),
+    { code: "cyclic_wxr_term_parent" },
+  );
+});
+
+test("accepts the maximum taxonomy depth and rejects a deeper hierarchy", () => {
+  const nestedCategories = (count) => Array.from({ length: count }, (_, index) =>
+    categoryTerm(index + 1, `category-${index}`, index > 0 ? `category-${index - 1}` : "")
+  ).join("");
+  assert.equal(parseWordPressWxr(taxonomyExport(nestedCategories(64))).taxonomyTerms.length, 64);
+  assert.throws(
+    () => parseWordPressWxr(taxonomyExport(nestedCategories(65))),
+    { code: "wxr_term_depth_limit_exceeded", status: 413 },
+  );
+});
+
+test("Mithril taxonomy policy rejects a parent on a non-category term", () => {
+  const termRecords = [{
+    id: 41,
+    taxonomy: "post_tag",
+    slug: "tag",
+    name: "tag",
+    description: "",
+    parentSlug: "parent",
+    parentId: 0,
+  }];
+  const fail = (code, status = 422) => {
+    throw Object.assign(new Error(code), { code, status });
+  };
+  assert.throws(
+    () => mithrilWordPressTaxonomy.resolveTermParents(termRecords, new Map(), 64, fail),
+    { code: "invalid_wxr_term_parent" },
+  );
 });
 
 test("refuses malformed XML", () => {
