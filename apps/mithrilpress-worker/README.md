@@ -559,18 +559,17 @@ Chat-created entries are draft-only until their containing revision is approved
 and explicitly published. Workers AI receives the bounded conversation and
 current draft to generate a proposal. The prototype caps Studio generation at
 eight requests per UTC day across the deployment. Studio AI is disabled in the
-example deployment and only runs through an explicitly configured, named AI
-Gateway; the implicit `default` gateway is rejected. Before enabling it, the
-operator must configure and verify a spend-limit rule for MithrilPress on that
-gateway. The app-level request cap is not a neuron or dollar cap. Cloudflare
-Workers AI bills usage above its daily free neuron allocation on a Workers Paid
-account, and other workloads share that allocation. AI Gateway spend limits
-block requests after their configured budget, but enforcement is eventually
-consistent, so concurrent requests may briefly exceed the target. The prompt
-and output are bounded to limit that exposure, and a gateway rejection returns
-an unavailable response without saving or publishing a draft. See [Workers AI
-pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/) and
-[AI Gateway spend limits](https://developers.cloudflare.com/ai-gateway/features/spend-limits/).
+example deployment. When enabled, the Worker calls the Workers AI binding
+directly; it does not use AI Gateway or configure a paid fallback. The free-only
+mode is intended for a verified Workers Free account. Its
+`STUDIO_AI_FREE_PLAN_CONFIRMED` setting is an operator assertion, not a live
+account-plan check. Keep AI disabled until the target account and provider
+limits have been read back. Workers Paid can bill usage above its shared daily
+free neuron allocation. The app-level request cap and Neuron reservation are
+not an account-wide dollar hard stop, and bounded prompts do not guarantee zero
+operator cost. A disabled or over-budget request returns an unavailable response
+without saving or publishing a draft. See [Workers AI
+pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/).
 
 The Worker also enforces a 16 MiB retained-import content cap per site,
 including entries and taxonomy terms, and a 256 MiB cap across the deployment.
