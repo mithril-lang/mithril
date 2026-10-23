@@ -357,58 +357,7 @@ function normalizeRecord(record) {
 }
 
 function preserveWordPressPageParents(entries) {
-  const pagesBySourceId = new Map(entries
-    .filter((entry) => entry.kind === "page")
-    .map((entry) => [entry.sourceId, entry]));
-  let omitted = 0;
-  for (const entry of entries) {
-    const parentSourceId = entry.parentSourceId;
-    if (parentSourceId === null) continue;
-    const parent = pagesBySourceId.get(parentSourceId);
-    if (entry.kind !== "page" || !parent || parent.entryId === entry.entryId) {
-      entry.parentSourceId = null;
-      omitted += 1;
-    }
-  }
-
-  for (const page of pagesBySourceId.values()) {
-    const path = [];
-    const positions = new Map();
-    let current = page;
-    while (current?.parentSourceId !== null && current?.parentSourceId !== undefined) {
-      if (positions.has(current.sourceId)) {
-        for (const cyclicPage of path.slice(positions.get(current.sourceId))) {
-          if (cyclicPage.parentSourceId !== null) {
-            cyclicPage.parentSourceId = null;
-            omitted += 1;
-          }
-        }
-        break;
-      }
-      positions.set(current.sourceId, path.length);
-      path.push(current);
-      current = pagesBySourceId.get(current.parentSourceId);
-    }
-  }
-
-  for (const page of pagesBySourceId.values()) {
-    let current = page;
-    let depth = 0;
-    while (current?.parentSourceId !== null && current?.parentSourceId !== undefined) {
-      if (depth >= 64) {
-        current.parentSourceId = null;
-        omitted += 1;
-        break;
-      }
-      depth += 1;
-      current = pagesBySourceId.get(current.parentSourceId);
-    }
-  }
-
-  return {
-    preserved: [...pagesBySourceId.values()].filter((page) => page.parentSourceId !== null).length,
-    omitted,
-  };
+  return mithrilWordPressPageHierarchy.preserveWordPressPageParents(entries);
 }
 
 function normalizeTaxonomyTerms(value, entries) {
