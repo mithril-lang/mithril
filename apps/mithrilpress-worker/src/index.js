@@ -1610,7 +1610,7 @@ async function studioManualDraft(request, env, site) {
       } catch {
         // The diagnostic records only parsed origin metadata, never request content.
       }
-      console.warn("mithrilpress_owner_auth_diagnostic", JSON.stringify({
+      console.error("mithrilpress_owner_auth_diagnostic", JSON.stringify({
         originHost: parsedOrigin?.host ?? null,
         originProtocol: parsedOrigin?.protocol ?? null,
         originMatchesExpected: origin === `https://${site.hostname}`,
