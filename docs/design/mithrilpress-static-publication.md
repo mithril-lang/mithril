@@ -12,8 +12,11 @@ replaces the default Worker Custom Domain attachment.
 `8931a87fc7aff7d5d9c5ecb28abda794e3cadde1` passed the pinned
 `mithrilpress-worker` standalone profile (35/35 tests, including owner-auth and
 tenant-isolation checks). PR #135's documentation follow-up was checked with
-`git diff --check`; the separate exact-host attachment work in PR #138 has not
-been qualified. None of the Pages resources or routes is deployed.**
+`git diff --check`. PR #138 head
+`d0c44a041628b09672a55a9ac0f710ed5ccd9c0d` separately passed the pinned
+`mithrilpress-worker` profile (35/35 tests, syntax checks, and owner-auth
+qualification), but its receipt is not release-eligible. Integrated-main and
+provider gates remain open; none of the Pages resources or routes is deployed.**
 The Worker exposes a
 `site:publish`-scoped digest-bound snapshot and referenced-media endpoint,
 `apps/mithrilpress-worker/scripts/export-static-pages.mjs` builds a local static
