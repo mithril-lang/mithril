@@ -244,7 +244,11 @@ async function sendJsonRequest(url, token, init) {
     throw problem("site_request_failed");
   }
   const data = await responseJson(response);
-  if (!response.ok) throw problem(data?.error?.code ?? `site_http_${response.status}`);
+  if (!response.ok) {
+    throw Object.assign(problem(data?.error?.code ?? `site_http_${response.status}`), {
+      httpStatus: response.status,
+    });
+  }
   return { status: response.status, data };
 }
 
@@ -383,53 +387,120 @@ async function buildPlan(parsed, root) {
   };
 }
 
-async function applyPlan(plan, wxr, siteUrl, root, token) {
-  for (const item of plan.ready) {
-    const image = await safeBytesForUpload(root, item.path, item.sha256);
-    let altHeader;
+async function cleanupNewUploads(plan, siteUrl, token, uncertainUploads = []) {
+  const uploaded = plan.mapped.filter((item) => item.status === "uploaded");
+  const pending = [...uncertainUploads];
+  let deleted = 0;
+  for (const item of [...uploaded].reverse()) {
     try {
-      altHeader = encodeURIComponent(item.alt_text);
-    } catch {
-      plan.rejected.push({ id: item.id, path: item.path, reason: "invalid_attachment_alt_text" });
-      throw problem("invalid_attachment_alt_text");
+      await sendJsonRequest(
+        new URL(`/_mithrilpress/api/media/${encodeURIComponent(item.media_id)}`, siteUrl),
+        token,
+        { method: "DELETE" },
+      );
+      item.cleanup_status = "deleted";
+      deleted += 1;
+    } catch (error) {
+      item.cleanup_status = "pending";
+      pending.push({ media_id: item.media_id, reason: error?.code ?? "cleanup_failed" });
     }
-    const upload = await sendJsonRequest(new URL("/_mithrilpress/api/media", siteUrl), token, {
-      method: "POST",
-      headers: {
-        "Content-Type": image.contentType,
-        "X-WordPress-Media-ID": String(item.id),
-        "X-MithrilPress-Alt": altHeader,
-      },
-      body: image.bytes,
-    });
-    const media = upload.data?.media;
-    if (!media || media.wordpress_source_id !== item.id) throw problem("invalid_media_upload_response");
-    plan.mapped.push({
-      wordpress_media_id: item.id,
-      media_id: media.id,
-      sha256: item.sha256,
-      path: item.path,
-      status: upload.status === 201 ? "uploaded" : "already_mapped",
-    });
   }
-
-  const imported = await sendJsonRequest(new URL("/api/wordpress/import", siteUrl), token, {
-    method: "POST",
-    headers: { "Content-Type": "application/xml" },
-    body: wxr,
-  });
-  if (imported.data?.state !== "private-preview" || !imported.data?.revision_id) {
-    throw problem("invalid_private_import_response");
-  }
-  plan.revision = {
-    id: imported.data.revision_id,
-    state: imported.data.state,
-    entry_count: imported.data.entry_count,
-    migration_report: imported.data.migration_report ?? null,
+  plan.cleanup = {
+    attempted: uploaded.length,
+    deleted,
+    pending,
   };
-  plan.attachment_counts.mapped = plan.mapped.length;
-  plan.publication_state = "private-preview-not-published";
-  return plan;
+}
+
+function importResponseIsDefiniteRejection(error) {
+  if (error?.httpStatus >= 400 && error.httpStatus < 500) return true;
+  return [
+    "import_not_committed",
+    "site_daily_hosting_request_limit",
+    "deployment_daily_hosting_request_limit",
+  ].includes(error?.code);
+}
+
+async function applyPlan(plan, wxr, siteUrl, root, token) {
+  let importRequestStarted = false;
+  let currentUpload = null;
+  let unverifiedUpload = null;
+  try {
+    for (const item of plan.ready) {
+      const image = await safeBytesForUpload(root, item.path, item.sha256);
+      let altHeader;
+      try {
+        altHeader = encodeURIComponent(item.alt_text);
+      } catch {
+        plan.rejected.push({ id: item.id, path: item.path, reason: "invalid_attachment_alt_text" });
+        throw problem("invalid_attachment_alt_text");
+      }
+      currentUpload = item;
+      const upload = await sendJsonRequest(new URL("/_mithrilpress/api/media", siteUrl), token, {
+        method: "POST",
+        headers: {
+          "Content-Type": image.contentType,
+          "X-WordPress-Media-ID": String(item.id),
+          "X-MithrilPress-Alt": altHeader,
+        },
+        body: image.bytes,
+      });
+      const media = upload.data?.media;
+      currentUpload = null;
+      if (!media || media.wordpress_source_id !== item.id) {
+        unverifiedUpload = { wordpress_media_id: item.id, reason: "upload_response_unverified" };
+        throw problem("invalid_media_upload_response");
+      }
+      plan.mapped.push({
+        wordpress_media_id: item.id,
+        media_id: media.id,
+        sha256: item.sha256,
+        path: item.path,
+        status: upload.status === 201 ? "uploaded" : "already_mapped",
+      });
+    }
+
+    importRequestStarted = true;
+    const imported = await sendJsonRequest(new URL("/api/wordpress/import", siteUrl), token, {
+      method: "POST",
+      headers: { "Content-Type": "application/xml" },
+      body: wxr,
+    });
+    if (imported.data?.state !== "private-preview" || !imported.data?.revision_id) {
+      throw problem("import_result_uncertain");
+    }
+    plan.revision = {
+      id: imported.data.revision_id,
+      state: imported.data.state,
+      entry_count: imported.data.entry_count,
+      migration_report: imported.data.migration_report ?? null,
+    };
+    plan.attachment_counts.mapped = plan.mapped.length;
+    plan.publication_state = "private-preview-not-published";
+    return plan;
+  } catch (error) {
+    if (!importRequestStarted || importResponseIsDefiniteRejection(error)) {
+      const uncertainUploads = [];
+      if (currentUpload && error?.code === "site_request_failed") {
+        uncertainUploads.push({
+          wordpress_media_id: currentUpload.id,
+          reason: "upload_result_uncertain",
+        });
+      }
+      if (unverifiedUpload) uncertainUploads.push(unverifiedUpload);
+      await cleanupNewUploads(plan, siteUrl, token, uncertainUploads);
+    } else {
+      const uploaded = plan.mapped
+        .filter((item) => item.status === "uploaded")
+        .map((item) => item.media_id);
+      plan.cleanup = {
+        attempted: 0,
+        deleted: 0,
+        pending: [{ media_ids: uploaded, reason: "import_result_uncertain" }],
+      };
+    }
+    throw error;
+  }
 }
 
 function help() {
@@ -441,6 +512,7 @@ function help() {
     "  npm run import:wordpress -- --site https://<site>.sites.mithril.love --wxr export.xml --media-dir wp-content/uploads --token-file owner.token --apply",
     "",
     "The default is a dry run. --apply uploads referenced local images and creates a private preview; it never approves or publishes it.",
+    "On a definite import rejection, newly uploaded images are removed. Cleanup failures and ambiguous responses are reported for owner review.",
   ].join("\n");
 }
 

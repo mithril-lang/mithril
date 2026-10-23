@@ -6,11 +6,14 @@ DNS or registrar state.** The owner Studio can issue a TXT ownership challenge,
 create a Cloudflare for SaaS custom-hostname record after proof, display TLS
 validation records, check provider/certificate status, verify a DNS-only CNAME,
 activate the exact tenant mapping, and detach a hostname. The code does not
-write the customer's DNS. Owner-guided zone snapshots, record comparison,
-cutover approval, and NS/DS propagation checks are implemented; DNS-provider
-record writes, automatic nameserver changes, and registrar transfers are not.
-Do not enable the customer-owned-domain feature until its dedicated SaaS zone
-and route have been provisioned and read back. A five-minute Cron Trigger
+write the customer's DNS as part of hostname onboarding. Owner-guided zone
+snapshots, record comparison, cutover approval, and NS/DS propagation checks
+are implemented. A separate owner-confirmed additive Cloudflare DNS import can
+submit missing records when the destination has no extra or changed records;
+it remains disabled by default pending isolated-zone qualification. Automatic
+nameserver changes and registrar transfers are not implemented. Do not enable
+the customer-owned-domain feature until its dedicated SaaS zone and route have
+been provisioned and read back. A five-minute Cron Trigger
 rechecks active hostnames in batches of 30; at the 90-hostname deployment cap,
 every mapping is checked within 15 minutes. Mismatches suspend immediately;
 three consecutive provider/DNS read failures also suspend. An owner must
