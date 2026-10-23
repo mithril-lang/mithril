@@ -951,18 +951,27 @@ async function verifyRollback(request, env, site, migration, owner, api) {
   } catch {
     return api.fail(503, "dns_resolver_unavailable", "A public DNS resolver could not complete the rollback check. No migration status was changed.");
   }
-  const verified = checks.length === DNS_RESOLVERS.length && checks.every((check) =>
+  const dnsStateVerified = checks.length === DNS_RESOLVERS.length && checks.every((check) =>
     check.nameservers_match && check.ds_state_match && check.dns_status === 0 && check.ds_status === 0);
   const now = new Date().toISOString();
-  const status = verified ? "rolled_back" : migration.status;
-  await env.DB.prepare(
+  const status = dnsStateVerified ? "rolled_back" : migration.status;
+  const update = await env.DB.prepare(
     "UPDATE dns_migrations SET status = ?, rollback_check_json = ?, last_checked_at = ?, updated_at = ? WHERE site_id = ? AND id = ? AND status = ?",
   ).bind(status, JSON.stringify({ checked_at: now, resolvers: checks }), now, now, site.id, migration.id, migration.status).run();
+  const recorded = update.meta?.changes === 1;
+  const verified = dnsStateVerified && recorded;
   const latest = await getMigration(env, site, migration.id);
-  await audit(env, site, latest, owner, "rollback-check", {
+  await audit(env, site, latest ?? migration, owner, "rollback-check", {
     verified,
+    dns_state_verified: dnsStateVerified,
+    recorded,
+    ...(!recorded ? { reason: "migration_state_changed" } : {}),
     resolvers: checks.map(({ resolver, nameservers_match, ds_state_match }) => ({ resolver, nameservers_match, ds_state_match })),
   });
+  if (!recorded) {
+    return api.json({ migration: migrationSummary(latest ?? migration, true), verified: false,
+      message: "The migration changed while DNS was being checked. No rollback verification was recorded; reload the migration and retry if rollback is still needed." }, 409);
+  }
   return api.json({ migration: migrationSummary(latest, true), verified, message: verified
     ? "Both recursive DNS resolvers now show the captured source nameservers and DS state. Keep the source provider active and separately verify HTTP/TLS and mail."
     : "The captured source nameserver or DS state is not visible consistently yet. Keep both providers active and retry later." }, verified ? 200 : 409);
