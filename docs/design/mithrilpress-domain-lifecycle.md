@@ -25,6 +25,7 @@ refresh a suspended hostname after the checks pass.
 | Type | Setup | Control | Initial availability |
 | --- | --- | --- | --- |
 | MithrilPress subdomain (default) | First cohort: one shared MithrilPress Worker and D1 registry; attach one exact Worker Custom Domain per registered `label.sites.mithril.love` host | MithrilPress controls the platform zone and exact hostname registry; the owner keeps their registrar and nameservers | Bounded first cohort capped at 90; no wildcard DNS/route in this stage; qualify managed TLS, cost, rollback, and exact source |
+| Temporary migration preview | Dedicated Worker Preview with `sites.mithril.love` configured as Preview-only (`previews_enabled: true`, `enabled: false`); each named Preview receives `<preview-name>.sites.mithril.love` | MithrilPress controls the preview Worker and temporary platform hostname; an owner must authorize the import and request the preview | Candidate for short-lived, owner-only reviews; requires owner authentication, noindex, preview-only D1/R2, expiry/deletion, and a lower application cap before sharing |
 | Optional static publication | A separately selected Pages Direct Upload project attaches one exact name, such as `example.sites.mithril.love`; the existing Cloudflare zone adds its CNAME after confirmation | MithrilPress controls that Pages project and exact hostname; the owner keeps their registrar and nameservers | Optional and capped at 90 projects; requires exact-host TLS, cutover/rollback, and separate release qualification |
 | Customer-owned hostname | Customer adds owner-proof and provider TLS TXT records plus a DNS-only CNAME; MithrilPress verifies ownership and provisions a Cloudflare for SaaS custom hostname | Customer retains DNS and registrar control | Subdomains only; apex and wildcard customer hostnames are excluded from this prototype |
 | Nameserver migration plan | Owner proves control, uploads or reads source and staged destination zones, reviews exact record diff, approves a digest, then changes registrar settings manually | Owner retains DNS-provider and registrar control; any Cloudflare API token is zone-scoped and request-only | Optional guided plan; provider import is disabled by default pending isolated-zone qualification |
@@ -53,6 +54,23 @@ host-aware abuse controls, provider-enforced no-overage limits, rollback, and
 operator budget are qualified. Do not charge site owners or upgrade them
 automatically. Cloudflare for SaaS is a separate customer-owned-hostname path,
 not verified platform capacity for this scale stage.
+
+This wildcard-TLS constraint applies to durable tenant hosting. For a temporary
+owner-authorized migration preview, Cloudflare documents a separate Worker
+Preview custom-domain flow: attach `sites.mithril.love` with
+`previews_enabled: true` and `enabled: false`, which creates wildcard DNS/TLS
+for Preview names under that host. This can provide the URL shape without
+turning on the durable wildcard Worker Route, but it is not a substitute for
+the scale path above. Worker Previews are branch environments with a 100 Free
+/ 500 Paid per-Worker cap. They are public by default, custom-domain Previews
+do not automatically set `X-Robots-Tag: noindex`, and bindings share data when
+they reference the same resource. Use a dedicated Preview Worker, separate
+preview D1/R2 resources, strict site scoping, tested owner authentication,
+application noindex, explicit expiry/deletion, and a lower cap. Do not share a
+preview until these controls and the current `fund-mithril` plan/quota are
+verified. See [Worker Preview custom domains](https://developers.cloudflare.com/workers/previews/custom-domains/),
+[Preview limits](https://developers.cloudflare.com/workers/previews/), and
+[resource isolation](https://developers.cloudflare.com/workers/previews/resources/).
 
 ## Customer hostname state machine
 

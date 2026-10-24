@@ -80,6 +80,8 @@ provider spend cap. Link the actual read-back evidence and its timestamp.
 | Workers requests and CPU |  |  |  |  |  |  |  |
 | D1 reads, writes, and storage |  |  |  |  |  |  |  |
 | R2 storage, Class A/B operations, and retrieval |  |  |  |  |  |  |  |
+| Managed `*.sites.mithril.love` wildcard certificate and route |  |  |  |  |  |  |  |
+| Customer-owned custom hostnames, including Cloudflare for SaaS overages |  |  |  |  |  |  |  |
 | Workers AI or other model use |  |  |  |  |  |  |  |
 | Logs, observability, and retention |  |  |  |  |  |  |  |
 | TLS, domain, Access, or other add-ons |  |  |  |  |  |  |  |
@@ -96,6 +98,8 @@ Record these release checks before estimating a customer-facing amount:
 | --- | --- | --- |
 | Cloudflare account identity and account ID |  |  |
 | Worker usage plan and billing model |  |  |
+| Wildcard TLS coverage and certificate cost for `*.sites.mithril.love` |  |  |
+| Cloudflare for SaaS hostname allowance, overage price, and wildcard eligibility |  |  |
 | D1 database IDs, current usage, and limits |  |  |
 | R2 bucket IDs, current usage, and limits |  |  |
 | Metered AI and observability features disabled or verified |  |  |
@@ -165,6 +169,25 @@ allowances can change:
 - [D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/)
 - [R2 pricing](https://developers.cloudflare.com/r2/pricing/)
 - [Workers Preview domains and access controls](https://developers.cloudflare.com/workers/previews/custom-domains/)
+- [Cloudflare for SaaS hostname allowances and wildcard availability](https://developers.cloudflare.com/cloudflare-for-platforms/cloudflare-for-saas/plans/)
+- [Advanced Certificate Manager requirements and deep-subdomain coverage](https://developers.cloudflare.com/ssl/edge-certificates/advanced-certificate-manager/)
+- [Universal SSL hostname limitations](https://developers.cloudflare.com/ssl/edge-certificates/universal-ssl/limitations/)
+- [Cloudflare child-zone delegation availability](https://developers.cloudflare.com/dns/zone-setups/subdomain-setup/)
+- [Wildcard Worker Routes](https://developers.cloudflare.com/workers/configuration/routing/routes/)
+
+For `*.sites.mithril.love`, a wildcard route can provide one shared Worker
+attachment, but the full `mithril.love` zone's Universal SSL certificate does
+not cover that hostname depth. Advanced Certificate Manager is a paid add-on.
+A delegated `sites.mithril.love` child zone would put the wildcard one level
+below its own apex, but Cloudflare documents subdomain-zone setups as
+Enterprise-only. Do not record either path as zero-cost or available until the
+selected account's entitlement and billing are read back.
+
+Cloudflare for SaaS is a separate path for customer-owned domains. Its
+published plan table includes 100 hostnames and lists $0.10 per additional
+hostname, with wildcard custom hostnames limited to Enterprise. Keep customer
+domain costs separate from the managed MithrilPress hostname and from the $0
+site-owner price.
 
 This worksheet is not a provider quote, customer contract, security guarantee,
 or statement that MithrilPress is staffed for managed operations.
