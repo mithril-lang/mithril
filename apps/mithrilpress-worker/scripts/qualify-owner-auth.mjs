@@ -4,7 +4,8 @@ import { randomUUID } from "node:crypto";
 import { access, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createServer, request as httpRequest } from "node:http";
+import { createServer } from "node:http";
+import { request as httpsRequest } from "node:https";
 
 const root = new URL("../", import.meta.url).pathname;
 const wrangler = join(root, "node_modules/.bin/wrangler");
@@ -123,12 +124,14 @@ function request(port, method, pathname, { hostname = testHostname, token, body,
     if (token) headers.authorization = `Bearer ${token}`;
     if (contentType) headers["content-type"] = contentType;
     if (body !== undefined) headers["content-length"] = typeof body === "string" ? Buffer.byteLength(body) : body.byteLength;
-    const req = httpRequest({
+    const req = httpsRequest({
       hostname,
       port,
       method,
       path: pathname,
       headers,
+      // Wrangler's local certificate is self-signed; this client connects only to loopback.
+      rejectUnauthorized: false,
       timeout: 5_000,
       // Keep request.url on the tenant hostname while routing only the socket to local Wrangler.
       lookup: (_hostname, options, callback) => {
@@ -197,7 +200,7 @@ try {
 
   const port = await freePort();
   worker = spawn(wrangler, [
-    "dev", "--local", "--ip", "127.0.0.1", "--port", String(port), "--persist-to", persistPath, "--config", config,
+    "dev", "--local", "--local-protocol", "https", "--ip", "127.0.0.1", "--port", String(port), "--persist-to", persistPath, "--config", config,
     "--log-level", "warn", "--var", "MITHRILPRESS_OWNER_AUTH_DIAGNOSTICS:true",
   ], { cwd: root, env: cleanEnvironment(), stdio: ["ignore", "pipe", "pipe"] });
   const captureWorkerDiagnostics = (chunk) => {
