@@ -287,6 +287,46 @@ function parseBoundedInt(value, fallback, minimum, maximum) {
   return parsed >= minimum && parsed <= maximum ? parsed : null;
 }
 
+// Reserve D1's 100 bind parameters for shared filters, relevance sorting, and pagination.
+const MAX_WORDPRESS_PAGE_PARENT_FILTER_IDS = 80;
+
+function parseWordPressPageParentFilter(searchParams, name) {
+  const values = [];
+  let present = false;
+  for (const [key, value] of searchParams) {
+    if (key === name || key === `${name}[]`) {
+      present = true;
+      values.push(value);
+      continue;
+    }
+    if (!key.startsWith(`${name}[`)) continue;
+    present = true;
+    const index = key.endsWith("]") ? key.slice(name.length + 1, -1) : null;
+    if (index === null || (index !== "" && !/^\d+$/.test(index))) {
+      return { valid: false, present: true, values: null, count: 0 };
+    }
+    values.push(value);
+  }
+  if (!present) return { valid: true, present: false, values: null, count: 0 };
+
+  const ids = [];
+  for (const value of values) {
+    if (value === "") return { valid: false, present: true, values: null, count: 0 };
+    const candidates = value.split(",");
+    if (candidates.length > MAX_WORDPRESS_PAGE_PARENT_FILTER_IDS - ids.length) {
+      return { valid: false, present: true, values: null, count: 0 };
+    }
+    for (const candidate of candidates) {
+      const normalized = candidate.trim();
+      if (!/^\d{1,16}$/.test(normalized)) return { valid: false, present: true, values: null, count: 0 };
+      const id = Number(normalized);
+      if (!Number.isSafeInteger(id)) return { valid: false, present: true, values: null, count: 0 };
+      ids.push(id);
+    }
+  }
+  return { valid: true, present: true, values: [...new Set(ids)], count: ids.length };
+}
+
 async function readBoundedBytes(request, allowedTypes, unsupportedCode = "unsupported_content_type", maxBytes = MAX_BODY_BYTES) {
   const contentType = request.headers.get("Content-Type")?.split(";", 1)[0].trim().toLowerCase();
   if (!allowedTypes.has(contentType)) throw Object.assign(new Error(), { status: 415, code: unsupportedCode });
@@ -2611,6 +2651,7 @@ function canonicalUrl(hostname, entry) {
 }
 
 const SEO_METADATA_SELECT = "COALESCE((SELECT metadata_json FROM entry_seo_metadata seo WHERE seo.site_id = entries.site_id AND seo.revision_id = entries.revision_id AND seo.entry_id = entries.entry_id), '{}') AS seo_metadata_json";
+const WORDPRESS_PUBLIC_PAGE_PARENT_ID = "CASE WHEN EXISTS (SELECT 1 FROM entries wp_parent WHERE wp_parent.site_id = entries.site_id AND wp_parent.revision_id = entries.revision_id AND wp_parent.kind = 'page' AND wp_parent.source_id = entries.parent_source_id AND wp_parent.publication_status = 'published') THEN entries.parent_source_id ELSE 0 END";
 
 function wpRecord(site, row) {
   const link = canonicalUrl(site.hostname, row);
@@ -2662,7 +2703,7 @@ async function wordpressRead(request, env, site, kind, itemId = null) {
     if (!Number.isSafeInteger(sourceId) || sourceId < 1) return fail(404, "entry_not_found", "Entry not found.");
     if (!site.current_revision_id || site.status !== "active") return fail(404, "entry_not_found", "Entry not found.");
     const row = await env.DB.prepare(
-      `SELECT api_id, source_id, CASE WHEN EXISTS (SELECT 1 FROM entries parent WHERE parent.site_id = entries.site_id AND parent.revision_id = entries.revision_id AND parent.kind = 'page' AND parent.source_id = entries.parent_source_id AND parent.publication_status = 'published') THEN parent_source_id ELSE 0 END AS parent_source_id, source_date, source_date_gmt, source_modified, source_modified_gmt, featured_media_id, slug, route_path, title, safe_html, categories_json, tags_json, kind, ${SEO_METADATA_SELECT} FROM entries WHERE site_id = ? AND revision_id = ? AND kind = ? AND publication_status = 'published' AND COALESCE(source_id, api_id) = ? LIMIT 1`,
+      `SELECT api_id, source_id, ${WORDPRESS_PUBLIC_PAGE_PARENT_ID} AS parent_source_id, source_date, source_date_gmt, source_modified, source_modified_gmt, featured_media_id, slug, route_path, title, safe_html, categories_json, tags_json, kind, ${SEO_METADATA_SELECT} FROM entries WHERE site_id = ? AND revision_id = ? AND kind = ? AND publication_status = 'published' AND COALESCE(source_id, api_id) = ? LIMIT 1`,
     ).bind(site.id, site.current_revision_id, kind, sourceId).first();
     if (!row) return fail(404, "entry_not_found", "Entry not found.");
     return request.method === "HEAD"
@@ -2678,6 +2719,15 @@ async function wordpressRead(request, env, site, kind, itemId = null) {
   const search = searchValue === null ? null : searchValue.trim();
   if (search !== null && (!search || search.length > 100 || /[\u0000-\u001f\u007f]/.test(search))) {
     return fail(400, "invalid_search", "The search filter must contain 1-100 printable characters.");
+  }
+  const parentFilter = parseWordPressPageParentFilter(url.searchParams, "parent");
+  const parentExcludeFilter = parseWordPressPageParentFilter(url.searchParams, "parent_exclude");
+  if (!parentFilter.valid || !parentExcludeFilter.valid
+      || parentFilter.count + parentExcludeFilter.count > MAX_WORDPRESS_PAGE_PARENT_FILTER_IDS) {
+    return fail(400, "invalid_parent_filter", `Page parent filters accept at most ${MAX_WORDPRESS_PAGE_PARENT_FILTER_IDS} non-negative integer IDs in total.`);
+  }
+  if (kind !== "page" && (parentFilter.present || parentExcludeFilter.present)) {
+    return fail(400, "unsupported_parent_filter", "Parent filters are available only for pages.");
   }
   const after = parseWordPressDateFilter(url.searchParams.get("after"));
   const before = parseWordPressDateFilter(url.searchParams.get("before"), { endOfDay: true });
@@ -2702,9 +2752,16 @@ async function wordpressRead(request, env, site, kind, itemId = null) {
     modified: "COALESCE(julianday(COALESCE(source_modified_gmt, source_modified, source_date_gmt, source_date)), -1)",
     slug: "slug",
     title: "lower(title)",
+    ...(kind === "page" ? { parent: WORDPRESS_PUBLIC_PAGE_PARENT_ID } : {}),
   };
+  if (orderby === "parent" && kind !== "page") {
+    return fail(400, "invalid_orderby", "Sort by parent is available only for pages.");
+  }
   if (!Object.hasOwn(orderColumns, orderby) && orderby !== "relevance") {
-    return fail(400, "invalid_orderby", "Sort posts and pages by date, id, modified, relevance, slug, or title.");
+    const allowedOrderBy = kind === "page"
+      ? "date, id, modified, parent, relevance, slug, or title"
+      : "date, id, modified, relevance, slug, or title";
+    return fail(400, "invalid_orderby", `Sort ${kind}s by ${allowedOrderBy}.`);
   }
   if (orderby === "relevance" && search === null) {
     return fail(400, "search_term_required", "A search filter is required when ordering by relevance.");
@@ -2736,6 +2793,11 @@ async function wordpressRead(request, env, site, kind, itemId = null) {
     conditions.push("julianday(COALESCE(source_modified_gmt, source_modified, source_date_gmt, source_date)) <= julianday(?)");
     params.push(modifiedBefore.value);
   }
+  for (const [filter, operator] of [[parentFilter, "IN"], [parentExcludeFilter, "NOT IN"]]) {
+    if (filter.values === null) continue;
+    conditions.push(`${WORDPRESS_PUBLIC_PAGE_PARENT_ID} ${operator} (${filter.values.map(() => "?").join(", ")})`);
+    params.push(...filter.values);
+  }
   const where = conditions.join(" AND ");
   const count = await env.DB.prepare(`SELECT COUNT(*) AS total FROM entries WHERE ${where}`).bind(...params).first();
   const total = Number(count?.total ?? 0);
@@ -2745,7 +2807,7 @@ async function wordpressRead(request, env, site, kind, itemId = null) {
     : orderColumns[orderby];
   const orderParams = orderby === "relevance" ? [search, search] : [];
   const rows = await env.DB.prepare(
-    `SELECT api_id, source_id, CASE WHEN EXISTS (SELECT 1 FROM entries parent WHERE parent.site_id = entries.site_id AND parent.revision_id = entries.revision_id AND parent.kind = 'page' AND parent.source_id = entries.parent_source_id AND parent.publication_status = 'published') THEN parent_source_id ELSE 0 END AS parent_source_id, source_date, source_date_gmt, source_modified, source_modified_gmt, featured_media_id, slug, route_path, title, safe_html, categories_json, tags_json, kind, ${SEO_METADATA_SELECT} FROM entries WHERE ${where} ORDER BY ${orderExpression} ${order}, api_id ASC LIMIT ? OFFSET ?`,
+    `SELECT api_id, source_id, ${WORDPRESS_PUBLIC_PAGE_PARENT_ID} AS parent_source_id, source_date, source_date_gmt, source_modified, source_modified_gmt, featured_media_id, slug, route_path, title, safe_html, categories_json, tags_json, kind, ${SEO_METADATA_SELECT} FROM entries WHERE ${where} ORDER BY ${orderExpression} ${order}, api_id ASC LIMIT ? OFFSET ?`,
   ).bind(...params, ...orderParams, perPage, offset).all();
   const totalPages = total === 0 ? 0 : Math.ceil(total / perPage);
   const headers = { "X-WP-Total": String(total), "X-WP-TotalPages": String(totalPages) };
