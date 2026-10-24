@@ -123,7 +123,19 @@ function request(port, method, pathname, { hostname = testHostname, token, body,
     if (token) headers.authorization = `Bearer ${token}`;
     if (contentType) headers["content-type"] = contentType;
     if (body !== undefined) headers["content-length"] = typeof body === "string" ? Buffer.byteLength(body) : body.byteLength;
-    const req = httpRequest({ hostname: "127.0.0.1", port, method, path: pathname, headers, timeout: 5_000 }, (res) => {
+    const req = httpRequest({
+      hostname,
+      port,
+      method,
+      path: pathname,
+      headers,
+      timeout: 5_000,
+      // Keep request.url on the tenant hostname while routing only the socket to local Wrangler.
+      lookup: (_hostname, options, callback) => {
+        if (options?.all) callback(null, [{ address: "127.0.0.1", family: 4 }]);
+        else callback(null, "127.0.0.1", 4);
+      },
+    }, (res) => {
       const chunks = [];
       res.on("data", (chunk) => chunks.push(chunk));
       res.on("end", () => resolve({
