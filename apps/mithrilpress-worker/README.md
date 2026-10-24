@@ -664,7 +664,8 @@ app counters. Keep public hosting disabled until the account plan, shared
 usage, and enforceable cost boundary are read back. On Workers Free, D1 daily read/write exhaustion
 or a D1 storage ceiling is returned as a clear 503 and requests fail closed.
 Import and rendering workloads have not been qualified against the current CPU
-limit. Usage monitoring and release gates are tracked in Linear MITHRIL-292.
+limit. Usage monitoring and release gates are tracked in Linear MITHRIL-292 and
+the tenant-counter consistency fix in MITHRIL-458.
 See [Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/),
 [Workers limits](https://developers.cloudflare.com/workers/platform/limits/),
 [D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/), and
