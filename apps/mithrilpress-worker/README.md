@@ -566,22 +566,24 @@ then removes the D1 reservation. Unknown or mismatched outcomes remain private
 and quota-counted for operator review. Follow the
 [media reconciliation runbook](../../docs/operations/mithrilpress-media-reconciliation.md).
 
-The HTML sanitizer builds its tag set from the Mithril-authored `staticHtmlTags`
-rule in `src/content_boundary.mith`. The safe subset includes
-HTML sectioning elements, semantic text and ruby annotations, and table
-captions/columns/footers alongside headings, paragraphs, lists, links, code,
-and tables. It removes all attributes except validated HTTP(S) or relative
-anchor links, removes comments, and drops active content subtrees. An inline
+The HTML sanitizer keeps a small semantic tag allowlist in
+`src/wordpress_html_policy.js`, including native `details`/`summary`
+disclosures. It removes attributes except validated HTTP(S) or relative anchor
+`href` values and the `open` state plus bounded, control-free `name` grouping
+values on `details`. It removes comments and active content subtrees. An inline
 image is retained only when its `wp-image-N` class maps to an active R2 image
-uploaded by the site owner with WordPress media ID `N`. Unmapped image elements
-are removed and counted. Owners must transfer
-media themselves; MithrilPress never fetches WordPress URLs or arbitrary source
-media. Links on the admitted WordPress host are rewritten only when their
+uploaded by the site owner with WordPress media ID `N`. This retains disclosure
+and same-name accordion behavior but omits WordPress styling, block classes,
+and dimensions.
+Unmapped image elements are removed and counted. Owners must transfer media
+themselves; MithrilPress never fetches WordPress URLs or arbitrary source media.
+Links on the admitted WordPress host are rewritten only when their
 source permalink matches an imported post or page. Unmatched source-host links
 remain pointed at the source and are counted for owner review; unsafe schemes
 are removed and counted. The private import response and `migration-report`
 endpoint classify static, layout-degraded, dynamic, and unknown Gutenberg
-blocks, count source omissions, link mappings and image mappings, and flag
+blocks. Core details disclosures render with native HTML semantics. The report
+counts source omissions, link mappings and image mappings, and flags
 revisions for owner review. The report does not make dynamic blocks, themes,
 plugins, shortcodes, or PHP compatible; their code is never executed.
 Only static Yoast SEO title/description and Rank Math title/description fields
