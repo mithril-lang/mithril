@@ -1,5 +1,5 @@
 (ns mithril.module-lower
-  "Lower checked Mithril modules to deterministic Amu Kotoba source."
+  "Lower checked Mithril source to deterministic Amu Kotoba source."
   (:require [mithril.module :as module]
             [clojure.string :as str]))
 
@@ -135,6 +135,72 @@
   "Lower a Mithril module text to Amu Kotoba source."
   [text]
   (result (module/check-text text)))
+
+(def ^:private native-amu-types #{:i64 :bool :string})
+(def ^:private native-amu-intrinsics #{"add" "sub" "mul" "eq" "not"})
+
+(defn- native-amu-type! [type]
+  (when-not (contains? native-amu-types type)
+    (throw (ex-info "Native Amu modules support only i64, bool, and string values"
+                    {:mithril/error :mithril.module/amu-native-type
+                     :type type}))))
+
+(defn- native-amu-expression! [expr]
+  (case (:op expr)
+    :literal (native-amu-type! (:type expr))
+    :local nil
+    :intrinsic (do
+                 (when-not (contains? native-amu-intrinsics (:name expr))
+                   (throw (ex-info "Intrinsic is not in the native Amu module vocabulary"
+                                   {:mithril/error :mithril.module/amu-native-intrinsic
+                                    :intrinsic (:name expr)})))
+                 (doseq [arg (:args expr)] (native-amu-expression! arg)))
+    :call (doseq [arg (:args expr)] (native-amu-expression! arg))
+    :lambda (throw (ex-info "Guest callables are not in the native Amu module vocabulary"
+                            {:mithril/error :mithril.module/amu-native-callable}))
+    :function-ref (throw (ex-info "Guest callables are not in the native Amu module vocabulary"
+                                  {:mithril/error :mithril.module/amu-native-callable}))
+    :invoke (throw (ex-info "Guest callables are not in the native Amu module vocabulary"
+                            {:mithril/error :mithril.module/amu-native-callable}))
+    :let (do
+           (doseq [binding (:bindings expr)]
+             (native-amu-expression! (:value binding)))
+           (native-amu-expression! (:body expr)))
+    :sequence (doseq [child (:expressions expr)] (native-amu-expression! child))
+    :if (doseq [child [(:condition expr) (:then expr) (:else expr)]]
+          (native-amu-expression! child))))
+
+(defn- native-amu-result [checked]
+  (doseq [declaration (:functions checked)]
+    (doseq [type (cons (:returns declaration) (map :type (:params declaration)))]
+      (native-amu-type! type))
+    (native-amu-expression! (:body declaration)))
+  (let [indexes (zipmap (mapv :name (:functions checked))
+                        (range (count (:functions checked))))
+        declarations (into {} (map (juxt :name identity) (:functions checked)))]
+    (assoc (result checked)
+           :format :mithril.module/amu-native-source-v1
+           :abi (mapv (fn [public-name]
+                        (let [canonical (export-target checked public-name)
+                              declaration (get declarations canonical)]
+                          {:name public-name
+                           :symbol (export-symbol (get indexes canonical))
+                           :params (mapv :type (:params declaration))
+                           :returns (:returns declaration)}))
+                      (:exports checked)))))
+
+(defn lower-native-document
+  "Lower a checked scalar Mithril module for Amu's native selfhost compiler.
+
+  This profile deliberately rejects host JS values and guest callables before
+  the Amu compiler is invoked."
+  [doc]
+  (native-amu-result (module/check-document doc)))
+
+(defn lower-native-text
+  "Lower a checked scalar Mithril module text for Amu's native selfhost compiler."
+  [text]
+  (native-amu-result (module/check-text text)))
 
 (defn- library-fail! [code detail]
   (throw (ex-info detail {:mithril/error code :detail detail})))
