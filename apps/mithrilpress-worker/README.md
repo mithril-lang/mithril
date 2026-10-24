@@ -542,11 +542,15 @@ write and storage caps; reaching a cap stops the import without a paid fallback.
 | `GET` | `/wp-json/wp/v2/media/{id}` | public | Read metadata for a currently published featured or inline image. |
 | `GET` | `/{slug}/` | public | Render one published page or post. |
 
-The HTML sanitizer keeps a small semantic tag allowlist, removes all attributes
-except validated HTTP(S) or relative anchor links, removes comments, and drops
-active content subtrees. An inline image is retained only when its `wp-image-N`
-class maps to an active R2 image uploaded by the site owner with WordPress media
-ID `N`. Unmapped image elements are removed and counted. Owners must transfer
+The HTML sanitizer builds its tag set from the Mithril-authored `staticHtmlTags`
+rule in `src/content_boundary.mith`. The safe subset includes
+HTML sectioning elements, semantic text and ruby annotations, and table
+captions/columns/footers alongside headings, paragraphs, lists, links, code,
+and tables. It removes all attributes except validated HTTP(S) or relative
+anchor links, removes comments, and drops active content subtrees. An inline
+image is retained only when its `wp-image-N` class maps to an active R2 image
+uploaded by the site owner with WordPress media ID `N`. Unmapped image elements
+are removed and counted. Owners must transfer
 media themselves; MithrilPress never fetches WordPress URLs or arbitrary source
 media. Links on the admitted WordPress host are rewritten only when their
 source permalink matches an imported post or page. Unmatched source-host links
