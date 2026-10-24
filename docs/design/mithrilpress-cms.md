@@ -96,16 +96,20 @@ publication transactions.
 
 The production import path also compiles
 `apps/mithrilpress-worker/src/wordpress_taxonomy.mith` and
-`apps/mithrilpress-worker/src/wordpress_page_hierarchy.mith`. Mithril resolves
+`apps/mithrilpress-worker/src/wordpress_page_hierarchy.mith` plus
+`apps/mithrilpress-worker/src/wordpress_block_policy.mith`. Mithril resolves
 supported category-parent slugs, rejects unresolved, self-referential, and
 cyclic category relationships, and projects imported taxonomy fields. Its
 page-hierarchy contract removes non-page, missing, self, cyclic, and over-depth
 parent links, returning preserved and omitted counts for the owner-review
 report. Before an import continues, the same contract checks D1 readback for an
 exact, unique mapping of expected page entry IDs to parent source IDs. The
-JavaScript adapter still parses bounded WXR XML, constructs D1 statements,
-performs the writes and readback, and translates host failures. This is a
-compiled policy boundary for this import path, not full WordPress parity.
+block policy contract classifies serialized Gutenberg block names as static,
+layout-degraded, dynamic, or unknown. JavaScript still scans bounded Gutenberg
+comment markers and aggregates the import report. The adapter also parses
+bounded WXR XML, constructs D1 statements, performs writes and readback, and
+translates host failures. This is a compiled policy boundary for this import
+path, not full WordPress parity.
 
 The adapter does not fetch WordPress itself: owners provide the content through
 a scoped token. The importer accepts a

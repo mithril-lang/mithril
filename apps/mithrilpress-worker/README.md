@@ -63,10 +63,13 @@ unmatched-reference review outcome, the private chat-draft proposal envelope,
 migration parity classification, and revision
 approval/publication/restore eligibility. The Worker calls those contracts at
 the hostname, import, taxonomy, AI proposal, and revision lifecycle
-boundaries. The Worker retains host responsibility for cross-record taxonomy
-references and cycles, D1/R2 and AI I/O, HTML sanitization, language-tag
-canonicalization, and slug collision resolution. The `.cljk` model remains the
-platform-neutral reference boundary;
+boundaries. `wordpress_block_policy.mith` owns Gutenberg block-name
+normalization and static, layout-degraded, dynamic, and unknown classification;
+JavaScript retains the bounded comment-token scan and report aggregation. The
+Worker retains host responsibility for cross-record taxonomy references and
+cycles, D1/R2 and AI I/O, HTML sanitization, language-tag canonicalization, and
+slug collision resolution. The `.cljk` model remains the platform-neutral
+reference boundary;
 the `.mith` modules are the executable Worker contracts. Regenerate all
 checked-in modules from the repository root or this package directory with
 `npm run build:mithril` after changing their `.mith` source. The build uses the
