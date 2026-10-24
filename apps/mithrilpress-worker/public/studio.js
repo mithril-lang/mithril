@@ -540,7 +540,7 @@ function renderDnsMigrationDetail(migration) {
       dnsField(block, "BIND import file", { multiline: true, rows: 10, value: migration.import_zone_text, readOnly: true });
     }
 
-    const cloudflareBlock = dnsBlock("Optional: read a Cloudflare staging zone", "Use a Cloudflare API token scoped to this zone with Zone Read and DNS Read. The token is sent only with this request and is not saved by MithrilPress. DNS Write is needed only for the explicit additive import below.");
+    const cloudflareBlock = dnsBlock("Optional: read a Cloudflare staging zone", "Use a token scoped to this zone with Zone Read and DNS Read. It is sent only with this request and is not saved. The separate import request also rereads the zone before and after writing, so its token needs Zone Read, DNS Read, and DNS Write.");
     const zoneId = dnsField(cloudflareBlock, "Cloudflare zone ID", {
       maxLength: 32,
       placeholder: "32-character zone ID",
@@ -567,8 +567,8 @@ function renderDnsMigrationDetail(migration) {
       if (!cloudflareDnsImportsEnabled) {
         dnsBlock("Cloudflare import is not enabled", "This deployment keeps provider writes disabled until the import behavior is qualified against an isolated Cloudflare zone. You can review the generated BIND file and stage records manually.");
       } else {
-        const importBlock = dnsBlock("Add only missing source records", `${migration.diff.removed.length} source records are missing. MithrilPress will submit only this missing-record set. The live Cloudflare zone is checked again before the import and read back afterward.`);
-        const importToken = dnsField(importBlock, "Short-lived Cloudflare API token with DNS Write", {
+        const importBlock = dnsBlock("Add only missing source records", `${migration.diff.removed.length} source records are missing. MithrilPress will submit only this missing-record set. The token is used to reread the live Cloudflare zone before and after the write, so it needs Zone Read, DNS Read, and DNS Write scoped to this zone.`);
+        const importToken = dnsField(importBlock, "Short-lived Cloudflare API token with Zone Read, DNS Read, and DNS Write", {
           type: "password", maxLength: 512, autocomplete: "off", spellcheck: false,
           placeholder: "Paste a zone-scoped token for this request",
         });
