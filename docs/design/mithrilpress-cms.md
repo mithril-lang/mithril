@@ -171,6 +171,37 @@ pattern. Keep this path disabled until wildcard TLS, host-aware abuse controls,
 an enforceable provider-cost stop, rollback, and operator cost are approved and
 qualified. Never charge site owners or upgrade them automatically.
 
+### Temporary owner migration previews
+
+Cloudflare Worker Previews provide a separate, limited option for temporary
+owner-authorized migration reviews. A dedicated preview Worker can attach
+`sites.mithril.love` as a Preview-only Custom Domain
+(`previews_enabled: true`, `enabled: false`). Cloudflare then creates wildcard
+DNS and an SSL certificate for `*.sites.mithril.love`; each named Preview is
+served at `<preview-name>.sites.mithril.love`. This does not route the base
+hostname or create a durable published tenant hostname. See [Worker Preview
+custom domains](https://developers.cloudflare.com/workers/previews/custom-domains/).
+
+Keep this Worker separate from permanent publication and bind it only to
+preview D1/R2 resources. Cloudflare Previews sharing a resource ID share its
+data, so every record and object lookup must also stay scoped to the authorized
+site and preview. A dedicated Worker has a maximum of 100 Previews on Free and
+500 on Paid; Cloudflare may evict the least recently deployed Preview at the
+limit. Enforce a lower product cap, record each name and expiry, and delete
+expired Previews deterministically. If the current account plan, available
+Preview slots, or cleanup state cannot be verified, refuse creation. Custom
+domain Preview URLs are public by default and do not get an automatic
+`X-Robots-Tag: noindex`; require the tested owner-auth flow and set noindex in
+the Worker before returning any preview page. Use the documented delete
+operation as part of the cleanup owner runbook. Worker Previews require
+Wrangler 4.135 or later. See [Preview limits](https://developers.cloudflare.com/workers/previews/)
+and [resource isolation](https://developers.cloudflare.com/workers/previews/resources/).
+
+Only import content supplied by an owner who explicitly requested a preview.
+Treat preview creation as a temporary review step: it must not enable public
+publication, marketing distribution, or a DNS migration. The default
+published-host and wildcard-scale gates above still apply independently.
+
 The separate [optional static publication design](mithrilpress-static-publication.md)
 can publish an owner-approved revision to one capped Cloudflare Pages project
 with one exact custom hostname per selected site. It does not replace or
