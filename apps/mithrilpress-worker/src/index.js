@@ -28,6 +28,10 @@ const CUSTOM_DOMAIN_HEALTH_FAILURE_LIMIT = 3;
 const MAX_BODY_BYTES = 12_000_000;
 const MAX_RECORDS = 500;
 const MAX_CONTENT_CHARS = 250_000;
+const MAX_MANUAL_DRAFT_CHARS = 100_000;
+const MAX_CHAT_DRAFT_HTML_CHARS = 250_000;
+// Worst case: every input character is a double quote (six escaped chars), plus <p></p>.
+const MAX_MANUAL_DRAFT_HTML_CHARS = 600_007;
 const MAX_IMPORT_CHARS = 10_000_000;
 const MAX_IMPORTED_TERMS = 5_000;
 const MAX_IMPORTED_TERM_BYTES = 1_000_000;
@@ -47,12 +51,7 @@ const ENTRY_SLUG = /^[^/?#\\\u0000-\u001f\u007f]{1,200}$/;
 const mithrilHostnameCore = instantiateMithrilNative({});
 const mithrilContentBoundary = instantiateContentBoundary({ Array, Number, Set });
 const mithrilMigrationPolicy = instantiateMigrationPolicy({});
-const HTML_TAGS = new Set([
-  "a", "b", "blockquote", "br", "code", "dd", "del", "div", "dl", "dt",
-  "em", "figcaption", "figure", "h1", "h2", "h3", "h4", "h5", "h6", "hr",
-  "i", "ins", "li", "ol", "p", "pre", "s", "span", "strong", "sub", "sup",
-  "table", "tbody", "td", "th", "thead", "tr", "u", "ul",
-]);
+const HTML_TAGS = new Set(mithrilContentBoundary.staticHtmlTags());
 const DROP_SUBTREE_TAGS = new Set([
   "audio", "button", "canvas", "embed", "form", "iframe", "input", "link",
   "math", "meta", "noscript", "object", "option", "script", "select", "source",
@@ -285,6 +284,46 @@ function parseBoundedInt(value, fallback, minimum, maximum) {
   if (!/^[0-9]{1,6}$/.test(value)) return null;
   const parsed = Number(value);
   return parsed >= minimum && parsed <= maximum ? parsed : null;
+}
+
+// Reserve D1's 100 bind parameters for shared filters, relevance sorting, and pagination.
+const MAX_WORDPRESS_PAGE_PARENT_FILTER_IDS = 80;
+
+function parseWordPressPageParentFilter(searchParams, name) {
+  const values = [];
+  let present = false;
+  for (const [key, value] of searchParams) {
+    if (key === name || key === `${name}[]`) {
+      present = true;
+      values.push(value);
+      continue;
+    }
+    if (!key.startsWith(`${name}[`)) continue;
+    present = true;
+    const index = key.endsWith("]") ? key.slice(name.length + 1, -1) : null;
+    if (index === null || (index !== "" && !/^\d+$/.test(index))) {
+      return { valid: false, present: true, values: null, count: 0 };
+    }
+    values.push(value);
+  }
+  if (!present) return { valid: true, present: false, values: null, count: 0 };
+
+  const ids = [];
+  for (const value of values) {
+    if (value === "") return { valid: false, present: true, values: null, count: 0 };
+    const candidates = value.split(",");
+    if (candidates.length > MAX_WORDPRESS_PAGE_PARENT_FILTER_IDS - ids.length) {
+      return { valid: false, present: true, values: null, count: 0 };
+    }
+    for (const candidate of candidates) {
+      const normalized = candidate.trim();
+      if (!/^\d{1,16}$/.test(normalized)) return { valid: false, present: true, values: null, count: 0 };
+      const id = Number(normalized);
+      if (!Number.isSafeInteger(id)) return { valid: false, present: true, values: null, count: 0 };
+      ids.push(id);
+    }
+  }
+  return { valid: true, present: true, values: [...new Set(ids)], count: ids.length };
 }
 
 async function readBoundedBytes(request, allowedTypes, unsupportedCode = "unsupported_content_type", maxBytes = MAX_BODY_BYTES) {
@@ -630,8 +669,13 @@ async function verifyOwnerTokenParts(env, site, tokenId, secret, requiredScope, 
   return { tokenId: token.token_id, ownerLabel: token.owner_label, scopes, expiresAt: token.expires_at };
 }
 
+function expectedStudioOrigin(site) {
+  const requestHostname = site.request_hostname ?? site.hostname;
+  return `https://${requestHostname}`;
+}
+
 function sameOriginStudioMutation(request, site) {
-  return request.headers.get("Origin") === `https://${site.hostname}`
+  return request.headers.get("Origin") === expectedStudioOrigin(site)
     && request.headers.get("X-MithrilPress-Request") === "1";
 }
 
@@ -1467,8 +1511,8 @@ async function studioChat(request, env, site) {
     return fail(502, "invalid_ai_response", "The drafting service returned an incomplete proposal. No draft was saved.");
   }
   const candidateSlug = studioSlug(proposal?.slug, typeof proposal?.title === "string" ? proposal.title : "");
-  const admittedDraft = mithrilContentBoundary.prepareChatDraft(
-    site.id, owner.tokenId, conversation.id, kind, candidateSlug, proposal, languageCode,
+  const admittedDraft = mithrilContentBoundary.prepareStudioDraft(
+    site.id, owner.tokenId, conversation.id, kind, candidateSlug, proposal, languageCode, MAX_CHAT_DRAFT_HTML_CHARS,
   );
   if (!admittedDraft.ok || admittedDraft.status !== "private-draft"
       || admittedDraft.publicationAdmitted !== false || admittedDraft.tenantId !== site.id
@@ -1523,9 +1567,6 @@ async function studioChat(request, env, site) {
   }
   statements.push(
     env.DB.prepare(
-      "UPDATE site_revisions SET state = 'superseded' WHERE site_id = ? AND id = (SELECT draft_revision_id FROM studio_conversations WHERE site_id = ? AND id = ?) AND state = 'private-preview'",
-    ).bind(site.id, site.id, conversation.id),
-    env.DB.prepare(
       "INSERT INTO site_revisions (id, site_id, parent_revision_id, state, revision_origin, source_origin, import_proof_id, import_token_id, imported_at, entry_count) SELECT ?, ?, ?, 'importing', 'chat', NULL, NULL, NULL, ?, ? WHERE EXISTS (SELECT 1 FROM studio_conversations c JOIN sites s ON s.id = c.site_id WHERE c.site_id = ? AND c.id = ? AND c.token_id = ? AND c.base_revision_id IS ? AND c.draft_revision_id IS ? AND (c.draft_revision_id IS NULL OR EXISTS (SELECT 1 FROM site_revisions d WHERE d.site_id = c.site_id AND d.id = c.draft_revision_id AND d.state = 'private-preview')) AND s.current_revision_id IS ? AND s.status = 'active')",
     ).bind(revisionId, site.id, baseRevisionId, nowIso, baseCount + 1,
       site.id, conversation.id, owner.tokenId, baseRevisionId, conversation.draft_revision_id, site.current_revision_id),
@@ -1553,8 +1594,11 @@ async function studioChat(request, env, site) {
       "UPDATE site_revisions SET state = 'private-preview' WHERE site_id = ? AND id = ? AND state = 'importing' AND entry_count = (SELECT COUNT(*) FROM entries WHERE site_id = ? AND revision_id = ? AND rendering_admission = 'ready')",
     ).bind(site.id, revisionId, site.id, revisionId),
     env.DB.prepare(
-      "UPDATE studio_conversations SET draft_revision_id = ?, updated_at = ? WHERE site_id = ? AND id = ? AND token_id = ? AND base_revision_id IS ?",
-    ).bind(revisionId, assistantAt, site.id, conversation.id, owner.tokenId, baseRevisionId),
+      "UPDATE site_revisions SET state = 'superseded' WHERE site_id = ? AND id = ? AND state = 'private-preview'",
+    ).bind(site.id, conversation.draft_revision_id),
+    env.DB.prepare(
+      "UPDATE studio_conversations SET draft_revision_id = ?, updated_at = ? WHERE site_id = ? AND id = ? AND token_id = ? AND base_revision_id IS ? AND draft_revision_id IS ?",
+    ).bind(revisionId, assistantAt, site.id, conversation.id, owner.tokenId, baseRevisionId, conversation.draft_revision_id),
     env.DB.prepare(
       "INSERT INTO studio_messages (site_id, conversation_id, id, role, body, created_at) VALUES (?, ?, ?, 'user', ?, ?)",
     ).bind(site.id, conversation.id, crypto.randomUUID(), body.message.trim(), nowIso),
@@ -1577,12 +1621,238 @@ async function studioChat(request, env, site) {
     return fail(503, "draft_not_saved", "The private draft could not be saved. No content was published.");
   }
   const inheritedParentResults = saved.slice(
-    3 + newConversationOffset,
-    3 + newConversationOffset + inheritedPageParents.length,
+    2 + newConversationOffset,
+    2 + newConversationOffset + inheritedPageParents.length,
   );
   if (inheritedParentResults.some((result) => result?.meta?.changes !== 1)
-      || saved[7 + newConversationOffset + inheritedPageParents.length]?.meta?.changes !== 1
+      || saved[6 + newConversationOffset + inheritedPageParents.length]?.meta?.changes !== 1
       || saved[8 + newConversationOffset + inheritedPageParents.length]?.meta?.changes !== 1) {
+    return fail(503, "draft_not_saved", "The private draft could not be saved. No content was published.");
+  }
+  return json({
+    conversation_id: conversation.id,
+    message: chatEntry.assistantMessage.trim(),
+    draft: { revision_id: revisionId, title: chatEntry.title.trim(), slug, kind, state: "private-preview", featured_media_id: featuredMediaId },
+    preview_url: `/_mithrilpress/preview/${revisionId}/${encodeURIComponent(slug)}`,
+  }, 201);
+}
+
+async function studioManualDraft(request, env, site) {
+  if (!sameOriginStudioMutation(request, site)) {
+    if (env.MITHRILPRESS_OWNER_AUTH_DIAGNOSTICS === "true") {
+      const origin = request.headers.get("Origin");
+      let parsedOrigin = null;
+      try {
+        parsedOrigin = origin ? new URL(origin) : null;
+      } catch {
+        // The diagnostic records only parsed origin metadata, never request content.
+      }
+      const diagnostic = JSON.stringify({
+        originHost: parsedOrigin?.host ?? null,
+        originProtocol: parsedOrigin?.protocol ?? null,
+        originMatchesExpected: origin === expectedStudioOrigin(site),
+        requestMarkerMatches: request.headers.get("X-MithrilPress-Request") === "1",
+        siteHostname: site.hostname,
+        requestHostname: site.request_hostname ?? null,
+        workerUrlOrigin: new URL(request.url).origin,
+      });
+      console.error("mithrilpress_owner_auth_diagnostic", diagnostic);
+      return fail(403, "same_origin_required", "Studio changes must come from this site.", {
+        "X-MithrilPress-Owner-Auth-Diagnostic": diagnostic,
+      });
+    }
+    return fail(403, "same_origin_required", "Studio changes must come from this site.");
+  }
+  const owner = await ownerToken(request, env, site, "content:write");
+  if (!owner) return fail(401, "studio_login_required", "An active content:write session is required.");
+
+  const body = await readBoundedJson(request);
+  if (!textValue(body?.title, 200)) return fail(422, "invalid_title", "Enter a title of up to 200 characters.");
+  if (!textValue(body?.content, MAX_MANUAL_DRAFT_CHARS)) {
+    return fail(422, "invalid_content", "Enter text of up to 100,000 characters.");
+  }
+  const requestedKind = body.kind === "page" ? "page" : "post";
+  const requestedConversationId = body.conversation_id ?? null;
+  if (requestedConversationId !== null && !/^[a-f0-9-]{36}$/.test(requestedConversationId)) {
+    return fail(422, "invalid_conversation", "The studio conversation identifier is invalid.");
+  }
+  let languageCode = "und";
+  if (body.language !== undefined && body.language !== "") {
+    languageCode = normalizedLanguageTag(body.language);
+    if (!languageCode) return fail(422, "invalid_language", "Enter a valid BCP 47 content language tag or leave the field empty.");
+  }
+
+  const hasFeaturedMedia = Object.hasOwn(body, "featured_media_id");
+  let requestedFeaturedMediaId = null;
+  if (hasFeaturedMedia && body.featured_media_id !== null) {
+    if (!Number.isSafeInteger(body.featured_media_id) || body.featured_media_id <= 0) {
+      return fail(422, "invalid_featured_media", "Select a media item from this site's library.");
+    }
+    if (!owner.scopes.includes("media:write")) {
+      return fail(403, "media_scope_required", "A media:write owner scope is required to set a featured image.");
+    }
+    const selectedMedia = await env.DB.prepare(
+      "SELECT id FROM media_assets WHERE site_id = ? AND id = ? AND status = 'active' LIMIT 1",
+    ).bind(site.id, body.featured_media_id).first();
+    if (!selectedMedia) return fail(422, "invalid_featured_media", "Select an active image from this site's media library.");
+    requestedFeaturedMediaId = selectedMedia.id;
+  }
+
+  const now = new Date();
+  const nowIso = now.toISOString();
+  let conversation;
+  if (requestedConversationId) {
+    conversation = await env.DB.prepare(
+      "SELECT c.id, c.token_id, c.base_revision_id, c.draft_revision_id, r.state AS draft_state FROM studio_conversations c LEFT JOIN site_revisions r ON r.site_id = c.site_id AND r.id = c.draft_revision_id WHERE c.site_id = ? AND c.id = ? LIMIT 1",
+    ).bind(site.id, requestedConversationId).first();
+    if (!conversation || conversation.token_id !== owner.tokenId) return fail(404, "conversation_not_found", "Studio conversation not found.");
+    if (conversation.base_revision_id !== site.current_revision_id) {
+      return fail(409, "site_changed", "The published site changed since this conversation began. Start a new conversation from the latest revision.");
+    }
+    if (conversation.draft_state && conversation.draft_state !== "private-preview") {
+      return fail(409, "draft_locked", "This conversation draft has been approved or published. Start a new conversation to continue editing.");
+    }
+    const count = await env.DB.prepare(
+      "SELECT COUNT(*) AS total FROM studio_messages WHERE site_id = ? AND conversation_id = ?",
+    ).bind(site.id, conversation.id).first();
+    if (Number(count?.total ?? 0) + 2 > STUDIO_MAX_MESSAGES) {
+      return conversationQuotaResponse("conversation_message_limit_exceeded");
+    }
+  } else {
+    conversation = {
+      id: crypto.randomUUID(),
+      token_id: owner.tokenId,
+      base_revision_id: site.current_revision_id,
+      draft_revision_id: null,
+      draft_state: null,
+    };
+  }
+
+  const currentDraft = conversation.draft_revision_id
+    ? await env.DB.prepare(
+      "SELECT kind, slug, route_path, featured_media_id FROM entries WHERE site_id = ? AND revision_id = ? AND entry_id = ? LIMIT 1",
+    ).bind(site.id, conversation.draft_revision_id, `mithrilpress:chat:${conversation.id}`).first()
+    : null;
+  const featuredMediaId = hasFeaturedMedia ? requestedFeaturedMediaId : (currentDraft?.featured_media_id ?? null);
+  const kind = currentDraft?.kind ?? requestedKind;
+  const title = body.title.trim();
+  const paragraphs = body.content.trim().split(/\n{2,}/).map((paragraph) =>
+    `<p>${escapeHtml(paragraph).replace(/\r?\n/g, "<br>")}</p>`
+  );
+  const sourceHtml = paragraphs.join("");
+  const proposal = {
+    assistant_message: "Your text was saved as a private draft without AI.",
+    title,
+    html: sourceHtml,
+  };
+  const candidateSlug = studioSlug(title, title);
+  const admittedDraft = mithrilContentBoundary.prepareStudioDraft(
+    site.id, owner.tokenId, conversation.id, kind, candidateSlug, proposal, languageCode, MAX_MANUAL_DRAFT_HTML_CHARS,
+  );
+  if (!admittedDraft.ok || admittedDraft.status !== "private-draft"
+      || admittedDraft.publicationAdmitted !== false || admittedDraft.tenantId !== site.id
+      || admittedDraft.authorizationProofId !== owner.tokenId || admittedDraft.conversationId !== conversation.id
+      || admittedDraft.entry.tenantId !== site.id || admittedDraft.entry.kind !== kind
+      || admittedDraft.entry.id !== `mithrilpress:chat:${conversation.id}` || admittedDraft.entry.language !== languageCode
+      || admittedDraft.entry.trust !== "untrusted" || admittedDraft.entry.renderingAdmission !== "blocked"
+      || admittedDraft.entry.publicationState !== "draft") {
+    return fail(422, "invalid_manual_draft", "The text could not be prepared as a private draft.");
+  }
+  const chatEntry = admittedDraft.entry;
+  const safeHtml = await sanitizeHtml(chatEntry.source);
+  if (!textValue(safeHtml, MAX_SAFE_HTML_CHARS)) return fail(422, "empty_manual_draft", "Enter text that can be saved as a draft.");
+
+  let slug = chatEntry.slug;
+  const baseEntries = conversation.base_revision_id
+    ? await env.DB.prepare(
+      "SELECT kind, slug, api_id, route_path FROM entries WHERE site_id = ? AND revision_id = ?",
+    ).bind(site.id, conversation.base_revision_id).all()
+    : { results: [] };
+  const sameKindEntries = (baseEntries.results ?? []).filter((entry) => entry.kind === kind);
+  const occupied = new Set(sameKindEntries.map((entry) => entry.slug));
+  const occupiedRoutes = new Set((baseEntries.results ?? []).map((entry) => entry.route_path));
+  let routePath = currentDraft?.slug === slug && currentDraft.route_path
+    ? currentDraft.route_path
+    : defaultRoutePath({ kind, slug });
+  if (occupied.has(slug) || occupiedRoutes.has(routePath)) {
+    const suffix = conversation.id.replaceAll("-", "").slice(0, 10);
+    const prefix = slug.slice(0, 180 - suffix.length - 1).replace(/-+$/g, "") || "entry";
+    slug = `${prefix}-${suffix}`;
+    routePath = defaultRoutePath({ kind, slug });
+  }
+  const apiId = Math.max(0, ...sameKindEntries.map((entry) => Number(entry.api_id) || 0)) + 1;
+  if (!Number.isSafeInteger(apiId)) return fail(409, "site_content_limit", "The site has reached the WordPress-compatible identifier limit.");
+  const baseCount = conversation.base_revision_id
+    ? Number((await env.DB.prepare("SELECT COUNT(*) AS total FROM entries WHERE site_id = ? AND revision_id = ?").bind(site.id, conversation.base_revision_id).first())?.total ?? 0)
+    : 0;
+  if (baseCount >= MAX_RECORDS) return fail(409, "site_content_limit", "This revision has reached the 500-entry limit. Import or archive content before adding another post.");
+
+  const revisionId = crypto.randomUUID();
+  const entryId = chatEntry.id;
+  const assistantAt = new Date(now.getTime() + 1).toISOString();
+  const baseRevisionId = conversation.base_revision_id;
+  const statements = [];
+  const newConversationOffset = requestedConversationId === null ? 1 : 0;
+  if (newConversationOffset) {
+    statements.push(
+      env.DB.prepare(
+        "INSERT INTO studio_conversations (site_id, id, token_id, base_revision_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+      ).bind(site.id, conversation.id, owner.tokenId, baseRevisionId, nowIso, nowIso),
+    );
+  }
+  statements.push(
+    env.DB.prepare(
+      "INSERT INTO site_revisions (id, site_id, parent_revision_id, state, revision_origin, source_origin, import_proof_id, import_token_id, imported_at, entry_count) SELECT ?, ?, ?, 'importing', 'chat', NULL, NULL, NULL, ?, ? WHERE EXISTS (SELECT 1 FROM studio_conversations c JOIN sites s ON s.id = c.site_id WHERE c.site_id = ? AND c.id = ? AND c.token_id = ? AND c.base_revision_id IS ? AND c.draft_revision_id IS ? AND (c.draft_revision_id IS NULL OR EXISTS (SELECT 1 FROM site_revisions d WHERE d.site_id = c.site_id AND d.id = c.draft_revision_id AND d.state = 'private-preview')) AND s.current_revision_id IS ? AND s.status = 'active')",
+    ).bind(revisionId, site.id, baseRevisionId, nowIso, baseCount + 1,
+      site.id, conversation.id, owner.tokenId, baseRevisionId, conversation.draft_revision_id, site.current_revision_id),
+    env.DB.prepare(
+      "INSERT INTO entries (site_id, revision_id, entry_id, kind, slug, route_path, title, source_html, safe_html, entry_origin, publication_status, language_code, api_id, source_id, source_status, source_date, source_date_gmt, source_modified, source_modified_gmt, source_permalink, categories_json, tags_json, featured_media_id, rendering_admission) SELECT site_id, ?, entry_id, kind, slug, route_path, title, source_html, safe_html, entry_origin, publication_status, language_code, api_id, source_id, source_status, source_date, source_date_gmt, source_modified, source_modified_gmt, source_permalink, categories_json, tags_json, featured_media_id, rendering_admission FROM entries WHERE site_id = ? AND revision_id = ?",
+    ).bind(revisionId, site.id, baseRevisionId),
+    env.DB.prepare(
+      "INSERT INTO entry_seo_metadata (site_id, revision_id, entry_id, metadata_json) SELECT site_id, ?, entry_id, metadata_json FROM entry_seo_metadata WHERE site_id = ? AND revision_id = ?",
+    ).bind(revisionId, site.id, baseRevisionId),
+    env.DB.prepare(
+      "INSERT INTO entry_media (site_id, revision_id, entry_id, media_id, created_at) SELECT site_id, ?, entry_id, media_id, created_at FROM entry_media WHERE site_id = ? AND revision_id = ?",
+    ).bind(revisionId, site.id, baseRevisionId),
+    env.DB.prepare(
+      "INSERT INTO taxonomy_terms (site_id, revision_id, taxonomy, term_id, slug, name, description_html, parent_term_id) SELECT site_id, ?, taxonomy, term_id, slug, name, description_html, parent_term_id FROM taxonomy_terms WHERE site_id = ? AND revision_id = ?",
+    ).bind(revisionId, site.id, baseRevisionId),
+    env.DB.prepare(
+      "INSERT INTO entries (site_id, revision_id, entry_id, kind, slug, route_path, title, source_html, safe_html, entry_origin, publication_status, language_code, api_id, source_id, source_status, source_date, source_date_gmt, source_modified, source_modified_gmt, source_permalink, categories_json, tags_json, featured_media_id, rendering_admission) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'chat', 'draft', ?, ?, NULL, 'draft', ?, ?, ?, ?, NULL, '[]', '[]', ?, 'ready')",
+    ).bind(site.id, revisionId, entryId, kind, slug, routePath, chatEntry.title.trim(), chatEntry.source, safeHtml,
+      languageCode, apiId, nowIso, nowIso, nowIso, nowIso, featuredMediaId),
+    env.DB.prepare(
+      "UPDATE site_revisions SET state = 'private-preview' WHERE site_id = ? AND id = ? AND state = 'importing' AND entry_count = (SELECT COUNT(*) FROM entries WHERE site_id = ? AND revision_id = ? AND rendering_admission = 'ready')",
+    ).bind(site.id, revisionId, site.id, revisionId),
+    env.DB.prepare(
+      "UPDATE site_revisions SET state = 'superseded' WHERE site_id = ? AND id = ? AND state = 'private-preview'",
+    ).bind(site.id, conversation.draft_revision_id),
+    env.DB.prepare(
+      "UPDATE studio_conversations SET draft_revision_id = ?, updated_at = ? WHERE site_id = ? AND id = ? AND token_id = ? AND base_revision_id IS ? AND draft_revision_id IS ?",
+    ).bind(revisionId, assistantAt, site.id, conversation.id, owner.tokenId, baseRevisionId, conversation.draft_revision_id),
+    env.DB.prepare(
+      "INSERT INTO studio_messages (site_id, conversation_id, id, role, body, created_at) VALUES (?, ?, ?, 'user', ?, ?)",
+    ).bind(site.id, conversation.id, crypto.randomUUID(), body.content.trim(), nowIso),
+    env.DB.prepare(
+      "INSERT INTO studio_messages (site_id, conversation_id, id, role, body, created_at) VALUES (?, ?, ?, 'assistant', ?, ?)",
+    ).bind(site.id, conversation.id, crypto.randomUUID(), chatEntry.assistantMessage.trim(), assistantAt),
+    env.DB.prepare(
+      "INSERT INTO owner_actions (id, site_id, revision_id, token_id, action, created_at, metadata_json) SELECT ?, ?, ?, ?, 'manual-draft', ?, ? WHERE EXISTS (SELECT 1 FROM site_revisions WHERE site_id = ? AND id = ? AND state = 'private-preview')",
+    ).bind(crypto.randomUUID(), site.id, revisionId, owner.tokenId, assistantAt,
+      JSON.stringify({ conversation_id: conversation.id, entry_id: entryId, ai_used: false }), site.id, revisionId),
+  );
+  let saved;
+  try {
+    saved = await env.DB.batch(statements);
+  } catch (error) {
+    const conversationCode = conversationQuotaCode(error);
+    if (conversationCode) return conversationQuotaResponse(conversationCode);
+    const quotaCode = storageQuotaCode(error);
+    if (quotaCode) return storageQuotaResponse(quotaCode);
+    return fail(503, "draft_not_saved", "The private draft could not be saved. No content was published.");
+  }
+  if (saved[6 + newConversationOffset]?.meta?.changes !== 1
+      || saved[8 + newConversationOffset]?.meta?.changes !== 1) {
     return fail(503, "draft_not_saved", "The private draft could not be saved. No content was published.");
   }
   return json({
@@ -1603,7 +1873,7 @@ async function studioConversation(request, env, site, conversationId, owner) {
   ).bind(site.id, conversationId, STUDIO_MAX_MESSAGES).all();
   const draft = conversation.draft_revision_id
     ? await env.DB.prepare(
-      "SELECT title, slug, kind, route_path, featured_media_id FROM entries WHERE site_id = ? AND revision_id = ? AND entry_id = ? LIMIT 1",
+      "SELECT title, slug, kind, route_path, safe_html, language_code, featured_media_id FROM entries WHERE site_id = ? AND revision_id = ? AND entry_id = ? LIMIT 1",
     ).bind(site.id, conversation.draft_revision_id, `mithrilpress:chat:${conversationId}`).first()
     : null;
   return json({
@@ -1807,6 +2077,61 @@ async function existingWordPressMediaResponse(env, site, wordpressSourceId, cont
   return json({ media: mediaSummary(site, existing) }, 200, { "Cache-Control": "private, no-store" });
 }
 
+function mediaUploadActionMatches(action, asset) {
+  if (action.token_id !== asset.uploaded_by_token_id || action.created_at !== asset.created_at) return false;
+  let metadata;
+  try {
+    metadata = JSON.parse(action.metadata_json);
+  } catch {
+    return false;
+  }
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)
+      || !Object.prototype.hasOwnProperty.call(metadata, "wordpress_source_id")) return false;
+  return metadata.byte_length === Number(asset.byte_length)
+    && metadata.content_type === asset.content_type
+    && metadata.sha256 === asset.sha256
+    && (metadata.wordpress_source_id ?? null) === (asset.wordpress_source_id === null ? null : Number(asset.wordpress_source_id))
+    && (metadata.width === undefined || metadata.width === Number(asset.width))
+    && (metadata.height === undefined || metadata.height === Number(asset.height))
+    && (metadata.alt_text === undefined || metadata.alt_text === asset.alt_text);
+}
+
+async function mediaUploadActionProof(env, site, asset) {
+  const rows = await env.DB.prepare(
+    "SELECT id, token_id, created_at, metadata_json FROM media_actions WHERE site_id = ? AND media_id = ? AND action = 'media-uploaded' ORDER BY created_at ASC, id ASC LIMIT 2",
+  ).bind(site.id, asset.id).all();
+  const actions = rows.results ?? [];
+  if (actions.length !== 1 || !mediaUploadActionMatches(actions[0], asset)) return null;
+  return actions[0];
+}
+
+async function recordMediaUploadAction(env, site, asset) {
+  const existing = await mediaUploadActionProof(env, site, asset);
+  if (existing) return existing;
+  const rows = await env.DB.prepare(
+    "SELECT id FROM media_actions WHERE site_id = ? AND media_id = ? AND action = 'media-uploaded' LIMIT 2",
+  ).bind(site.id, asset.id).all();
+  if ((rows.results ?? []).length > 0) return null;
+
+  const id = `media-uploaded:${site.id}:${asset.id}`;
+  try {
+    await env.DB.prepare(
+      "INSERT OR IGNORE INTO media_actions (id, site_id, media_id, token_id, action, created_at, metadata_json) VALUES (?, ?, ?, ?, 'media-uploaded', ?, ?)",
+    ).bind(id, site.id, asset.id, asset.uploaded_by_token_id, asset.created_at, JSON.stringify({
+      byte_length: Number(asset.byte_length),
+      content_type: asset.content_type,
+      width: Number(asset.width),
+      height: Number(asset.height),
+      sha256: asset.sha256,
+      wordpress_source_id: asset.wordpress_source_id === null ? null : Number(asset.wordpress_source_id),
+      alt_text: asset.alt_text,
+    })).run();
+  } catch {
+    // The insert result can be ambiguous; the immutable event read-back decides whether it committed.
+  }
+  return mediaUploadActionProof(env, site, asset);
+}
+
 async function studioMedia(request, env, site) {
   const owner = await ownerToken(request, env, site, "media:write");
   if (!owner) return fail(401, "media_owner_required", "An active site owner token with media:write scope is required.");
@@ -1814,11 +2139,23 @@ async function studioMedia(request, env, site) {
     const rows = await env.DB.prepare(
       "SELECT id, wordpress_source_id, content_type, byte_length, width, height, sha256, alt_text, created_at FROM media_assets WHERE site_id = ? AND status = 'active' ORDER BY created_at DESC, id DESC LIMIT 200",
     ).bind(site.id).all();
+    const pendingRows = await env.DB.prepare(
+      "SELECT id, wordpress_source_id, content_type, byte_length, width, height, sha256, alt_text, status, uploaded_by_token_id, created_at FROM media_assets WHERE site_id = ? AND status IN ('pending', 'deleting') ORDER BY created_at ASC, id ASC LIMIT 26",
+    ).bind(site.id).all();
+    const pendingAssets = (pendingRows.results ?? []).slice(0, 25);
+    const pendingUploads = await Promise.all(pendingAssets.map(async (asset) => ({
+      id: asset.id,
+      status: asset.status,
+      created_at: asset.created_at,
+      safe_to_remove: Boolean(await mediaUploadActionProof(env, site, asset)),
+    })));
     const usage = await env.DB.prepare(
       "SELECT asset_bytes FROM mithrilpress_site_media_usage WHERE site_id = ? LIMIT 1",
     ).bind(site.id).first();
     return json({
       media: (rows.results ?? []).map((row) => mediaSummary(site, row)),
+      pending_uploads: pendingUploads,
+      pending_uploads_truncated: (pendingRows.results ?? []).length > pendingAssets.length,
       storage: { used_bytes: Number(usage?.asset_bytes ?? 0), site_limit_bytes: SITE_MEDIA_LIMIT_BYTES },
     }, 200, { "Cache-Control": "private, no-store" });
   }
@@ -1845,7 +2182,7 @@ async function studioMedia(request, env, site) {
   let reserved;
   try {
     reserved = await env.DB.prepare(
-      "INSERT INTO media_assets (site_id, wordpress_source_id, object_key, content_type, byte_length, width, height, sha256, alt_text, status, uploaded_by_token_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?) RETURNING id, wordpress_source_id, content_type, byte_length, width, height, sha256, alt_text, created_at",
+      "INSERT INTO media_assets (site_id, wordpress_source_id, object_key, content_type, byte_length, width, height, sha256, alt_text, status, uploaded_by_token_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?) RETURNING id, wordpress_source_id, object_key, content_type, byte_length, width, height, sha256, alt_text, status, uploaded_by_token_id, created_at",
     ).bind(site.id, wordpressSourceId, idempotentObjectKey, contentType, details.byteLength,
       details.width, details.height, sha256, altText, owner.tokenId, createdAt).first();
   } catch (error) {
@@ -1867,52 +2204,191 @@ async function studioMedia(request, env, site) {
       },
       customMetadata: { mediaId: String(reserved.id), sha256 },
     });
-    const committed = await env.DB.batch([
-      env.DB.prepare("UPDATE media_assets SET status = 'active' WHERE site_id = ? AND id = ? AND status = 'pending'")
-        .bind(site.id, reserved.id),
-      env.DB.prepare("INSERT INTO media_actions (id, site_id, media_id, token_id, action, created_at, metadata_json) VALUES (?, ?, ?, ?, 'media-uploaded', ?, ?)")
-        .bind(crypto.randomUUID(), site.id, reserved.id, owner.tokenId, createdAt,
-          JSON.stringify({ byte_length: details.byteLength, content_type: contentType, sha256, wordpress_source_id: wordpressSourceId })),
-    ]);
-    if (committed[0]?.meta?.changes !== 1) throw new Error("media reservation state changed");
   } catch {
-    // Keep the pending reservation and object for operator reconciliation. A
-    // failed delete must never release the D1 storage accounting while an R2
-    // object might remain stored.
-    return fail(503, "media_upload_not_committed", "The image upload could not be committed. It is not available to public pages.");
+    // A rejected R2 put can still have an unknown outcome. Keep the private
+    // reservation so a late object cannot escape the storage quota.
+    return fail(503, "media_upload_outcome_unknown", "The image storage result is uncertain. Its private storage reservation was retained for safe reconciliation.");
+  }
+
+  try {
+    const uploadAction = await recordMediaUploadAction(env, site, reserved);
+    if (!uploadAction) {
+      return fail(503, "media_upload_reconciliation_required", "The image was stored, but its completed write could not be recorded. It remains private and reserved for reconciliation.");
+    }
+    const activated = await env.DB.prepare(
+      "UPDATE media_assets SET status = 'active' WHERE site_id = ? AND id = ? AND status = 'pending'",
+    ).bind(site.id, reserved.id).run();
+    if (activated.meta?.changes !== 1) {
+      const current = await env.DB.prepare(
+        "SELECT status FROM media_assets WHERE site_id = ? AND id = ? LIMIT 1",
+      ).bind(site.id, reserved.id).first();
+      if (current?.status !== "active") {
+        return fail(503, "media_upload_activation_pending", "The image write completed, but its private reservation changed before activation. It remains reserved for reconciliation.");
+      }
+    }
+  } catch {
+    // Do not remove the object or reservation after a possibly committed D1
+    // write. Read-back can prove activation; otherwise leave the asset private.
+    try {
+      const [current, proof] = await Promise.all([
+        env.DB.prepare("SELECT status FROM media_assets WHERE site_id = ? AND id = ? LIMIT 1").bind(site.id, reserved.id).first(),
+        mediaUploadActionProof(env, site, reserved),
+      ]);
+      if (current?.status !== "active" || !proof) {
+        return fail(503, "media_upload_reconciliation_required", "The image was stored, but activation could not be confirmed. Its private reservation was retained for safe reconciliation.");
+      }
+    } catch {
+      return fail(503, "media_upload_reconciliation_required", "The image was stored, but activation could not be confirmed. Its private reservation was retained for safe reconciliation.");
+    }
   }
   return json({ media: mediaSummary(site, reserved) }, 201, { "Cache-Control": "private, no-store" });
 }
 
-async function deleteStudioMedia(request, env, site, mediaId) {
+export async function deleteStudioMedia(request, env, site, mediaId, reconciliationRetry = false) {
   const owner = await ownerToken(request, env, site, "media:write");
   if (!owner) return fail(401, "media_owner_required", "An active site owner token with media:write scope is required.");
   if (request.method !== "DELETE") return fail(405, "method_not_allowed", "Use DELETE to remove this media item.");
   if (!env.MEDIA) return fail(503, "media_storage_unavailable", "Image storage is not configured for this hosting deployment.");
   const row = await env.DB.prepare(
-    "SELECT id, object_key, status FROM media_assets WHERE site_id = ? AND id = ? LIMIT 1",
+    "SELECT id, wordpress_source_id, object_key, content_type, byte_length, width, height, sha256, alt_text, status, uploaded_by_token_id, created_at, delete_operation_id FROM media_assets WHERE site_id = ? AND id = ? LIMIT 1",
   ).bind(site.id, mediaId).first();
   if (!row) return fail(404, "media_not_found", "Media item not found.");
+  if (!new Set(["pending", "active", "deleting"]).has(row.status)) {
+    return fail(409, "media_state_conflict", "The media item's upload state cannot be safely reconciled.");
+  }
+  if (reconciliationRetry && row.status === "active") {
+    return fail(409, "media_state_conflict", "This upload is now active. Refresh the media library before choosing an action.");
+  }
+  const uploadAction = await mediaUploadActionProof(env, site, row);
+  if (!uploadAction) {
+    return fail(409, "media_upload_outcome_unknown", "The completed upload cannot be proven. The image remains private or unchanged, and its storage reservation is retained.");
+  }
   if (!await countMediaWrite(env, MEDIA_WRITES_PER_DAY_LIMIT)) {
     return fail(429, "media_daily_write_limit", "The shared free media upload and delete allowance is exhausted for today. Try again after 00:00 UTC.");
   }
-  await env.DB.prepare("UPDATE media_assets SET status = 'deleting' WHERE site_id = ? AND id = ? AND status IN ('pending', 'active', 'deleting')")
-    .bind(site.id, mediaId).run();
+  if (row.status !== "deleting") {
+    const marked = await env.DB.prepare(
+      "UPDATE media_assets SET status = 'deleting', delete_operation_id = NULL WHERE site_id = ? AND id = ? AND status = ? AND delete_operation_id IS NULL RETURNING id",
+    ).bind(site.id, mediaId, row.status).first();
+    if (!marked) return fail(409, "media_state_changed", "This image changed state. Refresh the media library before retrying.");
+  }
+  let deleteOperationId = row.delete_operation_id;
+  const restoreAfterDeleteCheck = async () => {
+    let restoreStatus = row.status;
+    if (row.status === "deleting") {
+      restoreStatus = "active";
+    }
+    if (restoreStatus === "active" && !await env.MEDIA.head(row.object_key)) return false;
+    const restored = await env.DB.prepare(
+      "UPDATE media_assets SET status = ?, delete_operation_id = NULL WHERE site_id = ? AND id = ? AND status = 'deleting' AND delete_operation_id IS NULL",
+    ).bind(restoreStatus, site.id, mediaId).run();
+    if (restored.meta?.changes !== 1) return false;
+    return true;
+  };
+  if (!deleteOperationId) {
+    let referenced;
+    try {
+      referenced = await env.DB.prepare(
+        "SELECT 1 FROM media_assets a WHERE a.site_id = ? AND a.id = ? AND ("
+          + "EXISTS (SELECT 1 FROM entries e JOIN site_revisions r ON r.site_id = e.site_id AND r.id = e.revision_id "
+          + "WHERE e.site_id = a.site_id AND r.state IN ('importing', 'private-preview', 'approved', 'published') "
+          + "AND e.featured_media_id IN (a.id, a.wordpress_source_id)) "
+          + "OR EXISTS (SELECT 1 FROM entry_media em JOIN site_revisions r ON r.site_id = em.site_id AND r.id = em.revision_id "
+          + "WHERE em.site_id = a.site_id AND em.media_id = a.id AND r.state IN ('importing', 'private-preview', 'approved', 'published'))"
+          + ") LIMIT 1",
+      ).bind(site.id, mediaId).first();
+    } catch {
+      let restored = false;
+      try {
+        restored = await restoreAfterDeleteCheck();
+      } catch {
+        return fail(503, "media_delete_pending", "The image could not be checked for active references, and its prior state could not be restored. Retry later.");
+      }
+      if (!restored) return fail(503, "media_delete_pending", "Another deletion attempt committed, or the image could not be safely restored. Retry later.");
+      return fail(503, "media_reference_check_unavailable", "The image could not be checked for active references. It was not deleted; retry later.");
+    }
+    if (referenced) {
+      let restored = false;
+      try {
+        restored = await restoreAfterDeleteCheck();
+      } catch {
+        return fail(503, "media_delete_pending", "This image is still referenced, but its active state could not be restored. Retry later.");
+      }
+      if (!restored) return fail(503, "media_delete_pending", "A deletion attempt committed, or the image could not be safely restored. Retry later.");
+      return fail(409, "media_in_use", "This image is used by an importing, private-preview, approved, or published revision. Remove it from those revisions before deleting it.");
+    }
+
+    const operationId = crypto.randomUUID();
+    let committed;
+    try {
+      committed = await env.DB.prepare(
+        "UPDATE media_assets SET delete_operation_id = ? WHERE site_id = ? AND id = ? AND status = 'deleting' AND delete_operation_id IS NULL RETURNING delete_operation_id",
+      ).bind(operationId, site.id, mediaId).first();
+    } catch {
+      return fail(503, "media_delete_pending", "The image passed its reference check, but deletion could not be committed. Retry later.");
+    }
+    if (committed) deleteOperationId = committed.delete_operation_id;
+    else {
+      const current = await env.DB.prepare(
+        "SELECT status, delete_operation_id FROM media_assets WHERE site_id = ? AND id = ? LIMIT 1",
+      ).bind(site.id, mediaId).first();
+      if (!current) return json({ media_id: mediaId, deleted: true });
+      if (current.status !== "deleting" || !current.delete_operation_id) {
+        return fail(503, "media_delete_pending", "Another deletion attempt changed the media state. Retry later.");
+      }
+      deleteOperationId = current.delete_operation_id;
+    }
+  }
+  let object;
   try {
-    await env.MEDIA.delete(row.object_key);
+    object = await env.MEDIA.head(row.object_key);
   } catch {
-    return fail(503, "media_delete_pending", "The item is hidden from publication, but object removal is pending. Retry later.");
+    return fail(503, "media_delete_pending", "The item is hidden from publication, but its object state could not be verified. Retry reconciliation later.");
+  }
+  if (object) {
+    const metadataMatches = object.size === Number(row.byte_length)
+      && object.httpMetadata?.contentType === row.content_type
+      && object.customMetadata?.mediaId === String(row.id)
+      && object.customMetadata?.sha256 === row.sha256;
+    if (!metadataMatches) {
+      return fail(503, "media_object_mismatch", "The stored object does not match its reserved media record. It remains hidden and reserved for operator reconciliation.");
+    }
+    try {
+      await env.MEDIA.delete(row.object_key);
+      if (await env.MEDIA.head(row.object_key)) {
+        return fail(503, "media_delete_pending", "The item is hidden from publication, but object removal has not been confirmed. Retry reconciliation later.");
+      }
+    } catch {
+      return fail(503, "media_delete_pending", "The item is hidden from publication, but object removal has not been confirmed. Retry reconciliation later.");
+    }
   }
   const now = new Date().toISOString();
   try {
     const result = await env.DB.batch([
-      env.DB.prepare("DELETE FROM media_assets WHERE site_id = ? AND id = ? AND status = 'deleting'").bind(site.id, mediaId),
-      env.DB.prepare("INSERT INTO media_actions (id, site_id, media_id, token_id, action, created_at, metadata_json) VALUES (?, ?, ?, ?, 'media-deleted', ?, '{}')")
-        .bind(crypto.randomUUID(), site.id, mediaId, owner.tokenId, now),
+      env.DB.prepare("DELETE FROM media_assets WHERE site_id = ? AND id = ? AND status = 'deleting' AND delete_operation_id = ?")
+        .bind(site.id, mediaId, deleteOperationId),
+      env.DB.prepare("INSERT OR IGNORE INTO media_actions (id, site_id, media_id, token_id, action, created_at, metadata_json) VALUES (?, ?, ?, ?, 'media-deleted', ?, '{}')")
+        .bind(deleteOperationId, site.id, mediaId, owner.tokenId, now),
     ]);
-    if (result[0]?.meta?.changes !== 1) throw new Error("media metadata removal failed");
+    if (result[0]?.meta?.changes !== 1) {
+      const remaining = await env.DB.prepare(
+        "SELECT 1 FROM media_assets WHERE site_id = ? AND id = ? LIMIT 1",
+      ).bind(site.id, mediaId).first();
+      if (remaining) throw new Error("media metadata removal failed");
+    }
   } catch {
-    return fail(503, "media_delete_pending", "The object was removed, but metadata cleanup is pending. Retry later.");
+    try {
+      const current = await env.DB.prepare(
+        "SELECT id FROM media_assets WHERE site_id = ? AND id = ? LIMIT 1",
+      ).bind(site.id, mediaId).first();
+      const deletedAction = await env.DB.prepare(
+        "SELECT id FROM media_actions WHERE site_id = ? AND media_id = ? AND action = 'media-deleted' LIMIT 1",
+      ).bind(site.id, mediaId).first();
+      if (!current && deletedAction) return json({ media_id: mediaId, deleted: true });
+    } catch {
+      // Preserve the deleting reservation when database read-back is uncertain.
+    }
+    return fail(503, "media_delete_pending", "The object was removed, but metadata cleanup could not be confirmed. Its reservation remains for safe reconciliation.");
   }
   return json({ media_id: mediaId, deleted: true });
 }
@@ -2165,7 +2641,15 @@ async function importWordPress(request, env, site) {
       maximum_depth: 64,
     },
     source_omissions: parsedWxr?.omitted ?? null,
-    needs_owner_review: parityStatus !== "supported-slice-complete",
+    needs_owner_review: parityStatus !== "supported-slice-complete"
+      || gutenbergReport.needs_owner_review
+      || omittedInlineImages > 0
+      || unresolvedSourceSiteLinks > 0
+      || removedUnsafeLinks > 0
+      || omittedSeoFields > 0
+      || pageHierarchy.omitted > 0
+      || preservedRouteCount < entries.length
+      || Object.values(parsedWxr?.omitted ?? {}).some((count) => Number(count) > 0),
   };
 
   let safeTermBytes = 0;
@@ -2611,6 +3095,7 @@ function canonicalUrl(hostname, entry) {
 }
 
 const SEO_METADATA_SELECT = "COALESCE((SELECT metadata_json FROM entry_seo_metadata seo WHERE seo.site_id = entries.site_id AND seo.revision_id = entries.revision_id AND seo.entry_id = entries.entry_id), '{}') AS seo_metadata_json";
+const WORDPRESS_PUBLIC_PAGE_PARENT_ID = "CASE WHEN EXISTS (SELECT 1 FROM entries wp_parent WHERE wp_parent.site_id = entries.site_id AND wp_parent.revision_id = entries.revision_id AND wp_parent.kind = 'page' AND wp_parent.source_id = entries.parent_source_id AND wp_parent.publication_status = 'published') THEN entries.parent_source_id ELSE 0 END";
 
 function wpRecord(site, row) {
   const link = canonicalUrl(site.hostname, row);
@@ -2662,7 +3147,7 @@ async function wordpressRead(request, env, site, kind, itemId = null) {
     if (!Number.isSafeInteger(sourceId) || sourceId < 1) return fail(404, "entry_not_found", "Entry not found.");
     if (!site.current_revision_id || site.status !== "active") return fail(404, "entry_not_found", "Entry not found.");
     const row = await env.DB.prepare(
-      `SELECT api_id, source_id, CASE WHEN EXISTS (SELECT 1 FROM entries parent WHERE parent.site_id = entries.site_id AND parent.revision_id = entries.revision_id AND parent.kind = 'page' AND parent.source_id = entries.parent_source_id AND parent.publication_status = 'published') THEN parent_source_id ELSE 0 END AS parent_source_id, source_date, source_date_gmt, source_modified, source_modified_gmt, featured_media_id, slug, route_path, title, safe_html, categories_json, tags_json, kind, ${SEO_METADATA_SELECT} FROM entries WHERE site_id = ? AND revision_id = ? AND kind = ? AND publication_status = 'published' AND COALESCE(source_id, api_id) = ? LIMIT 1`,
+      `SELECT api_id, source_id, ${WORDPRESS_PUBLIC_PAGE_PARENT_ID} AS parent_source_id, source_date, source_date_gmt, source_modified, source_modified_gmt, featured_media_id, slug, route_path, title, safe_html, categories_json, tags_json, kind, ${SEO_METADATA_SELECT} FROM entries WHERE site_id = ? AND revision_id = ? AND kind = ? AND publication_status = 'published' AND COALESCE(source_id, api_id) = ? LIMIT 1`,
     ).bind(site.id, site.current_revision_id, kind, sourceId).first();
     if (!row) return fail(404, "entry_not_found", "Entry not found.");
     return request.method === "HEAD"
@@ -2678,6 +3163,15 @@ async function wordpressRead(request, env, site, kind, itemId = null) {
   const search = searchValue === null ? null : searchValue.trim();
   if (search !== null && (!search || search.length > 100 || /[\u0000-\u001f\u007f]/.test(search))) {
     return fail(400, "invalid_search", "The search filter must contain 1-100 printable characters.");
+  }
+  const parentFilter = parseWordPressPageParentFilter(url.searchParams, "parent");
+  const parentExcludeFilter = parseWordPressPageParentFilter(url.searchParams, "parent_exclude");
+  if (!parentFilter.valid || !parentExcludeFilter.valid
+      || parentFilter.count + parentExcludeFilter.count > MAX_WORDPRESS_PAGE_PARENT_FILTER_IDS) {
+    return fail(400, "invalid_parent_filter", `Page parent filters accept at most ${MAX_WORDPRESS_PAGE_PARENT_FILTER_IDS} non-negative integer IDs in total.`);
+  }
+  if (kind !== "page" && (parentFilter.present || parentExcludeFilter.present)) {
+    return fail(400, "unsupported_parent_filter", "Parent filters are available only for pages.");
   }
   const after = parseWordPressDateFilter(url.searchParams.get("after"));
   const before = parseWordPressDateFilter(url.searchParams.get("before"), { endOfDay: true });
@@ -2702,9 +3196,16 @@ async function wordpressRead(request, env, site, kind, itemId = null) {
     modified: "COALESCE(julianday(COALESCE(source_modified_gmt, source_modified, source_date_gmt, source_date)), -1)",
     slug: "slug",
     title: "lower(title)",
+    ...(kind === "page" ? { parent: WORDPRESS_PUBLIC_PAGE_PARENT_ID } : {}),
   };
+  if (orderby === "parent" && kind !== "page") {
+    return fail(400, "invalid_orderby", "Sort by parent is available only for pages.");
+  }
   if (!Object.hasOwn(orderColumns, orderby) && orderby !== "relevance") {
-    return fail(400, "invalid_orderby", "Sort posts and pages by date, id, modified, relevance, slug, or title.");
+    const allowedOrderBy = kind === "page"
+      ? "date, id, modified, parent, relevance, slug, or title"
+      : "date, id, modified, relevance, slug, or title";
+    return fail(400, "invalid_orderby", `Sort ${kind}s by ${allowedOrderBy}.`);
   }
   if (orderby === "relevance" && search === null) {
     return fail(400, "search_term_required", "A search filter is required when ordering by relevance.");
@@ -2736,6 +3237,11 @@ async function wordpressRead(request, env, site, kind, itemId = null) {
     conditions.push("julianday(COALESCE(source_modified_gmt, source_modified, source_date_gmt, source_date)) <= julianday(?)");
     params.push(modifiedBefore.value);
   }
+  for (const [filter, operator] of [[parentFilter, "IN"], [parentExcludeFilter, "NOT IN"]]) {
+    if (filter.values === null) continue;
+    conditions.push(`${WORDPRESS_PUBLIC_PAGE_PARENT_ID} ${operator} (${filter.values.map(() => "?").join(", ")})`);
+    params.push(...filter.values);
+  }
   const where = conditions.join(" AND ");
   const count = await env.DB.prepare(`SELECT COUNT(*) AS total FROM entries WHERE ${where}`).bind(...params).first();
   const total = Number(count?.total ?? 0);
@@ -2745,7 +3251,7 @@ async function wordpressRead(request, env, site, kind, itemId = null) {
     : orderColumns[orderby];
   const orderParams = orderby === "relevance" ? [search, search] : [];
   const rows = await env.DB.prepare(
-    `SELECT api_id, source_id, CASE WHEN EXISTS (SELECT 1 FROM entries parent WHERE parent.site_id = entries.site_id AND parent.revision_id = entries.revision_id AND parent.kind = 'page' AND parent.source_id = entries.parent_source_id AND parent.publication_status = 'published') THEN parent_source_id ELSE 0 END AS parent_source_id, source_date, source_date_gmt, source_modified, source_modified_gmt, featured_media_id, slug, route_path, title, safe_html, categories_json, tags_json, kind, ${SEO_METADATA_SELECT} FROM entries WHERE ${where} ORDER BY ${orderExpression} ${order}, api_id ASC LIMIT ? OFFSET ?`,
+    `SELECT api_id, source_id, ${WORDPRESS_PUBLIC_PAGE_PARENT_ID} AS parent_source_id, source_date, source_date_gmt, source_modified, source_modified_gmt, featured_media_id, slug, route_path, title, safe_html, categories_json, tags_json, kind, ${SEO_METADATA_SELECT} FROM entries WHERE ${where} ORDER BY ${orderExpression} ${order}, api_id ASC LIMIT ? OFFSET ?`,
   ).bind(...params, ...orderParams, perPage, offset).all();
   const totalPages = total === 0 ? 0 : Math.ceil(total / perPage);
   const headers = { "X-WP-Total": String(total), "X-WP-TotalPages": String(totalPages) };
@@ -2996,6 +3502,10 @@ async function handleRequest(request, env) {
       if (invalidControlHostLimit) return invalidControlHostLimit;
       return fail(404, "site_not_found", "Site not found.");
     }
+    if (url.search) {
+      const sharedLimit = await checkHostingRequest(env, null, requestDate);
+      return sharedLimit ?? fail(400, "invalid_publication_request", "Publication control requests do not accept query parameters.");
+    }
     const siteId = controlPublicationCurrentMatch?.[1] ?? controlPublicationMediaMatch[1];
     const site = await env.DB.prepare(
       "SELECT id, hostname, status, current_revision_id FROM sites WHERE id = ? LIMIT 1",
@@ -3007,7 +3517,6 @@ async function handleRequest(request, env) {
     }
     const siteLimit = await checkHostingRequest(env, site.id, requestDate);
     if (siteLimit) return siteLimit;
-    if (url.search) return fail(400, "invalid_publication_request", "Publication control requests do not accept query parameters.");
     if (controlPublicationCurrentMatch) return await publicationSnapshot(request, env, site);
     const mediaId = Number(controlPublicationMediaMatch[3]);
     if (!Number.isSafeInteger(mediaId) || mediaId < 1) return fail(404, "media_not_found", "Media item not found.");
@@ -3056,6 +3565,9 @@ async function handleRequest(request, env) {
   }
   if (url.pathname === "/_mithrilpress/api/studio/chat" && request.method === "POST") {
     return await studioChat(request, env, site);
+  }
+  if (url.pathname === "/_mithrilpress/api/studio/manual-draft" && request.method === "POST") {
+    return await studioManualDraft(request, env, site);
   }
   const studioConversationMatch = /^\/_mithrilpress\/api\/studio\/conversations\/([a-f0-9-]{36})$/.exec(url.pathname);
   if (studioConversationMatch) {
@@ -3107,11 +3619,11 @@ async function handleRequest(request, env) {
   }
 
   if (url.pathname === "/_mithrilpress/api/media") return await studioMedia(request, env, site);
-  const studioMediaMatch = /^\/_mithrilpress\/api\/media\/(\d+)$/.exec(url.pathname);
+  const studioMediaMatch = /^\/_mithrilpress\/api\/media\/(\d+)(\/reconcile)?$/.exec(url.pathname);
   if (studioMediaMatch) {
     const mediaId = Number(studioMediaMatch[1]);
     if (!Number.isSafeInteger(mediaId) || mediaId < 1) return fail(404, "media_not_found", "Media item not found.");
-    return await deleteStudioMedia(request, env, site, mediaId);
+    return await deleteStudioMedia(request, env, site, mediaId, Boolean(studioMediaMatch[2]));
   }
   const mediaRouteMatch = /^\/_mithrilpress\/media\/(\d+)$/.exec(url.pathname);
   if (mediaRouteMatch) {
