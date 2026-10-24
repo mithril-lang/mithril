@@ -216,6 +216,153 @@
                                     :value (mithril/host-get
                                             :object (mithril/local :name "term")
                                             :key (mithril/literal :datatype "js-value" :value "parentId")))])]))
-      (mithril/local :name "resolvedTerms")])))]
+      (mithril/local :name "resolvedTerms")])))
+  (mithril/function
+   :name "normalizeTermReferences"
+   :params [(rdf/node :name "references" :datatype "js-value")
+            (rdf/node :name "terms" :datatype "js-value")
+            (rdf/node :name "fail" :datatype "js-value")]
+   :returns "js-value"
+   :body
+   (mithril/let
+    :bindings [(rdf/node :name "categories" :value (mithril/host-array :items []))
+               (rdf/node :name "tags" :value (mithril/host-array :items []))
+               (rdf/node :name "seenCategories"
+                         :value (mithril/host-construct
+                                 :constructor (mithril/host-import :name "Set") :args []))
+               (rdf/node :name "seenTags"
+                         :value (mithril/host-construct
+                                 :constructor (mithril/host-import :name "Set") :args []))
+               (rdf/node :name "customTaxonomies" :value (mithril/host-array :items []))]
+    :body
+    (mithril/sequence
+     :expressions
+     [(mithril/host-for-of
+       :iterable (mithril/local :name "references")
+       :binding "reference"
+       :result (mithril/host-undefined)
+       :body
+       (mithril/let
+        :bindings [(rdf/node :name "domainInput"
+                             :value (mithril/host-get
+                                     :object (mithril/local :name "reference")
+                                     :key (mithril/literal :datatype "js-value" :value "domain")))
+                   (rdf/node :name "domain"
+                             :value (mithril/if
+                                     :condition (mithril/host-binary
+                                                 :operator "==="
+                                                 :left (mithril/host-unary
+                                                        :operator "typeof"
+                                                        :value (mithril/local :name "domainInput"))
+                                                 :right (mithril/literal :datatype "js-value" :value "string"))
+                                     :then (mithril/host-method
+                                            :object (mithril/local :name "domainInput")
+                                            :key (mithril/literal :datatype "js-value" :value "toLowerCase")
+                                            :args [])
+                                     :else (mithril/literal :datatype "js-value" :value "")))
+                   (rdf/node :name "kind"
+                             :value (mithril/if
+                                     :condition (mithril/host-binary
+                                                 :operator "==="
+                                                 :left (mithril/local :name "domain")
+                                                 :right (mithril/literal :datatype "js-value" :value "category"))
+                                     :then (mithril/literal :datatype "js-value" :value "category")
+                                     :else (mithril/if
+                                            :condition (mithril/host-binary
+                                                        :operator "==="
+                                                        :left (mithril/local :name "domain")
+                                                        :right (mithril/literal :datatype "js-value" :value "post_tag"))
+                                            :then (mithril/literal :datatype "js-value" :value "tag")
+                                            :else (mithril/literal :datatype "js-value" :value nil))))]
+        :body
+        (mithril/if
+         :condition (mithril/host-logical
+                     :operator "||"
+                     :left (mithril/host-binary
+                            :operator "==="
+                            :left (mithril/local :name "kind")
+                            :right (mithril/literal :datatype "js-value" :value "category"))
+                     :right (mithril/host-binary
+                             :operator "==="
+                             :left (mithril/local :name "kind")
+                             :right (mithril/literal :datatype "js-value" :value "tag")))
+         :then
+         (mithril/let
+          :bindings [(rdf/node :name "slug"
+                               :value (mithril/host-get
+                                       :object (mithril/local :name "reference")
+                                       :key (mithril/literal :datatype "js-value" :value "slug")))
+                     (rdf/node :name "termKey"
+                               :value (mithril/host-binary
+                                       :operator "+"
+                                       :left (mithril/if
+                                              :condition (mithril/host-binary
+                                                          :operator "==="
+                                                          :left (mithril/local :name "kind")
+                                                          :right (mithril/literal :datatype "js-value" :value "category"))
+                                              :then (mithril/literal :datatype "js-value" :value "category:")
+                                              :else (mithril/literal :datatype "js-value" :value "tag:"))
+                                       :right (mithril/local :name "slug")))
+                     (rdf/node :name "termId"
+                               :value (mithril/host-method
+                                       :object (mithril/local :name "terms")
+                                       :key (mithril/literal :datatype "js-value" :value "get")
+                                       :args [(mithril/local :name "termKey")]))
+                     (rdf/node :name "targetIds"
+                               :value (mithril/if
+                                       :condition (mithril/host-binary
+                                                   :operator "==="
+                                                   :left (mithril/local :name "kind")
+                                                   :right (mithril/literal :datatype "js-value" :value "category"))
+                                       :then (mithril/local :name "categories")
+                                       :else (mithril/local :name "tags")))
+                     (rdf/node :name "seenIds"
+                               :value (mithril/if
+                                       :condition (mithril/host-binary
+                                                   :operator "==="
+                                                   :left (mithril/local :name "kind")
+                                                   :right (mithril/literal :datatype "js-value" :value "category"))
+                                       :then (mithril/local :name "seenCategories")
+                                       :else (mithril/local :name "seenTags")))]
+          :body
+          (mithril/if
+           :condition (mithril/host-unary :operator "!" :value (mithril/local :name "termId"))
+           :then (mithril/host-invoke
+                  :function (mithril/local :name "fail")
+                  :args [(mithril/literal :datatype "js-value" :value "unresolved_wxr_term")])
+           :else
+           (mithril/if
+            :condition (mithril/host-method
+                        :object (mithril/local :name "seenIds")
+                        :key (mithril/literal :datatype "js-value" :value "has")
+                        :args [(mithril/local :name "termId")])
+            :then (mithril/host-undefined)
+            :else
+            (mithril/sequence
+             :expressions
+             [(mithril/host-method
+               :object (mithril/local :name "seenIds")
+               :key (mithril/literal :datatype "js-value" :value "add")
+               :args [(mithril/local :name "termId")])
+              (mithril/host-method
+               :object (mithril/local :name "targetIds")
+               :key (mithril/literal :datatype "js-value" :value "push")
+               :args [(mithril/local :name "termId")])]))))
+         :else
+         (mithril/host-method
+          :object (mithril/local :name "customTaxonomies")
+          :key (mithril/literal :datatype "js-value" :value "push")
+          :args [(mithril/literal :datatype "js-value" :value true)]))))
+      (mithril/host-object
+       :entries [(rdf/node :key (mithril/literal :datatype "js-value" :value "categories")
+                           :value (mithril/local :name "categories"))
+                 (rdf/node :key (mithril/literal :datatype "js-value" :value "tags")
+                           :value (mithril/local :name "tags"))
+                 (rdf/node :key (mithril/literal :datatype "js-value" :value "customTaxonomyTerms")
+                           :value (mithril/host-get
+                                   :object (mithril/local :name "customTaxonomies")
+                                   :key (mithril/literal :datatype "js-value" :value "length")))])])))]
  :exports [(rdf/node :name "resolveTermParents"
-                     :value (mithril/function-ref :name "resolveTermParents"))])
+                     :value (mithril/function-ref :name "resolveTermParents"))
+           (rdf/node :name "normalizeTermReferences"
+                     :value (mithril/function-ref :name "normalizeTermReferences"))])

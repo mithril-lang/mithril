@@ -143,25 +143,8 @@ function importRecords(pendingItems, terms, omittedSourceCounts) {
       continue;
     }
 
-    const categories = [];
-    const tags = [];
-    for (const reference of item.terms) {
-      const domain = reference.domain?.toLowerCase();
-      const kind = domain === "category" ? "category"
-        : domain === "post_tag" ? "tag"
-          : null;
-      if (!kind) {
-        omitted.custom_taxonomy_terms += 1;
-        continue;
-      }
-      const slug = reference.slug;
-      const id = terms.get(`${kind}:${slug}`);
-      if (!id) fail("unresolved_wxr_term");
-      (kind === "category" ? categories : tags).push(id);
-    }
-
-    const uniqueCategories = [...new Set(categories)];
-    const uniqueTags = [...new Set(tags)];
+    const taxonomyReferences = mithrilWordPressTaxonomy.normalizeTermReferences(item.terms, terms, fail);
+    omitted.custom_taxonomy_terms += taxonomyReferences.customTaxonomyTerms;
     const sourceId = parseId(fields.postId);
     const parentId = positiveNumberOrZero(fields.parentId);
     if (parentId === null) fail("invalid_wxr_page_parent");
@@ -186,8 +169,8 @@ function importRecords(pendingItems, terms, omittedSourceCounts) {
       modified: fields.modified?.trim() || null,
       modified_gmt: fields.modifiedGmt?.trim() || null,
       link: fields.link?.trim() || null,
-      categories: uniqueCategories,
-      tags: uniqueTags,
+      categories: taxonomyReferences.categories,
+      tags: taxonomyReferences.tags,
       featured_media: mediaId,
       seoMetadata: seo.metadata,
     });

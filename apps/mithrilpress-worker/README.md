@@ -55,14 +55,15 @@ explicitly published tenant revision.
   publications. It does not replace the shared Worker/D1 default host plane.
 
 The checked-in Mithril native-JS modules own platform subdomain validation,
-WordPress post/page record admission, individual taxonomy-term admission, the
-private chat-draft proposal envelope, migration parity classification, and
-revision approval/publication/restore eligibility. The Worker calls those
-contracts at the hostname, import, taxonomy, AI proposal, and revision
-lifecycle boundaries. It retains host
-responsibility for cross-record taxonomy references and cycles, D1/R2 and AI
-I/O, HTML sanitization, language-tag canonicalization, and slug collision
-resolution. The `.cljk` model remains the platform-neutral reference boundary;
+WordPress post/page record admission, individual taxonomy-term admission and
+WXR category/tag reference normalization, the private chat-draft proposal
+envelope, migration parity classification, and revision
+approval/publication/restore eligibility. The Worker calls those contracts at
+the hostname, import, taxonomy, AI proposal, and revision lifecycle
+boundaries. The Worker retains host responsibility for cross-record taxonomy
+references and cycles, D1/R2 and AI I/O, HTML sanitization, language-tag
+canonicalization, and slug collision resolution. The `.cljk` model remains the
+platform-neutral reference boundary;
 the `.mith` modules are the executable Worker contracts. Regenerate all
 checked-in modules from the repository root or this package directory with
 `npm run build:mithril` after changing their `.mith` source. The build uses the
