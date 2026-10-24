@@ -34,7 +34,7 @@ const FIELD_NAMES = new Map([
   ["content:encoded", "content"],
   ["wp:attachment_url", "attachmentUrl"],
 ]);
-const mithrilContentBoundary = instantiateContentBoundary({ Array, Number, Set });
+const mithrilContentBoundary = instantiateContentBoundary({ Array, Map, Number, Set });
 const mithrilWordPressTaxonomy = instantiateWordPressTaxonomy({ Map, Set });
 
 function fail(code, status = 422) {

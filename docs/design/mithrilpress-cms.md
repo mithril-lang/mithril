@@ -474,7 +474,11 @@ another imported page in the same revision; cycles, missing parents, and
 hierarchies deeper than 64 are omitted and flagged for owner review. Term
 descriptions are sanitized before storage. The API
 returns omission counts for content it does not migrate. It does not fetch
-attachment URLs; owners must upload image files they control and review the
+attachment URLs. Featured and inline source IDs resolve only to active
+tenant-owned media uploaded by the owner. The compiled Mithril mapping policy
+rejects duplicate or unexpected rows and reports missing IDs in the private
+migration report; missing media sets `needs_owner_review` and prevents the
+parity status from claiming a complete supported slice. Owners must review the
 private preview and omissions before publishing. Safe source permalink paths,
 including nested paths, are retained for public rendering, API links, canonical
 URLs, and imported internal-link rewriting. Sources that use query URLs or

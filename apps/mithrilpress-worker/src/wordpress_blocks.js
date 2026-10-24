@@ -103,6 +103,10 @@ export function collectWordPressMediaReferences(records) {
   let classReferences = 0;
   for (const record of records ?? []) {
     const source = typeof record?.sourceHtml === "string" ? record.sourceHtml : "";
+    const featuredMediaId = record?.featuredMediaId;
+    if (Number.isSafeInteger(featuredMediaId) && featuredMediaId > 0) {
+      sourceIds.add(featuredMediaId);
+    }
     for (const match of source.matchAll(WORDPRESS_IMAGE_ID)) {
       classReferences += 1;
       const id = Number(match[1]);

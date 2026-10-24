@@ -38,6 +38,15 @@ test("collects unique media IDs without exposing source URLs", () => {
   assert.equal(JSON.stringify(result).includes("https://wp.example/a.png"), false);
 });
 
+test("collects featured WordPress media IDs for owner mapping", () => {
+  const result = collectWordPressMediaReferences([
+    { sourceHtml: '<img class="wp-image-12">', featuredMediaId: 22 },
+    { sourceHtml: "<p>Text</p>", featuredMediaId: 12 },
+  ]);
+
+  assert.deepEqual(result, { class_references: 1, source_ids: [12, 22] });
+});
+
 test("does not treat closing block markers as new blocks", () => {
   const report = inspectWordPressBlocks([
     "<!-- wp:paragraph --><p>one</p><!-- /wp:paragraph --><!-- wp:paragraph /-->",
