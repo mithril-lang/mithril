@@ -374,6 +374,34 @@
                              (rdf/node :key (mithril/literal :datatype "js-value" :value "tags") :value (mithril/local :name "tags"))
                              (rdf/node :key (mithril/literal :datatype "js-value" :value "featuredMediaId") :value (mithril/if :condition (mithril/local :name "media") :then (mithril/local :name "media") :else (mithril/literal :datatype "js-value" :value nil)))]))])))))))))))))
   (mithril/function
+   :name "uniqueWordPressSourceIds"
+   :params [(rdf/node :name "entries" :datatype "js-value")]
+   :returns "js-value"
+   :body
+   (mithril/if
+    :condition (mithril/host-unary
+                :operator "!"
+                :value (mithril/host-method
+                        :object (mithril/host-import :name "Array")
+                        :key (mithril/literal :datatype "js-value" :value "isArray")
+                        :args [(mithril/local :name "entries")]))
+    :then (mithril/literal :datatype "js-value" :value false)
+    :else
+    (mithril/let
+     :bindings [(rdf/node
+                 :name "sourceIds"
+                 :value (mithril/host-method
+                         :object (mithril/local :name "entries")
+                         :key (mithril/literal :datatype "js-value" :value "map")
+                         :args [(mithril/native-lambda
+                                 :params ["entry"]
+                                 :body (mithril/host-optional-get
+                                        :object (mithril/local :name "entry")
+                                        :key (mithril/literal :datatype "js-value" :value "sourceId")))]))]
+     :body (mithril/host-invoke
+            :function (mithril/function-ref :name "validIdList")
+            :args [(mithril/local :name "sourceIds")]))))
+  (mithril/function
    :name "normalizeTaxonomyTerm"
    :params [(rdf/node :name "item" :datatype "js-value")]
    :returns "js-value"
@@ -473,6 +501,7 @@
             (rdf/node :key (mithril/literal :datatype "js-value" :value "renderingAdmission") :value (mithril/literal :datatype "js-value" :value "blocked"))
             (rdf/node :key (mithril/literal :datatype "js-value" :value "publicationState") :value (mithril/literal :datatype "js-value" :value "draft"))]))])))))]
  :exports [(rdf/node :name "normalizeWordPressRecord" :value (mithril/function-ref :name "normalizeWordPressRecord"))
+           (rdf/node :name "uniqueWordPressSourceIds" :value (mithril/function-ref :name "uniqueWordPressSourceIds"))
            (rdf/node :name "normalizeTaxonomyTerm" :value (mithril/function-ref :name "normalizeTaxonomyTerm"))
            (rdf/node :name "normalizeWordPressAttachment" :value (mithril/function-ref :name "normalizeWordPressAttachment"))
            (rdf/node :name "prepareChatDraft" :value (mithril/function-ref :name "prepareChatDraft"))])

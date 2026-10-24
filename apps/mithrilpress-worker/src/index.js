@@ -1994,8 +1994,9 @@ async function importWordPress(request, env, site) {
   } catch (error) {
     return fail(error?.status ?? 422, error?.code ?? "invalid_wordpress_content", "The imported WordPress content exceeds a supported compatibility boundary.");
   }
-  const identities = new Set(entries.map((entry) => entry.entryId));
-  if (identities.size !== entries.length) return fail(422, "duplicate_source_id", "The import contains duplicate WordPress record identities.");
+  if (!mithrilContentBoundary.uniqueWordPressSourceIds(entries)) {
+    return fail(422, "duplicate_source_id", "The import contains duplicate WordPress record identities.");
+  }
   const slugs = new Set(entries.map((entry) => `${entry.kind}:${entry.slug}`));
   if (slugs.size !== entries.length) return fail(422, "duplicate_slug", "Each post type may contain a slug only once per revision.");
   const routePaths = new Set(entries.map((entry) => entry.routePath));
