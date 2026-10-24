@@ -115,6 +115,27 @@ present it as $0. Application-level per-site limits control product behavior;
 they do not prevent the hosting provider from metering an invocation or
 storage operation before the application rejects it.
 
+## Published plan boundaries checked 2026-10-24
+
+These are published plan terms, not a read-back of the Cloudflare account
+selected for deployment. Recheck the effective account plan, billing model,
+and bindings before release:
+
+| Product path | Published boundary | Impact on a $0 tenant price and stop claim |
+| --- | --- | --- |
+| Workers Free | 100,000 requests per account per day; Pages Functions share the Workers request quota. | Cloudflare returns Error 1027 after the daily limit. The hard stop applies only when the selected account is actually on Workers Free. |
+| Workers Paid | $5/month minimum; 10 million requests/month included, then $0.30 per additional million. | There is no daily request cap. App-side quotas can stop tenant work but cannot prevent provider billing for the invocation that checks the quota. |
+| Pages static assets | Static requests are free and unlimited when they do not invoke a Function. Free accounts are limited to 100 Pages projects and 100 custom domains per project. | This can serve static content without per-request Function charges, but the project and hostname limits do not establish worldwide tenant capacity. Pages Functions are billed as Workers. |
+| Workers for Platforms | $25/month; 20 million requests, 60 million CPU milliseconds, and 1,000 scripts included, with usage overages. | This provides scale for per-tenant Workers, but its custom CPU and subrequest limits are per invocation, not a monthly spend ceiling. |
+
+Cloudflare's rate-limiting documentation describes counters as approximate. On
+the Free WAF plan, match expressions support Path and Verified Bot fields, not
+Host, and counting is by IP. The Workers Rate Limiting API is also approximate
+and counters are maintained separately by Cloudflare location. These controls
+can reduce abuse but do not prove a strict global billing cap for
+`*.sites.mithril.love`. Keep onboarding disabled until the selected account's
+actual plan, edge controls, and stop behavior are verified.
+
 ## 3. Optional service labor estimate
 
 Enter only Finance-approved rates and the hours agreed for the selected scope.
@@ -168,7 +189,13 @@ allowances can change:
 
 - [Workers pricing and limits](https://developers.cloudflare.com/workers/platform/pricing/)
 - [Workers runtime and account limits](https://developers.cloudflare.com/workers/platform/limits/)
+- [Pages Functions pricing](https://developers.cloudflare.com/pages/functions/pricing/)
+- [Pages platform limits](https://developers.cloudflare.com/pages/platform/limits/)
+- [Pages Functions routing and static request behavior](https://developers.cloudflare.com/pages/functions/routing/)
 - [Workers for Platforms pricing and included usage](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/reference/pricing/)
+- [Workers for Platforms custom limits](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/configuration/custom-limits/)
+- [WAF rate-limiting rules and plan availability](https://developers.cloudflare.com/waf/rate-limiting-rules/)
+- [Workers Rate Limiting API](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/)
 - [Workers for Platforms hostname routing](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/configuration/hostname-routing/)
 - [D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/)
 - [R2 pricing](https://developers.cloudflare.com/r2/pricing/)
