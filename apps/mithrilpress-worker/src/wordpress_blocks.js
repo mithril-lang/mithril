@@ -2,11 +2,12 @@ const CORE_STATIC_BLOCKS = new Set([
   "core/paragraph", "core/heading", "core/list", "core/list-item", "core/quote",
   "core/pullquote", "core/code", "core/preformatted", "core/separator",
   "core/table", "core/html", "core/freeform", "core/verse", "core/image",
+  "core/details",
 ]);
 
 const CORE_LAYOUT_BLOCKS = new Set([
   "core/group", "core/columns", "core/column", "core/buttons", "core/button",
-  "core/gallery", "core/cover", "core/media-text", "core/details", "core/spacer",
+  "core/gallery", "core/cover", "core/media-text", "core/spacer",
 ]);
 
 const CORE_DYNAMIC_BLOCKS = new Set([

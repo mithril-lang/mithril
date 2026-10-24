@@ -4,7 +4,8 @@ import { randomUUID } from "node:crypto";
 import { access, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createServer, request as httpRequest } from "node:http";
+import { createServer } from "node:http";
+import { request as httpsRequest } from "node:https";
 
 const root = new URL("../", import.meta.url).pathname;
 const wrangler = join(root, "node_modules/.bin/wrangler");
@@ -102,6 +103,20 @@ function runWrangler(args, cwd = root) {
   return result.stdout;
 }
 
+function expectWranglerSqlFailure(sql, expectedMessage) {
+  const result = spawnSync(wrangler, [
+    "d1", "execute", "mithrilpress", "--local", "--persist-to", persistPath, "--config", config, "--command", sql,
+  ], {
+    cwd: root,
+    env: cleanEnvironment(),
+    encoding: "utf8",
+    timeout: 120_000,
+    maxBuffer: 8 * 1024 * 1024,
+  });
+  assert.notEqual(result.status, 0, `Expected the local D1 trigger to reject the SQL: ${sql}`);
+  assert.match(`${result.stdout ?? ""}\n${result.stderr ?? ""}`, new RegExp(expectedMessage));
+}
+
 function sqlText(value) {
   return `'${String(value).replaceAll("'", "''")}'`;
 }
@@ -123,7 +138,21 @@ function request(port, method, pathname, { hostname = testHostname, token, body,
     if (token) headers.authorization = `Bearer ${token}`;
     if (contentType) headers["content-type"] = contentType;
     if (body !== undefined) headers["content-length"] = typeof body === "string" ? Buffer.byteLength(body) : body.byteLength;
-    const req = httpRequest({ hostname: "127.0.0.1", port, method, path: pathname, headers, timeout: 5_000 }, (res) => {
+    const req = httpsRequest({
+      hostname,
+      port,
+      method,
+      path: pathname,
+      headers,
+      // Wrangler's local certificate is self-signed; this client connects only to loopback.
+      rejectUnauthorized: false,
+      timeout: 5_000,
+      // Keep request.url on the tenant hostname while routing only the socket to local Wrangler.
+      lookup: (_hostname, options, callback) => {
+        if (options?.all) callback(null, [{ address: "127.0.0.1", family: 4 }]);
+        else callback(null, "127.0.0.1", 4);
+      },
+    }, (res) => {
       const chunks = [];
       res.on("data", (chunk) => chunks.push(chunk));
       res.on("end", () => resolve({
@@ -161,9 +190,10 @@ const tempBase = process.env.MITHRILPRESS_QUALIFICATION_TMP
 await access(tempBase);
 const tempRoot = await mkdtemp(join(tempBase, "mithrilpress-owner-auth-"));
 const persistPath = join(tempRoot, "wrangler-state");
-const siteToken = makeToken("MithrilPress local integration", ["content:import", "revision:preview", "media:write", "revision:approve", "site:publish"]);
+const siteToken = makeToken("MithrilPress local integration", ["content:import", "content:write", "revision:preview", "media:write", "revision:approve", "site:publish"]);
 const otherSiteToken = makeToken("MithrilPress cross-tenant integration", ["content:import", "revision:preview"]);
 let worker;
+let workerDiagnostics = "";
 
 try {
   runWrangler([
@@ -184,8 +214,21 @@ try {
 
   const port = await freePort();
   worker = spawn(wrangler, [
-    "dev", "--local", "--ip", "127.0.0.1", "--port", String(port), "--persist-to", persistPath, "--config", config, "--log-level", "error",
-  ], { cwd: root, env: cleanEnvironment(), stdio: "ignore" });
+    "dev", "--local", "--local-protocol", "https", "--ip", "127.0.0.1", "--port", String(port), "--persist-to", persistPath, "--config", config,
+    "--log-level", "warn", "--var", "MITHRILPRESS_OWNER_AUTH_DIAGNOSTICS:true",
+  ], { cwd: root, env: cleanEnvironment(), stdio: ["ignore", "pipe", "pipe"] });
+  const captureWorkerDiagnostics = (chunk) => {
+    workerDiagnostics = `${workerDiagnostics}${chunk.toString("utf8")}`.slice(-8192);
+  };
+  worker.stdout?.on("data", captureWorkerDiagnostics);
+  worker.stderr?.on("data", captureWorkerDiagnostics);
+  const waitForOwnerAuthDiagnostic = async () => {
+    const marker = "mithrilpress_owner_auth_diagnostic";
+    const deadline = Date.now() + 2_000;
+    while (!workerDiagnostics.includes(marker) && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+  };
   worker.on("error", () => {});
 
   let ready = false;
@@ -293,6 +336,50 @@ try {
   });
   assert.equal(importedBody.migration_report.needs_owner_review, true);
 
+  const manualPrefix = "Manual draft original start: ";
+  const manualSuffix = " :manual-original-end";
+  const longManualContent = `${manualPrefix}${"あ".repeat(100_000 - manualPrefix.length - manualSuffix.length)}${manualSuffix}`;
+  assert.equal(longManualContent.length, 100_000);
+  const manualDraft = await request(port, "POST", "/_mithrilpress/api/studio/manual-draft", {
+    token: siteToken.token,
+    body: JSON.stringify({ title: "Long manual draft", content: longManualContent, kind: "post" }),
+    contentType: "application/json",
+    headers: { origin: `https://${testHostname}`, "x-mithrilpress-request": "1" },
+  });
+  if (manualDraft.status !== 201) {
+    const responseDiagnostic = manualDraft.headers["x-mithrilpress-owner-auth-diagnostic"];
+    if (responseDiagnostic) workerDiagnostics = `mithrilpress_owner_auth_diagnostic ${responseDiagnostic}`;
+    else await waitForOwnerAuthDiagnostic();
+  }
+  assert.equal(manualDraft.status, 201, `A 100,000-character manual draft should save: ${manualDraft.body}\nWorker diagnostics: ${workerDiagnostics || "none emitted"}`);
+  const manualDraftBody = JSON.parse(manualDraft.body);
+  assert.equal(manualDraftBody.draft.state, "private-preview");
+  const longManualPreview = await request(port, "GET", manualDraftBody.preview_url, { token: siteToken.token });
+  assert.equal(longManualPreview.status, 200, `A long manual draft should remain privately previewable: ${longManualPreview.body}`);
+  assert.match(longManualPreview.headers["x-robots-tag"] ?? "", /noindex/);
+  assert.ok(longManualPreview.body.includes(manualSuffix), "The private preview should retain the end of the full manual draft.");
+
+  const updatedManualContent = "Updated manual draft paragraph. ".repeat(140);
+  const updatedManualDraft = await request(port, "POST", "/_mithrilpress/api/studio/manual-draft", {
+    token: siteToken.token,
+    body: JSON.stringify({
+      title: "Updated manual draft",
+      content: updatedManualContent,
+      kind: "post",
+      conversation_id: manualDraftBody.conversation_id,
+    }),
+    contentType: "application/json",
+    headers: { origin: `https://${testHostname}`, "x-mithrilpress-request": "1" },
+  });
+  assert.equal(updatedManualDraft.status, 201, `An existing private draft should be replaceable: ${updatedManualDraft.body}`);
+  const updatedManualDraftBody = JSON.parse(updatedManualDraft.body);
+  assert.equal(updatedManualDraftBody.conversation_id, manualDraftBody.conversation_id);
+  assert.notEqual(updatedManualDraftBody.draft.revision_id, manualDraftBody.draft.revision_id);
+  const updatedManualPreview = await request(port, "GET", updatedManualDraftBody.preview_url, { token: siteToken.token });
+  assert.equal(updatedManualPreview.status, 200);
+  assert.match(updatedManualPreview.body, /Updated manual draft paragraph/);
+  assert.equal(updatedManualPreview.body.includes(manualSuffix), false, "The revised preview should no longer expose the superseded draft body.");
+
   // Seed a ready chat-origin draft to exercise API-ID lookup without a live AI provider.
   const chatApiId = 9500;
   const chatEntryId = "mithrilpress:chat:single-item-read-fixture";
@@ -303,6 +390,28 @@ try {
   runWrangler([
     "d1", "execute", "mithrilpress", "--local", "--persist-to", persistPath, "--config", config, "--command", chatFixtureSql,
   ]);
+
+  // Deleting media must close the reference race: an importer or chat request
+  // that validated the asset before the state change cannot attach it later.
+  const blockNewMediaReference = `UPDATE media_assets SET status = 'deleting' WHERE site_id = ${sqlText(siteId)} AND id = ${uploadedMediaId};`;
+  runWrangler([
+    "d1", "execute", "mithrilpress", "--local", "--persist-to", persistPath, "--config", config, "--command", blockNewMediaReference,
+  ]);
+  try {
+    expectWranglerSqlFailure(
+      `INSERT INTO entry_media (site_id, revision_id, entry_id, media_id, created_at) VALUES (${sqlText(siteId)}, ${sqlText(importedBody.revision_id)}, ${sqlText(chatEntryId)}, ${uploadedMediaId}, ${sqlText(createdAt)});`,
+      "entry_media_not_active",
+    );
+    expectWranglerSqlFailure(
+      `INSERT INTO entries (site_id, revision_id, entry_id, kind, slug, title, source_html, safe_html, entry_origin, publication_status, language_code, api_id, source_id, source_status, source_date, source_date_gmt, source_modified, source_modified_gmt, source_permalink, categories_json, tags_json, featured_media_id, rendering_admission) VALUES (${sqlText(siteId)}, ${sqlText(importedBody.revision_id)}, 'blocked-featured-media', 'post', 'blocked-featured-media', 'Blocked featured media', '<p>fixture</p>', '<p>fixture</p>', 'chat', 'draft', 'en', 9501, NULL, 'draft', ${sqlText(createdAt)}, ${sqlText(createdAt)}, ${sqlText(createdAt)}, ${sqlText(createdAt)}, NULL, '[]', '[]', 9002, 'ready');`,
+      "featured_media_not_active",
+    );
+  } finally {
+    runWrangler([
+      "d1", "execute", "mithrilpress", "--local", "--persist-to", persistPath, "--config", config, "--command",
+      `UPDATE media_assets SET status = 'active' WHERE site_id = ${sqlText(siteId)} AND id = ${uploadedMediaId} AND status = 'deleting';`,
+    ]);
+  }
 
   const savedReport = await request(port, "GET", `/_mithrilpress/api/revisions/${importedBody.revision_id}/migration-report`, {
     token: siteToken.token,
@@ -330,6 +439,15 @@ try {
   });
   assert.equal(privateInlineMedia.status, 200, "An authorized preview must be able to read its linked inline media.");
   assert.equal(privateInlineMedia.body.length, 24);
+  const blockedPreviewMediaDelete = await request(port, "DELETE", `/_mithrilpress/api/media/${uploadedMediaId}`, {
+    token: siteToken.token,
+  });
+  assert.equal(blockedPreviewMediaDelete.status, 409, `Media referenced by a private preview must not be deleted: ${blockedPreviewMediaDelete.body}`);
+  assert.equal(JSON.parse(blockedPreviewMediaDelete.body).error.code, "media_in_use");
+  const previewMediaAfterBlockedDelete = await request(port, "GET", `/_mithrilpress/media/${uploadedMediaId}?revision=${importedBody.revision_id}`, {
+    token: siteToken.token,
+  });
+  assert.equal(previewMediaAfterBlockedDelete.status, 200, "A blocked delete must restore media used by a private preview.");
   const crossTenantInlineMedia = await request(port, "GET", `/_mithrilpress/media/${uploadedMediaId}?revision=${importedBody.revision_id}`, {
     hostname: secondHostname,
     token: otherSiteToken.token,
@@ -350,6 +468,11 @@ try {
   assert.equal(approved.status, 200, `Owner approval failed: ${approved.body}`);
   const published = await request(port, "POST", `/_mithrilpress/api/revisions/${importedBody.revision_id}/publish`, { token: siteToken.token });
   assert.equal(published.status, 200, `Owner publication failed: ${published.body}`);
+  const blockedPublishedMediaDelete = await request(port, "DELETE", `/_mithrilpress/api/media/${uploadedMediaId}`, {
+    token: siteToken.token,
+  });
+  assert.equal(blockedPublishedMediaDelete.status, 409, `Media referenced by the published site must not be deleted: ${blockedPublishedMediaDelete.body}`);
+  assert.equal(JSON.parse(blockedPublishedMediaDelete.body).error.code, "media_in_use");
 
   const publicationPath = `/_mithrilpress/api/control/sites/${siteId}/publication/current`;
   const publicationOnSiteHost = await request(port, "GET", publicationPath, { hostname: testHostname, token: siteToken.token });
@@ -444,7 +567,7 @@ try {
   const missingRelevanceSearch = await request(port, "GET", "/wp-json/wp/v2/posts?orderby=relevance");
   assert.equal(missingRelevanceSearch.status, 400);
 
-  process.stdout.write("MithrilPress local owner-auth qualification passed: anonymous denial, tenant-token isolation, owner media idempotency/conflicts, owner-uploaded inline media mapping, Gutenberg and SEO metadata reports, escaped private and published SEO tags, publication control host isolation, WordPress REST source/API item and collection reads, and pre-publication privacy.\n");
+  process.stdout.write("MithrilPress local owner-auth qualification passed: anonymous denial, tenant-token isolation, owner media idempotency/conflicts, active-media reference race guards and in-use delete rejection, owner-uploaded inline media mapping, Gutenberg and SEO metadata reports, escaped private and published SEO tags, publication control host isolation, WordPress REST source/API item and collection reads, and pre-publication privacy.\n");
 } finally {
   if (worker && worker.exitCode === null) {
     worker.kill("SIGTERM");

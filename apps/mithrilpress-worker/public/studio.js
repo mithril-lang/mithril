@@ -2,8 +2,12 @@ const requestHeader = { "X-MithrilPress-Request": "1" };
 let activeConversationId = null;
 let activeDraft = null;
 let ownerScopes = [];
+let mediaSessionGeneration = 0;
+let mediaRefreshSequence = 0;
 let selectedFeaturedMediaId = null;
 let mediaItems = [];
+let pendingMediaItems = [];
+let pendingMediaTruncated = false;
 
 const loginPanel = document.querySelector("#login-panel");
 const studioPanel = document.querySelector("#studio-panel");
@@ -11,6 +15,11 @@ const loginStatus = document.querySelector("#login-status");
 const studioStatus = document.querySelector("#studio-status");
 const chatMessages = document.querySelector("#chat-messages");
 const chatInput = document.querySelector("#chat-input");
+const manualForm = document.querySelector("#manual-form");
+const manualModeToggle = document.querySelector("#manual-mode-toggle");
+const manualTitle = document.querySelector("#manual-title");
+const manualContent = document.querySelector("#manual-content");
+const manualLanguage = document.querySelector("#manual-language");
 const conversationList = document.querySelector("#conversation-list");
 const draftPanel = document.querySelector("#draft-panel");
 const previewLink = document.querySelector("#preview-link");
@@ -92,6 +101,8 @@ function showStudioView(name) {
 }
 
 function setOwnerScopes(scopes = []) {
+  mediaSessionGeneration += 1;
+  mediaRefreshSequence += 1;
   ownerScopes = Array.isArray(scopes) ? scopes : [];
   defaultHostname.textContent = "";
   showStudioView(ownerScopes.includes("content:write") ? "content"
@@ -120,6 +131,22 @@ function renderMessage(role, body, error = false) {
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
+function draftHtmlToText(html) {
+  const parsed = new DOMParser().parseFromString(String(html || ""), "text/html");
+  const blockTags = new Set(["BLOCKQUOTE", "DIV", "H1", "H2", "H3", "H4", "H5", "H6", "LI", "OL", "P", "PRE", "UL"]);
+  const textOf = (node) => {
+    if (node.nodeType === 3) return node.nodeValue || "";
+    if (node.nodeType !== 1) return "";
+    if (node.tagName === "BR") return "\n";
+    const content = Array.from(node.childNodes).map(textOf).join("");
+    return blockTags.has(node.tagName) ? `${content}\n\n` : content;
+  };
+  return Array.from(parsed.body.childNodes).map(textOf).join("")
+    .replace(/[ \t]*\n[ \t]*/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function showDraft(draft, revisionId, state, previewUrl) {
   if (!draft || !revisionId) {
     activeDraft = null;
@@ -135,6 +162,14 @@ function showDraft(draft, revisionId, state, previewUrl) {
   document.querySelector("#publish-button").hidden = state !== "approved";
 }
 
+function showManualMode(enabled) {
+  document.querySelector("#chat-form").hidden = enabled;
+  manualForm.hidden = !enabled;
+  manualModeToggle.textContent = enabled ? "Back to chat" : "Write without AI";
+  if (enabled) manualTitle.focus();
+  else chatInput.focus();
+}
+
 function resetConversation() {
   activeConversationId = null;
   selectedFeaturedMediaId = null;
@@ -148,6 +183,10 @@ function resetConversation() {
   chatMessages.append(emptyState);
   showDraft(null, null, null);
   document.querySelector("#send-button").textContent = "Create draft";
+  manualTitle.value = "";
+  manualContent.value = "";
+  manualLanguage.value = "";
+  showManualMode(false);
   showStatus(studioStatus);
 }
 
@@ -188,9 +227,15 @@ async function openConversation(id) {
       showDraft(result.conversation.draft, result.conversation.draft_revision_id, result.conversation.draft_state);
       document.querySelector("#content-kind").value = result.conversation.draft.kind;
       document.querySelector("#send-button").textContent = "Update draft";
+      manualTitle.value = result.conversation.draft.title || "";
+      manualContent.value = draftHtmlToText(result.conversation.draft.safe_html);
+      manualLanguage.value = result.conversation.draft.language_code === "und" ? "" : (result.conversation.draft.language_code || "");
     } else {
       showDraft(null, null, null);
       document.querySelector("#send-button").textContent = "Create draft";
+      manualTitle.value = "";
+      manualContent.value = "";
+      manualLanguage.value = "";
     }
     await refreshConversations();
   } catch (error) {
@@ -378,23 +423,76 @@ function renderMediaList() {
   if (!mediaItems.length) {
     const empty = document.createElement("li");
     empty.className = "empty-state";
-    empty.textContent = "No images have been uploaded.";
+    empty.textContent = "No images are available in this library.";
     mediaList.append(empty);
+  }
+  const pendingList = document.querySelector("#media-pending-list");
+  pendingList.replaceChildren();
+  for (const item of pendingMediaItems) {
+    const card = document.createElement("li");
+    card.className = "media-card";
+    const details = document.createElement("div");
+    details.className = "media-details";
+    const title = document.createElement("strong");
+    title.textContent = item.status === "deleting" ? `Removal pending · Image ${item.id}` : `Upload pending · Image ${item.id}`;
+    const metadata = document.createElement("span");
+    metadata.textContent = item.safe_to_remove
+      ? "The completed storage write is verified. You can safely retry removal."
+      : "The storage result is unknown. This image remains private and its reservation remains counted; contact the hosting operator before retrying the import.";
+    details.append(title, metadata);
+    const actions = document.createElement("div");
+    actions.className = "media-actions";
+    if (item.safe_to_remove) {
+      actions.append(domainButton("Retry safe removal", "domain-remove", async () => {
+        try {
+          await api(`/_mithrilpress/api/media/${item.id}/reconcile`, { method: "DELETE", headers: requestHeader });
+          await refreshMedia();
+          await refreshUsage();
+          showStatus(mediaStatus, "The image and its storage reservation were removed.");
+        } catch (error) {
+          showStatus(mediaStatus, error.message);
+        }
+      }));
+    }
+    card.append(details, actions);
+    pendingList.append(card);
+  }
+  if (!pendingMediaItems.length) {
+    const empty = document.createElement("li");
+    empty.className = "empty-state";
+    empty.textContent = "No uploads need reconciliation.";
+    pendingList.append(empty);
+  }
+  if (pendingMediaTruncated) {
+    const notice = document.createElement("li");
+    notice.className = "empty-state";
+    notice.textContent = "More than 25 uploads need reconciliation. Contact the hosting operator before retrying an import.";
+    pendingList.append(notice);
   }
   renderFeaturedImageSelection();
 }
 
 async function refreshMedia() {
   if (!ownerScopes.includes("media:write")) return;
+  const sessionGeneration = mediaSessionGeneration;
+  const refreshSequence = ++mediaRefreshSequence;
   showStatus(mediaStatus);
   try {
     const result = await api("/_mithrilpress/api/media");
+    if (sessionGeneration !== mediaSessionGeneration
+        || refreshSequence !== mediaRefreshSequence
+        || !ownerScopes.includes("media:write")) return;
     mediaItems = result.media || [];
+    pendingMediaItems = result.pending_uploads || [];
+    pendingMediaTruncated = result.pending_uploads_truncated === true;
     const used = (Number(result.storage.used_bytes) / (1024 * 1024)).toFixed(2);
     const limit = (Number(result.storage.site_limit_bytes) / (1024 * 1024)).toFixed(0);
     document.querySelector("#media-storage-usage").textContent = `${used} MiB of ${limit} MiB used`;
     renderMediaList();
   } catch (error) {
+    if (sessionGeneration !== mediaSessionGeneration
+        || refreshSequence !== mediaRefreshSequence
+        || !ownerScopes.includes("media:write")) return;
     showStatus(mediaStatus, error.message);
   }
 }
@@ -516,6 +614,15 @@ function renderDnsMigrationDetail(migration) {
   if (dnsStateCaptured) dnsDetails(dnsMigrationWorkflow.lastElementChild, "Captured source nameservers", originalNs);
   if (dnsStateCaptured) dnsDetails(dnsMigrationWorkflow.lastElementChild, "Captured source DNSSEC DS records", originalDs);
 
+  const retentionStatus = migration.snapshots_erased_at
+    ? `Private DNS migration snapshots were removed from the active MithrilPress database at ${new Date(migration.snapshots_erased_at).toLocaleString()}. Cloudflare may retain earlier production-backend D1 states for up to 7 days on Workers Free or 30 days on Workers Paid. Hashes and audit receipts remain.`
+    : migration.status === "ownership_pending"
+      ? `This unverified ownership challenge expires and is removed from active MithrilPress state at ${migration.snapshot_retention_expires_at ? new Date(migration.snapshot_retention_expires_at).toLocaleString() : "its challenge deadline"}. Cloudflare may retain earlier D1 states during its provider restore window.`
+      : migration.status === "owner_approved"
+        ? "Snapshots are retained while the approved DNS cutover awaits delegation verification or rollback. The inactivity retention window starts after that state is resolved."
+      : `Private DNS snapshot fields become eligible for removal from the active MithrilPress database after 30 days without a state-changing owner action. Cloudflare may retain earlier D1 states during its provider restore window. Current retention deadline: ${migration.snapshot_retention_expires_at ? new Date(migration.snapshot_retention_expires_at).toLocaleString() : "unavailable"}. Opening this plan does not extend the deadline.`;
+  dnsBlock("Automatic snapshot removal", retentionStatus);
+
   if (migration.status === "ownership_pending") {
     const block = dnsBlock("1. Verify domain control", `Publish this TXT record before ${migration.ownership_expires_at || "the challenge expires"}.`);
     if (migration.ownership_record) {
@@ -527,7 +634,7 @@ function renderDnsMigrationDetail(migration) {
   }
 
   if (["source_pending", "source_loaded"].includes(migration.status)) {
-    const block = dnsBlock("2. Upload the source DNS zone", "Paste a complete BIND export from the current authoritative provider. Zone snapshots can contain sensitive TXT values and stay private to this site.");
+    const block = dnsBlock("2. Upload the source DNS zone", "Paste a complete BIND export from the current authoritative provider. Zone snapshots can contain sensitive TXT values and stay private to this site. MithrilPress removes them from the active database after 30 days without a state-changing owner action, or sooner when you cancel; Cloudflare may retain earlier D1 states during its provider restore window.");
     const source = dnsField(block, "Source BIND zone file", { multiline: true, rows: 10, placeholder: "$ORIGIN example.com.\nwww 300 IN A 192.0.2.10" });
     dnsActionButton(block, migration.source_record_count ? "Replace source snapshot" : "Validate source zone", () => {
       void runDnsMigrationAction(migration.id, "source", { zone_file: source.value });
@@ -540,7 +647,7 @@ function renderDnsMigrationDetail(migration) {
       dnsField(block, "BIND import file", { multiline: true, rows: 10, value: migration.import_zone_text, readOnly: true });
     }
 
-    const cloudflareBlock = dnsBlock("Optional: read a Cloudflare staging zone", "Use a Cloudflare API token scoped to this zone with Zone Read and DNS Read. The token is sent only with this request and is not saved by MithrilPress. DNS Write is needed only for the explicit additive import below.");
+    const cloudflareBlock = dnsBlock("Optional: read a Cloudflare staging zone", "Use a token scoped to this zone with Zone Read and DNS Read. It is sent only with this request and is not saved. The separate import request also rereads the zone before and after writing, so its token needs Zone Read, DNS Read, and DNS Write.");
     const zoneId = dnsField(cloudflareBlock, "Cloudflare zone ID", {
       maxLength: 32,
       placeholder: "32-character zone ID",
@@ -567,8 +674,8 @@ function renderDnsMigrationDetail(migration) {
       if (!cloudflareDnsImportsEnabled) {
         dnsBlock("Cloudflare import is not enabled", "This deployment keeps provider writes disabled until the import behavior is qualified against an isolated Cloudflare zone. You can review the generated BIND file and stage records manually.");
       } else {
-        const importBlock = dnsBlock("Add only missing source records", `${migration.diff.removed.length} source records are missing. MithrilPress will submit only this missing-record set. The live Cloudflare zone is checked again before the import and read back afterward.`);
-        const importToken = dnsField(importBlock, "Short-lived Cloudflare API token with DNS Write", {
+        const importBlock = dnsBlock("Add only missing source records", `${migration.diff.removed.length} source records are missing. MithrilPress will submit only this missing-record set. The token is used to reread the live Cloudflare zone before and after the write, so it needs Zone Read, DNS Read, and DNS Write scoped to this zone.`);
+        const importToken = dnsField(importBlock, "Short-lived Cloudflare API token with Zone Read, DNS Read, and DNS Write", {
           type: "password", maxLength: 512, autocomplete: "off", spellcheck: false,
           placeholder: "Paste a zone-scoped token for this request",
         });
@@ -670,14 +777,14 @@ function renderDnsMigrationDetail(migration) {
       migration.status === "delegation_verified"
         ? "Both recursive resolvers show the approved nameserver set and no DS record. Verify the website, TLS, email delivery, and domain-specific services separately."
         : "Both recursive resolvers show the captured source nameservers and DS state. Verify the website, TLS, and mail service separately.");
-    dnsActionButton(block, "Erase snapshots and archive", () => {
-      if (!window.confirm("Erase private source and destination zone snapshots and close the rollback window? This cannot be undone.")) return;
+    dnsActionButton(block, "Remove snapshots and archive", () => {
+      if (!window.confirm("Remove the private source and destination snapshots from the active MithrilPress database and close the rollback window? Cloudflare may retain earlier D1 states during its provider restore window.")) return;
       void runDnsMigrationAction(migration.id, null, {}, "DELETE");
     }, "domain-remove");
   } else if (!["cancelled", "archived", "owner_approved"].includes(migration.status)) {
-    const block = dnsBlock("Cancel and erase snapshots", "This removes private zone-file content and the ownership TXT value. It does not change DNS or registrar settings.");
+    const block = dnsBlock("Cancel and remove snapshots", "This removes private zone-file content and the ownership TXT value from active MithrilPress state. Cloudflare may retain earlier D1 states during its provider restore window. It does not change DNS or registrar settings.");
     dnsActionButton(block, "Cancel migration plan", () => {
-      if (!window.confirm("Cancel the plan and erase its zone snapshots? If you already changed the registrar, restore the source nameservers first.")) return;
+      if (!window.confirm("Cancel the plan and remove its zone snapshots from active MithrilPress state? Cloudflare may retain earlier D1 states during its provider restore window. If you already changed the registrar, restore the source nameservers first.")) return;
       void runDnsMigrationAction(migration.id, null, {}, "DELETE");
     }, "domain-remove");
   }
@@ -744,6 +851,8 @@ document.querySelector("#login-form").addEventListener("submit", async (event) =
 });
 
 document.querySelector("#logout-button").addEventListener("click", async () => {
+  mediaSessionGeneration += 1;
+  mediaRefreshSequence += 1;
   try {
     await api("/_mithrilpress/api/studio/session", { method: "DELETE", headers: requestHeader });
   } finally {
@@ -754,6 +863,8 @@ document.querySelector("#logout-button").addEventListener("click", async () => {
     setOwnerScopes([]);
     resetConversation();
     mediaItems = [];
+    pendingMediaItems = [];
+    pendingMediaTruncated = false;
     renderMediaList();
     conversationList.replaceChildren();
     domainList.replaceChildren();
@@ -825,6 +936,7 @@ document.querySelector("#media-upload-form").addEventListener("submit", async (e
     await refreshMedia();
     await refreshUsage();
   } catch (error) {
+    await refreshMedia();
     showStatus(mediaStatus, error.message);
   } finally {
     button.disabled = false;
@@ -918,8 +1030,55 @@ document.querySelector("#chat-form").addEventListener("submit", async (event) =>
     showStatus(studioStatus, "The conversation remains unpublished.");
   } finally {
     button.disabled = false;
-    button.textContent = "Update draft";
+    button.textContent = activeDraft ? "Update draft" : "Create draft";
     chatInput.focus();
+  }
+});
+
+manualModeToggle.addEventListener("click", () => showManualMode(manualForm.hidden));
+
+manualForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const title = manualTitle.value.trim();
+  const content = manualContent.value.trim();
+  if (!title || !content) return;
+  const isNewConversation = !activeConversationId;
+  const button = document.querySelector("#manual-save-button");
+  button.disabled = true;
+  button.textContent = "Saving…";
+  showStatus(studioStatus);
+  try {
+    const body = {
+      conversation_id: activeConversationId,
+      title,
+      content,
+      language: manualLanguage.value.trim(),
+      kind: document.querySelector("#content-kind").value,
+    };
+    if (ownerScopes.includes("media:write")) body.featured_media_id = selectedFeaturedMediaId;
+    const result = await api("/_mithrilpress/api/studio/manual-draft", {
+      method: "POST",
+      headers: requestHeader,
+      body,
+    });
+    activeConversationId = result.conversation_id;
+    document.querySelector("#editor-title").textContent = "Refine your draft";
+    document.querySelector("#delete-conversation").hidden = false;
+    if (isNewConversation) clearMessages();
+    renderMessage("user", content);
+    renderMessage("assistant", result.message);
+    showDraft(result.draft, result.draft.revision_id, result.draft.state, result.preview_url);
+    document.querySelector("#content-kind").value = result.draft.kind;
+    showStatus(studioStatus, "Private draft saved without AI. Review it before approval and publication.");
+    await refreshConversations();
+    await refreshUsage();
+  } catch (error) {
+    renderMessage("assistant", error.message, true);
+    showStatus(studioStatus, "The text remains unpublished.");
+  } finally {
+    button.disabled = false;
+    button.textContent = "Save private draft";
+    manualContent.focus();
   }
 });
 

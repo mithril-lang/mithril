@@ -8,22 +8,44 @@ validation records, check provider/certificate status, verify a DNS-only CNAME,
 activate the exact tenant mapping, and detach a hostname. The code does not
 write the customer's DNS as part of hostname onboarding. Owner-guided zone
 snapshots, record comparison, cutover approval, and NS/DS propagation checks
-are implemented. A separate owner-confirmed additive Cloudflare DNS import can
-submit missing records when the destination has no extra or changed records;
-it remains disabled by default pending isolated-zone qualification. Automatic
-nameserver changes and registrar transfers are not implemented. Do not enable
-the customer-owned-domain feature until its dedicated SaaS zone and route have
-been provisioned and read back. A five-minute Cron Trigger
+are implemented. A separate owner-confirmed additive Cloudflare DNS import is
+implemented as a create-only batch operation and can submit missing records
+when the destination has no extra or changed records; it remains disabled by
+default pending isolated-zone qualification. Automatic nameserver changes and
+registrar transfers are not implemented. Do not enable the customer-owned-domain
+feature until its dedicated SaaS zone and route have been provisioned and read
+back. A five-minute Cron Trigger
 rechecks active hostnames in batches of 30; at the 90-hostname deployment cap,
 every mapping is checked within 15 minutes. Mismatches suspend immediately;
 three consecutive provider/DNS read failures also suspend. An owner must
 refresh a suspended hostname after the checks pass.
+
+DNS migration plans expose their retention deadline in Studio. Unverified TXT
+ownership challenges are removed from active MithrilPress state at their
+existing expiry; source and target zone snapshots, record diffs, provider
+identifiers, and captured NS/DS state are removed from the active D1 database
+after 30 days without a state-changing owner action.
+Completed plans retain their rollback snapshot for the same inactivity window.
+The retention window pauses while an approved cutover awaits delegation
+verification or rollback, so the rollback snapshot cannot expire mid-cutover.
+Owners can cancel a plan and remove its snapshot fields from active D1 state
+sooner when no cutover is awaiting verification. The existing five-minute Worker schedule processes at most 20
+expired plans per invocation and writes the erasure receipt with the row update
+in one D1 batch. Audit receipts retain only the plan identity, prior status,
+reason, expiry, and source/target hashes; opening a plan does not extend its
+retention window. Cloudflare D1 Time Travel may retain earlier production-
+backend database states for up to 7 days on Workers Free or 30 days on Workers
+Paid. This provider restore window is separate from application retention;
+removal from the active database does not promise immediate, irreversible
+erasure from provider-managed history. See the [D1 erasure
+contract](../operations/mithrilpress-d1-retention-contract.md).
 
 ## Address types
 
 | Type | Setup | Control | Initial availability |
 | --- | --- | --- | --- |
 | MithrilPress subdomain (default) | First cohort: one shared MithrilPress Worker and D1 registry; attach one exact Worker Custom Domain per registered `label.sites.mithril.love` host | MithrilPress controls the platform zone and exact hostname registry; the owner keeps their registrar and nameservers | Bounded first cohort capped at 90; no wildcard DNS/route in this stage; qualify managed TLS, cost, rollback, and exact source |
+| Temporary migration preview | Dedicated Worker Preview with `sites.mithril.love` configured as Preview-only (`previews_enabled: true`, `enabled: false`); each named Preview receives `<preview-name>.sites.mithril.love` | MithrilPress controls the preview Worker and temporary platform hostname; an owner must authorize the import and request the preview | Candidate for short-lived, owner-only reviews; requires owner authentication, noindex, preview-only D1/R2, expiry/deletion, and a lower application cap before sharing |
 | Optional static publication | A separately selected Pages Direct Upload project attaches one exact name, such as `example.sites.mithril.love`; the existing Cloudflare zone adds its CNAME after confirmation | MithrilPress controls that Pages project and exact hostname; the owner keeps their registrar and nameservers | Optional and capped at 90 projects; requires exact-host TLS, cutover/rollback, and separate release qualification |
 | Customer-owned hostname | Customer adds owner-proof and provider TLS TXT records plus a DNS-only CNAME; MithrilPress verifies ownership and provisions a Cloudflare for SaaS custom hostname | Customer retains DNS and registrar control | Subdomains only; apex and wildcard customer hostnames are excluded from this prototype |
 | Nameserver migration plan | Owner proves control, uploads or reads source and staged destination zones, reviews exact record diff, approves a digest, then changes registrar settings manually | Owner retains DNS-provider and registrar control; any Cloudflare API token is zone-scoped and request-only | Optional guided plan; provider import is disabled by default pending isolated-zone qualification |
@@ -52,6 +74,23 @@ host-aware abuse controls, provider-enforced no-overage limits, rollback, and
 operator budget are qualified. Do not charge site owners or upgrade them
 automatically. Cloudflare for SaaS is a separate customer-owned-hostname path,
 not verified platform capacity for this scale stage.
+
+This wildcard-TLS constraint applies to durable tenant hosting. For a temporary
+owner-authorized migration preview, Cloudflare documents a separate Worker
+Preview custom-domain flow: attach `sites.mithril.love` with
+`previews_enabled: true` and `enabled: false`, which creates wildcard DNS/TLS
+for Preview names under that host. This can provide the URL shape without
+turning on the durable wildcard Worker Route, but it is not a substitute for
+the scale path above. Worker Previews are branch environments with a 100 Free
+/ 500 Paid per-Worker cap. They are public by default, custom-domain Previews
+do not automatically set `X-Robots-Tag: noindex`, and bindings share data when
+they reference the same resource. Use a dedicated Preview Worker, separate
+preview D1/R2 resources, strict site scoping, tested owner authentication,
+application noindex, explicit expiry/deletion, and a lower cap. Do not share a
+preview until these controls and the current `fund-mithril` plan/quota are
+verified. See [Worker Preview custom domains](https://developers.cloudflare.com/workers/previews/custom-domains/),
+[Preview limits](https://developers.cloudflare.com/workers/previews/), and
+[resource isolation](https://developers.cloudflare.com/workers/previews/resources/).
 
 ## Customer hostname state machine
 
@@ -131,10 +170,17 @@ This operation can affect the entire domain, including web, email, verification,
 and security records. MithrilPress must not start it as an implicit side effect
 of adding a website hostname. The owner-guided planning and propagation-check
 steps are implemented. A Cloudflare zone can be read with a zone-scoped token
-supplied for one request. The code includes an owner-confirmed additive import
-path for missing source records, but provider writes stay disabled by default
-until the Cloudflare import behavior is qualified against an isolated zone.
-Registrar changes remain manual.
+supplied for one request. The code includes an owner-confirmed create-only
+batch path for missing source records. It sends only `posts`, refuses record
+types and values it cannot preserve, and verifies an exact zone export after
+the write. Cloudflare documents database transaction handling for batch
+operations but says DNS propagation is not atomic. Provider writes stay disabled
+by default until the create-only request and readback behavior are qualified
+against an isolated zone. The automatic path also requires a pending destination
+zone and current public NS/DS answers that still match the source snapshot.
+Cloudflare states that pending zones answer queries sent to their assigned
+nameservers, so keep the source zone active and do not change registrar
+delegation during a write. Registrar changes remain manual.
 
 1. Require a `site:dns-migrate` owner token and prove control with a TXT record
    at `_mithrilpress-migration.<zone>` that expires after 48 hours. Expired
@@ -147,16 +193,25 @@ Registrar changes remain manual.
 2. Upload the current provider's BIND export. Zone snapshots are private to the
    site because TXT data can contain verification secrets. The parser caps
    input at 256 KiB and 2,000 records, accepts `$ORIGIN` and `$TTL`, and rejects
-   unsupported directives rather than guessing their expansion.
+   unsupported directives rather than guessing their expansion. NAPTR records
+   are checked for their six standard fields, quoted character strings, and a
+   fully qualified replacement name (or `.`), following [RFC 3403](https://www.rfc-editor.org/rfc/rfc3403.html).
 3. Import the generated source records into a destination staging zone by hand,
    or connect a Cloudflare zone using a zone-scoped token. The token is sent
-   only with the read request and is not saved. For Cloudflare, DNS Write is
-   used only after a separate owner confirmation to submit missing source
-   records. The feature remains disabled until isolated-zone qualification.
-   The live zone must still match the staged snapshot, and the destination must
-   contain no extra or changed records. Upload the destination export manually
-   for other providers. The diff compares record owner, type, TTL, class, RDATA,
-   and supported Cloudflare proxy/flatten metadata. It excludes
+   only with the read request and is not saved. For Cloudflare, a separate
+   import request uses its token for pre-write and post-write reads as well as
+   the write; scope it to `Zone Read`, `DNS Read`, and `DNS Write` on that zone.
+   After separate owner confirmation, it submits only missing source records
+   through batch `posts`; updates and deletes are never sent. The feature remains
+   disabled until isolated-zone
+   qualification. The live zone must still match the staged snapshot, and the
+   destination must contain no extra or changed records. Upload the destination
+   export manually for other providers. The create-only converter supports
+   `A`, `AAAA`, `CAA`, `CNAME`, `MX`, `NAPTR`, `NS`, `OPENPGPKEY`, `PTR`, `SRV`,
+   `TXT`, and `URI` records with validated field formats and TTLs. If any
+   missing source record cannot be represented safely, the entire automatic
+   batch is rejected before the provider write. The diff compares record owner, type,
+   TTL, class, RDATA, and supported Cloudflare proxy/flatten metadata. It excludes
    provider-managed apex SOA/NS and generated DNSSEC records. A non-exact diff
    cannot be approved.
 4. Require an explicit owner confirmation bound to the source hash, target
@@ -194,8 +249,9 @@ Registrar changes remain manual.
 - Keep secrets, challenge tokens, provider API credentials, and zone exports
   out of URLs, application logs, analytics, and generated sales messages. A
   Cloudflare API token is accepted only in a request header, is never written
-  to D1, and should be revoked after use; grant `DNS Write` only for the
-  explicit additive import operation.
+  to D1, and should be revoked after use. The explicit additive import token
+  also performs zone and record reads, so grant `Zone Read`, `DNS Read`, and
+  `DNS Write` only on the exact target zone.
 
 ## Optional customer-owned Cloudflare for SaaS rollout gates
 

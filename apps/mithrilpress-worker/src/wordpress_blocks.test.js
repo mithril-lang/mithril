@@ -29,6 +29,17 @@ test("keeps ordinary HTML as a no-block content report", () => {
   assert.equal(report.needs_owner_review, false);
 });
 
+test("classifies core details disclosures as static Gutenberg content", () => {
+  const report = inspectWordPressBlocks([
+    '<!-- wp:details --><details open><summary>Answer</summary><p>Details</p></details><!-- /wp:details -->',
+  ]);
+  assert.equal(report.block_count, 1);
+  assert.equal(report.static_blocks, 1);
+  assert.equal(report.layout_degraded_blocks, 0);
+  assert.equal(report.unknown_blocks, 0);
+  assert.equal(report.needs_owner_review, false);
+});
+
 test("collects unique media IDs without exposing source URLs", () => {
   const result = collectWordPressMediaReferences([
     { sourceHtml: '<figure><img class="wp-image-12" src="https://wp.example/a.png"></figure>' },
