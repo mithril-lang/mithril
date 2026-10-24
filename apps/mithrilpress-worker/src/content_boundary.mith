@@ -551,9 +551,8 @@
                                               :function (mithril/function-ref :name "positiveId")
                                               :args [(mithril/local :name "sourceId")])
                                        :right (mithril/host-invoke
-                                               :function (mithril/function-ref :name "textValue")
-                                               :args [(mithril/local :name "assetId")
-                                                      (mithril/literal :datatype "js-value" :value 128)]))))
+                                               :function (mithril/function-ref :name "positiveId")
+                                               :args [(mithril/local :name "assetId")]))))
            :then (mithril/host-invoke
                   :function (mithril/local :name "fail")
                   :args [(mithril/literal :datatype "js-value" :value "invalid_wordpress_media_mapping")])

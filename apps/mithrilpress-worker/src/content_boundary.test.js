@@ -9,8 +9,8 @@ const fail = (code) => {
 
 test("Mithril maps only requested owner media IDs and returns missing IDs for review", () => {
   const mediaRows = [
-    { id: "asset-101", wordpress_source_id: 101 },
-    { id: "asset-202", wordpress_source_id: 202 },
+    { id: 101, wordpress_source_id: 101 },
+    { id: 202, wordpress_source_id: 202 },
   ];
 
   const result = boundary.mapWordPressMediaReferences([101, 202, 303], mediaRows, 5_000, fail);
@@ -26,8 +26,8 @@ test("Mithril rejects ambiguous duplicate owner media mappings", () => {
     () => boundary.mapWordPressMediaReferences(
       [101],
       [
-        { id: "asset-a", wordpress_source_id: 101 },
-        { id: "asset-b", wordpress_source_id: 101 },
+        { id: 101, wordpress_source_id: 101 },
+        { id: 102, wordpress_source_id: 101 },
       ],
       5_000,
       fail,
