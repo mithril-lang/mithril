@@ -103,6 +103,20 @@ function runWrangler(args, cwd = root) {
   return result.stdout;
 }
 
+function expectWranglerSqlFailure(sql, expectedMessage) {
+  const result = spawnSync(wrangler, [
+    "d1", "execute", "mithrilpress", "--local", "--persist-to", persistPath, "--config", config, "--command", sql,
+  ], {
+    cwd: root,
+    env: cleanEnvironment(),
+    encoding: "utf8",
+    timeout: 120_000,
+    maxBuffer: 8 * 1024 * 1024,
+  });
+  assert.notEqual(result.status, 0, `Expected the local D1 trigger to reject the SQL: ${sql}`);
+  assert.match(`${result.stdout ?? ""}\n${result.stderr ?? ""}`, new RegExp(expectedMessage));
+}
+
 function sqlText(value) {
   return `'${String(value).replaceAll("'", "''")}'`;
 }
@@ -377,6 +391,28 @@ try {
     "d1", "execute", "mithrilpress", "--local", "--persist-to", persistPath, "--config", config, "--command", chatFixtureSql,
   ]);
 
+  // Deleting media must close the reference race: an importer or chat request
+  // that validated the asset before the state change cannot attach it later.
+  const blockNewMediaReference = `UPDATE media_assets SET status = 'deleting' WHERE site_id = ${sqlText(siteId)} AND id = ${uploadedMediaId};`;
+  runWrangler([
+    "d1", "execute", "mithrilpress", "--local", "--persist-to", persistPath, "--config", config, "--command", blockNewMediaReference,
+  ]);
+  try {
+    expectWranglerSqlFailure(
+      `INSERT INTO entry_media (site_id, revision_id, entry_id, media_id, created_at) VALUES (${sqlText(siteId)}, ${sqlText(importedBody.revision_id)}, ${sqlText(chatEntryId)}, ${uploadedMediaId}, ${sqlText(createdAt)});`,
+      "entry_media_not_active",
+    );
+    expectWranglerSqlFailure(
+      `INSERT INTO entries (site_id, revision_id, entry_id, kind, slug, title, source_html, safe_html, entry_origin, publication_status, language_code, api_id, source_id, source_status, source_date, source_date_gmt, source_modified, source_modified_gmt, source_permalink, categories_json, tags_json, featured_media_id, rendering_admission) VALUES (${sqlText(siteId)}, ${sqlText(importedBody.revision_id)}, 'blocked-featured-media', 'post', 'blocked-featured-media', 'Blocked featured media', '<p>fixture</p>', '<p>fixture</p>', 'chat', 'draft', 'en', 9501, NULL, 'draft', ${sqlText(createdAt)}, ${sqlText(createdAt)}, ${sqlText(createdAt)}, ${sqlText(createdAt)}, NULL, '[]', '[]', 9002, 'ready');`,
+      "featured_media_not_active",
+    );
+  } finally {
+    runWrangler([
+      "d1", "execute", "mithrilpress", "--local", "--persist-to", persistPath, "--config", config, "--command",
+      `UPDATE media_assets SET status = 'active' WHERE site_id = ${sqlText(siteId)} AND id = ${uploadedMediaId} AND status = 'deleting';`,
+    ]);
+  }
+
   const savedReport = await request(port, "GET", `/_mithrilpress/api/revisions/${importedBody.revision_id}/migration-report`, {
     token: siteToken.token,
   });
@@ -403,6 +439,15 @@ try {
   });
   assert.equal(privateInlineMedia.status, 200, "An authorized preview must be able to read its linked inline media.");
   assert.equal(privateInlineMedia.body.length, 24);
+  const blockedPreviewMediaDelete = await request(port, "DELETE", `/_mithrilpress/api/media/${uploadedMediaId}`, {
+    token: siteToken.token,
+  });
+  assert.equal(blockedPreviewMediaDelete.status, 409, `Media referenced by a private preview must not be deleted: ${blockedPreviewMediaDelete.body}`);
+  assert.equal(JSON.parse(blockedPreviewMediaDelete.body).error.code, "media_in_use");
+  const previewMediaAfterBlockedDelete = await request(port, "GET", `/_mithrilpress/media/${uploadedMediaId}?revision=${importedBody.revision_id}`, {
+    token: siteToken.token,
+  });
+  assert.equal(previewMediaAfterBlockedDelete.status, 200, "A blocked delete must restore media used by a private preview.");
   const crossTenantInlineMedia = await request(port, "GET", `/_mithrilpress/media/${uploadedMediaId}?revision=${importedBody.revision_id}`, {
     hostname: secondHostname,
     token: otherSiteToken.token,
@@ -423,6 +468,11 @@ try {
   assert.equal(approved.status, 200, `Owner approval failed: ${approved.body}`);
   const published = await request(port, "POST", `/_mithrilpress/api/revisions/${importedBody.revision_id}/publish`, { token: siteToken.token });
   assert.equal(published.status, 200, `Owner publication failed: ${published.body}`);
+  const blockedPublishedMediaDelete = await request(port, "DELETE", `/_mithrilpress/api/media/${uploadedMediaId}`, {
+    token: siteToken.token,
+  });
+  assert.equal(blockedPublishedMediaDelete.status, 409, `Media referenced by the published site must not be deleted: ${blockedPublishedMediaDelete.body}`);
+  assert.equal(JSON.parse(blockedPublishedMediaDelete.body).error.code, "media_in_use");
 
   const publicationPath = `/_mithrilpress/api/control/sites/${siteId}/publication/current`;
   const publicationOnSiteHost = await request(port, "GET", publicationPath, { hostname: testHostname, token: siteToken.token });
@@ -517,7 +567,7 @@ try {
   const missingRelevanceSearch = await request(port, "GET", "/wp-json/wp/v2/posts?orderby=relevance");
   assert.equal(missingRelevanceSearch.status, 400);
 
-  process.stdout.write("MithrilPress local owner-auth qualification passed: anonymous denial, tenant-token isolation, owner media idempotency/conflicts, owner-uploaded inline media mapping, Gutenberg and SEO metadata reports, escaped private and published SEO tags, publication control host isolation, WordPress REST source/API item and collection reads, and pre-publication privacy.\n");
+  process.stdout.write("MithrilPress local owner-auth qualification passed: anonymous denial, tenant-token isolation, owner media idempotency/conflicts, active-media reference race guards and in-use delete rejection, owner-uploaded inline media mapping, Gutenberg and SEO metadata reports, escaped private and published SEO tags, publication control host isolation, WordPress REST source/API item and collection reads, and pre-publication privacy.\n");
 } finally {
   if (worker && worker.exitCode === null) {
     worker.kill("SIGTERM");

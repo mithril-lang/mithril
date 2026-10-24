@@ -517,7 +517,7 @@ write and storage caps; reaching a cap stops the import without a paid fallback.
 | `DELETE` | `/_mithrilpress/api/studio/conversations/{id}` | `content:write` | Delete the conversation and its unpublished draft. Published revisions remain intact. |
 | `GET` | `/_mithrilpress/api/studio/usage` | `content:write`, `media:write`, or `site:domains` | Show this site's retained content, public request use, R2 image storage, and daily app-level usage. |
 | `GET` / `POST` | `/_mithrilpress/api/media` | `media:write` | List the tenant's image library or upload a bounded JPEG, PNG, GIF, or WebP image directly to R2. |
-| `DELETE` | `/_mithrilpress/api/media/{id}` | `media:write` | Hide and remove an image; published content referencing it will render without the image. |
+| `DELETE` | `/_mithrilpress/api/media/{id}` | `media:write` | Remove an unreferenced image. Deletion is rejected while an importing, private-preview, approved, or published revision references it. Superseded and failed revisions do not block deletion. |
 | `GET` / `HEAD` | `/_mithrilpress/media/{id}` | public only when referenced by the published revision; owner preview otherwise | Serve an image only while referenced by published content or the authenticated owner's preview/library. |
 | `GET` | `/_mithrilpress/preview/{revision-id}/{slug}` | `revision:preview` | View sanitized revision HTML with `noindex` headers. |
 | `POST` | `/_mithrilpress/api/revisions/{revision-id}/approve` | `revision:approve` | Record owner approval for a complete sanitized revision. |

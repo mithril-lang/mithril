@@ -2160,14 +2160,88 @@ async function deleteStudioMedia(request, env, site, mediaId) {
   if (request.method !== "DELETE") return fail(405, "method_not_allowed", "Use DELETE to remove this media item.");
   if (!env.MEDIA) return fail(503, "media_storage_unavailable", "Image storage is not configured for this hosting deployment.");
   const row = await env.DB.prepare(
-    "SELECT id, object_key, status FROM media_assets WHERE site_id = ? AND id = ? LIMIT 1",
+    "SELECT id, object_key, status, delete_operation_id FROM media_assets WHERE site_id = ? AND id = ? LIMIT 1",
   ).bind(site.id, mediaId).first();
   if (!row) return fail(404, "media_not_found", "Media item not found.");
+  if (!new Set(["pending", "active", "deleting"]).has(row.status)) {
+    return fail(409, "media_state_changed", "This image changed state. Refresh the media library before retrying.");
+  }
   if (!await countMediaWrite(env, MEDIA_WRITES_PER_DAY_LIMIT)) {
     return fail(429, "media_daily_write_limit", "The shared free media upload and delete allowance is exhausted for today. Try again after 00:00 UTC.");
   }
-  await env.DB.prepare("UPDATE media_assets SET status = 'deleting' WHERE site_id = ? AND id = ? AND status IN ('pending', 'active', 'deleting')")
-    .bind(site.id, mediaId).run();
+  if (row.status !== "deleting") {
+    const marked = await env.DB.prepare(
+      "UPDATE media_assets SET status = 'deleting', delete_operation_id = NULL WHERE site_id = ? AND id = ? AND status = ? AND delete_operation_id IS NULL RETURNING id",
+    ).bind(site.id, mediaId, row.status).first();
+    if (!marked) return fail(409, "media_state_changed", "This image changed state. Refresh the media library before retrying.");
+  }
+  let deleteOperationId = row.delete_operation_id;
+  const restoreAfterDeleteCheck = async () => {
+    let restoreStatus = row.status;
+    if (row.status === "deleting") {
+      restoreStatus = "active";
+    }
+    if (restoreStatus === "active" && !await env.MEDIA.head(row.object_key)) return false;
+    const restored = await env.DB.prepare(
+      "UPDATE media_assets SET status = ?, delete_operation_id = NULL WHERE site_id = ? AND id = ? AND status = 'deleting' AND delete_operation_id IS NULL",
+    ).bind(restoreStatus, site.id, mediaId).run();
+    if (restored.meta?.changes !== 1) return false;
+    return true;
+  };
+  if (!deleteOperationId) {
+    let referenced;
+    try {
+      referenced = await env.DB.prepare(
+        "SELECT 1 FROM media_assets a WHERE a.site_id = ? AND a.id = ? AND ("
+          + "EXISTS (SELECT 1 FROM entries e JOIN site_revisions r ON r.site_id = e.site_id AND r.id = e.revision_id "
+          + "WHERE e.site_id = a.site_id AND r.state IN ('importing', 'private-preview', 'approved', 'published') "
+          + "AND e.featured_media_id IN (a.id, a.wordpress_source_id)) "
+          + "OR EXISTS (SELECT 1 FROM entry_media em JOIN site_revisions r ON r.site_id = em.site_id AND r.id = em.revision_id "
+          + "WHERE em.site_id = a.site_id AND em.media_id = a.id AND r.state IN ('importing', 'private-preview', 'approved', 'published'))"
+          + ") LIMIT 1",
+      ).bind(site.id, mediaId).first();
+    } catch {
+      let restored = false;
+      try {
+        restored = await restoreAfterDeleteCheck();
+      } catch {
+        return fail(503, "media_delete_pending", "The image could not be checked for active references, and its prior state could not be restored. Retry later.");
+      }
+      if (!restored) return fail(503, "media_delete_pending", "Another deletion attempt committed, or the image could not be safely restored. Retry later.");
+      return fail(503, "media_reference_check_unavailable", "The image could not be checked for active references. It was not deleted; retry later.");
+    }
+    if (referenced) {
+      let restored = false;
+      try {
+        restored = await restoreAfterDeleteCheck();
+      } catch {
+        return fail(503, "media_delete_pending", "This image is still referenced, but its active state could not be restored. Retry later.");
+      }
+      if (!restored) return fail(503, "media_delete_pending", "A deletion attempt committed, or the image could not be safely restored. Retry later.");
+      return fail(409, "media_in_use", "This image is used by an importing, private-preview, approved, or published revision. Remove it from those revisions before deleting it.");
+    }
+
+    const operationId = crypto.randomUUID();
+    let committed;
+    try {
+      committed = await env.DB.prepare(
+        "UPDATE media_assets SET delete_operation_id = ? WHERE site_id = ? AND id = ? AND status = 'deleting' AND delete_operation_id IS NULL RETURNING delete_operation_id",
+      ).bind(operationId, site.id, mediaId).first();
+    } catch {
+      return fail(503, "media_delete_pending", "The image passed its reference check, but deletion could not be committed. Retry later.");
+    }
+    if (committed) deleteOperationId = committed.delete_operation_id;
+    else {
+      const current = await env.DB.prepare(
+        "SELECT status, delete_operation_id FROM media_assets WHERE site_id = ? AND id = ? LIMIT 1",
+      ).bind(site.id, mediaId).first();
+      if (!current) return json({ media_id: mediaId, deleted: true });
+      if (current.status !== "deleting" || !current.delete_operation_id) {
+        return fail(503, "media_delete_pending", "Another deletion attempt changed the media state. Retry later.");
+      }
+      deleteOperationId = current.delete_operation_id;
+    }
+  }
   try {
     await env.MEDIA.delete(row.object_key);
   } catch {
@@ -2176,11 +2250,17 @@ async function deleteStudioMedia(request, env, site, mediaId) {
   const now = new Date().toISOString();
   try {
     const result = await env.DB.batch([
-      env.DB.prepare("DELETE FROM media_assets WHERE site_id = ? AND id = ? AND status = 'deleting'").bind(site.id, mediaId),
-      env.DB.prepare("INSERT INTO media_actions (id, site_id, media_id, token_id, action, created_at, metadata_json) VALUES (?, ?, ?, ?, 'media-deleted', ?, '{}')")
-        .bind(crypto.randomUUID(), site.id, mediaId, owner.tokenId, now),
+      env.DB.prepare("DELETE FROM media_assets WHERE site_id = ? AND id = ? AND status = 'deleting' AND delete_operation_id = ?")
+        .bind(site.id, mediaId, deleteOperationId),
+      env.DB.prepare("INSERT OR IGNORE INTO media_actions (id, site_id, media_id, token_id, action, created_at, metadata_json) VALUES (?, ?, ?, ?, 'media-deleted', ?, '{}')")
+        .bind(deleteOperationId, site.id, mediaId, owner.tokenId, now),
     ]);
-    if (result[0]?.meta?.changes !== 1) throw new Error("media metadata removal failed");
+    if (result[0]?.meta?.changes !== 1) {
+      const remaining = await env.DB.prepare(
+        "SELECT 1 FROM media_assets WHERE site_id = ? AND id = ? LIMIT 1",
+      ).bind(site.id, mediaId).first();
+      if (remaining) throw new Error("media metadata removal failed");
+    }
   } catch {
     return fail(503, "media_delete_pending", "The object was removed, but metadata cleanup is pending. Retry later.");
   }
@@ -2435,7 +2515,15 @@ async function importWordPress(request, env, site) {
       maximum_depth: 64,
     },
     source_omissions: parsedWxr?.omitted ?? null,
-    needs_owner_review: parityStatus !== "supported-slice-complete",
+    needs_owner_review: parityStatus !== "supported-slice-complete"
+      || gutenbergReport.needs_owner_review
+      || omittedInlineImages > 0
+      || unresolvedSourceSiteLinks > 0
+      || removedUnsafeLinks > 0
+      || omittedSeoFields > 0
+      || pageHierarchy.omitted > 0
+      || preservedRouteCount < entries.length
+      || Object.values(parsedWxr?.omitted ?? {}).some((count) => Number(count) > 0),
   };
 
   let safeTermBytes = 0;

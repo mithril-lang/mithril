@@ -447,7 +447,8 @@ async function applyPlan(plan, wxr, siteUrl, root, token) {
       });
       const media = upload.data?.media;
       currentUpload = null;
-      if (!media || media.wordpress_source_id !== item.id) {
+      if (!media || media.wordpress_source_id !== item.id
+          || !Number.isSafeInteger(media.id) || media.id < 1) {
         unverifiedUpload = { wordpress_media_id: item.id, reason: "upload_response_unverified" };
         throw problem("invalid_media_upload_response");
       }
@@ -481,7 +482,7 @@ async function applyPlan(plan, wxr, siteUrl, root, token) {
   } catch (error) {
     if (!importRequestStarted || importResponseIsDefiniteRejection(error)) {
       const uncertainUploads = [];
-      if (currentUpload && error?.code === "site_request_failed") {
+      if (currentUpload && (error?.code === "site_request_failed" || error?.httpStatus >= 500)) {
         uncertainUploads.push({
           wordpress_media_id: currentUpload.id,
           reason: "upload_result_uncertain",
