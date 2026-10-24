@@ -1,0 +1,106 @@
+; WordPress Gutenberg block support classification is CMS-domain policy.
+(mithril/native-js-module
+ :name "mithrilpress.wordpress_block_policy"
+ :imports []
+ :functions
+ [(mithril/function
+   :name "normalizeWordPressBlockName"
+   :params [(rdf/node :name "rawName" :datatype "js-value")]
+   :returns "js-value"
+   :body
+   (mithril/let
+    :bindings [(rdf/node :name "lowerName"
+                         :value (mithril/host-method
+                                 :object (mithril/local :name "rawName")
+                                 :key (mithril/literal :datatype "js-value" :value "toLowerCase")
+                                 :args []))
+               (rdf/node :name "name"
+                         :value (mithril/if
+                                 :condition (mithril/host-method
+                                             :object (mithril/local :name "lowerName")
+                                             :key (mithril/literal :datatype "js-value" :value "includes")
+                                             :args [(mithril/literal :datatype "js-value" :value "/")])
+                                 :then (mithril/local :name "lowerName")
+                                 :else (mithril/host-binary
+                                        :operator "+"
+                                        :left (mithril/literal :datatype "js-value" :value "core/")
+                                        :right (mithril/local :name "lowerName"))))]
+    :body (mithril/local :name "name")))
+  (mithril/function
+   :name "classifyWordPressBlock"
+   :params [(rdf/node :name "name" :datatype "js-value")]
+   :returns "js-value"
+   :body
+   (mithril/if
+     :condition (mithril/host-method
+                 :object (mithril/host-array
+                          :items [(mithril/literal :datatype "js-value" :value "core/paragraph")
+                                  (mithril/literal :datatype "js-value" :value "core/heading")
+                                  (mithril/literal :datatype "js-value" :value "core/list")
+                                  (mithril/literal :datatype "js-value" :value "core/list-item")
+                                  (mithril/literal :datatype "js-value" :value "core/quote")
+                                  (mithril/literal :datatype "js-value" :value "core/pullquote")
+                                  (mithril/literal :datatype "js-value" :value "core/code")
+                                  (mithril/literal :datatype "js-value" :value "core/preformatted")
+                                  (mithril/literal :datatype "js-value" :value "core/separator")
+                                  (mithril/literal :datatype "js-value" :value "core/table")
+                                  (mithril/literal :datatype "js-value" :value "core/html")
+                                  (mithril/literal :datatype "js-value" :value "core/freeform")
+                                  (mithril/literal :datatype "js-value" :value "core/verse")
+                                  (mithril/literal :datatype "js-value" :value "core/image")])
+                 :key (mithril/literal :datatype "js-value" :value "includes")
+                 :args [(mithril/local :name "name")])
+     :then (mithril/literal :datatype "js-value" :value "static")
+     :else
+     (mithril/if
+      :condition (mithril/host-method
+                  :object (mithril/host-array
+                           :items [(mithril/literal :datatype "js-value" :value "core/group")
+                                   (mithril/literal :datatype "js-value" :value "core/columns")
+                                   (mithril/literal :datatype "js-value" :value "core/column")
+                                   (mithril/literal :datatype "js-value" :value "core/buttons")
+                                   (mithril/literal :datatype "js-value" :value "core/button")
+                                   (mithril/literal :datatype "js-value" :value "core/gallery")
+                                   (mithril/literal :datatype "js-value" :value "core/cover")
+                                   (mithril/literal :datatype "js-value" :value "core/media-text")
+                                   (mithril/literal :datatype "js-value" :value "core/details")
+                                   (mithril/literal :datatype "js-value" :value "core/spacer")])
+                  :key (mithril/literal :datatype "js-value" :value "includes")
+                  :args [(mithril/local :name "name")])
+      :then (mithril/literal :datatype "js-value" :value "layout-degraded")
+      :else
+      (mithril/if
+       :condition (mithril/host-method
+                   :object (mithril/host-array
+                            :items [(mithril/literal :datatype "js-value" :value "core/latest-posts")
+                                    (mithril/literal :datatype "js-value" :value "core/query")
+                                    (mithril/literal :datatype "js-value" :value "core/query-title")
+                                    (mithril/literal :datatype "js-value" :value "core/post-template")
+                                    (mithril/literal :datatype "js-value" :value "core/post-title")
+                                    (mithril/literal :datatype "js-value" :value "core/post-content")
+                                    (mithril/literal :datatype "js-value" :value "core/post-date")
+                                    (mithril/literal :datatype "js-value" :value "core/post-author")
+                                    (mithril/literal :datatype "js-value" :value "core/post-excerpt")
+                                    (mithril/literal :datatype "js-value" :value "core/post-featured-image")
+                                    (mithril/literal :datatype "js-value" :value "core/site-title")
+                                    (mithril/literal :datatype "js-value" :value "core/site-tagline")
+                                    (mithril/literal :datatype "js-value" :value "core/site-logo")
+                                    (mithril/literal :datatype "js-value" :value "core/navigation")
+                                    (mithril/literal :datatype "js-value" :value "core/search")
+                                    (mithril/literal :datatype "js-value" :value "core/widget-area")
+                                    (mithril/literal :datatype "js-value" :value "core/legacy-widget")
+                                    (mithril/literal :datatype "js-value" :value "core/shortcode")
+                                    (mithril/literal :datatype "js-value" :value "core/embed")
+                                    (mithril/literal :datatype "js-value" :value "core/audio")
+                                    (mithril/literal :datatype "js-value" :value "core/video")
+                                    (mithril/literal :datatype "js-value" :value "core/file")
+                                    (mithril/literal :datatype "js-value" :value "core/block")])
+                   :key (mithril/literal :datatype "js-value" :value "includes")
+                   :args [(mithril/local :name "name")])
+       :then (mithril/literal :datatype "js-value" :value "dynamic")
+       :else (mithril/literal :datatype "js-value" :value "unknown")))))
+ ]
+ :exports [(rdf/node :name "normalizeWordPressBlockName"
+                     :value (mithril/function-ref :name "normalizeWordPressBlockName"))
+           (rdf/node :name "classifyWordPressBlock"
+                     :value (mithril/function-ref :name "classifyWordPressBlock"))])

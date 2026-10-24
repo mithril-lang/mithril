@@ -3,11 +3,15 @@ import { MAX_MEDIA_BYTES, validateImageUpload } from "./media_validation.js";
 import { instantiateMithrilNative as instantiateContentBoundary } from "./content_boundary.js";
 import { instantiateMithrilNative as instantiateMigrationPolicy } from "./migration_policy.js";
 import { instantiateMithrilNative } from "./platform_hostname.js";
-import { collectWordPressMediaReferences, inspectWordPressBlocks } from "./wordpress_blocks.js";
+import {
+  MAX_WORDPRESS_MEDIA_IDS_PER_IMPORT,
+  collectWordPressMediaReferences,
+  inspectWordPressBlocks,
+} from "./wordpress_blocks.js";
 import { buildWordPressPermalinkMap, rewriteWordPressLink, wordpressRoutePath } from "./wordpress_links.js";
 import { selectWordPressSeoMetadata } from "./wordpress_seo.js";
 import { parseWordPressWxr } from "./wxr_import.js";
-import { matchesPageHierarchyReadback } from "./wordpress_page_hierarchy.js";
+import { instantiateMithrilNative as instantiateWordPressPageHierarchy } from "./wordpress_page_hierarchy.js";
 import { consumeHostingRequest, consumeHostingRequestForSite } from "./hosting_request_limits.js";
 import {
   isWorkersFreeAiEnabled,
@@ -49,8 +53,9 @@ const HOSTING_REQUESTS_PER_DAY_LIMIT = 25_000;
 const SITE_HOSTING_REQUESTS_PER_DAY_LIMIT = 5_000;
 const ENTRY_SLUG = /^[^/?#\\\u0000-\u001f\u007f]{1,200}$/;
 const mithrilHostnameCore = instantiateMithrilNative({});
-const mithrilContentBoundary = instantiateContentBoundary({ Array, Number, Set });
+const mithrilContentBoundary = instantiateContentBoundary({ Array, Map, Number, Set });
 const mithrilMigrationPolicy = instantiateMigrationPolicy({});
+const mithrilWordPressPageHierarchy = instantiateWordPressPageHierarchy({ Array, Map, Set });
 const HTML_TAGS = new Set(mithrilContentBoundary.staticHtmlTags());
 const DROP_SUBTREE_TAGS = new Set([
   "audio", "button", "canvas", "embed", "form", "iframe", "input", "link",
@@ -395,58 +400,7 @@ function normalizeRecord(record) {
 }
 
 function preserveWordPressPageParents(entries) {
-  const pagesBySourceId = new Map(entries
-    .filter((entry) => entry.kind === "page")
-    .map((entry) => [entry.sourceId, entry]));
-  let omitted = 0;
-  for (const entry of entries) {
-    const parentSourceId = entry.parentSourceId;
-    if (parentSourceId === null) continue;
-    const parent = pagesBySourceId.get(parentSourceId);
-    if (entry.kind !== "page" || !parent || parent.entryId === entry.entryId) {
-      entry.parentSourceId = null;
-      omitted += 1;
-    }
-  }
-
-  for (const page of pagesBySourceId.values()) {
-    const path = [];
-    const positions = new Map();
-    let current = page;
-    while (current?.parentSourceId !== null && current?.parentSourceId !== undefined) {
-      if (positions.has(current.sourceId)) {
-        for (const cyclicPage of path.slice(positions.get(current.sourceId))) {
-          if (cyclicPage.parentSourceId !== null) {
-            cyclicPage.parentSourceId = null;
-            omitted += 1;
-          }
-        }
-        break;
-      }
-      positions.set(current.sourceId, path.length);
-      path.push(current);
-      current = pagesBySourceId.get(current.parentSourceId);
-    }
-  }
-
-  for (const page of pagesBySourceId.values()) {
-    let current = page;
-    let depth = 0;
-    while (current?.parentSourceId !== null && current?.parentSourceId !== undefined) {
-      if (depth >= 64) {
-        current.parentSourceId = null;
-        omitted += 1;
-        break;
-      }
-      depth += 1;
-      current = pagesBySourceId.get(current.parentSourceId);
-    }
-  }
-
-  return {
-    preserved: [...pagesBySourceId.values()].filter((page) => page.parentSourceId !== null).length,
-    omitted,
-  };
+  return mithrilWordPressPageHierarchy.preserveWordPressPageParents(entries);
 }
 
 function normalizeTaxonomyTerms(value, entries) {
@@ -493,7 +447,6 @@ function normalizeTaxonomyTerms(value, entries) {
       if (pathIds.has(key)) invalid("cyclic_taxonomy_parent");
       pathIds.add(key);
       path.push(current);
-      if (path.length > 64) invalid("taxonomy_parent_depth_exceeded");
       current = current.parentId ? byKey.get(`category:${current.parentId}`) : null;
     }
     for (const node of path) visited.add(`${node.taxonomy}:${node.id}`);
@@ -2521,8 +2474,9 @@ async function importWordPress(request, env, site) {
   } catch (error) {
     return fail(error?.status ?? 422, error?.code ?? "invalid_wordpress_content", "The imported WordPress content exceeds a supported compatibility boundary.");
   }
-  const identities = new Set(entries.map((entry) => entry.entryId));
-  if (identities.size !== entries.length) return fail(422, "duplicate_source_id", "The import contains duplicate WordPress record identities.");
+  if (!mithrilContentBoundary.uniqueWordPressSourceIds(entries)) {
+    return fail(422, "duplicate_source_id", "The import contains duplicate WordPress record identities.");
+  }
   const slugs = new Set(entries.map((entry) => `${entry.kind}:${entry.slug}`));
   if (slugs.size !== entries.length) return fail(422, "duplicate_slug", "Each post type may contain a slug only once per revision.");
   const routePaths = new Set(entries.map((entry) => entry.routePath));
@@ -2533,12 +2487,29 @@ async function importWordPress(request, env, site) {
   if (totalChars > MAX_IMPORT_CHARS) return fail(413, "import_too_large", "The imported content exceeds the site import budget.");
 
   let mediaBySourceId = new Map();
+  let mappedMediaSourceIds = [];
+  let unmappedMediaSourceIds = [];
   if (wordpressMediaReferences.source_ids.length > 0) {
     const placeholders = JSON.stringify(wordpressMediaReferences.source_ids);
     const mediaRows = await env.DB.prepare(
       "SELECT id, wordpress_source_id, alt_text, width, height FROM media_assets WHERE site_id = ? AND status = 'active' AND wordpress_source_id IN (SELECT CAST(value AS INTEGER) FROM json_each(?))",
     ).bind(site.id, placeholders).all();
-    mediaBySourceId = new Map((mediaRows.results ?? []).map((row) => [Number(row.wordpress_source_id), row]));
+    try {
+      const mapping = mithrilContentBoundary.mapWordPressMediaReferences(
+        wordpressMediaReferences.source_ids,
+        (mediaRows.results ?? []).map((row) => ({
+          ...row,
+          wordpress_source_id: Number(row.wordpress_source_id),
+        })),
+        MAX_WORDPRESS_MEDIA_IDS_PER_IMPORT,
+        (code) => { throw Object.assign(new Error(code), { code }); },
+      );
+      mediaBySourceId = mapping.bySourceId;
+      mappedMediaSourceIds = mapping.mappedSourceIds;
+      unmappedMediaSourceIds = mapping.unmappedSourceIds;
+    } catch {
+      return fail(503, "media_mapping_unavailable", "The owner-supplied WordPress media mapping could not be verified.");
+    }
   }
 
   const permalinkMap = buildWordPressPermalinkMap(entries, sourceOrigin, site.hostname);
@@ -2591,7 +2562,7 @@ async function importWordPress(request, env, site) {
     recordsReconcile: entries.length === records.length,
     blockScanComplete: gutenbergReport.scan_truncated !== true,
     noSourceOmissions: sourceOmissionCount === 0,
-    noMediaOmissions: omittedInlineImages === 0,
+    noMediaOmissions: omittedInlineImages === 0 && unmappedMediaSourceIds.length === 0,
     noUnsupportedBlocks: gutenbergReport.unknown_blocks === 0,
     noLayoutDegradation: gutenbergReport.layout_degraded_blocks === 0,
     noDynamicBlocks: gutenbergReport.dynamic_blocks === 0,
@@ -2609,7 +2580,7 @@ async function importWordPress(request, env, site) {
       imported_records: entries.length,
       records_match: entries.length === records.length,
       owner_supplied_taxonomy_terms: taxonomyTerms.length,
-      mapped_images: mediaBySourceId.size,
+      mapped_images: mappedMediaSourceIds.length,
     },
     gutenberg: gutenbergReport,
     seo_metadata: {
@@ -2620,7 +2591,9 @@ async function importWordPress(request, env, site) {
     inline_media: {
       wp_image_class_references: wordpressMediaReferences.class_references,
       referenced_source_ids: wordpressMediaReferences.source_ids.length,
-      mapped_source_ids: mediaBySourceId.size,
+      mapped_source_ids: mappedMediaSourceIds.length,
+      unmapped_source_ids: unmappedMediaSourceIds,
+      owner_review_required: unmappedMediaSourceIds.length > 0 || omittedInlineImages > 0,
       image_elements: totalInlineImages,
       rewritten_images: rewrittenInlineImages,
       omitted_images: omittedInlineImages,
@@ -2698,7 +2671,7 @@ async function importWordPress(request, env, site) {
     const hierarchyReadback = await env.DB.prepare(
       "SELECT entry_id, parent_source_id FROM entries WHERE site_id = ? AND revision_id = ? AND kind = 'page' AND parent_source_id IS NOT NULL",
     ).bind(site.id, revisionId).all();
-    if (!matchesPageHierarchyReadback(parentEntries, hierarchyReadback.results ?? [])) {
+    if (!mithrilWordPressPageHierarchy.matchesPageHierarchyReadback(parentEntries, hierarchyReadback.results ?? [])) {
       throw new Error("page hierarchy relation was not committed");
     }
     const metadataEntries = entries.filter((entry) => Object.keys(entry.seoMetadata).length > 0);

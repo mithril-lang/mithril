@@ -1,5 +1,6 @@
 import { SaxesParser } from "saxes";
 import { instantiateMithrilNative as instantiateContentBoundary } from "./content_boundary.js";
+import { instantiateMithrilNative as instantiateWordPressTaxonomy } from "./wordpress_taxonomy.js";
 import { selectWordPressSeoMetadata } from "./wordpress_seo.js";
 
 const MAX_WXR_BYTES = 12_000_000;
@@ -33,7 +34,8 @@ const FIELD_NAMES = new Map([
   ["content:encoded", "content"],
   ["wp:attachment_url", "attachmentUrl"],
 ]);
-const mithrilContentBoundary = instantiateContentBoundary({ Array, Number, Set });
+const mithrilContentBoundary = instantiateContentBoundary({ Array, Map, Number, Set });
+const mithrilWordPressTaxonomy = instantiateWordPressTaxonomy({ Map, Set });
 
 function fail(code, status = 422) {
   throw Object.assign(new Error(code), { code, status });
@@ -103,33 +105,7 @@ function putTerm(terms, termRecords, termRecordsById, node) {
 }
 
 function resolveTermParents(termRecords, terms) {
-  const byId = new Map(termRecords.map((term) => [`${term.taxonomy}:${term.id}`, term]));
-  for (const term of termRecords) {
-    if (!term.parentSlug) continue;
-    if (term.taxonomy !== "category") fail("invalid_wxr_term_parent");
-    const parentId = terms.get(`category:${term.parentSlug}`);
-    if (!parentId || parentId === term.id || !byId.has(`category:${parentId}`)) fail("unresolved_wxr_term_parent");
-    term.parentId = parentId;
-  }
-  const visited = new Set();
-  for (const term of termRecords) {
-    const path = [];
-    const pathIds = new Set();
-    let current = term;
-    while (current) {
-      const key = `${current.taxonomy}:${current.id}`;
-      if (visited.has(key)) break;
-      if (pathIds.has(key)) fail("cyclic_wxr_term_parent");
-      pathIds.add(key);
-      path.push(current);
-      if (path.length > MAX_WXR_DEPTH) fail("wxr_term_depth_limit_exceeded", 413);
-      current = current.parentId ? byId.get(`category:${current.parentId}`) : null;
-    }
-    for (const node of path) visited.add(`${node.taxonomy}:${node.id}`);
-  }
-  return termRecords.map(({ id, taxonomy, slug, name, description, parentId }) => ({
-    id, taxonomy, slug, name, description, parentId,
-  }));
+  return mithrilWordPressTaxonomy.resolveTermParents(termRecords, terms, fail);
 }
 
 function completeItem(node, pendingItems) {
@@ -167,25 +143,8 @@ function importRecords(pendingItems, terms, omittedSourceCounts) {
       continue;
     }
 
-    const categories = [];
-    const tags = [];
-    for (const reference of item.terms) {
-      const domain = reference.domain?.toLowerCase();
-      const kind = domain === "category" ? "category"
-        : domain === "post_tag" ? "tag"
-          : null;
-      if (!kind) {
-        omitted.custom_taxonomy_terms += 1;
-        continue;
-      }
-      const slug = reference.slug;
-      const id = terms.get(`${kind}:${slug}`);
-      if (!id) fail("unresolved_wxr_term");
-      (kind === "category" ? categories : tags).push(id);
-    }
-
-    const uniqueCategories = [...new Set(categories)];
-    const uniqueTags = [...new Set(tags)];
+    const taxonomyReferences = mithrilWordPressTaxonomy.normalizeTermReferences(item.terms, terms, fail);
+    omitted.custom_taxonomy_terms += taxonomyReferences.customTaxonomyTerms;
     const sourceId = parseId(fields.postId);
     const parentId = positiveNumberOrZero(fields.parentId);
     if (parentId === null) fail("invalid_wxr_page_parent");
@@ -210,8 +169,8 @@ function importRecords(pendingItems, terms, omittedSourceCounts) {
       modified: fields.modified?.trim() || null,
       modified_gmt: fields.modifiedGmt?.trim() || null,
       link: fields.link?.trim() || null,
-      categories: uniqueCategories,
-      tags: uniqueTags,
+      categories: taxonomyReferences.categories,
+      tags: taxonomyReferences.tags,
       featured_media: mediaId,
       seoMetadata: seo.metadata,
     });
