@@ -1,0 +1,58 @@
+{
+  "format": "mithril.workspace-run/v1",
+  "task-sha256": "a58fe3d3b9d2b1c11416420f2dbca535bf297e5476ed672e3d8b18412a1c0644",
+  "mode": "replay",
+  "state": {
+    "session-id": "2a593db1-63b6-4341-91f5-c9c067d09bf4",
+    "pending": null,
+    "completed": [
+      "edit-verify"
+    ],
+    "steps": 1,
+    "phase": "interrupted",
+    "journal": [
+      {
+        "event": "start",
+        "call-id": "https://mithril.fund/port/deepseek/workspace-v1/session/2a593db1-63b6-4341-91f5-c9c067d09bf4/call/0",
+        "label": "edit-verify"
+      },
+      {
+        "event": "end",
+        "call-id": "https://mithril.fund/port/deepseek/workspace-v1/session/2a593db1-63b6-4341-91f5-c9c067d09bf4/call/0",
+        "receipt": {
+          "ok?": false,
+          "summary": "Declared candidate failed verification; repository unchanged.",
+          "output-digest": "4787a794a1e0355f571795e0b6d7e8643727a7421b9f9d857c9dc6f969561274"
+        }
+      }
+    ],
+    "active": [
+      "workspace"
+    ],
+    "profile-id": "https://mithril.fund/port/deepseek/workspace-v1",
+    "calls": 1,
+    "facts": [],
+    "results": [
+      {
+        "call-id": "https://mithril.fund/port/deepseek/workspace-v1/session/2a593db1-63b6-4341-91f5-c9c067d09bf4/call/0",
+        "operation": "coding/edit-verify",
+        "receipt": {
+          "ok?": false,
+          "summary": "Declared candidate failed verification; repository unchanged.",
+          "output-digest": "4787a794a1e0355f571795e0b6d7e8643727a7421b9f9d857c9dc6f969561274"
+        }
+      }
+    ]
+  },
+  "model-turns": [],
+  "status": "interrupted",
+  "wall-ms": 13493.361334000001,
+  "error": null,
+  "cost": {
+    "api-currency": "JPY",
+    "api-amount": 0,
+    "execution": "offline-local",
+    "electricity": "unmeasured",
+    "device-amortization": "unmeasured"
+  }
+}

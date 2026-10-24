@@ -1,0 +1,57 @@
+(ns mithril.coding-mcp-test
+  (:require [cljs.test :refer [deftest is async]] [mithril.coding-mcp :as mcp]))
+(defn request [id method params] {:jsonrpc "2.0" :id id :method method :params params})
+(deftest only-an-initialized-client-can-discover-the-task-tool
+  (async done
+    (let [cell (mcp/state)]
+      (-> (mcp/rpc! cell {} (request 1 "tools/list" {}))
+          (.then (fn [r] (is (= -32602 (get-in r [:error :code])))
+                   (mcp/rpc! cell {} (request 2 "initialize" {:protocolVersion "2025-11-25"}))))
+          (.then (fn [r] (is (= "mithril-coding" (get-in r [:result :serverInfo :name])))
+                   (mcp/rpc! cell {} (request 3 "tools/list" {}))))
+          (.then (fn [r] (is (= ["mithril_code"] (mapv :name (get-in r [:result :tools]))))
+                   (mcp/rpc! cell {} (request 3 "tools/list" {}))))
+          (.then (fn [r] (is (= -32602 (get-in r [:error :code])))))
+          (.catch (fn [e] (is false (str e))))
+          (.finally done)))))
+(deftest tool-call-cannot-replace-host-root-or-verifier-capabilities
+  (async done
+    (let [cell (mcp/state)]
+      (swap! cell assoc :initialized? true)
+      (-> (mcp/rpc! cell {} (request 1 "tools/call" {:name "mithril_code" :arguments {:goal "task" :root "/tmp"}}))
+          (.then (fn [r] (is (= -32602 (get-in r [:error :code])))
+                   (is (nil? (:active @cell)))
+                   (mcp/rpc! cell {} (request 2 "tools/call" {:name "bash" :arguments {:goal "task"}}))))
+          (.then (fn [r] (is (= -32602 (get-in r [:error :code])))))
+          (.catch (fn [e] (is false (str e))))
+          (.finally done)))))
+(deftest cancellation-is-addressed-and-shutdown-waits-for-owned-work
+  (async done
+    (let [cell (mcp/state) controller (js/AbortController.) settled (atom false)
+          release (atom nil) task (js/Promise. (fn [resolve _] (reset! release #(do (reset! settled true) (resolve nil)))))]
+      (swap! cell assoc :initialized? true :active {:id 9 :controller controller :done task})
+      (-> (mcp/rpc! cell {} {:jsonrpc "2.0" :method "notifications/cancelled" :params {:requestId 8}})
+          (.then (fn [_] (is (false? (.-aborted (.-signal controller))))
+                   (mcp/rpc! cell {} {:jsonrpc "2.0" :method "notifications/cancelled" :params {}})))
+          (.then (fn [_]
+                   (is (false? (.-aborted (.-signal controller))))
+                   (let [closed (mcp/close! cell)]
+                     (is (true? (.-aborted (.-signal controller))))
+                     (is (false? @settled))
+                     (@release) closed)))
+          (.then (fn [_] (is (true? @settled)) (is (true? (:closed? @cell)))))
+          (.catch (fn [e] (is false (str e))))
+          (.finally done)))))
+(deftest modern-client-discovery-and-tool-list-do-not-require-legacy-initialization
+  (async done
+    (let [cell (mcp/state) metadata {:io.modelcontextprotocol/protocolVersion "2026-07-28"
+                                   :io.modelcontextprotocol/clientCapabilities {}}]
+      (-> (mcp/rpc! cell {} (request 1 "server/discover" {:_meta metadata}))
+          (.then (fn [r] (is (= "complete" (get-in r [:result :resultType])))
+                   (is (= "2026-07-28" (get-in r [:result :protocolVersion])))
+                   (mcp/rpc! cell {} (request 2 "tools/list" {:_meta metadata}))))
+          (.then (fn [r] (is (= ["mithril_code"] (mapv :name (get-in r [:result :tools]))))
+                   (mcp/rpc! cell {} (request 3 "tools/list" {:_meta (dissoc metadata :io.modelcontextprotocol/clientCapabilities)}))))
+          (.then (fn [r] (is (= -32602 (get-in r [:error :code])))))
+          (.catch (fn [e] (is false (str e))))
+          (.finally done)))))

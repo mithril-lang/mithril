@@ -1,0 +1,11 @@
+{
+  "@context": {
+    "port": "https://mithril.fund/port/ns/v1#",
+    "xsd": "http://www.w3.org/2001/XMLSchema#",
+    "ComputerDriver": "port:ComputerDriver",
+    "protocol": {"@id": "port:protocol", "@type": "xsd:string"},
+    "max-calls": {"@id": "port:maxCalls", "@type": "xsd:integer"},
+    "max-bytes": {"@id": "port:maxBytes", "@type": "xsd:integer"},
+    "tools": {"@id": "port:tools", "@container": "@set"}
+  }
+}

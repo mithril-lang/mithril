@@ -1,0 +1,142 @@
+{
+  "format": "mithril.coding-scorecard/v1",
+  "recorded_at_utc": "2026-10-05T10:50:45.385287+00:00",
+  "comparison": {
+    "clef": {
+      "trials": 3,
+      "completed": 0,
+      "completion_rate": 0.0,
+      "median_all_seconds": 18.701811208971776,
+      "seconds_per_success_including_failures": null,
+      "api_cost_jpy": 0,
+      "total_cost_jpy": null,
+      "scope": "One known two-file task, three repeats; not held-out coding accuracy."
+    },
+    "mlx-coder": {
+      "trials": 3,
+      "completed": 3,
+      "completion_rate": 1.0,
+      "median_all_seconds": 17.132373332977295,
+      "seconds_per_success_including_failures": 17.235318805323914,
+      "api_cost_jpy": 0,
+      "total_cost_jpy": null,
+      "scope": "One known two-file task, three repeats; not held-out coding accuracy."
+    }
+  },
+  "integration_smokes": [
+    {
+      "evidence": "mcp-coding-2026-10-05",
+      "success": true,
+      "failure_category": null,
+      "end_to_end_seconds": 14.916623792028986,
+      "timing_boundary": "Preparation through result retention; recorded before worker shutdown.",
+      "runner_seconds": 14.483976457999999,
+      "generation_seconds": 5.704044584010262,
+      "verification_seconds": 0.19842495899999996,
+      "checks_passed": 2,
+      "checks": 2,
+      "input_tokens": 840,
+      "output_tokens": 101,
+      "api_cost_jpy": 0,
+      "total_cost_jpy": null,
+      "clef_controller_used": false
+    },
+    {
+      "evidence": "mcp-modern-coding-2026-10-05",
+      "success": false,
+      "failure_category": "environment-gpu-unavailable",
+      "end_to_end_seconds": null,
+      "timing_boundary": "Caller timing was not saved before the smoke assertion failed; runner timing remains in receipt metrics.",
+      "runner_seconds": 0.22245837499999999,
+      "generation_seconds": null,
+      "verification_seconds": null,
+      "checks_passed": 0,
+      "checks": 0,
+      "input_tokens": null,
+      "output_tokens": null,
+      "api_cost_jpy": 0,
+      "total_cost_jpy": null,
+      "clef_controller_used": false
+    },
+    {
+      "evidence": "mcp-modern-coding-2026-10-05-gpu",
+      "success": true,
+      "failure_category": null,
+      "end_to_end_seconds": 11.756288832984865,
+      "timing_boundary": "Fixture preparation through verified publication and clean worker shutdown; excludes initial model download.",
+      "runner_seconds": 11.390229959000001,
+      "generation_seconds": 4.267470001068432,
+      "verification_seconds": 0.19267595799999981,
+      "checks_passed": 2,
+      "checks": 2,
+      "input_tokens": 840,
+      "output_tokens": 101,
+      "api_cost_jpy": 0,
+      "total_cost_jpy": null,
+      "clef_controller_used": false
+    },
+    {
+      "evidence": "mcp-web-coding-2026-10-05",
+      "success": true,
+      "failure_category": null,
+      "end_to_end_seconds": 11.463126458,
+      "timing_boundary": "Preparation through result retention; recorded before worker shutdown.",
+      "runner_seconds": 9.452466875,
+      "generation_seconds": 3.752128666965291,
+      "verification_seconds": 0.21492779100000006,
+      "checks_passed": 2,
+      "checks": 2,
+      "input_tokens": 840,
+      "output_tokens": 101,
+      "api_cost_jpy": 0,
+      "total_cost_jpy": null,
+      "clef_controller_used": false
+    }
+  ],
+  "runtime_checks": {
+    "tests": 37,
+    "assertions": 203,
+    "failures": 0,
+    "errors": 0,
+    "log_sha256": "1af981c16feee3e355bd53f6bcdead2d343c8eca9ab56ffa7c59d1fa612126de"
+  },
+  "web_checks": {
+    "passed": 620,
+    "failed": 10,
+    "skipped": 14,
+    "total": 644,
+    "pass_rate_excluding_skips": 0.9841269841269841,
+    "wall_seconds": 1598.51,
+    "log_sha256": "ff5e56f6badbbda0a271c31503567779e3f253824953c912ea7534c504c98423",
+    "scope": "Existing UI regression suite; not model-generated task accuracy or Mithril UI-port completion."
+  },
+  "unmeasured_costs": [
+    "electricity",
+    "device amortization",
+    "human implementation",
+    "Codex account usage"
+  ],
+  "training_performed": false,
+  "evidence_sha256": {
+    "generation-final-2026-10-05/runs.json": "a4ee588118dc12049b62134e1f06c2e9aea514abf31a40f0a3f02d8a0c03d0ea",
+    "generation-final-2026-10-05/protocol.json": "c55f22c55e090d287843a104d3cba2796703add161f4adb95d0d98a31834fb89",
+    "generation-final-2026-10-05/clef-0.json": "18a91e7208d5a6beb2c17eb253f0b65f26bd92a16867a7caa4a304e6d8cd9ac9",
+    "generation-final-2026-10-05/clef-1.json": "bb8e9f608b2379fe79b9ab9d7b5f570b8216482bd86d790dee5e6d97132752ab",
+    "generation-final-2026-10-05/clef-2.json": "29543098931ffe151a327b37cba92d7cb83784780fb7927c40ed9b0e26b91485",
+    "generation-final-2026-10-05/mlx-coder-0.json": "2a4a5100f81e4131a30ceba44928ecba16ecff7a7bb032cd3a8d50eaaabac864",
+    "generation-final-2026-10-05/mlx-coder-1.json": "46371ba0365cab161f807f64f829956017d431ff249032b223f5867e88bc0863",
+    "generation-final-2026-10-05/mlx-coder-2.json": "ab4a19d48e52e11ca6185dffcbd44759826781715da1fc9590eb64795ba90b3a",
+    "mcp-coding-2026-10-05/measurement.json": "db1ffc486a155d649868b8a76037ff213c5500e8b8509a3cdcd20aef1f5f9808",
+    "mcp-coding-2026-10-05/receipt.json.metrics.json": "39c0cc53e4eb2f5759056108df1d3fbde94108b9de3663ee55a944bb3a3c4b65",
+    "mcp-coding-2026-10-05/receipt.json": "1b5c42ac943d4919469f2ef1496e971aa12c21d40985b6f0921fd13357a909a2",
+    "mcp-modern-coding-2026-10-05/measurement.json": "7d1afee149ea4d92f61f6a283ef55008386a7ee9bb9bcbd99a996db8b36a460e",
+    "mcp-modern-coding-2026-10-05/receipt.json.metrics.json": "8d89ef9aed2ce8cc8203fb93a24810d63bf6834c8ba7e3a205423e8721e63473",
+    "mcp-modern-coding-2026-10-05/receipt.json": "a15ed6eccd4138a1b3b51a179b0081daf0b7a74408be342f5c5af95695a37fbf",
+    "mcp-modern-coding-2026-10-05-gpu/measurement.json": "2cb4c3568a03ca4c2077d1ea287d180231794296913168dba14912a06204d208",
+    "mcp-modern-coding-2026-10-05-gpu/receipt.json.metrics.json": "ae3952f89cb9f437c500e3c15af6a4904c3f8bd51f755512c8eb5c83b0299151",
+    "mcp-modern-coding-2026-10-05-gpu/receipt.json": "425dc48d804d8c9f4891931d861d0a1355de2938eb5cd597fc7a2852d0e8a576",
+    "mcp-web-coding-2026-10-05/measurement.json": "5be85e266af7345cf0b8c5879d37d952ef5d813131067a87db027e488439b84c",
+    "mcp-web-coding-2026-10-05/receipt.json.metrics.json": "ad24ae1c723840ad5f78eb95a11e3dd34613cf31e6febf1724dee0f9ea7a2fa7",
+    "mcp-web-coding-2026-10-05/receipt.json": "bc2b0a8f9b79d2bad6232b08f824f94fe06c5f04461414582d2f4754e39b4ff6"
+  }
+}

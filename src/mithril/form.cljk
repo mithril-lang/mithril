@@ -28,6 +28,8 @@
    'mithril/hermes-bpmn-coding-scheduler-contract "HermesBpmnCodingSchedulerContract"
    'mithril/edit-proposal "EditProposal"
    'mithril/repair-search "RepairSearch"
+   'mithril/agent-harness "AgentHarness"
+   'mithril/computer-driver "ComputerDriver"
    'mithril/desktop-application "DesktopApplication"
    'mithril/ontology "Ontology"
    'mithril/twin-document "TwinDocument"
@@ -43,6 +45,7 @@
     'mithril/source 'mithril/loop 'mithril/app 'mithril/page
     'mithril/agent-loop 'mithril/bot-policy 'mithril/growth-policy
     'mithril/growth-action 'mithril/hermes-job 'mithril/repair-candidate
+    'mithril/plugin 'mithril/tool
     'mithril/actor 'mithril/activity 'mithril/service 'mithril/resource 'rdf/node})
 
 (def ^:private typed-node-tags
@@ -363,6 +366,10 @@
                                 "https://mithril.fund/context/growth-decision/v1"
                                 (= tag 'mithril/jev-decision)
                                 "https://mithril.fund/context/jev-decision/v2"
+                                (= tag 'mithril/agent-harness)
+                                "https://mithril.fund/context/agent-harness/v1"
+                                (= tag 'mithril/computer-driver)
+                                "https://mithril.fund/context/computer-driver/v1"
                                 (= tag 'mithril/bot-checkpoint-semantic)
                                 "https://mithril.fund/context/bot-checkpoint/v1"
                                 (= tag 'mithril/twin-document)

@@ -1,0 +1,104 @@
+(ns mithril.patch-test
+  (:require [cljs.test :refer [deftest is async]] [mithril.patch :as p] [mithril.parallel :as parallel]
+            [mithril.session :as s] [mithril.ports-test :as ports] [mithril.port-kernel :as k]))
+(def fs (js/require "node:fs"))
+(def path (js/require "node:path"))
+(defn temp [] (.mkdtempSync fs (.join path (.tmpdir (js/require "node:os")) "mithril-patch-test-")))
+(defn cleanup [root] (.rmSync fs root #js {:recursive true :force true}))
+(defn fixture [root]
+  (doseq [[file text] {"a.txt" "old-a" "b.txt" "old-b" "obsolete.txt" "old-obsolete"}]
+    (.writeFileSync fs (.join path root file) text))
+  (.writeFileSync fs (.join path root "check.cjs")
+    "const fs=require('node:fs');if(fs.readFileSync('a.txt','utf8')!=='new-a'||fs.readFileSync('b.txt','utf8')!=='new-b'||fs.readFileSync('new.txt','utf8')!=='created'||fs.existsSync('obsolete.txt'))process.exit(1);setTimeout(()=>console.log('verified'),150);")
+  (p/compile-task {:root root :goal "Change two files, create one and delete the obsolete file."
+    :context ["a.txt" "b.txt" "obsolete.txt"]
+    :inputs {"check.cjs" (k/digest (.readFileSync fs (.join path root "check.cjs")))}
+    :verifiers (mapv #(hash-map :id % :executable (.-execPath js/process) :argv ["check.cjs"] :timeout-ms 2000) ["first" "second"])
+    :max-files 8 :max-bytes 4096 :max-attempts 2 :parallelism 2}))
+(def edits [{:path "a.txt" :content "new-a"} {:path "b.txt" :content "new-b"}
+            {:path "new.txt" :content "created"} {:path "obsolete.txt" :content nil}])
+(deftest generated-multi-file-publication-and-real-concurrent-checks
+  (async finish
+    (let [root (temp) state-root (temp) task (fixture root) store (s/open! state-root ports/profile {:task task}) audit (atom [])]
+      (-> (p/perform! task store "owned" (fn [_] edits) audit nil)
+          (.then (fn [r]
+                   (is (:ok? r)) (is (= "new-a" (p/read-file root "a.txt")))
+                   (is (= "new-b" (p/read-file root "b.txt"))) (is (= "created" (p/read-file root "new.txt")))
+                   (is (nil? (p/read-file root "obsolete.txt")))
+                   (let [checks (mapv :value (get-in (first @audit) [:verification :results]))]
+                     (is (= ["first" "second"] (mapv :id checks)))
+                     (is (< (apply max (map :started-ms checks)) (apply min (map :ended-ms checks))))
+                     (is (every? :quiescent? checks)))
+                   (p/reconcile! task store "owned" nil)))
+          (.then (fn [r] (is (:ok? r)) (s/close! store) (cleanup root) (cleanup state-root) (finish)))
+          (.catch (fn [e] (is false (str e)) (s/close! store) (cleanup root) (cleanup state-root) (finish)))))))
+(deftest admission-input-ownership-and-drift
+  (let [root (temp) task (fixture root) baseline (p/snapshot task)]
+    (try
+      (is (ports/refused? #(p/admit task baseline [{:path "check.cjs" :content "process.exit(0)"}])))
+      (is (ports/refused? #(p/admit task baseline [{:path "../outside" :content "bad"}])))
+      (is (ports/refused? #(p/admit task baseline [{:path ".git/config" :content "bad"}])))
+      (is (ports/refused? #(p/admit task baseline [{:path ".env" :content "bad"}])))
+      (.writeFileSync fs (.join path root "unobserved.txt") "unrelated work")
+      (is (ports/refused? #(p/admit task baseline [{:path "unobserved.txt" :content "overwrite"}])))
+      (.symlinkSync fs (.join path root "a.txt") (.join path root "alias.txt"))
+      (is (ports/refused? #(p/admit task baseline [{:path "alias.txt" :content "bad"}])))
+      (.writeFileSync fs (.join path root "a.txt") "external edit")
+      (is (ports/refused? #(p/admit task baseline edits)))
+      (is (= "unrelated work" (p/read-file root "unobserved.txt")))
+      (finally (cleanup root)))))
+(deftest partial-publication-recovery-rolls-back-without-regeneration
+  (async finish
+    (let [root (temp) state-root (temp) task (fixture root) store (s/open! state-root ports/profile {:task task})
+          baseline (p/snapshot task) changes (p/admit task baseline edits)
+          intent {:format :mithril/patch-v1 :task (s/binding-digest {} task) :call-id "interrupted"
+                  :baseline baseline :changes changes :verification {:passed true} :phase :prepared}]
+      (p/save-intent! store intent)
+      (p/set-file! root "a.txt" "new-a")
+      (p/set-file! root "new.txt" "created")
+      (-> (p/reconcile! task store "interrupted" nil)
+          (.then (fn [r]
+                   (is (false? (:ok? r))) (is (= "old-a" (p/read-file root "a.txt")))
+                   (is (= "old-b" (p/read-file root "b.txt"))) (is (nil? (p/read-file root "new.txt")))
+                   (is (= "old-obsolete" (p/read-file root "obsolete.txt")))
+                   (s/close! store) (cleanup root) (cleanup state-root) (finish)))
+          (.catch (fn [e] (is false (str e)) (s/close! store) (cleanup root) (cleanup state-root) (finish)))))))
+(deftest process-cancellation-cannot-pass-on-zero-exit
+  (async finish
+    (let [root (temp) ctl (js/AbortController.)
+          spec {:executable (.-execPath js/process) :argv ["-e" "process.on('SIGTERM',()=>process.exit(0));setInterval(()=>{},1000);"]
+                :cwd root :timeout-ms 5000 :output-bytes 4096}
+          running (parallel/process! spec (.-signal ctl))]
+      (js/setTimeout #(.abort ctl) 200)
+      (-> running (.then (fn [r] (is (:cancelled? r)) (is (:quiescent? r))
+                           (is (false? (parallel/successful? r))) (cleanup root) (finish)))
+          (.catch (fn [e] (is false (str e)) (cleanup root) (finish)))))))
+(deftest bounded-pool-retains-input-order
+  (async finish
+    (-> (parallel/pool! [(fn [_] (js/Promise. (fn [resolve _] (js/setTimeout #(resolve :slow) 80))))
+                        (fn [_] (js/Promise.resolve :fast))] 2 nil)
+        (.then (fn [rs] (is (= [:slow :fast] (mapv :value rs))) (finish)))
+        (.catch (fn [e] (is false (str e)) (finish))))))
+
+(deftest retained-recovery-refuses-unchanged-context-drift-and-intent-corruption
+  (let [root (temp) state-root (temp) base (fixture root)
+        _ (.writeFileSync fs (.join path root "untouched.txt") "retained-context")
+        task (p/compile-task (update base :context conj "untouched.txt"))
+        store (s/open! state-root ports/profile {:task task}) baseline (p/snapshot task)
+        changes (p/admit task baseline edits)
+        intent {:format :mithril/patch-v1 :task (s/binding-digest {} task) :call-id "retained"
+                :baseline baseline :changes changes :verification {:passed true} :phase :published}]
+    (try
+      (doseq [{:keys [path after]} changes] (p/set-file! root path after))
+      (p/save-intent! store intent)
+      (is (nil? (p/retained! task store)))
+      (.writeFileSync fs (.join path root "untouched.txt") "external-context")
+      (is (ports/refused? #(p/retained! task store)))
+      (is (ports/refused? #(p/reconcile! task store "retained" nil)))
+      (is (false? (.existsSync fs (.join path root ".mithril-agent.lock"))))
+      (is (= "external-context" (p/read-file root "untouched.txt")))
+      (.writeFileSync fs (.join path root "untouched.txt") "retained-context")
+      (p/save-intent! store (assoc-in intent [:changes 0 :after] "corrupted"))
+      (is (ports/refused? #(p/retained! task store)))
+      (is (= "new-a" (p/read-file root "a.txt")))
+      (finally (s/close! store) (cleanup root) (cleanup state-root)))))

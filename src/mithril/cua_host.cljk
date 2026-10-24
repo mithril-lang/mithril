@@ -1,0 +1,15 @@
+(ns mithril.cua-host "Explicit native OS provider. No daemon startup or permission grants.")
+(def cp (js/require "node:child_process"))
+(defn provider [binary]
+  (when-not (and (string? binary) (.isAbsolute (js/require "node:path") binary))
+    (throw (ex-info "explicit absolute driver binary required" {:reason :native-provider})))
+  (fn [tool args]
+    (let [r (.spawnSync cp binary #js ["call" tool (.stringify js/JSON (clj->js args))]
+                       #js {:encoding "utf8" :timeout 30000 :maxBuffer 16777216
+                            :env #js {:PATH (.-PATH js/process.env) :HOME (.-HOME js/process.env)}})]
+      (when (or (.-error r) (not= 0 (.-status r)))
+        (throw (ex-info "native operation failed; do not retry input without observation"
+                         {:reason :native-operation-failed :exit (.-status r)})))
+      (let [data (js->clj (.parse js/JSON (.-stdout r)))]
+        {:content [{:type "text" :text (.stringify js/JSON (clj->js data))}]
+         :structuredContent data :isError (= false (get data "ok"))}))))

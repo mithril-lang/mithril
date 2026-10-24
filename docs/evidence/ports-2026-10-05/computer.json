@@ -1,0 +1,153 @@
+{
+  "kernel-manifest": "/private/tmp/mithril-port-policy/manifest.json",
+  "format": "https://mithril.fund/port/agent-harness/v1",
+  "state": {
+    "pending": null,
+    "completed": [
+      "observe-apps"
+    ],
+    "steps": 2,
+    "phase": "done",
+    "journal": [
+      {
+        "event": "start",
+        "call-id": "https://mithril.fund/port/deepseek/computer-v1/call/0",
+        "label": "observe-apps"
+      },
+      {
+        "event": "end",
+        "call-id": "https://mithril.fund/port/deepseek/computer-v1/call/0",
+        "receipt": {
+          "ok?": true,
+          "summary": "Native driver observed 113 desktop apps.",
+          "output-digest": "1d4acf082a893df42ec7a096ee311c24bfa04f6c5fae616dc4c920276df731b8"
+        }
+      },
+      {
+        "event": "end",
+        "step": 2
+      }
+    ],
+    "active": [
+      "computer"
+    ],
+    "profile-id": "https://mithril.fund/port/deepseek/computer-v1",
+    "calls": 1,
+    "facts": [
+      "apps-observed"
+    ],
+    "results": [
+      {
+        "call-id": "https://mithril.fund/port/deepseek/computer-v1/call/0",
+        "operation": "computer/list-apps",
+        "receipt": {
+          "ok?": true,
+          "summary": "Native driver observed 113 desktop apps.",
+          "output-digest": "1d4acf082a893df42ec7a096ee311c24bfa04f6c5fae616dc4c920276df731b8"
+        }
+      }
+    ]
+  },
+  "model-turns": [
+    {
+      "request": {
+        "state": {
+          "goal": "Inspect the available desktop applications, then finish after the host confirms the observation.",
+          "facts": [],
+          "tool-results": []
+        },
+        "questions": {
+          "next_action": {
+            "type": "choice",
+            "instructions": "Choose an available operation. Finish only when the observed results establish the goal.",
+            "criteria": {
+              "observe-apps": "computer/list-apps",
+              "finish": "Finish only after the required host-verification facts exist."
+            }
+          }
+        }
+      },
+      "response": {
+        "questions": {
+          "next_action": {
+            "finish": 0.034661225974559784,
+            "observe-apps": 0.9653388261795044
+          }
+        },
+        "input_tokens": 174,
+        "inference_seconds": 1.2330835419707
+      },
+      "answer": {
+        "choice": "observe-apps",
+        "confidence": 0.9653388261795044,
+        "probabilities": {
+          "finish": 0.034661225974559784,
+          "observe-apps": 0.9653388261795044
+        }
+      }
+    },
+    {
+      "request": {
+        "state": {
+          "goal": "Inspect the available desktop applications, then finish after the host confirms the observation.",
+          "facts": [
+            "apps-observed"
+          ],
+          "tool-results": [
+            {
+              "call-id": "https://mithril.fund/port/deepseek/computer-v1/call/0",
+              "operation": "computer/list-apps",
+              "receipt": {
+                "ok?": true,
+                "summary": "Native driver observed 113 desktop apps.",
+                "output-digest": "1d4acf082a893df42ec7a096ee311c24bfa04f6c5fae616dc4c920276df731b8"
+              }
+            }
+          ]
+        },
+        "questions": {
+          "next_action": {
+            "type": "choice",
+            "instructions": "Choose an available operation. Finish only when the observed results establish the goal.",
+            "criteria": {
+              "finish": "Finish only after the required host-verification facts exist."
+            }
+          }
+        }
+      },
+      "response": {
+        "questions": {
+          "next_action": {
+            "finish": 1
+          }
+        },
+        "input_tokens": 266,
+        "inference_seconds": 0.8735428329673596
+      },
+      "answer": {
+        "choice": "finish",
+        "confidence": 1,
+        "probabilities": {
+          "finish": 1
+        }
+      }
+    }
+  ],
+  "policy": "clef",
+  "status": "done",
+  "error": null,
+  "driver-journal": [
+    {
+      "event": "start",
+      "id": "https://mithril.fund/port/deepseek/computer-v1/call/0",
+      "name": "list_apps"
+    },
+    {
+      "event": "end",
+      "id": "https://mithril.fund/port/deepseek/computer-v1/call/0",
+      "name": "list_apps",
+      "ok?": true
+    }
+  ],
+  "native-provider": "/Users/junkawasaki/.local/bin/cua-driver"
+}

@@ -1,0 +1,79 @@
+{
+  "format": "mithril.generated-coding/v1",
+  "attempts": [
+    {
+      "attempt": 1,
+      "request": {
+        "goal": "Implement clamp(x, low, high) in src/demo/math.cljk and expose clamp-positive(x) from src/demo/api.cljk using bounds 0 and 10. Use CLJK (ClojureScript) namespaces and defn functions. Handle below, within and above the bounds. Return complete source files; do not edit the locked checks.",
+        "files": {
+          "src/demo/math.cljk": "(ns demo.math)\n(defn clamp [x low high] x)\n",
+          "src/demo/api.cljk": "(ns demo.api (:require [demo.math :as math]))\n(defn clamp-positive [x] x)\n"
+        },
+        "locked-inputs": [
+          "checks-low.cljk",
+          "checks-high.cljk"
+        ],
+        "max-files": 8,
+        "max-bytes": 65536,
+        "diagnostics": null
+      },
+      "error": "#error {:message \"agent harness refused\", :data {:reason :generation-provider-failed}}"
+    }
+  ],
+  "mode": "generate",
+  "state": {
+    "session-id": "4608aa6c-70c6-4cb0-b956-af5a576ed5f2",
+    "pending": null,
+    "completed": [
+      "generate-verify"
+    ],
+    "steps": 1,
+    "phase": "interrupted",
+    "journal": [
+      {
+        "event": "start",
+        "call-id": "https://mithril.fund/port/agent/generated-v1/session/4608aa6c-70c6-4cb0-b956-af5a576ed5f2/call/0",
+        "label": "generate-verify"
+      },
+      {
+        "event": "end",
+        "call-id": "https://mithril.fund/port/agent/generated-v1/session/4608aa6c-70c6-4cb0-b956-af5a576ed5f2/call/0",
+        "receipt": {
+          "ok?": false,
+          "summary": "Generated patch failed admission; repository unchanged.",
+          "output-digest": "78724fdacc62d0394c805d0a54da813a3dbd40b40c1da6f1d809b08e686e43a4"
+        }
+      }
+    ],
+    "active": [
+      "workspace"
+    ],
+    "profile-id": "https://mithril.fund/port/agent/generated-v1",
+    "calls": 1,
+    "facts": [],
+    "results": [
+      {
+        "call-id": "https://mithril.fund/port/agent/generated-v1/session/4608aa6c-70c6-4cb0-b956-af5a576ed5f2/call/0",
+        "operation": "coding/generate-verify",
+        "receipt": {
+          "ok?": false,
+          "summary": "Generated patch failed admission; repository unchanged.",
+          "output-digest": "78724fdacc62d0394c805d0a54da813a3dbd40b40c1da6f1d809b08e686e43a4"
+        }
+      }
+    ]
+  },
+  "model-turns": [],
+  "generator-model": "/private/tmp/mithril-clef-local-models/models--TrevorJS--clef-flash-mlx-4bit/snapshots/6d4dc3ff7f43fba6065f1caef5c7a135315dfc8d",
+  "status": "interrupted",
+  "wall-ms": 11356.817167,
+  "error": null,
+  "cost": {
+    "api-currency": "JPY",
+    "api-amount": 0,
+    "execution": "offline-local",
+    "electricity": "unmeasured",
+    "device-amortization": "unmeasured"
+  },
+  "generator-kind": "clef"
+}

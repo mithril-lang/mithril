@@ -1,0 +1,33 @@
+(ns mithril.evaluation-test
+  (:require [cljs.test :refer [deftest is]] [mithril.evaluation :as evaluation]))
+
+(deftest failed-provider-calls-do-not-become-zero-cost-successes-or-complete-usage
+  (let [r (evaluation/summarize
+            {:status "interrupted" :wall-ms 1000 :mode "generate"
+             :model-turns [{:response {:input_tokens 10 :output_tokens 0}} {:response nil}]
+             :cost {:api-currency "JPY" :api-amount 0}})]
+    (is (false? (:success r)))
+    (is (= 1 (:provider-failures r)))
+    (is (nil? (get-in r [:input-tokens :total])))
+    (is (= 10 (get-in r [:input-tokens :known-subtotal])))
+    (is (= 0 (get-in r [:output-tokens :known-subtotal])))
+    (is (nil? (get-in r [:cost :api-amount-per-success])))
+    (is (nil? (get-in r [:cost :total-cost])))))
+
+(deftest resume-and-unverified-completion-are-distinguishable
+  (let [empty-run (evaluation/summarize {:status "done" :mode "resume"})
+        resumed (evaluation/summarize {:status "done" :mode "resume"
+                                      :state {:facts ["repository-verified"]}})]
+    (is (false? (:success empty-run)))
+    (is (true? (:success resumed)))
+    (is (false? (:verification-passed resumed)))
+    (is (= 0 (:provider-calls resumed)))
+    (is (nil? (get-in resumed [:input-tokens :total])))))
+
+(deftest final-verification-failure-is-not-masked-by-a-prior-passing-attempt
+  (let [good {:passed true :source-unchanged? true :quiescent? true}
+        r (evaluation/summarize
+            {:status "interrupted" :attempts [{:verification {:passed true :results [{:value good}]}}
+                                             {:verification {:passed false :results [{:value (assoc good :passed false)}]}}]})]
+    (is (false? (:verification-passed r)))
+    (is (= 0 (:passed-checks r)))))

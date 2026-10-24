@@ -1,0 +1,61 @@
+(ns mithril.schedule
+  "Bounded dependency scheduling with resource exclusion and settled cancellation."
+  (:require [mithril.harness :as h]))
+(defn compile-plan [jobs limit]
+  (when-not (and (vector? jobs) (<= 1 (count jobs) 128) (integer? limit) (<= 1 limit 16)
+                (= (count jobs) (count (set (map :id jobs))))
+                (every? (fn [{:keys [id depends-on resources run accept?] :as job}]
+                          (and (= #{:id :depends-on :resources :run :accept?} (set (keys job)))
+                               (h/label? id) (vector? depends-on) (every? h/label? depends-on)
+                               (= (count depends-on) (count (set depends-on)))
+                               (vector? resources) (every? h/label? resources) (fn? run) (fn? accept?))) jobs))
+    (h/refuse :schedule-plan))
+  (let [ids (set (map :id jobs))]
+    (when-not (every? #(every? ids (:depends-on %)) jobs) (h/refuse :schedule-dependency))
+    (loop [seen #{}]
+      (let [ready (filter #(every? seen (:depends-on %)) jobs) advanced (into seen (map :id ready))]
+        (cond (= ids advanced) jobs
+              (= seen advanced) (h/refuse :schedule-cycle)
+              :else (recur advanced))))))
+(defn run! [jobs limit signal]
+  (compile-plan jobs limit)
+  (let [started (.now js/performance) states (atom (zipmap (map :id jobs) (repeat :waiting)))
+        results (atom {}) journal (atom []) running (atom #{}) peak (atom 0)]
+    (js/Promise.
+      (fn [resolve _]
+        (letfn [(record! [event id] (swap! journal conj {:event event :id id :elapsed-ms (- (.now js/performance) started)}))
+                (finish! [job status row]
+                  (let [id (:id job)]
+                    (swap! states assoc id status) (swap! results assoc id (assoc row :id id :status status))
+                    (swap! running disj id) (record! status id) (pump!)))
+                (launch! [job]
+                  (let [id (:id job)]
+                    (swap! states assoc id :running) (swap! running conj id)
+                    (swap! peak max (count @running)) (record! :start id)
+                    (-> (js/Promise.resolve nil)
+                        (.then (fn [_] ((:run job) signal)))
+                        (.then (fn [value]
+                                 (finish! job (if ((:accept? job) value) :fulfilled :rejected) {:value value})))
+                        (.catch (fn [e] (finish! job :rejected {:error (str e)}))))))
+                (available? [job]
+                  (and (= :waiting (get @states (:id job)))
+                       (every? #(= :fulfilled (get @states %)) (:depends-on job))
+                       (let [busy (into #{} (mapcat :resources (filter #(@running (:id %)) jobs)))]
+                         (not-any? busy (:resources job)))))
+                (pump! []
+                  ;; Failed dependencies and cancellation settle without invoking their callbacks.
+                  (doseq [job jobs :when (= :waiting (get @states (:id job)))]
+                    (let [status (cond (and signal (.-aborted signal)) :cancelled
+                                       (some #(contains? #{:rejected :blocked :cancelled} (get @states %)) (:depends-on job)) :blocked)]
+                      (when status
+                        (swap! states assoc (:id job) status)
+                        (swap! results assoc (:id job) {:id (:id job) :status status}) (record! status (:id job)))))
+                  (loop []
+                    (when (< (count @running) limit)
+                      (when-let [job (first (filter available? jobs))] (launch! job) (recur))))
+                  (when (empty? @running)
+                    ;; A blocked row may precede its failing prerequisite in declaration order.
+                    (if (some #{:waiting} (vals @states)) (js/queueMicrotask pump!)
+                      (resolve {:results (mapv #(get @results (:id %)) jobs) :journal @journal
+                                :max-running @peak :wall-ms (- (.now js/performance) started)}))))]
+          (pump!))))))

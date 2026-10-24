@@ -1,0 +1,169 @@
+[
+  {
+    "direction": "client",
+    "message": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "server/discover",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientCapabilities": {}
+        }
+      }
+    }
+  },
+  {
+    "direction": "server",
+    "message": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": {
+        "protocolVersion": "2026-07-28",
+        "capabilities": {
+          "tools": {}
+        },
+        "serverInfo": {
+          "name": "mithril-coding",
+          "version": "0.1.0"
+        },
+        "resultType": "complete"
+      }
+    }
+  },
+  {
+    "direction": "client",
+    "message": {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "method": "tools/list",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientCapabilities": {}
+        }
+      }
+    }
+  },
+  {
+    "direction": "server",
+    "message": {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "result": {
+        "tools": [
+          {
+            "name": "mithril_code",
+            "description": "Generate, test and retain source changes for the requested task in the configured local repository. Verification commands and file access come from the host configuration.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "goal": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 16384,
+                  "description": "Task text, at most 16384 UTF-8 bytes."
+                }
+              },
+              "required": [
+                "goal"
+              ],
+              "additionalProperties": false
+            }
+          }
+        ],
+        "resultType": "complete"
+      }
+    }
+  },
+  {
+    "direction": "client",
+    "message": {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "method": "tools/call",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientCapabilities": {}
+        },
+        "name": "mithril_code",
+        "arguments": {
+          "goal": "Implement clamp(x, low, high) in src/demo/math.cljk and expose clamp-positive(x) from src/demo/api.cljk using bounds 0 and 10. Use CLJK (ClojureScript) namespaces and defn functions. Handle below, within and above the bounds. Return complete source files; do not edit the locked checks."
+        }
+      }
+    }
+  },
+  {
+    "direction": "server",
+    "message": {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"max-concurrent-checks\":2,\"provider-failures\":0,\"attempts\":1,\"output-tokens\":{\"total\":101,\"known-subtotal\":101,\"measured-calls\":1,\"calls\":1},\"input-tokens\":{\"total\":840,\"known-subtotal\":840,\"measured-calls\":1,\"calls\":1},\"cancelled\":false,\"success\":true,\"status\":\"done\",\"verification-passed\":true,\"timing\":{\"cli-wall-seconds\":11.390229959000001,\"boundary\":\"Shared runner setup through receipt creation; excludes caller startup, task parsing and initial model download.\",\"generation-seconds\":{\"total\":4.267470001068432,\"known-subtotal\":4.267470001068432,\"measured-calls\":1,\"calls\":1},\"load-seconds\":{\"total\":1.354360916011501,\"known-subtotal\":1.354360916011501,\"measured-calls\":1,\"calls\":1},\"verification-wall-seconds\":0.19267595799999981},\"receipt-sha256\":\"425dc48d804d8c9f4891931d861d0a1355de2938eb5cd597fc7a2852d0e8a576\",\"changed-files\":[\"src/demo/math.cljk\",\"src/demo/api.cljk\"],\"error\":null,\"cost\":{\"api-currency\":\"JPY\",\"api-amount\":0,\"api-amount-per-success\":0,\"electricity\":null,\"device-amortization\":null,\"human-development\":null,\"total-cost\":null,\"training\":null},\"receipt-id\":\"run-IbTVi0\"}"
+          }
+        ],
+        "structuredContent": {
+          "max-concurrent-checks": 2,
+          "provider-failures": 0,
+          "attempts": 1,
+          "output-tokens": {
+            "total": 101,
+            "known-subtotal": 101,
+            "measured-calls": 1,
+            "calls": 1
+          },
+          "input-tokens": {
+            "total": 840,
+            "known-subtotal": 840,
+            "measured-calls": 1,
+            "calls": 1
+          },
+          "cancelled": false,
+          "success": true,
+          "status": "done",
+          "verification-passed": true,
+          "timing": {
+            "cli-wall-seconds": 11.390229959000001,
+            "boundary": "Shared runner setup through receipt creation; excludes caller startup, task parsing and initial model download.",
+            "generation-seconds": {
+              "total": 4.267470001068432,
+              "known-subtotal": 4.267470001068432,
+              "measured-calls": 1,
+              "calls": 1
+            },
+            "load-seconds": {
+              "total": 1.354360916011501,
+              "known-subtotal": 1.354360916011501,
+              "measured-calls": 1,
+              "calls": 1
+            },
+            "verification-wall-seconds": 0.19267595799999981
+          },
+          "receipt-sha256": "425dc48d804d8c9f4891931d861d0a1355de2938eb5cd597fc7a2852d0e8a576",
+          "changed-files": [
+            "src/demo/math.cljk",
+            "src/demo/api.cljk"
+          ],
+          "error": null,
+          "cost": {
+            "api-currency": "JPY",
+            "api-amount": 0,
+            "api-amount-per-success": 0,
+            "electricity": null,
+            "device-amortization": null,
+            "human-development": null,
+            "total-cost": null,
+            "training": null
+          },
+          "receipt-id": "run-IbTVi0"
+        },
+        "isError": false,
+        "resultType": "complete"
+      }
+    }
+  }
+]

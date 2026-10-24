@@ -1,0 +1,36 @@
+(ns mithril.generator
+  "Asynchronous local source generation with cancellation and bounded process output."
+  (:require [mithril.harness :as h] [mithril.parallel :as parallel]))
+(defn offline
+  ([hy helper model-dir adapter-root audit] (offline hy helper model-dir adapter-root audit "clef" nil))
+  ([hy helper model-dir adapter-root audit kind] (offline hy helper model-dir adapter-root audit kind nil))
+  ([hy helper model-dir adapter-root audit kind signal]
+   (fn [request]
+     (let [fs (js/require "node:fs") path (js/require "node:path")
+           root (.mkdtempSync fs (.join path (.tmpdir (js/require "node:os")) "mithril-generate-"))
+           file (.join path root "request.json") started (.now js/performance)]
+       (.writeFileSync fs file (.stringify js/JSON (clj->js request)) #js {:mode 384})
+       (-> (parallel/process! {:executable hy :argv [helper "--model-dir" model-dir "--clef-adapter-root" adapter-root "--model-kind" kind]
+                               :cwd root :stdin-file file :timeout-ms 240000 :output-bytes 1048576} signal)
+           (.then (fn [r]
+                    (when-not (parallel/successful? r)
+                      (swap! audit conj {:request request :response nil :provider-exit (:exit-code r)
+                                         :provider-signal (:signal r) :cancelled? (:cancelled? r)
+                                         :timed-out? (:timed-out? r) :output-limit? (:output-limit? r)
+                                         :quiescent? (:quiescent? r) :stderr (subs (:stderr r) 0 (min 8192 (count (:stderr r))))
+                                         :error (:spawn-error r) :wall-ms (- (.now js/performance) started)})
+                      (h/refuse :generation-provider-failed))
+                    ;; Envelope keys are keywords; nested source paths retain their complete strings.
+                    (let [response (try (into {} (map (fn [[key value]] [(keyword key) value])
+                                                      (js->clj (.parse js/JSON (:stdout r)))))
+                                        (catch :default e
+                                          (swap! audit conj {:request request :response nil :error (str e)
+                                                             :wall-ms (- (.now js/performance) started)})
+                                          (h/refuse :generation-envelope-json)))]
+                      (swap! audit conj {:request request :response response :wall-ms (- (.now js/performance) started)})
+                      (when-not (contains? #{"stop" "json-complete"} (:finish_reason response)) (h/refuse :generation-incomplete))
+                      (let [proposal (try (js->clj (.parse js/JSON (:text response)) :keywordize-keys true)
+                                          (catch :default _ (h/refuse :generation-json)))]
+                        (when-not (= #{:edits} (set (keys proposal))) (h/refuse :generation-fields))
+                        (:edits proposal)))))
+           (.finally (fn [] (.rmSync fs root #js {:recursive true :force true}))))))))

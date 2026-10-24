@@ -1,0 +1,141 @@
+{
+  "kernel-manifest": "/private/tmp/mithril-port-policy/manifest.json",
+  "format": "https://mithril.fund/port/agent-harness/v1",
+  "state": {
+    "pending": null,
+    "completed": [
+      "verify-repair"
+    ],
+    "steps": 2,
+    "phase": "done",
+    "journal": [
+      {
+        "event": "start",
+        "call-id": "https://mithril.fund/port/deepseek/coding-v1/call/0",
+        "label": "verify-repair"
+      },
+      {
+        "event": "end",
+        "call-id": "https://mithril.fund/port/deepseek/coding-v1/call/0",
+        "receipt": {
+          "ok?": true,
+          "summary": "Actual CLEF repaired the zero-budget mutation; compilation and all KIR/JS/Wasm assertions passed.",
+          "output-digest": "d42689ee0d39774ce455546099dd31ae8331a336f521c49efecef4c5fbc8aad4"
+        }
+      },
+      {
+        "event": "end",
+        "step": 2
+      }
+    ],
+    "active": [
+      "compiler"
+    ],
+    "profile-id": "https://mithril.fund/port/deepseek/coding-v1",
+    "calls": 1,
+    "facts": [
+      "tests-passed"
+    ],
+    "results": [
+      {
+        "call-id": "https://mithril.fund/port/deepseek/coding-v1/call/0",
+        "operation": "coding/verify-repair",
+        "receipt": {
+          "ok?": true,
+          "summary": "Actual CLEF repaired the zero-budget mutation; compilation and all KIR/JS/Wasm assertions passed.",
+          "output-digest": "d42689ee0d39774ce455546099dd31ae8331a336f521c49efecef4c5fbc8aad4"
+        }
+      }
+    ]
+  },
+  "model-turns": [
+    {
+      "request": {
+        "state": {
+          "goal": "Verify and repair the declared Kotoba task; finish only after the compiler and all tests pass.",
+          "facts": [],
+          "tool-results": []
+        },
+        "questions": {
+          "next_action": {
+            "type": "choice",
+            "instructions": "Choose an available operation. Finish only when the observed results establish the goal.",
+            "criteria": {
+              "verify-repair": "coding/verify-repair",
+              "finish": "Finish only after the required host-verification facts exist."
+            }
+          }
+        }
+      },
+      "response": {
+        "questions": {
+          "next_action": {
+            "finish": 0.04407784715294838,
+            "verify-repair": 0.9559221863746643
+          }
+        },
+        "input_tokens": 179,
+        "inference_seconds": 1.2887675830279477
+      },
+      "answer": {
+        "choice": "verify-repair",
+        "confidence": 0.9559221863746643,
+        "probabilities": {
+          "finish": 0.04407784715294838,
+          "verify-repair": 0.9559221863746643
+        }
+      }
+    },
+    {
+      "request": {
+        "state": {
+          "goal": "Verify and repair the declared Kotoba task; finish only after the compiler and all tests pass.",
+          "facts": [
+            "tests-passed"
+          ],
+          "tool-results": [
+            {
+              "call-id": "https://mithril.fund/port/deepseek/coding-v1/call/0",
+              "operation": "coding/verify-repair",
+              "receipt": {
+                "ok?": true,
+                "summary": "Actual CLEF repaired the zero-budget mutation; compilation and all KIR/JS/Wasm assertions passed.",
+                "output-digest": "d42689ee0d39774ce455546099dd31ae8331a336f521c49efecef4c5fbc8aad4"
+              }
+            }
+          ]
+        },
+        "questions": {
+          "next_action": {
+            "type": "choice",
+            "instructions": "Choose an available operation. Finish only when the observed results establish the goal.",
+            "criteria": {
+              "finish": "Finish only after the required host-verification facts exist."
+            }
+          }
+        }
+      },
+      "response": {
+        "questions": {
+          "next_action": {
+            "finish": 1
+          }
+        },
+        "input_tokens": 280,
+        "inference_seconds": 0.878068916965276
+      },
+      "answer": {
+        "choice": "finish",
+        "confidence": 1,
+        "probabilities": {
+          "finish": 1
+        }
+      }
+    }
+  ],
+  "policy": "clef-coding",
+  "status": "done",
+  "error": null,
+  "driver-journal": [],
+  "native-provider": "/Users/junkawasaki/.local/bin/cua-driver"
+}

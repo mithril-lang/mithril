@@ -1,0 +1,142 @@
+(ns mithril.workspace
+  "Declared single-file coding tasks: offline choice, isolated verification, durable edit intent and explicit recovery."
+  (:require [cljs.reader :as reader] [mithril.harness :as h] [mithril.session :as session] [mithril.port-kernel :as kernel]))
+(def fs (js/require "node:fs"))
+(def path (js/require "node:path"))
+(def cp (js/require "node:child_process"))
+(defn relative? [p]
+  (and (string? p) (<= 1 (count p) 240) (not (.isAbsolute path p))
+       (every? #(not (contains? #{"" "." ".."} %)) (.split p "/"))
+       (not (.includes p "\\"))))
+(defn source! [root relative]
+  (when-not (relative? relative) (h/refuse :workspace-path))
+  (loop [base root parts (seq (.split relative "/"))]
+    (if-let [part (first parts)]
+      (let [file (.join path base part) st (.lstatSync fs file)]
+        (when (.isSymbolicLink st) (h/refuse :workspace-symlink))
+        (when (and (next parts) (not (.isDirectory st))) (h/refuse :workspace-path))
+        (if (next parts) (recur file (next parts))
+          (do (when-not (and (.isFile st) (<= (.-size st) 262144)) (h/refuse :workspace-file)) file)))
+      (h/refuse :workspace-path))))
+(defn compile-task [task]
+  (let [{:keys [root file goal before-sha256 old candidates inputs verifier]} task
+        root (when (and (string? root) (.isAbsolute path root)) (.realpathSync fs root))]
+    (when-not (and (= #{:root :file :goal :before-sha256 :old :candidates :inputs :verifier} (set (keys task)))
+                   root (relative? file) (string? goal) (<= 1 (count goal) 1024)
+                   (string? before-sha256) (re-matches #"[0-9a-f]{64}" before-sha256)
+                   (string? old) (<= 1 (count old) 8192)
+                   (vector? candidates) (<= 1 (count candidates) 8)
+                   (= (count candidates) (count (set candidates)))
+                   (every? #(and (string? %) (<= 1 (count %) 8192) (not= old %)) candidates)
+                   (map? inputs) (<= (count inputs) 32) (not (contains? inputs file))
+                   (every? (fn [[p sha]] (and (relative? p) (string? sha) (re-matches #"[0-9a-f]{64}" sha))) inputs)
+                   (= #{:executable :argv :timeout-ms} (set (keys verifier)))
+                   (string? (:executable verifier)) (.isAbsolute path (:executable verifier))
+                   (.isFile (.statSync fs (:executable verifier)))
+                   (vector? (:argv verifier)) (<= 1 (count (:argv verifier)) 32)
+                   (every? #(and (string? %) (<= (count %) 4096)) (:argv verifier))
+                   (integer? (:timeout-ms verifier)) (<= 1 (:timeout-ms verifier) 90000))
+      (h/refuse :workspace-task))
+    (source! root file)
+    (doseq [[p sha] inputs]
+      (when-not (= sha (kernel/digest (.readFileSync fs (source! root p)))) (h/refuse :workspace-input-drift)))
+    (assoc task :root root)))
+(defn task-digest [task] (session/binding-digest {} task))
+(defn read-task [text]
+  (let [raw (.parse js/JSON text)]
+    ;; Preserve slash-containing input paths; keyword/name would discard the directory namespace.
+    (compile-task (assoc (js->clj raw :keywordize-keys true) :inputs (js->clj (.-inputs raw))))))
+(defn candidate-source [task before index]
+  (when-not (and (integer? index) (<= 0 index) (< index (count (:candidates task)))
+                 (= (:before-sha256 task) (kernel/digest (js/Buffer.from before)))
+                 (= 2 (count (.split before (:old task))))) (h/refuse :workspace-edit-precondition))
+  (let [at (.indexOf before (:old task))]
+    (str (.slice before 0 at) (nth (:candidates task) index) (.slice before (+ at (count (:old task)))))))
+(defn verify! [task content]
+  (let [started (.now js/performance)
+        stage (.mkdtempSync fs (.join path (.tmpdir (js/require "node:os")) "mithril-verify-"))
+        write! (fn [p bytes] (let [file (.join path stage p)]
+                              (.mkdirSync fs (.dirname path file) #js {:recursive true})
+                              (.writeFileSync fs file bytes #js {:mode 384})))]
+    (try
+      (write! (:file task) content)
+      (doseq [[p sha] (:inputs task)]
+        (let [bytes (.readFileSync fs (source! (:root task) p))]
+          (when-not (= sha (kernel/digest bytes)) (h/refuse :workspace-input-drift))
+          (write! p bytes)))
+      (let [{:keys [executable argv timeout-ms]} (:verifier task)
+            r (.spawnSync cp executable (clj->js argv)
+                 #js {:cwd stage :encoding "utf8" :timeout timeout-ms :maxBuffer 1048576
+                      :env #js {:PATH (.-PATH js/process.env) :HOME stage}})]
+        ;; A verifier that changes the tested source does not establish the proposed edit.
+        (when-not (= content (.readFileSync fs (.join path stage (:file task)) "utf8")) (h/refuse :verifier-mutated-source))
+        {:passed (and (nil? (.-error r)) (= 0 (.-status r))) :exit-code (.-status r)
+         :wall-ms (- (.now js/performance) started)
+         :diagnostic (subs (str (.-stdout r) (.-stderr r)) 0 (min 8192 (count (str (.-stdout r) (.-stderr r)))))
+         :output-sha256 (kernel/digest (js/Buffer.from (str (.-stdout r) (.-stderr r))))
+         :source-sha256 (kernel/digest (js/Buffer.from content))})
+      (finally (.rmSync fs stage #js {:recursive true :force true})))))
+(defn receipt [verification]
+  {:ok? (:passed verification)
+   :summary (if (:passed verification) "Declared repository edit verified and retained." "Declared candidate failed verification; repository unchanged.")
+   :output-digest (kernel/digest (js/Buffer.from (pr-str verification)))})
+(defn select! [task before decide!]
+  (let [labels (mapv #(str "patch-" %) (range (count (:candidates task))))
+        request {:state {:goal (:goal task) :source before :replace (:old task)}
+                 :questions {"next_action" {:type "choice" :instructions "Select the patch that meets the stated task and tests."
+                            :criteria (zipmap labels (:candidates task))}}}
+        {:keys [choice confidence probabilities] :as a} (decide! request)
+        unit? #(and (number? %) (js/Number.isFinite %) (<= 0 % 1))]
+    (when-not (and (= #{:choice :confidence :probabilities} (set (keys a)))
+                   (= (set labels) (set (keys probabilities))) (contains? (set labels) choice)
+                   (unit? confidence) (every? unit? (vals probabilities))
+                   (< (js/Math.abs (- 1 (reduce + (vals probabilities)))) 0.000001)
+                   (= (get probabilities choice) (apply max (vals probabilities)))
+                   (<= 0.6 (min confidence (get probabilities choice)))) (h/refuse :workspace-decision))
+    (.indexOf labels choice)))
+(defn perform! [task store call-id decide!]
+  (session/owned! store)
+  (let [intent-file (.join path (:directory store) "edit-intent.edn")
+        target (source! (:root task) (:file task)) before (.readFileSync fs target "utf8")]
+    (when (.existsSync fs intent-file) (h/refuse :existing-edit-intent))
+    (when-not (= (:before-sha256 task) (kernel/digest (js/Buffer.from before))) (h/refuse :workspace-source-drift))
+    (let [baseline (verify! task before)
+          _ (when (:passed baseline) (h/refuse :workspace-already-verified))
+          index (select! task before decide!) after (candidate-source task before index)
+          verification (verify! task after) result (receipt verification)]
+      (if-not (:passed verification) result
+        (let [intent {:format "mithril.edit/v1" :task (task-digest task) :call-id call-id :index index
+                      :before before :after-sha256 (kernel/digest (js/Buffer.from after))
+                      :baseline baseline :verification verification :receipt result}]
+          ;; The journal claims the effect before this intent, and this intent is durable before publication.
+          (session/atomic-write! intent-file (pr-str intent))
+          (when-not (= (:before-sha256 task) (kernel/digest (.readFileSync fs (source! (:root task) (:file task)))))
+            (h/refuse :workspace-source-drift))
+          (session/atomic-write! target after)
+          result)))))
+(defn reconcile!
+  "Explicitly inspect a pending edit, never repeat the model or publication. External drift refuses recovery."
+  [task store call-id]
+  (session/owned! store)
+  (let [intent-file (.join path (:directory store) "edit-intent.edn")]
+    (when-not (.existsSync fs intent-file) (h/refuse :missing-edit-intent))
+    (when (> (.-size (.statSync fs intent-file)) 1048576) (h/refuse :edit-intent-size))
+    (let [intent (reader/read-string (.readFileSync fs intent-file "utf8"))
+          after (candidate-source task (:before intent) (:index intent))
+          actual (.readFileSync fs (source! (:root task) (:file task)) "utf8")]
+      (when-not (and (= "mithril.edit/v1" (:format intent)) (= (task-digest task) (:task intent))
+                     (= call-id (:call-id intent)) (= (:after-sha256 intent) (kernel/digest (js/Buffer.from after))))
+        (h/refuse :edit-intent-binding))
+      (cond (= after actual) (let [verified (verify! task actual)]
+                               (when-not (:passed verified) (h/refuse :recovered-edit-failed-verification))
+                               (receipt verified))
+            (= (:before intent) actual) {:ok? false :summary "Durable intent exists, but edit was not published; no automatic retry."
+                                        :output-digest (kernel/digest (js/Buffer.from actual))}
+            :else (h/refuse :workspace-source-drift)))))
+(defn retained-edit! [task store]
+  ;; A saved terminal state must not silently bless a subsequently changed repository.
+  (session/owned! store)
+  (let [intent (reader/read-string (.readFileSync fs (.join path (:directory store) "edit-intent.edn") "utf8"))
+        actual (.readFileSync fs (source! (:root task) (:file task)))]
+    (when-not (and (= (task-digest task) (:task intent))
+                   (= (:after-sha256 intent) (kernel/digest actual))) (h/refuse :workspace-source-drift))))

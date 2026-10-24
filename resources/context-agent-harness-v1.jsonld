@@ -1,0 +1,17 @@
+{
+  "@context": {
+    "port": "https://mithril.fund/port/ns/v1#",
+    "xsd": "http://www.w3.org/2001/XMLSchema#",
+    "AgentHarness": "port:AgentHarness",
+    "goal": {"@id": "port:goal", "@type": "xsd:string"},
+    "maxSteps": {"@id": "port:maxSteps", "@type": "xsd:integer"},
+    "max-calls": {"@id": "port:maxCalls", "@type": "xsd:integer"},
+    "confidenceFloor": {"@id": "port:confidenceFloor", "@type": "xsd:integer"},
+    "plugins": {"@id": "port:plugins", "@container": "@set"},
+    "tools": {"@id": "port:tools", "@container": "@set"},
+    "requires": {"@id": "port:requires", "@container": "@set"},
+    "provides": {"@id": "port:provides", "@container": "@set"},
+    "finish-facts": {"@id": "port:finishFacts", "@container": "@set"},
+    "operation": {"@id": "port:operation", "@type": "xsd:string"}
+  }
+}

@@ -1,0 +1,40 @@
+(ns mithril.evaluation
+  "Per-episode measurements; missing telemetry is never a measured zero.")
+
+(defn- measured? [x] (and (number? x) (js/Number.isFinite x) (<= 0 x)))
+(defn- usage [turns field]
+  (let [values (map #(get-in % [:response field]) turns)
+        known (filter measured? values)]
+    {:total (when (and (seq turns) (= (count known) (count turns))) (reduce + known))
+     :known-subtotal (when (seq known) (reduce + known))
+     :measured-calls (count known) :calls (count turns)}))
+
+(defn summarize [receipt]
+  (let [turns (:model-turns receipt) attempt (last (:attempts receipt))
+        verification (:verification attempt) checks (map :value (:results verification))
+        checked? (boolean (and (:passed verification) (seq checks)
+                              (every? #(and (:passed %) (:source-unchanged? %) (:quiescent? %)) checks)))
+        retained? (contains? (set (get-in receipt [:state :facts])) "repository-verified")
+        success? (and (= "done" (:status receipt)) retained?)
+        schedule (:schedule verification)]
+    {:format "mithril.coding-measurement/v1" :status (:status receipt) :mode (:mode receipt)
+     :model-kind (:generator-kind receipt) :model-directory (:generator-model receipt)
+     :clef-controller-used false
+     :success (boolean success?) :verification-passed checked? :retained-source-verified (boolean retained?)
+     :accuracy-scope "Task completion with fixed checks; not general coding accuracy. Resume is not a generation trial."
+     :timing {:cli-wall-seconds (when (measured? (:wall-ms receipt)) (/ (:wall-ms receipt) 1000))
+              :boundary (or (:timing-boundary receipt) "CLI task read through receipt creation; excludes initial model download and caller startup.")
+              :generation-seconds (usage turns :generation_seconds)
+              :load-seconds (usage turns :load_seconds)
+              :verification-wall-seconds (when (measured? (:wall-ms schedule)) (/ (:wall-ms schedule) 1000))}
+     :attempts (count (:attempts receipt)) :provider-calls (count turns)
+     :provider-failures (count (filter #(nil? (:response %)) turns))
+     :input-tokens (usage turns :input_tokens) :output-tokens (usage turns :output_tokens)
+     :verification-checks (count checks) :passed-checks (count (filter :passed checks))
+     :max-concurrent-checks (:max-running schedule)
+     :cost {:api-currency (get-in receipt [:cost :api-currency])
+            :api-amount (get-in receipt [:cost :api-amount])
+            :api-amount-per-success (when success? (get-in receipt [:cost :api-amount]))
+            :electricity nil :device-amortization nil :human-development nil
+            :total-cost nil :training nil}
+     :training-performed false}))

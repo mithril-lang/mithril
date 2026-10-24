@@ -1,0 +1,7 @@
+(mithril/agent-harness
+  :id "https://mithril.fund/port/agent/generated-v1"
+  :goal "Generate actual repository source, verify the complete multi-file change, and finish only after retained host-verified results."
+  :max-steps 8 :max-calls 4 :confidence-floor 6000 :finish-facts ["repository-verified"]
+  :plugins [(mithril/plugin :id "workspace" :requires []
+    :tools [(mithril/tool :id "generate-verify" :operation "coding/generate-verify"
+             :requires [] :provides ["repository-verified"])])])

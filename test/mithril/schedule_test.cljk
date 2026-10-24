@@ -1,0 +1,55 @@
+(ns mithril.schedule-test
+  (:require [cljs.test :refer [deftest is async]] [mithril.schedule :as schedule]
+            [mithril.parallel :as parallel] [mithril.ports-test :as ports]))
+(defn job [id dependencies resources run]
+  {:id id :depends-on dependencies :resources resources :run run :accept? (fn [r] (parallel/successful? r))})
+(defn process-job [id dependencies resources milliseconds]
+  (job id dependencies resources
+    (fn [signal]
+      (parallel/process! {:executable (.-execPath js/process)
+        :argv ["-e" (str "setTimeout(()=>console.log('" id "')," milliseconds ")")]
+        :cwd (.tmpdir (js/require "node:os")) :timeout-ms 2000 :output-bytes 4096} signal))))
+(deftest real-process-dependencies-overlap-and-resource-exclusion
+  (async finish
+    (-> (schedule/run! [(process-job "join" ["first" "second"] [] 1)
+                       (process-job "first" [] ["workspace"] 150)
+                       (process-job "second" [] [] 150)
+                       (process-job "same-resource" [] ["workspace"] 1)] 2 nil)
+        (.then (fn [r]
+                 (let [[join first second same] (mapv :value (:results r))]
+                   (is (= ["join" "first" "second" "same-resource"] (mapv :id (:results r))))
+                   (is (every? #(= :fulfilled (:status %)) (:results r)))
+                   (is (= 2 (:max-running r)))
+                   (is (< (max (:started-ms first) (:started-ms second)) (min (:ended-ms first) (:ended-ms second))))
+                   (is (>= (:started-ms join) (max (:ended-ms first) (:ended-ms second))))
+                   (is (>= (:started-ms same) (:ended-ms first)))
+                   (is (every? :quiescent? [join first second same])))
+                 (finish)))
+        (.catch (fn [e] (is false (str e)) (finish))))))
+(deftest rejected-predecessors-block-without-running-dependent-work
+  (async finish
+    (let [invoked (atom []) plain (fn [id deps result]
+                                   {:id id :depends-on deps :resources [] :accept? (fn [x] x)
+                                    :run (fn [_] (swap! invoked conj id) result)})]
+      (-> (schedule/run! [(plain "last" ["middle"] true) (plain "middle" ["fail"] true)
+                         (plain "fail" [] false) (plain "independent" [] true)] 2 nil)
+          (.then (fn [r]
+                   (is (= [:blocked :blocked :rejected :fulfilled] (mapv :status (:results r))))
+                   (is (= #{"fail" "independent"} (set @invoked))) (finish)))
+          (.catch (fn [e] (is false (str e)) (finish)))))))
+(deftest cancellation-waits-for-active-process-and-skips-dependent-work
+  (async finish
+    (let [controller (js/AbortController.) active (process-job "active" [] [] 1000)
+          next (process-job "next" ["active"] [] 1)]
+      (js/setTimeout #(.abort controller) 40)
+      (-> (schedule/run! [active next] 2 (.-signal controller))
+          (.then (fn [r]
+                   (is (= [:rejected :cancelled] (mapv :status (:results r))))
+                   (is (get-in r [:results 0 :value :cancelled?]))
+                   (is (get-in r [:results 0 :value :quiescent?])) (finish)))
+          (.catch (fn [e] (is false (str e)) (finish)))))))
+(deftest graph-refuses-cycles-and-unknown-dependencies-before-running
+  (let [j (process-job "one" ["one"] [] 1)]
+    (is (ports/refused? #(schedule/compile-plan [j] 2)))
+    (is (ports/refused? #(schedule/compile-plan [(assoc j :depends-on ["missing"])] 2)))
+    (is (ports/refused? #(schedule/compile-plan [(assoc j :depends-on []) j] 2)))))

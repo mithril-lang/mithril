@@ -1,0 +1,104 @@
+{
+  "format": "mithril.workspace-run/v1",
+  "task-sha256": "deeef8099892f40a653ae508747a5847d03f05433461b4219be3b4a4a043d821",
+  "mode": "reconcile",
+  "state": {
+    "session-id": "e9cf4b25-d300-4a89-863a-0ebc71626190",
+    "pending": null,
+    "completed": [
+      "edit-verify"
+    ],
+    "steps": 2,
+    "phase": "done",
+    "journal": [
+      {
+        "event": "start",
+        "call-id": "https://mithril.fund/port/deepseek/workspace-v1/session/e9cf4b25-d300-4a89-863a-0ebc71626190/call/0",
+        "label": "edit-verify"
+      },
+      {
+        "event": "end",
+        "call-id": "https://mithril.fund/port/deepseek/workspace-v1/session/e9cf4b25-d300-4a89-863a-0ebc71626190/call/0",
+        "receipt": {
+          "ok?": true,
+          "summary": "Declared repository edit verified and retained.",
+          "output-digest": "71238314c53c5ccaf17034199f12198e20b42ef880a53653842bf61aeba5fb68"
+        }
+      },
+      {
+        "event": "end",
+        "step": 2
+      }
+    ],
+    "active": [
+      "workspace"
+    ],
+    "profile-id": "https://mithril.fund/port/deepseek/workspace-v1",
+    "calls": 1,
+    "facts": [
+      "repository-verified"
+    ],
+    "results": [
+      {
+        "call-id": "https://mithril.fund/port/deepseek/workspace-v1/session/e9cf4b25-d300-4a89-863a-0ebc71626190/call/0",
+        "operation": "coding/edit-verify",
+        "receipt": {
+          "ok?": true,
+          "summary": "Declared repository edit verified and retained.",
+          "output-digest": "71238314c53c5ccaf17034199f12198e20b42ef880a53653842bf61aeba5fb68"
+        }
+      }
+    ]
+  },
+  "model-turns": [
+    {
+      "request": {
+        "state": {
+          "goal": "Return 1 exactly when n is strictly positive; zero and negative inputs return 0.",
+          "facts": [
+            "repository-verified"
+          ],
+          "tool-results": [
+            {
+              "call-id": "https://mithril.fund/port/deepseek/workspace-v1/session/e9cf4b25-d300-4a89-863a-0ebc71626190/call/0",
+              "operation": "coding/edit-verify",
+              "receipt": {
+                "ok?": true,
+                "summary": "Declared repository edit verified and retained.",
+                "output-digest": "71238314c53c5ccaf17034199f12198e20b42ef880a53653842bf61aeba5fb68"
+              }
+            }
+          ]
+        },
+        "questions": {
+          "next_action": {
+            "type": "choice",
+            "instructions": "Choose an available operation. Finish only when the observed results establish the goal.",
+            "criteria": {
+              "finish": "Finish after the required host-verification facts exist."
+            }
+          }
+        }
+      },
+      "answer": {
+        "choice": "finish",
+        "confidence": 1,
+        "probabilities": {
+          "finish": 1
+        }
+      },
+      "mechanism": "host-singleton",
+      "wall-ms": 0
+    }
+  ],
+  "status": "done",
+  "wall-ms": 6716.776,
+  "error": null,
+  "cost": {
+    "api-currency": "JPY",
+    "api-amount": 0,
+    "execution": "offline-local",
+    "electricity": "unmeasured",
+    "device-amortization": "unmeasured"
+  }
+}

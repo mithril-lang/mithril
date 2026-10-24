@@ -1,0 +1,113 @@
+(ns mithril.cua-driver
+  "Mithril MCP/validation/dispatch port. OS operations are explicit capabilities.
+  No Rust MCP state machine or TypeScript client is used by this implementation."
+  (:require [clojure.set :as set] [mithril.form :as form]))
+(defn refuse [reason] (throw (ex-info "computer driver refused" {:reason reason})))
+(defn error-reason [e]
+  (or (:reason (ex-data e)) (when-let [cause (ex-cause e)] (error-reason cause)) :driver-failure))
+(def schema-keys #{"type" "properties" "required" "additionalProperties" "oneOf" "anyOf" "not"
+                   "enum" "const" "items" "minItems" "maxItems" "uniqueItems" "minLength" "maxLength"
+                   "minimum" "maximum" "pattern" "default" "description"})
+(defn check-schema [s]
+  (when-not (and (map? s) (set/subset? (set (keys s)) schema-keys)) (refuse :unsupported-schema))
+  (doseq [child (concat (vals (get s "properties" {})) (get s "oneOf" []) (get s "anyOf" [])
+                       (keep #(get s %) ["not" "items"]))] (check-schema child)) s)
+(defn type-valid? [t x]
+  (case t "object" (map? x) "array" (vector? x) "string" (string? x)
+    "boolean" (boolean? x) "integer" (js/Number.isSafeInteger x)
+    "number" (and (number? x) (js/Number.isFinite x)) "null" (nil? x) false))
+(defn valid? [s x]
+  (let [t (get s "type") properties (get s "properties" {})]
+    (and
+      (or (nil? t) (if (vector? t) (some #(type-valid? % x) t) (type-valid? t x)))
+      (or (not (contains? s "enum")) (some #(= x %) (get s "enum")))
+      (or (not (contains? s "const")) (= x (get s "const")))
+      (or (not (contains? s "oneOf")) (= 1 (count (filter #(valid? % x) (get s "oneOf")))))
+      (or (not (contains? s "anyOf")) (some #(valid? % x) (get s "anyOf")))
+      (or (not (contains? s "not")) (not (valid? (get s "not") x)))
+      (or (not (map? x))
+          (and (every? #(contains? x %) (get s "required" []))
+               (or (not= false (get s "additionalProperties")) (every? #(contains? properties %) (keys x)))
+               (every? (fn [[k v]] (or (not (contains? properties k)) (valid? (get properties k) v))) x)))
+      (or (not (vector? x))
+          (and (<= (get s "minItems" 0) (count x) (get s "maxItems" js/Number.MAX_SAFE_INTEGER))
+               (or (not (get s "uniqueItems")) (= (count x) (count (set x))))
+               (or (not (contains? s "items")) (every? #(valid? (get s "items") %) x))))
+      (or (not (string? x))
+          (and (<= (get s "minLength" 0) (count x) (get s "maxLength" js/Number.MAX_SAFE_INTEGER))
+               (or (not (contains? s "pattern")) (.test (js/RegExp. (get s "pattern")) x))))
+      (or (not (number? x)) (<= (get s "minimum" js/Number.MIN_SAFE_INTEGER) x
+                                (get s "maximum" js/Number.MAX_SAFE_INTEGER))))))
+(defn compile-profile [text contract]
+  (let [d (form/parse text) allowed (get d "tools")
+        registry (into {} (map #(vector (get % "name") %) (get contract "tools")))]
+    (when-not (and (= "ComputerDriver" (get d "@type"))
+                   (= "https://mithril.fund/context/computer-driver/v1" (get d "@context"))
+                   (= #{"@context" "@type" "@id" "protocol" "max-calls" "max-bytes" "tools"} (set (keys d)))
+                   (string? (get d "@id")) (= "2025-06-18" (get d "protocol"))
+                   (integer? (get d "max-calls")) (<= 1 (get d "max-calls") 1000)
+                   (integer? (get d "max-bytes")) (<= 1024 (get d "max-bytes") 16777216)
+                   (vector? allowed) (seq allowed) (= (count allowed) (count (set allowed)))
+                   (every? #(contains? registry %) allowed)) (refuse :driver-profile))
+    (doseq [name allowed] (check-schema (get-in registry [name "input_schema"])))
+    {:id (get d "@id") :max-calls (get d "max-calls") :max-bytes (get d "max-bytes")
+     :tools (select-keys registry allowed)}))
+(defn state [] {:initialized? false :calls 0 :used #{} :journal []})
+(defn wire-tool [t]
+  {:name (get t "name") :description (get t "description") :inputSchema (get t "input_schema")
+   :annotations {:readOnlyHint (get-in t ["annotations" "read_only"])
+                 :destructiveHint (get-in t ["annotations" "destructive"])
+                 :idempotentHint (get-in t ["annotations" "idempotent"])
+                 :openWorldHint (get-in t ["annotations" "open_world"])}})
+(defn call! [p cell id name args {:keys [invoke! budget-ok?]}]
+  (let [s @cell t (get (:tools p) name)]
+    (when-not (and t (some? id) (not (contains? (:used s) id))
+                   (budget-ok? (- (:max-calls p) (:calls s)))
+                   (map? args) (valid? (get t "input_schema") args)
+                   (<= (.-length (js/Buffer.from (.stringify js/JSON (clj->js args)))) (:max-bytes p)))
+      (refuse :tool-admission))
+    ;; Claim before calling native input; unknown outcomes are never retried.
+    (swap! cell #(-> % (update :calls inc) (update :used conj id)
+                    (update :journal conj {:event :tool/start :id id :name name})))
+    (-> (js/Promise.resolve nil)
+        (.then (fn [_] (invoke! name args)))
+        (.then (fn [result]
+                 (when-not (and (map? result) (vector? (:content result))
+                                (<= (.-length (js/Buffer.from (.stringify js/JSON (clj->js result)))) (:max-bytes p)))
+                   (refuse :result-budget-or-shape))
+                 (swap! cell update :journal conj {:event :tool/end :id id :name name :ok? (not (:isError result))})
+                 result))
+        (.catch (fn [error]
+                  (swap! cell update :journal conj {:event :tool/uncertain :id id :name name})
+                  (throw error))))))
+(def modern "2026-07-28")
+(defn rpc! [p cell request mechanisms]
+  (let [{:keys [jsonrpc id method params]} request
+        version (get-in params [:_meta :io.modelcontextprotocol/protocolVersion])
+        modern? (= modern version)
+        response (fn [result] {:jsonrpc "2.0" :id id :result (cond-> result modern? (assoc :resultType "complete"))})
+        fail (fn [code message] {:jsonrpc "2.0" :id id :error {:code code :message message}})]
+    (-> (js/Promise.resolve nil)
+        (.then (fn [_]
+                 (when-not (and (= "2.0" jsonrpc) (string? method) (or (nil? version) modern?)
+                                (or (not modern?) (map? (get-in params [:_meta :io.modelcontextprotocol/clientCapabilities]))))
+                   (refuse :protocol-version))
+                 (case method
+                   "initialize" (do (when-not (= "2025-06-18" (:protocolVersion params)) (refuse :protocol-version))
+                                    (swap! cell assoc :initialized? true)
+                                    (response {:protocolVersion "2025-06-18" :capabilities {:tools {}}
+                                               :serverInfo {:name "mithril-cua-driver" :version "0.1.0"}}))
+                   "notifications/initialized" nil
+                   "ping" (response {})
+                   "server/discover" (do (when-not modern? (refuse :protocol-version))
+                                         (response {:protocolVersion modern :capabilities {:tools {}}
+                                                    :serverInfo {:name "mithril-cua-driver" :version "0.1.0"}}))
+                   (do
+                     (when-not (or modern? (:initialized? @cell)) (refuse :not-initialized))
+                     (case method
+                       "tools/list" (response {:tools (mapv wire-tool (vals (:tools p)))})
+                       "tools/call" (-> (call! p cell id (:name params)
+                                              (js->clj (clj->js (or (:arguments params) {}))) mechanisms)
+                                        (.then response))
+                       (fail -32601 "Method not found"))))))
+        (.catch (fn [error] (fail -32602 (name (error-reason error))))))))

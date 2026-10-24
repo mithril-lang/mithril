@@ -1,0 +1,82 @@
+(ns mithril.parallel
+  "Bounded ordered scheduling and process completion after exit, including cancellation and output budgets."
+  (:require [mithril.harness :as h]))
+(defn pool! [jobs limit signal]
+  (when-not (and (vector? jobs) (integer? limit) (<= 1 limit 16)) (h/refuse :parallel-budget))
+  (let [cursor (atom 0) results (atom (vec (repeat (count jobs) nil)))]
+    (letfn [(worker []
+              (let [i @cursor]
+                (swap! cursor inc)
+                (if (>= i (count jobs)) (js/Promise.resolve nil)
+                  (-> (js/Promise.resolve nil)
+                      (.then (fn [_]
+                               (if (and signal (.-aborted signal)) {:status :cancelled}
+                                 ((nth jobs i) signal))))
+                      (.then (fn [result] (swap! results assoc i {:status :fulfilled :value result})))
+                      (.catch (fn [e] (swap! results assoc i {:status :rejected :error (str e)})))
+                      (.then (fn [_] (worker)))))))]
+      (-> (js/Promise.all (clj->js (mapv (fn [_] (worker)) (range (min limit (count jobs))))))
+          (.then (fn [_] @results))))))
+(defn await-group! [pid]
+  (if (or (nil? pid) (= "win32" (.-platform js/process))) (js/Promise.resolve true)
+    (js/Promise.
+      (fn [resolve _]
+        (let [deadline (+ (.now js/performance) 5000)]
+          (letfn [(check []
+                    (let [alive? (try (.kill js/process (- pid) 0) true
+                                      (catch :default e (not= "ESRCH" (.-code e))))]
+                      (cond (not alive?) (resolve true)
+                            (> (.now js/performance) deadline) (resolve false)
+                            :else (js/setTimeout check 20))))]
+            (check)))))))
+(defn process! [{:keys [executable argv cwd timeout-ms output-bytes stdin-file]} signal]
+  (js/Promise.
+    (fn [resolve reject]
+      (if (and signal (.-aborted signal))
+        (resolve {:exit-code nil :signal nil :timed-out? false :cancelled? true :output-limit? false :stdout "" :stderr "" :wall-ms 0})
+        (let [cp (js/require "node:child_process") fs (js/require "node:fs") started (.now js/performance)
+              fd (when stdin-file (.openSync fs stdin-file "r"))
+              child (try (.spawn cp executable (clj->js argv)
+                       #js {:cwd cwd :detached (not= "win32" (.-platform js/process))
+                            :env #js {:PATH (.-PATH js/process.env) :HOME cwd} :stdio #js [(or fd "ignore") "pipe" "pipe"]})
+                         (finally (when fd (.closeSync fs fd))))
+              state (atom {:stdout "" :stderr "" :bytes 0 :timed-out? false :cancelled? false :output-limit? false})
+              decoder (.-StringDecoder (js/require "node:string_decoder"))
+              decoders {:stdout (decoder. "utf8") :stderr (decoder. "utf8")}
+              closed (atom false) escalation (atom nil)
+              kill! (fn [sig]
+                      (when (and (not @closed) (.-pid child))
+                        (try (if (= "win32" (.-platform js/process)) (.kill child sig)
+                               (.kill js/process (- (.-pid child)) sig))
+                             (catch :default e
+                               (when-not (= "ESRCH" (.-code e)) (swap! state assoc :kill-error (str e)))))))
+              stop! (fn [reason]
+                      (swap! state assoc reason true) (kill! "SIGTERM")
+                      (when-not @escalation (reset! escalation (js/setTimeout #(kill! "SIGKILL") 1000))))
+              abort! (fn [_] (stop! :cancelled?))
+              timer (js/setTimeout #(stop! :timed-out?) timeout-ms)
+              collect! (fn [key data]
+                         (let [n (.-length data) remaining (max 0 (- output-bytes (:bytes @state)))]
+                           (swap! state update key str (.write (get decoders key) (.subarray data 0 remaining)))
+                           (swap! state update :bytes + n)
+                           (when (> (:bytes @state) output-bytes) (stop! :output-limit?))))]
+          (when signal (.addEventListener signal "abort" abort! #js {:once true}))
+          (.on (.-stdout child) "data" #(collect! :stdout %))
+          (.on (.-stderr child) "data" #(collect! :stderr %))
+          (.on child "error" #(swap! state assoc :spawn-error (str %)))
+          (.on child "close"
+            (fn [code sig]
+              (doseq [[key stream] decoders] (swap! state update key str (.end stream)))
+              ;; Any child-created descendants belong to this bounded job, not to a detached service.
+              (kill! "SIGKILL")
+              (reset! closed true) (js/clearTimeout timer)
+              (when @escalation (js/clearTimeout @escalation))
+              (when signal (.removeEventListener signal "abort" abort!))
+              (-> (await-group! (.-pid child))
+                  (.then (fn [quiet?]
+                           (resolve (assoc (dissoc @state :bytes) :exit-code code :signal sig
+                                     :quiescent? quiet? :started-ms started :ended-ms (.now js/performance)
+                                     :wall-ms (- (.now js/performance) started)))))))))))))
+(defn successful? [result]
+  (and (= 0 (:exit-code result)) (:quiescent? result)
+       (not-any? #(get result %) [:timed-out? :cancelled? :output-limit? :spawn-error :kill-error])))

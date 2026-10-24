@@ -1,0 +1,10 @@
+{:format :mithril/implementation-goal-v1
+ :requirements
+ [{:id :free-generation :acceptance "Task text and repository context, no supplied source candidates; model creates working source; compiler/tests and measured receipts." :state :in-progress}
+  {:id :multi-file :acceptance "Create/edit/delete multiple files, verify whole staged change, durable intent, rollback/reconcile after partial publication, preserve unrelated work." :state :in-progress}
+  {:id :parallel :acceptance "Bounded concurrent independent tools/checks with dependency order, deterministic committed results, cancellation reaching process quiescence." :state :in-progress}
+  {:id :full-ui :acceptance "Every pinned upstream client module has matching visible actions/state/transport, real browser coverage including reconnect and persistence; no placeholder counts as parity." :state :in-progress}
+  {:id :branding :acceptance "Mithril Harness repository/product/UI/profile/API names; old product name only in legally required origin/attribution and immutable historical evidence." :state :in-progress}]
+ :production-deployment :not-requested
+ :model :offline-local
+ :scope-may-not-be-reduced true}
