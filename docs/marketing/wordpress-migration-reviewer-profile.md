@@ -112,6 +112,56 @@ technology signal alone does not satisfy the contact gate.
 | Opt-outs and complaints reflected in suppression state | 100% | Read back the supervised provider and suppression ledger. |
 | Replies and actual send states distinguished from drafts | 100% | Reconcile draft, approval, delivery, bounce, and reply events separately. |
 
+## Market-specific legal review
+
+This profile can support eligible markets worldwide one market at a time; it
+does not authorize a blanket global list or a single global sending rule.
+Before research or drafting in a market, record the recipient type, contact
+basis, permitted source, sender requirements, opt-out path, retention period,
+and a current local review. If these are unknown, hold the market.
+
+Examples reviewed on 2026-10-24 (not exhaustive and not legal clearance for any
+campaign):
+
+- The [FTC CAN-SPAM compliance guide](https://www.ftc.gov/business-guidance/resources/can-spam-act-compliance-guide-business)
+  says U.S. commercial-email requirements apply to business-to-business messages
+  too, including accurate sender/subject details, a valid physical postal
+  address, and opt-out handling.
+- The [UK ICO business-to-business marketing guidance](https://ico.org.uk/for-organisations/direct-marketing-and-privacy-and-electronic-communications/business-to-business-marketing/)
+  distinguishes corporate and individual subscribers; personal data and
+  objections remain relevant, and the guidance may change.
+- [GDPR Article 21](https://eur-lex.europa.eu/eli/reg/2016/679/oj/eng)
+  provides a right to object to processing for direct marketing.
+
+Do not extrapolate one country's rule to another. Obtain current market-specific
+review before enabling a sender or campaign.
+
+## Limited preview hosting candidate
+
+After an owner authorizes a content import and asks for a private preview,
+Cloudflare Worker Previews may provide a bounded custom-host preview. The
+documented configuration uses `sites.mithril.love` as a Preview-only custom
+domain (`previews_enabled=true`, `enabled=false`); Cloudflare creates wildcard
+DNS and an SSL certificate for `*.sites.mithril.love`, with
+`<preview-name>.sites.mithril.love` routed to the named Preview. See [Worker
+Preview custom domains](https://developers.cloudflare.com/workers/previews/custom-domains/).
+
+This remains an unqualified candidate, not an available production service.
+Worker Previews are branch environments, not durable tenant domains. Free
+allows 100 Previews per Worker and Paid allows 500; Cloudflare deletes the
+least recently deployed Preview at the limit. Previews are public by default;
+custom-domain previews do not automatically set `X-Robots-Tag: noindex`.
+Protect access, add noindex, enforce a lower cap and explicit expiry, and bind
+only demo data/resources before any preview link is shared. D1, KV, and R2 are
+not isolated unless separate resources are configured. The current
+`fund-mithril` Workers plan and Preview quota are unverified. See [Preview
+limits and isolation](https://developers.cloudflare.com/workers/previews/).
+
+Do not create a Preview, DNS record, or certificate from this profile. Keep
+preview sharing disabled until authentication, data isolation, expiry,
+deletion, TLS, and rollback are verified in an isolated zone and the operator
+has approved the cost boundary.
+
 ## Activation checklist
 
 Keep the profile disabled until all are recorded: supported target market and

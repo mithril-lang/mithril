@@ -51,12 +51,7 @@ const ENTRY_SLUG = /^[^/?#\\\u0000-\u001f\u007f]{1,200}$/;
 const mithrilHostnameCore = instantiateMithrilNative({});
 const mithrilContentBoundary = instantiateContentBoundary({ Array, Number, Set });
 const mithrilMigrationPolicy = instantiateMigrationPolicy({});
-const HTML_TAGS = new Set([
-  "a", "b", "blockquote", "br", "code", "dd", "del", "div", "dl", "dt",
-  "em", "figcaption", "figure", "h1", "h2", "h3", "h4", "h5", "h6", "hr",
-  "i", "ins", "li", "ol", "p", "pre", "s", "span", "strong", "sub", "sup",
-  "table", "tbody", "td", "th", "thead", "tr", "u", "ul",
-]);
+const HTML_TAGS = new Set(mithrilContentBoundary.staticHtmlTags());
 const DROP_SUBTREE_TAGS = new Set([
   "audio", "button", "canvas", "embed", "form", "iframe", "input", "link",
   "math", "meta", "noscript", "object", "option", "script", "select", "source",
@@ -289,6 +284,46 @@ function parseBoundedInt(value, fallback, minimum, maximum) {
   if (!/^[0-9]{1,6}$/.test(value)) return null;
   const parsed = Number(value);
   return parsed >= minimum && parsed <= maximum ? parsed : null;
+}
+
+// Reserve D1's 100 bind parameters for shared filters, relevance sorting, and pagination.
+const MAX_WORDPRESS_PAGE_PARENT_FILTER_IDS = 80;
+
+function parseWordPressPageParentFilter(searchParams, name) {
+  const values = [];
+  let present = false;
+  for (const [key, value] of searchParams) {
+    if (key === name || key === `${name}[]`) {
+      present = true;
+      values.push(value);
+      continue;
+    }
+    if (!key.startsWith(`${name}[`)) continue;
+    present = true;
+    const index = key.endsWith("]") ? key.slice(name.length + 1, -1) : null;
+    if (index === null || (index !== "" && !/^\d+$/.test(index))) {
+      return { valid: false, present: true, values: null, count: 0 };
+    }
+    values.push(value);
+  }
+  if (!present) return { valid: true, present: false, values: null, count: 0 };
+
+  const ids = [];
+  for (const value of values) {
+    if (value === "") return { valid: false, present: true, values: null, count: 0 };
+    const candidates = value.split(",");
+    if (candidates.length > MAX_WORDPRESS_PAGE_PARENT_FILTER_IDS - ids.length) {
+      return { valid: false, present: true, values: null, count: 0 };
+    }
+    for (const candidate of candidates) {
+      const normalized = candidate.trim();
+      if (!/^\d{1,16}$/.test(normalized)) return { valid: false, present: true, values: null, count: 0 };
+      const id = Number(normalized);
+      if (!Number.isSafeInteger(id)) return { valid: false, present: true, values: null, count: 0 };
+      ids.push(id);
+    }
+  }
+  return { valid: true, present: true, values: [...new Set(ids)], count: ids.length };
 }
 
 async function readBoundedBytes(request, allowedTypes, unsupportedCode = "unsupported_content_type", maxBytes = MAX_BODY_BYTES) {
@@ -634,9 +669,13 @@ async function verifyOwnerTokenParts(env, site, tokenId, secret, requiredScope, 
   return { tokenId: token.token_id, ownerLabel: token.owner_label, scopes, expiresAt: token.expires_at };
 }
 
-function sameOriginStudioMutation(request, site) {
+function expectedStudioOrigin(site) {
   const requestHostname = site.request_hostname ?? site.hostname;
-  return request.headers.get("Origin") === `https://${requestHostname}`
+  return `https://${requestHostname}`;
+}
+
+function sameOriginStudioMutation(request, site) {
+  return request.headers.get("Origin") === expectedStudioOrigin(site)
     && request.headers.get("X-MithrilPress-Request") === "1";
 }
 
@@ -1528,9 +1567,6 @@ async function studioChat(request, env, site) {
   }
   statements.push(
     env.DB.prepare(
-      "UPDATE site_revisions SET state = 'superseded' WHERE site_id = ? AND id = (SELECT draft_revision_id FROM studio_conversations WHERE site_id = ? AND id = ?) AND state = 'private-preview'",
-    ).bind(site.id, site.id, conversation.id),
-    env.DB.prepare(
       "INSERT INTO site_revisions (id, site_id, parent_revision_id, state, revision_origin, source_origin, import_proof_id, import_token_id, imported_at, entry_count) SELECT ?, ?, ?, 'importing', 'chat', NULL, NULL, NULL, ?, ? WHERE EXISTS (SELECT 1 FROM studio_conversations c JOIN sites s ON s.id = c.site_id WHERE c.site_id = ? AND c.id = ? AND c.token_id = ? AND c.base_revision_id IS ? AND c.draft_revision_id IS ? AND (c.draft_revision_id IS NULL OR EXISTS (SELECT 1 FROM site_revisions d WHERE d.site_id = c.site_id AND d.id = c.draft_revision_id AND d.state = 'private-preview')) AND s.current_revision_id IS ? AND s.status = 'active')",
     ).bind(revisionId, site.id, baseRevisionId, nowIso, baseCount + 1,
       site.id, conversation.id, owner.tokenId, baseRevisionId, conversation.draft_revision_id, site.current_revision_id),
@@ -1558,8 +1594,11 @@ async function studioChat(request, env, site) {
       "UPDATE site_revisions SET state = 'private-preview' WHERE site_id = ? AND id = ? AND state = 'importing' AND entry_count = (SELECT COUNT(*) FROM entries WHERE site_id = ? AND revision_id = ? AND rendering_admission = 'ready')",
     ).bind(site.id, revisionId, site.id, revisionId),
     env.DB.prepare(
-      "UPDATE studio_conversations SET draft_revision_id = ?, updated_at = ? WHERE site_id = ? AND id = ? AND token_id = ? AND base_revision_id IS ?",
-    ).bind(revisionId, assistantAt, site.id, conversation.id, owner.tokenId, baseRevisionId),
+      "UPDATE site_revisions SET state = 'superseded' WHERE site_id = ? AND id = ? AND state = 'private-preview'",
+    ).bind(site.id, conversation.draft_revision_id),
+    env.DB.prepare(
+      "UPDATE studio_conversations SET draft_revision_id = ?, updated_at = ? WHERE site_id = ? AND id = ? AND token_id = ? AND base_revision_id IS ? AND draft_revision_id IS ?",
+    ).bind(revisionId, assistantAt, site.id, conversation.id, owner.tokenId, baseRevisionId, conversation.draft_revision_id),
     env.DB.prepare(
       "INSERT INTO studio_messages (site_id, conversation_id, id, role, body, created_at) VALUES (?, ?, ?, 'user', ?, ?)",
     ).bind(site.id, conversation.id, crypto.randomUUID(), body.message.trim(), nowIso),
@@ -1582,11 +1621,11 @@ async function studioChat(request, env, site) {
     return fail(503, "draft_not_saved", "The private draft could not be saved. No content was published.");
   }
   const inheritedParentResults = saved.slice(
-    3 + newConversationOffset,
-    3 + newConversationOffset + inheritedPageParents.length,
+    2 + newConversationOffset,
+    2 + newConversationOffset + inheritedPageParents.length,
   );
   if (inheritedParentResults.some((result) => result?.meta?.changes !== 1)
-      || saved[7 + newConversationOffset + inheritedPageParents.length]?.meta?.changes !== 1
+      || saved[6 + newConversationOffset + inheritedPageParents.length]?.meta?.changes !== 1
       || saved[8 + newConversationOffset + inheritedPageParents.length]?.meta?.changes !== 1) {
     return fail(503, "draft_not_saved", "The private draft could not be saved. No content was published.");
   }
@@ -1611,7 +1650,7 @@ async function studioManualDraft(request, env, site) {
       const diagnostic = JSON.stringify({
         originHost: parsedOrigin?.host ?? null,
         originProtocol: parsedOrigin?.protocol ?? null,
-        originMatchesExpected: origin === `https://${site.hostname}`,
+        originMatchesExpected: origin === expectedStudioOrigin(site),
         requestMarkerMatches: request.headers.get("X-MithrilPress-Request") === "1",
         siteHostname: site.hostname,
         requestHostname: site.request_hostname ?? null,
@@ -1763,9 +1802,6 @@ async function studioManualDraft(request, env, site) {
   }
   statements.push(
     env.DB.prepare(
-      "UPDATE site_revisions SET state = 'superseded' WHERE site_id = ? AND id = (SELECT draft_revision_id FROM studio_conversations WHERE site_id = ? AND id = ?) AND state = 'private-preview'",
-    ).bind(site.id, site.id, conversation.id),
-    env.DB.prepare(
       "INSERT INTO site_revisions (id, site_id, parent_revision_id, state, revision_origin, source_origin, import_proof_id, import_token_id, imported_at, entry_count) SELECT ?, ?, ?, 'importing', 'chat', NULL, NULL, NULL, ?, ? WHERE EXISTS (SELECT 1 FROM studio_conversations c JOIN sites s ON s.id = c.site_id WHERE c.site_id = ? AND c.id = ? AND c.token_id = ? AND c.base_revision_id IS ? AND c.draft_revision_id IS ? AND (c.draft_revision_id IS NULL OR EXISTS (SELECT 1 FROM site_revisions d WHERE d.site_id = c.site_id AND d.id = c.draft_revision_id AND d.state = 'private-preview')) AND s.current_revision_id IS ? AND s.status = 'active')",
     ).bind(revisionId, site.id, baseRevisionId, nowIso, baseCount + 1,
       site.id, conversation.id, owner.tokenId, baseRevisionId, conversation.draft_revision_id, site.current_revision_id),
@@ -1789,8 +1825,11 @@ async function studioManualDraft(request, env, site) {
       "UPDATE site_revisions SET state = 'private-preview' WHERE site_id = ? AND id = ? AND state = 'importing' AND entry_count = (SELECT COUNT(*) FROM entries WHERE site_id = ? AND revision_id = ? AND rendering_admission = 'ready')",
     ).bind(site.id, revisionId, site.id, revisionId),
     env.DB.prepare(
-      "UPDATE studio_conversations SET draft_revision_id = ?, updated_at = ? WHERE site_id = ? AND id = ? AND token_id = ? AND base_revision_id IS ?",
-    ).bind(revisionId, assistantAt, site.id, conversation.id, owner.tokenId, baseRevisionId),
+      "UPDATE site_revisions SET state = 'superseded' WHERE site_id = ? AND id = ? AND state = 'private-preview'",
+    ).bind(site.id, conversation.draft_revision_id),
+    env.DB.prepare(
+      "UPDATE studio_conversations SET draft_revision_id = ?, updated_at = ? WHERE site_id = ? AND id = ? AND token_id = ? AND base_revision_id IS ? AND draft_revision_id IS ?",
+    ).bind(revisionId, assistantAt, site.id, conversation.id, owner.tokenId, baseRevisionId, conversation.draft_revision_id),
     env.DB.prepare(
       "INSERT INTO studio_messages (site_id, conversation_id, id, role, body, created_at) VALUES (?, ?, ?, 'user', ?, ?)",
     ).bind(site.id, conversation.id, crypto.randomUUID(), body.content.trim(), nowIso),
@@ -1812,7 +1851,7 @@ async function studioManualDraft(request, env, site) {
     if (quotaCode) return storageQuotaResponse(quotaCode);
     return fail(503, "draft_not_saved", "The private draft could not be saved. No content was published.");
   }
-  if (saved[7 + newConversationOffset]?.meta?.changes !== 1
+  if (saved[6 + newConversationOffset]?.meta?.changes !== 1
       || saved[8 + newConversationOffset]?.meta?.changes !== 1) {
     return fail(503, "draft_not_saved", "The private draft could not be saved. No content was published.");
   }
@@ -2930,6 +2969,7 @@ function canonicalUrl(hostname, entry) {
 }
 
 const SEO_METADATA_SELECT = "COALESCE((SELECT metadata_json FROM entry_seo_metadata seo WHERE seo.site_id = entries.site_id AND seo.revision_id = entries.revision_id AND seo.entry_id = entries.entry_id), '{}') AS seo_metadata_json";
+const WORDPRESS_PUBLIC_PAGE_PARENT_ID = "CASE WHEN EXISTS (SELECT 1 FROM entries wp_parent WHERE wp_parent.site_id = entries.site_id AND wp_parent.revision_id = entries.revision_id AND wp_parent.kind = 'page' AND wp_parent.source_id = entries.parent_source_id AND wp_parent.publication_status = 'published') THEN entries.parent_source_id ELSE 0 END";
 
 function wpRecord(site, row) {
   const link = canonicalUrl(site.hostname, row);
@@ -2981,7 +3021,7 @@ async function wordpressRead(request, env, site, kind, itemId = null) {
     if (!Number.isSafeInteger(sourceId) || sourceId < 1) return fail(404, "entry_not_found", "Entry not found.");
     if (!site.current_revision_id || site.status !== "active") return fail(404, "entry_not_found", "Entry not found.");
     const row = await env.DB.prepare(
-      `SELECT api_id, source_id, CASE WHEN EXISTS (SELECT 1 FROM entries parent WHERE parent.site_id = entries.site_id AND parent.revision_id = entries.revision_id AND parent.kind = 'page' AND parent.source_id = entries.parent_source_id AND parent.publication_status = 'published') THEN parent_source_id ELSE 0 END AS parent_source_id, source_date, source_date_gmt, source_modified, source_modified_gmt, featured_media_id, slug, route_path, title, safe_html, categories_json, tags_json, kind, ${SEO_METADATA_SELECT} FROM entries WHERE site_id = ? AND revision_id = ? AND kind = ? AND publication_status = 'published' AND COALESCE(source_id, api_id) = ? LIMIT 1`,
+      `SELECT api_id, source_id, ${WORDPRESS_PUBLIC_PAGE_PARENT_ID} AS parent_source_id, source_date, source_date_gmt, source_modified, source_modified_gmt, featured_media_id, slug, route_path, title, safe_html, categories_json, tags_json, kind, ${SEO_METADATA_SELECT} FROM entries WHERE site_id = ? AND revision_id = ? AND kind = ? AND publication_status = 'published' AND COALESCE(source_id, api_id) = ? LIMIT 1`,
     ).bind(site.id, site.current_revision_id, kind, sourceId).first();
     if (!row) return fail(404, "entry_not_found", "Entry not found.");
     return request.method === "HEAD"
@@ -2997,6 +3037,15 @@ async function wordpressRead(request, env, site, kind, itemId = null) {
   const search = searchValue === null ? null : searchValue.trim();
   if (search !== null && (!search || search.length > 100 || /[\u0000-\u001f\u007f]/.test(search))) {
     return fail(400, "invalid_search", "The search filter must contain 1-100 printable characters.");
+  }
+  const parentFilter = parseWordPressPageParentFilter(url.searchParams, "parent");
+  const parentExcludeFilter = parseWordPressPageParentFilter(url.searchParams, "parent_exclude");
+  if (!parentFilter.valid || !parentExcludeFilter.valid
+      || parentFilter.count + parentExcludeFilter.count > MAX_WORDPRESS_PAGE_PARENT_FILTER_IDS) {
+    return fail(400, "invalid_parent_filter", `Page parent filters accept at most ${MAX_WORDPRESS_PAGE_PARENT_FILTER_IDS} non-negative integer IDs in total.`);
+  }
+  if (kind !== "page" && (parentFilter.present || parentExcludeFilter.present)) {
+    return fail(400, "unsupported_parent_filter", "Parent filters are available only for pages.");
   }
   const after = parseWordPressDateFilter(url.searchParams.get("after"));
   const before = parseWordPressDateFilter(url.searchParams.get("before"), { endOfDay: true });
@@ -3021,9 +3070,16 @@ async function wordpressRead(request, env, site, kind, itemId = null) {
     modified: "COALESCE(julianday(COALESCE(source_modified_gmt, source_modified, source_date_gmt, source_date)), -1)",
     slug: "slug",
     title: "lower(title)",
+    ...(kind === "page" ? { parent: WORDPRESS_PUBLIC_PAGE_PARENT_ID } : {}),
   };
+  if (orderby === "parent" && kind !== "page") {
+    return fail(400, "invalid_orderby", "Sort by parent is available only for pages.");
+  }
   if (!Object.hasOwn(orderColumns, orderby) && orderby !== "relevance") {
-    return fail(400, "invalid_orderby", "Sort posts and pages by date, id, modified, relevance, slug, or title.");
+    const allowedOrderBy = kind === "page"
+      ? "date, id, modified, parent, relevance, slug, or title"
+      : "date, id, modified, relevance, slug, or title";
+    return fail(400, "invalid_orderby", `Sort ${kind}s by ${allowedOrderBy}.`);
   }
   if (orderby === "relevance" && search === null) {
     return fail(400, "search_term_required", "A search filter is required when ordering by relevance.");
@@ -3055,6 +3111,11 @@ async function wordpressRead(request, env, site, kind, itemId = null) {
     conditions.push("julianday(COALESCE(source_modified_gmt, source_modified, source_date_gmt, source_date)) <= julianday(?)");
     params.push(modifiedBefore.value);
   }
+  for (const [filter, operator] of [[parentFilter, "IN"], [parentExcludeFilter, "NOT IN"]]) {
+    if (filter.values === null) continue;
+    conditions.push(`${WORDPRESS_PUBLIC_PAGE_PARENT_ID} ${operator} (${filter.values.map(() => "?").join(", ")})`);
+    params.push(...filter.values);
+  }
   const where = conditions.join(" AND ");
   const count = await env.DB.prepare(`SELECT COUNT(*) AS total FROM entries WHERE ${where}`).bind(...params).first();
   const total = Number(count?.total ?? 0);
@@ -3064,7 +3125,7 @@ async function wordpressRead(request, env, site, kind, itemId = null) {
     : orderColumns[orderby];
   const orderParams = orderby === "relevance" ? [search, search] : [];
   const rows = await env.DB.prepare(
-    `SELECT api_id, source_id, CASE WHEN EXISTS (SELECT 1 FROM entries parent WHERE parent.site_id = entries.site_id AND parent.revision_id = entries.revision_id AND parent.kind = 'page' AND parent.source_id = entries.parent_source_id AND parent.publication_status = 'published') THEN parent_source_id ELSE 0 END AS parent_source_id, source_date, source_date_gmt, source_modified, source_modified_gmt, featured_media_id, slug, route_path, title, safe_html, categories_json, tags_json, kind, ${SEO_METADATA_SELECT} FROM entries WHERE ${where} ORDER BY ${orderExpression} ${order}, api_id ASC LIMIT ? OFFSET ?`,
+    `SELECT api_id, source_id, ${WORDPRESS_PUBLIC_PAGE_PARENT_ID} AS parent_source_id, source_date, source_date_gmt, source_modified, source_modified_gmt, featured_media_id, slug, route_path, title, safe_html, categories_json, tags_json, kind, ${SEO_METADATA_SELECT} FROM entries WHERE ${where} ORDER BY ${orderExpression} ${order}, api_id ASC LIMIT ? OFFSET ?`,
   ).bind(...params, ...orderParams, perPage, offset).all();
   const totalPages = total === 0 ? 0 : Math.ceil(total / perPage);
   const headers = { "X-WP-Total": String(total), "X-WP-TotalPages": String(totalPages) };
@@ -3315,6 +3376,10 @@ async function handleRequest(request, env) {
       if (invalidControlHostLimit) return invalidControlHostLimit;
       return fail(404, "site_not_found", "Site not found.");
     }
+    if (url.search) {
+      const sharedLimit = await checkHostingRequest(env, null, requestDate);
+      return sharedLimit ?? fail(400, "invalid_publication_request", "Publication control requests do not accept query parameters.");
+    }
     const siteId = controlPublicationCurrentMatch?.[1] ?? controlPublicationMediaMatch[1];
     const site = await env.DB.prepare(
       "SELECT id, hostname, status, current_revision_id FROM sites WHERE id = ? LIMIT 1",
@@ -3326,7 +3391,6 @@ async function handleRequest(request, env) {
     }
     const siteLimit = await checkHostingRequest(env, site.id, requestDate);
     if (siteLimit) return siteLimit;
-    if (url.search) return fail(400, "invalid_publication_request", "Publication control requests do not accept query parameters.");
     if (controlPublicationCurrentMatch) return await publicationSnapshot(request, env, site);
     const mediaId = Number(controlPublicationMediaMatch[3]);
     if (!Number.isSafeInteger(mediaId) || mediaId < 1) return fail(404, "media_not_found", "Media item not found.");

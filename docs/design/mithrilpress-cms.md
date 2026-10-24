@@ -175,6 +175,37 @@ pattern. Keep this path disabled until wildcard TLS, host-aware abuse controls,
 an enforceable provider-cost stop, rollback, and operator cost are approved and
 qualified. Never charge site owners or upgrade them automatically.
 
+### Temporary owner migration previews
+
+Cloudflare Worker Previews provide a separate, limited option for temporary
+owner-authorized migration reviews. A dedicated preview Worker can attach
+`sites.mithril.love` as a Preview-only Custom Domain
+(`previews_enabled: true`, `enabled: false`). Cloudflare then creates wildcard
+DNS and an SSL certificate for `*.sites.mithril.love`; each named Preview is
+served at `<preview-name>.sites.mithril.love`. This does not route the base
+hostname or create a durable published tenant hostname. See [Worker Preview
+custom domains](https://developers.cloudflare.com/workers/previews/custom-domains/).
+
+Keep this Worker separate from permanent publication and bind it only to
+preview D1/R2 resources. Cloudflare Previews sharing a resource ID share its
+data, so every record and object lookup must also stay scoped to the authorized
+site and preview. A dedicated Worker has a maximum of 100 Previews on Free and
+500 on Paid; Cloudflare may evict the least recently deployed Preview at the
+limit. Enforce a lower product cap, record each name and expiry, and delete
+expired Previews deterministically. If the current account plan, available
+Preview slots, or cleanup state cannot be verified, refuse creation. Custom
+domain Preview URLs are public by default and do not get an automatic
+`X-Robots-Tag: noindex`; require the tested owner-auth flow and set noindex in
+the Worker before returning any preview page. Use the documented delete
+operation as part of the cleanup owner runbook. Worker Previews require
+Wrangler 4.135 or later. See [Preview limits](https://developers.cloudflare.com/workers/previews/)
+and [resource isolation](https://developers.cloudflare.com/workers/previews/resources/).
+
+Only import content supplied by an owner who explicitly requested a preview.
+Treat preview creation as a temporary review step: it must not enable public
+publication, marketing distribution, or a DNS migration. The default
+published-host and wildcard-scale gates above still apply independently.
+
 The separate [optional static publication design](mithrilpress-static-publication.md)
 can publish an owner-approved revision to one capped Cloudflare Pages project
 with one exact custom hostname per selected site. It does not replace or
@@ -395,7 +426,11 @@ requirements are specified in [MithrilPress domain lifecycle](mithrilpress-domai
 `GET /wp-json/wp/v2/posts` and `/pages` expose only the currently published
 revision. They support `page`, `per_page` (1–100), `slug`, and `context=view` or
 `embed`, returning `X-WP-Total`, `X-WP-TotalPages`, and pagination `Link`
-headers. `GET /wp-json/wp/v2/categories` and `/tags`, with optional term IDs,
+headers. Page lists additionally support bounded `parent` and `parent_exclude`
+filters and `orderby=parent`; both parent filters accept at most 80 IDs in
+total. Filtering and sorting use the public parent ID: it is exposed only when
+the parent is also published in the active revision, and is `0` otherwise.
+`GET /wp-json/wp/v2/categories` and `/tags`, with optional term IDs,
 expose imported terms, published-post counts, and descriptions. Categories also
 expose parent IDs. These routes support bounded pagination, `slug`, `search`,
 and `hide_empty`. Single-item `GET` and `HEAD` routes at
@@ -410,10 +445,14 @@ only for a featured image referenced by the published revision. Term and media
 write routes, media listings, users, comments, custom post types, and WordPress
 authentication plugins are not available. Category and tag links render simple
 published-entry archives at `/category/{slug}/` and `/tag/{slug}/`.
-The HTML sanitizer preserves a narrow semantic element list, removes all
-attributes except validated HTTP(S)/relative anchor links, strips comments,
-drops active subtrees, and unwraps unknown formatting tags. Inline images and
-attachment URLs are omitted. A `media:write` owner can upload JPEG, PNG, GIF,
+The HTML sanitizer uses the Mithril-authored `staticHtmlTags` rule in
+`apps/mithrilpress-worker/src/content_boundary.mith` to preserve its semantic
+element allowlist. The list includes sectioning elements, semantic text and
+ruby annotations, and table captions/columns/footers alongside headings,
+paragraphs, lists, links, code, and tables. It removes all attributes except
+validated HTTP(S)/relative anchor links, strips comments, drops active
+subtrees, and unwraps unknown formatting tags. Inline images and attachment
+URLs are omitted. A `media:write` owner can upload JPEG, PNG, GIF,
 or WebP files up to 8 MiB, with signature and dimension checks, to tenant-scoped
 R2. The image library uses a 250 MiB per-site cap, an 8 GiB per-deployment cap,
 5,000 reads/day per site, 50,000 across the deployment, and 10,000
