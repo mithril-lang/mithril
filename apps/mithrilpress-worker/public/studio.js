@@ -307,8 +307,16 @@ async function refreshUsage() {
     progress.value = Math.min(stored, limit);
     const sharedLimit = Math.max(0, Number(result.storage.shared_deployment_limit_bytes) || 0);
     document.querySelector("#shared-storage-limit").textContent = `Shared retained-content ceiling: ${(sharedLimit / (1024 * 1024)).toFixed(0)} MiB across this hosting deployment. Aggregate usage is managed by the host operator.`;
+    const chat = result.conversation_history;
+    const chatUsed = Math.max(0, Number(chat.site_message_bytes_used) || 0);
+    const chatLimit = Math.max(1, Number(chat.site_message_bytes_limit) || 1);
+    const chatProgress = document.querySelector("#chat-history-progress");
+    chatProgress.max = chatLimit;
+    chatProgress.value = Math.min(chatUsed, chatLimit);
+    document.querySelector("#chat-history-usage").textContent = `${(chatUsed / (1024 * 1024)).toFixed(2)} MiB of ${(chatLimit / (1024 * 1024)).toFixed(0)} MiB; ${chat.site_conversations_used} of ${chat.site_conversations_limit} conversations`;
+    document.querySelector("#chat-history-detail").textContent = `Shared hosting usage: ${(Number(chat.deployment_message_bytes_used) / (1024 * 1024)).toFixed(2)} of ${(Number(chat.deployment_message_bytes_limit) / (1024 * 1024)).toFixed(0)} MiB and ${chat.deployment_conversations_used} of ${chat.deployment_conversations_limit} conversations. Delete old conversations to release this site's allowance. Text-byte estimate; not physical D1 size.`;
     document.querySelector("#site-hosting-usage").textContent = `${result.hosting_requests.site_requests_used} of ${result.hosting_requests.site_daily_limit} site requests today (UTC)`;
-    document.querySelector("#site-hosting-reset").textContent = `Shared deployment usage: ${result.hosting_requests.deployment_requests_used} of ${result.hosting_requests.shared_deployment_daily_limit} requests today. Every hosted route consumes this allowance; unresolved hosts consume the shared cap only. Resets at ${result.hosting_requests.resets_at_utc}.`;
+    document.querySelector("#site-hosting-reset").textContent = `Shared deployment usage: ${result.hosting_requests.deployment_requests_used} of ${result.hosting_requests.shared_deployment_daily_limit} requests today. This includes unknown or inactive hosts that reach the Worker; active tenant requests also consume their site's allowance. Unknown-host traffic can exhaust the shared cap for all sites. The cap is checked before tenant lookup. Resets at ${result.hosting_requests.resets_at_utc}.`;
     document.querySelector("#ai-usage").textContent = `${result.ai_drafting.requests_used} of ${result.ai_drafting.daily_app_limit} shared requests today (UTC)`;
     const estimatedNeurons = Math.max(0, Number(result.ai_drafting.estimated_neurons_reserved) || 0);
     const estimatedNeuronLimit = Math.max(0, Number(result.ai_drafting.estimated_neuron_reservation_limit) || 0);
@@ -532,7 +540,7 @@ function renderDnsMigrationDetail(migration) {
       dnsField(block, "BIND import file", { multiline: true, rows: 10, value: migration.import_zone_text, readOnly: true });
     }
 
-    const cloudflareBlock = dnsBlock("Optional: read a Cloudflare staging zone", "Use a Cloudflare API token scoped to this zone with Zone Read and DNS Read. The token is sent only with this request and is not saved by MithrilPress. DNS Write is needed only for the explicit additive import below.");
+    const cloudflareBlock = dnsBlock("Optional: read a Cloudflare staging zone", "Use a token scoped to this zone with Zone Read and DNS Read. It is sent only with this request and is not saved. The separate import request also rereads the zone before and after writing, so its token needs Zone Read, DNS Read, and DNS Write.");
     const zoneId = dnsField(cloudflareBlock, "Cloudflare zone ID", {
       maxLength: 32,
       placeholder: "32-character zone ID",
@@ -559,8 +567,8 @@ function renderDnsMigrationDetail(migration) {
       if (!cloudflareDnsImportsEnabled) {
         dnsBlock("Cloudflare import is not enabled", "This deployment keeps provider writes disabled until the import behavior is qualified against an isolated Cloudflare zone. You can review the generated BIND file and stage records manually.");
       } else {
-        const importBlock = dnsBlock("Add only missing source records", `${migration.diff.removed.length} source records are missing. MithrilPress will submit only this missing-record set. The live Cloudflare zone is checked again before the import and read back afterward.`);
-        const importToken = dnsField(importBlock, "Short-lived Cloudflare API token with DNS Write", {
+        const importBlock = dnsBlock("Add only missing source records", `${migration.diff.removed.length} source records are missing. MithrilPress will submit only this missing-record set. The token is used to reread the live Cloudflare zone before and after the write, so it needs Zone Read, DNS Read, and DNS Write scoped to this zone.`);
+        const importToken = dnsField(importBlock, "Short-lived Cloudflare API token with Zone Read, DNS Read, and DNS Write", {
           type: "password", maxLength: 512, autocomplete: "off", spellcheck: false,
           placeholder: "Paste a zone-scoped token for this request",
         });

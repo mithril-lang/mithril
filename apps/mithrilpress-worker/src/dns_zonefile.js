@@ -8,6 +8,7 @@ const NAME_DATA_INDEXES = {
   NS: [0],
   PTR: [0],
   MX: [1],
+  NAPTR: [5],
   SRV: [3],
   SOA: [0, 1],
   SVCB: [1],
@@ -201,8 +202,28 @@ function canonicalRdata(tokens) {
   return tokens.join(" ");
 }
 
+function validateNaptrRdata(tokens, origin) {
+  if (tokens.length !== 6) {
+    throw dnsError("invalid_naptr_record", "A NAPTR record must contain order, preference, flags, service, regexp, and replacement fields.");
+  }
+  const [order, preference, flags, service, regexp, replacement] = tokens;
+  if ([order, preference].some((value) => !/^\d+$/.test(value) || Number(value) > 65_535)) {
+    throw dnsError("invalid_naptr_record", "NAPTR order and preference must be unsigned 16-bit integers.");
+  }
+  if ([flags, service, regexp].some((value) => value.length < 2 || value[0] !== '"' || value.at(-1) !== '"')) {
+    throw dnsError("invalid_naptr_record", "NAPTR flags, service, and regexp fields must be quoted character strings.");
+  }
+  if (replacement !== "." && (!replacement.endsWith(".") || !normalizeRecordName(replacement, origin))) {
+    throw dnsError("invalid_naptr_record", "A NAPTR replacement must be a fully qualified domain name or the root label (.).");
+  }
+  if (regexp !== '""' && replacement !== ".") {
+    throw dnsError("invalid_naptr_record", "A NAPTR record cannot use both a non-empty regexp and a replacement name.");
+  }
+}
+
 function normalizeRdata(type, tokens, origin) {
   const normalized = [...tokens];
+  if (type === "NAPTR") validateNaptrRdata(normalized, origin);
   for (const dataIndex of NAME_DATA_INDEXES[type] ?? []) {
     if (dataIndex >= normalized.length || normalized[dataIndex] === ".") continue;
     const name = normalizeRecordName(normalized[dataIndex], origin);
