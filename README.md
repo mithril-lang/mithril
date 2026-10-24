@@ -2546,9 +2546,42 @@ source formats, compiler pipeline contract and imported CLI entrypoints. The
 main CLI admits commands through this compiled kernel. `compile` executes its
 ordered pipeline; `compile-trace` records each stage's input/output identities
 and the kernel, library and bootstrap identities. `compile-language` prints its
-IR. The compiler remains based on Amu; CLJK/CLJS supplies the host primitives.
-The `.mith` kernel describes and admits its orchestration. Self-hosting is
-explicitly outside the project goal.
+IR. `bin/mithril-amu.cljk` adds a native Amu path for JSON-LD Programs, static
+WebApplications, and typed `(mithril/module ...)` sources. Programs pass
+through the existing OaK compiler; the checked transaction is embedded as an
+EDN string export, and `admit_edn(string)` checks the native v1/four-field
+envelope. WebApplications lower their finite GET/HEAD route table to an Amu
+`dispatch_edn(method,path)` function. Amu G3 compiles these to an
+`aarch64-macos` `.kseed`. Library, Ontology, BotProfile, DesktopApplication,
+HermesProfile, GrowthProfile, MissionModel, AppAgentApplication,
+GraphAgentApplication, LanguageKernel, CodeGraphApplication, checked synthesis
+request plans, and bot-bound Hermes scheduler contracts can also be validated
+by their Mithril compiler and packaged as native `artifact_edn()` exports;
+their host-specific effects still need their owning runtime. ESM packages,
+declaration modules/programs, components, assemblies, stacks, clusters, and
+twins use the existing bounded checkers and dependency hashes. A Hermes
+scheduler contract supplies its checked BotProfile with `--bot-profile`; a
+synthesis request may supply its Library sources with repeated `--library`
+options. Raw JSON-LD `owl:Ontology` documents also pass the pinned OWL 2 RL and
+SHACL checks before native packaging; an admitted `owl:imports` IRI is retained
+as a reference and is not fetched. The resulting synthesis artifact is a checked
+question plan; it does not invent a model result. `scripts/compile-mithril-amu-module.py`
+rebuilds the pinned three-generation selfhost compiler and executes generated
+native exports against checked cases. The scalar module profile admits `i64`,
+`bool`, `string`, arithmetic/equality/boolean intrinsics, local calls, `let`,
+sequences and conditionals. JavaScript host modules and declaration packages
+are carried as inert checked artifacts; Amu does not execute JavaScript or
+acquire their host imports. Model decisions, durable runtime-state transitions,
+and other process actions still require their owning runtime. The Mithril frontend remains hosted
+by KBB/SCI; this integrates Amu's selfhost compiler at the native artifact
+stage. See the
+[Amu selfhost integration and benchmark evidence](docs/design/amu-selfhost-integration.md).
+
+Amu's corrected full-19 Embench-derived translated-port comparisons report
+Kotoba/C time geometric-mean ratios of `0.8213` and `0.78777` on two separate
+Apple M4 cycles. Ratios below one favor Kotoba under the reported formula.
+These are not official Embench scores, compiler-speed measurements, or
+Mithril performance claims.
 
 [`src/mithril/codegraph.mith`](src/mithril/codegraph.mith) declares the bounded
 code extraction, resolution, community detection and RDF projection pipeline. Its source-located

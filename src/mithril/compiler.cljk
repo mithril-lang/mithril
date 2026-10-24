@@ -554,6 +554,9 @@
     "https://www.w3.org/TR/owl2-profiles/#OWL_2_RL"
     "https://www.w3.org/TR/shacl/"})
 
+(def owl-ontology-source-type "http://www.w3.org/2002/07/owl#Ontology")
+(def owl-imports-iri "http://www.w3.org/2002/07/owl#imports")
+
 (defn compile-ontology-document [path doc]
   (require-base-source! path doc "Ontology" ontology-keys)
   (require-iri! (get doc "@id") "ontology @id")
@@ -567,6 +570,44 @@
    :jsonld-media-type media-type
    :graph-digest (graph-digest doc)
    :rdf-dataset doc})
+
+(defn compile-raw-owl-ontology-document
+  "Compile a raw OWL Ontology JSON-LD source with the pinned Mithril context.
+
+  Its graph is subsequently checked against the closed OWL 2 RL / SHACL
+  profile by `mithril.reason/compile-ontology`. Its single optional
+  `owl:imports` IRI is preserved as a source reference and is not fetched or
+  resolved here."
+  [path doc]
+  (when-not (source-path? path)
+    (fail! :mithril/unsupported-extension
+           "Mithril source must end in .mith or .mithril"))
+  (when-not (= context-uri (get doc "@context"))
+    (fail! :mithril/unpinned-context
+           "v1 source must use the pinned Mithril context URI"))
+  (when-not (= owl-ontology-source-type (get doc "@type"))
+    (fail! :mithril/unexpected-source-type
+           (str "@type must be " owl-ontology-source-type)))
+  (let [required #{"@context" "@id" "@type" "@graph"}
+        allowed (conj required owl-imports-iri)
+        document-keys (set (keys doc))]
+    (when-not (and (every? document-keys required) (every? allowed document-keys))
+      (fail! :mithril/unknown-source-key
+             "raw OWL Ontology contains an unknown or missing key"))
+    (require-iri! (get doc "@id") "ontology @id")
+    (when-not (and (vector? (get doc "@graph")) (seq (get doc "@graph")))
+      (fail! :mithril/empty-ontology
+             "ontology graph must contain at least one node"))
+    (when-let [import (get doc owl-imports-iri)]
+      (when-not (and (map? import) (= #{"@id"} (set (keys import))))
+        (fail! :mithril/invalid-ontology-import
+               "owl:imports must name one pinned Mithril ontology IRI"))
+      (require-iri! (get import "@id") "ontology import @id"))
+    {:format "https://mithril.fund/artifact/ontology-v1"
+     :media-type form-media-type
+     :jsonld-media-type media-type
+     :graph-digest (graph-digest doc)
+     :rdf-dataset doc}))
 
 (defn compile-ontology-text [path text]
   (compile-ontology-document path (parse-source text)))

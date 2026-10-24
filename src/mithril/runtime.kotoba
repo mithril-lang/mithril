@@ -2,6 +2,10 @@
   (:export [transaction-version transaction-goal transaction-ontology
             transaction-choices transaction-shape-valid? admit main]))
 
+;; This host-neutral API accepts OaK documents. The Amu native Program target
+;; accepts canonical EDN at its export boundary and reads it internally as a
+;; bounded :document; module-lower owns that target-specific adapter.
+
 (defn at [d :document i :i64] :document
   (option-or (document-vector-at d i) (document-null)))
 
