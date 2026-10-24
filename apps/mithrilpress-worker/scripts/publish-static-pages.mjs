@@ -272,27 +272,39 @@ async function readMithrilPressDatabase(accountId, databaseId, token) {
   return database;
 }
 
-function validatePagesD1Binding(project, databaseId) {
+function validatePagesFunctionBindings(project, databaseId, siteId, hostname) {
   const production = project?.deployment_configs?.production;
   const bindings = production?.d1_databases;
   if (Object.keys(bindings ?? {}).length !== 1
       || bindings?.[MITHRILPRESS_D1_BINDING_NAME]?.id !== databaseId) {
     fail("The Pages production Function must read back the exact MithrilPress D1 binding.");
   }
+  const envVars = production?.env_vars ?? {};
+  if (envVars.MITHRILPRESS_SITE_ID?.type !== "plain_text"
+      || envVars.MITHRILPRESS_SITE_ID?.value !== siteId
+      || envVars.MITHRILPRESS_HOSTNAME?.type !== "plain_text"
+      || envVars.MITHRILPRESS_HOSTNAME?.value !== hostname) {
+    fail("The Pages production Function must read back the exact MithrilPress site ID and hostname bindings.");
+  }
 }
 
-async function ensurePagesD1Binding(accountId, projectName, databaseId, token, projectCreated) {
+async function ensurePagesFunctionBindings(accountId, projectName, databaseId, siteId, hostname, token, projectCreated) {
   let project = await cloudflarePagesJson(accountId, accountApiPath(accountId, projectName), token);
   const production = project?.deployment_configs?.production ?? {};
   const bindings = production.d1_databases ?? {};
+  const envVars = production.env_vars ?? {};
   if (bindings[MITHRILPRESS_D1_BINDING_NAME]?.id === databaseId
-      && Object.keys(bindings).length === 1) {
-    validatePagesD1Binding(project, databaseId);
+      && Object.keys(bindings).length === 1
+      && envVars.MITHRILPRESS_SITE_ID?.type === "plain_text"
+      && envVars.MITHRILPRESS_SITE_ID?.value === siteId
+      && envVars.MITHRILPRESS_HOSTNAME?.type === "plain_text"
+      && envVars.MITHRILPRESS_HOSTNAME?.value === hostname) {
+    validatePagesFunctionBindings(project, databaseId, siteId, hostname);
     return project;
   }
   if (!projectCreated || Object.keys(bindings).length > 0
-      || Object.keys(production.env_vars ?? {}).length > 0) {
-    fail("The existing Pages project does not have the exact D1 quota binding; refusing to change an established project configuration.");
+      || Object.keys(envVars).length > 0) {
+    fail("The existing Pages project does not have the exact D1 quota and tenant identity bindings; refusing to change an established project configuration.");
   }
   const updated = await cloudflarePagesJson(
     accountId,
@@ -304,17 +316,22 @@ async function ensurePagesD1Binding(accountId, projectName, databaseId, token, p
         production: {
           ...production,
           d1_databases: { [MITHRILPRESS_D1_BINDING_NAME]: { id: databaseId } },
+          env_vars: {
+            ...envVars,
+            MITHRILPRESS_SITE_ID: { type: "plain_text", value: siteId },
+            MITHRILPRESS_HOSTNAME: { type: "plain_text", value: hostname },
+          },
         },
       },
     },
   );
   if (!updated || updated.name !== projectName) fail("Cloudflare did not return the configured Pages project.");
   project = await cloudflarePagesJson(accountId, accountApiPath(accountId, projectName), token);
-  validatePagesD1Binding(project, databaseId);
+  validatePagesFunctionBindings(project, databaseId, siteId, hostname);
   return project;
 }
 
-async function readProjectAndDomain(accountId, projectName, hostname, databaseId, token) {
+async function readProjectAndDomain(accountId, projectName, hostname, databaseId, siteId, token) {
   const project = await cloudflarePagesJson(accountId, accountApiPath(accountId, projectName), token);
   if (!project || project.name !== projectName || typeof project.uses_functions !== "boolean"
       || !project.production_branch || !/^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$/.test(project.production_branch)
@@ -322,7 +339,7 @@ async function readProjectAndDomain(accountId, projectName, hostname, databaseId
       || (project.source && Object.keys(project.source).length > 0)) {
     fail("The existing Pages project is not the expected static-only Direct Upload project.");
   }
-  validatePagesD1Binding(project, databaseId);
+  validatePagesFunctionBindings(project, databaseId, siteId, hostname);
   const domains = await cloudflarePagesJson(accountId, accountApiPath(accountId, projectName, "/domains"), token);
   if (!Array.isArray(domains) || domains.length !== 1) {
     fail("The Pages project must have exactly one custom domain attached.");
@@ -1012,7 +1029,9 @@ async function prepareInitialPagesPublication({
     if (records.length > 0) fail("The requested hostname already has DNS records; no Pages project was created.");
   }
   const ensured = await ensurePagesProject(accountId, projectName, hostname, cloudflareToken);
-  project = await ensurePagesD1Binding(accountId, projectName, databaseId, cloudflareToken, ensured.created);
+  project = await ensurePagesFunctionBindings(
+    accountId, projectName, databaseId, manifest.site_id, hostname, cloudflareToken, ensured.created,
+  );
   if (!projectWasPresent && !ensured.created) {
     fail("A Pages project appeared during bootstrap preflight; refusing to adopt it.");
   }
@@ -1036,7 +1055,7 @@ async function prepareInitialPagesPublication({
 
   if (bootstrap.alreadyPublished) {
     await addOrResumePagesDomain(accountId, projectName, hostname, project, zoneId, cloudflareToken);
-    await readProjectAndDomain(accountId, projectName, hostname, databaseId, cloudflareToken);
+    await readProjectAndDomain(accountId, projectName, hostname, databaseId, manifest.site_id, cloudflareToken);
     const verifiedFiles = await verifyManifestAtHostname(hostname, manifest);
     return { project, deployment: bootstrap.deployment, previousReceipt: bootstrap.previousReceipt, alreadyPublished: true, verifiedFiles };
   }
@@ -1044,7 +1063,7 @@ async function prepareInitialPagesPublication({
   // A newly initialized project contains only the noindex placeholder until the custom
   // hostname has a verified Pages association, exact CNAME, active TLS, and HTTPS read-back.
   await addOrResumePagesDomain(accountId, projectName, hostname, project, zoneId, cloudflareToken);
-  await readProjectAndDomain(accountId, projectName, hostname, databaseId, cloudflareToken);
+  await readProjectAndDomain(accountId, projectName, hostname, databaseId, manifest.site_id, cloudflareToken);
   await verifyManifestAtHostname(hostname, bootstrap.manifest);
   return {
     project,
@@ -1239,7 +1258,9 @@ async function main() {
       previous = bootstrap.deployment;
       previousReceipt = bootstrap.previousReceipt;
     } else {
-      const established = await readProjectAndDomain(accountId, projectName, manifest.hostname, databaseId, cloudflareToken);
+      const established = await readProjectAndDomain(
+        accountId, projectName, manifest.hostname, databaseId, siteId, cloudflareToken,
+      );
       project = established.project;
       const activeDeployments = await listProductionDeployments(accountId, projectName, cloudflareToken);
       previous = validateDeployment(activeDeployments[0], projectName);

@@ -238,15 +238,21 @@ unlimited. Each REST Function request increments the same trigger-enforced D1
 request counters as the MithrilPress Worker: 5,000 requests per site/day and
 25,000 requests across the deployment/day. The publisher verifies the exact
 `mithrilpress` D1 database in the pinned account and binds it as `DB` on a new
-Pages project before the first deployment. The Function checks both counters
-before filtering or returning content and fails closed when D1 is unavailable
-or a limit is reached. The digest covers both the Function and its shared quota
-helper. Site owners are never charged; Pages Function requests are still
-metered to the operator, and application caps are not a provider billing cap
-on a Workers Paid account. Each over-cap REST attempt still invokes the
-Function and a metered D1 transaction to enforce the application counter; the
-shared and site counters are charged atomically, so a rejected site request
-does not consume the deployment allowance.
+Pages project before the first deployment. It also binds the exact tenant site
+ID and canonical hostname as `MITHRILPRESS_SITE_ID` and
+`MITHRILPRESS_HOSTNAME`, then reads all three production bindings back before
+publishing. The Function rejects missing configuration and `pages.dev` alias
+requests before reading tenant assets. It checks both counters using the bound
+site ID before fetching or parsing the REST catalog, then verifies that the
+catalog site ID and hostname match the production bindings. Over-cap requests
+do not read or parse the catalog, which can be up to 25 MiB. The Function fails
+closed when D1 is unavailable or a limit is reached. The digest covers both the
+Function and its shared quota helper. Site owners are never charged; Pages
+Function requests are still metered to the operator, and application caps are
+not a provider billing cap on a Workers Paid account. Each over-cap REST attempt
+still invokes the Function and a metered D1 transaction to enforce the
+application counter; the shared and site counters are charged atomically, so a
+rejected site request does not consume the deployment allowance.
 
 The publisher refuses `_worker.js`, arbitrary Functions routes, extra files,
 symlinks, and bundles above the existing 5,000-file / 300 MB product caps.

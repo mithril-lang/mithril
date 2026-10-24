@@ -3,6 +3,8 @@ import { consumeHostingRequestForSite } from "../../../../src/hosting_request_li
 const INDEX_PATH = "/_mithrilpress-wp-api/index.json";
 const MAX_INDEX_BYTES = 25 * 1024 * 1024;
 const MAX_RECORD_BYTES = 8 * 1024 * 1024;
+const SITE_ID_PATTERN = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
+const SITE_HOSTNAME_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.sites\.mithril\.love$/;
 
 function json(body, status = 200, headers = {}) {
   return new Response(body === null ? null : JSON.stringify(body), {
@@ -312,14 +314,18 @@ export async function onRequest(context) {
   if (!match) return fail(404, "route_not_found", "This WordPress REST route is not available on the static publication.");
   if (request.method !== "GET" && request.method !== "HEAD") return fail(405, "method_not_allowed", "The WordPress compatibility API is read-only.");
 
-  const catalog = await readJsonAsset(context, INDEX_PATH, MAX_INDEX_BYTES);
-  if (!catalog || catalog.schema_version !== 1 || catalog.hostname !== url.hostname
-      || !/^[a-f0-9-]{36}$/.test(catalog.site_id ?? "")
-      || !Array.isArray(catalog.entries) || !Array.isArray(catalog.terms) || !Array.isArray(catalog.media)) {
-    return fail(503, "publication_data_unavailable", "The published WordPress compatibility index is unavailable.");
+  const siteId = context.env?.MITHRILPRESS_SITE_ID;
+  const hostname = context.env?.MITHRILPRESS_HOSTNAME;
+  if (typeof siteId !== "string" || !SITE_ID_PATTERN.test(siteId)
+      || typeof hostname !== "string" || !SITE_HOSTNAME_PATTERN.test(hostname)) {
+    return fail(503, "publication_configuration_unavailable", "The published WordPress compatibility API is not configured for a site.");
   }
+  if (url.hostname !== hostname) {
+    return fail(404, "site_not_found", "This WordPress compatibility API is not available on this hostname.");
+  }
+
   try {
-    const quotaLimit = await consumeHostingRequestForSite(context.env, catalog.site_id);
+    const quotaLimit = await consumeHostingRequestForSite(context.env, siteId);
     if (quotaLimit) return requestQuotaFailure(quotaLimit);
   } catch (error) {
     if (d1ProviderLimitReached(error)) {
@@ -327,6 +333,14 @@ export async function onRequest(context) {
     }
     return fail(503, "request_quota_unavailable", "The public WordPress API is unavailable because its shared request limit could not be checked.");
   }
+
+  const catalog = await readJsonAsset(context, INDEX_PATH, MAX_INDEX_BYTES);
+  if (!catalog || catalog.schema_version !== 1 || catalog.hostname !== hostname
+      || catalog.site_id !== siteId
+      || !Array.isArray(catalog.entries) || !Array.isArray(catalog.terms) || !Array.isArray(catalog.media)) {
+    return fail(503, "publication_data_unavailable", "The published WordPress compatibility index is unavailable.");
+  }
+
   const [, endpoint, itemId] = match;
   if (endpoint === "posts" || endpoint === "pages") {
     return await wordpressEntries(context, catalog, endpoint === "pages" ? "page" : "post", itemId ?? null);
