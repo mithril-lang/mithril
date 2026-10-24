@@ -2205,7 +2205,7 @@ async function studioMedia(request, env, site) {
   return json({ media: mediaSummary(site, reserved) }, 201, { "Cache-Control": "private, no-store" });
 }
 
-async function deleteStudioMedia(request, env, site, mediaId, reconciliationRetry = false) {
+export async function deleteStudioMedia(request, env, site, mediaId, reconciliationRetry = false) {
   const owner = await ownerToken(request, env, site, "media:write");
   if (!owner) return fail(401, "media_owner_required", "An active site owner token with media:write scope is required.");
   if (request.method !== "DELETE") return fail(405, "method_not_allowed", "Use DELETE to remove this media item.");
@@ -2351,6 +2351,7 @@ async function deleteStudioMedia(request, env, site, mediaId, reconciliationRetr
     }
     return fail(503, "media_delete_pending", "The object was removed, but metadata cleanup could not be confirmed. Its reservation remains for safe reconciliation.");
   }
+  return json({ media_id: mediaId, deleted: true });
 }
 
 async function serveMedia(request, env, site, mediaId) {
