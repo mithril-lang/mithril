@@ -1,11 +1,14 @@
 # MithrilPress D1 migration order
 
 **Status: source coordination only. No migration in this proposed sequence has
-been applied to a production database.** Current `main` includes migration
-`0019_revision_restore_actions.sql` from PR #143. Versions 0017 and 0018 remain
-unused; new pending feature migrations are numbered after the merged migration
-and must be applied only through the database owner's approved release
-procedure.
+been applied to a production database.** Current `main` includes migrations
+through `0021_media_reference_guards.sql` (`0019_revision_restore_actions.sql`
+from PR #143, `0020_manual_draft_audit_action.sql` from PR #140, and
+`0021_media_reference_guards.sql` from PR #141). Versions 0017 and 0018 remain
+unused; MITHRIL-1479 proposes `0022_dns_migration_snapshot_retention.sql` in
+this PR. New pending feature migrations are numbered after the merged
+migrations and must be applied only through the database owner's approved
+release procedure.
 
 Use this sequence for the currently tracked MithrilPress feature stack so each
 pending migration has one stable version number and its prerequisites are
@@ -19,8 +22,9 @@ available first:
 | 0015 | `wordpress_page_hierarchy` | Merged in PR #127 |
 | 0016 | `studio_conversation_quotas` | PR #129, merged |
 | 0019 | `revision_restore_actions` | PR #143, merged; keep filename and contents immutable |
-| 0020 | `manual_draft_audit_action` | PR #140, pending; also raises the transcript limit for manual drafts to 100,000 characters and preserves the `restore` action |
-| 0021 | `media_reference_guards` | PR #141, pending |
+| 0020 | `manual_draft_audit_action` | PR #140, merged; also raises the transcript limit for manual drafts to 100,000 characters and preserves the `restore` action |
+| 0021 | `media_reference_guards` | PR #141, merged |
+| 0022 | `dns_migration_snapshot_retention` | MITHRIL-1479, proposed |
 
 Before qualifying or merging a branch, rebase it onto the current main and
 assign pending migrations a version after every migration already merged there.

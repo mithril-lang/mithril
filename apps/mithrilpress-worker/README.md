@@ -54,6 +54,18 @@ explicitly published tenant revision.
   publish a deployment.
 - An optional, capped Cloudflare Pages Direct Upload adapter for approved static
   publications. It does not replace the shared Worker/D1 default host plane.
+- Owner-guided DNS migration planning with TXT ownership proof, private BIND
+  snapshots, exact record comparison, digest-bound cutover approval, and public
+  NS/DS verification. Owners retain control of their DNS providers and
+  registrar; MithrilPress does not change nameserver delegation. Zone snapshot
+  fields are removed from the active D1 state after 30 days without a
+  state-changing owner action; the retention window pauses while an approved
+  cutover awaits delegation verification or rollback. Cloudflare D1 Time Travel
+  may retain earlier production-backend states for up to 7 days on Workers Free
+  or 30 days on Workers Paid, so active-state removal is not immediate
+  irreversible erasure.
+  Optional Cloudflare record import is disabled by default until isolated-zone
+  behavior is qualified.
 
 The checked-in Mithril native-JS modules own platform subdomain validation,
 WordPress post/page record admission, individual taxonomy-term admission, the
@@ -529,7 +541,7 @@ write and storage caps; reaching a cap stops the import without a paid fallback.
 | `POST` | `/_mithrilpress/api/domains/{hostname-id}/refresh` | `site:domains` | Read provider/TLS status and verify the public DNS-only CNAME. |
 | `DELETE` | `/_mithrilpress/api/domains/{hostname-id}` | `site:domains` | Stop serving the hostname, then remove the Cloudflare custom hostname. |
 | `GET` / `POST` | `/_mithrilpress/api/dns-migrations` | `site:dns-migrate` | List plans or create a 48-hour domain-control TXT challenge. Pending requests do not reserve a zone globally; the first owner to prove control claims the plan. Expired pending plans are cancelled when the owner starts another plan or a tenant requests the same zone. NS/DS state is not queried until ownership is proven. |
-| `GET` / `DELETE` | `/_mithrilpress/api/dns-migrations/{id}` | `site:dns-migrate` | Read a tenant-private plan, or cancel/archive and erase its zone snapshots. |
+| `GET` / `DELETE` | `/_mithrilpress/api/dns-migrations/{id}` | `site:dns-migrate` | Read a tenant-private plan, or cancel/archive and remove its zone snapshots from active D1 state. Cloudflare may retain earlier states during its provider restore window. |
 | `POST` | `/_mithrilpress/api/dns-migrations/{id}/verify-ownership` | `site:dns-migrate` | Verify the domain TXT challenge before accepting zone files. |
 | `POST` | `/_mithrilpress/api/dns-migrations/{id}/source` | `site:dns-migrate` | Validate and retain the source BIND zone and generate a destination import file. |
 | `POST` | `/_mithrilpress/api/dns-migrations/{id}/target` | `site:dns-migrate` | Compare a staged destination zone and its assigned nameservers against the source. |
@@ -797,9 +809,12 @@ and [zone import/export](https://developers.cloudflare.com/dns/manage-dns-record
 
 Zone snapshots contain DNS TXT values that may include verification or service
 secrets. They remain tenant-scoped in D1 until the owner cancels the plan or
-archives a verified cutover/rollback, at which point snapshots and challenge
-values are erased while hashes and append-only audit receipts remain. Keep the
-source DNS zone active through the rollback window. After TXT ownership proof,
+archives a verified cutover/rollback, at which point snapshot and challenge
+fields are removed from active D1 state while hashes and append-only audit
+receipts remain. Cloudflare may retain earlier production-backend D1 states
+for up to 7 days on Workers Free or 30 days on Workers Paid, so active-state
+removal is not immediate irreversible erasure. Keep the source DNS zone active
+through the rollback window. After TXT ownership proof,
 MithrilPress sends DNS queries for the domain to Cloudflare and Google public
 resolvers to capture and check nameserver/DNSSEC state. A registrar transfer is
 separate and may incur at-cost renewal charges.
