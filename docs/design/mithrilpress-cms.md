@@ -139,6 +139,15 @@ daily Free allocation. On Workers Paid, usage above that allocation is billable,
 so this mode must not be deployed there. The example deployment keeps Studio AI
 disabled and the plan confirmation false.
 
+Owners may also create a draft without AI by entering a title and up to 100,000
+characters of plain text. The Worker escapes the text into paragraphs, passes
+it through the same content boundary and sanitizer, stores it as an unpublished
+revision, and records `ai_used: false`. It does not consume the AI request or
+Neuron reservation. It uses the same owner approval and separate publication
+steps. The D1 conversation triggers enforce the 40-message, per-site, and
+deployment-wide conversation/text caps for both AI and manual drafts; a quota
+failure rolls back the complete save.
+
 At the currently published rate for this model (26,668 input and 204,805
 output Neurons per million tokens), the reservation formula caps one accepted
 request at 821 Neurons: at most 10,000 input bytes including message/schema
@@ -422,7 +431,11 @@ requirements are specified in [MithrilPress domain lifecycle](mithrilpress-domai
 `GET /wp-json/wp/v2/posts` and `/pages` expose only the currently published
 revision. They support `page`, `per_page` (1–100), `slug`, and `context=view` or
 `embed`, returning `X-WP-Total`, `X-WP-TotalPages`, and pagination `Link`
-headers. `GET /wp-json/wp/v2/categories` and `/tags`, with optional term IDs,
+headers. Page lists additionally support bounded `parent` and `parent_exclude`
+filters and `orderby=parent`; both parent filters accept at most 80 IDs in
+total. Filtering and sorting use the public parent ID: it is exposed only when
+the parent is also published in the active revision, and is `0` otherwise.
+`GET /wp-json/wp/v2/categories` and `/tags`, with optional term IDs,
 expose imported terms, published-post counts, and descriptions. Categories also
 expose parent IDs. These routes support bounded pagination, `slug`, `search`,
 and `hide_empty`. Single-item `GET` and `HEAD` routes at
@@ -437,11 +450,15 @@ only for a featured image referenced by the published revision. Term and media
 write routes, media listings, users, comments, custom post types, and WordPress
 authentication plugins are not available. Category and tag links render simple
 published-entry archives at `/category/{slug}/` and `/tag/{slug}/`.
-The HTML sanitizer preserves a narrow semantic element list, including native
+The HTML sanitizer preserves a narrow semantic element list from
+`apps/mithrilpress-worker/src/wordpress_html_policy.js`, including native
 `details`/`summary` disclosures, removes all attributes except validated
 HTTP(S)/relative anchor links and bounded `details[open]`/`details[name]` state,
 strips comments, drops active subtrees, and unwraps unknown formatting tags.
-Inline images and attachment URLs are omitted. A `media:write` owner can upload
+The related static-HTML allowlist for chat-authored content is the
+Mithril-authored `staticHtmlTags` rule in
+`apps/mithrilpress-worker/src/content_boundary.mith`. Inline images and
+attachment URLs are omitted. A `media:write` owner can upload
 JPEG, PNG, GIF,
 or WebP files up to 8 MiB, with signature and dimension checks, to tenant-scoped
 R2. The image library uses a 250 MiB per-site cap, an 8 GiB per-deployment cap,

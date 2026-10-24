@@ -24,7 +24,8 @@ explicitly published tenant revision.
   marked for owner review.
 - Chat-first MithrilPress Studio for creating one post or page draft, revising it
   in a conversation, opening a private preview, and separately approving and
-  publishing it.
+  publishing it. Owners can also save a bounded manually written draft without
+  making an AI request.
 - Owner-provided JPEG, PNG, GIF, and WebP image uploads to tenant-scoped R2,
   with byte and dimension checks, per-site and deployment storage caps, daily
   per-site and shared read caps, daily upload/delete caps, and explicit
@@ -53,6 +54,18 @@ explicitly published tenant revision.
   publish a deployment.
 - An optional, capped Cloudflare Pages Direct Upload adapter for approved static
   publications. It does not replace the shared Worker/D1 default host plane.
+- Owner-guided DNS migration planning with TXT ownership proof, private BIND
+  snapshots, exact record comparison, digest-bound cutover approval, and public
+  NS/DS verification. Owners retain control of their DNS providers and
+  registrar; MithrilPress does not change nameserver delegation. Zone snapshot
+  fields are removed from the active D1 state after 30 days without a
+  state-changing owner action; the retention window pauses while an approved
+  cutover awaits delegation verification or rollback. Cloudflare D1 Time Travel
+  may retain earlier production-backend states for up to 7 days on Workers Free
+  or 30 days on Workers Paid, so active-state removal is not immediate
+  irreversible erasure.
+  Optional Cloudflare record import is disabled by default until isolated-zone
+  behavior is qualified.
 
 The checked-in Mithril native-JS modules own platform subdomain validation,
 WordPress post/page record admission, individual taxonomy-term admission, the
@@ -448,10 +461,20 @@ DNS planning is a separate high-impact owner scope. It grants access to private
 zone snapshots and owner approval of a cutover plan. Cloudflare access is
 separate: the owner may provide a zone-scoped API token for one request. The
 Worker forwards it to Cloudflare only for that request, does not persist it,
-and never accepts registrar credentials. DNS Write is used only for an
-explicit additive import request containing source records missing from an
-unchanged staged zone; MithrilPress does not send record update or delete
-operations.
+and never accepts registrar credentials. A staging read uses zone-scoped
+`Zone Read` and `DNS Read`. The separate explicit import request uses its
+token for pre-write and post-write reads as well as the additive write, so it
+requires zone-scoped `Zone Read`, `DNS Read`, and `DNS Write`. It contains only
+source records missing from an unchanged staged zone. The Worker sends
+Cloudflare batch `posts` only; it never sends
+`deletes`, `patches`, or `puts`. Record types or values that cannot be
+represented without changing their meaning remain on the manual import path.
+The create-only converter currently supports `A`, `AAAA`, `CAA`, `CNAME`,
+`MX`, `NAPTR`, `NS`, `OPENPGPKEY`, `PTR`, `SRV`, `TXT`, and `URI` records with
+validated field formats and TTLs. Other record types remain available in the
+reviewable BIND export but require a manual import; if a missing record cannot
+be represented, the whole automatic batch is rejected before any provider
+write.
 
 Generate a one-time token envelope separately with
 `node scripts/create-owner-token.mjs <owner-label> <scope> [<scope> ...]`.
@@ -501,11 +524,12 @@ write and storage caps; reaching a cap stops the import without a paid fallback.
 | `GET` / `POST` / `DELETE` | `/_mithrilpress/api/studio/session` | `content:write`, `media:write`, `site:domains`, or `site:dns-migrate` | Exchange a short-lived owner token for a one-hour browser session, inspect it, or revoke it. |
 | `GET` | `/_mithrilpress/studio` | public shell; noindex | Open the chat-first post/page Studio. The API requires a site-owner session. |
 | `POST` | `/_mithrilpress/api/studio/chat` | `content:write` | Generate or revise one private draft; no model response is published. |
+| `POST` | `/_mithrilpress/api/studio/manual-draft` | `content:write` | Save a title and up to 100,000 characters of plain text as a private draft without calling AI; uses the same sanitizer, route checks, revision approval, publication, and D1 conversation quotas. |
 | `GET` | `/_mithrilpress/api/studio/conversations` and `/_mithrilpress/api/studio/conversations/{id}` | `content:write` | Read the signed-in owner's conversation history. |
 | `DELETE` | `/_mithrilpress/api/studio/conversations/{id}` | `content:write` | Delete the conversation and its unpublished draft. Published revisions remain intact. |
 | `GET` | `/_mithrilpress/api/studio/usage` | `content:write`, `media:write`, or `site:domains` | Show this site's retained content, public request use, R2 image storage, and daily app-level usage. |
-| `GET` / `POST` | `/_mithrilpress/api/media` | `media:write` | List the tenant's image library or upload a bounded JPEG, PNG, GIF, or WebP image directly to R2. |
-| `DELETE` | `/_mithrilpress/api/media/{id}` | `media:write` | Hide and remove an image; published content referencing it will render without the image. |
+| `GET` / `POST` | `/_mithrilpress/api/media` | `media:write` | List the tenant's image library and up to 25 pending uploads, or upload a bounded JPEG, PNG, GIF, or WebP image directly to R2. |
+| `DELETE` | `/_mithrilpress/api/media/{id}` | `media:write` | Remove an unreferenced image only after its immutable upload action and R2 object metadata are verified. Deletion is rejected while an importing, private-preview, approved, or published revision references it. |
 | `GET` / `HEAD` | `/_mithrilpress/media/{id}` | public only when referenced by the published revision; owner preview otherwise | Serve an image only while referenced by published content or the authenticated owner's preview/library. |
 | `GET` | `/_mithrilpress/preview/{revision-id}/{slug}` | `revision:preview` | View sanitized revision HTML with `noindex` headers. |
 | `POST` | `/_mithrilpress/api/revisions/{revision-id}/approve` | `revision:approve` | Record owner approval for a complete sanitized revision. |
@@ -517,29 +541,40 @@ write and storage caps; reaching a cap stops the import without a paid fallback.
 | `POST` | `/_mithrilpress/api/domains/{hostname-id}/refresh` | `site:domains` | Read provider/TLS status and verify the public DNS-only CNAME. |
 | `DELETE` | `/_mithrilpress/api/domains/{hostname-id}` | `site:domains` | Stop serving the hostname, then remove the Cloudflare custom hostname. |
 | `GET` / `POST` | `/_mithrilpress/api/dns-migrations` | `site:dns-migrate` | List plans or create a 48-hour domain-control TXT challenge. Pending requests do not reserve a zone globally; the first owner to prove control claims the plan. Expired pending plans are cancelled when the owner starts another plan or a tenant requests the same zone. NS/DS state is not queried until ownership is proven. |
-| `GET` / `DELETE` | `/_mithrilpress/api/dns-migrations/{id}` | `site:dns-migrate` | Read a tenant-private plan, or cancel/archive and erase its zone snapshots. |
+| `GET` / `DELETE` | `/_mithrilpress/api/dns-migrations/{id}` | `site:dns-migrate` | Read a tenant-private plan, or cancel/archive and remove its zone snapshots from active D1 state. Cloudflare may retain earlier states during its provider restore window. |
 | `POST` | `/_mithrilpress/api/dns-migrations/{id}/verify-ownership` | `site:dns-migrate` | Verify the domain TXT challenge before accepting zone files. |
 | `POST` | `/_mithrilpress/api/dns-migrations/{id}/source` | `site:dns-migrate` | Validate and retain the source BIND zone and generate a destination import file. |
 | `POST` | `/_mithrilpress/api/dns-migrations/{id}/target` | `site:dns-migrate` | Compare a staged destination zone and its assigned nameservers against the source. |
 | `POST` | `/_mithrilpress/api/dns-migrations/{id}/cloudflare-target` | `site:dns-migrate` plus a transient zone-scoped Cloudflare token | Read a full Cloudflare zone export and stage its assigned nameservers and record diff. |
-| `POST` | `/_mithrilpress/api/dns-migrations/{id}/cloudflare-import` | `site:dns-migrate`, explicit confirmation, and a transient token with zone-scoped `DNS Write` | Recheck the staged zone, add only missing source records, then export and verify the readback. |
+| `POST` | `/_mithrilpress/api/dns-migrations/{id}/cloudflare-import` | `site:dns-migrate`, explicit confirmation, and a transient token with zone-scoped `Zone Read`, `DNS Read`, and `DNS Write` | Recheck the staged zone, create only missing source records using Cloudflare batch `posts`, then export and verify the readback. Unsupported record data remains manual. |
 | `POST` | `/_mithrilpress/api/dns-migrations/{id}/approve` | `site:dns-migrate` | Approve the exact diff digest after a required owner confirmation. |
 | `POST` | `/_mithrilpress/api/dns-migrations/{id}/verify-delegation` | `site:dns-migrate` | Check destination NS and absence of DS through Cloudflare and Google recursive resolvers. |
 | `POST` | `/_mithrilpress/api/dns-migrations/{id}/verify-rollback` | `site:dns-migrate` | Check restored source NS and DS state through the same resolvers. |
 | `GET` | `/wp-json/wp/v2/posts` | public | Read published posts with bounded search, date, order, slug, and pagination filters. |
-| `GET` | `/wp-json/wp/v2/pages` | public | Read published pages with bounded search, date, order, slug, and pagination filters. |
+| `GET` | `/wp-json/wp/v2/pages` | public | Read published pages with bounded search, date, order, slug, pagination, and page-parent filters. |
 | `GET` / `HEAD` | `/wp-json/wp/v2/posts/{id}` or `/wp-json/wp/v2/pages/{id}` | public | Read one published post or page by its WordPress source ID or MithrilPress API ID. |
 | `GET` | `/wp-json/wp/v2/media/{id}` | public | Read metadata for a currently published featured or inline image. |
 | `GET` | `/{slug}/` | public | Render one published page or post. |
 
-The HTML sanitizer keeps a small semantic tag allowlist, including native
-`details`/`summary` disclosures. It removes attributes except validated HTTP(S)
-or relative anchor `href` values and the `open` state plus bounded, control-free
-`name` grouping values on `details`. It removes comments and active content
-subtrees. An inline image is retained only when its `wp-image-N` class maps
-to an active R2 image uploaded by the site owner with WordPress media ID `N`.
-This retains disclosure and same-name accordion behavior but omits WordPress
-styling, block classes, and dimensions.
+An R2 write that rejects or has an uncertain result keeps its private D1
+reservation. A successful `R2.put` is recorded as one immutable
+`media-uploaded` action before the row can become active. Studio lists pending
+reservations and offers removal only when the exact action, owner token,
+creation time, and upload metadata can be verified. Removal fences the row as
+`deleting`, verifies the exact R2 object's metadata, confirms object absence,
+then removes the D1 reservation. Unknown or mismatched outcomes remain private
+and quota-counted for operator review. Follow the
+[media reconciliation runbook](../../docs/operations/mithrilpress-media-reconciliation.md).
+
+The HTML sanitizer keeps a small semantic tag allowlist in
+`src/wordpress_html_policy.js`, including native `details`/`summary`
+disclosures. It removes attributes except validated HTTP(S) or relative anchor
+`href` values and the `open` state plus bounded, control-free `name` grouping
+values on `details`. It removes comments and active content subtrees. An inline
+image is retained only when its `wp-image-N` class maps to an active R2 image
+uploaded by the site owner with WordPress media ID `N`. This retains disclosure
+and same-name accordion behavior but omits WordPress styling, block classes,
+and dimensions.
 Unmapped image elements are removed and counted. Owners must transfer media
 themselves; MithrilPress never fetches WordPress URLs or arbitrary source media.
 Links on the admitted WordPress host are rewritten only when their
@@ -575,6 +610,14 @@ not an account-wide dollar hard stop, and bounded prompts do not guarantee zero
 operator cost. A disabled or over-budget request returns an unavailable response
 without saving or publishing a draft. See [Workers AI
 pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/).
+
+Owners may instead write a title and up to 100,000 characters directly in
+Studio. The Worker escapes the text into paragraphs, applies the manual-draft
+content boundary and sanitizer, and saves a private revision through the
+existing conversation flow. This records `ai_used: false` and does not consume
+the AI request or Neuron reservation. Database triggers still enforce the
+per-conversation, per-site, and deployment-wide conversation and text limits;
+an exhausted quota rejects the whole save.
 
 The Worker also enforces a 16 MiB retained-import content cap per site,
 including entries and taxonomy terms, and a 256 MiB cap across the deployment.
@@ -655,7 +698,8 @@ app counters. Keep public hosting disabled until the account plan, shared
 usage, and enforceable cost boundary are read back. On Workers Free, D1 daily read/write exhaustion
 or a D1 storage ceiling is returned as a clear 503 and requests fail closed.
 Import and rendering workloads have not been qualified against the current CPU
-limit. Usage monitoring and release gates are tracked in Linear MITHRIL-292.
+limit. Usage monitoring and release gates are tracked in Linear MITHRIL-292 and
+the tenant-counter consistency fix in MITHRIL-458.
 See [Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/),
 [Workers limits](https://developers.cloudflare.com/workers/platform/limits/),
 [D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/), and
@@ -721,40 +765,58 @@ includes domain TXT proof, capture of the current NS/DS state, private source
 and destination BIND snapshots, record diff, generated import text,
 digest-bound owner approval, and post-cutover NS/DS checks through two public
 recursive resolvers. For Cloudflare, an owner may submit a zone-scoped token
-for a single read request (`Zone Read` and `DNS Read`). An explicit second
-request may use a scoped `DNS Write` token to submit only records missing from
-an unchanged staged zone. The request does not contain update or delete
-operations; the deployment keeps the import endpoint disabled until its
-behavior is qualified against an isolated Cloudflare zone. MithrilPress stops
-if the live zone changed, the destination has extra or changed records, or the
-post-import readback is not an exact match. The token is not persisted.
+for a single staging read request (`Zone Read` and `DNS Read`). The explicit
+import request uses a separate token to reread the live zone before and after
+the write, as well as create records missing from the unchanged staged zone;
+that token therefore needs zone-scoped `Zone Read`, `DNS Read`, and `DNS Write`.
+The request contains no update or delete operations and uses Cloudflare batch
+`posts`. Cloudflare documents that batch writes use a
+database transaction but DNS propagation is not atomic. The deployment keeps
+the write endpoint disabled until its behavior is qualified against an
+isolated Cloudflare zone. MithrilPress stops if the live zone changed, the
+destination has extra or changed records, or the post-write readback is not an
+exact match. The token is not persisted.
+Automatic writes additionally require the destination zone to be `pending` and
+the current public NS/DS answers from both recursive resolvers to match the
+captured source state. Keep the source zone active and do not change registrar
+delegation while a write is in progress. Cloudflare notes that pending zones
+still answer queries sent to their assigned nameservers; they are not active
+for proxy traffic. See [Cloudflare zone status](https://developers.cloudflare.com/dns/zone-setups/reference/domain-status/).
 Registrar nameserver changes, DNSSEC, and service checks for web, TLS, and mail
-remain manual owner operations. See [Cloudflare DNS import](https://developers.cloudflare.com/api/resources/dns/subresources/records/methods/import/)
-and [export](https://developers.cloudflare.com/api/resources/dns/subresources/records/methods/export/).
+remain manual owner operations. See [Cloudflare DNS record batch](https://developers.cloudflare.com/api/resources/dns/subresources/records/methods/batch/)
+and [zone import/export](https://developers.cloudflare.com/dns/manage-dns-records/how-to/import-and-export/).
 Provider writes are disabled by default with
 `CLOUDFLARE_DNS_IMPORTS_ENABLED=false`; set it to `true` only after the exact
-import and readback behavior is qualified against an isolated Cloudflare zone.
+create-only batch and readback behavior is qualified against an isolated
+Cloudflare zone. The Worker rejects record data that its Cloudflare API mapping
+cannot preserve and directs the owner to the manual import workflow.
 
 The parser accepts a documented BIND zone-file subset up to 256 KiB and 2,000
 records. It supports `$ORIGIN`, `$TTL`, explicit or inherited owners, and
 standard TTL suffixes; unsupported directives such as `$GENERATE` must be
 expanded before upload. The parser does not support escaped owner-name labels
 or non-IN record classes, so review and normalize exports that use them before
-uploading.
+uploading. NAPTR records must use the six standard fields, quoted flags,
+service, and regexp character strings, and a fully qualified replacement name
+(or `.`); ambiguous forms are rejected before staging.
 Comparison excludes provider-managed apex SOA/NS and generated DNSSEC records,
 and retains Cloudflare `cf-proxied` and `cf-flatten-cname` settings where the
 zone export includes them. Generated imports default A/AAAA/CNAME records to
 DNS-only when the source export does not provide proxy state. Provider settings,
 free-form comments, glue, mail delivery, TLS, and application health still need
-separate owner review. Cloudflare's official zone-file import limit is 256 KiB;
-its API supports BIND import with `DNS Write` and export with `DNS Read` or
-`DNS Write`. See [Cloudflare zone import/export](https://developers.cloudflare.com/dns/manage-dns-records/how-to/import-and-export/).
+separate owner review. Cloudflare's official zone-file import limit is 256 KiB.
+BIND import/export remains the manual path; the automatic path uses DNS Records
+batch creation. See [Cloudflare DNS record batch](https://developers.cloudflare.com/api/resources/dns/subresources/records/methods/batch/)
+and [zone import/export](https://developers.cloudflare.com/dns/manage-dns-records/how-to/import-and-export/).
 
 Zone snapshots contain DNS TXT values that may include verification or service
 secrets. They remain tenant-scoped in D1 until the owner cancels the plan or
-archives a verified cutover/rollback, at which point snapshots and challenge
-values are erased while hashes and append-only audit receipts remain. Keep the
-source DNS zone active through the rollback window. After TXT ownership proof,
+archives a verified cutover/rollback, at which point snapshot and challenge
+fields are removed from active D1 state while hashes and append-only audit
+receipts remain. Cloudflare may retain earlier production-backend D1 states
+for up to 7 days on Workers Free or 30 days on Workers Paid, so active-state
+removal is not immediate irreversible erasure. Keep the source DNS zone active
+through the rollback window. After TXT ownership proof,
 MithrilPress sends DNS queries for the domain to Cloudflare and Google public
 resolvers to capture and check nameserver/DNSSEC state. A registrar transfer is
 separate and may incur at-cost renewal charges.
@@ -773,12 +835,17 @@ through its R2 binding rather than an R2 API token.
 Worker-hosted public post/page list requests support `page`, `per_page` (1–100), `slug`,
 `search`, `after`, `before`, `modified_after`, `modified_before`, `order`, and
 `orderby` (`date`, `modified`, `id`, `title`, `slug`, or `relevance`; relevance
-requires a search term), plus `context` `view`/`embed`. Search matches the
-published title and sanitized content. Relevance descending ranks exact title
-matches, title substrings, then content-only matches. Dates accept ISO 8601
-calendar dates or timezone-qualified date-times; date-only `before` and
-`modified_before` values include the full UTC calendar day. Results remain
-restricted to published entries.
+requires a search term), plus `context` `view`/`embed`. Page lists also support
+`parent`, `parent_exclude`, and `orderby=parent`. Parent filters accept up to 80
+IDs total across both filters in comma-separated, repeated, or bracket-array
+query forms. Search matches the published title and sanitized content.
+Relevance descending ranks exact title matches, title substrings, then
+content-only matches. Dates accept ISO 8601 calendar dates or timezone-qualified
+date-times; date-only `before` and `modified_before` values include the full UTC
+calendar day. Results remain restricted to published entries. Parent filtering
+and sorting use the public parent ID returned for each page: it is the source ID
+only when that parent is also published in the active revision, and `0`
+otherwise.
 Single-item `GET` and `HEAD` routes accept a positive numeric ID. Imported
 entries resolve by their WordPress source ID; MithrilPress-authored entries
 resolve by their MithrilPress API ID. They return only an entry in the active
