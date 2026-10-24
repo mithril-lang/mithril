@@ -426,7 +426,11 @@ requirements are specified in [MithrilPress domain lifecycle](mithrilpress-domai
 `GET /wp-json/wp/v2/posts` and `/pages` expose only the currently published
 revision. They support `page`, `per_page` (1–100), `slug`, and `context=view` or
 `embed`, returning `X-WP-Total`, `X-WP-TotalPages`, and pagination `Link`
-headers. `GET /wp-json/wp/v2/categories` and `/tags`, with optional term IDs,
+headers. Page lists additionally support bounded `parent` and `parent_exclude`
+filters and `orderby=parent`; both parent filters accept at most 80 IDs in
+total. Filtering and sorting use the public parent ID: it is exposed only when
+the parent is also published in the active revision, and is `0` otherwise.
+`GET /wp-json/wp/v2/categories` and `/tags`, with optional term IDs,
 expose imported terms, published-post counts, and descriptions. Categories also
 expose parent IDs. These routes support bounded pagination, `slug`, `search`,
 and `hide_empty`. Single-item `GET` and `HEAD` routes at
@@ -441,10 +445,14 @@ only for a featured image referenced by the published revision. Term and media
 write routes, media listings, users, comments, custom post types, and WordPress
 authentication plugins are not available. Category and tag links render simple
 published-entry archives at `/category/{slug}/` and `/tag/{slug}/`.
-The HTML sanitizer preserves a narrow semantic element list, removes all
-attributes except validated HTTP(S)/relative anchor links, strips comments,
-drops active subtrees, and unwraps unknown formatting tags. Inline images and
-attachment URLs are omitted. A `media:write` owner can upload JPEG, PNG, GIF,
+The HTML sanitizer uses the Mithril-authored `staticHtmlTags` rule in
+`apps/mithrilpress-worker/src/content_boundary.mith` to preserve its semantic
+element allowlist. The list includes sectioning elements, semantic text and
+ruby annotations, and table captions/columns/footers alongside headings,
+paragraphs, lists, links, code, and tables. It removes all attributes except
+validated HTTP(S)/relative anchor links, strips comments, drops active
+subtrees, and unwraps unknown formatting tags. Inline images and attachment
+URLs are omitted. A `media:write` owner can upload JPEG, PNG, GIF,
 or WebP files up to 8 MiB, with signature and dimension checks, to tenant-scoped
 R2. The image library uses a 250 MiB per-site cap, an 8 GiB per-deployment cap,
 5,000 reads/day per site, 50,000 across the deployment, and 10,000

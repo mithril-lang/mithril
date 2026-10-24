@@ -1,9 +1,18 @@
-; Mithril-authored admission contracts used by the MithrilPress Worker.
+; Mithril-authored content admission and static HTML policy for the MithrilPress Worker.
 (mithril/native-js-module
  :name "mithrilpress.content_boundary"
  :imports ["Array" "Number" "Set"]
  :functions
  [(mithril/function
+   :name "staticHtmlTags"
+   :params []
+   :returns "js-value"
+   :body (mithril/host-method
+          :object (mithril/literal :datatype "js-value"
+                                   :value "a abbr address article aside b blockquote br caption cite code col colgroup dd del dfn div dl dt em figcaption figure footer h1 h2 h3 h4 h5 h6 header hr i ins kbd li main mark nav ol p pre q rp rt ruby s samp section small span strong sub sup table tbody td tfoot th thead time tr u ul var wbr")
+          :key (mithril/literal :datatype "js-value" :value "split")
+          :args [(mithril/literal :datatype "js-value" :value " ")]))
+  (mithril/function
    :name "isRecord"
    :params [(rdf/node :name "value" :datatype "js-value")]
    :returns "js-value"
@@ -476,7 +485,8 @@
             (rdf/node :key (mithril/literal :datatype "js-value" :value "trust") :value (mithril/literal :datatype "js-value" :value "untrusted"))
             (rdf/node :key (mithril/literal :datatype "js-value" :value "renderingAdmission") :value (mithril/literal :datatype "js-value" :value "blocked"))
             (rdf/node :key (mithril/literal :datatype "js-value" :value "publicationState") :value (mithril/literal :datatype "js-value" :value "draft"))]))]))))))]
- :exports [(rdf/node :name "normalizeWordPressRecord" :value (mithril/function-ref :name "normalizeWordPressRecord"))
+ :exports [(rdf/node :name "staticHtmlTags" :value (mithril/function-ref :name "staticHtmlTags"))
+           (rdf/node :name "normalizeWordPressRecord" :value (mithril/function-ref :name "normalizeWordPressRecord"))
            (rdf/node :name "normalizeTaxonomyTerm" :value (mithril/function-ref :name "normalizeTaxonomyTerm"))
            (rdf/node :name "normalizeWordPressAttachment" :value (mithril/function-ref :name "normalizeWordPressAttachment"))
            (rdf/node :name "prepareStudioDraft" :value (mithril/function-ref :name "prepareStudioDraft"))])
