@@ -1,7 +1,7 @@
 ; Mithril-authored content admission and static HTML policy for the MithrilPress Worker.
 (mithril/native-js-module
  :name "mithrilpress.content_boundary"
- :imports ["Array" "Number" "Set"]
+ :imports ["Array" "Map" "Number" "Set"]
  :functions
  [(mithril/function
    :name "staticHtmlTags"
@@ -82,7 +82,8 @@
                                       :right (mithril/literal :datatype "js-value" :value 0))))
   (mithril/function
    :name "validIdList"
-   :params [(rdf/node :name "value" :datatype "js-value")]
+   :params [(rdf/node :name "value" :datatype "js-value")
+            (rdf/node :name "limit" :datatype "js-value")]
    :returns "js-value"
    :body
    (mithril/host-logical
@@ -96,7 +97,10 @@
      :left (mithril/host-binary :operator "<="
                                 :left (mithril/host-get :object (mithril/local :name "value")
                                                         :key (mithril/literal :datatype "js-value" :value "length"))
-                                :right (mithril/literal :datatype "js-value" :value 1000))
+                                :right (mithril/host-logical
+                                        :operator "??"
+                                        :left (mithril/local :name "limit")
+                                        :right (mithril/literal :datatype "js-value" :value 1000)))
      :right
      (mithril/host-logical
       :operator "&&"
@@ -383,6 +387,34 @@
                              (rdf/node :key (mithril/literal :datatype "js-value" :value "tags") :value (mithril/local :name "tags"))
                              (rdf/node :key (mithril/literal :datatype "js-value" :value "featuredMediaId") :value (mithril/if :condition (mithril/local :name "media") :then (mithril/local :name "media") :else (mithril/literal :datatype "js-value" :value nil)))]))])))))))))))))
   (mithril/function
+   :name "uniqueWordPressSourceIds"
+   :params [(rdf/node :name "entries" :datatype "js-value")]
+   :returns "js-value"
+   :body
+   (mithril/if
+    :condition (mithril/host-unary
+                :operator "!"
+                :value (mithril/host-method
+                        :object (mithril/host-import :name "Array")
+                        :key (mithril/literal :datatype "js-value" :value "isArray")
+                        :args [(mithril/local :name "entries")]))
+    :then (mithril/literal :datatype "js-value" :value false)
+    :else
+    (mithril/let
+     :bindings [(rdf/node
+                 :name "sourceIds"
+                 :value (mithril/host-method
+                         :object (mithril/local :name "entries")
+                         :key (mithril/literal :datatype "js-value" :value "map")
+                         :args [(mithril/native-lambda
+                                 :params ["entry"]
+                                 :body (mithril/host-optional-get
+                                        :object (mithril/local :name "entry")
+                                        :key (mithril/literal :datatype "js-value" :value "sourceId")))]))]
+     :body (mithril/host-invoke
+            :function (mithril/function-ref :name "validIdList")
+            :args [(mithril/local :name "sourceIds")]))))
+  (mithril/function
    :name "normalizeTaxonomyTerm"
    :params [(rdf/node :name "item" :datatype "js-value")]
    :returns "js-value"
@@ -446,6 +478,162 @@
                                                                                              (rdf/node :key (mithril/literal :datatype "js-value" :value "path") :value (mithril/host-logical :operator "??" :left (mithril/local :name "path") :right (mithril/literal :datatype "js-value" :value nil)))
                                                                                              (rdf/node :key (mithril/literal :datatype "js-value" :value "altText") :value (mithril/local :name "altText"))]))])))))))
   (mithril/function
+   :name "mapWordPressMediaReferences"
+   :params [(rdf/node :name "sourceIds" :datatype "js-value")
+            (rdf/node :name "mediaRows" :datatype "js-value")
+            (rdf/node :name "referenceLimit" :datatype "js-value")
+            (rdf/node :name "fail" :datatype "js-value")]
+   :returns "js-value"
+   :body
+   (mithril/if
+    :condition (mithril/host-unary
+                :operator "!"
+                :value (mithril/host-invoke
+                        :function (mithril/function-ref :name "validIdList")
+                        :args [(mithril/local :name "sourceIds")
+                               (mithril/local :name "referenceLimit")]))
+    :then (mithril/host-invoke
+           :function (mithril/local :name "fail")
+           :args [(mithril/literal :datatype "js-value" :value "invalid_wordpress_media_references")])
+    :else
+    (mithril/let
+     :bindings [(rdf/node :name "sourceIdSet"
+                          :value (mithril/host-construct
+                                  :constructor (mithril/host-import :name "Set")
+                                  :args [(mithril/local :name "sourceIds")]))
+                (rdf/node :name "bySourceId"
+                          :value (mithril/host-construct
+                                  :constructor (mithril/host-import :name "Map")
+                                  :args []))
+                (rdf/node :name "mappedSourceIds" :value (mithril/host-array :items []))
+                (rdf/node :name "unmappedSourceIds" :value (mithril/host-array :items []))]
+     :body
+     (mithril/if
+      :condition (mithril/host-unary
+                  :operator "!"
+                  :value (mithril/host-logical
+                          :operator "&&"
+                          :left (mithril/host-method
+                                 :object (mithril/host-import :name "Array")
+                                 :key (mithril/literal :datatype "js-value" :value "isArray")
+                                 :args [(mithril/local :name "mediaRows")])
+                          :right (mithril/host-binary
+                                  :operator "<="
+                                  :left (mithril/host-get
+                                    :object (mithril/host-construct
+                                    :constructor (mithril/host-import :name "Set")
+                                    :args [(mithril/host-method
+                                      :object (mithril/local :name "mediaRows")
+                                      :key (mithril/literal :datatype "js-value" :value "map")
+                                      :args [(mithril/native-lambda
+                                          :params ["row"]
+                                          :body (mithril/host-optional-get
+                                            :object (mithril/local :name "row")
+                                            :key (mithril/literal :datatype "js-value" :value "wordpress_source_id")
+                                          )
+                                        )])
+                                    ])
+                                    :key (mithril/literal :datatype "js-value" :value "size"))
+                                  :right (mithril/host-get
+                                          :object (mithril/local :name "sourceIds")
+                                          :key (mithril/literal :datatype "js-value" :value "length")))))
+      :then (mithril/host-invoke
+             :function (mithril/local :name "fail")
+             :args [(mithril/literal :datatype "js-value" :value "invalid_wordpress_media_mapping")])
+      :else
+      (mithril/sequence
+       :expressions
+       [(mithril/host-for-of
+         :iterable (mithril/local :name "mediaRows")
+         :binding "row"
+         :result (mithril/host-undefined)
+         :body
+         (mithril/let
+          :bindings [(rdf/node :name "sourceId"
+                               :value (mithril/host-optional-get
+                                       :object (mithril/local :name "row")
+                                       :key (mithril/literal :datatype "js-value" :value "wordpress_source_id")))
+                     (rdf/node :name "assetId"
+                               :value (mithril/host-optional-get
+                                       :object (mithril/local :name "row")
+                                       :key (mithril/literal :datatype "js-value" :value "id")))]
+          :body
+          (mithril/if
+           :condition (mithril/host-unary
+                       :operator "!"
+                       :value (mithril/host-logical
+                               :operator "&&"
+                               :left (mithril/host-invoke
+                                      :function (mithril/function-ref :name "isRecord")
+                                      :args [(mithril/local :name "row")])
+                               :right (mithril/host-logical
+                                       :operator "&&"
+                                       :left (mithril/host-invoke
+                                              :function (mithril/function-ref :name "positiveId")
+                                              :args [(mithril/local :name "sourceId")])
+                                       :right (mithril/host-invoke
+                                               :function (mithril/function-ref :name "positiveId")
+                                               :args [(mithril/local :name "assetId")]))))
+           :then (mithril/host-invoke
+                  :function (mithril/local :name "fail")
+                  :args [(mithril/literal :datatype "js-value" :value "invalid_wordpress_media_mapping")])
+           :else
+           (mithril/if
+            :condition (mithril/host-unary
+                        :operator "!"
+                        :value (mithril/host-method
+                                :object (mithril/local :name "sourceIdSet")
+                                :key (mithril/literal :datatype "js-value" :value "has")
+                                :args [(mithril/local :name "sourceId")]))
+            :then (mithril/host-invoke
+                   :function (mithril/local :name "fail")
+                   :args [(mithril/literal :datatype "js-value" :value "unexpected_wordpress_media_mapping")])
+            :else
+            (mithril/if
+             :condition (mithril/host-method
+                         :object (mithril/local :name "bySourceId")
+                         :key (mithril/literal :datatype "js-value" :value "has")
+                         :args [(mithril/local :name "sourceId")])
+             :then (mithril/host-invoke
+                    :function (mithril/local :name "fail")
+                    :args [(mithril/literal :datatype "js-value" :value "duplicate_wordpress_media_mapping")])
+             :else (mithril/host-method
+                    :object (mithril/local :name "bySourceId")
+                    :key (mithril/literal :datatype "js-value" :value "set")
+                    :args [(mithril/local :name "sourceId") (mithril/local :name "row")]))))))
+        (mithril/host-for-of
+         :iterable (mithril/local :name "sourceIds")
+         :binding "sourceId"
+         :result (mithril/host-undefined)
+         :body
+         (mithril/if
+          :condition (mithril/host-method
+                      :object (mithril/local :name "bySourceId")
+                      :key (mithril/literal :datatype "js-value" :value "has")
+                      :args [(mithril/local :name "sourceId")])
+          :then (mithril/host-method
+                 :object (mithril/local :name "mappedSourceIds")
+                 :key (mithril/literal :datatype "js-value" :value "push")
+                 :args [(mithril/local :name "sourceId")])
+          :else (mithril/host-method
+                 :object (mithril/local :name "unmappedSourceIds")
+                 :key (mithril/literal :datatype "js-value" :value "push")
+                 :args [(mithril/local :name "sourceId")])))
+        (mithril/host-object
+         :entries [(rdf/node :key (mithril/literal :datatype "js-value" :value "bySourceId")
+                             :value (mithril/local :name "bySourceId"))
+                   (rdf/node :key (mithril/literal :datatype "js-value" :value "mappedSourceIds")
+                             :value (mithril/local :name "mappedSourceIds"))
+                   (rdf/node :key (mithril/literal :datatype "js-value" :value "unmappedSourceIds")
+                             :value (mithril/local :name "unmappedSourceIds"))
+                   (rdf/node :key (mithril/literal :datatype "js-value" :value "reviewRequired")
+                             :value (mithril/host-binary
+                                     :operator ">"
+                                     :left (mithril/host-get
+                                            :object (mithril/local :name "unmappedSourceIds")
+                                            :key (mithril/literal :datatype "js-value" :value "length"))
+                                     :right (mithril/literal :datatype "js-value" :value 0)))])])))))
+  (mithril/function
    :name "prepareStudioDraft"
    :params [(rdf/node :name "tenantId" :datatype "js-value") (rdf/node :name "authorizationProofId" :datatype "js-value") (rdf/node :name "conversationId" :datatype "js-value") (rdf/node :name "kind" :datatype "js-value") (rdf/node :name "slug" :datatype "js-value") (rdf/node :name "proposal" :datatype "js-value") (rdf/node :name "language" :datatype "js-value") (rdf/node :name "htmlLimit" :datatype "js-value")]
    :returns "js-value"
@@ -487,6 +675,8 @@
             (rdf/node :key (mithril/literal :datatype "js-value" :value "publicationState") :value (mithril/literal :datatype "js-value" :value "draft"))]))]))))))]
  :exports [(rdf/node :name "staticHtmlTags" :value (mithril/function-ref :name "staticHtmlTags"))
            (rdf/node :name "normalizeWordPressRecord" :value (mithril/function-ref :name "normalizeWordPressRecord"))
+           (rdf/node :name "uniqueWordPressSourceIds" :value (mithril/function-ref :name "uniqueWordPressSourceIds"))
            (rdf/node :name "normalizeTaxonomyTerm" :value (mithril/function-ref :name "normalizeTaxonomyTerm"))
            (rdf/node :name "normalizeWordPressAttachment" :value (mithril/function-ref :name "normalizeWordPressAttachment"))
+           (rdf/node :name "mapWordPressMediaReferences" :value (mithril/function-ref :name "mapWordPressMediaReferences"))
            (rdf/node :name "prepareStudioDraft" :value (mithril/function-ref :name "prepareStudioDraft"))])

@@ -16,8 +16,10 @@ explicitly published tenant revision.
   Standard WXR categories, tags, category parents, page-parent links, and term
   IDs are retained when referenced records are present. Cyclic, unresolved, or
   over-depth page hierarchies are reported for owner review; a small static SEO
-  field allowlist is retained, while other custom fields and source media files
-  require manual migration. Every
+  field allowlist is retained, while unsupported custom fields require manual
+  migration. Featured and inline media IDs map only to owner-provided tenant
+  uploads; unresolved IDs appear in the private report and require owner review.
+  Attachment URLs are never fetched. Every
   import returns link, block, asset, SEO metadata, and permalink reconciliation
   counts. Safe multi-segment source URL paths are preserved for published
   routes; query-based and reserved paths fall back to a slug route and are
@@ -68,14 +70,19 @@ explicitly published tenant revision.
   behavior is qualified.
 
 The checked-in Mithril native-JS modules own platform subdomain validation,
-WordPress post/page record admission, individual taxonomy-term admission, the
-private chat-draft proposal envelope, migration parity classification, and
-revision approval/publication/restore eligibility. The Worker calls those
-contracts at the hostname, import, taxonomy, AI proposal, and revision
-lifecycle boundaries. It retains host
-responsibility for cross-record taxonomy references and cycles, D1/R2 and AI
-I/O, HTML sanitization, language-tag canonicalization, and slug collision
-resolution. The `.cljk` model remains the platform-neutral reference boundary;
+WordPress post/page record admission, individual taxonomy-term admission and
+WXR category/tag reference normalization, owner-media ID mapping and its
+unmatched-reference review outcome, the private chat-draft proposal envelope,
+migration parity classification, and revision
+approval/publication/restore eligibility. The Worker calls those contracts at
+the hostname, import, taxonomy, AI proposal, and revision lifecycle
+boundaries. `wordpress_block_policy.mith` owns Gutenberg block-name
+normalization and static, layout-degraded, dynamic, and unknown classification;
+JavaScript retains the bounded comment-token scan and report aggregation. The
+Worker retains host responsibility for cross-record taxonomy references and
+cycles, D1/R2 and AI I/O, HTML sanitization, language-tag canonicalization, and
+slug collision resolution. The `.cljk` model remains the platform-neutral
+reference boundary;
 the `.mith` modules are the executable Worker contracts. Regenerate all
 checked-in modules from the repository root or this package directory with
 `npm run build:mithril` after changing their `.mith` source. The build uses the

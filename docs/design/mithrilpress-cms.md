@@ -95,9 +95,26 @@ policy contract requires explicit enablement, the `workers-free-only` mode,
 operator confirmation of the Workers Free plan, and an available AI binding
 before inference. The pure `.cljk` boundary remains the platform-neutral
 reference model. The Worker keeps host I/O and stateful work in JavaScript,
-including cross-record taxonomy integrity, D1/R2 and AI calls, HTML
+including bounded XML parsing and error construction, D1/R2 and AI calls, HTML
 sanitization, language-tag canonicalization, slug collision resolution, and
 publication transactions.
+
+The production import path also compiles
+`apps/mithrilpress-worker/src/wordpress_taxonomy.mith` and
+`apps/mithrilpress-worker/src/wordpress_page_hierarchy.mith` plus
+`apps/mithrilpress-worker/src/wordpress_block_policy.mith`. Mithril resolves
+supported category-parent slugs, rejects unresolved, self-referential, and
+cyclic category relationships, and projects imported taxonomy fields. Its
+page-hierarchy contract removes non-page, missing, self, cyclic, and over-depth
+parent links, returning preserved and omitted counts for the owner-review
+report. Before an import continues, the same contract checks D1 readback for an
+exact, unique mapping of expected page entry IDs to parent source IDs. The
+block policy contract classifies serialized Gutenberg block names as static,
+layout-degraded, dynamic, or unknown. JavaScript still scans bounded Gutenberg
+comment markers and aggregates the import report. The adapter also parses
+bounded WXR XML, constructs D1 statements, performs writes and readback, and
+translates host failures. This is a compiled policy boundary for this import
+path, not full WordPress parity.
 
 The adapter does not fetch WordPress itself: owners provide the content through
 a scoped token. The importer accepts a
@@ -107,9 +124,12 @@ WXR attachments, media bytes, custom fields, users,
 comments, custom post types, password-protected posts/pages, and custom
 taxonomies remain outside the supported slice. Standard category/tag terms,
 category parent links, and page-parent links are preserved when referenced
-records are present in the same revision. Cyclic, unresolved, and over-depth
-page hierarchies are omitted and reported for owner review. The importer reports
-omitted attachments and metadata and rejects DTDs, custom entities, malformed
+records are present in the same revision. Category parent resolution is
+iterative and bounded by the 5,000-term import limit, so valid category chains
+do not inherit the XML element nesting limit. Cyclic and unresolved category
+graphs are rejected. Cyclic, unresolved, and over-depth page hierarchies are
+omitted and reported for owner review. The importer reports omitted attachments
+and metadata and rejects DTDs, custom entities, malformed
 XML, and unresolved category/tag references. Owner-provided media upload and
 delivery are implemented; broad Gutenberg support remains follow-up work.
 
@@ -482,7 +502,11 @@ another imported page in the same revision; cycles, missing parents, and
 hierarchies deeper than 64 are omitted and flagged for owner review. Term
 descriptions are sanitized before storage. The API
 returns omission counts for content it does not migrate. It does not fetch
-attachment URLs; owners must upload image files they control and review the
+attachment URLs. Featured and inline source IDs resolve only to active
+tenant-owned media uploaded by the owner. The compiled Mithril mapping policy
+rejects duplicate or unexpected rows and reports missing IDs in the private
+migration report; missing media sets `needs_owner_review` and prevents the
+parity status from claiming a complete supported slice. Owners must review the
 private preview and omissions before publishing. Safe source permalink paths,
 including nested paths, are retained for public rendering, API links, canonical
 URLs, and imported internal-link rewriting. Sources that use query URLs or

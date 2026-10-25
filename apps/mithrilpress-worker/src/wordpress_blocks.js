@@ -1,3 +1,4 @@
+import { instantiateMithrilNative as instantiateWordPressBlockPolicy } from "./wordpress_block_policy.js";
 const CORE_STATIC_BLOCKS = new Set([
   "core/paragraph", "core/heading", "core/list", "core/list-item", "core/quote",
   "core/pullquote", "core/code", "core/preformatted", "core/separator",
@@ -24,6 +25,7 @@ const WORDPRESS_IMAGE_ID = /\bwp-image-([0-9]{1,15})\b/g;
 const MAX_BLOCK_MARKERS_PER_IMPORT = 20_000;
 const MAX_BLOCK_TYPES = 100;
 export const MAX_WORDPRESS_MEDIA_IDS_PER_IMPORT = 5_000;
+const wordPressBlockPolicy = instantiateWordPressBlockPolicy({});
 
 function countType(target, name) {
   if (Object.hasOwn(target, name)) {
@@ -33,11 +35,6 @@ function countType(target, name) {
   } else {
     target.other += 1;
   }
-}
-
-function blockName(raw) {
-  const name = raw.toLowerCase();
-  return name.includes("/") ? name : `core/${name}`;
 }
 
 /** Summarize serialized Gutenberg blocks without rendering or executing block code. */
@@ -70,14 +67,15 @@ export function inspectWordPressBlocks(sources) {
       }
       scanned += 1;
       report.block_count += 1;
-      const name = blockName(match[2]);
+      const name = wordPressBlockPolicy.normalizeWordPressBlockName(match[2]);
       countType(report.block_type_counts, name);
-      if (CORE_STATIC_BLOCKS.has(name)) {
+      const classification = wordPressBlockPolicy.classifyWordPressBlock(name);
+      if (classification === "static") {
         report.static_blocks += 1;
-      } else if (CORE_LAYOUT_BLOCKS.has(name)) {
+      } else if (classification === "layout-degraded") {
         report.layout_degraded_blocks += 1;
         countType(report.layout_degraded_types, name);
-      } else if (CORE_DYNAMIC_BLOCKS.has(name)) {
+      } else if (classification === "dynamic") {
         report.dynamic_blocks += 1;
         countType(report.dynamic_types, name);
       } else {
@@ -104,6 +102,10 @@ export function collectWordPressMediaReferences(records) {
   let classReferences = 0;
   for (const record of records ?? []) {
     const source = typeof record?.sourceHtml === "string" ? record.sourceHtml : "";
+    const featuredMediaId = record?.featuredMediaId;
+    if (Number.isSafeInteger(featuredMediaId) && featuredMediaId > 0) {
+      sourceIds.add(featuredMediaId);
+    }
     for (const match of source.matchAll(WORDPRESS_IMAGE_ID)) {
       classReferences += 1;
       const id = Number(match[1]);
