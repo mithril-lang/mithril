@@ -56,6 +56,18 @@ explicitly published tenant revision.
   publish a deployment.
 - An optional, capped Cloudflare Pages Direct Upload adapter for approved static
   publications. It does not replace the shared Worker/D1 default host plane.
+- Owner-guided DNS migration planning with TXT ownership proof, private BIND
+  snapshots, exact record comparison, digest-bound cutover approval, and public
+  NS/DS verification. Owners retain control of their DNS providers and
+  registrar; MithrilPress does not change nameserver delegation. Zone snapshot
+  fields are removed from the active D1 state after 30 days without a
+  state-changing owner action; the retention window pauses while an approved
+  cutover awaits delegation verification or rollback. Cloudflare D1 Time Travel
+  may retain earlier production-backend states for up to 7 days on Workers Free
+  or 30 days on Workers Paid, so active-state removal is not immediate
+  irreversible erasure.
+  Optional Cloudflare record import is disabled by default until isolated-zone
+  behavior is qualified.
 
 The checked-in Mithril native-JS modules own platform subdomain validation,
 WordPress post/page record admission, individual taxonomy-term admission and
@@ -233,15 +245,21 @@ unlimited. Each REST Function request increments the same trigger-enforced D1
 request counters as the MithrilPress Worker: 5,000 requests per site/day and
 25,000 requests across the deployment/day. The publisher verifies the exact
 `mithrilpress` D1 database in the pinned account and binds it as `DB` on a new
-Pages project before the first deployment. The Function checks both counters
-before filtering or returning content and fails closed when D1 is unavailable
-or a limit is reached. The digest covers both the Function and its shared quota
-helper. Site owners are never charged; Pages Function requests are still
-metered to the operator, and application caps are not a provider billing cap
-on a Workers Paid account. Each over-cap REST attempt still invokes the
-Function and a metered D1 transaction to enforce the application counter; the
-shared and site counters are charged atomically, so a rejected site request
-does not consume the deployment allowance.
+Pages project before the first deployment. It also binds the exact tenant site
+ID and canonical hostname as `MITHRILPRESS_SITE_ID` and
+`MITHRILPRESS_HOSTNAME`, then reads all three production bindings back before
+publishing. The Function rejects missing configuration and `pages.dev` alias
+requests before reading tenant assets. It checks both counters using the bound
+site ID before fetching or parsing the REST catalog, then verifies that the
+catalog site ID and hostname match the production bindings. Over-cap requests
+do not read or parse the catalog, which can be up to 25 MiB. The Function fails
+closed when D1 is unavailable or a limit is reached. The digest covers both the
+Function and its shared quota helper. Site owners are never charged; Pages
+Function requests are still metered to the operator, and application caps are
+not a provider billing cap on a Workers Paid account. Each over-cap REST attempt
+still invokes the Function and a metered D1 transaction to enforce the
+application counter; the shared and site counters are charged atomically, so a
+rejected site request does not consume the deployment allowance.
 
 The publisher refuses `_worker.js`, arbitrary Functions routes, extra files,
 symlinks, and bundles above the existing 5,000-file / 300 MB product caps.
@@ -536,7 +554,7 @@ write and storage caps; reaching a cap stops the import without a paid fallback.
 | `POST` | `/_mithrilpress/api/domains/{hostname-id}/refresh` | `site:domains` | Read provider/TLS status and verify the public DNS-only CNAME. |
 | `DELETE` | `/_mithrilpress/api/domains/{hostname-id}` | `site:domains` | Stop serving the hostname, then remove the Cloudflare custom hostname. |
 | `GET` / `POST` | `/_mithrilpress/api/dns-migrations` | `site:dns-migrate` | List plans or create a 48-hour domain-control TXT challenge. Pending requests do not reserve a zone globally; the first owner to prove control claims the plan. Expired pending plans are cancelled when the owner starts another plan or a tenant requests the same zone. NS/DS state is not queried until ownership is proven. |
-| `GET` / `DELETE` | `/_mithrilpress/api/dns-migrations/{id}` | `site:dns-migrate` | Read a tenant-private plan, or cancel/archive and erase its zone snapshots. |
+| `GET` / `DELETE` | `/_mithrilpress/api/dns-migrations/{id}` | `site:dns-migrate` | Read a tenant-private plan, or cancel/archive and remove its zone snapshots from active D1 state. Cloudflare may retain earlier states during its provider restore window. |
 | `POST` | `/_mithrilpress/api/dns-migrations/{id}/verify-ownership` | `site:dns-migrate` | Verify the domain TXT challenge before accepting zone files. |
 | `POST` | `/_mithrilpress/api/dns-migrations/{id}/source` | `site:dns-migrate` | Validate and retain the source BIND zone and generate a destination import file. |
 | `POST` | `/_mithrilpress/api/dns-migrations/{id}/target` | `site:dns-migrate` | Compare a staged destination zone and its assigned nameservers against the source. |
@@ -561,22 +579,24 @@ then removes the D1 reservation. Unknown or mismatched outcomes remain private
 and quota-counted for operator review. Follow the
 [media reconciliation runbook](../../docs/operations/mithrilpress-media-reconciliation.md).
 
-The HTML sanitizer builds its tag set from the Mithril-authored `staticHtmlTags`
-rule in `src/content_boundary.mith`. The safe subset includes
-HTML sectioning elements, semantic text and ruby annotations, and table
-captions/columns/footers alongside headings, paragraphs, lists, links, code,
-and tables. It removes all attributes except validated HTTP(S) or relative
-anchor links, removes comments, and drops active content subtrees. An inline
+The HTML sanitizer keeps a small semantic tag allowlist in
+`src/wordpress_html_policy.js`, including native `details`/`summary`
+disclosures. It removes attributes except validated HTTP(S) or relative anchor
+`href` values and the `open` state plus bounded, control-free `name` grouping
+values on `details`. It removes comments and active content subtrees. An inline
 image is retained only when its `wp-image-N` class maps to an active R2 image
-uploaded by the site owner with WordPress media ID `N`. Unmapped image elements
-are removed and counted. Owners must transfer
-media themselves; MithrilPress never fetches WordPress URLs or arbitrary source
-media. Links on the admitted WordPress host are rewritten only when their
+uploaded by the site owner with WordPress media ID `N`. This retains disclosure
+and same-name accordion behavior but omits WordPress styling, block classes,
+and dimensions.
+Unmapped image elements are removed and counted. Owners must transfer media
+themselves; MithrilPress never fetches WordPress URLs or arbitrary source media.
+Links on the admitted WordPress host are rewritten only when their
 source permalink matches an imported post or page. Unmatched source-host links
 remain pointed at the source and are counted for owner review; unsafe schemes
 are removed and counted. The private import response and `migration-report`
 endpoint classify static, layout-degraded, dynamic, and unknown Gutenberg
-blocks, count source omissions, link mappings and image mappings, and flag
+blocks. Core details disclosures render with native HTML semantics. The report
+counts source omissions, link mappings and image mappings, and flags
 revisions for owner review. The report does not make dynamic blocks, themes,
 plugins, shortcodes, or PHP compatible; their code is never executed.
 Only static Yoast SEO title/description and Rank Math title/description fields
@@ -804,9 +824,12 @@ and [zone import/export](https://developers.cloudflare.com/dns/manage-dns-record
 
 Zone snapshots contain DNS TXT values that may include verification or service
 secrets. They remain tenant-scoped in D1 until the owner cancels the plan or
-archives a verified cutover/rollback, at which point snapshots and challenge
-values are erased while hashes and append-only audit receipts remain. Keep the
-source DNS zone active through the rollback window. After TXT ownership proof,
+archives a verified cutover/rollback, at which point snapshot and challenge
+fields are removed from active D1 state while hashes and append-only audit
+receipts remain. Cloudflare may retain earlier production-backend D1 states
+for up to 7 days on Workers Free or 30 days on Workers Paid, so active-state
+removal is not immediate irreversible erasure. Keep the source DNS zone active
+through the rollback window. After TXT ownership proof,
 MithrilPress sends DNS queries for the domain to Cloudflare and Google public
 resolvers to capture and check nameserver/DNSSEC state. A registrar transfer is
 separate and may incur at-cost renewal charges.

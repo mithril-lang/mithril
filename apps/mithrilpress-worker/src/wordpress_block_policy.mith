@@ -35,6 +35,7 @@
      :condition (mithril/host-method
                  :object (mithril/host-array
                           :items [(mithril/literal :datatype "js-value" :value "core/paragraph")
+                          (mithril/literal :datatype "js-value" :value "core/details")
                                   (mithril/literal :datatype "js-value" :value "core/heading")
                                   (mithril/literal :datatype "js-value" :value "core/list")
                                   (mithril/literal :datatype "js-value" :value "core/list-item")
@@ -63,7 +64,6 @@
                                    (mithril/literal :datatype "js-value" :value "core/gallery")
                                    (mithril/literal :datatype "js-value" :value "core/cover")
                                    (mithril/literal :datatype "js-value" :value "core/media-text")
-                                   (mithril/literal :datatype "js-value" :value "core/details")
                                    (mithril/literal :datatype "js-value" :value "core/spacer")])
                   :key (mithril/literal :datatype "js-value" :value "includes")
                   :args [(mithril/local :name "name")])

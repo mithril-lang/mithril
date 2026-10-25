@@ -1,4 +1,24 @@
 import { instantiateMithrilNative as instantiateWordPressBlockPolicy } from "./wordpress_block_policy.js";
+const CORE_STATIC_BLOCKS = new Set([
+  "core/paragraph", "core/heading", "core/list", "core/list-item", "core/quote",
+  "core/pullquote", "core/code", "core/preformatted", "core/separator",
+  "core/table", "core/html", "core/freeform", "core/verse", "core/image",
+  "core/details",
+]);
+
+const CORE_LAYOUT_BLOCKS = new Set([
+  "core/group", "core/columns", "core/column", "core/buttons", "core/button",
+  "core/gallery", "core/cover", "core/media-text", "core/spacer",
+]);
+
+const CORE_DYNAMIC_BLOCKS = new Set([
+  "core/latest-posts", "core/query", "core/query-title", "core/post-template",
+  "core/post-title", "core/post-content", "core/post-date", "core/post-author",
+  "core/post-excerpt", "core/post-featured-image", "core/site-title", "core/site-tagline",
+  "core/site-logo", "core/navigation", "core/search", "core/widget-area",
+  "core/legacy-widget", "core/shortcode", "core/embed", "core/audio", "core/video",
+  "core/file", "core/block",
+]);
 
 const BLOCK_COMMENT = /<!--\s*(\/?)wp:([a-z0-9_-]+(?:\/[a-z0-9_-]+)?)([\s\S]*?)-->/gi;
 const WORDPRESS_IMAGE_ID = /\bwp-image-([0-9]{1,15})\b/g;

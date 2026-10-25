@@ -1,4 +1,4 @@
-import { handleDnsMigrations } from "./dns_migration.js";
+import { cleanupDnsMigrationSnapshots, handleDnsMigrations } from "./dns_migration.js";
 import { MAX_MEDIA_BYTES, validateImageUpload } from "./media_validation.js";
 import { instantiateMithrilNative as instantiateContentBoundary } from "./content_boundary.js";
 import { instantiateMithrilNative as instantiateMigrationPolicy } from "./migration_policy.js";
@@ -8,6 +8,7 @@ import {
   collectWordPressMediaReferences,
   inspectWordPressBlocks,
 } from "./wordpress_blocks.js";
+import { isWordPressSafeHtmlTag, restoreWordPressSafeAttributes } from "./wordpress_html_policy.js";
 import { buildWordPressPermalinkMap, rewriteWordPressLink, wordpressRoutePath } from "./wordpress_links.js";
 import { selectWordPressSeoMetadata } from "./wordpress_seo.js";
 import { parseWordPressWxr } from "./wxr_import.js";
@@ -77,11 +78,8 @@ const safeHtmlRewriter = new HTMLRewriter()
       }
 
       const href = tag === "a" ? element.getAttribute("href") : null;
-      for (const [name] of [...element.attributes]) element.removeAttribute(name);
-      if (tag === "a" && href !== null) {
-        const safeHref = safeLink(href);
-        if (safeHref !== null) element.setAttribute("href", safeHref);
-      }
+      const safeHref = href === null ? null : safeLink(href);
+      restoreWordPressSafeAttributes(element, safeHref);
     },
     comments(comment) {
       comment.remove();
@@ -518,20 +516,19 @@ async function sanitizeImportedWordPressHtml(source, mediaBySourceId, linkContex
         element.remove();
         return;
       }
-      if (!HTML_TAGS.has(tag)) {
+      if (!isWordPressSafeHtmlTag(tag)) {
         element.removeAndKeepContent();
         return;
       }
 
       const href = tag === "a" ? element.getAttribute("href") : null;
       const rewrittenLink = href === null ? null : rewriteWordPressLink(href, linkContext);
-      for (const [name] of [...element.attributes]) element.removeAttribute(name);
+      restoreWordPressSafeAttributes(element, rewrittenLink?.href ?? null);
       if (tag === "a" && rewrittenLink) {
         if (rewrittenLink.sourceSite) sourceSiteLinks += 1;
         if (rewrittenLink.rewritten) rewrittenLinks += 1;
         if (rewrittenLink.unresolved) unresolvedSourceSiteLinks += 1;
         if (rewrittenLink.removed) removedUnsafeLinks += 1;
-        if (rewrittenLink.href !== null) element.setAttribute("href", rewrittenLink.href);
       }
     },
     comments(comment) {
@@ -3624,6 +3621,15 @@ export default {
     }
   },
   async scheduled(controller, env) {
-    await monitorActiveCustomHostnames(env);
+    const results = await Promise.allSettled([
+      monitorActiveCustomHostnames(env),
+      cleanupDnsMigrationSnapshots(env),
+    ]);
+    if (results[0].status === "rejected") {
+      console.error(JSON.stringify({ event: "scheduled_task_failed", task: "custom_hostname_monitor" }));
+    }
+    if (results[1].status === "rejected") {
+      console.error(JSON.stringify({ event: "scheduled_task_failed", task: "dns_snapshot_retention" }));
+    }
   },
 };

@@ -177,7 +177,7 @@ function importRecords(pendingItems, terms, omittedSourceCounts) {
     if (records.length > MAX_IMPORTED_ENTRIES) fail("wxr_entry_limit_exceeded", 413);
   }
 
-  if (records.length === 0) fail("wxr_has_no_supported_entries");
+  if (records.length === 0 && terms.size === 0) fail("wxr_has_no_supported_entries");
   const importedPageIds = new Set(records
     .filter((record) => record.type === "page")
     .map((record) => record.id));

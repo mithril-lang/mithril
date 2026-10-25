@@ -38,8 +38,13 @@ and [block markup specification](https://developer.wordpress.org/block-editor/ge
    access. Never discover and clone prospect sites from their public pages.
 2. Import selected posts/pages as a private revision. Keep the source HTML inert
    for reconciliation and generate sanitized render HTML from a limited semantic
-   tag allowlist. Remove scriptable subtrees, comments, attributes, embedded
-   media, and styles.
+   tag allowlist, including native `details`/`summary` disclosures. Remove
+   scriptable subtrees, comments, unsafe attributes, embedded media, and styles;
+   retain only validated links, the boolean `details[open]` state, and a bounded
+   control-free `details[name]` grouping value.
+   The [WordPress Details block](https://wordpress.org/documentation/article/details-block/)
+   uses the `name` value to group disclosures into accordions; WordPress styling
+   and block classes remain intentionally omitted.
 3. Allow only an authenticated owner to read the private preview. Send `noindex`
    and `nofollow`; previews require an owner token and are not prospect pages.
 4. Record an explicit revision approval, then a separate publication action.
@@ -465,14 +470,16 @@ only for a featured image referenced by the published revision. Term and media
 write routes, media listings, users, comments, custom post types, and WordPress
 authentication plugins are not available. Category and tag links render simple
 published-entry archives at `/category/{slug}/` and `/tag/{slug}/`.
-The HTML sanitizer uses the Mithril-authored `staticHtmlTags` rule in
-`apps/mithrilpress-worker/src/content_boundary.mith` to preserve its semantic
-element allowlist. The list includes sectioning elements, semantic text and
-ruby annotations, and table captions/columns/footers alongside headings,
-paragraphs, lists, links, code, and tables. It removes all attributes except
-validated HTTP(S)/relative anchor links, strips comments, drops active
-subtrees, and unwraps unknown formatting tags. Inline images and attachment
-URLs are omitted. A `media:write` owner can upload JPEG, PNG, GIF,
+The HTML sanitizer preserves a narrow semantic element list from
+`apps/mithrilpress-worker/src/wordpress_html_policy.js`, including native
+`details`/`summary` disclosures, removes all attributes except validated
+HTTP(S)/relative anchor links and bounded `details[open]`/`details[name]` state,
+strips comments, drops active subtrees, and unwraps unknown formatting tags.
+The related static-HTML allowlist for chat-authored content is the
+Mithril-authored `staticHtmlTags` rule in
+`apps/mithrilpress-worker/src/content_boundary.mith`. Inline images and
+attachment URLs are omitted. A `media:write` owner can upload
+JPEG, PNG, GIF,
 or WebP files up to 8 MiB, with signature and dimension checks, to tenant-scoped
 R2. The image library uses a 250 MiB per-site cap, an 8 GiB per-deployment cap,
 5,000 reads/day per site, 50,000 across the deployment, and 10,000

@@ -20,6 +20,26 @@ every mapping is checked within 15 minutes. Mismatches suspend immediately;
 three consecutive provider/DNS read failures also suspend. An owner must
 refresh a suspended hostname after the checks pass.
 
+DNS migration plans expose their retention deadline in Studio. Unverified TXT
+ownership challenges are removed from active MithrilPress state at their
+existing expiry; source and target zone snapshots, record diffs, provider
+identifiers, and captured NS/DS state are removed from the active D1 database
+after 30 days without a state-changing owner action.
+Completed plans retain their rollback snapshot for the same inactivity window.
+The retention window pauses while an approved cutover awaits delegation
+verification or rollback, so the rollback snapshot cannot expire mid-cutover.
+Owners can cancel a plan and remove its snapshot fields from active D1 state
+sooner when no cutover is awaiting verification. The existing five-minute Worker schedule processes at most 20
+expired plans per invocation and writes the erasure receipt with the row update
+in one D1 batch. Audit receipts retain only the plan identity, prior status,
+reason, expiry, and source/target hashes; opening a plan does not extend its
+retention window. Cloudflare D1 Time Travel may retain earlier production-
+backend database states for up to 7 days on Workers Free or 30 days on Workers
+Paid. This provider restore window is separate from application retention;
+removal from the active database does not promise immediate, irreversible
+erasure from provider-managed history. See the [D1 erasure
+contract](../operations/mithrilpress-d1-retention-contract.md).
+
 ## Address types
 
 | Type | Setup | Control | Initial availability |

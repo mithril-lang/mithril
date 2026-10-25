@@ -520,8 +520,20 @@
                           :right (mithril/host-binary
                                   :operator "<="
                                   :left (mithril/host-get
-                                         :object (mithril/local :name "mediaRows")
-                                         :key (mithril/literal :datatype "js-value" :value "length"))
+                                    :object (mithril/host-construct
+                                    :constructor (mithril/host-import :name "Set")
+                                    :args [(mithril/host-method
+                                      :object (mithril/local :name "mediaRows")
+                                      :key (mithril/literal :datatype "js-value" :value "map")
+                                      :args [(mithril/native-lambda
+                                          :params ["row"]
+                                          :body (mithril/host-optional-get
+                                            :object (mithril/local :name "row")
+                                            :key (mithril/literal :datatype "js-value" :value "wordpress_source_id")
+                                          )
+                                        )])
+                                    ])
+                                    :key (mithril/literal :datatype "js-value" :value "size"))
                                   :right (mithril/host-get
                                           :object (mithril/local :name "sourceIds")
                                           :key (mithril/literal :datatype "js-value" :value "length")))))
