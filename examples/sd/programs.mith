@@ -1,0 +1,21 @@
+; Inert system dynamics programs: JSON stock-and-flow models with bounded expressions.
+(rdf/dataset (rdf/graph nil
+(rdf/description "urn:mithril:sd:growth"
+  (rdf/property "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" (rdf/iri "https://mithril.fund/ns/sd/v1#Program"))
+  (rdf/property "https://mithril.fund/ns/sd/v1#key" (rdf/literal "growth"))
+  (rdf/property "https://mithril.fund/ns/sd/v1#model" (rdf/literal "sd"))
+  (rdf/property "https://mithril.fund/ns/sd/v1#specification" (rdf/literal "{\"model\":{\"stocks\":[{\"id\":\"P\",\"initial\":1}],\"parameters\":[{\"id\":\"r\",\"value\":0.5}],\"rates\":[{\"id\":\"growth\",\"direction\":\"in\",\"target\":\"P\",\"expression\":\"r*P\"}]},\"dt\":0.01,\"horizon\":2}"))
+)
+(rdf/description "urn:mithril:sd:bathtub"
+  (rdf/property "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" (rdf/iri "https://mithril.fund/ns/sd/v1#Program"))
+  (rdf/property "https://mithril.fund/ns/sd/v1#key" (rdf/literal "bathtub"))
+  (rdf/property "https://mithril.fund/ns/sd/v1#model" (rdf/literal "sd"))
+  (rdf/property "https://mithril.fund/ns/sd/v1#specification" (rdf/literal "{\"model\":{\"stocks\":[{\"id\":\"water\",\"initial\":0}],\"constants\":[{\"id\":\"fill\",\"value\":2},{\"id\":\"drain\",\"value\":1}],\"rates\":[{\"id\":\"inflow\",\"direction\":\"in\",\"target\":\"water\",\"expression\":\"fill\"},{\"id\":\"outflow\",\"direction\":\"out\",\"target\":\"water\",\"expression\":\"drain\"}]},\"dt\":0.25,\"horizon\":4}"))
+)
+(rdf/description "urn:mithril:sd:logistic"
+  (rdf/property "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" (rdf/iri "https://mithril.fund/ns/sd/v1#Program"))
+  (rdf/property "https://mithril.fund/ns/sd/v1#key" (rdf/literal "logistic"))
+  (rdf/property "https://mithril.fund/ns/sd/v1#model" (rdf/literal "sd"))
+  (rdf/property "https://mithril.fund/ns/sd/v1#specification" (rdf/literal "{\"model\":{\"stocks\":[{\"id\":\"P\",\"initial\":1}],\"parameters\":[{\"id\":\"r\",\"value\":1},{\"id\":\"K\",\"value\":100}],\"rates\":[{\"id\":\"growth\",\"direction\":\"in\",\"target\":\"P\",\"expression\":\"r*P*(1-P/K)\"}]},\"dt\":0.01,\"horizon\":10}"))
+)
+))
