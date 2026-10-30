@@ -1,0 +1,26 @@
+name: System dynamics (.mith)
+on:
+  push:
+    branches: [main]
+    paths: ['bin/mithril-sd.mjs', 'resources/sd/**', 'scripts/test-sd.mjs', 'ontology/sd-v1.mith', 'examples/sd/**', 'docs/design/mithril-system-dynamics.md', '.github/workflows/system-dynamics.yml']
+  pull_request:
+    paths: ['bin/mithril-sd.mjs', 'resources/sd/**', 'scripts/test-sd.mjs', 'ontology/sd-v1.mith', 'examples/sd/**', 'docs/design/mithril-system-dynamics.md', '.github/workflows/system-dynamics.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: system-dynamics-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node --test scripts/test-sd.mjs
+      - run: node bin/mithril-sd.mjs run examples/sd/programs.mith growth
+      - run: node bin/mithril-sd.mjs run examples/sd/programs.mith bathtub
+      - run: node bin/mithril-sd.mjs run examples/sd/programs.mith logistic

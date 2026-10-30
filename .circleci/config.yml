@@ -1,5 +1,23 @@
 version: 2.1
 jobs:
+  verify-sd:
+    machine:
+      image: ubuntu-2404:current
+    resource_class: arm.medium.gen2
+    steps:
+      - checkout
+      - run:
+          name: Verify exact source and system dynamics contracts
+          command: |
+            set -euo pipefail
+            test "$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME" = mithril-lang/mithril
+            test "$(git rev-parse HEAD)" = "$CIRCLE_SHA1"
+            test -z "$(git status --porcelain)"
+            source /opt/circleci/.nvm/nvm.sh
+            nvm install 24.19.0
+            nvm use 24.19.0
+            test "$(node --version)" = v24.19.0
+            node --test scripts/test-sd.mjs
   language-site-verify:
     docker:
       - image: cimg/base:2026.01
@@ -24,6 +42,7 @@ jobs:
           path: /tmp/language-site-evidence
           destination: language-site-evidence
 workflows:
-  language-site-verification:
+  verify:
     jobs:
+      - verify-sd
       - language-site-verify
