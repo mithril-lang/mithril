@@ -3,7 +3,7 @@
 Mithril has a bounded system dynamics model over stock-and-flow diagrams. A
 model is inert JSON: stocks with initial values, parameters, constants, rates
 and auxiliaries. Rates and auxiliaries are bounded arithmetic expressions over
-declared stocks, parameters, constants, auxiliaries and `time`; rate identifiers are not expression inputs in v1. The identifier `time` is reserved. The the recursive-descent expression parser is
+declared stocks, parameters, constants, auxiliaries and `time`; rate identifiers are not expression inputs in v1. The identifier `time` is reserved. The recursive-descent expression parser is
 the only path from text to computation. There is no eval and no I/O. Stocks
 integrate the net of their declared inflows and outflows with the classic
 midpoint (improved Euler) step:
