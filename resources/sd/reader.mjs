@@ -84,6 +84,7 @@ function readAll(text){
       }
     }
     if(c==='"')return readString();
+    if(c===')')throw fail('mithril.mith.reader/unexpected-close','unexpected closing parenthesis');
     return readAtom();
   }
   for(;;){

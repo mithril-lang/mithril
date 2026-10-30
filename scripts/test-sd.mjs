@@ -128,3 +128,15 @@ test('end-to-end: .mith source runs through the pure-JS reader and runtime', asy
   const sized = run(['run', new URL('../examples/sd/programs.mith', import.meta.url).pathname, 'growth', '50']);
   assert.ok(sized.times.length <= 51);
 });
+
+test('reader rejects stray closing parentheses without hanging', () => {
+  assert.throws(() => parseMith(')'), /closing parenthesis/);
+  assert.throws(() => parseMith('(rdf/iri \"urn:x\"))'), /closing parenthesis/);
+});
+test('zero interior samples and unavailable rate identifiers fail safely', () => {
+  const run = R.integrate(expModel, {dt: 0.01, horizon: 1, maxSamples: 0});
+  assert.deepEqual(run.times, [0, 1]);
+  assert.equal(run.stocks.P.length, 2);
+  assert.throws(() => R.integrate({stocks: [{id: 'time'}]}, {dt: 1, horizon: 1}), /identifier/);
+  assert.throws(() => R.integrate({stocks: [{id: 'x'}], rates: [{id: 'r', target: 'x', direction: 'in', expression: '1'}, {id: 'other', target: 'x', direction: 'in', expression: 'r'}]}, {dt: 1, horizon: 1}), /unknown identifier/);
+});

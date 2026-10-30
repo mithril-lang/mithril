@@ -103,7 +103,7 @@ function validateModel(model){
     return rows.map(row=>{
       if(!row||typeof row!=='object'||Array.isArray(row))throw Error('SD '+label+' must be an object');
       const id=identifier(row.id,'SD '+label+' ID');
-      if(!safeId(id))throw Error('SD '+label+' ID is not a safe identifier');
+      if(!safeId(id)||id==='time')throw Error('SD '+label+' ID is not a safe identifier');
       if(ids.has(id))throw Error('duplicate SD identifier: '+id);
       ids.add(id);
       const out={id};
@@ -130,7 +130,7 @@ function validateModel(model){
     if(!['in','out'].includes(r.direction))throw Error('rate direction must be in or out');
     if(!stockIds.has(r.target))throw Error('rate target is not a stock: '+r.target);
   }
-  const known=new Set([...stocks.map(s=>s.id),...parameters.map(p=>p.id),...constants.map(c=>c.id),...auxiliaries.map(a=>a.id),...rates.map(r=>r.id),'time']);
+  const known=new Set([...stocks.map(s=>s.id),...parameters.map(p=>p.id),...constants.map(c=>c.id),...auxiliaries.map(a=>a.id),'time']);
   const visit=(node,allowSelf)=>{
     if(node.op==='var'&&!known.has(node.name))throw Error('unknown identifier in expression: '+node.name);
     (node.args||[]).forEach(a=>visit(a,allowSelf));
@@ -189,7 +189,7 @@ function integrate(model,spec={}){
   if(steps>MAX_STEPS)throw Error('integration step budget exceeded');
   const state={};
   for(const s of m.stocks)state[s.id]=s.initial;
-  const stride=maxSamples>0?Math.max(1,Math.ceil(steps/Math.max(1,maxSamples))):1;
+  const stride=maxSamples>0?Math.max(1,Math.ceil(steps/Math.max(1,maxSamples))):steps+1;
   const series={},times=[];
   let t=0;
   const record=()=>{times.push(+t.toFixed(12));for(const s of m.stocks)(series[s.id]??=[]).push(state[s.id]);};
