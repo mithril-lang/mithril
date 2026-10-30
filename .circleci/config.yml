@@ -18,7 +18,31 @@ jobs:
             nvm use 24.19.0
             test "$(node --version)" = v24.19.0
             node --test scripts/test-sd.mjs
+  language-site-verify:
+    docker:
+      - image: cimg/base:2026.01
+    steps:
+      - checkout
+      - run:
+          name: Check the language reference and record source-bound hashes
+          command: |
+            set -eu
+            test "$(git rev-parse HEAD)" = "$CIRCLE_SHA1"
+            test -z "$(git status --porcelain)"
+            cd site/lang.mithril.fund
+            for f in index.html styles.css grammar.ebnf; do test -s "$f"; done
+            grep -q 'lang.mithril.fund' index.html
+            grep -q 'grammar.ebnf' index.html
+            grep -q 'JSON-LD' index.html
+            grep -q 'Amu' index.html
+            mkdir -p /tmp/language-site-evidence
+            git rev-parse HEAD > /tmp/language-site-evidence/source-commit.txt
+            sha256sum index.html styles.css grammar.ebnf > /tmp/language-site-evidence/assets.sha256
+      - store_artifacts:
+          path: /tmp/language-site-evidence
+          destination: language-site-evidence
 workflows:
   verify:
     jobs:
       - verify-sd
+      - language-site-verify
