@@ -1,5 +1,6 @@
 (ns mithril.app-test
   (:require [cljs.test :refer [deftest is testing]]
+            [clojure.string :as str]
             [mithril.app :as app]
             [mithril.compiler :as compiler]
             [mithril.execution :as execution]
@@ -74,3 +75,29 @@
         (is (= :mithril.execution/shacl-violation (:mithril/error (ex-data error))))
         (is (= [{:code :shacl/datatype :path :headline :expected :string}]
                (get-in (ex-data error) [:report :errors])))))))
+
+(deftest bounded-report-rows-retain-source-order-and-semantic-validation
+  (let [{:keys [library source]} (fixture)
+        report (-> source
+                   (assoc-in ["app" "template"] "https://mithril.fund/id/template/report")
+                   (assoc-in ["app" "dataShape"] "https://mithril.fund/id/shape/claim-list")
+                   (assoc-in ["app" "reportRows"] ["Inheritance" "Validation" "Refactor"]))
+        artifact (app/compile-document "report.mith" report [library])]
+    (is (= ["Inheritance" "Validation" "Refactor"] (get-in artifact [:app-ir :app :report-rows])))
+    (is (= :executed (:status (execution/execute artifact))))
+    (is (not= (:graph-digest artifact)
+              (:graph-digest (app/compile-document "report.mith" (assoc-in report ["app" "reportRows"] ["Refactor" "Validation" "Inheritance"]) [library]))))
+    (doseq [rows [[] [""] [7] (vec (repeat 21 "row")) [(apply str (repeat 201 "x"))]]]
+      (is (some? (error-code #(app/compile-document "report.mith" (assoc-in report ["app" "reportRows"] rows) [library])))))
+    (is (= :mithril/invalid-report-rows
+           (error-code #(app/compile-document "report.mith" (assoc-in source ["app" "reportRows"] ["row"]) [library]))))))
+
+(deftest report-rows-parse-from-mithril-form
+  (let [{:keys [library]} (fixture)
+        text (-> (read-text "examples/mithril-app-agent-form.mith")
+                 (str/replace "template/dashboard" "template/report")
+                 (str/replace "shape/metric-cards" "shape/claim-list")
+                 (str/replace ":data-shape" ":report-rows [\"Inheritance\" \"Validation\" \"Refactor\"]\n    :data-shape"))
+        artifact (app/compile-text "report.mith" text [library])]
+    (is (= ["Inheritance" "Validation" "Refactor"] (get-in artifact [:app-ir :app :report-rows])))
+    (is (= :executed (:status (execution/execute artifact))))))
