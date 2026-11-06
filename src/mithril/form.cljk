@@ -433,7 +433,7 @@
 
 (defn- rdf-id! [value blank?]
   (when-not (and (string? value)
-                (not (re-find #"[\s<>^@-^_]" value))
+                (not (re-find #"[\s<>\u0000-\u001f]" value))
                 (or (and blank? (re-matches #"_:[A-Za-z0-9_.-]+" value))
                     (re-find #"^[A-Za-z][A-Za-z0-9+.-]*:" value)))
     (fail! :mithril.form/invalid-rdf-iri "RDF data requires an absolute IRI or admitted blank node"))
