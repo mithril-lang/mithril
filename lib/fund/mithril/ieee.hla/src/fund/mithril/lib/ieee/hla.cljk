@@ -1,0 +1,8 @@
+(ns fund.mithril.lib.ieee.hla
+  (:refer-clojure :exclude [resolve])
+  (:require [fund.mithril.lib.interop :as host]))
+(def library-id "fund.mithril.lib.ieee.hla")
+(def operations #{"hla-exercise"})
+(defn resolve [transport] (host/resolve-library transport library-id))
+(defn invoke! [transport member arguments]
+  (host/invoke-library transport library-id operations member arguments))

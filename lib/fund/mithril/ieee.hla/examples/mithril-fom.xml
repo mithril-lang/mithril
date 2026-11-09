@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<objectModel xmlns="http://standards.ieee.org/IEEE1516-2010">
+  <modelIdentification>
+    <name>Mithril Mission Exchange</name><type>FOM</type><version>1.0</version>
+    <modificationDate>2026-10-08</modificationDate><securityClassification>Unclassified</securityClassification>
+    <purpose>Exchange opaque Mithril model payloads in a simulation federation</purpose>
+    <applicationDomain>Simulation</applicationDomain><description>Mithril-specific model; not RPR FOM</description>
+  </modelIdentification>
+  <objects><objectClass><name>HLAobjectRoot</name><sharing>Neither</sharing>
+    <objectClass><name>MithrilEntity</name><sharing>PublishSubscribe</sharing>
+      <attribute><name>State</name><dataType>HLAopaqueData</dataType><updateType>Conditional</updateType>
+        <updateCondition>State change</updateCondition><ownership>DivestAcquire</ownership>
+        <sharing>PublishSubscribe</sharing><transportation>HLAreliable</transportation>
+        <order>TimeStamp</order><semantics>Encoded Mithril state bytes</semantics></attribute>
+    </objectClass>
+  </objectClass></objects>
+  <interactions><interactionClass><name>HLAinteractionRoot</name><sharing>Neither</sharing>
+    <interactionClass><name>MithrilEvent</name><sharing>PublishSubscribe</sharing>
+      <transportation>HLAreliable</transportation><order>TimeStamp</order>
+      <semantics>Opaque event data; no source command execution</semantics>
+      <parameter><name>Payload</name><dataType>HLAopaqueData</dataType><semantics>Model event bytes</semantics></parameter>
+    </interactionClass>
+  </interactionClass></interactions>
+</objectModel>

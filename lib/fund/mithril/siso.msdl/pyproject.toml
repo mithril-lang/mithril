@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fund-mithril-lib-siso-msdl"
+version = "0.4.0"
+requires-python = ">=3.11"
+dependencies = ["fund-mithril-lib-interop @ git+https://github.com/mithril-lang/fund.mithril.lib.interop.git@c622e7ad4ca862416c80c11508ccdb636abd3835", "fund-mithril-lib-xml @ git+https://github.com/mithril-lang/fund.mithril.lib.xml.git@ee4d6d8a1fe1fe693f6e5c2cd26ad175dc4701a9"]
+
+[project.entry-points."mithril.interop.plugins"]
+"fund.mithril.lib.siso.msdl" = "mithril_msdl.plugin:Plugin"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"*" = ["*.json", "*.xml", "*.cljk", "*.kotoba", "*.mith"]
