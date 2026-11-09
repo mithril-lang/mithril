@@ -1,0 +1,19 @@
+(ns fund.mithril.lib.interop
+  (:refer-clojure :exclude [resolve]))
+(def library-id "fund.mithril.lib.interop")
+(defn resolve-library [transport id]
+  (when-not (and (fn? transport) (string? id))
+    (throw (ex-info "explicit transport and library ID are required" {})))
+  (let [binding (transport {"operation" "resolve-library" "libraryId" id})]
+    (when-not (and (= id (get binding "libraryId")) (= id (get binding "pluginId"))
+                   (= 1 (get binding "rpcVersion")))
+      (throw (ex-info "library resolution identity mismatch" {})))
+    binding))
+(defn invoke-library [transport id members member arguments]
+  (when-not (and (fn? transport) (contains? members member) (map? arguments)
+                (not-any? #(contains? arguments %) ["operation" "libraryId" "member" "arguments"]))
+    (throw (ex-info "library operation or arguments refused" {})))
+  (transport {"operation" "library-call" "libraryId" id "member" member "arguments" arguments}))
+(defn resolve [transport] (resolve-library transport library-id))
+(defn invoke! [transport member arguments]
+  (invoke-library transport library-id #{"plugins" "resolve-library"} member arguments))
