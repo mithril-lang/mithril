@@ -62,7 +62,7 @@
         (doseq [[field role] role-fields]
           (when-not (= role (get exports (get loop-spec field)))
             (fail! :mithril/unexported-operation (str field " is not an imported " (name role)))))
-        (when-not (= app-keys (set (keys app-spec)))
+        (when-not (contains? #{app-keys (conj app-keys "reportRows")} (set (keys app-spec)))
           (fail! :mithril/invalid-app "app description has an unknown or missing key"))
         (bounded-text! (get app-spec "name") "name" 80)
         (bounded-text! (get app-spec "description") "description" 240)
@@ -72,6 +72,12 @@
           (fail! :mithril/unknown-template "template is outside the closed app catalog"))
         (when-not (contains? data-shapes (get app-spec "dataShape"))
           (fail! :mithril/unknown-data-shape "dataShape is outside the closed app catalog"))
+        (when (contains? app-spec "reportRows")
+          (let [rows (get app-spec "reportRows")]
+            (when-not (and (= "https://mithril.fund/id/template/report" (get app-spec "template"))
+                           (vector? rows) (<= 1 (count rows) 20))
+              (fail! :mithril/invalid-report-rows "reportRows requires a report and 1 to 20 ordered rows"))
+            (doseq [row rows] (bounded-text! row "report row" 200))))
         {:format app-format
          :media-type compiler/media-type
          :graph-digest (compiler/graph-digest doc)
@@ -81,12 +87,14 @@
                   :import {:library library-id :digest digest}
                   :budget {:max-steps 6 :max-source-bytes 8192}
                   :operations (into {} (map (fn [[field role]] [role (get loop-spec field)]) role-fields))
-                  :app {:name (get app-spec "name")
-                        :description (get app-spec "description")
-                        :headline (get app-spec "headline")
-                        :summary (get app-spec "summary")
-                        :template (get app-spec "template")
-                        :data-shape (get app-spec "dataShape")}
+                  :app (cond-> {:name (get app-spec "name")
+                                :description (get app-spec "description")
+                                :headline (get app-spec "headline")
+                                :summary (get app-spec "summary")
+                                :template (get app-spec "template")
+                                :data-shape (get app-spec "dataShape")}
+                         (contains? app-spec "reportRows")
+                         (assoc :report-rows (get app-spec "reportRows")))
                   :effects [:render/static-document :deploy/self-contained-url]}}))))
 
 (defn compile-text [path text library-artifacts]

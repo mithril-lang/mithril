@@ -87,6 +87,7 @@
   [:shacl/node application-class
    [:shacl/property :name :string 1 1]
    [:shacl/property :headline :string 1 1]
+   [:shacl/property :report-rows :string 0 20]
    [:shacl/property :template :string 1 1
     [:shacl/in
      "https://mithril.fund/id/template/dashboard"
