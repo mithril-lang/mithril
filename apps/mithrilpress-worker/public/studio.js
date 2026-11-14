@@ -609,18 +609,18 @@ function renderDnsMigrationDetail(migration) {
     : "No DS record was visible when ownership was verified.";
   const sourceStatus = dnsStateCaptured
     ? `Captured ${new Date(migration.source_dns_state_captured_at).toLocaleString()} · ${migration.source_record_count ?? "Source zone not uploaded"} records`
-    : "Pending domain ownership proof. MithrilPress has not queried nameserver or DNSSEC state.";
+    : "Pending domain ownership proof. Mithril Sites has not queried nameserver or DNSSEC state.";
   dnsBlock("Captured rollback state", sourceStatus);
   if (dnsStateCaptured) dnsDetails(dnsMigrationWorkflow.lastElementChild, "Captured source nameservers", originalNs);
   if (dnsStateCaptured) dnsDetails(dnsMigrationWorkflow.lastElementChild, "Captured source DNSSEC DS records", originalDs);
 
   const retentionStatus = migration.snapshots_erased_at
-    ? `Private DNS migration snapshots were removed from the active MithrilPress database at ${new Date(migration.snapshots_erased_at).toLocaleString()}. Cloudflare may retain earlier production-backend D1 states for up to 7 days on Workers Free or 30 days on Workers Paid. Hashes and audit receipts remain.`
+    ? `Private DNS migration snapshots were removed from the active Mithril Sites database at ${new Date(migration.snapshots_erased_at).toLocaleString()}. Cloudflare may retain earlier production-backend D1 states for up to 7 days on Workers Free or 30 days on Workers Paid. Hashes and audit receipts remain.`
     : migration.status === "ownership_pending"
-      ? `This unverified ownership challenge expires and is removed from active MithrilPress state at ${migration.snapshot_retention_expires_at ? new Date(migration.snapshot_retention_expires_at).toLocaleString() : "its challenge deadline"}. Cloudflare may retain earlier D1 states during its provider restore window.`
+      ? `This unverified ownership challenge expires and is removed from active Mithril Sites state at ${migration.snapshot_retention_expires_at ? new Date(migration.snapshot_retention_expires_at).toLocaleString() : "its challenge deadline"}. Cloudflare may retain earlier D1 states during its provider restore window.`
       : migration.status === "owner_approved"
         ? "Snapshots are retained while the approved DNS cutover awaits delegation verification or rollback. The inactivity retention window starts after that state is resolved."
-      : `Private DNS snapshot fields become eligible for removal from the active MithrilPress database after 30 days without a state-changing owner action. Cloudflare may retain earlier D1 states during its provider restore window. Current retention deadline: ${migration.snapshot_retention_expires_at ? new Date(migration.snapshot_retention_expires_at).toLocaleString() : "unavailable"}. Opening this plan does not extend the deadline.`;
+      : `Private DNS snapshot fields become eligible for removal from the active Mithril Sites database after 30 days without a state-changing owner action. Cloudflare may retain earlier D1 states during its provider restore window. Current retention deadline: ${migration.snapshot_retention_expires_at ? new Date(migration.snapshot_retention_expires_at).toLocaleString() : "unavailable"}. Opening this plan does not extend the deadline.`;
   dnsBlock("Automatic snapshot removal", retentionStatus);
 
   if (migration.status === "ownership_pending") {
@@ -634,7 +634,7 @@ function renderDnsMigrationDetail(migration) {
   }
 
   if (["source_pending", "source_loaded"].includes(migration.status)) {
-    const block = dnsBlock("2. Upload the source DNS zone", "Paste a complete BIND export from the current authoritative provider. Zone snapshots can contain sensitive TXT values and stay private to this site. MithrilPress removes them from the active database after 30 days without a state-changing owner action, or sooner when you cancel; Cloudflare may retain earlier D1 states during its provider restore window.");
+    const block = dnsBlock("2. Upload the source DNS zone", "Paste a complete BIND export from the current authoritative provider. Zone snapshots can contain sensitive TXT values and stay private to this site. Mithril Sites removes them from the active database after 30 days without a state-changing owner action, or sooner when you cancel; Cloudflare may retain earlier D1 states during its provider restore window.");
     const source = dnsField(block, "Source BIND zone file", { multiline: true, rows: 10, placeholder: "$ORIGIN example.com.\nwww 300 IN A 192.0.2.10" });
     dnsActionButton(block, migration.source_record_count ? "Replace source snapshot" : "Validate source zone", () => {
       void runDnsMigrationAction(migration.id, "source", { zone_file: source.value });
@@ -674,12 +674,12 @@ function renderDnsMigrationDetail(migration) {
       if (!cloudflareDnsImportsEnabled) {
         dnsBlock("Cloudflare import is not enabled", "This deployment keeps provider writes disabled until the import behavior is qualified against an isolated Cloudflare zone. You can review the generated BIND file and stage records manually.");
       } else {
-        const importBlock = dnsBlock("Add only missing source records", `${migration.diff.removed.length} source records are missing. MithrilPress will submit only this missing-record set. The token is used to reread the live Cloudflare zone before and after the write, so it needs Zone Read, DNS Read, and DNS Write scoped to this zone.`);
+        const importBlock = dnsBlock("Add only missing source records", `${migration.diff.removed.length} source records are missing. Mithril Sites will submit only this missing-record set. The token is used to reread the live Cloudflare zone before and after the write, so it needs Zone Read, DNS Read, and DNS Write scoped to this zone.`);
         const importToken = dnsField(importBlock, "Short-lived Cloudflare API token with Zone Read, DNS Read, and DNS Write", {
           type: "password", maxLength: 512, autocomplete: "off", spellcheck: false,
           placeholder: "Paste a zone-scoped token for this request",
         });
-        const confirm = dnsCheck(importBlock, `I reviewed the ${migration.diff.removed.length} missing records and authorize MithrilPress to add only those records to Cloudflare.`);
+        const confirm = dnsCheck(importBlock, `I reviewed the ${migration.diff.removed.length} missing records and authorize Mithril Sites to add only those records to Cloudflare.`);
         dnsActionButton(importBlock, "Import missing records", () => {
           const token = importToken.value;
           importToken.value = "";
@@ -727,7 +727,7 @@ function renderDnsMigrationDetail(migration) {
     const digest = document.createElement("code");
     digest.textContent = migration.approval_digest || "";
     block.append(digest);
-    const confirm = dnsCheck(block, "I reviewed the full DNS record diff and destination import. I understand that the old DS record must be removed before changing nameservers, and that MithrilPress will not make provider or registrar changes.");
+    const confirm = dnsCheck(block, "I reviewed the full DNS record diff and destination import. I understand that the old DS record must be removed before changing nameservers, and that Mithril Sites will not make provider or registrar changes.");
     dnsActionButton(block, "Approve exact DNS diff", () => {
       if (!confirm.checked) {
         showStatus(dnsMigrationStatus, "Review and confirm the exact DNS diff before approval.");
@@ -778,13 +778,13 @@ function renderDnsMigrationDetail(migration) {
         ? "Both recursive resolvers show the approved nameserver set and no DS record. Verify the website, TLS, email delivery, and domain-specific services separately."
         : "Both recursive resolvers show the captured source nameservers and DS state. Verify the website, TLS, and mail service separately.");
     dnsActionButton(block, "Remove snapshots and archive", () => {
-      if (!window.confirm("Remove the private source and destination snapshots from the active MithrilPress database and close the rollback window? Cloudflare may retain earlier D1 states during its provider restore window.")) return;
+      if (!window.confirm("Remove the private source and destination snapshots from the active Mithril Sites database and close the rollback window? Cloudflare may retain earlier D1 states during its provider restore window.")) return;
       void runDnsMigrationAction(migration.id, null, {}, "DELETE");
     }, "domain-remove");
   } else if (!["cancelled", "archived", "owner_approved"].includes(migration.status)) {
-    const block = dnsBlock("Cancel and remove snapshots", "This removes private zone-file content and the ownership TXT value from active MithrilPress state. Cloudflare may retain earlier D1 states during its provider restore window. It does not change DNS or registrar settings.");
+    const block = dnsBlock("Cancel and remove snapshots", "This removes private zone-file content and the ownership TXT value from active Mithril Sites state. Cloudflare may retain earlier D1 states during its provider restore window. It does not change DNS or registrar settings.");
     dnsActionButton(block, "Cancel migration plan", () => {
-      if (!window.confirm("Cancel the plan and remove its zone snapshots from active MithrilPress state? Cloudflare may retain earlier D1 states during its provider restore window. If you already changed the registrar, restore the source nameservers first.")) return;
+      if (!window.confirm("Cancel the plan and remove its zone snapshots from active Mithril Sites state? Cloudflare may retain earlier D1 states during its provider restore window. If you already changed the registrar, restore the source nameservers first.")) return;
       void runDnsMigrationAction(migration.id, null, {}, "DELETE");
     }, "domain-remove");
   }
