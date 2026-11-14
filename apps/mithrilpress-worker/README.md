@@ -1,6 +1,12 @@
-# MithrilPress Worker
+# Mithril Sites Worker
 
-This package is the first host adapter for the MithrilPress content
+Product name: **Mithril Sites** (formerly MithrilPress). Existing package and
+Worker names, `apps/mithrilpress-worker` paths, `/_mithrilpress` APIs,
+`X-MithrilPress-*` headers and stored database identifiers are compatibility
+contracts and remain unchanged. This name change does not migrate data,
+activate hosting/DNS/billing, or establish a production deployment.
+
+This package is the first host adapter for the Mithril Sites content
 model in `src/mithril/sites_cms.cljk` and `ontology/sites-cms-v1.mith`. Platform
 tenant hostname validation is authored in Mithril at
 `apps/mithrilpress-worker/src/platform_hostname.mith` and compiled to the
@@ -24,7 +30,7 @@ explicitly published tenant revision.
   counts. Safe multi-segment source URL paths are preserved for published
   routes; query-based and reserved paths fall back to a slug route and are
   marked for owner review.
-- Chat-first MithrilPress Studio for creating one post or page draft, revising it
+- Chat-first Mithril Sites Studio for creating one post or page draft, revising it
   in a conversation, opening a private preview, and separately approving and
   publishing it. Owners can also save a bounded manually written draft without
   making an AI request.
@@ -59,7 +65,7 @@ explicitly published tenant revision.
 - Owner-guided DNS migration planning with TXT ownership proof, private BIND
   snapshots, exact record comparison, digest-bound cutover approval, and public
   NS/DS verification. Owners retain control of their DNS providers and
-  registrar; MithrilPress does not change nameserver delegation. Zone snapshot
+  registrar; Mithril Sites does not change nameserver delegation. Zone snapshot
   fields are removed from the active D1 state after 30 days without a
   state-changing owner action; the retention window pauses while an approved
   cutover awaits delegation verification or rollback. Cloudflare D1 Time Travel
@@ -108,7 +114,7 @@ service handoff packet](../../docs/operations/mithrilpress-managed-service-hando
 5. Run `npm run dev` to work against local D1.
 
 The D1 migrations use a coordinated sequence because several feature branches
-were created from older schema snapshots. See the [MithrilPress migration
+were created from older schema snapshots. See the [Mithril Sites migration
 order](../../docs/operations/mithrilpress-d1-migrations.md) before rebasing or
 applying a migration.
 
@@ -242,7 +248,7 @@ API retains its broader search behavior.
 
 All other routes stay on Pages static assets, whose requests are free and
 unlimited. Each REST Function request increments the same trigger-enforced D1
-request counters as the MithrilPress Worker: 5,000 requests per site/day and
+request counters as the Mithril Sites Worker: 5,000 requests per site/day and
 25,000 requests across the deployment/day. The publisher verifies the exact
 `mithrilpress` D1 database in the pinned account and binds it as `DB` on a new
 Pages project before the first deployment. It also binds the exact tenant site
@@ -270,7 +276,7 @@ file-by-file read-back.
 Set credentials from the approved local secret store, never on the command
 line. `MITHRILPRESS_EXPECTED_CLOUDFLARE_ACCOUNT_ID` must match
 `CLOUDFLARE_ACCOUNT_ID`; the standalone publisher pins both to the intended
-account (the hosted MithrilPress profile must select `fund-mithril`). Initial
+account (the hosted Mithril Sites profile must select `fund-mithril`). Initial
 publication also requires `CLOUDFLARE_ZONE_ID` to match the separately pinned
 `MITHRILPRESS_EXPECTED_CLOUDFLARE_ZONE_ID`. The zone must read back as
 `mithril.love` and belong to that account. The token needs Pages Read and Write
@@ -565,7 +571,7 @@ write and storage caps; reaching a cap stops the import without a paid fallback.
 | `POST` | `/_mithrilpress/api/dns-migrations/{id}/verify-rollback` | `site:dns-migrate` | Check restored source NS and DS state through the same resolvers. |
 | `GET` | `/wp-json/wp/v2/posts` | public | Read published posts with bounded search, date, order, slug, and pagination filters. |
 | `GET` | `/wp-json/wp/v2/pages` | public | Read published pages with bounded search, date, order, slug, pagination, and page-parent filters. |
-| `GET` / `HEAD` | `/wp-json/wp/v2/posts/{id}` or `/wp-json/wp/v2/pages/{id}` | public | Read one published post or page by its WordPress source ID or MithrilPress API ID. |
+| `GET` / `HEAD` | `/wp-json/wp/v2/posts/{id}` or `/wp-json/wp/v2/pages/{id}` | public | Read one published post or page by its WordPress source ID or Mithril Sites API ID. |
 | `GET` | `/wp-json/wp/v2/media/{id}` | public | Read metadata for a currently published featured or inline image. |
 | `GET` | `/{slug}/` | public | Render one published page or post. |
 
@@ -589,7 +595,7 @@ uploaded by the site owner with WordPress media ID `N`. This retains disclosure
 and same-name accordion behavior but omits WordPress styling, block classes,
 and dimensions.
 Unmapped image elements are removed and counted. Owners must transfer media
-themselves; MithrilPress never fetches WordPress URLs or arbitrary source media.
+themselves; Mithril Sites never fetches WordPress URLs or arbitrary source media.
 Links on the admitted WordPress host are rewritten only when their
 source permalink matches an imported post or page. Unmatched source-host links
 remain pointed at the source and are counted for owner review; unsafe schemes
@@ -652,7 +658,7 @@ Domain attached for each registered `label.sites.mithril.love` hostname. A
 Custom Domain is an exact hostname match: Cloudflare creates its DNS record and
 managed certificate, and no wildcard DNS record or Worker Route is used. This
 keeps unregistered labels from reaching the Worker. Hosting is free to site
-owners; the operator is responsible for provider charges. MithrilPress does not
+owners; the operator is responsible for provider charges. Mithril Sites does not
 bill owners or automatically upgrade a Cloudflare plan.
 
 The 90-domain stop is a first-cohort limit, not completion of the worldwide
@@ -674,9 +680,9 @@ owners remain free; there is no automatic upgrade or owner billing. See the
 [Universal SSL limits](https://developers.cloudflare.com/ssl/edge-certificates/universal-ssl/limitations/), and
 [Advanced Certificate Manager](https://developers.cloudflare.com/ssl/edge-certificates/advanced-certificate-manager/).
 
-MithrilPress does not use Workers for Platforms in the initial design. That
+Mithril Sites does not use Workers for Platforms in the initial design. That
 product's dispatch namespaces isolate and route customer-authored Worker code;
-MithrilPress runs one reviewed renderer over tenant content and does not execute
+Mithril Sites runs one reviewed renderer over tenant content and does not execute
 tenant code. Workers for Platforms is a separate product with its own pricing,
 so it is not required for this shared-renderer design or a provider-level hard
 stop. Revisit it only if tenant-authored code becomes a product requirement.
@@ -684,7 +690,7 @@ See the [Workers for Platforms overview](https://developers.cloudflare.com/cloud
 [dispatch model](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/how-workers-for-platforms-works/),
 and [pricing](https://developers.cloudflare.com/cloudflare-for-platforms/workers-for-platforms/reference/pricing/).
 
-MithrilPress enforces 5,000 HTTP requests per active site per UTC day and
+Mithril Sites enforces 5,000 HTTP requests per active site per UTC day and
 25,000 HTTP requests across the deployment. A read-only shared-counter check
 runs before hostname resolution; when the cap is reached, the Worker returns
 503 without another tenant-registry lookup. After resolution, active-site
@@ -699,14 +705,14 @@ shared cap until 00:00 UTC.
 Application counters do not stop Worker invocations at Cloudflare's billing
 layer. A request at the shared cap still invokes the Worker and performs the
 read-only D1 preflight; unrelated workloads in the same Cloudflare account
-consume the same provider allocations. The Studio shows MithrilPress app
+consume the same provider allocations. The Studio shows Mithril Sites app
 counters, but does not measure all account-wide Worker requests, D1
 reads/writes/storage, or Workers AI neuron usage. Workers Paid has no daily
 request ceiling and meters usage beyond its included allocations; budget alerts
 notify but do not pause or cap usage. Workers Free has an account-wide daily
 request limit and rejects requests after that limit, but this protects
-MithrilPress only if the selected account is confirmed Free and shared account
-usage is bounded. A strict provider-level stop is not provided by MithrilPress's
+Mithril Sites only if the selected account is confirmed Free and shared account
+usage is bounded. A strict provider-level stop is not provided by Mithril Sites's
 app counters. Keep public hosting disabled until the account plan, shared
 usage, and enforceable cost boundary are read back. On Workers Free, D1 daily read/write exhaustion
 or a D1 storage ceiling is returned as a clear 503 and requests fail closed.
@@ -738,7 +744,7 @@ TXT proof, creates the Cloudflare for SaaS hostname only after that proof
 resolves, returns the provider's TLS validation records, and activates the
 tenant mapping only after Cloudflare reports an active hostname and
 certificate and public DNS shows the expected CNAME. The customer adds a
-DNS-only CNAME; MithrilPress never asks for their DNS-provider password and
+DNS-only CNAME; Mithril Sites never asks for their DNS-provider password and
 does not write to their DNS zone.
 
 To enable the feature, the operator must supply `CF_SAAS_API_TOKEN` as a Worker
@@ -786,7 +792,7 @@ The request contains no update or delete operations and uses Cloudflare batch
 `posts`. Cloudflare documents that batch writes use a
 database transaction but DNS propagation is not atomic. The deployment keeps
 the write endpoint disabled until its behavior is qualified against an
-isolated Cloudflare zone. MithrilPress stops if the live zone changed, the
+isolated Cloudflare zone. Mithril Sites stops if the live zone changed, the
 destination has extra or changed records, or the post-write readback is not an
 exact match. The token is not persisted.
 Automatic writes additionally require the destination zone to be `pending` and
@@ -830,7 +836,7 @@ receipts remain. Cloudflare may retain earlier production-backend D1 states
 for up to 7 days on Workers Free or 30 days on Workers Paid, so active-state
 removal is not immediate irreversible erasure. Keep the source DNS zone active
 through the rollback window. After TXT ownership proof,
-MithrilPress sends DNS queries for the domain to Cloudflare and Google public
+Mithril Sites sends DNS queries for the domain to Cloudflare and Google public
 resolvers to capture and check nameserver/DNSSEC state. A registrar transfer is
 separate and may incur at-cost renewal charges.
 
@@ -860,8 +866,8 @@ and sorting use the public parent ID returned for each page: it is the source ID
 only when that parent is also published in the active revision, and `0`
 otherwise.
 Single-item `GET` and `HEAD` routes accept a positive numeric ID. Imported
-entries resolve by their WordPress source ID; MithrilPress-authored entries
-resolve by their MithrilPress API ID. They return only an entry in the active
+entries resolve by their WordPress source ID; Mithril Sites-authored entries
+resolve by their Mithril Sites API ID. They return only an entry in the active
 published revision, so drafts, private previews, superseded revisions, and IDs
 of another post type return 404. Pages expose their parent source ID only when
 that parent is also published in the active revision; otherwise the public
