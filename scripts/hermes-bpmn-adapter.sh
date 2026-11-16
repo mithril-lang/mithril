@@ -15,7 +15,13 @@ fi
 
 profiles_root="$(dirname "${HERMES_HOME}")"
 hermes_root="$(dirname "${profiles_root}")"
-exec kbb --backend sci "${PWD}/bin/mithril-hermes-scheduler.cljk" tick \
+# Repository-owned runner (no kotoba-lang checkout required). KBB=1 restores
+# the external `kbb` tool for hosts that still provide it.
+runner=(node "${PWD}/scripts/run-sci.mjs")
+if [[ "${KBB:-}" == "1" ]] && command -v kbb >/dev/null 2>&1; then
+  runner=(kbb --backend sci)
+fi
+exec "${runner[@]}" "${PWD}/bin/mithril-hermes-scheduler.cljk" tick \
   "${PWD}/examples/hermes-readonly-scheduler.mith" \
   "${PWD}/examples/hermes-readonly-bot.mith" \
   "${profiles_root}" \

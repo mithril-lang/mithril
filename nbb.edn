@@ -1,67 +1,20 @@
 {:paths ["src" "test" "resources" "lib" "examples" "ontology"
-         "../org-w3-json-ld-api/src"
-         "../org-w3-rdf-canon/src"
-         "../org-w3-nquads/src"
-         "../io-multiformats/src"
-         "../io-ipld/src"
-         "../org-ietf-cbor/src"
-         "../org-nist-sha2/src"
-         "../text/src"]
- :deps {io.github.kotoba-lang/org-w3-json-ld-api
-        {:git/url "https://github.com/kotoba-lang/org-w3-json-ld-api.git"
-         :git/sha "ef6a81a3bb2b7cd8a747384ae85e4500f37723e3"}
-        ;; ef6a81a: only a STRING is IRI-coerced under @type @id (§5.3.2), so the
-        ;; Form writes native integers / booleans on IRI keys as they are. It
-        ;; includes 70058cc, which defines a term's prefix before expanding it (JSON-LD
-        ;; 1.1 §4.2.2). Earlier pins left rdfs:subClassOf / domain / range /
-        ;; sh:* / mith:name as literal compact strings in predicate position
-        ;; whenever the map walk reached the term before its prefix. Floor.
-        ;; nquads.core/parse, which mithril.reason uses for .nq/.nt data. Floor.
-        io.github.kotoba-lang/org-w3-nquads
-        {:git/url "https://github.com/kotoba-lang/org-w3-nquads.git"
-         :git/sha "81063f1c02963b8851eeabc88f5d7e22eebb75c4"}
-        io.github.kotoba-lang/org-w3-rdf-canon
-        {:git/url "https://github.com/kotoba-lang/org-w3-rdf-canon.git"
-         :git/sha "e3e9223a48f162d07a1fcd8e2f01531b9c79d157"}
-        io.github.kotoba-lang/oak
-        {:git/url "https://github.com/kotoba-lang/oak.git"
-         ;; 4474497: oak.semantic/entail -- the complete OWL 2 RL table that
-         ;; mithril.reason runs; 2-arity materialize (the domain modules) is
-         ;; unchanged. Floor.
-         :git/sha "4474497d7a84566962d44c4211695259cda2ec10"}
-        io.github.kotoba-lang/datalog
-        {:git/url "https://github.com/kotoba-lang/datalog.git"
-         :git/sha "9c86cc8d1009d4d2e72640a624bb5e0ea6a465e1"}
-        io.github.kotoba-lang/datom-source
-        {:git/url "https://github.com/kotoba-lang/datom-source.git"
-         :git/sha "1c3875df01e816e8188e65c8179f1491c8cdfef8"}
-        io.github.kotoba-lang/org-w3-owl2
-        {:git/url "https://github.com/kotoba-lang/org-w3-owl2.git"
-         ;; 93214e9: owl.rl + owl.rules/supported-rules / supported-vocabulary /
-         ;; vocabulary-status (the capability seam). Same sha oak pins. Floor.
-         :git/sha "93214e91615704fd51534f6b9a2dd4ded821a362"}
-        io.github.kotoba-lang/org-omg-bpmn
-        {:git/url "https://github.com/kotoba-lang/org-omg-bpmn.git"
-         :git/sha "f64eb5cb510bdbdd2a780d30dab4b44bba124720"}
-        io.github.kotoba-lang/sparql
-        {:git/url "https://github.com/kotoba-lang/sparql.git"
-         :git/sha "8809be30fa48eb9a7e11c9a9cb054ea60740001e"}
-        io.github.kotoba-lang/io-ipld
-        {:git/url "https://github.com/kotoba-lang/io-ipld.git"
-         :git/sha "1b21025327e63652e533b54303b5e7b8e11f59ba"}
-        io.github.kotoba-lang/io-ipld-car
-        {:git/url "https://github.com/kotoba-lang/io-ipld-car.git"
-         :git/sha "52fcafbdd02ae34ff27c6e440d9e40cbbe0bf904"}
-        ;; Test-only: the IPQ/1 loopback interoperability test (checkpoint_ipq)
-        ;; requires kotobase.protocols.ipq, which requires kotobase.protocols.core.
-        ;; Both were previously supplied by hand on the classpath. Same shas as
-        ;; deps.edn; both reachable from their default branch (2026-09-25).
-        io.github.kotoba-lang/kotobase-protocol-ipq
-        {:git/url "https://github.com/kotoba-lang/kotobase-protocol-ipq.git"
-         :git/sha "6ad3df76db640494912e96442b6dfa74c55b7efa"}
-        io.github.kotoba-lang/kotobase-protocol-core
-        {:git/url "https://github.com/kotoba-lang/kotobase-protocol-core.git"
-         :git/sha "ca3874d2dababed63bb1c357722c8a38e4a3a812"}
-        io.github.kotoba-lang/org-nist-sha2
-        {:git/url "https://github.com/kotoba-lang/org-nist-sha2.git"
-         :git/sha "ad98470c672d40f207992890dac6bf0473b52199"}}}
+         "vendor/src" "vendor/resources"]
+ ;; mithril does not depend on kotoba-lang. The paths above used to be sibling
+ ;; checkouts ("../org-w3-json-ld-api/src", "../io-multiformats/src", ...) and
+ ;; :deps used to pin io.github.kotoba-lang/* git URLs. Those repositories were
+ ;; removed when kotoba-lang consolidated into the kotoba-lang/kotoba-lang
+ ;; monorepo, so neither form resolved outside a developer's machine.
+ ;;
+ ;; The same code is now committed under vendor/ as a pinned snapshot owned by
+ ;; this repository. See vendor/PROVENANCE.md and vendor/PROVENANCE.json.
+ ;;
+ ;; There is deliberately no :deps key. The vendored code is plain source on
+ ;; the :paths above, so no dependency resolution is needed; leaving an empty
+ ;; :deps {} here makes nbb shell out to `bb uberjar` against a classpath-less
+ ;; cache config, which fails with "The uberjar task needs a classpath".
+ ;; The :deps map previously carried the same pins as deps.edn plus, for the
+ ;; IPQ/1 loopback interoperability test (checkpoint_ipq), kotobase-protocol-ipq
+ ;; and kotobase-protocol-core -- both supplied by hand on the classpath before,
+ ;; same shas as deps.edn. They are vendored too.
+}
