@@ -1,58 +1,44 @@
-{:paths ["src" "resources" "lib" "examples" "ontology"]
- :deps {io.github.kotoba-lang/org-w3-json-ld-api
-        {:git/url "https://github.com/kotoba-lang/org-w3-json-ld-api.git"
-         :git/sha "ef6a81a3bb2b7cd8a747384ae85e4500f37723e3"}
-        ;; ef6a81a: only a STRING is IRI-coerced under @type @id (§5.3.2), so the
-        ;; Form writes native integers / booleans on IRI keys as they are. It
-        ;; includes 70058cc, which defines a term's prefix before expanding it (JSON-LD
-        ;; 1.1 §4.2.2). Earlier pins left rdfs:subClassOf / domain / range /
-        ;; sh:* / mith:name as literal compact strings in predicate position
-        ;; whenever the map walk reached the term before its prefix. Floor.
-        ;; nquads.core/parse, which mithril.reason uses for .nq/.nt data. Floor.
-        io.github.kotoba-lang/org-w3-nquads
-        {:git/url "https://github.com/kotoba-lang/org-w3-nquads.git"
-         :git/sha "81063f1c02963b8851eeabc88f5d7e22eebb75c4"}
-        io.github.kotoba-lang/org-w3-rdf-canon
-        {:git/url "https://github.com/kotoba-lang/org-w3-rdf-canon.git"
-         :git/sha "e3e9223a48f162d07a1fcd8e2f01531b9c79d157"}
-        io.github.kotoba-lang/oak
-        {:git/url "https://github.com/kotoba-lang/oak.git"
-         ;; 4474497: oak.semantic/entail -- the complete OWL 2 RL table that
-         ;; mithril.reason runs; 2-arity materialize (the domain modules) is
-         ;; unchanged. Floor.
-         :git/sha "4474497d7a84566962d44c4211695259cda2ec10"}
-        io.github.kotoba-lang/datalog
-        {:git/url "https://github.com/kotoba-lang/datalog.git"
-         :git/sha "9c86cc8d1009d4d2e72640a624bb5e0ea6a465e1"}
-        io.github.kotoba-lang/datom-source
-        {:git/url "https://github.com/kotoba-lang/datom-source.git"
-         :git/sha "1c3875df01e816e8188e65c8179f1491c8cdfef8"}
-        io.github.kotoba-lang/org-w3-owl2
-        {:git/url "https://github.com/kotoba-lang/org-w3-owl2.git"
-         ;; 93214e9: owl.rl + owl.rules/supported-rules / supported-vocabulary /
-         ;; vocabulary-status (the capability seam). Same sha oak pins. Floor.
-         :git/sha "93214e91615704fd51534f6b9a2dd4ded821a362"}
-        io.github.kotoba-lang/org-omg-bpmn
-        {:git/url "https://github.com/kotoba-lang/org-omg-bpmn.git"
-         :git/sha "f64eb5cb510bdbdd2a780d30dab4b44bba124720"}
-        io.github.kotoba-lang/sparql
-        {:git/url "https://github.com/kotoba-lang/sparql.git"
-         :git/sha "8809be30fa48eb9a7e11c9a9cb054ea60740001e"}
-        io.github.kotoba-lang/org-nist-sha2
-        {:git/url "https://github.com/kotoba-lang/org-nist-sha2.git"
-         :git/sha "ad98470c672d40f207992890dac6bf0473b52199"}
-        io.github.kotoba-lang/io-ipld
-        {:git/url "https://github.com/kotoba-lang/io-ipld.git"
-         :git/sha "1b21025327e63652e533b54303b5e7b8e11f59ba"}
-        ;; Verified GET/PUT /ipld/:cid client for opt-in remote reason evidence.
-        io.github.kotoba-lang/kotobase-client
-        {:git/url "https://github.com/kotoba-lang/kotobase-client.git"
-         :git/sha "8d88d43d6294a02972a0f53db09e92e2bfdcfeaa"}
-        ;; CAR selection and trustless replay for portable CID history proofs.
-        io.github.kotoba-lang/io-ipld-car
-        {:git/url "https://github.com/kotoba-lang/io-ipld-car.git"
-         :git/sha "52fcafbdd02ae34ff27c6e440d9e40cbbe0bf904"}
-        ;; The same IPQ/1 handler backs the loopback HTTP interoperability test.
-        io.github.kotoba-lang/kotobase-protocol-ipq
-        {:git/url "https://github.com/kotoba-lang/kotobase-protocol-ipq.git"
-         :git/sha "6ad3df76db640494912e96442b6dfa74c55b7efa"}}}
+{:paths ["src" "resources" "lib" "examples" "ontology" "vendor/src" "vendor/resources"]
+ ;; mithril does not depend on kotoba-lang.
+ ;;
+ ;; Everything in :deps below used to be a git pin on
+ ;; https://github.com/kotoba-lang/<repo>.git. Those repositories were removed
+ ;; when kotoba-lang consolidated all of its code into the
+ ;; kotoba-lang/kotoba-lang monorepo, so every one of these pins stopped
+ ;; resolving ("Error building classpath. Unable to clone
+ ;; https://github.com/kotoba-lang/io-ipld.git: could not read Username") and
+ ;; took the codegraph gate down with it.
+ ;;
+ ;; The code is now committed here, under vendor/, as a pinned snapshot that
+ ;; this repository owns. Nothing in the build clones, fetches, or calls a
+ ;; kotoba-lang repository, package registry, or service. Per-file provenance
+ ;; (source repository, source revision, source path, SHA-256) is in
+ ;; vendor/PROVENANCE.json; vendor/PROVENANCE.md explains the layout.
+ ;;
+ ;; The namespaces are unchanged, so no :require form in mithril source moved.
+ ;; The pin rationale is kept verbatim below because it is design history; the
+ ;; revision each note refers to is recorded in vendor/PROVENANCE.json.
+ ;;
+ ;;   org-w3-json-ld-api ef6a81a: only a STRING is IRI-coerced under @type @id
+ ;;   (§5.3.2), so the Form writes native integers / booleans on IRI keys as
+ ;;   they are. It includes 70058cc, which defines a term's prefix before
+ ;;   expanding it (JSON-LD 1.1 §4.2.2). Earlier pins left rdfs:subClassOf /
+ ;;   domain / range / sh:* / mith:name as literal compact strings in predicate
+ ;;   position whenever the map walk reached the term before its prefix. Floor.
+ ;;   nquads.core/parse, which mithril.reason uses for .nq/.nt data. Floor.
+ ;;
+ ;;   oak 4474497: oak.semantic/entail -- the complete OWL 2 RL table that
+ ;;   mithril.reason runs; 2-arity materialize (the domain modules) is
+ ;;   unchanged. Floor.
+ ;;
+ ;;   org-w3-owl2 93214e9: owl.rl + owl.rules/supported-rules /
+ ;;   supported-vocabulary / vocabulary-status (the capability seam). Same sha
+ ;;   oak pins. Floor.
+ ;;
+ ;;   kotobase-client: verified GET/PUT /ipld/:cid client for opt-in remote
+ ;;   reason evidence.
+ ;;   io-ipld-car: CAR selection and trustless replay for portable CID history
+ ;;   proofs.
+ ;;   kotobase-protocol-ipq: the same IPQ/1 handler backs the loopback HTTP
+ ;;   interoperability test.
+ :deps {}}

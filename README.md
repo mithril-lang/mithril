@@ -2009,7 +2009,7 @@ live target or a secret is refused.
 ## Run
 
 ```sh
-CP=src:../org-w3-json-ld-api/src:../org-w3-rdf-canon/src:../org-w3-nquads/src:../io-multiformats/src:../text/src:../org-nist-sha2/src
+CP=src:vendor/src:vendor/resources
 kbb --backend sci --classpath "$CP" bin/mithril.cljk compile examples/tender.mith
 kbb --backend sci --classpath "$CP" bin/mithril.cljk compile-ontology ontology/semantic-core-v1.mith
 kbb --backend sci --classpath "$CP" bin/mithril.cljk compile-library lib/web/v1.mith
