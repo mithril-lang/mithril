@@ -1,7 +1,7 @@
 {:paths ["src" "resources" "lib" "examples" "ontology" "vendor/src" "vendor/resources"]
  ;; mithril does not depend on kotoba-lang.
  ;;
- ;; Everything in :deps below used to be a git pin on
+ ;; The git pins that used to be declared here were all on
  ;; https://github.com/kotoba-lang/<repo>.git. Those repositories were removed
  ;; when kotoba-lang consolidated all of its code into the
  ;; kotoba-lang/kotoba-lang monorepo, so every one of these pins stopped
@@ -41,4 +41,4 @@
  ;;   proofs.
  ;;   kotobase-protocol-ipq: the same IPQ/1 handler backs the loopback HTTP
  ;;   interoperability test.
- :deps {}}
+}
