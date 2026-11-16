@@ -1,0 +1,9 @@
+// Mithril native JS host module; explicit grants; native runtime semantics.
+export function instantiateMithrilNative(__mithril_native_grants){
+if(__mithril_native_grants===null||typeof __mithril_native_grants!=='object')throw new Error('host-grant-mismatch');
+const __mithril_native_keys=Reflect.ownKeys(__mithril_native_grants);
+if(__mithril_native_keys.length!==0||__mithril_native_keys.some(k=>![].includes(k)))throw new Error('host-grant-mismatch');
+const __mithril_native_f0=function normalizeWordPressBlockName(__mithril_native_v1){return (()=>{const __mithril_native_v2=(__mithril_native_v1)["toLowerCase"]();const __mithril_native_v3=((__mithril_native_v2)["includes"]("/")?__mithril_native_v2:("core/" + __mithril_native_v2));return __mithril_native_v3;})();};
+const __mithril_native_f1=function classifyWordPressBlock(__mithril_native_v4){return ((["core/paragraph","core/details","core/heading","core/list","core/list-item","core/quote","core/pullquote","core/code","core/preformatted","core/separator","core/table","core/html","core/freeform","core/verse","core/image"])["includes"](__mithril_native_v4)?"static":((["core/group","core/columns","core/column","core/buttons","core/button","core/gallery","core/cover","core/media-text","core/spacer"])["includes"](__mithril_native_v4)?"layout-degraded":((["core/latest-posts","core/query","core/query-title","core/post-template","core/post-title","core/post-content","core/post-date","core/post-author","core/post-excerpt","core/post-featured-image","core/site-title","core/site-tagline","core/site-logo","core/navigation","core/search","core/widget-area","core/legacy-widget","core/shortcode","core/embed","core/audio","core/video","core/file","core/block"])["includes"](__mithril_native_v4)?"dynamic":"unknown")));};
+return {["normalizeWordPressBlockName"]:__mithril_native_f0,["classifyWordPressBlock"]:__mithril_native_f1};
+}

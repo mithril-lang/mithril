@@ -1,0 +1,34 @@
+(mithril/native-js-declaration-module :name "loader.diff"
+:runtime "loader.diff"
+:ambient-types []
+:ambient-values []
+:imports [(rdf/node :module "cordis"
+:type-only true
+:names [(rdf/node :import "Plugin"
+:local "Plugin")])]
+:declarations [(rdf/node :kind "function"
+:name "equalExceptVolatile"
+:exported true
+:type-params []
+:params [(rdf/node :name "previous"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "unknown"))
+(rdf/node :name "next"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "unknown"))
+(rdf/node :name "schema"
+:optional false
+:rest false
+:datatype (rdf/node :op "index"
+:object (rdf/node :op "name"
+:name "Plugin.Runtime"
+:args [])
+:key (rdf/node :op "literal"
+:value "Config")))]
+:returns (rdf/node :op "keyword"
+:name "boolean"))]
+:reexports [])

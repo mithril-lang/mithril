@@ -1,0 +1,16 @@
+(mithril/native-js-module
+ :name "native.abstractEquality" :imports []
+ :functions [
+ (mithril/function :name "equal" :params [(rdf/node :name "left" :datatype "js-value") (rdf/node :name "right" :datatype "js-value")]
+  :returns "js-value" :body (mithril/host-binary :operator "==" :left (mithril/local :name "left") :right (mithril/local :name "right")))
+ (mithril/function :name "unequal" :params [(rdf/node :name "left" :datatype "js-value") (rdf/node :name "right" :datatype "js-value")]
+  :returns "js-value" :body (mithril/host-binary :operator "!=" :left (mithril/local :name "left") :right (mithril/local :name "right")))
+ (mithril/function :name "orderedEqual" :params [(rdf/node :name "left" :datatype "js-value") (rdf/node :name "right" :datatype "js-value")]
+  :returns "js-value" :body (mithril/host-binary :operator "=="
+   :left (mithril/host-invoke :function (mithril/local :name "left") :args [])
+   :right (mithril/host-invoke :function (mithril/local :name "right") :args [])))
+ (mithril/function :name "orderedUnequal" :params [(rdf/node :name "left" :datatype "js-value") (rdf/node :name "right" :datatype "js-value")]
+  :returns "js-value" :body (mithril/host-binary :operator "!="
+   :left (mithril/host-invoke :function (mithril/local :name "left") :args [])
+   :right (mithril/host-invoke :function (mithril/local :name "right") :args [])))]
+ :exports ["equal" "unequal" "orderedEqual" "orderedUnequal"])

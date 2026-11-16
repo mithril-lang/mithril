@@ -1,0 +1,266 @@
+; Native call/loop syntax controls; Fiber getter/disposal bodies are extracted controls, not whole Fiber.
+(mithril/native-js-module
+ :name "cordis.corePrerequisites"
+ :imports ["callee"
+ "arg"
+ "spread"
+ "body"
+ "condition"
+ "result"
+ "record"
+ "object"
+ "key"
+ "iterator"]
+ :functions []
+ :exports [(rdf/node
+  :name "callSpread"
+  :value (mithril/native-function
+   :name "callSpread"
+   :params []
+   :rest nil
+   :body (mithril/host-invoke-items
+    :function (mithril/host-invoke :function (mithril/host-import :name "callee") :args [])
+    :items [(rdf/node :value (mithril/host-invoke :function (mithril/host-import :name "arg") :args [(mithril/literal :datatype "js-value" :value "first")]))
+    (rdf/node :spread (mithril/host-invoke :function (mithril/host-import :name "spread") :args [(mithril/literal :datatype "js-value" :value "one")]))
+    (rdf/node :value (mithril/host-invoke :function (mithril/host-import :name "arg") :args [(mithril/literal :datatype "js-value" :value "middle")]))
+    (rdf/node :spread (mithril/host-invoke :function (mithril/host-import :name "spread") :args [(mithril/literal :datatype "js-value" :value "two")]))
+    (rdf/node :value (mithril/host-invoke :function (mithril/host-import :name "arg") :args [(mithril/literal :datatype "js-value" :value "last")]))])
+   :statements false))
+ (rdf/node
+  :name "optional"
+  :value (mithril/native-function
+   :name "optional"
+   :params []
+   :rest nil
+   :body (mithril/host-optional-invoke
+    :function (mithril/host-invoke :function (mithril/host-import :name "callee") :args [])
+    :args [(mithril/host-invoke :function (mithril/host-import :name "arg") :args [(mithril/literal :datatype "js-value" :value "first")])])
+   :statements false))
+ (rdf/node
+  :name "optionalSpread"
+  :value (mithril/native-function
+   :name "optionalSpread"
+   :params []
+   :rest nil
+   :body (mithril/host-optional-invoke-items
+    :function (mithril/host-invoke :function (mithril/host-import :name "callee") :args [])
+    :items [(rdf/node :value (mithril/host-invoke :function (mithril/host-import :name "arg") :args [(mithril/literal :datatype "js-value" :value "first")]))
+    (rdf/node :spread (mithril/host-invoke :function (mithril/host-import :name "spread") :args [(mithril/literal :datatype "js-value" :value "one")]))
+    (rdf/node :value (mithril/host-invoke :function (mithril/host-import :name "arg") :args [(mithril/literal :datatype "js-value" :value "middle")]))
+    (rdf/node :spread (mithril/host-invoke :function (mithril/host-import :name "spread") :args [(mithril/literal :datatype "js-value" :value "two")]))
+    (rdf/node :value (mithril/host-invoke :function (mithril/host-import :name "arg") :args [(mithril/literal :datatype "js-value" :value "last")]))])
+   :statements false))
+ (rdf/node
+  :name "optionalPropertyValue"
+  :value (mithril/native-function
+   :name "optionalPropertyValue"
+   :params []
+   :rest nil
+   :body (mithril/host-optional-invoke
+    :function (mithril/host-get
+     :object (mithril/host-invoke :function (mithril/host-import :name "object") :args [])
+     :key (mithril/host-invoke :function (mithril/host-import :name "key") :args []))
+    :args [(mithril/host-invoke :function (mithril/host-import :name "arg") :args [(mithril/literal :datatype "js-value" :value "first")])])
+   :statements false))
+ (rdf/node
+  :name "doLoop"
+  :value (mithril/native-function
+   :name "doLoop"
+   :params []
+   :rest nil
+   :body (mithril/host-do-while
+    :body (mithril/host-invoke :function (mithril/host-import :name "body") :args [])
+    :condition (mithril/host-invoke :function (mithril/host-import :name "condition") :args [])
+    :result (mithril/host-invoke :function (mithril/host-import :name "result") :args []))
+   :statements true))
+ (rdf/node
+  :name "expressionLoop"
+  :value (mithril/native-function
+   :name "expressionLoop"
+   :params []
+   :rest nil
+   :body (mithril/host-do-while
+    :body (mithril/host-invoke :function (mithril/host-import :name "body") :args [])
+    :condition (mithril/host-invoke :function (mithril/host-import :name "condition") :args [])
+    :result (mithril/host-invoke :function (mithril/host-import :name "result") :args []))
+   :statements false))
+ (rdf/node
+  :name "finallyLoop"
+  :value (mithril/native-function
+   :name "finallyLoop"
+   :params []
+   :rest nil
+   :body (mithril/host-do-while
+    :body (mithril/host-try-finally
+     :body (mithril/let
+      :bindings [(rdf/node :name "token" :value (mithril/host-invoke :function (mithril/host-import :name "body") :args []))]
+      :body (mithril/sequence
+       :expressions [(mithril/if
+        :condition (mithril/host-binary :operator "===" :left (mithril/local :name "token") :right (mithril/literal :datatype "js-value" :value "continue"))
+        :then (mithril/host-continue )
+        :else (mithril/host-undefined ))
+       (mithril/if
+        :condition (mithril/host-binary :operator "===" :left (mithril/local :name "token") :right (mithril/literal :datatype "js-value" :value "break"))
+        :then (mithril/host-break )
+        :else (mithril/host-undefined ))
+       (mithril/if
+        :condition (mithril/host-binary :operator "===" :left (mithril/local :name "token") :right (mithril/literal :datatype "js-value" :value "return"))
+        :then (mithril/host-return :value (mithril/local :name "token"))
+        :else (mithril/host-undefined ))]))
+     :finally (mithril/host-invoke :function (mithril/host-import :name "record") :args [(mithril/literal :datatype "js-value" :value "finally")]))
+    :condition (mithril/host-invoke :function (mithril/host-import :name "condition") :args [])
+    :result (mithril/host-invoke :function (mithril/host-import :name "result") :args []))
+   :statements true))
+ (rdf/node
+  :name "returnLoop"
+  :value (mithril/native-function
+   :name "returnLoop"
+   :params []
+   :rest nil
+   :body (mithril/host-do-while
+    :body (mithril/host-return :value (mithril/host-invoke :function (mithril/host-import :name "body") :args []))
+    :condition (mithril/host-invoke :function (mithril/host-import :name "condition") :args [])
+    :result (mithril/host-invoke :function (mithril/host-import :name "result") :args []))
+   :statements true))
+ (rdf/node
+  :name "outerClose"
+  :value (mithril/native-function
+   :name "outerClose"
+   :params []
+   :rest nil
+   :body (mithril/host-for-of
+    :iterable (mithril/host-import :name "iterator")
+    :binding "entry"
+    :body (mithril/host-do-while
+     :body (mithril/host-return :value (mithril/local :name "entry"))
+     :condition (mithril/host-invoke :function (mithril/host-import :name "condition") :args [])
+     :result (mithril/host-undefined ))
+    :result (mithril/host-invoke :function (mithril/host-import :name "result") :args []))
+   :statements true))
+ (rdf/node
+  :name "voidCall"
+  :value (mithril/native-function
+   :name "voidCall"
+   :params []
+   :rest nil
+   :body (mithril/host-unary :operator "void" :value (mithril/host-invoke :function (mithril/host-import :name "body") :args []))
+   :statements false))
+ (rdf/node
+  :name "asyncLoop"
+  :value (mithril/native-function
+   :name "asyncLoop"
+   :params []
+   :rest nil
+   :body (mithril/host-do-while
+    :body (mithril/host-await :value (mithril/host-invoke :function (mithril/host-import :name "body") :args []))
+    :condition (mithril/host-await :value (mithril/host-invoke :function (mithril/host-import :name "condition") :args []))
+    :result (mithril/host-await :value (mithril/host-invoke :function (mithril/host-import :name "result") :args [])))
+   :statements true
+   :async true))
+ (rdf/node
+  :name "asyncGeneratorLoop"
+  :value (mithril/native-function
+   :name "asyncGeneratorLoop"
+   :params []
+   :rest nil
+   :body (mithril/host-do-while
+    :body (mithril/host-yield :value (mithril/host-await :value (mithril/host-invoke :function (mithril/host-import :name "body") :args [])))
+    :condition (mithril/host-await :value (mithril/host-invoke :function (mithril/host-import :name "condition") :args []))
+    :result (mithril/host-await :value (mithril/host-invoke :function (mithril/host-import :name "result") :args [])))
+   :statements true
+   :generator true
+   :async true))
+ (rdf/node
+  :name "generatorLoop"
+  :value (mithril/native-function
+   :name "generatorLoop"
+   :params []
+   :rest nil
+   :body (mithril/host-do-while
+    :body (mithril/host-yield :value (mithril/host-invoke :function (mithril/host-import :name "body") :args []))
+    :condition (mithril/host-yield :value (mithril/host-invoke :function (mithril/host-import :name "condition") :args []))
+    :result (mithril/host-yield :value (mithril/host-invoke :function (mithril/host-import :name "result") :args [])))
+   :statements true
+   :generator true))
+ (rdf/node
+  :name "asyncOptionalSpread"
+  :value (mithril/native-function
+   :name "asyncOptionalSpread"
+   :params []
+   :rest nil
+   :body (mithril/host-optional-invoke-items
+    :function (mithril/host-await :value (mithril/host-invoke :function (mithril/host-import :name "callee") :args []))
+    :items [(rdf/node
+     :value (mithril/host-await :value (mithril/host-invoke :function (mithril/host-import :name "arg") :args [(mithril/literal :datatype "js-value" :value "first")])))
+    (rdf/node
+     :spread (mithril/host-await :value (mithril/host-invoke :function (mithril/host-import :name "spread") :args [(mithril/literal :datatype "js-value" :value "one")])))])
+   :statements false
+   :async true))
+ (rdf/node
+  :name "yieldOptionalSpread"
+  :value (mithril/native-function
+   :name "yieldOptionalSpread"
+   :params []
+   :rest nil
+   :body (mithril/host-optional-invoke-items
+    :function (mithril/host-yield :value (mithril/host-invoke :function (mithril/host-import :name "callee") :args []))
+    :items [(rdf/node
+     :value (mithril/host-yield :value (mithril/host-invoke :function (mithril/host-import :name "arg") :args [(mithril/literal :datatype "js-value" :value "first")])))
+    (rdf/node
+     :spread (mithril/host-yield :value (mithril/host-invoke :function (mithril/host-import :name "spread") :args [(mithril/literal :datatype "js-value" :value "one")])))])
+   :statements false
+   :generator true))
+ (rdf/node
+  :name "runDisposable"
+  :value (mithril/native-function
+   :name "runDisposable"
+   :params [(rdf/node :name "dispose" :datatype "js-value")
+   (rdf/node :name "inertia" :datatype "js-value")]
+   :rest nil
+   :body (mithril/let
+    :bindings [(rdf/node :name "result" :value (mithril/host-invoke :function (mithril/local :name "dispose") :args []))]
+    :body (mithril/host-logical
+     :operator "??"
+     :left (mithril/host-optional-invoke
+      :function (mithril/host-method :object (mithril/local :name "inertia") :key (mithril/literal :datatype "js-value" :value "get") :args [(mithril/local :name "dispose")])
+      :args [])
+     :right (mithril/local :name "result")))
+   :statements true))
+ (rdf/node
+  :name "FiberNameFixture"
+  :value (mithril/native-class
+   :name "FiberNameFixture"
+   :extends nil
+   :constructor nil
+   :members [(rdf/node
+    :kind "get"
+    :static false
+    :key (mithril/literal :datatype "js-value" :value "name")
+    :params []
+    :rest nil
+    :statements true
+    :body (mithril/let
+     :bindings [(rdf/node :name "fiber" :value (mithril/host-this ) :mutable true)]
+     :body (mithril/host-do-while
+      :body (mithril/sequence
+       :expressions [(mithril/if
+        :condition (mithril/host-optional-get
+         :object (mithril/host-get :object (mithril/local :name "fiber") :key (mithril/literal :datatype "js-value" :value "runtime"))
+         :key (mithril/literal :datatype "js-value" :value "name"))
+        :then (mithril/host-return
+         :value (mithril/host-get
+          :object (mithril/host-get :object (mithril/local :name "fiber") :key (mithril/literal :datatype "js-value" :value "runtime"))
+          :key (mithril/literal :datatype "js-value" :value "name")))
+        :else (mithril/host-undefined ))
+       (mithril/local-set
+        :name "fiber"
+        :value (mithril/host-get
+         :object (mithril/host-get :object (mithril/local :name "fiber") :key (mithril/literal :datatype "js-value" :value "parent"))
+         :key (mithril/literal :datatype "js-value" :value "fiber")))])
+      :condition (mithril/host-binary
+       :operator "!=="
+       :left (mithril/local :name "fiber")
+       :right (mithril/host-get
+        :object (mithril/host-get :object (mithril/local :name "fiber") :key (mithril/literal :datatype "js-value" :value "parent"))
+        :key (mithril/literal :datatype "js-value" :value "fiber")))
+      :result (mithril/host-return :value (mithril/literal :datatype "js-value" :value "root")))))]))])

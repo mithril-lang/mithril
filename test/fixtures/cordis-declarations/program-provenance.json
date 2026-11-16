@@ -1,0 +1,100 @@
+{
+  "format": "mithril.cordis-program-declarations/v1",
+  "upstream": "441416c0048aa4281bffe59c1c7b5e13e08a9ec1",
+  "typescript": "6.0.3",
+  "scope": "Original nine Cordis TS sources with actual Cordis/base options, explicit pinned external type adapters, non-build program emit and skipLibCheck=false; not whole repository/project-reference/bundle build",
+  "adapters": {
+    "original_base_and_cordis_options": true,
+    "external_cosmokit_dts": "../cosmokit-declarations/index.d.ts",
+    "external_spec_dts": "standard-schema/index.d.ts",
+    "node_types": "26.6.3",
+    "undici_types": "8.9.0",
+    "rootDir": "original vendor/cordis/src",
+    "composite": false,
+    "incremental": false,
+    "emitDeclarationOnly": true,
+    "skipLibCheck": false,
+    "declaration": true,
+    "declarationMap": false,
+    "sourceMap": false,
+    "tsBuildInfoFile": null,
+    "project_references_not_built": true
+  },
+  "config_diagnostics": [],
+  "diagnostics": [],
+  "emitSkipped": false,
+  "outputs": {
+    "logger.d.ts": {
+      "bytes": 3706,
+      "sha256": "71087395cc862f52662ab2629a0f3838f8f2aaf84eb40c97f4f4004f2fcbbed6"
+    },
+    "service.d.ts": {
+      "bytes": 2573,
+      "sha256": "489ec23ef8dc0e869cf3d8d77a39ba83ab24e5e71362320f5662491b3dc5bd04"
+    },
+    "index.d.ts": {
+      "bytes": 823,
+      "sha256": "958249889830102ac7af78a89c28ba3ca2a5d51037a5392850b3fbbc33d58862"
+    },
+    "utils.d.ts": {
+      "bytes": 2709,
+      "sha256": "967b227fad024ba8a7c32127534089bce5adc800840b0288f44d41c4c849278e"
+    },
+    "registry.d.ts": {
+      "bytes": 8866,
+      "sha256": "ffd229492af3cb444c01e8e51a78dfdbed670940bac40dde083675d57d6984fc"
+    },
+    "reflect.d.ts": {
+      "bytes": 8290,
+      "sha256": "57cdef8252cb041b4b646cc9e80dcb27d2180bb78fcf95761136d99be4079cb3"
+    },
+    "fiber.d.ts": {
+      "bytes": 8395,
+      "sha256": "2f9ce62ec7dcb4af1c3ea4b97b478290bc58ac7e8ad23e588d02c752d563665b"
+    },
+    "events.d.ts": {
+      "bytes": 12168,
+      "sha256": "7534f0f4bce02f022031fa55e263b67beee3fb45bb62e65e7c6ef0ea8501ef19"
+    },
+    "context.d.ts": {
+      "bytes": 4712,
+      "sha256": "1e2e6cfcab26ae01d7f2dd1f78a1d25ddb7f3b2e27f50c9eb3b54ee206a87884"
+    }
+  },
+  "external_types": {
+    "cosmokit": "731fdb0be8334e6c621cc14fa9a61a1f6b0f2a38ffcb5b8d5f47b07aac068a4b",
+    "spec": "bdd14f07b4eca0b4b5203b85b8dbc4d084c749fa590bee5ea613e1641dcd3b29",
+    "spec_version": "1.1.0",
+    "spec_integrity": "sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w=="
+  },
+  "source_hashes": {
+    "context.ts": "96b388162d6013c1898de61e35f28917abb93809de24174980f2a1a348d0b115",
+    "events.ts": "9aff93dcfcad98aebb692c19c36d3bf034a96f9085bc66900a997cda3f79e6fe",
+    "fiber.ts": "b7661d6c19be76cef6b97d88719a8112c0f8b5abe65bd9e7d5947773fd4b96d4",
+    "index.ts": "071fb226e9a21556625e4391b28e6641b9b34b1cd402155246e0437993d8b740",
+    "logger.ts": "05cb6be3e4cf8d078185b5d10c87e536c7d2b2b3ad43c270a0dbafaa28f41fef",
+    "reflect.ts": "6847b9781044023d65aebb5896a873b9f0a3d777eaf7fa0dd2a7a408eb6b74a6",
+    "registry.ts": "34bbd60ae502b4f85201c204afb52a9acabde6878d9278493478c1b2183debd3",
+    "service.ts": "614205c6ce7cf1a057b8b352e96aa4fcd734c967a3d2283a126c9c61f268e3be",
+    "utils.ts": "8fe273424583d21267ef13f248840e97454d09d836a0ac08323a9482c2069263"
+  },
+  "fixture_hashes": {
+    "program/context.d.ts": "1e2e6cfcab26ae01d7f2dd1f78a1d25ddb7f3b2e27f50c9eb3b54ee206a87884",
+    "program/events.d.ts": "7534f0f4bce02f022031fa55e263b67beee3fb45bb62e65e7c6ef0ea8501ef19",
+    "program/fiber.d.ts": "2f9ce62ec7dcb4af1c3ea4b97b478290bc58ac7e8ad23e588d02c752d563665b",
+    "program/index.d.ts": "958249889830102ac7af78a89c28ba3ca2a5d51037a5392850b3fbbc33d58862",
+    "program/logger.d.ts": "71087395cc862f52662ab2629a0f3838f8f2aaf84eb40c97f4f4004f2fcbbed6",
+    "program/reflect.d.ts": "57cdef8252cb041b4b646cc9e80dcb27d2180bb78fcf95761136d99be4079cb3",
+    "program/registry.d.ts": "ffd229492af3cb444c01e8e51a78dfdbed670940bac40dde083675d57d6984fc",
+    "program/service.d.ts": "489ec23ef8dc0e869cf3d8d77a39ba83ab24e5e71362320f5662491b3dc5bd04",
+    "program/utils.d.ts": "967b227fad024ba8a7c32127534089bce5adc800840b0288f44d41c4c849278e",
+    "standard-schema/index.d.ts": "bdd14f07b4eca0b4b5203b85b8dbc4d084c749fa590bee5ea613e1641dcd3b29",
+    "public-surface.json": "c3af774cec9eb1500d424bdcf097a0c9bc10c56c44483f157c5329888554b440",
+    "standard-schema/LICENSE": "653b779005a3a4d64a7288c940f7b9a0e8f0b1e0375f6aa6af9473caf131e564",
+    "LICENSE": "034fb52b1d57360ecbae6cb1632a88f86fd7c3d3f5631a5f082710203dda0be7"
+  },
+  "config_hashes": {
+    "tsconfig.base.json": "cc331734ab1605bff2fa888339a4c5917b37f203f4633cfc2d5b2d406db3123b",
+    "vendor/cordis/tsconfig.json": "ca3c3312e5e28d31777f8863037da2e342b587f524aed8a376d2f096dbda57a9"
+  }
+}

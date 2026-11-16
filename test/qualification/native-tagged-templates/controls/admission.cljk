@@ -1,0 +1,32 @@
+(ns template-admission
+ (:require [mithril.native-js :as native] [mithril.form :as form] ["node:fs" :as fs]))
+(def base (form/parse (fs/readFileSync "examples/native-js-tagged-template-controls.mith" "utf8")))
+(def template (get-in base ["functions" 0 "body"]))
+(defn with-template [node] (assoc-in base ["functions" 0 "body"] node))
+(defn ensure [p label] (when-not p (throw (js/Error. label))))
+(def cases
+ [[(dissoc template "raw") :mithril.native-js/shape]
+  [(assoc template "extra" true) :mithril.native-js/shape]
+  [(assoc template "raw" nil) :mithril.native-js/shape]
+  [(assoc template "raw" [nil]) :mithril.native-js/shape]
+  [(assoc template "raw" [(js/String.fromCharCode 55296)]) :mithril.native-js/shape]
+  [(assoc template "raw" [(js/String.fromCharCode 56320)]) :mithril.native-js/shape]
+  [(assoc template "raw" [false]) :mithril.native-js/shape]
+  [(assoc template "raw" [4]) :mithril.native-js/shape]
+  [(assoc template "raw" ["a\rb"]) :mithril.native-js/shape]
+  [(assoc template "raw" ["x`);globalThis.injected=true;//"]) :mithril.native-js/shape]
+  [(assoc template "raw" ["${globalThis.injected=true}"]) :mithril.native-js/shape]
+  [(assoc template "raw" ["x\\"]) :mithril.native-js/shape]
+  [(assoc template "raw" []) :mithril.native-js/shape]
+  [(assoc template "raw" ["x" "y"]) :mithril.native-js/shape]
+  [(assoc template "values" nil) :mithril.native-js/shape]
+  [(assoc template "raw" (vec (repeat 66 ""))) :mithril.native-js/budget]
+  [(assoc template "raw" (vec (repeat 65 "")) "values" (vec (repeat 65 {"@type" "HostUndefined"}))) :mithril.native-js/budget]])
+(doseq [[node expected] cases]
+ (let [actual (try (native/check-document (with-template node)) :admitted
+                   (catch :default e (:mithril/error (ex-data e))))]
+  (ensure (= actual expected) (str "Refusal mismatch: " actual " expected " expected))))
+(doseq [raw ["" "a\nb" "\\` \\${literal}" "\\u{bad}" "\\\\" "\\\n"]]
+ (native/check-document (with-template (assoc template "raw" [raw]))))
+(native/check-document (with-template (assoc template "raw" (vec (repeat 65 "")) "values" (vec (repeat 64 {"@type" "HostUndefined"})))))
+(println "Tagged template admission: 7 admissions, 17 exact-code shape/budget/escape/delimiter refusals; compiler budgets unchanged.")

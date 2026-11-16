@@ -1,15 +1,95 @@
 # Mithril
 
+- [Mithril Harness / System One implementation and continuation map](docs/harness-refactor-map-2026-10-10.md)
+
+## Dataset specification and developer Quickstart
+
+Mithril Dataset 0.1 is an experimental open specification with finite model
+compression, Zstd/gzip, exact RDF-term reconstruction and Arrow/Parquet interchange.
+
+- [Published specification site](https://mithril-lang.github.io/mithril/dataset/)
+- [Versioned specification and conformance vectors](spec/README.md)
+- [Python Quickstart](docs/dataset/quickstart.md)
+- [Data lake comparison article](docs/dataset/comparison.md)
+- [Formats, catalogs and engines reference](docs/dataset/catalog-engine-reference.md)
+- [Implementation status and roadmap](spec/implementation-status.md)
+- [Release announcement](docs/dataset/announcement.md)
+
+The Python SDK installs from source and requires Node.js. A stable binary format,
+S3 partial reads and Iceberg catalog integration are proposed, not released.
+
+## Mithril language reference
+
+The [language reference](docs/language/README.md) describes Mithril Form
+syntax, its reader grammar, and the Kotoba/Amu execution architecture. Its
+intended public host is `https://lang.mithril.fund/`.
+
+
 The name is a metaphor: mithril is the imagined metal, used here for a source
 surface whose graph semantics stay inspectable through compilation. It does
 not name Tolkien's work or imply compatibility with another Mithril project.
 
 Mithril is an ontology-based programming language with a canonical,
 Kotoba-shaped typed S-expression surface. Both `.mith` and `.mithril` are
-aliases. New source uses `application/vnd.mithril.form`; the compiler also
-accepts the existing JSON-LD 1.1 spelling (`application/ld+json`) without a
-migration flag. Both lower to one pinned JSON-LD projection and therefore one
-canonical RDF Dataset identity.
+aliases. New source uses `application/vnd.mithril.form`. Mithril Form and
+JSON-LD 1.1 (`application/ld+json`) are distinct, mutually convertible source
+representations. The compiler uses a pinned JSON-LD context for semantic
+projection; representations that denote the same graph share one canonical
+RDF Dataset identity.
+
+The Form reader admits `mithril/module` with a module-specific context and
+inert Function/Call/Local/Literal/If/Let/Sequence and guest
+Lambda/Invoke/FunctionRef nodes. `mithril.module/check-document` and
+`check-text` validate signatures, explicit i64/bool/string and opaque js-value types, exports,
+forward and recursive calls, and return deterministic checked IR. Function
+and parameter identifiers use ASCII letters/underscores followed by letters,
+digits/underscores; module names may join those identifiers with dots.
+Exact fields are required. Budgets limit depth to 64, total expressions to
+4096, functions/exports to 128, and parameters to 64. The text entry also
+bounds source characters and structural nesting before Form lowering.
+Signed i64 values become exact canonical decimal strings; unsafe host
+Numbers and noncanonical/out-of-range strings are rejected. This checker
+does not execute modules. `mithril.module-lower/lower-document` and
+`lower-text` recheck inputs and produce deterministic Amu library source with
+explicit types, separate function/parameter alpha renaming, exact i64 tokens,
+escaped string literals and requested export metadata. Finite pinned Amu
+bootstrap checks compile and execute nonempty libraries with forward calls,
+intrinsic shadowing and scalar results. Qualified Amu restricted-JS profiles
+also compile the lowerer's explicit empty namespace as an empty library.
+The `js-value` signature type passes opaque host values through locals and
+declared calls without converting them to encoded module literals. Scalar
+intrinsics, including the built-in `eq`, refuse this type; declared functions
+may still shadow intrinsic names with their own checked signatures.
+`examples/modules/js-value.mith` uses the existing inert `rdf/node` spelling
+for parameters and lowers a forward call with explicit `:js-value` types.
+The caller applies the lowerer's original/generated export-name table.
+Module calls `js_nullish`, `js_truthy`, and `js_strict_equal` consume
+explicit opaque arguments and return `bool`; lowering names the corresponding
+Amu JS operations. `examples/modules/js-predicates.mith` implements
+`isNullable` and `isNonNullable` plus truthiness and strict identity helpers.
+Unknown types, incorrect arities and opaque-to-scalar conversions still
+refuse. A declared function may shadow these intrinsic names. These checked
+source/lowering contracts need qualified compiler/runtime evidence before
+they establish executable behavior or package compatibility.
+`mithril/if` requires exactly `:condition`, `:then`, and `:else`. The condition
+must be `bool` and the two branches must have the same checked type, including
+opaque `js-value`. Both branches are validated and contribute to the shared
+expression budget and call graph. Lowering emits an Amu `if`; execution
+selects one branch. `examples/modules/conditional.mith` demonstrates a nullish
+fallback preserving raw host identity and an unselected recursive branch.
+A public System One proposal implemented the three source changes in one
+attempt without source repairs. An offline pinned verifier ran the unchanged
+35 tests / 212 assertions on both baseline and candidate; four additional
+conditional tests pass 25 assertions. The normal explicit-target JVM-free
+Amu pipeline compiled JS and JS-browser outputs. Each output passed 63 raw
+value/fallback identity comparisons and skipped the recursive branch when
+unselected; selecting it trapped on fuel. JS-browser output was executed on
+Node, so this is not browser-host or whole-package qualification.
+Target qualification belongs to Amu: only restricted JS profiles admit this
+host ABI. This does not grant property access, callbacks or ambient authority;
+retained host graphs have embedder-owned lifetime/resource costs. Full JS
+operations, module linking and whole-Harness API/plugin compatibility remain
+work to do. This bootstrap evidence is not selfhosting or whole-Harness parity.
 
 Mithril is not a prose-to-code generator. A source document names a goal,
 ontology identity and finite typed choices. The compiler expands it to an RDF
@@ -19,8 +99,8 @@ and Amu provide the typed, capability-bounded runtime and Wasm compiler.
 
 ```text
 program.mith / program.mithril
-  -> inert Mithril Form reader OR compatible JSON-LD reader
-  -> one pinned JSON-LD projection
+  -> Mithril Form ⇄ JSON-LD 1.1 source conversion
+  -> pinned JSON-LD semantic projection
   -> canonical RDF Dataset digest
   -> Mithril vocabulary and shape admission
   -> :oak.transaction/v1
@@ -47,8 +127,8 @@ Mithril does not make RDF the program-execution IR and does not put OWL inside
 Osaho. The boundaries are:
 
 ```text
-Mithril Form                    compact typed semantic/action syntax
-  -> JSON-LD / RDF Dataset      facts, OWL 2 RL and SHACL interoperability
+Mithril Form ⇄ JSON-LD 1.1      distinct, mutually convertible representations
+  -> RDF Dataset                facts, OWL 2 RL and SHACL interoperability
   -> typed semantic delta       assert / retract / query / infer / compile / stop
   -> deterministic executor     validates and applies the delta
   -> Kotoba HIR -> Osaho        checked executable semantics and DefCID
@@ -1890,8 +1970,15 @@ The cloud simulation assembly composes Mithril's identity, authz, quota,
 consistency, fault and TLS components with the AWS, Azure, Google, WireMock
 and Pact domains. A stack is one provider: `aws` resources stay under
 `com.amazonaws.`, `azure` under `com.microsoft.azure.`, and `google` under
-`com.google.cloud.`. `plan` runs each resource in depends order and keeps
-`applied` false.
+`com.google.cloud.`. `plan` keeps one ledger for the whole stack: a write is
+visible to a later read on the same domain when consistency is `strong`, and
+stays delayed when it is `eventual`. Quota counts down across resources. A refused call does not spend a unit.
+A resource sees the objects written by the resources it depends on when
+consistency is `strong`.
+`applied` stays false. Passing a cluster document and an observation checks
+`localstack` for AWS and `azurite` for Azure; the check does not start a
+container. Google has no emulator in that cluster, so the finding is
+`unobserved`.
 
 ```sh
 kbb --backend sci --classpath src bin/mithril-components.cljk \
@@ -1922,7 +2009,7 @@ live target or a secret is refused.
 ## Run
 
 ```sh
-CP=src:../org-w3-json-ld-api/src:../org-w3-rdf-canon/src:../org-w3-nquads/src:../io-multiformats/src:../text/src:../org-nist-sha2/src
+CP=src:vendor/src:vendor/resources
 kbb --backend sci --classpath "$CP" bin/mithril.cljk compile examples/tender.mith
 kbb --backend sci --classpath "$CP" bin/mithril.cljk compile-ontology ontology/semantic-core-v1.mith
 kbb --backend sci --classpath "$CP" bin/mithril.cljk compile-library lib/web/v1.mith
@@ -1952,3 +2039,682 @@ kbb --backend sci --classpath "$CP" bin/mithril-synthesize.cljk \
 The CLI prints a JSON artifact containing the semantic graph digest and the
 typed OaK transaction. The sibling `.mithril` example must compile to the same
 semantic projection.
+
+## JavaScript type and array intrinsics
+
+Module calls `js_typeof(js-value) -> string`, `js_array(js-value) -> bool`,
+and `js_bool_value(bool) -> js-value` lower to `js-typeof`, `js-array?`,
+and `js-bool-value`. Declared functions continue to shadow these intrinsic
+names. Boolean injection accepts a typed bool only. Opaque JS literals
+remain refused. `examples/modules/js-branding.mith` expresses the CosmoKit
+`isPlainObject` predicate while returning its original falsy argument.
+
+System One generated the two intrinsic-table changes in one proposal, with
+zero source repairs. In the approved offline image, unchanged source checks
+passed 39 tests / 237 assertions for both baseline and candidate; independent
+new typing, arity and shadowing tests passed 3 tests / 36 assertions. These
+are source and lowering checks, not whole-Harness API/plugin equivalence or
+a claim of deployment. Consumer compiler pins must qualify separately.
+
+## Explicit JavaScript undefined source
+
+Module call `js_undefined()` returns `js-value` and lowers to the zero-arity
+`js-undefined` operation. It admits no opaque literals. Existing declared
+functions can shadow the intrinsic, and extra arguments are refused before
+unknown-local checking. `examples/modules/noop.mith` authors CosmoKit noop
+as a zero-argument function returning raw JS undefined. Compiler consumers
+and the public module facade must qualify separately.
+
+The public System One case generated one proposal in 28.98 seconds with
+15,223 prompt / 1,289 completion tokens and model repair budget zero. The
+original proposal omitted one closing parenthesis and failed parsing while
+the baseline passed 42 tests / 273 assertions. An operator inserted that
+one character; paired baseline/candidate checks then passed 42 / 273 each,
+and combined independent checks passed 45 tests / 284 assertions in a pinned
+offline image. This is model-assisted source with one operator repair, not
+a model-only success or whole-Harness API/plugin equivalence.
+
+## Public JavaScript facade for pure modules
+
+`mithril.module-lower/js-library-document` and `js-library-text` emit a
+separate ESM facade for an actual Amu artifact. Pass an ASCII local basename
+such as `./artifact.mjs`; network, parent and nested paths are refused. The
+result contains `:source`, `:exports` and the derived `:budgets`. Write the
+facade next to that artifact. `examples/modules/js-library.mith` authors
+`noop`, `isNullable`, `isNonNullable` and `isPlainObject` together in Mithril.
+
+The facade emits ordinary function declarations, preserves public names,
+parameter counts and construction, and delegates to the compiled exports.
+For the current pure scalar/opaque-JS vocabulary, each public invocation has
+its own instance and statically computed fuel/depth. Argument evaluation is
+sequential before the callee; lazy branches use their maximum cost. All call
+graph cycles and exact-integer budget overflow are refused. Intrinsic and
+expression admission is explicit. Restricted lowering and default artifact
+budgets stay unchanged. Recursion, state, capabilities, callbacks and future
+aggregate vocabulary need a subsequent library profile.
+
+System One generated one proposal in 62.38 seconds with 15,188 prompt / 3,128
+completion tokens and repair budget zero. Paired existing checks passed
+45 tests / 284 assertions each, but the new contracts failed with ten failures
+and seven errors because the generated public APIs were unbound. Static review
+also found incorrect artifact delegation. An operator repaired the library
+implementation, with the original proposal and outcomes retained separately.
+The repaired candidate passes eight independent tests / 25 assertions and
+paired unchanged 45 / 284 checks. Actual facade/Amu ESM execution in a pinned
+offline Node image matches the four CosmoKit functions for names, length,
+prototype descriptors, 16 constructor cases, 280 value/call comparisons, two
+revoked-Proxy errors, zero property reads, eight Array.isArray replacements
+and 2,000 calls per function. JS-browser artifacts are also executed in Node;
+this does not qualify a browser host, literal function source equality,
+whole CosmoKit or whole-Harness API/plugin equivalence. These are Node/nbb
+bootstrap results, not selfhost evidence or a model-only success.
+
+
+## Module export aliases
+
+Exports accept existing declaration names and explicit aliases:
+
+```clojure
+:exports ["keep" (mithril/export :name "alsoKeep" :function "keep")]
+```
+
+`examples/modules/export-aliases.mith` is a pure identity-function example.
+Alias records have exactly `name` and `function`; both identifiers must be
+valid, public names must be unique, and targets must be declared functions.
+Aliases affect only the public exports, so private calls still resolve to the
+actual declaration, including when a public alias has a private function's name.
+
+For alias documents, checked IR normalizes `:exports` to public names and adds
+`:export-targets` for all exports. String-only documents retain the old checked
+IR and lowering bytes. Amu namespace exports deduplicate private targets in
+first-occurrence order. The public JavaScript facade reuses one wrapper per
+declaration, with its canonical name and arity; aliases share function identity,
+prototype and constructor. Budget analysis follows declarations. All existing
+pure-library guards and restricted artifact budgets remain in force.
+
+This change is operator-authored. The public System One request returned
+`temporarily_unavailable` without a proposal or inference receipt, so no model
+completion or performance result is attributed to it. A separately corrected
+operator-owned test fixture was frozen before qualification. Paired existing
+53 tests / 309 assertions and seven new tests / 25 assertions pass in offline
+containers. Normal explicit JVM-free Amu compilation and ESM execution qualify
+JS and JS-browser artifacts in Node; three non-JS targets refuse opaque JS
+values. See `test/qualification/export-aliases/README.md` for the evidence scope.
+The example does not implement CosmoKit's `mapValues`, callbacks, object access,
+stateful libraries or whole-Harness API/plugin equivalence.
+
+## Sequential bindings and expressions
+
+`mithril/let` accepts `:bindings` (a vector of inert `rdf/node` values with
+`:name` and `:value`) and `:body`. Initializers run in order and see earlier
+bindings; a new name becomes visible after its initializer. Rebinding shadows
+that name in the body without changing the type of earlier aliases. Initializer
+and body types are inferred and checked; bindings do not escape their scope.
+The lowerer gives each binding a deterministic private symbol, including names
+such as `let` that would otherwise conflict with Kotoba syntax.
+
+`mithril/sequence :expressions [...]` evaluates every expression in order and
+returns the final value. It requires at least one expression. Both nodes use
+the existing shared expression depth/node budgets. They lower to ordinary Amu
+`let`/`do`, retaining unused initializers and non-final expressions, including
+exceptions raised by native JS observations.
+
+`examples/modules/bindings.mith` demonstrates opaque aliases and sequencing.
+The acyclic pure public-library profile charges every initializer and sequence
+call in its per-call fuel/frame calculation; unused calls still participate in
+cycle refusal. This vocabulary adds no host callback/property authority, guest
+closure AST, aggregate construction or async/module linking.
+
+## Guest callable contracts
+
+A `FunctionType` descriptor carries exact `params` and `returns` fields. It
+lowers to a logical Kotoba `[:fn [params result]]` contract, including bounded
+nested callable parameters/results. `Lambda` names typed parameters, a return
+type and a body; `FunctionRef` names a declared function; `Invoke` names a
+callable expression and arguments. Lexical bindings retain callable contracts,
+and generated helper declarations are deterministic and count toward the
+128-declaration limit. Raw host functions and callable literal values are
+refused. Existing depth/node/arity limits and linear-resource refusals remain.
+
+The guest closure fixture in `examples/module-guest-closures.mith` includes
+captures, callable arguments, named references and a callable returning another
+callable. The pure public-JS facade refuses callable signatures and guest closure
+vocabulary until an explicit host bridge exists. These guest closures do not
+provide escaping JavaScript callbacks or complete harness API/plugin parity.
+Qualification receipts are under `test/qualification/module-guest-closures`.
+
+## Native JS host modules
+
+`mithril/native-js-module` is a separate, explicitly granted native JS interop
+context. `mithril.native-js/check-text` validates inert source and
+`compile-text` emits native JS function/arrow bodies. HostImport, HostGet,
+HostInvoke, HostMethod, HostArray and NativeLambda preserve native JS values,
+receivers, call evaluation order, array-pattern iterator close and lexical
+lifetime. Function parameters/results use `js-value`; native primitive literals
+use that type too. This trusted host profile has native prototype/constructor
+authority and native GC/stack/resource behavior, rather than guest fuel/word
+encoding. The existing restricted `mithril/module` path stays separate.
+
+A host installs exactly the declared named grants with
+`artifact.instantiateMithrilNative(grants)`. Import reads are live: use a provider
+getter when a host binding can change. Public function aliases share identity;
+native arrows are anonymous by default, nonconstructible and retain their source arity.
+Explicit HostObject infer_name enables native property-name inference.
+Array binding patterns appear only on NativeLambda parameters. Source budgets
+limit expressions to 4,096, depth to 64 and functions/exports/imports to 128.
+The backend checks source syntax/data and does not inspect opaque runtime values.
+
+Compile explicitly with the pinned nbb bootstrap engine:
+
+```sh
+node <nbb-cli.js> --classpath src bin/mithril-native-js.cljk \
+  examples/native-js-map-values.mith --target js --output map-values.mjs
+```
+
+The example actually implements CosmoKit mapValues/valueMap in Mithril; host
+imports expose primitive Object operations rather than the original TS function.
+The unchanged 24-case verifier passes on both baseline and generated candidate.
+The registered module suite passes 74 tests / 391 assertions in frozen offline
+Node 24.21.0. See [qualification](test/qualification/native-js-host/README.md).
+js-browser emits the same source and has Node-only execution evidence. Unsupported
+non-JS targets refuse before writing an artifact. This is a native JS bootstrap
+backend; full package migration, normal Amu/native Kotoba Q9 qualification,
+browser execution and complete harness API/plugin parity remain open.
+
+The native JS host example `examples/native-js-misc.mith` implements the ten
+runtime exports of CosmoKit `misc.ts`, including native object copy/iteration,
+property descriptors, filter callbacks and the shared `mapValues` alias. See
+[test contracts and System One evaluation](test/qualification/native-js-misc/README.md).
+This is one file's runtime port; public TypeScript declarations and complete
+CosmoKit/Harness migration remain separate work.
+
+`examples/native-js-array.mith` adds the complete seven-export array runtime,
+using the actual generated Mithril misc module for `isNullable`. Native
+construction, iterable array spread and optional receiver method calls retain
+JavaScript behavior. See [paired runtime and System One evaluation](test/qualification/native-js-array/README.md).
+The remaining CosmoKit modules and package/type/Harness parity are still open.
+
+`examples/native-js-volatile.mith` adds all four volatile runtime exports, including
+immutable detached snapshots, shared mutable references and the cross-copy writer
+symbol protocol. Generic module/lexical bindings, recursive local functions,
+native parameter defaults, throw/finally and `in` preserve their native semantics.
+The native source suite passes16/80 and full registered suite81/431. See
+[whole-runtime contracts and actual System One evaluation](test/qualification/native-js-volatile/README.md).
+System One's single raw language candidate failed parsing; the qualified language
+and module implementation are operator authored. Remaining types/string/time,
+package/type linkage and Harness API/plugin/Session parity stay open.
+
+The next types.ts foundation adds native argument count and
+`instanceof`, `+`, `-`, `%`, `<` operations with lexical normal-function scope.
+The native source suite passes18/82 and full registered suite83/433.
+[Fixed contracts and System One evaluation](test/qualification/native-js-types-foundation/README.md)
+retain the raw candidate's artifact-preservation failure and two operator repairs.
+Binary namespace/value exports, indexed loops and the complete types runtime port
+are still pending; these primitives do not qualify the whole module.
+
+Native `HostWhile`, `HostToString` and exact `name/value` exports now provide
+the indexed-loop, template-coercion and namespace/alias prerequisites for types.ts.
+[Contracts and actual System One evaluation](test/qualification/native-js-types-blocks/README.md)
+retain the raw parse failure and operator repairs. The whole Binary/clone/deepEqual
+Mithril port and full Harness parity remain open.
+
+`HostObjectSpreads` emits ordered native object literal spreads, preserving
+symbol/proxy/getter order and avoiding inherited setters.
+[Qualification and actual System One evaluation](test/qualification/native-js-object-spreads/README.md)
+record a rejected model change shape and the independent operator implementation.
+The whole types.ts runtime is still awaiting qualification.
+
+Current complete native runtime ports include misc, array, volatile, types,
+string and Time. `examples/native-js-time.mith` preserves all nine Time normal
+functions, six constants and initialization order using checked Mithril source.
+[Whole Time contracts and System One evaluation](test/qualification/native-js-whole-time/README.md)
+compare sixty source-derived groups under an explicit clock/timezone adapter on
+both actual CLI targets, preserve six prior artifact hashes and retain guest refusal.
+The current native source suite passes27tests/117assertions and full registered
+suite92/468; earlier counts and pending statuses above describe previous milestones.
+System One's Time trial has no terminal receipt at the saved observation and is
+unscored; the independently prequalified operator source was adopted unchanged.
+Public package index/declarations/linking and downstream Harness API/plugin/Session
+parity remain open. js-browser has Node execution evidence only.
+
+The [native package prerequisite](test/qualification/native-js-package/README.md)
+adds an inert package context and private checked factories for source-level
+linking. Standalone artifacts retain exact bytes and grant validation. Package
+composition/public ESM/type declarations and downstream Harness parity still need
+independent qualification.
+
+### Checked native package libraries
+
+`examples/native-js-cosmokit.mith` links the six checked CosmoKit runtime modules and emits an ESM library with the original 40 public names. Compile with `bin/mithril-native-package.cljk <package.mith> --target js|js-browser --output <library.mjs>`, using the pinned offline source engine. `mithril.native-package` also exposes checked explicit-grant factories. Package links are acyclic, host imports are exact, and source files are regular local `.mith` basenames.
+
+The [package qualification](test/qualification/native-js-package/README.md) covers original runtime behavior, initialization/identity, both actual CLI targets, and refusal guards. Checked public type declarations are covered by the [declaration qualification](test/qualification/native-js-declarations/README.md). Cyclic packages, actual browser execution and full Harness parity remain pending.
+
+
+### Checked native declaration libraries
+
+`examples/native-js-cosmokit-declarations.mith` expresses the complete CosmoKit public declaration shapes as inert Mithril AST. `bin/mithril-native-declarations.cljk <declarations.mith> --target js|js-browser --output <library.d.mts>` checks names, scope, generic arity/defaults, budgets and the matching checked runtime package before emitting declarations. Pair the output basename with the package .mjs. The compiler emits admitted data and has no TypeScript parser dependency.
+
+The [declaration qualification](test/qualification/native-js-declarations/README.md) covers 49 public names across value/type spaces, both actual CLI targets, strict positive/negative consumer comparisons and a generic namespace/infer control. The operator implementation passed isolated controls before inference. Its single sealed System One experiment completed and the recovered unchanged candidate failed namespace loading; the independently qualified operator implementation was retained. The [evaluation evidence](test/qualification/native-js-declarations/README.md) distinguishes the historical access failure from the recovered terminal receipt. Browser/Q9/cyclic-linking/full Harness parity remain open.
+
+
+### Native normal function expressions
+
+`mithril/native-function` emits checked native normal function syntax with optional name, js-value parameters/defaults, optional rest binding and body. `mithril/host-this` and `mithril/host-new-target` read the current source normal function context; nested NativeLambda and compiler arrow wrappers preserve lexical capture. Initializers and top-level arrows cannot read an absent function context. Anonymous names, arity, native construction and prototype descriptors are retained.
+
+`mithril/host-arguments` reads that source function's actual strict-mode arguments
+object. It preserves object identity, indexed values, native descriptors and
+iteration; parameter assignment and indexed argument assignment remain separate.
+Default parameter expressions can read it, nested arrows capture it, and nested
+normal functions own a new object. Module initializers and top-level arrows
+refuse this form because they have no source function context. Both CLI targets
+have 24 original-paired Node groups; actual browser-host execution remains pending.
+
+`mithril/host-binary` accepts `==` and `!=` for native abstract equality and
+inequality. The host operator retains primitive conversion, BigInt/string/number
+comparison, Symbol and object identity, operand evaluation order and abrupt
+completion. `examples/native-js-abstract-equality.mith` has 2490 original-paired
+Node groups per actual CLI label; actual browser-host behavior remains pending.
+
+
+
+The [normal function qualification](test/qualification/native-js-normal-functions/README.md) contains the exact admission rules, receiver/rest constructor example, 19 JS reference groups and both actual CLI targets. This supplies callable-function prerequisites for Cordis/Schemastery; generator/async/cyclic-linking and whole Harness parity remain open. Native class prerequisites and the complete DisposableList source port are covered by the [class qualification](test/qualification/native-js-classes/README.md).
+
+The [catch and error-composition qualification](test/qualification/native-js-catch/README.md) covers checked catch scopes, optional property access, explicit normal module function statement bodies and the complete original Cordis composeError/buildOuterStack/isObject source port. Both actual CLI outputs preserve the tested real stack frames, custom thenables and native Promise rejection controls. Generator/async-generator syntax, complete utils/logger, cyclic linking and full Harness parity remain pending.
+
+The [native function kinds qualification](test/qualification/native-js-function-kinds/README.md) covers genuine generator/async/async-generator function creation and the complete original Cordis isConstructor source, including prototype/Proxy/realm/polyfill branches. Both actual CLI outputs retain the original heuristic behavior. Explicit yield/await syntax, complete utils/logger/SCC and full Harness parity remain pending.
+
+The [whole Cordis utils qualification](test/qualification/native-js-cordis-utils/README.md) covers the complete original runtime source as checked Mithril AST, all 11 exports and 17 shared symbols, with the genuinely compiled CosmoKit dependency. Optional self-recursive Let bindings preserve native temporal dead zones; explicit statement bodies now cover arrows, normal functions and class signatures. Both actual CLI targets are compared with the entire original source oracle. Cordis public declaration shapes, named package exports, logger/SCC and full Harness parity remain pending.
+
+The [logger native source prerequisites](test/qualification/native-js-logger-prerequisites/README.md) add genuine class static blocks, lexical arrow rest/default parameters, native bitwise operations and optional complete module binding scope with native TDZ. Actual CLI and isolated VM controls retain original runtime primitives and frozen artifacts. The complete logger source port, Cordis public declarations/SCC and whole Harness parity remain pending.
+
+The [whole Cordis logger qualification](test/qualification/native-js-cordis-logger/README.md) covers the complete original logger runtime source and five program-emitted runtime exports, including callable/context/exporter lifecycle behavior with the genuinely compiled utils and CosmoKit chain. Checked source return/continue/break preserve native statement targets and finally/IteratorClose. Both actual CLI targets pass the original oracle controls. Public Cordis declarations, named ESM/cycle initialization, reflect, the four-file runtime SCC and whole Harness parity remain pending.
+
+The [native suspension qualification](test/qualification/native-js-suspension/README.md) adds real await/yield/yield* and async arrow/class methods with own coroutine scopes. Direct statement bodies preserve native suspension; helper-frame expression forms cannot borrow it. This removes the coroutine syntax prerequisite for reflect. The [native reflect prerequisites](test/qualification/native-js-reflect-prerequisites/README.md) add property deletion, for-of array binding patterns and genuine object literal methods. The [whole Cordis reflect qualification](test/qualification/native-js-cordis-reflect/README.md) now covers the complete runtime source, including trace/bind and native property logical assignment, with 88 original-source groups across both actual CLI targets. The source suite passes 44 tests / 168 assertions. Actual integration of the context/events/fiber/registry SCC and faithful live ESM cycle initialization are the next dependencies; public Cordis types and full Harness parity remain pending.
+
+The [native multi-file ESM qualification](test/qualification/native-js-esm/README.md) adds a separate `mithril/native-js-esm-package` profile with engine-owned cycles, live imports/exports, real function declaration hoisting and ordered side effects. Complete CosmoKit and Cordis dependency leaves compile through the new CLI; the actual core SCC and multi-file declaration packaging remain pending. Existing acyclic packages and frozen leaf artifacts are retained.
+
+The [core native source prerequisites](test/qualification/native-js-core-prerequisites/README.md) add genuine value spread/optional invocation, do/while and void with own coroutine/control scopes. Both actual CLI targets pass 64 paired groups, including pinned Fiber getter/disposal body controls; the full suite passes 48 tests / 180 assertions. Whole core SCC source/lifecycle and original namespace declaration/assignment semantics remain pending.
+
+Module functions may explicitly opt into a mutable binding with `:mutable true`. `(mithril/function-set :name "Inject" :value ...)` checks that the target is an unshadowed, opted-in module function. Native ESM retains hoisted declarations and live exports; legacy factories retain snapshot exports and opt into `let` only for mutable functions. See [namespace compatibility qualification](test/qualification/native-function-namespace/README.md).
+
+Native named function/method parameters and arrow parameter patterns may opt into `:mutable true`; `LocalSet` then writes the actual formal binding, preserving default closures and native initialization. Rest and loop bindings retain their existing guards. See [mutable parameter qualification](test/qualification/native-mutable-parameters/README.md).
+
+`mithril/host-optional-chain` emits ordered checked get/call steps as one native chain. Optional method calls retain the property receiver; a nullish optional step skips the remainder of the chain. Parenthesizing the completed chain ends that short circuit. See [optional chain qualification](test/qualification/native-optional-chains/README.md).
+
+The complete `context/events/fiber/registry` source is in the four `native-js-cordis-*.mith` modules and [core ESM manifest](examples/native-js-cordis-core-esm.mith), with genuine compiled dependencies and actual ownership/lifecycle comparisons. See [core qualification](test/qualification/native-core/README.md) for scope; public service/index, Cordis declarations and full Harness integration remain pending.
+
+The complete Cordis Service and original 26-value public index run as a 15-module native ESM graph from checked Mithril source. Both actual CLI targets pass 36 paired Service/index groups in Node with real compiled core owners; public/new-profile types and full Harness/browser/native/Q9 remain separate gates. See [qualification](test/qualification/native-service/README.md).
+
+The native declaration CLI now accepts fully checked native ESM packages. Full CosmoKit declarations retain identical emitted bytes and pass original strict consumer/runtime contracts for both profiles and both targets, with index.d.mts adjacent to the native ESM entry. Cordis public typing remains next; see [qualification](test/qualification/native-esm-declarations/README.md).
+
+Named and optional tuple elements now express the original Cordis Spread<T> configuration argument rule. Both CLI targets/profiles pass source-derived strict arity consumers; complete Context.plugin/public Cordis typing remains next. See [qualification](test/qualification/native-named-tuples/README.md).
+
+The [original Cordis declaration oracle](test/qualification/cordis-original-types/README.md) pins all nine original declaration modules and the exact 50-name public type/value surface, including two erased const enums. Strict original consumer controls cover plugin configuration, class identity and augmentation before the Mithril class/type graph is implemented. This baseline does not establish Mithril Cordis type compatibility.
+
+Checked native declarations now emit genuine classes with abstract/variance/private/protected/unique-symbol/computed members/getters/inheritance and instance this scopes. Complete original Service/Utils declaration forms pass strict original comparisons and actual native ESM root checks on both targets. Their external Context import is an explicit qualification adapter while the full module/augmentation graph remains pending; see [class qualification](test/qualification/native-class-declarations/README.md).
+
+Checked interface declarations now preserve named heritage, call/construct and computed signatures, ordered overloads and explicit first receiver parameters. Original Events/Inject/Plugin leaves and the observed Context dispatch body pass70 strict type groups on both actual declaration CLI targets, with27 exact-code refusals. External import/symbol identities remain explicit adapters; the complete Cordis module/augmentation graph remains pending. See [interface signature qualification](test/qualification/native-interface-signatures/README.md).
+
+Checked declaration groups now merge compatible class/interface/namespace forms with separate namespace private scopes and ownership-aware heritage/static queries. Original Logger/Inject/Plugin/CordisError forms and a Context observation pass98 strict type groups on both actual declaration CLI targets, plus25 exact-code refusals. The qualification root verifies19 genuine runtime values; external type adapters and full independent Cordis linkage remain pending. See [declaration merging qualification](test/qualification/native-declaration-merging/README.md).
+
+Checked native declaration programs now link finite module imports and reexports to the actual ESM graph, preserving cyclic barrels and class/symbol ownership. Service/Utils/Logger declarations pass142 strict type groups and43 exact-code refusals across both actual CLI targets, plus output/symlink guards. Genuine inline import types and type-only export erasure are retained. Context/Fiber remain pinned external qualification imports; the full nine-module augmentation/enum graph remains pending. See [declaration program qualification](test/qualification/native-declaration-program/README.md).
+
+Native declaration programs also admit finite internal module interface
+augmentations while preserving separate declaring-module lexical frames and
+actual target module identity. The pinned complete Context class/interface and
+all five Cordis augmentation structures qualify with60 logical strict type
+groups,12 exact-code refusals and original-paired actual Context runtime behavior
+on both Node-executed CLI targets. Context computed symbols link to the actual
+Mithril Utils/Service/Context declaration cycle. External plugin/service contracts remain
+qualification adapters; the independent nine-module type graph, erased enums,
+full26-value root and complete Harness equivalence remain pending. Operator
+authored; no new System One inference or measured performance gain is claimed.
+
+Checked literal const enums now preserve original Cordis LoggerLevel/FiberState
+nominal/member identity while erasing their bindings from actual native ESM.
+Both Node-executed CLI targets and legacy aliases pass50 original-paired strict
+logical groups and18 exact-code refusals, including real consumer constant
+folding and structured Error/TypeError constructor heritage. The selected root
+has5 types,4 TypeScript value bindings and1 genuine Context runtime value.
+See [erased enum qualification](test/qualification/native-erased-enums/README.md).
+The complete independent Cordis graph and full Harness parity remain pending;
+operator authored with no new System One inference or measured gain.
+
+The complete independent Cordis declaration graph now uses all9 original modules
+plus checked Mithril CosmoKit/Standard Schema dependencies with no external type
+adapters. Both Node-executed CLI targets pass62 original-paired strict consumer
+groups, complete module/import/augmentation structures, candidate-only strict
+closure and genuine runtime binding checks. The exact public surface is50names,
+35types,28TypeScript values(two erased enums) and26actual runtime values.
+See [qualification](test/qualification/native-cordis-complete-types/README.md).
+Full Harness/profile/Session and actual browser/native/Q9 remain later gates;
+operator authored with zero new System One inference or measured gain.
+
+Checked optional/variadic tuple declarations now preserve the two original
+Schemastery TupleS/T templates under explicit identity observation helpers.
+Program/legacy profiles on both Node-executed CLI targets pass136 original-paired
+strict logical groups and23 exact-code refusals, including fixed-spread ordering.
+See [tuple qualification](test/qualification/native-variadic-tuples/README.md).
+This is a type-only prerequisite with13 aliases and zero runtime values; complete
+Schemastery/Harness equivalence remains pending. Operator authored, zero new
+System One inference or measured gain.
+
+Checked const generic parameters now preserve all4 original Schemastery Static
+const/tuple/union/intersect signatures under explicit Schema/type observation helpers.
+Program/legacy profiles on both Node-executed CLI targets pass212 original-paired
+strict groups and16 exact-code refusals. Plain/false const emission stays byte-identical;
+alias/interface parameters remain strict. See [const generic qualification](test/qualification/native-const-generics/README.md).
+This is a type-only prerequisite with21 public types/zero runtime values; global
+namespace/default Schema/full Schemastery/Harness remain pending. Operator authored,
+zero new System One inference or measured gain.
+
+Explicit native ESM entry selectors and private local declaration exports now preserve
+default binding identity across imports/reexports and direct entry/type-only emission.
+Both Node-executed CLI targets pass200 trusted paired strict type groups,56 paired
+runtime groups and20 exact-code refusals, including dual alias+value/private nominal
+owners, live updates and unchanged old star semantics/bytes. See [default export
+qualification](test/qualification/native-default-exports/README.md). This mechanics
+fixture does not prove full Schema/global namespace/Harness parity. Operator authored,
+zero new System One inference or measured gain.
+
+Mutable ambient let declarations now retain private lexical scope, namespace values,
+queries and genuine native ESM alias/reexport origins. Both Node-executed CLI targets
+qualify260 paired strict groups,8 fresh-process paired runtime scenarios and20 exact
+refusals, including the two original Schemastery globalThis mutable declaration shapes
+under an explicit Schema helper. Immutable/snapshot module origins cannot claim live
+let bindings. See [mutable declaration qualification](test/qualification/native-mutable-declarations/README.md).
+Structured declare-global and full Schema/Harness equivalence remain pending; operator
+authored,zero new System One inference or measured gain.
+
+
+Checked global type blocks now preserve the complete original Schemastery private/
+global declaration graph:16 namespace declarations,42 interface members and7 private
+nodes, with actual Mithril CosmoKit/StandardSchema dependencies. Both Node-executed
+CLI targets qualify216 independently compiled original-paired strict groups,14 exact
+refusals,6 declaration artifacts and4 empty native runtime roots. See [global type
+qualification](test/qualification/native-global-declarations/README.md). Schema default
+is deliberately type-only until its real runtime is ported; full value API, Schema
+execution and Harness equivalence remain pending.
+
+A fresh System One emitter trial completed once but its edits were refused before
+candidate compilation:140.266s,26706 input/5261 output tokens,1 attempt/0 repairs.
+The fixed operator candidate passes independently; no model source is adopted or
+performance gain inferred. The [evaluation](test/qualification/native-global-declarations/system-one-evaluation.json)
+records the sealed image, exact input identity and remaining diagnostic investigation.
+
+Checked native `HostForIn` enumeration emits genuine JavaScript `for…in` with
+inherited enumerable properties, native key ordering, Proxy behavior, mutation and
+per-iteration lexical bindings. Both Node-executed CLI targets are qualified by
+36 paired mechanics groups and 18 observation groups covering all eight exact
+original Schemastery loop nodes. See [enumeration qualification](test/fixtures/schema-for-in-README.md).
+The observation helpers are explicit; full Schema runtime/default value API,
+its two switch nodes and dynamic Function serialization remain pending. This
+operator-authored prerequisite makes no new System One inference or gain claim.
+
+Checked `HostSwitch` now emits genuine native switch with ordered case evaluation,
+default/fallthrough, shared CaseBlock let/const TDZ and separate switch-break/loop-
+continue permissions.44 paired mechanics groups and34 observation groups cover both
+actual CLI targets under Node and both exact original Schemastery switches. See
+[switch qualification](test/fixtures/schema-switch-README.md). Explicit Schema/valueMap
+helpers are observations, not the complete runtime or real default value API;
+serialization/Function reconstruction and full Harness/browser/native/Q9 remain
+subsequent work. No new System One request or performance-gain claim in this stage.
+
+Checked `HostFor` and `HostLocalUpdate` now preserve genuine classic for lexical
+iteration/TDZ and native mutable-local prefix/postfix ToNumeric updates. Both actual
+CLI targets under Node pass42 paired mechanics groups and18 observation groups for
+the exact original Schemastery list-validation loop at line505. See [classic for
+qualification](test/fixtures/schema-classic-for-README.md). The validateVolatileSchema
+helper is explicit; full Schema/volatile validation/serialization/default value
+API and Harness/browser/native/Q9 remain subsequent work. No new System One
+inference/adoption or performance gain is claimed by this operator-authored stage.
+
+### Native binding patterns
+
+`mithril/host-binding-let` introduces a source block with `bindings` entries
+containing `pattern`, `value`, and optional boolean `mutable`, followed by `body`.
+All names in that block are predeclared; native `let`/`const` initialization
+preserves self/forward TDZ and declaration order. Legacy `mithril/let` retains
+its existing sequential checked semantics and artifact bytes.
+
+A pattern is an identifier string, `{:array [...]}` (nil items are holes,
+optional `:rest` is a final nested pattern), or `{:object [...]}` (ordered
+entries with checked expression `:key` and `:pattern`, optional final identifier
+`:rest`). `{:binding pattern :default expression}` adds a native initializer to
+an element or parameter. Object keys default to static literal string/number
+keys; other expressions are computed. Optional boolean `:computed` selects
+computed evaluation explicitly, including a literal computed key. Static keys
+must be literal strings or numbers. Rest has no outer default; object rest must
+be an identifier. A lexical declaration cannot have an outer default.
+
+Normal function, module function, local function, constructor, method and
+accessor parameter records may use `pattern` instead of `name`, with the usual
+`datatype: "js-value"`, optional `default` and boolean `mutable`. Arrow parameter
+records use `pattern` with optional `default`/`mutable`; their existing string,
+name and shallow-array forms remain supported. Default/key expressions see the
+complete parameter scope and retain native TDZ, arity, arguments, this and
+function environment rules. Parameter initializers cannot suspend; source
+async/generator bodies retain their own permissions. Pattern leaves inherit
+mutability from their declaration/parameter. The separate function `rest`
+parameter remains an identifier.
+
+The compiler emits genuine native destructuring, including iterator close,
+ordered property reads/computed keys, symbol/rest exclusions, defaults only for
+undefined, and native inferred function/class names using the original binding
+labels. No index-read or object-copy lowering is used. Pattern depth is at most
+64, each collection and pattern's bound-name list at most64, each lexical block
+at most64 declarations/128 names, and patterns/defaults/keys share the existing
+4096-node module checking budget. Malformed/duplicate bindings, illegal rest,
+unknown keys, readonly mutation and borrowed control/coroutine scopes are refused.
+
+The paired fixtures execute both actual CLI targets under Node. Built-in error
+checks compare native exception classes; their engine diagnostic text can
+contain hygienically generated variable names. Thrown application values are
+checked by identity. Exact original Schema pattern observations cover five
+lexical and23 parameter sites under explicit projection wrappers and a named
+`Schema.resolve` helper; they do not establish complete Schema/Harness runtime
+or actual browser behavior. See
+[test/fixtures/schema-binding-patterns-README.md](test/fixtures/schema-binding-patterns-README.md).
+
+Native Mithril source now admits finite scalar numbers in `js-value` literals,
+including floating negative zero (`-0.0` / `-0e0`). Both actual standalone CLI
+targets retain exact numeric values; general form fields and guest literals keep
+their existing constraints. See [numeric source qualification](test/qualification/native-js-numeric-literals/README.md).
+
+Native modules can explicitly select `ambient_imports` from their declared
+imports. Native free identifiers survive callback serialization with current-realm
+global lookup; other imports retain injected-grant behavior. See
+[ambient import qualification](test/qualification/native-ambient-imports/README.md).
+
+A separate [Schemastery value SDK qualification](test/qualification/native-schema-sdk/README.md)
+now combines the full source-authored Schema runtime, its own seven-module
+CosmoKit closure and the complete original private/global types. Its default
+export is a real callable/constructable value. The older global declaration
+fixtures deliberately retain their erased default contract. Both actual CLI
+targets are qualified under Node; whole-Harness and actual browser parity remain
+separate requirements.
+
+Native source supports genuine `import.meta` and dynamic `import(source[, options])`
+through checked `host-import-meta` / `host-dynamic-import` expressions. Module
+metadata belongs to the emitted ECMAScript module and loading remains the host's
+native module operation. See [module operations qualification](test/qualification/native-module-operations/README.md).
+
+## Mithril's own language kernel and code graph
+
+[`src/mithril/language.mith`](src/mithril/language.mith) declares Mithril's
+source formats, compiler pipeline contract and imported CLI entrypoints. The
+main CLI admits commands through this compiled kernel. `compile` executes its
+ordered pipeline; `compile-trace` records each stage's input/output identities
+and the kernel, library and bootstrap identities. `compile-language` prints its
+IR. `bin/mithril-amu.cljk` adds a native Amu path for JSON-LD Programs, static
+WebApplications, and typed `(mithril/module ...)` sources. Programs pass
+through the existing OaK compiler; the checked transaction is embedded as an
+EDN string export, and `admit_edn(string)` checks the native v1/four-field
+envelope. WebApplications lower their finite GET/HEAD route table to an Amu
+`dispatch_edn(method,path)` function. Amu G3 compiles these to an
+`aarch64-macos` `.kseed`. Library, Ontology, BotProfile, DesktopApplication,
+HermesProfile, GrowthProfile, MissionModel, AppAgentApplication,
+GraphAgentApplication, LanguageKernel, CodeGraphApplication, checked synthesis
+request plans, and bot-bound Hermes scheduler contracts can also be validated
+by their Mithril compiler and packaged as native `artifact_edn()` exports;
+their host-specific effects still need their owning runtime. ESM packages,
+declaration modules/programs, components, assemblies, stacks, clusters, and
+twins use the existing bounded checkers and dependency hashes. A Hermes
+scheduler contract supplies its checked BotProfile with `--bot-profile`; a
+synthesis request may supply its Library sources with repeated `--library`
+options. Raw JSON-LD `owl:Ontology` documents also pass the pinned OWL 2 RL and
+SHACL checks before native packaging; an admitted `owl:imports` IRI is retained
+as a reference and is not fetched. The resulting synthesis artifact is a checked
+question plan; it does not invent a model result. `scripts/compile-mithril-amu-module.py`
+rebuilds the pinned three-generation selfhost compiler and executes generated
+native exports against checked cases. The scalar module profile admits `i64`,
+`bool`, `string`, arithmetic/equality/boolean intrinsics, local calls, `let`,
+sequences and conditionals. JavaScript host modules and declaration packages
+are carried as inert checked artifacts; Amu does not execute JavaScript or
+acquire their host imports. Model decisions, durable runtime-state transitions,
+and other process actions still require their owning runtime. The Mithril frontend remains hosted
+by KBB/SCI; this integrates Amu's selfhost compiler at the native artifact
+stage. See the
+[Amu selfhost integration and benchmark evidence](docs/design/amu-selfhost-integration.md).
+
+Amu's corrected full-19 Embench-derived translated-port comparisons report
+Kotoba/C time geometric-mean ratios of `0.8213` and `0.78777` on two separate
+Apple M4 cycles. Ratios below one favor Kotoba under the reported formula.
+These are not official Embench scores, compiler-speed measurements, or
+Mithril performance claims.
+
+[`src/mithril/codegraph.mith`](src/mithril/codegraph.mith) declares the bounded
+code extraction, resolution, community detection and RDF projection pipeline. Its source-located
+ontology is [`ontology/codegraph-v1.mith`](ontology/codegraph-v1.mith). The local
+Git index parses changed Clojure/CLJK, Mithril, Markdown and text documents,
+extracts Markdown sections and explicit links to code, indexes nested semantic
+entities, invalidates reverse dependents after edits/deletions, reuses per-file
+canonical RDF and unchanged community components, and supports paginated
+name/literal-content search, source retrieval,
+callers/callees, impact and paths. Filesystem queries refresh the index; an MCP
+stdio tool exposes the same bounded API, including file community queries.
+`codegraph ui` exports a standalone offline HTML explorer with a relationship
+map, community filters, source inspection and paths/impact over the exported
+subset. Its coverage and source truncation are visible in the page.
+`codegraph web` starts a loopback explorer over the complete admitted index,
+with source inspection, paginated relationships, communities, revision checks
+and an explicit refresh button. Markdown includes Setext headings and reference
+links; content matches include exact spans and source identities.
+
+```sh
+kbb --backend sci --classpath src bin/mithril.cljk compile-language
+kbb --backend sci --classpath src bin/mithril.cljk compile-trace examples/tender.mith
+kbb --backend sci --classpath src bin/mithril.cljk codegraph index .
+kbb --backend sci --classpath src bin/mithril.cljk codegraph query . \
+  '{"operation":"explore","query":"mithril.compiler/compile-document","limit":5}'
+kbb --backend sci --classpath src bin/mithril.cljk codegraph serve .
+kbb --backend sci --classpath src bin/mithril.cljk codegraph query . \
+  '{"operation":"communities","limit":20}'
+kbb --backend sci --classpath src bin/mithril.cljk codegraph ui . --rebuild
+# SCI compatibility runner when the native kbb checkout is unavailable:
+node scripts/run-sci.mjs bin/mithril-codegraph.cljk web . --rebuild
+node scripts/run-sci.mjs test/run_codegraph.cljk
+node scripts/test-codegraph-web.mjs
+```
+
+The graph and full original source evidence are saved as private `.mith` files in
+`.mithril-codegraph/revisions/<snapshot>/`: `asserted.mith`, `sources.mith`,
+`ontology.mith` and `manifest.mith`. The EDN index is a checked search cache.
+`codegraph reason .` reloads the saved premises and ontology, runs OWL 2 RL/SHACL,
+and writes `reasoned.mith` with separate asserted, entailed and inferred graphs.
+`verify` and CID evidence use the same saved premises. Old caches require
+`codegraph index . --rebuild`. Generic reasoning accepts `.mith` data and
+`--save-mith result.mith`:
+
+```sh
+node scripts/run-sci.mjs bin/mithril.cljk reason \
+  examples/codegraph/natural-language-ontology.mith \
+  examples/codegraph/natural-language.mith --save-mith result.mith
+```
+
+This example keeps the Japanese original and its human-declared interpretation;
+arbitrary prose meaning extraction remains future work. The reader indexes the
+explicit CLJS profile; unresolved names, unsupported scope forms and parse
+failures remain visible diagnostics. File communities use bounded local
+modularity optimization within connected components, with a component/community
+hierarchy and cached unchanged components. They are structural suggestions. Other programming
+language/media parsers and prose-based semantic linking remain future work.
+Open `.mithril-codegraph/explorer.html` in a browser after `codegraph ui`;
+rerun the command to refresh the exported snapshot. See the
+[design and bootstrap boundary](docs/design/codegraph-and-language-bootstrap.md)
+for contracts, APIs and validation; the
+[remaining work map](docs/design/codegraph-remaining-map.md) records the Amu
+host boundary and delivery/expansion gates.
+
+Native declaration documents and program modules accept optional `umd-namespace`
+metadata, emitting TypeScript `export as namespace` with its conditional
+`allowUmdGlobalAccess` behavior. This creates no runtime global. See
+[UMD qualification](test/qualification/native-umd-declarations/README.md) for
+strict original-paired consumers and the remaining YAML type boundaries.
+
+Optional `runtime-only-exports` explicitly accounts for actual runtime symbols
+absent from source public types. Admission still requires exact surface coverage,
+disjoint typed values and valid typed binding origins. The
+[runtime-only qualification](test/qualification/native-runtime-only-declarations/README.md)
+includes all 18 original YAML source declarations and strict named API consumers;
+the complete default namespace facade remains pending.
+
+Checked declaration modules support `namespace-exports` with explicit native
+runtime binding origins. This preserves default namespace type/value members and
+canonical class owners. The
+[exported namespace qualification](test/qualification/native-exported-namespace/README.md)
+ports the original YAML public ESM type wrapper and resolves Include to own native
+YAML declarations, with original-paired strict consumers and actual package checks.
+
+Native host expressions support `mithril/host-tagged-template` with checked raw
+parts and substitution expressions. Native tagged syntax preserves template
+array identity, raw/cooked values, receivers and evaluation order. See
+[tagged template qualification](test/qualification/native-tagged-templates/README.md)
+for admission boundaries and independent runtime comparisons.
+
+Declaration programs count their bounded type, value and namespace symbol
+spaces separately. Complete private declarations may also be reached through
+the actual checked runtime graph, including empty export and side-effect roots.
+See [symbol-space qualification](test/qualification/native-declaration-symbol-spaces/README.md)
+for independent limits, strict TypeScript consumers and both actual CLI controls.
+
+The source-owned declaration composition CLI accepts complete producer and
+consumer native ESM/declaration programs, binds actual package entry exports,
+and emits each owner's declarations once. Published cross-owner routes and
+versions are explicit source data. See
+[composition qualification](test/qualification/native-declaration-composition/README.md)
+for the bounded contract, three-package independent fixture and CLI controls.
+The actual 30-module Core / 14-module LLM–Schema probe now resolves all 146 public
+names through installed NodeNext packages, with zero strict errors and exact
+original-paired consumer diagnostics. Full original public subpaths, generated
+APIs and behavioral SDK parity remain separate qualification work.
+
+Literal dollar and Unicode runtime/declaration identifiers retain their original
+spelling and normalization distinctions. The internal global declaration registry
+cannot collide with a real `$global` namespace. See [identifier qualification](test/qualification/native-js-identifiers/README.md)
+for independent JavaScript and strict original-paired TypeScript controls.
+
+The explicit v2 native ESM entry-package manifest admits independent public
+subpath roots while preserving the original index export and initialization
+behavior. Returned subpath filenames are actual source-owned routes; declaration
+programs and the single declaration CLI retain their existing owner checks.
+See [independent subpath qualification](test/qualification/native-esm-subpaths/README.md).
+
+## MithrilPress
+
+MithrilPress is the repository's early open-source CMS and WordPress migration
+prototype. It builds on the Mithril content ontology and pure import boundary,
+with a Cloudflare Worker, D1, and R2 adapter for `*.sites.mithril.love`. Platform
+subdomain validation, WordPress post/page and taxonomy admission, and the chat
+draft proposal envelope are written in Mithril and compiled into the Worker;
+the JavaScript adapter retains I/O, relationship checks, sanitization, and
+stateful publication work. The current slice imports owner-authorized WordPress
+posts, pages, and standard category/tag terms as private drafts, provides
+authenticated noindex previews
+and separate approval/publication steps, supports owner-provided featured
+images, and serves a limited read-only WordPress REST-compatible API. It does
+not claim PHP, theme, plugin, shortcode, automated media-transfer, or full
+Gutenberg parity. See the
+[MithrilPress design](docs/design/mithrilpress-cms.md) and
+[Worker package](apps/mithrilpress-worker/README.md). It is not yet deployed or
+qualified for release.

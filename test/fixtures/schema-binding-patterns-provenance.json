@@ -1,0 +1,415 @@
+{
+  "format": "mithril.schema-binding-observations/v1",
+  "original_sha256": "a6647b515659cf439b701fa9f9574c9c310ce3872d26a13a81e9fa4d02ba10ad",
+  "qualification_only": true,
+  "full_schema_runtime": false,
+  "lexical": 5,
+  "parameter": 23,
+  "nodes": [
+    {
+      "id": "lexical0",
+      "site": "LexicalDeclaration",
+      "line": 524,
+      "start": 21327,
+      "end": 21390,
+      "source": "[value, adapted] = Schema.resolve(data, inner, options, strict)",
+      "sha256": "90cf59b2224b2e456f948b43be748eb8bd7a5a816d49da965d09a60d4c78dd1b",
+      "names": [
+        "value",
+        "adapted"
+      ],
+      "arrow_wrapper": false,
+      "helper": "Schema.resolve"
+    },
+    {
+      "id": "parameter0",
+      "site": "Parameter",
+      "line": 657,
+      "start": 25489,
+      "end": 25498,
+      "source": "{ value }",
+      "sha256": "854174ebed716fe24fd6659c30290aecd9bc1d17dc4f47939a1848a1b8ed3c6b",
+      "names": [
+        "value"
+      ],
+      "arrow_wrapper": true,
+      "helper": null
+    },
+    {
+      "id": "lexical1",
+      "site": "LexicalDeclaration",
+      "line": 663,
+      "start": 25784,
+      "end": 25826,
+      "source": "{ max = Infinity, min = -Infinity } = meta",
+      "sha256": "29440685fea33f38d7e825e3426bc558d34087a2b517ec767d38e533dd4eac21",
+      "names": [
+        "max",
+        "min"
+      ],
+      "arrow_wrapper": false,
+      "helper": null
+    },
+    {
+      "id": "parameter1",
+      "site": "Parameter",
+      "line": 668,
+      "start": 26085,
+      "end": 26093,
+      "source": "{ meta }",
+      "sha256": "d132dd1c27ca8dd99b54fc433a548e244479077db2c5043ab40e827ff5933ba6",
+      "names": [
+        "meta"
+      ],
+      "arrow_wrapper": true,
+      "helper": null
+    },
+    {
+      "id": "parameter2",
+      "site": "Parameter",
+      "line": 699,
+      "start": 27372,
+      "end": 27380,
+      "source": "{ meta }",
+      "sha256": "d132dd1c27ca8dd99b54fc433a548e244479077db2c5043ab40e827ff5933ba6",
+      "names": [
+        "meta"
+      ],
+      "arrow_wrapper": true,
+      "helper": null
+    },
+    {
+      "id": "lexical2",
+      "site": "LexicalDeclaration",
+      "line": 702,
+      "start": 27556,
+      "end": 27571,
+      "source": "{ step } = meta",
+      "sha256": "2ac2145f95dac30dbe87889ad60261bba0e469fd3efc20fa742c7e997264f00e",
+      "names": [
+        "step"
+      ],
+      "arrow_wrapper": false,
+      "helper": null
+    },
+    {
+      "id": "parameter3",
+      "site": "Parameter",
+      "line": 714,
+      "start": 27952,
+      "end": 27966,
+      "source": "{ bits, meta }",
+      "sha256": "b72bc04876887551b7a639f75f41d18a0dfd6a7ef7b01688b5933e711a9eb5ee",
+      "names": [
+        "bits",
+        "meta"
+      ],
+      "arrow_wrapper": true,
+      "helper": null
+    },
+    {
+      "id": "parameter4",
+      "site": "Parameter",
+      "line": 741,
+      "start": 28780,
+      "end": 28795,
+      "source": "{ constructor }",
+      "sha256": "4ebc283dab1dcaf1b6a86542955b5ff83157c8a10efa79e9141835619d19d3dc",
+      "names": [
+        "constructor"
+      ],
+      "arrow_wrapper": true,
+      "helper": null
+    },
+    {
+      "id": "lexical3",
+      "site": "LexicalDeclaration",
+      "line": 760,
+      "start": 29520,
+      "end": 29641,
+      "source": "[value, adapted] = Schema.resolve(data[key], schema, {\n      ...options,\n      path: [...options.path || [], key],\n    })",
+      "sha256": "0e45f447558ec64447f2b5bdabde65ef9ed5b8ca00f761732b719ce2526ec02a",
+      "names": [
+        "value",
+        "adapted"
+      ],
+      "arrow_wrapper": false,
+      "helper": "Schema.resolve"
+    },
+    {
+      "id": "parameter5",
+      "site": "Parameter",
+      "line": 773,
+      "start": 29911,
+      "end": 29926,
+      "source": "{ inner, meta }",
+      "sha256": "21e1ae1297362f7d816cde765b2c0427fa48c8c9c8dc5c2e8baaeace8fea00a3",
+      "names": [
+        "inner",
+        "meta"
+      ],
+      "arrow_wrapper": true,
+      "helper": null
+    },
+    {
+      "id": "parameter6",
+      "site": "Parameter",
+      "line": 779,
+      "start": 30243,
+      "end": 30258,
+      "source": "{ inner, sKey }",
+      "sha256": "7e3f268f9e149b16ad9219b8e8b45bcc20065d60dbf17b5688bc7fb84f4bc793",
+      "names": [
+        "inner",
+        "sKey"
+      ],
+      "arrow_wrapper": true,
+      "helper": null
+    },
+    {
+      "id": "parameter7",
+      "site": "Parameter",
+      "line": 797,
+      "start": 30767,
+      "end": 30775,
+      "source": "{ list }",
+      "sha256": "55dab0a62d47ea7aee6bbbada18150c3036987948868833ccccbfaea5ff80e7b",
+      "names": [
+        "list"
+      ],
+      "arrow_wrapper": true,
+      "helper": null
+    },
+    {
+      "id": "parameter8",
+      "site": "Parameter",
+      "line": 812,
+      "start": 31242,
+      "end": 31250,
+      "source": "{ dict }",
+      "sha256": "f94fb0b9bfd591e28acd9f5d6be5091dd52349b4c93842485ac889ceb7f9f13b",
+      "names": [
+        "dict"
+      ],
+      "arrow_wrapper": true,
+      "helper": null
+    },
+    {
+      "id": "parameter9",
+      "site": "Parameter",
+      "line": 825,
+      "start": 31653,
+      "end": 31671,
+      "source": "{ list, toString }",
+      "sha256": "1b2f7d226b13f8e55180db0425b15d55d3fe85277af3ae4f0e9f1b8989ec4e24",
+      "names": [
+        "list",
+        "toString"
+      ],
+      "arrow_wrapper": true,
+      "helper": null
+    },
+    {
+      "id": "parameter10",
+      "site": "Parameter",
+      "line": 837,
+      "start": 32015,
+      "end": 32033,
+      "source": "{ list, toString }",
+      "sha256": "1b2f7d226b13f8e55180db0425b15d55d3fe85277af3ae4f0e9f1b8989ec4e24",
+      "names": [
+        "list",
+        "toString"
+      ],
+      "arrow_wrapper": true,
+      "helper": null
+    },
+    {
+      "id": "parameter11",
+      "site": "Parameter",
+      "line": 857,
+      "start": 32776,
+      "end": 32805,
+      "source": "{ inner, callback, preserve }",
+      "sha256": "bcab3521279fa0e0b43af9fff279fef96c4e5f63d4a0ca33bcf510a7e63c7f1a",
+      "names": [
+        "inner",
+        "callback",
+        "preserve"
+      ],
+      "arrow_wrapper": true,
+      "helper": null
+    },
+    {
+      "id": "lexical4",
+      "site": "LexicalDeclaration",
+      "line": 858,
+      "start": 32829,
+      "end": 32899,
+      "source": "[result, adapted = data] = Schema.resolve(data, inner!, options, true)",
+      "sha256": "2b2295eb0b39a25fcf3c09bf581887deb5e57f7b2e99860b266879f86ad3296a",
+      "names": [
+        "result",
+        "adapted"
+      ],
+      "arrow_wrapper": false,
+      "helper": "Schema.resolve"
+    },
+    {
+      "id": "parameter12",
+      "site": "Parameter",
+      "line": 924,
+      "start": 35080,
+      "end": 35095,
+      "source": "{ constructor }",
+      "sha256": "4ebc283dab1dcaf1b6a86542955b5ff83157c8a10efa79e9141835619d19d3dc",
+      "names": [
+        "constructor"
+      ],
+      "arrow_wrapper": true,
+      "helper": null
+    },
+    {
+      "id": "parameter13",
+      "site": "Parameter",
+      "line": 934,
+      "start": 35328,
+      "end": 35337,
+      "source": "{ value }",
+      "sha256": "854174ebed716fe24fd6659c30290aecd9bc1d17dc4f47939a1848a1b8ed3c6b",
+      "names": [
+        "value"
+      ],
+      "arrow_wrapper": true,
+      "helper": null
+    },
+    {
+      "id": "parameter14",
+      "site": "Parameter",
+      "line": 940,
+      "start": 35662,
+      "end": 35671,
+      "source": "{ inner }",
+      "sha256": "bc96b300697c4697566096601e4e3606ffb4064995bc527c0025ce7220bf8bac",
+      "names": [
+        "inner"
+      ],
+      "arrow_wrapper": true,
+      "helper": null
+    },
+    {
+      "id": "parameter15",
+      "site": "Parameter",
+      "line": 941,
+      "start": 35747,
+      "end": 35762,
+      "source": "{ inner, sKey }",
+      "sha256": "7e3f268f9e149b16ad9219b8e8b45bcc20065d60dbf17b5688bc7fb84f4bc793",
+      "names": [
+        "inner",
+        "sKey"
+      ],
+      "arrow_wrapper": true,
+      "helper": null
+    },
+    {
+      "id": "parameter16",
+      "site": "Parameter",
+      "line": 942,
+      "start": 35856,
+      "end": 35864,
+      "source": "{ list }",
+      "sha256": "55dab0a62d47ea7aee6bbbada18150c3036987948868833ccccbfaea5ff80e7b",
+      "names": [
+        "list"
+      ],
+      "arrow_wrapper": true,
+      "helper": null
+    },
+    {
+      "id": "parameter17",
+      "site": "Parameter",
+      "line": 944,
+      "start": 35962,
+      "end": 35970,
+      "source": "{ dict }",
+      "sha256": "f94fb0b9bfd591e28acd9f5d6be5091dd52349b4c93842485ac889ceb7f9f13b",
+      "names": [
+        "dict"
+      ],
+      "arrow_wrapper": true,
+      "helper": null
+    },
+    {
+      "id": "parameter18",
+      "site": "Parameter",
+      "line": 946,
+      "start": 36069,
+      "end": 36081,
+      "source": "[key, inner]",
+      "sha256": "7b73cce4642e35102460569280833663562ca838769cab21836197ae2ce74e98",
+      "names": [
+        "key",
+        "inner"
+      ],
+      "arrow_wrapper": true,
+      "helper": null
+    },
+    {
+      "id": "parameter19",
+      "site": "Parameter",
+      "line": 951,
+      "start": 36221,
+      "end": 36229,
+      "source": "{ list }",
+      "sha256": "55dab0a62d47ea7aee6bbbada18150c3036987948868833ccccbfaea5ff80e7b",
+      "names": [
+        "list"
+      ],
+      "arrow_wrapper": true,
+      "helper": null
+    },
+    {
+      "id": "parameter20",
+      "site": "Parameter",
+      "line": 952,
+      "start": 36272,
+      "end": 36292,
+      "source": "{ toString: format }",
+      "sha256": "ebbb5e719343aa0a47e03e22d7a0bdec61f47efde39a60e2c9c510730c987e95",
+      "names": [
+        "format"
+      ],
+      "arrow_wrapper": true,
+      "helper": null
+    },
+    {
+      "id": "parameter21",
+      "site": "Parameter",
+      "line": 956,
+      "start": 36401,
+      "end": 36409,
+      "source": "{ list }",
+      "sha256": "55dab0a62d47ea7aee6bbbada18150c3036987948868833ccccbfaea5ff80e7b",
+      "names": [
+        "list"
+      ],
+      "arrow_wrapper": true,
+      "helper": null
+    },
+    {
+      "id": "parameter22",
+      "site": "Parameter",
+      "line": 960,
+      "start": 36551,
+      "end": 36560,
+      "source": "{ inner }",
+      "sha256": "bc96b300697c4697566096601e4e3606ffb4064995bc527c0025ce7220bf8bac",
+      "names": [
+        "inner"
+      ],
+      "arrow_wrapper": true,
+      "helper": null
+    }
+  ]
+}

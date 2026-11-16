@@ -1,0 +1,502 @@
+(mithril/native-js-declaration-module :name "attachment.types"
+:runtime nil
+:ambient-types [(rdf/node :name "AsyncIterable"
+:min 1
+:max 3)
+(rdf/node :name "AbortSignal"
+:min 0
+:max 0)
+(rdf/node :name "Uint8Array"
+:min 0
+:max 1)]
+:ambient-values ["Error"
+"Symbol.dispose"]
+:imports [(rdf/node :module "attachment.brand"
+:type-only true
+:names [(rdf/node :import "AttachmentId"
+:local "AttachmentId")])
+(rdf/node :module "attachment.brand"
+:type-only true
+:names [(rdf/node :import "ImageVariantId"
+:local "ImageVariantId")])]
+:declarations [(rdf/node :kind "alias"
+:name "ImageMediaType"
+:exported true
+:type-params []
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "literal"
+:value "image/png")
+(rdf/node :op "literal"
+:value "image/jpeg")
+(rdf/node :op "literal"
+:value "image/webp")
+(rdf/node :op "literal"
+:value "image/gif")]))
+(rdf/node :kind "interface"
+:name "ImageAttachmentRef"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "attachmentId"
+:optional false
+:readonly false
+:datatype (rdf/node :op "name"
+:name "AttachmentId"
+:args []))
+(rdf/node :kind "property"
+:name "mediaType"
+:optional false
+:readonly false
+:datatype (rdf/node :op "name"
+:name "ImageMediaType"
+:args []))
+(rdf/node :kind "property"
+:name "bytes"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "number"))
+(rdf/node :kind "property"
+:name "width"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "number"))
+(rdf/node :kind "property"
+:name "height"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "number"))
+(rdf/node :kind "property"
+:name "name"
+:optional true
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:name "originalDimensions"
+:optional true
+:readonly false
+:datatype (rdf/node :op "object"
+:members [(rdf/node :kind "property"
+:name "width"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "number"))
+(rdf/node :kind "property"
+:name "height"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "number"))]))])
+(rdf/node :kind "interface"
+:name "FileAttachmentRef"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "attachmentId"
+:optional false
+:readonly false
+:datatype (rdf/node :op "name"
+:name "AttachmentId"
+:args []))
+(rdf/node :kind "property"
+:name "name"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:name "bytes"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "number"))])
+(rdf/node :kind "interface"
+:name "EncodedFileAttachment"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "data"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:name "name"
+:optional true
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "string"))])
+(rdf/node :kind "interface"
+:name "SaveFileAttachment"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "data"
+:optional false
+:readonly false
+:datatype (rdf/node :op "name"
+:name "Uint8Array"
+:args []))
+(rdf/node :kind "property"
+:name "name"
+:optional true
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "string"))])
+(rdf/node :kind "interface"
+:name "SaveFileStreamAttachment"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "data"
+:optional false
+:readonly false
+:datatype (rdf/node :op "name"
+:name "AsyncIterable"
+:args [(rdf/node :op "name"
+:name "Uint8Array"
+:args [])]))
+(rdf/node :kind "property"
+:name "signal"
+:optional true
+:readonly false
+:datatype (rdf/node :op "name"
+:name "AbortSignal"
+:args []))
+(rdf/node :kind "property"
+:name "name"
+:optional true
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "string"))])
+(rdf/node :kind "interface"
+:name "ImageAttachmentLimits"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "maxImageBytes"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "number"))
+(rdf/node :kind "property"
+:name "maxImagesPerMessage"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "number"))
+(rdf/node :kind "property"
+:name "maxMessageImageBytes"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "number"))
+(rdf/node :kind "property"
+:name "maxImagePixels"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "number"))
+(rdf/node :kind "property"
+:name "maxImageDimension"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "number"))
+(rdf/node :kind "property"
+:name "mediaTypes"
+:optional false
+:readonly false
+:datatype (rdf/node :op "readonly"
+:datatype (rdf/node :op "array"
+:item (rdf/node :op "name"
+:name "ImageMediaType"
+:args []))))])
+(rdf/node :kind "interface"
+:name "EncodedImageAttachment"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "mediaType"
+:optional false
+:readonly false
+:datatype (rdf/node :op "name"
+:name "ImageMediaType"
+:args []))
+(rdf/node :kind "property"
+:name "data"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:name "name"
+:optional true
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "string"))])
+(rdf/node :kind "alias"
+:name "PromptContentPart"
+:exported true
+:type-params []
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "object"
+:members [(rdf/node :kind "property"
+:name "type"
+:optional false
+:readonly true
+:datatype (rdf/node :op "literal"
+:value "text"))
+(rdf/node :kind "property"
+:name "text"
+:optional false
+:readonly true
+:datatype (rdf/node :op "keyword"
+:name "string"))])
+(rdf/node :op "object"
+:members [(rdf/node :kind "property"
+:name "type"
+:optional false
+:readonly true
+:datatype (rdf/node :op "literal"
+:value "image"))
+(rdf/node :kind "property"
+:name "mediaType"
+:optional false
+:readonly true
+:datatype (rdf/node :op "name"
+:name "ImageMediaType"
+:args []))
+(rdf/node :kind "property"
+:name "data"
+:optional false
+:readonly true
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:name "name"
+:optional true
+:readonly true
+:datatype (rdf/node :op "keyword"
+:name "string"))])]))
+(rdf/node :kind "alias"
+:name "AttachmentAdmissionPart"
+:exported true
+:type-params []
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "PromptContentPart"
+:args [])
+(rdf/node :op "object"
+:members [(rdf/node :kind "property"
+:name "type"
+:optional false
+:readonly true
+:datatype (rdf/node :op "literal"
+:value "file"))
+(rdf/node :kind "property"
+:name "attachment"
+:optional false
+:readonly true
+:datatype (rdf/node :op "name"
+:name "FileAttachmentRef"
+:args []))])]))
+(rdf/node :kind "alias"
+:name "AdmittedPromptContentPart"
+:exported true
+:type-params []
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "object"
+:members [(rdf/node :kind "property"
+:name "type"
+:optional false
+:readonly true
+:datatype (rdf/node :op "literal"
+:value "text"))
+(rdf/node :kind "property"
+:name "text"
+:optional false
+:readonly true
+:datatype (rdf/node :op "keyword"
+:name "string"))])
+(rdf/node :op "object"
+:members [(rdf/node :kind "property"
+:name "type"
+:optional false
+:readonly true
+:datatype (rdf/node :op "literal"
+:value "image"))
+(rdf/node :kind "property"
+:name "attachment"
+:optional false
+:readonly true
+:datatype (rdf/node :op "name"
+:name "ImageAttachmentRef"
+:args []))])
+(rdf/node :op "object"
+:members [(rdf/node :kind "property"
+:name "type"
+:optional false
+:readonly true
+:datatype (rdf/node :op "literal"
+:value "file"))
+(rdf/node :kind "property"
+:name "attachment"
+:optional false
+:readonly true
+:datatype (rdf/node :op "name"
+:name "FileAttachmentRef"
+:args []))])]))
+(rdf/node :kind "interface"
+:name "SaveImageAttachment"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "data"
+:optional false
+:readonly false
+:datatype (rdf/node :op "name"
+:name "Uint8Array"
+:args []))
+(rdf/node :kind "property"
+:name "mediaType"
+:optional false
+:readonly false
+:datatype (rdf/node :op "name"
+:name "ImageMediaType"
+:args []))
+(rdf/node :kind "property"
+:name "name"
+:optional true
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "string"))])
+(rdf/node :kind "interface"
+:name "StoredImageAttachment"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "ref"
+:optional false
+:readonly false
+:datatype (rdf/node :op "name"
+:name "ImageAttachmentRef"
+:args []))
+(rdf/node :kind "property"
+:name "data"
+:optional false
+:readonly false
+:datatype (rdf/node :op "name"
+:name "Uint8Array"
+:args []))])
+(rdf/node :kind "interface"
+:name "ImageRequestTarget"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "width"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "number"))
+(rdf/node :kind "property"
+:name "height"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "number"))
+(rdf/node :kind "property"
+:name "maxBytes"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "number"))])
+(rdf/node :kind "interface"
+:name "RequestImageAttachment"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "variantId"
+:optional false
+:readonly false
+:datatype (rdf/node :op "name"
+:name "ImageVariantId"
+:args []))
+(rdf/node :kind "property"
+:name "attachment"
+:optional false
+:readonly false
+:datatype (rdf/node :op "name"
+:name "ImageAttachmentRef"
+:args []))
+(rdf/node :kind "property"
+:name "data"
+:optional false
+:readonly false
+:datatype (rdf/node :op "name"
+:name "Uint8Array"
+:args []))
+(rdf/node :kind "property"
+:name "mediaType"
+:optional false
+:readonly false
+:datatype (rdf/node :op "name"
+:name "ImageMediaType"
+:args []))
+(rdf/node :kind "property"
+:name "bytes"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "number"))
+(rdf/node :kind "property"
+:name "width"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "number"))
+(rdf/node :kind "property"
+:name "height"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "number"))
+(rdf/node :kind "property"
+:name "depth"
+:optional false
+:readonly false
+:datatype (rdf/node :op "literal"
+:value "uchar"))
+(rdf/node :kind "property"
+:name "space"
+:optional false
+:readonly false
+:datatype (rdf/node :op "literal"
+:value "srgb"))
+(rdf/node :kind "property"
+:name "hasAlpha"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "boolean"))])]
+:reexports [(rdf/node :module "attachment.brand"
+:type-only true
+:names [(rdf/node :import "AttachmentId"
+:export "AttachmentId")])]
+:augmentations []
+:local-exports [])

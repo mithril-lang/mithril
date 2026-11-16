@@ -1,0 +1,157 @@
+(mithril/native-js-module
+:name "template.controls"
+:imports []
+:functions [(mithril/function
+:name "raw"
+:params [(rdf/node
+:name "tag"
+:datatype "js-value")]
+:returns "js-value"
+:body (mithril/host-tagged-template
+:tag (mithril/local
+:name "tag")
+:raw ["\\s+\\b"]
+:values []))
+(mithril/function
+:name "invalid"
+:params [(rdf/node
+:name "tag"
+:datatype "js-value")]
+:returns "js-value"
+:body (mithril/host-tagged-template
+:tag (mithril/local
+:name "tag")
+:raw ["\\u{bad}"]
+:values []))
+(mithril/function
+:name "substitution"
+:params [(rdf/node
+:name "tag"
+:datatype "js-value")
+(rdf/node
+:name "value"
+:datatype "js-value")]
+:returns "js-value"
+:body (mithril/host-tagged-template
+:tag (mithril/local
+:name "tag")
+:raw ["before "
+" after"]
+:values [(mithril/local
+:name "value")]))
+(mithril/function
+:name "member"
+:params [(rdf/node
+:name "owner"
+:datatype "js-value")]
+:returns "js-value"
+:body (mithril/host-tagged-template
+:tag (mithril/host-get
+:object (mithril/local
+:name "owner")
+:key (mithril/literal
+:datatype "js-value"
+:value "tag"))
+:raw ["receiver"]
+:values []))
+(mithril/function
+:name "escaped"
+:params [(rdf/node
+:name "tag"
+:datatype "js-value")]
+:returns "js-value"
+:body (mithril/host-tagged-template
+:tag (mithril/local
+:name "tag")
+:raw ["\\` \\${literal}"]
+:values []))
+(mithril/function
+:name "multiline"
+:params [(rdf/node
+:name "tag"
+:datatype "js-value")]
+:returns "js-value"
+:body (mithril/host-tagged-template
+:tag (mithril/local
+:name "tag")
+:raw ["a\nb"]
+:values []))
+(mithril/function
+:name "unicode"
+:params [(rdf/node
+:name "tag"
+:datatype "js-value")]
+:returns "js-value"
+:body (mithril/host-tagged-template
+:tag (mithril/local
+:name "tag")
+:raw ["😀 \\uD800"]
+:values []))
+(mithril/function
+:name "continuation"
+:params [(rdf/node
+:name "tag"
+:datatype "js-value")]
+:returns "js-value"
+:body (mithril/host-tagged-template
+:tag (mithril/local
+:name "tag")
+:raw ["a\\\nb"]
+:values []))
+(mithril/function
+:name "ordered"
+:params [(rdf/node
+:name "owner"
+:datatype "js-value")
+(rdf/node
+:name "first"
+:datatype "js-value")
+(rdf/node
+:name "second"
+:datatype "js-value")]
+:returns "js-value"
+:body (mithril/host-tagged-template
+:tag (mithril/host-get
+:object (mithril/local
+:name "owner")
+:key (mithril/literal
+:datatype "js-value"
+:value "tag"))
+:raw [""
+" / "
+""]
+:values [(mithril/host-invoke
+:function (mithril/local
+:name "first")
+:args [])
+(mithril/host-invoke
+:function (mithril/local
+:name "second")
+:args [])]))]
+:exports [(rdf/node
+:name "raw"
+:function "raw")
+(rdf/node
+:name "invalid"
+:function "invalid")
+(rdf/node
+:name "substitution"
+:function "substitution")
+(rdf/node
+:name "member"
+:function "member")
+(rdf/node
+:name "escaped"
+:function "escaped")
+(rdf/node
+:name "multiline"
+:function "multiline")
+(rdf/node
+:name "unicode"
+:function "unicode")
+(rdf/node
+:name "continuation"
+:function "continuation")
+(rdf/node
+:name "ordered"
+:function "ordered")])

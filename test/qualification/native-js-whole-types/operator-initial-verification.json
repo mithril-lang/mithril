@@ -1,0 +1,126 @@
+{
+  "format": "mithril.code-refactor-verification/v1",
+  "verified": false,
+  "verification_scope": "Declared checks on selected baseline and candidate snapshots only; not whole-repository or universal API equivalence.",
+  "input_sha256": "31722d2d0f48b850ab1b02ff357d3d77d85e0b3324f4d7033e0b804d508f10e6",
+  "proposal_sha256": "fc5bb41b0ac62b7a4e50596b3a62291ed27dd45142e6aa6c219cce6fdfb4bfbe",
+  "candidate_sha256": "2d0af1b60bee12d94b1e93f7cae6e9c8c26cd4b305df4ac6d892c2194f27671c",
+  "image": "sha256:fc3da092c20629c6569bb96845b3ca1b0791b12b35a9faea8aeb45a0ee4cba35",
+  "plan": {
+    "image": "sha256:fc3da092c20629c6569bb96845b3ca1b0791b12b35a9faea8aeb45a0ee4cba35",
+    "seed_directory": "/opt/mithril-refactor-base",
+    "timeout_seconds": 240,
+    "checks": [
+      {
+        "id": "retained-source-84-434",
+        "argv": [
+          "node",
+          "/opt/whole-types-controls/run-check.mjs",
+          "test/run_modules.cljk"
+        ]
+      },
+      {
+        "id": "whole-types-source-reference-100",
+        "argv": [
+          "node",
+          "--experimental-vm-modules",
+          "/opt/whole-types-controls/types-contract.mjs",
+          "baseline",
+          "/opt/whole-types-controls/types-baseline.mjs",
+          "/opt/whole-types-controls/misc-baseline.mjs",
+          "/opt/whole-types-controls/volatile-baseline.mjs"
+        ]
+      },
+      {
+        "id": "whole-types-native-cli-runtime",
+        "variant": "candidate",
+        "argv": [
+          "node",
+          "/opt/whole-types-controls/run-check.mjs",
+          "/opt/whole-types-controls/compile-types.cljk"
+        ]
+      }
+    ]
+  },
+  "checks": [
+    {
+      "variant": "baseline",
+      "id": "retained-source-84-434",
+      "argv": [
+        "node",
+        "/opt/whole-types-controls/run-check.mjs",
+        "test/run_modules.cljk"
+      ],
+      "wall_seconds": 58.143169541999995,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "\nTesting mithril.module-test\n\nTesting mithril.module-lower-test\n\nTesting mithril.form-test\n\nTesting mithril.compiler-test\n\nTesting mithril.conditional-test\n\nTesting mithril.branding-test\n\nTesting mithril.undefined-test\n\nTesting mithril.library-test\n\nTesting mithril.module-bindings-test\n\nTesting mithril.module-guest-closure-test\n\nTesting mithril.native-js-test\n\nTesting mithril.native-misc-test\nNative primitive runtime: strict comparison/raw logical values/spread/assignment/for-of checked.\n11 primitive admissions, 9 refusals, all 8 Form tags checked.\n\nTesting mithril.native-array-test\nNative array primitives: 20 runtime contract groups passed.\n4 admissions / 13 malformed refusals / 2 budget refusals / 3 Form tags passed.\n\nTesting mithril.native-volatile-test\nNamed-function/generated-binding collision regression passed.\nNative volatile prerequisites: 15 runtime contract groups passed.\n7 admissions / 15 malformed refusals / 2 budget refusals / 4 Form tags passed.\n\nTesting mithril.native-types-test\nNative type prerequisites: 16 runtime contract groups passed.\n6 admissions / 6 malformed or scope refusals / 2 budget refusals / 1 Form tag passed.\nNative arguments Let scope: 3 runtime boundary groups passed.\n4 additional scope refusals and normal/default/LocalFunction Let capture groups passed.\n\nTesting mithril.native-blocks-test\nNative export/loop/string prerequisites: 18 runtime contract groups passed.\n3 admissions / 12 malformed or scope refusals / 3 budget refusals / 2 Form tags passed.\n\nRan 84 tests containing 434 assertions.\n0 failures, 0 errors.\nJVM launcher marker absent; workspace source classpath.\n"
+    },
+    {
+      "variant": "baseline",
+      "id": "whole-types-source-reference-100",
+      "argv": [
+        "node",
+        "--experimental-vm-modules",
+        "/opt/whole-types-controls/types-contract.mjs",
+        "baseline",
+        "/opt/whole-types-controls/types-baseline.mjs",
+        "/opt/whole-types-controls/misc-baseline.mjs",
+        "/opt/whole-types-controls/volatile-baseline.mjs"
+      ],
+      "wall_seconds": 3.394962542000001,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "(node:1) ExperimentalWarning: VM Modules is an experimental feature and might change at any time\n(Use `node --trace-warnings ...` to show where the warning was created)\nWhole types runtime: 100 groups passed (50 per Buffer-present/absent realm), source baseline.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "retained-source-84-434",
+      "argv": [
+        "node",
+        "/opt/whole-types-controls/run-check.mjs",
+        "test/run_modules.cljk"
+      ],
+      "wall_seconds": 127.89804512500001,
+      "exit_code": 1,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "\nTesting mithril.module-test\n\nTesting mithril.module-lower-test\n\nTesting mithril.form-test\n\nTesting mithril.compiler-test\n\nTesting mithril.conditional-test\n\nTesting mithril.branding-test\n\nTesting mithril.undefined-test\n\nTesting mithril.library-test\n\nTesting mithril.module-bindings-test\n\nTesting mithril.module-guest-closure-test\n\nTesting mithril.native-js-test\nnode:internal/child_process:1160\n    result.error = new ErrnoException(result.error, 'spawnSync ' + options.file);\n                   ^\n\nError: spawnSync /usr/local/bin/node ETIMEDOUT\n    at Object.spawnSync (node:internal/child_process:1160:20)\n    at spawnSync (node:child_process:928:24)\n    at file:///opt/whole-types-controls/run-check.mjs:6:9\n    at ModuleJob.run (node:internal/modules/esm/module_job:561:25)\n    at async node:internal/modules/esm/loader:647:26\n    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {\n  errno: -110,\n  code: 'ETIMEDOUT',\n  syscall: 'spawnSync /usr/local/bin/node',\n  path: '/usr/local/bin/node',\n  spawnargs: [\n    '/opt/nbb/cli.js',\n    '--config',\n    '/opt/native-controls/workspace.edn',\n    'test/run_modules.cljk'\n  ]\n}\n\nNode.js v24.21.0\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "whole-types-source-reference-100",
+      "argv": [
+        "node",
+        "--experimental-vm-modules",
+        "/opt/whole-types-controls/types-contract.mjs",
+        "baseline",
+        "/opt/whole-types-controls/types-baseline.mjs",
+        "/opt/whole-types-controls/misc-baseline.mjs",
+        "/opt/whole-types-controls/volatile-baseline.mjs"
+      ],
+      "wall_seconds": 4.845523167000007,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "(node:1) ExperimentalWarning: VM Modules is an experimental feature and might change at any time\n(Use `node --trace-warnings ...` to show where the warning was created)\nWhole types runtime: 100 groups passed (50 per Buffer-present/absent realm), source baseline.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "whole-types-native-cli-runtime",
+      "argv": [
+        "node",
+        "/opt/whole-types-controls/run-check.mjs",
+        "/opt/whole-types-controls/compile-types.cljk"
+      ],
+      "wall_seconds": 22.25511725000001,
+      "exit_code": 1,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "----- Error --------------------------------------\nMessage:  Unexpected or missing native JS module fields\nLocation: /workspace/src/mithril/native_js.cljk:17:3\n\n----- Context ------------------------------------\n13:     \"let\" \"new\" \"null\" \"package\" \"private\" \"protected\" \"public\" \"return\"\n14:     \"static\" \"super\" \"switch\" \"this\" \"throw\" \"true\" \"try\" \"typeof\" \"var\"\n15:     \"void\" \"while\" \"with\" \"yield\" \"arguments\" \"eval\"})\n16: (defn- fail! [code detail]\n17:   (throw (ex-info detail {:mithril/error code :detail detail})))\n      ^--- Unexpected or missing native JS module fields\n18: (defn- shape! [value fields]\n19:   (when-not (and (map? value) (= (set fields) (set (keys value))))\n20:     (fail! :mithril.native-js/shape \"Unexpected or missing native JS module fields\")))\n21: (defn- optional-flag! [value required flag]\n22:   (shape! value (if (contains? value flag) (conj (vec required) flag) required))\n\n----- Stack trace --------------------------------\nmithril.native-js/fail!          - /workspace/src/mithril/native_js.cljk:17:3 \nmithril.native-js/fail!          - /workspace/src/mithril/native_js.cljk:16:1 \nmithril.native-js/shape!         - /workspace/src/mithril/native_js.cljk:20:5 \nmithril.native-js/shape!         - /workspace/src/mithril/native_js.cljk:18:1 \nmithril.native-js/expression!    - /workspace/src/mithril/native_js.cljk:90:11 \n...\nmithril.native-js/check-text     - /workspace/src/mithril/native_js.cljk:329:3 \nmithril.native-js/check-text     - /workspace/src/mithril/native_js.cljk:327:1 \nmithril.native-js/compile-text   - /workspace/src/mithril/native_js.cljk:455:41 \nmithril.native-js/compile-text   - /workspace/src/mithril/native_js.cljk:455:1 \ncompile-types                    - /opt/whole-types-controls/compile-types.cljk:3:8 \n\nfile:///opt/nbb/lib/nbb_main.js:13\n$APP.aH),$APP.VZ);return g.B?g.B():g.call(null)}):null).then(function(g){$APP.k($APP.k(d)?g!=null:d)&&$APP.dz.o($APP.y([g],0));return g}).catch(function(g){$APP.Dla(g,b);$APP.k($APP.ez.h(b))&&console.error(g);throw Error($APP.Hk(g));})})):console.error(\"Usage: \"+$APP.I.h(\"nbb\")+\" \\x3cscript\\x3e or nbb -e \\x3cexpr\\x3e.\")})();\n                                                                                                                                                                                                                       ^\n\nError: Unexpected or missing native JS module fields\n    at file:///opt/nbb/lib/nbb_main.js:13:216\n\nNode.js v24.21.0\nfile:///opt/whole-types-controls/run-check.mjs:7\nif(existsSync(marker))throw Error('forbidden JVM launcher');if(r.error||r.status!==0)throw r.error||Error('source check failed: '+r.status);\n                                                                                                    ^\n\nError: source check failed: 1\n    at file:///opt/whole-types-controls/run-check.mjs:7:101\n    at ModuleJob.run (node:internal/modules/esm/module_job:561:25)\n    at async node:internal/modules/esm/loader:647:26\n    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)\n\nNode.js v24.21.0\n"
+    }
+  ],
+  "wall_seconds": 219.779984708
+}

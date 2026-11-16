@@ -1,0 +1,88 @@
+(mithril/native-js-module :name "protocol.remote_error"
+:ambient_imports ["Error"]
+:imports ["Error"]
+:functions [(mithril/function :name "remoteErrorOf"
+:params [(rdf/node :name "value"
+:datatype "js-value")]
+:returns "js-value"
+:body (mithril/sequence :expressions [(mithril/if :condition (mithril/host-logical :operator "&&"
+:left (mithril/host-logical :operator "&&"
+:left (mithril/host-logical :operator "&&"
+:left (mithril/host-binary :operator "==="
+:left (mithril/host-unary :operator "typeof"
+:value (mithril/local :name "value"))
+:right (mithril/literal :datatype "js-value"
+:value "object"))
+:right (mithril/host-binary :operator "!=="
+:left (mithril/local :name "value")
+:right (mithril/literal :datatype "js-value"
+:value nil)))
+:right (mithril/host-binary :operator "==="
+:left (mithril/host-get :object (mithril/local :name "value")
+:key (mithril/literal :datatype "js-value"
+:value "isDSHRemoteError"))
+:right (mithril/literal :datatype "js-value"
+:value true)))
+:right (mithril/host-binary :operator "==="
+:left (mithril/host-unary :operator "typeof"
+:value (mithril/host-get :object (mithril/local :name "value")
+:key (mithril/literal :datatype "js-value"
+:value "code")))
+:right (mithril/literal :datatype "js-value"
+:value "string")))
+:then (mithril/sequence :expressions [(mithril/host-return :value (mithril/local :name "value"))
+(mithril/host-undefined )])
+:else (mithril/host-undefined ))
+(mithril/sequence :expressions [(mithril/host-return :value (mithril/host-undefined ))
+(mithril/host-undefined )])])
+:statements true)]
+:bindings [(rdf/node :name "RemoteError"
+:value (mithril/native-class :name "RemoteError"
+:extends (mithril/host-import :name "Error")
+:constructor (rdf/node :params [(rdf/node :name "code"
+:datatype "js-value")
+(rdf/node :name "message"
+:datatype "js-value")
+(rdf/node :name "details"
+:datatype "js-value")
+(rdf/node :name "options"
+:datatype "js-value")]
+:rest nil
+:body (mithril/sequence :expressions [(mithril/host-super-call :items [(rdf/node :value (mithril/local :name "message"))
+(rdf/node :value (mithril/local :name "options"))])
+(mithril/sequence :expressions [(mithril/host-set :object (mithril/host-this )
+:key (mithril/literal :datatype "js-value"
+:value "code")
+:value (mithril/local :name "code"))
+(mithril/sequence :expressions [(mithril/host-set :object (mithril/host-this )
+:key (mithril/literal :datatype "js-value"
+:value "details")
+:value (mithril/local :name "details"))
+(mithril/sequence :expressions [(mithril/host-set :object (mithril/host-this )
+:key (mithril/literal :datatype "js-value"
+:value "name")
+:value (mithril/literal :datatype "js-value"
+:value "RemoteError"))
+(mithril/host-undefined )])])])])
+:statements true)
+:members [(rdf/node :kind "field"
+:static false
+:key (mithril/literal :datatype "js-value"
+:value "code")
+:value (mithril/host-undefined ))
+(rdf/node :kind "field"
+:static false
+:key (mithril/literal :datatype "js-value"
+:value "details")
+:value (mithril/host-undefined ))
+(rdf/node :kind "field"
+:static false
+:key (mithril/literal :datatype "js-value"
+:value "isDSHRemoteError")
+:value (mithril/literal :datatype "js-value"
+:value true))]))]
+:exports [(rdf/node :name "RemoteError"
+:value (mithril/local :name "RemoteError"))
+(rdf/node :name "remoteErrorOf"
+:function "remoteErrorOf")]
+:lexical_bindings true)

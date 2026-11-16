@@ -1,0 +1,34 @@
+import assert from 'node:assert/strict';
+import {pathToFileURL} from 'node:url';
+import {join} from 'node:path';
+import {reference} from './native-classic-for-reference.mjs';
+const dir=process.argv[2];let groups=0;const group=async f=>{await f();groups++};
+const capture=f=>{try{return {value:f()}}catch(e){return e instanceof Error?{error:e.name}:{thrown:e}}};
+const base={mark:(name,v)=>v,test:i=>i<3,wait:async v=>v,predicate:async(i,n)=>i<n};
+for(const target of ['js','js-browser']){
+ const {instantiateMithrilNative}=await import(pathToFileURL(join(dir,'classic-for-'+target+'.mjs'))),factories=[instantiateMithrilNative,reference],start=groups;
+ await group(()=>{for(const value of [0,-0,7,-3,NaN,Infinity,-Infinity,1n,'5','bad',null,undefined,true,false,Symbol('s')])for(const name of ['updates','parameter'])assert.deepEqual(capture(()=>factories[0](base)[name](value)),capture(()=>factories[1](base)[name](value)))});
+ await group(()=>{for(const numeric of [3,3n]){const traces=[];for(const factory of factories){const log=[],value={[Symbol.toPrimitive](hint){log.push(hint);return numeric}};traces.push([factory(base).updates(value),log])}assert.deepEqual(...traces);assert.deepEqual(traces[0][1],['number'])}});
+ await group(()=>{for(const factory of factories){const sentinel={},value={[Symbol.toPrimitive](){throw sentinel}};assert.throws(()=>factory(base).updates(value),e=>e===sentinel)}});
+ await group(()=>{for(const limit of [0,1,3,-1,'2',null])assert.deepEqual(factories[0](base).collect(limit),factories[1](base).collect(limit))});
+ await group(()=>{for(const factory of factories){const fns=factory(base).closures(3);assert.deepEqual(fns.map(f=>f()),[0,1,2]);assert.throws(()=>new fns[0](),TypeError)}});
+ await group(()=>{const traces=[];for(const factory of factories){const log=[],api=factory({...base,mark:(n,v)=>{log.push([n,v]);return v},test:i=>{log.push(['test',i]);return i<2}});traces.push([api.header(),log])}assert.deepEqual(...traces);assert.deepEqual(traces[0][1],[['init',0],['test',0],['body',0],['update',0],['test',1],['body',1],['update',1],['test',2]])});
+ await group(()=>{for(const phase of ['init','test','body','update']){const traces=[];for(const factory of factories){const log=[],api=factory({...base,mark:(n,v)=>{log.push([n,v]);if(n===phase)throw 'failure';return v},test:i=>{log.push(['test',i]);if(phase==='test')throw 'failure';return i<2}});traces.push([capture(()=>api.header()),log])}assert.deepEqual(...traces)}});
+ await group(()=>{for(const mode of ['continue','break','return','throw']){const traces=[];for(const factory of factories){const log=[],api=factory({...base,mark:(n,v)=>{log.push([n,v]);return v}});traces.push([capture(()=>api.control(mode)),log])}assert.deepEqual(...traces);assert.deepEqual(traces[0][1],mode==='continue'?[['finally',0],['update',0],['finally',1],['update',1],['finally',2],['update',2]]:[['finally',0]])}});
+ await group(()=>{for(const factory of factories)for(const mode of ['continue','break','return','throw']){const log=[],api=factory({...base,mark:(n,v)=>{log.push(n);throw 'override'}});assert.deepEqual(capture(()=>api.control(mode)),{thrown:'override'});assert.deepEqual(log,['finally'])}});
+ await group(()=>{for(const factory of factories){const log=[],api=factory({...base,mark:n=>log.push(n)});assert.deepEqual(api.external(),[[0,1,2],3]);assert.deepEqual(log,['init'])}});
+ await group(()=>{for(const factory of factories){const log=[],api=factory({...base,mark:n=>log.push(n)});assert.deepEqual(api.missing(),['body']);assert.equal(api.wrapped(),42);assert.deepEqual(log,['wrapped'])}});
+ await group(()=>{for(const factory of factories)assert.equal(factory(base).constant()[0](),7)});
+ await group(()=>{for(const factory of factories)for(const name of ['selfTDZ','forwardTDZ'])assert.throws(()=>factory(base)[name](),ReferenceError)});
+ await group(()=>{for(const factory of factories){const [fns,outer]=factory(base).shadow(9);assert.deepEqual(fns.map(f=>f()),[0,1]);assert.equal(outer,9)}});
+ await group(()=>{for(const factory of factories)assert.deepEqual(factory(base).nested(),[1,'outer:0',1,'outer:1'])});
+ await group(()=>{for(const factory of factories)assert.deepEqual(factory(base).mutate().map(f=>f()),[1,3])});
+ await group(()=>{for(const factory of factories){const receiver={},fns=factory(base).receiver.call(receiver,2);assert.deepEqual(fns.map(f=>f()),[[0,receiver],[1,receiver]])}});
+ await group(()=>{const traces=[];for(const factory of factories){const g=factory(base).generate(),trace=[g.next(),g.next(0)],a=g.next(true).value;trace.push(a());trace.push(g.next(),g.next(2));const b=g.next(true).value;trace.push(b(),g.next(),g.next(3),g.next(false),a(),b());traces.push(trace)}assert.deepEqual(...traces);assert.deepEqual(traces[0].slice(-2),[0,2])});
+ await group(()=>{for(const factory of factories){const g=factory(base).generate();assert.equal(g.next().value,'init');assert.deepEqual(g.return('closed'),{value:'closed',done:true});assert.deepEqual(g.next(),{value:undefined,done:true})}});
+ await group(async()=>{const traces=[];for(const factory of factories){const log=[],then=v=>({then(resolve){log.push(['then',v]);resolve(v)}}),api=factory({...base,wait:v=>{log.push(['wait',v]);return then(v)},predicate:(i,n)=>{log.push(['predicate',i,n]);return then(i<n)}});traces.push([await api.asyncCollect(2),log])}assert.deepEqual(...traces)});
+ await group(async()=>{for(const phase of ['init','condition','update'])for(const factory of factories){const log=[],api=factory({...base,wait:v=>{log.push(['wait',v]);return phase==='init'||phase==='update'&&v===1?Promise.reject('failure'):Promise.resolve(v)},predicate:(i,n)=>{log.push(['predicate',i,n]);return phase==='condition'?Promise.reject('failure'):Promise.resolve(i<n)}});await assert.rejects(api.asyncCollect(2),e=>e==='failure');assert.equal(log.length,phase==='init'?1:phase==='condition'?2:3)}});
+ console.log(`Native classic for actual ${target} CLI: ${groups-start} paired runtime groups passed.`);
+}
+assert.equal(groups,42);
+console.log('Native classic for/local update:42 paired groups; native lexical iteration/TDZ/ToNumeric/control/coroutines. Both CLI targets run under Node, not actual browser parity.');

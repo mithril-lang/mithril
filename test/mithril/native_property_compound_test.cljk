@@ -1,0 +1,65 @@
+(ns mithril.native-property-compound-test
+ (:require [cljs.test :refer [deftest is]] [mithril.native-js :as native]
+           [mithril.form :as form] [mithril.module :as guest]
+           [mithril.native-js-test :as h]
+           ["node:fs" :as fs] ["node:os" :as os] ["node:path" :as path]
+           ["node:crypto" :as crypto] ["node:child_process" :as child]))
+(def base {"@type" "HostCompoundAssign" "operator" "+="
+           "object" (h/local "object") "key" (h/local "key") "value" (h/local "value")})
+(defn doc [expr] (h/document [] [(h/function "assign" ["object" "key" "value"] expr)] ["assign"]))
+(deftest property-compound-closed-admission
+ (is (= base (form/parse "(mithril/host-compound-assign :operator \"+=\" :object (mithril/local :name \"object\") :key (mithril/local :name \"key\") :value (mithril/local :name \"value\"))")))
+ (is (= [] (:required-imports (native/compile-document (doc base)))))
+ (doseq [[expr code] [[(assoc base "operator" "??=") :mithril.native-js/operator]
+                      [(assoc base "operator" "=") :mithril.native-js/operator]
+                      [(assoc base "operator" "+=0);globalThis.injected=true;//") :mithril.native-js/operator]
+                      [(assoc base "operator" nil) :mithril.native-js/operator]
+                      [(assoc base "raw" "payload") :mithril.native-js/shape]
+                      [(dissoc base "object") :mithril.native-js/shape]
+                      [(assoc base "key" nil) :mithril.native-js/shape]
+                      [(assoc base "object" (h/local "missing")) :mithril.native-js/local]
+                      [(assoc base "key" (h/local "missing")) :mithril.native-js/local]
+                      [(assoc base "value" (h/import-node "missing")) :mithril.native-js/import]
+                      [(assoc base "value" {"@type" "HostAwait" "value" (h/literal 1)}) :mithril.native-js/scope]]]
+  (is (= code (h/refusal (doc expr)))))
+ (is (= :mithril.native-js/budget (h/refusal (doc (reduce (fn [expr _] (assoc base "value" expr)) (h/literal 1) (range 65))))))
+ (is (some? (try (guest/check-text (fs/readFileSync "examples/native-js-property-compound.mith" "utf8")) nil (catch :default e (:mithril/error (ex-data e)))))))
+(defn run [engine config args]
+ (child/spawnSync js/process.execPath (clj->js (concat [engine "--config" config "--classpath" "src"] args)) #js {:encoding "utf8" :timeout 30000}))
+(deftest property-compound-all-actual-output-forms-and-cli-refusals
+ (let [dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-compound-"))
+       config (path/join dir "offline.edn") engine (aget (.-argv js/process) 1)]
+  (try
+   (fs/writeFileSync config "{:paths []}")
+   (doseq [target ["js" "js-browser"] mode ["standalone" "esm" "library" "explicit-package"]]
+    (let [out (path/join dir (str target "-" mode)) file (if (= mode "esm") (path/join out "index.mjs") (str out ".mjs"))
+          args (case mode
+                 "explicit-package" ["-e" (str "(require '[mithril.native-package :as p] '[\"node:fs\" :as fs]) (fs/writeFileSync " (js/JSON.stringify file) " (:source (p/compile-text (fs/readFileSync \"examples/native-js-property-compound-package.mith\" \"utf8\") {\"native-js-property-compound.mith\" (fs/readFileSync \"examples/native-js-property-compound.mith\" \"utf8\")})))")]
+                 "esm" ["bin/mithril-native-esm.cljk" "examples/native-js-property-compound-esm.mith" "--target" target "--output-directory" out]
+                 "library" ["bin/mithril-native-package.cljk" "examples/native-js-property-compound-package.mith" "--target" target "--output" file]
+                 ["bin/mithril-native-js.cljk" "examples/native-js-property-compound.mith" "--target" target "--output" file])
+          r (run engine config args)]
+     (is (= 0 (.-status r)) (str (.-stdout r) (.-stderr r)))
+     (let [r (child/spawnSync js/process.execPath #js ["test/fixtures/native-property-compound-contract.mjs" file mode] #js {:encoding "utf8" :timeout 30000})]
+      (is (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r)))))
+   (doseq [target ["js" "js-browser"] expr [(assoc base "operator" "||=") (assoc base "source" "raw") (assoc base "value" (h/import-node "missing"))]]
+    (let [input (path/join dir "bad.json") output (path/join dir "preserved.mjs")]
+     (fs/writeFileSync input (js/JSON.stringify (clj->js (doc expr)))) (fs/writeFileSync output "sentinel")
+     (let [r (run engine config ["bin/mithril-native-js.cljk" input "--target" target "--output" output])]
+      (is (= 65 (.-status r))) (is (.includes (.-stderr r) "REFUSE"))
+      (is (= "sentinel" (fs/readFileSync output "utf8"))))))
+   (finally (fs/rmSync dir #js {:recursive true :force true})))))
+(deftest complete-loader-tree-source-admits-real-compound-and-dynamic-import
+ (let [text (fs/readFileSync "examples/native-js-loader-tree.mith" "utf8")
+       original (fs/readFileSync "test/fixtures/loader-tree/original-tree.ts")
+       dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-loader-tree-"))
+       config (path/join dir "offline.edn") engine (aget (.-argv js/process) 1)]
+  (is (= "761889adfb6b8a164fb12a0cec49a6ef439598b9267e85073000cfa9b7d682c8" (.digest (.update (crypto/createHash "sha256") original) "hex")))
+  (is (= (native/compile-text text) (native/compile-document (form/parse text))))
+  (try
+   (fs/writeFileSync config "{:paths []}")
+   (doseq [target ["js" "js-browser"]]
+    (let [r (run engine config ["bin/mithril-native-js.cljk" "examples/native-js-loader-tree.mith" "--target" target "--output" (path/join dir (str target ".mjs"))])]
+     (is (= 0 (.-status r)) (str (.-stdout r) (.-stderr r)))
+     (is (= ["EntryTree"] (js->clj (.-exports (js/JSON.parse (.-stdout r))))))))
+   (finally (fs/rmSync dir #js {:recursive true :force true})))))

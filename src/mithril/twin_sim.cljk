@@ -225,8 +225,8 @@
     "get-blob" "send" "read-item" "publish" "get-document" "stub" "interaction"
     "verify"})
 
-(def ^:private reads #{"get-object" "receive" "get-item" "get-blob" "read-item" "get-document"})
-(def ^:private writes #{"put-object" "send" "publish" "invoke"})
+(def reads #{"get-object" "receive" "get-item" "get-blob" "read-item" "get-document"})
+(def writes #{"put-object" "send" "publish" "invoke"})
 
 (defn- local-name [symbol]
   (last (str/split symbol #"/")))
@@ -275,7 +275,9 @@
   doc)
 
 (defn- block [state status reason]
-  (if (:block state) state (assoc state :block {:status status :reason reason})))
+  (if (:block state)
+    state
+    (assoc (dissoc state :remaining) :block {:status status :reason reason})))
 
 (defn- admitted? [state]
   (and (nil? (:block state)) (= "allow" (:decision state))))
@@ -290,9 +292,10 @@
            (if (and (= "allow" (:decision state))
                     (some #{(get run "action")} (get run "permission-boundary")))
              "allow" "deny"))
-    (= local "take") (if (pos? (get run "quota"))
-                       (assoc state :remaining (dec (get run "quota")))
-                       (block state 429 "quota"))
+    (= local "take") (cond
+                       (not (admitted? state)) state
+                       (pos? (get run "quota")) (assoc state :remaining (dec (get run "quota")))
+                       :else (block state 429 "quota"))
     (= local "read-view") (assoc state :consistency (get run "consistency"))
     (= local "inject") (if (= "none" (get run "fault"))
                          state

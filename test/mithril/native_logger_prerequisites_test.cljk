@@ -1,0 +1,62 @@
+(ns mithril.native-logger-prerequisites-test
+ (:require [cljs.test :refer [deftest is]] [mithril.native-js :as native] [mithril.form :as form]
+           [mithril.native-class-test :as c]
+           ["node:fs" :as fs] ["node:os" :as os] ["node:path" :as path] ["node:child_process" :as child]))
+(defn document [x] (c/document x []))
+(defn block [body] {"kind" "static-block" "body" body})
+(defn klass [members] (c/klass "C" nil nil members))
+(defn arrow [params rest-name body] {"@type" "NativeLambda" "params" params "rest" rest-name "body" body})
+(defn lexical-doc [bindings exports]
+ (assoc (document c/undef) "lexical_bindings" true "bindings" bindings "exports" exports))
+(defn refused? [doc] (try (native/check-document doc) false (catch :default _ true)))
+(deftest logger-native-syntax-prerequisites
+ (let [text (fs/readFileSync "examples/native-js-logger-prerequisites.mith" "utf8")
+       old (c/arrow (c/lit 1))
+       old-param {"@type" "NativeLambda" "params" ["x"] "body" (c/local "x")}
+       closure (c/arrow (c/local "later"))
+       deferred (lexical-doc [{"name" "first" "value" closure} {"name" "later" "value" (c/lit 7)}] [{"name" "first" "value" (c/local "first")}])
+       early (lexical-doc [{"name" "first" "value" (c/local "later")} {"name" "later" "value" (c/lit 7)}] [])
+       early-call (assoc-in deferred ["bindings" 0 "value"] (c/call closure))
+       early-set (lexical-doc [{"name" "first" "value" {"@type" "LocalSet" "name" "later" "value" (c/lit 8)}} {"name" "later" "mutable" true "value" (c/lit 7)}] [])
+       mutual (lexical-doc [{"name" "f" "value" (c/arrow (c/local "g"))} {"name" "g" "value" (c/arrow (c/local "f"))}] [{"name" "f" "value" (c/local "f")} {"name" "g" "value" (c/local "g")}])
+       mutable (lexical-doc [{"name" "set" "value" (c/arrow {"@type" "LocalSet" "name" "later" "value" (c/lit 8)})} {"name" "get" "value" closure} {"name" "later" "mutable" true "value" (c/lit 7)}] [{"name" "set" "value" (c/local "set")} {"name" "get" "value" (c/local "get")}])
+       mode-bad [(assoc deferred "lexical_bindings" false) (assoc deferred "lexical_bindings" nil) (assoc deferred "lexical_bindings" 1)
+                 (assoc-in deferred ["bindings" 0 "value"] (c/local "missing"))
+                 (assoc-in mutable ["bindings" 2 "mutable"] false)
+                 (assoc-in deferred ["bindings" 1 "name"] "first")
+                 (assoc-in deferred ["bindings" 0 "source"] "JS")
+                 (assoc-in deferred ["bindings" 1 "mutable"] nil)]
+       bad [(document (arrow [] 1 c/undef))
+            (document (arrow ["x"] "x" c/undef))
+            (document (arrow [] "return" c/undef))
+            (document (arrow [{"name" "x" "default" (c/local "missing")}] nil c/undef))
+            (document (arrow [{"array" ["x" "x"]}] nil c/undef))
+            (document (arrow [{"name" "x" "array" []}] nil c/undef))
+            (document (arrow [{"name" "x" "default" c/undef "source" "JS"}] nil c/undef))
+            (document (arrow ["x"] nil {"@type" "LocalSet" "name" "x" "value" (c/lit 1)}))
+            (document (klass [(block c/argc)]))
+            (document (klass [(block (c/arrow c/argc))]))
+            (document (klass [(block (c/super-call []))]))
+            (document (klass [(block (c/normal (c/super-get "x")))]))
+            (document (klass [(assoc (block c/undef) "static" true)]))
+            (document (klass [(assoc (block c/undef) "key" (c/lit "x"))]))
+            (document (klass [(block {"@type" "Let" "bindings" [{"name" "secret" "value" (c/lit 1)}] "body" c/undef}) (block (c/local "secret"))]))
+            (document (klass (vec (repeat 129 (block c/undef)))))
+            (document {"@type" "HostBinary" "operator" "|=" "left" (c/lit 0) "right" (c/lit 1)})
+            (document (arrow (vec (repeat 65 "x")) nil c/undef))]
+       dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-logger-prerequisites-"))]
+  (is (= (native/compile-text text) (native/compile-document (form/parse text))))
+  (is (every? refused? (concat bad mode-bad)))
+  (is (and (= (c/source old []) (c/source (assoc old "rest" nil) []))
+           (= (c/source old-param []) (c/source (assoc old-param "params" [{"name" "x"}]) []))
+           (= (:source (native/compile-document (document old))) (:source (native/compile-document (assoc (document old) "lexical_bindings" false))))))
+  (try
+   (fs/writeFileSync (path/join dir "artifacts.json") (js/JSON.stringify (clj->js (into {} (map (fn [[k d]] [k (:source (native/compile-document d))]) {"deferred" deferred "early" early "earlyCall" early-call "earlySet" early-set "mutual" mutual "mutable" mutable})))))
+   (let [engine (.-MITHRIL_NATIVE_ENGINE js/process.env) config (path/join dir "offline.edn")]
+    (fs/writeFileSync config "{:paths [\"src\"]}\n")
+    (doseq [target ["js" "js-browser"]]
+     (let [r (child/spawnSync js/process.execPath (clj->js [engine "--config" config "-cp" "src" "bin/mithril-native-js.cljk" "examples/native-js-logger-prerequisites.mith" "--target" target "--output" (path/join dir (str target ".mjs"))]) #js {:encoding "utf8" :timeout 30000})]
+      (when-not (= 0 (.-status r)) (throw (js/Error. (str (.-stdout r) (.-stderr r))))))))
+   (let [r (child/spawnSync js/process.execPath (clj->js ["test/fixtures/native-logger-prerequisites-contract.mjs" dir]) #js {:encoding "utf8" :timeout 30000})]
+    (is (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r)))
+   (finally (fs/rmSync dir #js {:recursive true :force true})))))

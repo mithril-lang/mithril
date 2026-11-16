@@ -1,0 +1,50 @@
+(ns mithril.native-for-in-test
+ (:require [cljs.test :refer [deftest is]] [mithril.native-js :as native] [mithril.form :as form]
+           [mithril.native-class-test :as c]
+           ["node:fs" :as fs] ["node:os" :as os] ["node:path" :as path] ["node:child_process" :as child]))
+(def loopx {"@type" "HostForIn" "object" (c/arr) "binding" "key" "body" (c/local "key") "result" c/undef})
+(defn refused? [v] (try (native/check-document (c/document v [])) false (catch :default _ true)))
+(deftest checked-native-enumeration-admission
+ (let [bad [(dissoc loopx "object") (assoc loopx "iterable" (c/arr))
+            (assoc loopx "source" "raw JS") (assoc loopx "object" (c/local "key"))
+            (assoc loopx "result" (c/local "key"))
+            (assoc loopx "body" {"@type" "LocalSet" "name" "key" "value" c/undef})
+            (assoc loopx "binding" {"array" ["a" "a"]})
+            (assoc loopx "binding" {"array" ["a"] "rest" "tail"})
+            (assoc loopx "binding" "a-b")
+            (assoc loopx "binding" {"array" (vec (repeat 65 "x"))})
+            (assoc loopx "binding" {"array" '("a")})
+            (assoc loopx "body" (reduce (fn [v _] (assoc loopx "body" v)) c/undef (range 65)))
+            (assoc loopx "body" {"@type" "HostArray" "items" (vec (repeat 4096 c/undef))})
+            {"@type" "Sequence" "expressions" (vec (repeat 1024 loopx))}
+            {"@type" "Let" "bindings" [{"name" "key" "value" c/undef}] "body" loopx}
+            (assoc loopx "body" {"@type" "HostBreak"})
+            (assoc (c/normal loopx) "statements" true "body"
+                   (assoc loopx "body" (assoc (c/normal {"@type" "HostBreak"}) "statements" true)))
+            (assoc (c/normal loopx) "statements" true "body"
+                   (assoc loopx "body" (c/arrow {"@type" "HostContinue"})))
+            (c/normal (assoc loopx "body" {"@type" "HostContinue"}))
+            (assoc (c/normal (assoc loopx "binding" "yield")) "generator" true)
+            (assoc (c/normal (assoc loopx "binding" "await")) "async" true)
+            (assoc (c/normal loopx) "generator" true "body"
+                   (assoc loopx "body" {"@type" "HostYield" "value" c/undef}))]
+       text (fs/readFileSync "examples/native-js-for-in.mith" "utf8")]
+  (is (= loopx (form/parse "(mithril/host-for-in :object (mithril/host-array :items []) :binding \"key\" :body (mithril/local :name \"key\") :result (mithril/host-undefined))")))
+  (is (every? refused? bad))
+  (is (= (native/compile-text text) (native/compile-document (form/parse text))))
+  (is (not (refused? (assoc loopx "binding" {"array" []} "body" c/undef))))))
+(deftest native-for-in-cli
+ (let [dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-for-in-"))]
+  (try
+   (let [engine (.-MITHRIL_NATIVE_ENGINE js/process.env) config (path/join dir "offline.edn")]
+    (fs/writeFileSync config "{:paths [\"src\"]}\n")
+    (doseq [target ["js" "js-browser"]
+            [input output] [["native-js-for-in.mith" target] ["native-js-schema-for-in.mith" (str "schema-" target)]]]
+     (let [r (child/spawnSync js/process.execPath
+              (clj->js [engine "--config" config "-cp" "src" "bin/mithril-native-js.cljk" (str "examples/" input) "--target" target "--output" (path/join dir (str output ".mjs"))])
+              #js {:encoding "utf8" :timeout 30000})]
+      (when-not (= 0 (.-status r)) (throw (js/Error. (str (.-stdout r) (.-stderr r))))))))
+   (doseq [contract ["native-for-in-contract.mjs" "schema-for-in-contract.mjs"]]
+    (let [r (child/spawnSync js/process.execPath (clj->js [(str "test/fixtures/" contract) dir]) #js {:encoding "utf8" :timeout 30000})]
+    (is (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r))))
+   (finally (fs/rmSync dir #js {:recursive true :force true})))))

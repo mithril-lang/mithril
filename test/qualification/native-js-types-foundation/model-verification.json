@@ -1,0 +1,114 @@
+{
+  "format": "mithril.code-refactor-verification/v1",
+  "verified": false,
+  "verification_scope": "Declared checks on selected baseline and candidate snapshots only; not whole-repository or universal API equivalence.",
+  "input_sha256": "f7aebab41effb8f774d45334d50a563acd6e87b4bd3803a3cc172016e3287602",
+  "proposal_sha256": "1b78873d7707345cdeacb831e8071c532a8d6ed671304e6c99ecac3dd181d0c8",
+  "candidate_sha256": "93c932dad497125e931599ca36ab12eb2b79203579a77f5bec4d99c385a5a941",
+  "image": "sha256:f73b2ecd3adebf79a19ba8f32bed6b0231ae056c0908d63e4d660fbcb570e383",
+  "plan": {
+    "image": "sha256:f73b2ecd3adebf79a19ba8f32bed6b0231ae056c0908d63e4d660fbcb570e383",
+    "seed_directory": "/opt/mithril-refactor-base",
+    "timeout_seconds": 180,
+    "checks": [
+      {
+        "id": "retained-source-81-431",
+        "argv": [
+          "node",
+          "/opt/types-controls/run-check.mjs",
+          "test/run_modules.cljk"
+        ]
+      },
+      {
+        "id": "types-primitives-reference",
+        "argv": [
+          "node",
+          "/opt/types-controls/types-primitives-runtime.mjs",
+          "/opt/types-controls/types-primitives-reference.mjs"
+        ]
+      },
+      {
+        "id": "native-types-primitives",
+        "variant": "candidate",
+        "argv": [
+          "node",
+          "/opt/types-controls/run-check.mjs",
+          "/opt/types-controls/types-primitives.cljk"
+        ]
+      }
+    ]
+  },
+  "checks": [
+    {
+      "variant": "baseline",
+      "id": "retained-source-81-431",
+      "argv": [
+        "node",
+        "/opt/types-controls/run-check.mjs",
+        "test/run_modules.cljk"
+      ],
+      "wall_seconds": 11.329743582999999,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "\nTesting mithril.module-test\n\nTesting mithril.module-lower-test\n\nTesting mithril.form-test\n\nTesting mithril.compiler-test\n\nTesting mithril.conditional-test\n\nTesting mithril.branding-test\n\nTesting mithril.undefined-test\n\nTesting mithril.library-test\n\nTesting mithril.module-bindings-test\n\nTesting mithril.module-guest-closure-test\n\nTesting mithril.native-js-test\n\nTesting mithril.native-misc-test\nNative primitive runtime: strict comparison/raw logical values/spread/assignment/for-of checked.\n11 primitive admissions, 9 refusals, all 8 Form tags checked.\n\nTesting mithril.native-array-test\nNative array primitives: 20 runtime contract groups passed.\n4 admissions / 13 malformed refusals / 2 budget refusals / 3 Form tags passed.\n\nTesting mithril.native-volatile-test\nNamed-function/generated-binding collision regression passed.\nNative volatile prerequisites: 15 runtime contract groups passed.\n7 admissions / 15 malformed refusals / 2 budget refusals / 4 Form tags passed.\n\nRan 81 tests containing 431 assertions.\n0 failures, 0 errors.\nJVM launcher marker absent; workspace source classpath.\n"
+    },
+    {
+      "variant": "baseline",
+      "id": "types-primitives-reference",
+      "argv": [
+        "node",
+        "/opt/types-controls/types-primitives-runtime.mjs",
+        "/opt/types-controls/types-primitives-reference.mjs"
+      ],
+      "wall_seconds": 0.44334208399999986,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "Native type prerequisites: 16 runtime contract groups passed.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "retained-source-81-431",
+      "argv": [
+        "node",
+        "/opt/types-controls/run-check.mjs",
+        "test/run_modules.cljk"
+      ],
+      "wall_seconds": 13.856913708,
+      "exit_code": 1,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "\nTesting mithril.module-test\n\nTesting mithril.module-lower-test\n\nTesting mithril.form-test\n\nTesting mithril.compiler-test\n\nTesting mithril.conditional-test\n\nTesting mithril.branding-test\n\nTesting mithril.undefined-test\n\nTesting mithril.library-test\n\nTesting mithril.module-bindings-test\n\nTesting mithril.module-guest-closure-test\n\nTesting mithril.native-js-test\n\nTesting mithril.native-misc-test\nNative primitive runtime: strict comparison/raw logical values/spread/assignment/for-of checked.\n11 primitive admissions, 9 refusals, all 8 Form tags checked.\n\nTesting mithril.native-array-test\n\nFAIL in (complete-array-source-with-real-mithril-dependency) (/workspace/test/run_modules.cljk:20)\nexpected: (= \"b2e52089674875efa3b5a8c135e4fccd37b258c8d5d72adcfc05338f38c0a4fb\" (-> (crypto/createHash \"sha256\") (.update (:source misc)) (.digest \"hex\")))\n  actual: (not (= \"b2e52089674875efa3b5a8c135e4fccd37b258c8d5d72adcfc05338f38c0a4fb\" \"61a9f12134849730c37b0b69200e6c32117b25a4319260e860b8633b50e573cb\"))\nNative array primitives: 20 runtime contract groups passed.\n4 admissions / 13 malformed refusals / 2 budget refusals / 3 Form tags passed.\n\nTesting mithril.native-volatile-test\n\nFAIL in (complete-volatile-source-shared-snapshots-and-protocol) (/workspace/test/run_modules.cljk:16)\nexpected: (= {\"map-values\" \"5420bbe2a9932b27141280438674906d4d72c7941477690f37201a4eb1b72191\", \"misc\" \"b2e52089674875efa3b5a8c135e4fccd37b258c8d5d72adcfc05338f38c0a4fb\", \"array\" \"d2de5ed22d8b5afe5dea4c0125af71805573541a7156c55efc19b34672c26db8\"} (into {} (map (fn [n] [n (-> (crypto/createHash \"sha256\") (.update (:source (native/compile-text (fs/readFileSync (str \"examples/native-js-\" n \".mith\") \"utf8\")))) (.digest \"hex\"))]) [\"map-values\" \"misc\" \"array\"])))\n  actual: (not (= {\"map-values\" \"5420bbe2a9932b27141280438674906d4d72c7941477690f37201a4eb1b72191\", \"misc\" \"b2e52089674875efa3b5a8c135e4fccd37b258c8d5d72adcfc05338f38c0a4fb\", \"array\" \"d2de5ed22d8b5afe5dea4c0125af71805573541a7156c55efc19b34672c26db8\"} {\"map-values\" \"5420bbe2a9932b27141280438674906d4d72c7941477690f37201a4eb1b72191\", \"misc\" \"61a9f12134849730c37b0b69200e6c32117b25a4319260e860b8633b50e573cb\", \"array\" \"012b7f35f6810f7ea8285697175c55374a88aebb3b58e1fd5863c27ca8acfce4\"}))\nNamed-function/generated-binding collision regression passed.\nNative volatile prerequisites: 15 runtime contract groups passed.\n7 admissions / 15 malformed refusals / 2 budget refusals / 4 Form tags passed.\n\nRan 81 tests containing 431 assertions.\n2 failures, 0 errors.\nfile:///opt/types-controls/run-check.mjs:7\nif(existsSync(marker))throw Error('forbidden JVM launcher');if(r.error||r.status!==0)throw r.error||Error('source check failed: '+r.status);\n                                                                                                    ^\n\nError: source check failed: 1\n    at file:///opt/types-controls/run-check.mjs:7:101\n    at ModuleJob.run (node:internal/modules/esm/module_job:561:25)\n    at async node:internal/modules/esm/loader:647:26\n    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)\n\nNode.js v24.21.0\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "types-primitives-reference",
+      "argv": [
+        "node",
+        "/opt/types-controls/types-primitives-runtime.mjs",
+        "/opt/types-controls/types-primitives-reference.mjs"
+      ],
+      "wall_seconds": 0.4915192499999976,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "Native type prerequisites: 16 runtime contract groups passed.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "native-types-primitives",
+      "argv": [
+        "node",
+        "/opt/types-controls/run-check.mjs",
+        "/opt/types-controls/types-primitives.cljk"
+      ],
+      "wall_seconds": 1.191548458000001,
+      "exit_code": 1,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "Native type prerequisites: 16 runtime contract groups passed.\n----- Error --------------------------------------\nMessage:  Old volatile artifact changed\nLocation: /opt/types-controls/types-primitives.cljk:32:229\n\n----- Context ------------------------------------\n28:       artifact (n/compile-document (assoc (doc (local \"initialCount\")) \"bindings\" [{\"name\" \"initialCount\" \"value\" module-count}] \"functions\" (conj functions (fun \"moduleCount\" [] (local \"initialCount\"))) \"exports\" (conj (mapv #(get % \"name\") functions) \"moduleCount\")))]\n29:  (fs/writeFileSync \"/tmp/types-primitives.mjs\" (:source artifact))\n30:  (let [result (child/spawnSync js/process.execPath #js [\"/opt/types-controls/types-primitives-runtime.mjs\" \"/tmp/types-primitives.mjs\"] #js {:stdio \"inherit\" :timeout 30000})] (when-not (= 0 (.-status result)) (js/process.exit 1))))\n31: (when-not (= [{:name \"probe\" :params [\"a\" \"b\"] :body {:op :literal :value 0}}] (:functions (n/check-document (doc (lit 0))))) (throw (js/Error. \"Old checked IR changed\")))\n32: (when-not (= \"a866812a56dfaba0fdcf682d478f3e4590e1d2b48820c273d51c22aaae6d1bd1\" (-> (crypto/createHash \"sha256\") (.update (:source (n/compile-text (fs/readFileSync \"examples/native-js-volatile.mith\" \"utf8\")))) (.digest \"hex\"))) (throw (js/Error. \"Old volatile artifact changed\")))\n                                                                                                                                                                                                                                        ^--- Old volatile artifact changed\n33: (println \"6 admissions / 6 malformed or scope refusals / 2 budget refusals / 1 Form tag passed.\")\n\n----- Stack trace --------------------------------\ntypes-primitives - /opt/types-controls/types-primitives.cljk:32:229 \ntypes-primitives - /opt/types-controls/types-primitives.cljk:32:1 \n\nfile:///opt/nbb/lib/nbb_main.js:13\n$APP.aH),$APP.VZ);return g.B?g.B():g.call(null)}):null).then(function(g){$APP.k($APP.k(d)?g!=null:d)&&$APP.dz.o($APP.y([g],0));return g}).catch(function(g){$APP.Dla(g,b);$APP.k($APP.ez.h(b))&&console.error(g);throw Error($APP.Hk(g));})})):console.error(\"Usage: \"+$APP.I.h(\"nbb\")+\" \\x3cscript\\x3e or nbb -e \\x3cexpr\\x3e.\")})();\n                                                                                                                                                                                                                       ^\n\nError: Old volatile artifact changed\n    at file:///opt/nbb/lib/nbb_main.js:13:216\n\nNode.js v24.21.0\nfile:///opt/types-controls/run-check.mjs:7\nif(existsSync(marker))throw Error('forbidden JVM launcher');if(r.error||r.status!==0)throw r.error||Error('source check failed: '+r.status);\n                                                                                                    ^\n\nError: source check failed: 1\n    at file:///opt/types-controls/run-check.mjs:7:101\n    at ModuleJob.run (node:internal/modules/esm/module_job:561:25)\n    at async node:internal/modules/esm/loader:647:26\n    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)\n\nNode.js v24.21.0\n"
+    }
+  ],
+  "wall_seconds": 27.841905375
+}

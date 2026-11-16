@@ -1,0 +1,28 @@
+(ns compile-identifiers
+ (:require [mithril.native-esm :as esm] [mithril.native-declaration-program :as program]
+           [clojure.string :as str] ["node:fs" :as fs] ["node:os" :as os] ["node:child_process" :as child]))
+(defn ensure [p label] (when-not p (throw (js/Error. label))))
+(def engine (.-MITHRIL_DECLARATIONS_ENGINE js/process.env))
+(def dir (fs/mkdtempSync (str (os/tmpdir) "/mithril-identifiers-")))
+(def config (str dir "/offline.edn"))
+(fs/writeFileSync config (str "{:paths [" (js/JSON.stringify (fs/realpathSync "src")) "]}"))
+(def env (into {} (map #(vector % (aget js/process.env %)) (js/Object.keys js/process.env))))
+(defn result [args env] (child/spawnSync js/process.execPath (clj->js args) (clj->js {:encoding "utf8" :timeout 120000 :maxBuffer 4194304 :env env})))
+(defn run [args env] (let [r (result args env)] (ensure (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r))))
+(try
+ (run [engine "--config" config "-cp" "src" "test/qualification/native-js-identifiers/controls/admission.cljk"] (assoc env "MITHRIL_IDENTIFIER_FIXTURES" dir))
+ (let [text (fs/readFileSync (str dir "/runtime.mith") "utf8") source {"leaf.mith" (fs/readFileSync (str dir "/leaf.mith") "utf8")}
+       runtime (esm/check-text text source) expected (esm/compile-text text source)
+       type-text (fs/readFileSync (str dir "/program.mith") "utf8") type-source {"types.mith" (fs/readFileSync (str dir "/types.mith") "utf8")}
+       typed (program/compile-text type-text type-source runtime)]
+  (doseq [target ["js" "js-browser"]]
+   (let [output (str dir "/" target) type-output (str output "-types")]
+    (run [engine "--config" config "-cp" "src" "bin/mithril-native-esm.cljk" (str dir "/runtime.mith") "--target" target "--output-directory" output] env)
+    (run [engine "--config" config "-cp" "src" "bin/mithril-native-declaration-program.cljk" (str dir "/program.mith") "--target" target "--output-directory" type-output] env)
+    (doseq [[file bytes] (:files expected)] (ensure (= bytes (fs/readFileSync (str output "/" file) "utf8")) "Exact literal-name runtime artifact"))
+    (doseq [[file bytes] (:files typed)] (ensure (= bytes (fs/readFileSync (str type-output "/" file) "utf8")) "Exact literal-name declaration artifact"))
+    (run ["test/qualification/native-js-identifiers/controls/check.mjs" output type-output (.-MITHRIL_DECLARATIONS_TYPESCRIPT js/process.env)] env)
+    (let [refused (str output "-refused") r (result [engine "--config" config "-cp" "src" "bin/mithril-native-esm.cljk" (str dir "/invalid-runtime.mith") "--target" target "--output-directory" refused] env)]
+     (ensure (= 65 (.-status r)) "Malformed name CLI status") (ensure (str/starts-with? (.-stderr r) "REFUSE\tname\t") "Exact malformed name refusal") (ensure (not (fs/existsSync refused)) "Pre-write identifier admission")))))
+ (println "Identifier CLI: both Node execution labels, exact runtime/declaration bytes, independent ECMAScript/TypeScript consumers and pre-write injection refusal passed.")
+ (finally (fs/rmSync dir #js {:recursive true :force true})))

@@ -1,0 +1,120 @@
+{
+  "format": "mithril.code-refactor-verification/v1",
+  "verified": true,
+  "verification_scope": "Declared checks on selected baseline and candidate snapshots only; not whole-repository or universal API equivalence.",
+  "input_sha256": "2e73b6ab092cedf3b45a534334954c69561ab61dbe86487e69e4f9e5e9abfc39",
+  "proposal_sha256": "95a3f34798f9ba691628cc8b34a89cf15eddc1fc16d662e0e396721acaba1921",
+  "candidate_sha256": "7808cb16d8fff223fc97a7dfa06322a7b6a5fffa67e21f28777839cd8b64204e",
+  "image": "sha256:213ca54a230d120b888afd7763a57e0b66f378634058519edb42c44ea8f0af37",
+  "plan": {
+    "image": "sha256:213ca54a230d120b888afd7763a57e0b66f378634058519edb42c44ea8f0af37",
+    "seed_directory": "/opt/mithril-refactor-base",
+    "timeout_seconds": 300,
+    "checks": [
+      {
+        "id": "retained-native28-121",
+        "argv": [
+          "node",
+          "/opt/package-controls/run-check.mjs",
+          "test/run_native_js.cljk"
+        ]
+      },
+      {
+        "id": "original-esm15-40",
+        "argv": [
+          "node",
+          "--experimental-vm-modules",
+          "test/fixtures/cosmokit-package/contract.mjs",
+          "test/fixtures/cosmokit-package/index.js",
+          "test/fixtures/cosmokit-package/index.js"
+        ]
+      },
+      {
+        "id": "checked-package-full-contract",
+        "variant": "candidate",
+        "argv": [
+          "node",
+          "/opt/package-controls/run-check.mjs",
+          "test/qualification/native-js-package/controls/compile-package.cljk"
+        ]
+      }
+    ]
+  },
+  "checks": [
+    {
+      "variant": "baseline",
+      "id": "retained-native28-121",
+      "argv": [
+        "node",
+        "/opt/package-controls/run-check.mjs",
+        "test/run_native_js.cljk"
+      ],
+      "wall_seconds": 70.740939417,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "\nTesting mithril.native-js-test\n\nTesting mithril.native-misc-test\nNative primitive runtime: strict comparison/raw logical values/spread/assignment/for-of checked.\n11 primitive admissions, 9 refusals, all 8 Form tags checked.\n\nTesting mithril.native-array-test\nNative array primitives: 20 runtime contract groups passed.\n4 admissions / 13 malformed refusals / 2 budget refusals / 3 Form tags passed.\n\nTesting mithril.native-volatile-test\nNamed-function/generated-binding collision regression passed.\nNative volatile prerequisites: 15 runtime contract groups passed.\n7 admissions / 15 malformed refusals / 2 budget refusals / 4 Form tags passed.\n\nTesting mithril.native-types-test\nNative type prerequisites: 16 runtime contract groups passed.\n6 admissions / 6 malformed or scope refusals / 2 budget refusals / 1 Form tag passed.\nNative arguments Let scope: 3 runtime boundary groups passed.\n4 additional scope refusals and normal/default/LocalFunction Let capture groups passed.\n\nTesting mithril.native-blocks-test\nNative export/loop/string prerequisites: 18 runtime contract groups passed.\n3 admissions / 12 malformed or scope refusals / 3 budget refusals / 2 Form tags passed.\n\nTesting mithril.native-spreads-test\nNative ordered object spreads:18 runtime groups passed.\n3 admissions / 5 malformed refusals / 2 shared budget refusals / 1 Form tag passed.\n\nTesting mithril.native-types-module-test\n\nTesting mithril.native-string-time-test\nString/time native prerequisites:23 runtime groups passed.\n8 admissions / 18 malformed refusals / 4 budget refusals / 2 Form tags; 5 artifact hashes unchanged.\n\nTesting mithril.native-string-module-test\n\nTesting mithril.native-module-init-test\nNested init reference closure passed.\n(node:277) ExperimentalWarning: VM Modules is an experimental feature and might change at any time\n(Use `node --trace-warnings ...` to show where the warning was created)\nNative module init candidate:12 reference-derived runtime groups passed.\n3 admissions, 7 malformed/scope refusals, 2 budget refusals, six old hashes unchanged.\n\nTesting mithril.native-time-module-test\n\nTesting mithril.native-package-factory-test\n\nRan 28 tests containing 121 assertions.\n0 failures, 0 errors.\nJVM launcher marker absent; pinned offline workspace source.\n"
+    },
+    {
+      "variant": "baseline",
+      "id": "original-esm15-40",
+      "argv": [
+        "node",
+        "--experimental-vm-modules",
+        "test/fixtures/cosmokit-package/contract.mjs",
+        "test/fixtures/cosmokit-package/index.js",
+        "test/fixtures/cosmokit-package/index.js"
+      ],
+      "wall_seconds": 2.341045708000005,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "CosmoKit package: 15 source-derived ESM groups, 40 public exports, Buffer/browser branches; Node VM execution only.\n(node:1) ExperimentalWarning: VM Modules is an experimental feature and might change at any time\n(Use `node --trace-warnings ...` to show where the warning was created)\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "retained-native28-121",
+      "argv": [
+        "node",
+        "/opt/package-controls/run-check.mjs",
+        "test/run_native_js.cljk"
+      ],
+      "wall_seconds": 24.035133666000007,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "\nTesting mithril.native-js-test\n\nTesting mithril.native-misc-test\nNative primitive runtime: strict comparison/raw logical values/spread/assignment/for-of checked.\n11 primitive admissions, 9 refusals, all 8 Form tags checked.\n\nTesting mithril.native-array-test\nNative array primitives: 20 runtime contract groups passed.\n4 admissions / 13 malformed refusals / 2 budget refusals / 3 Form tags passed.\n\nTesting mithril.native-volatile-test\nNamed-function/generated-binding collision regression passed.\nNative volatile prerequisites: 15 runtime contract groups passed.\n7 admissions / 15 malformed refusals / 2 budget refusals / 4 Form tags passed.\n\nTesting mithril.native-types-test\nNative type prerequisites: 16 runtime contract groups passed.\n6 admissions / 6 malformed or scope refusals / 2 budget refusals / 1 Form tag passed.\nNative arguments Let scope: 3 runtime boundary groups passed.\n4 additional scope refusals and normal/default/LocalFunction Let capture groups passed.\n\nTesting mithril.native-blocks-test\nNative export/loop/string prerequisites: 18 runtime contract groups passed.\n3 admissions / 12 malformed or scope refusals / 3 budget refusals / 2 Form tags passed.\n\nTesting mithril.native-spreads-test\nNative ordered object spreads:18 runtime groups passed.\n3 admissions / 5 malformed refusals / 2 shared budget refusals / 1 Form tag passed.\n\nTesting mithril.native-types-module-test\n\nTesting mithril.native-string-time-test\nString/time native prerequisites:23 runtime groups passed.\n8 admissions / 18 malformed refusals / 4 budget refusals / 2 Form tags; 5 artifact hashes unchanged.\n\nTesting mithril.native-string-module-test\n\nTesting mithril.native-module-init-test\nNested init reference closure passed.\n(node:277) ExperimentalWarning: VM Modules is an experimental feature and might change at any time\n(Use `node --trace-warnings ...` to show where the warning was created)\nNative module init candidate:12 reference-derived runtime groups passed.\n3 admissions, 7 malformed/scope refusals, 2 budget refusals, six old hashes unchanged.\n\nTesting mithril.native-time-module-test\n\nTesting mithril.native-package-factory-test\n\nRan 28 tests containing 121 assertions.\n0 failures, 0 errors.\nJVM launcher marker absent; pinned offline workspace source.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "original-esm15-40",
+      "argv": [
+        "node",
+        "--experimental-vm-modules",
+        "test/fixtures/cosmokit-package/contract.mjs",
+        "test/fixtures/cosmokit-package/index.js",
+        "test/fixtures/cosmokit-package/index.js"
+      ],
+      "wall_seconds": 2.4260618340000075,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "CosmoKit package: 15 source-derived ESM groups, 40 public exports, Buffer/browser branches; Node VM execution only.\n(node:1) ExperimentalWarning: VM Modules is an experimental feature and might change at any time\n(Use `node --trace-warnings ...` to show where the warning was created)\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "checked-package-full-contract",
+      "argv": [
+        "node",
+        "/opt/package-controls/run-check.mjs",
+        "test/qualification/native-js-package/controls/compile-package.cljk"
+      ],
+      "wall_seconds": 13.458215292000007,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "Shared dependency: once per package, stable linked value identity, independent package instances; exact aggregate grants before initialization.\n\nCosmoKit package: 15 source-derived ESM groups, 40 public exports, Buffer/browser branches; Node VM execution only.\n\n{\"format\":\"artifact-v1\",\"required-imports\":[\"Array\",\"Set\",\"Object\",\"TypeError\",\"Symbol\",\"globalThis\",\"ArrayBuffer\",\"Uint8Array\",\"Buffer\",\"String\",\"btoa\",\"atob\",\"parseInt\",\"Date\",\"RegExp\",\"Map\",\"Reflect\",\"Math\",\"parseFloat\",\"JSON\"],\"output\":\"/tmp/mithril-package-js.mjs\",\"module\":\"cosmokit\",\"exports\":[\"contain\",\"intersection\",\"difference\",\"union\",\"deduplicate\",\"remove\",\"makeArray\",\"is\",\"Binary\",\"base64ToArrayBuffer\",\"arrayBufferToBase64\",\"hexToArrayBuffer\",\"arrayBufferToHex\",\"clone\",\"deepEqual\",\"noop\",\"isNullable\",\"isNonNullable\",\"isPlainObject\",\"filterKeys\",\"mapValues\",\"valueMap\",\"pick\",\"omit\",\"defineProperty\",\"camelCase\",\"camelize\",\"capitalize\",\"formatProperty\",\"hyphenate\",\"paramCase\",\"sanitize\",\"snakeCase\",\"trimSlash\",\"uncapitalize\",\"Time\",\"createVolatile\",\"isVolatile\",\"volatileEntries\",\"updateVolatile\"],\"runtime\":\"native-js\",\"module-order\":[\"cosmokit.misc\",\"cosmokit.array\",\"cosmokit.volatile\",\"cosmokit.types\",\"cosmokit.string\",\"cosmokit.time\"],\"target\":\"js\",\"profile\":\"esm-library\"}\n\nCosmoKit package: 15 source-derived ESM groups, 40 public exports, Buffer/browser branches; Node VM execution only.\n\n{\"format\":\"artifact-v1\",\"required-imports\":[\"Array\",\"Set\",\"Object\",\"TypeError\",\"Symbol\",\"globalThis\",\"ArrayBuffer\",\"Uint8Array\",\"Buffer\",\"String\",\"btoa\",\"atob\",\"parseInt\",\"Date\",\"RegExp\",\"Map\",\"Reflect\",\"Math\",\"parseFloat\",\"JSON\"],\"output\":\"/tmp/mithril-package-js-browser.mjs\",\"module\":\"cosmokit\",\"exports\":[\"contain\",\"intersection\",\"difference\",\"union\",\"deduplicate\",\"remove\",\"makeArray\",\"is\",\"Binary\",\"base64ToArrayBuffer\",\"arrayBufferToBase64\",\"hexToArrayBuffer\",\"arrayBufferToHex\",\"clone\",\"deepEqual\",\"noop\",\"isNullable\",\"isNonNullable\",\"isPlainObject\",\"filterKeys\",\"mapValues\",\"valueMap\",\"pick\",\"omit\",\"defineProperty\",\"camelCase\",\"camelize\",\"capitalize\",\"formatProperty\",\"hyphenate\",\"paramCase\",\"sanitize\",\"snakeCase\",\"trimSlash\",\"uncapitalize\",\"Time\",\"createVolatile\",\"isVolatile\",\"volatileEntries\",\"updateVolatile\"],\"runtime\":\"native-js\",\"module-order\":[\"cosmokit.misc\",\"cosmokit.array\",\"cosmokit.volatile\",\"cosmokit.types\",\"cosmokit.string\",\"cosmokit.time\"],\"target\":\"js-browser\",\"profile\":\"esm-library\"}\n\nCosmoKit package: 15 source-derived ESM groups, 40 public exports, Buffer/browser branches; Node VM execution only.\n\nFull checked package qualification: exact 40 exports, source order, generic shared dependency, malformed/cyclic/ambiguous/source/read-plan refusals, CLI sentinel and symlink refusals, both actual CLI targets and seven frozen leaf artifacts.\nJVM launcher marker absent; pinned offline workspace source.\n"
+    }
+  ],
+  "wall_seconds": 113.71318333400001
+}

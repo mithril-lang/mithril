@@ -1,0 +1,501 @@
+(ns mithril.native-js
+  "Checked inert Mithril source with explicit host imports and native JS values.
+   This backend preserves host call/iterator/closure semantics; it has no guest
+   word ABI or runtime fuel ledger and is not the restricted Amu guest profile."
+  (:require [clojure.string :as str]
+            [mithril.form :as form]
+            [mithril.module :as module]))
+
+(def ^:private reserved
+  #{"await" "break" "case" "catch" "class" "const" "continue" "debugger"
+    "default" "delete" "do" "else" "enum" "export" "extends" "false" "finally"
+    "for" "function" "if" "implements" "import" "in" "instanceof" "interface"
+    "let" "new" "null" "package" "private" "protected" "public" "return"
+    "static" "super" "switch" "this" "throw" "true" "try" "typeof" "var"
+    "void" "while" "with" "yield" "arguments" "eval"})
+(defn- fail! [code detail]
+  (throw (ex-info detail {:mithril/error code :detail detail})))
+(defn- shape! [value fields]
+  (when-not (and (map? value) (= (set fields) (set (keys value))))
+    (fail! :mithril.native-js/shape "Unexpected or missing native JS module fields")))
+(defn- optional-flag! [value required flag]
+  (shape! value (if (contains? value flag) (conj (vec required) flag) required))
+  (when (and (contains? value flag) (not (boolean? (get value flag))))
+    (fail! :mithril.native-js/shape "Optional native declaration flags must be boolean")))
+(defn- vector! [value bound]
+  (when-not (vector? value) (fail! :mithril.native-js/shape "Expected a vector"))
+  (when (> (count value) bound)
+    (fail! :mithril.native-js/budget "Native JS source collection exceeds its budget")))
+(defn- name! [name]
+  (when-not (and (string? name) (re-matches #"[A-Za-z_][A-Za-z0-9_]*" name))
+    (fail! :mithril.native-js/name "Invalid native JS identifier"))
+  name)
+(defn- unique! [names]
+  (when-not (= (count names) (count (set names)))
+    (fail! :mithril.native-js/duplicate "Duplicate native JS declaration")))
+(defn- params! [params]
+  (vector! params 64)
+  (let [names (mapv (fn [p]
+                     (shape! p (if (contains? p "default") ["name" "datatype" "default"] ["name" "datatype"]))
+                     (when-not (= "js-value" (get p "datatype"))
+                       (fail! :mithril.native-js/type "Native JS parameters use js-value"))
+                     (name! (get p "name"))) params)]
+    (unique! names) names))
+(defn- literal! [value]
+  (when-not (or (nil? value) (string? value) (boolean? value)
+                (and (number? value) (js/Number.isFinite value)))
+    (fail! :mithril.native-js/literal "Native literals must be finite JSON primitives"))
+  value)
+(defn- pattern! [p]
+  (if (string? p)
+    {:op :name :names [(name! p)]}
+    (do (shape! p ["array"])
+        (let [names (get p "array")]
+          (vector! names 64)
+          {:op :array :names (mapv name! names)}))))
+
+(defn- regexp! [pattern flags]
+  (when-not (and (string? pattern) (string? flags))
+    (fail! :mithril.native-js/shape "Native regex pattern and flags must be strings"))
+  (when (> (count pattern) 4096)
+    (fail! :mithril.native-js/budget "Native regex pattern exceeds its source budget"))
+  ;; The compiler validates and canonicalizes data. Runtime output remains a
+  ;; literal: fresh current-realm intrinsic value with no constructor grant.
+  (try
+    (let [regex (js/RegExp. pattern flags)]
+      {:op :regexp :source (.-source regex) :flags (.-flags regex)})
+    (catch :default _
+      (fail! :mithril.native-js/regexp "Invalid native regex pattern or flags"))))
+
+(defn- expression! [expr imports functions locals depth nodes args-length]
+  (when (or (> depth 64) (> (swap! nodes inc) 4096))
+    (fail! :mithril.native-js/budget "Native JS expression budget exceeded"))
+  (when-not (map? expr) (fail! :mithril.native-js/shape "Expected a native expression"))
+  (let [check #(expression! % imports functions locals (inc depth) nodes args-length)
+        args! (fn [args]
+                (vector! args 64)
+                (mapv check args))]
+    (case (get expr "@type")
+      "Literal"
+      (do (shape! expr ["@type" "datatype" "value"])
+          (when-not (= "js-value" (get expr "datatype"))
+            (fail! :mithril.native-js/type "Native literals use js-value"))
+          {:op :literal :value (literal! (get expr "value"))})
+      "Local"
+      (do (shape! expr ["@type" "name"])
+          (let [name (name! (get expr "name"))]
+            (when-not (contains? locals name)
+              (fail! :mithril.native-js/local "Unknown native JS local"))
+            {:op :local :name name}))
+      "HostImport"
+      (do (shape! expr ["@type" "name"])
+          (let [name (name! (get expr "name"))]
+            (when-not (contains? imports name)
+              (fail! :mithril.native-js/import "Undeclared host import"))
+            {:op :import :name name}))
+      "FunctionRef"
+      (do (shape! expr ["@type" "name"])
+          (let [name (name! (get expr "name"))]
+            (when-not (contains? functions name)
+              (fail! :mithril.native-js/function "Unknown native function"))
+            {:op :function-ref :name name}))
+      "Call"
+      (do (shape! expr ["@type" "name" "args"])
+          (let [name (name! (get expr "name")) args (args! (get expr "args"))]
+            (when-not (contains? functions name)
+              (fail! :mithril.native-js/function "Unknown native function"))
+            ;; Native calls keep JS missing/extra argument behavior. Runtime
+            ;; function values are neither inspected nor prevalidated.
+            {:op :call :name name :args args}))
+      "HostGet"
+      (do (shape! expr ["@type" "object" "key"])
+          {:op :get :object (check (get expr "object")) :key (check (get expr "key"))})
+      "HostInvoke"
+      (do (shape! expr ["@type" "function" "args"])
+          {:op :invoke :function (check (get expr "function")) :args (args! (get expr "args"))})
+      "HostMethod"
+      (do (shape! expr ["@type" "object" "key" "args"])
+          {:op :method :object (check (get expr "object")) :key (check (get expr "key"))
+           :args (args! (get expr "args"))})
+      "HostRegExp"
+      (do (shape! expr ["@type" "pattern" "flags"])
+          (regexp! (get expr "pattern") (get expr "flags")))
+      "HostMethodItems"
+      (do (shape! expr ["@type" "object" "key" "items"])
+          (let [items (get expr "items")]
+            (vector! items 64)
+            {:op :method-items :object (check (get expr "object"))
+             :key (check (get expr "key"))
+             :items (mapv (fn [item]
+                            (cond
+                              (and (map? item) (= #{"value"} (set (keys item))))
+                              {:kind :value :value (check (get item "value"))}
+                              (and (map? item) (= #{"spread"} (set (keys item))))
+                              {:kind :spread :value (check (get item "spread"))}
+                              :else (fail! :mithril.native-js/shape
+                                           "HostMethodItems entries need exactly value or spread"))) items)}))
+      "HostUndefined"
+      (do (shape! expr ["@type"]) {:op :undefined})
+      "HostArgumentsLength"
+      (do (shape! expr ["@type"])
+          (when-not args-length
+            (fail! :mithril.native-js/scope "HostArgumentsLength requires a source normal function context"))
+          {:op :arguments-length})
+      "HostUnary"
+      (do (shape! expr ["@type" "operator" "value"])
+          (let [operator (get expr "operator")]
+            (when-not (contains? #{"!" "typeof" "+"} operator)
+              (fail! :mithril.native-js/operator "Unsupported native unary operator"))
+            {:op :unary :operator operator :value (check (get expr "value"))}))
+      "HostBinary"
+      (do (shape! expr ["@type" "operator" "left" "right"])
+          (let [operator (get expr "operator")]
+            (when-not (contains? #{"===" "!==" ">=" "in" "instanceof" "+" "-" "%" "<" "<=" "*" "/"} operator)
+              (fail! :mithril.native-js/operator "Unsupported native binary operator"))
+            {:op :binary :operator operator :left (check (get expr "left"))
+             :right (check (get expr "right"))}))
+      "HostConstruct"
+      (do (shape! expr ["@type" "constructor" "args"])
+          {:op :construct :constructor (check (get expr "constructor"))
+           :args (args! (get expr "args"))})
+      "HostArrayItems"
+      (do (shape! expr ["@type" "items"])
+          (let [items (get expr "items")]
+            (vector! items 4096)
+            {:op :array-items :items (mapv (fn [item]
+                                            (cond
+                                              (and (map? item) (= #{"value"} (set (keys item))))
+                                              {:kind :value :value (check (get item "value"))}
+                                              (and (map? item) (= #{"spread"} (set (keys item))))
+                                              {:kind :spread :value (check (get item "spread"))}
+                                              :else (fail! :mithril.native-js/shape
+                                                            "HostArrayItems entries need exactly value or spread"))) items)}))
+      "HostOptionalMethod"
+      (do (shape! expr ["@type" "object" "key" "args"])
+          {:op :optional-method :object (check (get expr "object")) :key (check (get expr "key"))
+           :args (args! (get expr "args"))})
+      "HostLogical"
+      (do (shape! expr ["@type" "operator" "left" "right"])
+          (let [operator (get expr "operator")]
+            (when-not (contains? #{"&&" "||" "??"} operator)
+              (fail! :mithril.native-js/operator "Unsupported native logical operator"))
+            {:op :logical :operator operator :left (check (get expr "left"))
+             :right (check (get expr "right"))}))
+      "HostObject"
+      (do (shape! expr ["@type" "entries"])
+          (let [entries (get expr "entries")]
+            (vector! entries 4096)
+            {:op :object :entries (mapv (fn [entry]
+                                         (optional-flag! entry ["key" "value"] "infer_name")
+                                         (let [value (check (get entry "value"))]
+                                           (when (and (contains? entry "infer_name") (not= :lambda (:op value)))
+                                             (fail! :mithril.native-js/shape "Name inference requires a NativeLambda initializer"))
+                                           {:key (check (get entry "key"))
+                                            :value (cond-> value (true? (get entry "infer_name"))
+                                                     (assoc :infer-name true))})) entries)}))
+      "HostSpread"
+      (do (shape! expr ["@type" "value"])
+          {:op :spread :value (check (get expr "value"))})
+      "HostObjectSpreads"
+      (do (shape! expr ["@type" "values"])
+          (let [values (get expr "values")]
+            (vector! values 4096)
+            {:op :object-spreads :values (mapv check values)}))
+      "HostSet"
+      (do (shape! expr ["@type" "object" "key" "value"])
+          {:op :set :object (check (get expr "object")) :key (check (get expr "key"))
+           :value (check (get expr "value"))})
+      "HostForOf"
+      (do (shape! expr ["@type" "iterable" "binding" "body" "result"])
+          (let [binding (name! (get expr "binding"))]
+            (when (contains? locals binding)
+              (fail! :mithril.native-js/duplicate "Loop binding must be fresh"))
+            {:op :for-of :binding binding :iterable (check (get expr "iterable"))
+             :body (expression! (get expr "body") imports functions (assoc locals binding false)
+                                (inc depth) nodes args-length)
+             :result (check (get expr "result"))}))
+      "HostWhile"
+      (do (shape! expr ["@type" "condition" "body" "result"])
+          {:op :while :condition (check (get expr "condition"))
+           :body (check (get expr "body"))
+           :result (check (get expr "result"))})
+      "HostToString"
+      (do (shape! expr ["@type" "value"])
+          {:op :to-string :value (check (get expr "value"))})
+      "HostArray"
+      (do (shape! expr ["@type" "items"])
+          (let [items (get expr "items")]
+            (vector! items 4096) {:op :array :items (mapv check items)}))
+      "NativeLambda"
+      (do (shape! expr ["@type" "params" "body"])
+          (let [params (get expr "params")]
+            (vector! params 64)
+            (let [patterns (mapv pattern! params)
+                  names (vec (mapcat :names patterns))]
+              (unique! names)
+              {:op :lambda :params patterns
+               :body (expression! (get expr "body") imports functions
+                                  (into locals (zipmap names (repeat false))) (inc depth) nodes args-length)})))
+      "Let"
+      (do (shape! expr ["@type" "bindings" "body"])
+          (let [bindings (get expr "bindings")]
+            (vector! bindings 4096)
+            (loop [todo (seq bindings) env locals checked []]
+              (if-let [binding (first todo)]
+                (do (optional-flag! binding ["name" "value"] "mutable")
+                    (let [name (name! (get binding "name"))
+                          value (expression! (get binding "value") imports functions env (inc depth) nodes args-length)
+                          checked-binding (cond-> {:name name :value value}
+                                            (contains? binding "mutable") (assoc :mutable (get binding "mutable")))]
+                      (recur (next todo) (assoc env name (true? (get binding "mutable")))
+                             (conj checked checked-binding))))
+                {:op :let :bindings checked
+                 :body (expression! (get expr "body") imports functions env (inc depth) nodes args-length)}))))
+      "LocalSet"
+      (do (shape! expr ["@type" "name" "value"])
+          (let [name (name! (get expr "name"))]
+            (when-not (true? (get locals name))
+              (fail! :mithril.native-js/local "LocalSet requires an explicitly mutable local"))
+            {:op :local-set :name name :value (check (get expr "value"))}))
+      "HostThrow"
+      (do (shape! expr ["@type" "value"])
+          {:op :throw :value (check (get expr "value"))})
+      "HostTryFinally"
+      (do (shape! expr ["@type" "body" "finally"])
+          {:op :try-finally :body (check (get expr "body")) :finally (check (get expr "finally"))})
+      "LocalFunction"
+      (do (shape! expr ["@type" "name" "params" "body" "result"])
+          (let [name (name! (get expr "name")) params (get expr "params")]
+            (when (contains? reserved name)
+              (fail! :mithril.native-js/name "Reserved native local function name"))
+            (when (contains? locals name)
+              (fail! :mithril.native-js/duplicate "LocalFunction binding must be fresh"))
+            (vector! params 64)
+            (let [params (mapv name! params) _ (unique! params)
+                  self-env (assoc locals name false)
+                  body-env (into self-env (zipmap params (repeat false)))]
+              {:op :local-function :name name :params params
+               :body (expression! (get expr "body") imports functions body-env (inc depth) nodes true)
+               :result (expression! (get expr "result") imports functions self-env (inc depth) nodes args-length)})))
+      "Sequence"
+      (do (shape! expr ["@type" "expressions"])
+          (let [expressions (get expr "expressions")]
+            (vector! expressions 4096)
+            (when (empty? expressions) (fail! :mithril.native-js/shape "Sequence requires a result"))
+            {:op :sequence :expressions (mapv check expressions)}))
+      "If"
+      (do (shape! expr ["@type" "condition" "then" "else"])
+          {:op :if :condition (check (get expr "condition"))
+           :then (check (get expr "then")) :else (check (get expr "else"))})
+      (fail! :mithril.native-js/expression "Unsupported native JS expression"))))
+
+(defn check-document
+  "Check a separate native JS context; imports are an explicit host capability list."
+  [doc]
+  (shape! doc (cond-> ["@context" "@type" "name" "imports" "functions" "exports"]
+                (contains? doc "bindings") (conj "bindings")))
+  (when-not (and (= "NativeJsModule" (get doc "@type"))
+                (= "https://mithril.fund/context/native-js-module/v1" (get doc "@context")))
+    (fail! :mithril.native-js/context "Expected the native JS module context"))
+  (let [name (get doc "name") imports (get doc "imports")
+        functions (get doc "functions") exports (get doc "exports")]
+    (when-not (and (string? name) (re-matches #"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*" name))
+      (fail! :mithril.native-js/name "Invalid native JS module name"))
+    (vector! imports 128) (vector! functions 128) (vector! exports 128)
+    (doseq [import imports] (name! import)) (unique! imports)
+    (let [declarations (mapv (fn [f]
+                              (shape! f ["@type" "name" "params" "returns" "body"])
+                              (when-not (and (= "Function" (get f "@type"))
+                                            (= "js-value" (get f "returns")))
+                                (fail! :mithril.native-js/type "Expected a js-value native function"))
+                              (let [name (name! (get f "name"))]
+                                (when (contains? reserved name)
+                                  (fail! :mithril.native-js/name "Reserved native JS function name"))
+                                {:name name :params (params! (get f "params"))})) functions)
+          names (mapv :name declarations)
+          _ (unique! names)
+          targets (set names)
+          nodes (atom 0)]
+      (let [bindings (if (contains? doc "bindings") (get doc "bindings") [])
+            _ (vector! bindings 128)
+            binding-names (mapv (fn [b]
+                                  (optional-flag! b ["name" "value"] "mutable")
+                                  (name! (get b "name"))) bindings)
+            _ (unique! binding-names)
+            _ (when (some (into (set imports) targets) binding-names)
+                (fail! :mithril.native-js/duplicate "Module bindings must be disjoint from imports/functions"))
+            checked-bindings (loop [todo (seq bindings) env {} checked []]
+                               (if-let [b (first todo)]
+                                 (let [name (get b "name")
+                                       ;; Initializers can use earlier bindings and declared source functions.
+                                       value (expression! (get b "value") (set imports) targets env 1 nodes false)
+                                       cb (cond-> {:name name :value value}
+                                            (contains? b "mutable") (assoc :mutable (get b "mutable")))]
+                                   (recur (next todo) (assoc env name (true? (get b "mutable"))) (conj checked cb)))
+                                 {:env env :bindings checked}))
+            module-env (:env checked-bindings)
+            checked-functions
+            (mapv (fn [f d]
+                    (let [env (into module-env (zipmap (:params d) (repeat false)))
+                          defaults (into {} (keep-indexed
+                                             (fn [i p]
+                                               (when (contains? p "default")
+                                                 [i (expression! (get p "default") (set imports) targets env 1 nodes true)]))
+                                             (get f "params")))]
+                      (cond-> (assoc d :body (expression! (get f "body") (set imports) targets env 1 nodes true))
+                        (seq defaults) (assoc :defaults defaults)))) functions declarations)
+            public (mapv (fn [e]
+                           (let [e (if (string? e) {"name" e "function" e} e)]
+                             (shape! e (if (contains? e "value") ["name" "value"] ["name" "function"]))
+                             (let [name (name! (get e "name"))]
+                               (if (contains? e "value")
+                                 {:name name :value (expression! (get e "value") (set imports) targets module-env 1 nodes false)}
+                                 (let [target (name! (get e "function"))]
+                                   (when-not (contains? targets target)
+                                     (fail! :mithril.native-js/export "Unknown native JS export"))
+                                   {:name name :target target}))))) exports)
+            _ (unique! (mapv :name public))]
+        (cond-> {:format :mithril.native-js/checked-v1 :name name :imports imports :exports public
+                 :functions checked-functions}
+          (contains? doc "bindings") (assoc :bindings (:bindings checked-bindings)))))))
+
+(defn check-text [text]
+  (module/check-source-text! text)
+  (check-document (form/parse text)))
+(defn- quoted [s] (js/JSON.stringify s))
+(defn- fresh [counter prefix] (str prefix "v" (swap! counter inc)))
+
+(defn- emit-expression [expr imports functions env counter prefix args-length]
+  (let [emit #(emit-expression % imports functions env counter prefix args-length)
+        args #(str/join "," (map emit %))]
+    (case (:op expr)
+      :literal (quoted (:value expr))
+      :local (get env (:name expr))
+      :import (get imports (:name expr))
+      :function-ref (get functions (:name expr))
+      :call (str (get functions (:name expr)) "(" (args (:args expr)) ")")
+      :get (str "(" (emit (:object expr)) ")[" (emit (:key expr)) "]")
+      ;; The comma expression makes a value call, never a Reference call with
+      ;; an accidental receiver (e.g. when the callee is a HostGet).
+      :invoke (str "(0," (emit (:function expr)) ")(" (args (:args expr)) ")")
+      :method (str "(" (emit (:object expr)) ")[" (emit (:key expr)) "](" (args (:args expr)) ")")
+      :regexp (str "(/" (:source expr) "/" (:flags expr) ")")
+      :method-items (str "(" (emit (:object expr)) ")[" (emit (:key expr)) "]("
+                         (str/join "," (map (fn [item]
+                                              (if (= :spread (:kind item))
+                                                (str "..." (emit (:value item)))
+                                                (emit (:value item)))) (:items expr))) ")")
+      :undefined "(void 0)"
+      :arguments-length "arguments.length"
+      :unary (str "(" (:operator expr) " " (emit (:value expr)) ")")
+      :binary (str "(" (emit (:left expr))
+                   (if (contains? #{"in" "instanceof" "+" "-" "%" "<" "<=" "*" "/"} (:operator expr))
+                     (str " " (:operator expr) " ") (:operator expr))
+                   (emit (:right expr)) ")")
+      :logical (str "(" (emit (:left expr)) (:operator expr) (emit (:right expr)) ")")
+      ;; Computed properties avoid the special object-literal __proto__ setter.
+      :object (str "({" (str/join "," (map #(str "[" (emit (:key %)) "]:" (emit (:value %)))
+                                          (:entries expr))) "})")
+      :spread (str "({..." (emit (:value expr)) "})")
+      :object-spreads (str "({" (str/join "," (map #(str "..." (emit %)) (:values expr))) "})")
+      :set (str "((" (emit (:object expr)) ")[" (emit (:key expr)) "]=" (emit (:value expr)) ")")
+      :for-of (let [symbol (fresh counter prefix)
+                    body-env (assoc env (:binding expr) symbol)]
+                ;; Native for-of supplies IteratorClose and lexical iteration scope.
+                (str "(()=>{for(const " symbol " of " (emit (:iterable expr)) "){"
+                     (emit-expression (:body expr) imports functions body-env counter prefix args-length)
+                     ";}return " (emit (:result expr)) ";})()"))
+      :while (str "(()=>{while(" (emit (:condition expr)) "){"
+               (emit (:body expr)) ";}return " (emit (:result expr)) ";})()")
+      :to-string (str "`${" (emit (:value expr)) "}`")
+      :array (str "[" (args (:items expr)) "]")
+      :construct (str "new (" (emit (:constructor expr)) ")(" (args (:args expr)) ")")
+      :array-items (str "[" (str/join "," (map (fn [item]
+                                                 (if (= :spread (:kind item))
+                                                   (str "..." (emit (:value item)))
+                                                   (emit (:value item)))) (:items expr))) "]")
+      :optional-method (str "(" (emit (:object expr)) ")?.[" (emit (:key expr)) "](" (args (:args expr)) ")")
+      :lambda (let [patterns (:params expr)
+                    names (vec (mapcat :names patterns))
+                    symbols (mapv (fn [_] (fresh counter prefix)) names)
+                    env (into env (map vector names symbols))
+                    pattern-source (map (fn [p]
+                                          (let [s (map #(get env %) (:names p))]
+                                            (if (= :array (:op p)) (str "[" (str/join "," s) "]") (first s)))) patterns)]
+                ;; Always anonymous, including Let initializers; native arrow
+                ;; arity, nonconstructibility and iterator binding are retained.
+                (str (if (:infer-name expr) "((" "(0,((")
+                     (str/join "," pattern-source) ")=>"
+                     (emit-expression (:body expr) imports functions env counter prefix args-length)
+                     (if (:infer-name expr) ")" "))")))
+      :let (loop [todo (:bindings expr) env env statements []]
+             (if-let [b (first todo)]
+               (let [value (emit-expression (:value b) imports functions env counter prefix args-length)
+                     symbol (fresh counter prefix)]
+                 (recur (next todo) (assoc env (:name b) symbol)
+                        (conj statements (str (if (:mutable b) "let " "const ") symbol "=" value ";"))))
+               (str "(()=>{" (apply str statements) "return "
+                    (emit-expression (:body expr) imports functions env counter prefix args-length) ";})()")))
+      :local-set (str "(" (get env (:name expr)) "=" (emit (:value expr)) ")")
+      :throw (str "(()=>{throw " (emit (:value expr)) ";})()")
+      :try-finally (str "(()=>{try{return " (emit (:body expr)) ";}finally{"
+                        (emit (:finally expr)) ";}})()")
+      :local-function (let [symbol (fresh counter prefix)
+                            self-env (assoc env (:name expr) symbol)
+                            params (mapv (fn [_] (fresh counter prefix)) (:params expr))
+                            body-env (into self-env (zipmap (:params expr) params))]
+                        (str "(()=>{const " symbol "=function " (:name expr) "(" (str/join "," params) "){return "
+                             (emit-expression (:body expr) imports functions body-env counter prefix true)
+                             ";};return " (emit-expression (:result expr) imports functions self-env counter prefix args-length) ";})()"))
+      :sequence (str "(" (args (:expressions expr)) ")")
+      :if (str "(" (emit (:condition expr)) "?" (emit (:then expr)) ":" (emit (:else expr)) ")"))))
+
+(defn- emit-checked [checked]
+  (let [named-functions (concat (:functions checked)
+                                (filter #(and (map? %) (= :local-function (:op %)))
+                                        (tree-seq coll? seq checked)))
+        prefix (loop [p "__mithril_native_"]
+                 (if (some #(str/starts-with? (:name %) p) named-functions)
+                   (recur (str p "_")) p))
+        counter (atom 0) grants (str prefix "grants")
+        imports (into {} (map #(vector % (str grants "[" (quoted %) "]")) (:imports checked)))
+        functions (zipmap (map :name (:functions checked)) (map #(str prefix "f" %) (range)))
+        module-bindings (loop [todo (:bindings checked) env {} statements []]
+                          (if-let [b (first todo)]
+                            (let [value (emit-expression (:value b) imports functions env counter prefix false)
+                                  symbol (fresh counter prefix)]
+                              (recur (next todo) (assoc env (:name b) symbol)
+                                     (conj statements (str (if (:mutable b) "let " "const ") symbol "=" value ";\n"))))
+                            {:env env :source (apply str statements)}))
+        initialize-functions-first? (some #(#{:function-ref :call} (:op %))
+                                          (tree-seq coll? seq (:bindings checked)))
+        function-source (apply str
+                      (map (fn [f]
+                             (let [params (mapv (fn [_] (fresh counter prefix)) (:params f))
+                                   env (into (:env module-bindings) (zipmap (:params f) params))
+                                   param-source (map-indexed
+                                                  (fn [i symbol]
+                                                    (if (contains? (:defaults f) i)
+                                                      (str symbol "=" (emit-expression (get (:defaults f) i) imports functions env counter prefix true))
+                                                      symbol)) params)]
+                               (str "const " (get functions (:name f)) "=function " (:name f) "(" (str/join "," param-source) "){return "
+                                    (emit-expression (:body f) imports functions env counter prefix true) ";};\n"))) (:functions checked)))
+        source (str "// Mithril native JS host module; explicit grants; native runtime semantics.\n"
+                    "export function instantiateMithrilNative(" grants "){\n"
+                    "if(" grants "===null||typeof " grants "!=='object')throw new Error('host-grant-mismatch');\n"
+                    "const " prefix "keys=Reflect.ownKeys(" grants ");\n"
+                    "if(" prefix "keys.length!==" (count (:imports checked)) "||"
+                    prefix "keys.some(k=>!" (quoted (clj->js (:imports checked))) ".includes(k)))throw new Error('host-grant-mismatch');\n"
+                    (if initialize-functions-first? function-source "")
+                    (:source module-bindings)
+                    (if initialize-functions-first? "" function-source)
+                    "return {" (str/join "," (map (fn [e]
+                                                   (if (:target e)
+                                                     (str "[" (quoted (:name e)) "]:" (get functions (:target e)))
+                                                     (str "[" (quoted (:name e)) "]:" (emit-expression (:value e) imports functions (:env module-bindings) counter prefix false)))) (:exports checked))) "};\n}\n")]
+    {:format :mithril.native-js/artifact-v1 :module (:name checked)
+     :required-imports (:imports checked) :exports (mapv :name (:exports checked))
+     :runtime :native-js :source source}))
+
+(defn compile-document [doc] (emit-checked (check-document doc)))
+(defn compile-text [text] (emit-checked (check-text text)))

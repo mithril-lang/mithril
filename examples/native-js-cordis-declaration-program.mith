@@ -1,0 +1,40 @@
+(mithril/native-js-declaration-program
+ :name "cordis"
+ :runtime-source "native-js-cordis-program-contracts-esm.mith"
+ :modules [(rdf/node
+   :name "cordis.service"
+   :source "native-js-cordis-service-declaration-module.mith")
+  (rdf/node
+   :name "cordis.utils"
+   :source "native-js-cordis-utils-declaration-module.mith")
+  (rdf/node
+   :name "cordis.logger"
+   :source "native-js-cordis-logger-declaration-module.mith")
+  (rdf/node
+   :name "cordis.index"
+   :source "native-js-cordis-index-declaration-module.mith")]
+ :externals [(rdf/node
+   :name "qualification.context"
+   :specifier "@qualification/context"
+   :types [(rdf/node
+     :name "Context"
+     :min 0
+     :max 0)]
+   :values ["Context"
+    "Context.effect"
+    "Context.filter"
+    "Context.isolate"
+    "Context.intercept"])
+  (rdf/node
+   :name "qualification.fiber"
+   :specifier "@qualification/fiber"
+   :types [(rdf/node
+     :name "Fiber"
+     :min 0
+     :max 0)
+    (rdf/node
+     :name "Disposable"
+     :min 1
+     :max 1)]
+   :values ["Fiber"])]
+ :entry "cordis.index")

@@ -1,0 +1,8 @@
+(ns fund.mithril.lib.siso.c2sim
+  (:refer-clojure :exclude [resolve])
+  (:require [fund.mithril.lib.interop :as host]))
+(def library-id "fund.mithril.lib.siso.c2sim")
+(def operations #{"c2sim-import" "c2sim-project"})
+(defn resolve [transport] (host/resolve-library transport library-id))
+(defn invoke! [transport member arguments]
+  (host/invoke-library transport library-id operations member arguments))

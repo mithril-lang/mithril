@@ -1,0 +1,20 @@
+(mithril/codegraph
+  :id "https://mithril.fund/id/codegraph/mithril"
+  :ontology "c362b0f569c0e8251d6b9769513c49be82827cfb2a6725764337f7bf4211e5eb"
+  :imports [(mithril/import :library "https://mithril.fund/lib/codegraph/v1" :digest "sha256:13d0cc69544097c8d3d9221cf50c30b94618cf71d24a191af915e991086b2827")]
+  :parser-profile "mithril.codegraph/extractor-v3-cljs-scopes"
+  :extensions ["clj" "cljs" "cljc" "cljk" "mith" "mithril" "jsonld" "md" "markdown" "txt"]
+  :pipeline ["extract" "resolve" "detect-communities" "project"]
+  :queries ["search" "node" "callers" "callees" "impact" "path" "explore" "status" "rdf" "communities" "community" "catalog" "content" "neighbors"]
+  :max-files 10000
+  :max-file-bytes 1048576
+  :max-total-bytes 67108864
+  :max-results 100
+  :max-depth 8
+  :max-visited 10000
+  :max-source-chars 4096
+  :max-community-edges 100000
+  :max-community-passes 16
+  :max-ui-nodes 2000
+  :max-ui-edges 6000
+  :max-ui-bytes 8388608)

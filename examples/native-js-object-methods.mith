@@ -1,0 +1,34 @@
+(mithril/native-js-module :name "native.objectMethods" :imports ["key" "mark"] :functions []
+ :exports [(rdf/node :name "object" :value
+  (mithril/host-object :entries
+   [(rdf/node :key (mithril/literal :datatype "js-value" :value "before")
+      :value (mithril/host-invoke :function (mithril/host-import :name "mark") :args [(mithril/literal :datatype "js-value" :value "before")]))
+    (rdf/node :kind "method" :key (mithril/host-invoke :function (mithril/host-import :name "key") :args [])
+      :params [] :rest nil :body (mithril/host-this))
+    (rdf/node :key (mithril/literal :datatype "js-value" :value "after")
+      :value (mithril/host-invoke :function (mithril/host-import :name "mark") :args [(mithril/literal :datatype "js-value" :value "after")]))
+    (rdf/node :kind "method" :key (mithril/literal :datatype "js-value" :value "get")
+      :params [(rdf/node :name "receiver" :datatype "js-value") (rdf/node :name "error" :datatype "js-value")] :rest nil
+      :body (mithril/host-array :items [(mithril/host-this) (mithril/local :name "receiver") (mithril/local :name "error") (mithril/host-arguments-length) (mithril/host-new-target)]))
+    (rdf/node :kind "method" :key (mithril/literal :datatype "js-value" :value "set")
+      :params [(rdf/node :name "value" :datatype "js-value") (rdf/node :name "receiver" :datatype "js-value") (rdf/node :name "error" :datatype "js-value")] :rest nil
+      :body (mithril/host-array :items [(mithril/host-this) (mithril/local :name "value") (mithril/local :name "receiver") (mithril/local :name "error") (mithril/host-arguments-length) (mithril/host-new-target)]))
+    (rdf/node :kind "method" :key (mithril/literal :datatype "js-value" :value "defaults")
+      :params [(rdf/node :name "value" :datatype "js-value" :default (mithril/host-arguments-length))] :rest "tail"
+      :body (mithril/host-array :items [(mithril/local :name "value") (mithril/local :name "tail") (mithril/host-arguments-length) (mithril/host-this) (mithril/host-new-target)]))
+    (rdf/node :kind "method" :key (mithril/literal :datatype "js-value" :value "inherit")
+      :params [] :rest "args" :body (mithril/host-super-method :key (mithril/literal :datatype "js-value" :value "value") :items [(rdf/node :spread (mithril/local :name "args"))]))
+    (rdf/node :kind "method" :key (mithril/literal :datatype "js-value" :value "lexical")
+      :params [] :rest nil :body (mithril/native-lambda :params []
+       :body (mithril/host-array :items [(mithril/host-this) (mithril/host-arguments-length) (mithril/host-new-target)
+        (mithril/host-super-method :key (mithril/literal :datatype "js-value" :value "value") :items [])])))
+    (rdf/node :kind "method" :key (mithril/literal :datatype "js-value" :value "async") :async true
+      :params [] :rest nil :body (mithril/host-await :value (mithril/host-super-method :key (mithril/literal :datatype "js-value" :value "value") :items [])))
+    (rdf/node :kind "method" :key (mithril/literal :datatype "js-value" :value "generate") :generator true
+      :params [] :rest nil :body (mithril/host-yield :value (mithril/host-this)))
+    (rdf/node :kind "method" :key (mithril/literal :datatype "js-value" :value "asyncGenerate") :async true :generator true
+      :params [] :rest nil :body (mithril/host-yield :value (mithril/host-await :value (mithril/host-this))))
+    (rdf/node :kind "method" :key (mithril/literal :datatype "js-value" :value "flow") :statements true
+      :params [(rdf/node :name "value" :datatype "js-value")] :rest nil
+      :body (mithril/host-try-finally :body (mithril/host-return :value (mithril/local :name "value"))
+        :finally (mithril/host-invoke :function (mithril/host-import :name "mark") :args [(mithril/literal :datatype "js-value" :value "finally")])))]))])

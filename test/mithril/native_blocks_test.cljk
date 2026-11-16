@@ -1,0 +1,7 @@
+(ns mithril.native-blocks-test
+ (:require [cljs.test :refer [deftest is]] [mithril.native-blocks-primitives :as primitives]
+           ["node:fs" :as fs] ["node:os" :as os] ["node:path" :as path]))
+(deftest generic-native-loop-string-and-export-values
+ (let [dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-blocks-primitives-"))]
+  (try (is (nil? (primitives/verify (path/join dir "blocks.mjs") (path/resolve "test/fixtures/blocks-primitives-runtime.mjs"))))
+   (finally (fs/rmSync dir #js {:recursive true :force true})))))

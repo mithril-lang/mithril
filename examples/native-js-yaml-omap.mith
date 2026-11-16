@@ -1,0 +1,328 @@
+; Derived from pinned js-yaml 4.2.0 full source. MIT; see test/qualification/native-yaml-source/LICENSE.
+(mithril/native-js-module
+:name "yaml.omap"
+:ambient_imports ["Object"]
+:imports ["yamlRoot___commonJSMin"
+"yamlRoot_require_type"
+"Object"]
+:functions []
+:bindings [(rdf/node
+:name "yC0"
+:value (mithril/literal
+:datatype "js-value"
+:value true))
+(rdf/node
+:name "yC1"
+:value (mithril/literal
+:datatype "js-value"
+:value false))
+(rdf/node
+:name "yamlRoot_require_omap"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:name "initialize_yamlRoot_require_omap"
+:value (mithril/local-set
+:name "yamlRoot_require_omap"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot___commonJSMin")
+:args [(mithril/native-lambda
+:params ["yL262"
+"yL263"]
+:rest nil
+:body (mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "yL264"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:pattern "yL265"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:pattern "yL266"
+:value (mithril/host-undefined)
+:mutable true)]
+:body (mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "yL267"
+:value (mithril/native-function
+:name "resolveYamlOmap"
+:params [(rdf/node
+:name "yL269"
+:datatype "js-value")]
+:rest nil
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "yL269")
+:right (mithril/literal
+:datatype "js-value"
+:value nil))
+:then (mithril/host-return
+:value (mithril/local
+:name "yC0"))
+:else (mithril/host-undefined))
+(mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "yL270"
+:value (mithril/host-array
+:items []))
+(rdf/node
+:pattern "yL271"
+:value (mithril/local
+:name "yL269"))]
+:body (mithril/sequence
+:expressions [(mithril/host-for
+:initializer (rdf/node
+:bindings [(rdf/node
+:name "yL272"
+:value (mithril/literal
+:datatype "js-value"
+:value 0)
+:mutable true)
+(rdf/node
+:name "yL273"
+:value (mithril/host-get
+:object (mithril/local
+:name "yL271")
+:key (mithril/literal
+:datatype "js-value"
+:value "length"))
+:mutable true)])
+:condition (mithril/host-binary
+:operator "<"
+:left (mithril/local
+:name "yL272")
+:right (mithril/local
+:name "yL273"))
+:update (mithril/local-set
+:name "yL272"
+:value (mithril/host-binary
+:operator "+"
+:left (mithril/local
+:name "yL272")
+:right (mithril/literal
+:datatype "js-value"
+:value 1)))
+:body (mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "yL274"
+:value (mithril/host-get
+:object (mithril/local
+:name "yL271")
+:key (mithril/local
+:name "yL272")))
+(rdf/node
+:pattern "yL275"
+:value (mithril/local
+:name "yC1")
+:mutable true)]
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "!=="
+:left (mithril/host-method
+:object (mithril/local
+:name "yL266")
+:key (mithril/literal
+:datatype "js-value"
+:value "call")
+:args [(mithril/local
+:name "yL274")])
+:right (mithril/literal
+:datatype "js-value"
+:value "[object Object]"))
+:then (mithril/host-return
+:value (mithril/local
+:name "yC1"))
+:else (mithril/host-undefined))
+(mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "yL276"
+:value (mithril/host-undefined)
+:mutable true)]
+:body (mithril/sequence
+:expressions [(mithril/host-for-in
+:object (mithril/local
+:name "yL274")
+:binding "yL277"
+:body (mithril/sequence
+:expressions [(mithril/local-set
+:name "yL276"
+:value (mithril/local
+:name "yL277"))
+(mithril/if
+:condition (mithril/host-method
+:object (mithril/local
+:name "yL265")
+:key (mithril/literal
+:datatype "js-value"
+:value "call")
+:args [(mithril/local
+:name "yL274")
+(mithril/local
+:name "yL276")])
+:then (mithril/if
+:condition (mithril/host-unary
+:operator "!"
+:value (mithril/local
+:name "yL275"))
+:then (mithril/local-set
+:name "yL275"
+:value (mithril/local
+:name "yC0"))
+:else (mithril/host-return
+:value (mithril/local
+:name "yC1")))
+:else (mithril/host-undefined))])
+:result (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-unary
+:operator "!"
+:value (mithril/local
+:name "yL275"))
+:then (mithril/host-return
+:value (mithril/local
+:name "yC1"))
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/host-method
+:object (mithril/local
+:name "yL270")
+:key (mithril/literal
+:datatype "js-value"
+:value "indexOf")
+:args [(mithril/local
+:name "yL276")])
+:right (mithril/host-unary
+:operator "-"
+:value (mithril/literal
+:datatype "js-value"
+:value 1)))
+:then (mithril/host-method
+:object (mithril/local
+:name "yL270")
+:key (mithril/literal
+:datatype "js-value"
+:value "push")
+:args [(mithril/local
+:name "yL276")])
+:else (mithril/host-return
+:value (mithril/local
+:name "yC1")))
+(mithril/host-undefined)])])]))]))
+:result (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/local
+:name "yC0"))
+(mithril/host-undefined)])]))])
+:statements true))
+(rdf/node
+:pattern "yL268"
+:value (mithril/native-function
+:name "constructYamlOmap"
+:params [(rdf/node
+:name "yL278"
+:datatype "js-value")]
+:rest nil
+:body (mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/if
+:condition (mithril/host-binary
+:operator "!=="
+:left (mithril/local
+:name "yL278")
+:right (mithril/literal
+:datatype "js-value"
+:value nil))
+:then (mithril/local
+:name "yL278")
+:else (mithril/host-array
+:items [])))
+(mithril/host-undefined)])
+:statements true))]
+:body (mithril/sequence
+:expressions [(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL264"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot_require_type")
+:args []))])
+(mithril/sequence
+:expressions [(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL265"
+:value (mithril/host-get
+:object (mithril/host-get
+:object (mithril/host-import
+:name "Object")
+:key (mithril/literal
+:datatype "js-value"
+:value "prototype"))
+:key (mithril/literal
+:datatype "js-value"
+:value "hasOwnProperty")))])
+(mithril/sequence
+:expressions [(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL266"
+:value (mithril/host-get
+:object (mithril/host-get
+:object (mithril/host-import
+:name "Object")
+:key (mithril/literal
+:datatype "js-value"
+:value "prototype"))
+:key (mithril/literal
+:datatype "js-value"
+:value "toString")))])
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/local
+:name "yL263")
+:key (mithril/literal
+:datatype "js-value"
+:value "exports")
+:value (mithril/host-construct
+:constructor (mithril/local
+:name "yL264")
+:args [(mithril/literal
+:datatype "js-value"
+:value "tag:yaml.org,2002:omap")
+(mithril/host-object
+:entries [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "kind")
+:value (mithril/literal
+:datatype "js-value"
+:value "sequence"))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "resolve")
+:value (mithril/local
+:name "yL267"))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "construct")
+:value (mithril/local
+:name "yL268"))])]))
+(mithril/host-undefined)])])])])))
+:statements true)])))]
+:exports [(rdf/node
+:name "yamlRoot_require_omap"
+:value (mithril/local
+:name "yamlRoot_require_omap"))]
+:lexical_bindings true)

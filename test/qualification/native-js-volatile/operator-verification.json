@@ -1,0 +1,114 @@
+{
+  "format": "mithril.code-refactor-verification/v1",
+  "verified": true,
+  "verification_scope": "Declared checks on selected baseline and candidate snapshots only; not whole-repository or universal API equivalence.",
+  "input_sha256": "58c29c1f263622dfd8edfd621d4cd312101ece367d856bc1bc679a04799d92f0",
+  "proposal_sha256": "9f730a36d1a241f0e8d2f3674e115650bd399ceb61c67c9beb5f167e2563db11",
+  "candidate_sha256": "f8dc08f8287b2782ba3c39ab1b6295460666d859ed2f20b4e91363f96a5d0bff",
+  "image": "sha256:313e525b3549e13e7c029889999fc40420eafa8726da43583e909f4276ff02ca",
+  "plan": {
+    "image": "sha256:313e525b3549e13e7c029889999fc40420eafa8726da43583e909f4276ff02ca",
+    "seed_directory": "/opt/mithril-refactor-base",
+    "timeout_seconds": 180,
+    "checks": [
+      {
+        "id": "retained-source-78-408",
+        "argv": [
+          "node",
+          "/opt/volatile-controls/run-check.mjs",
+          "test/run_modules.cljk"
+        ]
+      },
+      {
+        "id": "volatile-primitives-reference",
+        "argv": [
+          "node",
+          "/opt/volatile-controls/volatile-primitives-runtime.mjs",
+          "/opt/volatile-controls/volatile-primitives-reference.mjs"
+        ]
+      },
+      {
+        "id": "native-volatile-primitives",
+        "variant": "candidate",
+        "argv": [
+          "node",
+          "/opt/volatile-controls/run-check.mjs",
+          "/opt/volatile-controls/volatile-primitives.cljk"
+        ]
+      }
+    ]
+  },
+  "checks": [
+    {
+      "variant": "baseline",
+      "id": "retained-source-78-408",
+      "argv": [
+        "node",
+        "/opt/volatile-controls/run-check.mjs",
+        "test/run_modules.cljk"
+      ],
+      "wall_seconds": 6.519209334,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "\nTesting mithril.module-test\n\nTesting mithril.module-lower-test\n\nTesting mithril.form-test\n\nTesting mithril.compiler-test\n\nTesting mithril.conditional-test\n\nTesting mithril.branding-test\n\nTesting mithril.undefined-test\n\nTesting mithril.library-test\n\nTesting mithril.module-bindings-test\n\nTesting mithril.module-guest-closure-test\n\nTesting mithril.native-js-test\n\nTesting mithril.native-misc-test\nNative primitive runtime: strict comparison/raw logical values/spread/assignment/for-of checked.\n11 primitive admissions, 9 refusals, all 8 Form tags checked.\n\nTesting mithril.native-array-test\nNative array primitives: 20 runtime contract groups passed.\n4 admissions / 13 malformed refusals / 2 budget refusals / 3 Form tags passed.\n\nRan 78 tests containing 408 assertions.\n0 failures, 0 errors.\nJVM launcher marker absent; workspace source classpath.\n"
+    },
+    {
+      "variant": "baseline",
+      "id": "volatile-primitives-reference",
+      "argv": [
+        "node",
+        "/opt/volatile-controls/volatile-primitives-runtime.mjs",
+        "/opt/volatile-controls/volatile-primitives-reference.mjs"
+      ],
+      "wall_seconds": 0.5161282499999997,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "Native volatile prerequisites: 15 runtime contract groups passed.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "retained-source-78-408",
+      "argv": [
+        "node",
+        "/opt/volatile-controls/run-check.mjs",
+        "test/run_modules.cljk"
+      ],
+      "wall_seconds": 12.245573083,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "\nTesting mithril.module-test\n\nTesting mithril.module-lower-test\n\nTesting mithril.form-test\n\nTesting mithril.compiler-test\n\nTesting mithril.conditional-test\n\nTesting mithril.branding-test\n\nTesting mithril.undefined-test\n\nTesting mithril.library-test\n\nTesting mithril.module-bindings-test\n\nTesting mithril.module-guest-closure-test\n\nTesting mithril.native-js-test\n\nTesting mithril.native-misc-test\nNative primitive runtime: strict comparison/raw logical values/spread/assignment/for-of checked.\n11 primitive admissions, 9 refusals, all 8 Form tags checked.\n\nTesting mithril.native-array-test\nNative array primitives: 20 runtime contract groups passed.\n4 admissions / 13 malformed refusals / 2 budget refusals / 3 Form tags passed.\n\nRan 78 tests containing 408 assertions.\n0 failures, 0 errors.\nJVM launcher marker absent; workspace source classpath.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "volatile-primitives-reference",
+      "argv": [
+        "node",
+        "/opt/volatile-controls/volatile-primitives-runtime.mjs",
+        "/opt/volatile-controls/volatile-primitives-reference.mjs"
+      ],
+      "wall_seconds": 0.5635564169999998,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "Native volatile prerequisites: 15 runtime contract groups passed.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "native-volatile-primitives",
+      "argv": [
+        "node",
+        "/opt/volatile-controls/run-check.mjs",
+        "/opt/volatile-controls/volatile-primitives.cljk"
+      ],
+      "wall_seconds": 2.049968541999999,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "Native volatile prerequisites: 15 runtime contract groups passed.\n7 admissions / 15 malformed refusals / 2 budget refusals / 4 Form tags passed.\nJVM launcher marker absent; workspace source classpath.\n"
+    }
+  ],
+  "wall_seconds": 22.064497707999998
+}

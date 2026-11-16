@@ -1,0 +1,41 @@
+(ns compile-schema-sdk
+ (:require [mithril.native-declaration-program :as program] [mithril.native-esm :as esm]
+           ["node:fs" :as fs] ["node:os" :as os] ["node:child_process" :as child]))
+(defn ensure [p text] (when-not p (throw (js/Error. text))))
+(def engine (.-MITHRIL_DECLARATIONS_ENGINE js/process.env))
+(def compiler (.-MITHRIL_DECLARATIONS_TYPESCRIPT js/process.env))
+(def type-roots (.-MITHRIL_DECLARATIONS_TYPE_ROOTS js/process.env))
+(defn run [args]
+ (let [r (child/spawnSync js/process.execPath (clj->js args) #js {:encoding "utf8" :timeout 240000 :maxBuffer 4194304})]
+  (ensure (= 0 (.-status r)) (str (.-stdout r) (.-stderr r)))
+  (print (.-stdout r)) (.-stdout r)))
+(defn example [name] (fs/readFileSync (str "examples/" name) "utf8"))
+(def text (example "native-js-schemastery-program.mith"))
+(def plan (program/read-plan text))
+(def runtime-text (example (:runtime-source plan)))
+(def runtime-sources (into {} (map #(vector % (example %)) (esm/source-basenames runtime-text))))
+(def runtime (esm/check-text runtime-text runtime-sources))
+(def runtime-artifact (esm/compile-text runtime-text runtime-sources))
+(def sources (into {} (map #(vector % (example %)) (:sources plan))))
+(def artifact (program/compile-text text sources runtime))
+(ensure (= ["default"] (:exports artifact)) "Schema SDK has no real default value")
+(ensure (= ["default"] (:type-exports artifact)) "Schema SDK complete type surface")
+(ensure (= ["default"] (:exports runtime-artifact)) "Schema SDK runtime entry")
+(def dir (fs/mkdtempSync (str (os/tmpdir) "/mithril-schema-sdk-")))
+(def config (str dir "/offline.edn"))
+(fs/writeFileSync config (str "{:paths [" (js/JSON.stringify (fs/realpathSync "src")) "]}"))
+(try
+ (doseq [target ["js" "js-browser"]]
+  (let [sdk (str dir "/" target) types (str sdk "-types")]
+   (fs/writeFileSync (str sdk ".json")
+    (run [engine "--config" config "--classpath" "src" "bin/mithril-native-esm.cljk" "examples/native-js-schemastery-esm.mith" "--target" target "--output-directory" sdk]))
+   (run [engine "--config" config "--classpath" "src" "bin/mithril-native-declaration-program.cljk" "examples/native-js-schemastery-program.mith" "--target" target "--output-directory" types])
+   (doseq [[file source] (:files runtime-artifact)] (ensure (= source (fs/readFileSync (str sdk "/" file) "utf8")) "Schema runtime CLI bytes"))
+   (doseq [[file source] (:files artifact)]
+    (ensure (= source (fs/readFileSync (str types "/" file) "utf8")) "Schema declaration CLI bytes")
+    (ensure (not (fs/existsSync (str sdk "/" file))) "Runtime/type artifact collision")
+    (fs/copyFileSync (str types "/" file) (str sdk "/" file)))
+   (run ["test/qualification/native-schema-sdk/controls/types.mjs" (str sdk "/index.d.mts") compiler type-roots])
+   (run ["test/qualification/native-schema-sdk/controls/runtime.mjs" sdk compiler])))
+ (println "Schema SDK qualification: both actual CLI targets, genuine default runtime, full original type contract and independent paired source oracle; no compiler TypeScript delegation.")
+ (finally (fs/rmSync dir #js {:recursive true :force true})))

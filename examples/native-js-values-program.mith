@@ -1,0 +1,5 @@
+(mithril/native-js-declaration-program
+ :name "values" :runtime-source "native-js-values-esm.mith"
+ :modules [(rdf/node :name "values.index" :source "native-js-values-index-complete-types.mith")
+           (rdf/node :name "values.partial_json" :source "native-js-values-partial-json-complete-types.mith")]
+ :externals [] :entry "values.index")

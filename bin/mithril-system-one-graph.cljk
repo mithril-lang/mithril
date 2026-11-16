@@ -1,0 +1,16 @@
+(ns mithril.system-one-graph-main
+  (:require [mithril.codegraph-contract :as contract]
+            [mithril.codegraph-system-one :as integration]))
+
+(try
+  (let [text (.readFileSync (js/require "fs") 0 "utf8")]
+    (when (or (not= 1 (count *command-line-args*))
+              (> (.byteLength js/Buffer text "utf8") 32768))
+      (throw (ex-info "invalid-arguments" {:reason :invalid-arguments})))
+    (println (.stringify js/JSON
+              (clj->js {:ok true :result (integration/run! (first *command-line-args*) (contract/load!)
+                                          (js->clj (js/JSON.parse text) :keywordize-keys true))}))))
+  (catch :default e
+    (println (.stringify js/JSON (clj->js {:ok false :retry false
+                                        :error (name (or (:reason (ex-data e)) :codegraph-refused))})))
+    (set! (.-exitCode js/process) 1)))

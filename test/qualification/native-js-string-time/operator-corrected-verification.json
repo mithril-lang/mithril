@@ -1,0 +1,114 @@
+{
+  "format": "mithril.code-refactor-verification/v1",
+  "verified": true,
+  "verification_scope": "Declared checks on selected baseline and candidate snapshots only; not whole-repository or universal API equivalence.",
+  "input_sha256": "f2a25bf3b03dddd736c8e55f99b0d78af76aadafe12a21a0760fff7fad4a7424",
+  "proposal_sha256": "f27e55b4cfdb7c9409e30044cfab1df96fdba69459255e0bd881d1a91a5b5323",
+  "candidate_sha256": "526d2afa8cba5a51f221fed896920522706e8f8c938d1eb3b74e94bb28d5f895",
+  "image": "sha256:f91e284fcbc2e1b05aa6a1936b5da2782adf62cd3bd179c97f7c594dd46eff31",
+  "plan": {
+    "image": "sha256:f91e284fcbc2e1b05aa6a1936b5da2782adf62cd3bd179c97f7c594dd46eff31",
+    "seed_directory": "/opt/mithril-refactor-base",
+    "timeout_seconds": 300,
+    "checks": [
+      {
+        "id": "retained-source-86-444",
+        "argv": [
+          "node",
+          "/opt/string-time-controls/run-check.mjs",
+          "test/run_modules.cljk"
+        ]
+      },
+      {
+        "id": "string-time-native-reference23",
+        "argv": [
+          "node",
+          "/opt/string-time-controls/prereqs-runtime.mjs",
+          "/opt/string-time-controls/prereqs-reference.mjs"
+        ]
+      },
+      {
+        "id": "string-time-native-candidate23",
+        "variant": "candidate",
+        "argv": [
+          "node",
+          "/opt/string-time-controls/run-check.mjs",
+          "/opt/string-time-controls/prereqs.cljk"
+        ]
+      }
+    ]
+  },
+  "checks": [
+    {
+      "variant": "baseline",
+      "id": "retained-source-86-444",
+      "argv": [
+        "node",
+        "/opt/string-time-controls/run-check.mjs",
+        "test/run_modules.cljk"
+      ],
+      "wall_seconds": 11.241152875,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "\nTesting mithril.module-test\n\nTesting mithril.module-lower-test\n\nTesting mithril.form-test\n\nTesting mithril.compiler-test\n\nTesting mithril.conditional-test\n\nTesting mithril.branding-test\n\nTesting mithril.undefined-test\n\nTesting mithril.library-test\n\nTesting mithril.module-bindings-test\n\nTesting mithril.module-guest-closure-test\n\nTesting mithril.native-js-test\n\nTesting mithril.native-misc-test\nNative primitive runtime: strict comparison/raw logical values/spread/assignment/for-of checked.\n11 primitive admissions, 9 refusals, all 8 Form tags checked.\n\nTesting mithril.native-array-test\nNative array primitives: 20 runtime contract groups passed.\n4 admissions / 13 malformed refusals / 2 budget refusals / 3 Form tags passed.\n\nTesting mithril.native-volatile-test\nNamed-function/generated-binding collision regression passed.\nNative volatile prerequisites: 15 runtime contract groups passed.\n7 admissions / 15 malformed refusals / 2 budget refusals / 4 Form tags passed.\n\nTesting mithril.native-types-test\nNative type prerequisites: 16 runtime contract groups passed.\n6 admissions / 6 malformed or scope refusals / 2 budget refusals / 1 Form tag passed.\nNative arguments Let scope: 3 runtime boundary groups passed.\n4 additional scope refusals and normal/default/LocalFunction Let capture groups passed.\n\nTesting mithril.native-blocks-test\nNative export/loop/string prerequisites: 18 runtime contract groups passed.\n3 admissions / 12 malformed or scope refusals / 3 budget refusals / 2 Form tags passed.\n\nTesting mithril.native-spreads-test\nNative ordered object spreads:18 runtime groups passed.\n3 admissions / 5 malformed refusals / 2 shared budget refusals / 1 Form tag passed.\n\nTesting mithril.native-types-module-test\n\nRan 86 tests containing 444 assertions.\n0 failures, 0 errors.\nJVM launcher marker absent; workspace source classpath.\n"
+    },
+    {
+      "variant": "baseline",
+      "id": "string-time-native-reference23",
+      "argv": [
+        "node",
+        "/opt/string-time-controls/prereqs-runtime.mjs",
+        "/opt/string-time-controls/prereqs-reference.mjs"
+      ],
+      "wall_seconds": 0.7808627919999999,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "String/time native prerequisites:23 runtime groups passed.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "retained-source-86-444",
+      "argv": [
+        "node",
+        "/opt/string-time-controls/run-check.mjs",
+        "test/run_modules.cljk"
+      ],
+      "wall_seconds": 13.809656708999999,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "\nTesting mithril.module-test\n\nTesting mithril.module-lower-test\n\nTesting mithril.form-test\n\nTesting mithril.compiler-test\n\nTesting mithril.conditional-test\n\nTesting mithril.branding-test\n\nTesting mithril.undefined-test\n\nTesting mithril.library-test\n\nTesting mithril.module-bindings-test\n\nTesting mithril.module-guest-closure-test\n\nTesting mithril.native-js-test\n\nTesting mithril.native-misc-test\nNative primitive runtime: strict comparison/raw logical values/spread/assignment/for-of checked.\n11 primitive admissions, 9 refusals, all 8 Form tags checked.\n\nTesting mithril.native-array-test\nNative array primitives: 20 runtime contract groups passed.\n4 admissions / 13 malformed refusals / 2 budget refusals / 3 Form tags passed.\n\nTesting mithril.native-volatile-test\nNamed-function/generated-binding collision regression passed.\nNative volatile prerequisites: 15 runtime contract groups passed.\n7 admissions / 15 malformed refusals / 2 budget refusals / 4 Form tags passed.\n\nTesting mithril.native-types-test\nNative type prerequisites: 16 runtime contract groups passed.\n6 admissions / 6 malformed or scope refusals / 2 budget refusals / 1 Form tag passed.\nNative arguments Let scope: 3 runtime boundary groups passed.\n4 additional scope refusals and normal/default/LocalFunction Let capture groups passed.\n\nTesting mithril.native-blocks-test\nNative export/loop/string prerequisites: 18 runtime contract groups passed.\n3 admissions / 12 malformed or scope refusals / 3 budget refusals / 2 Form tags passed.\n\nTesting mithril.native-spreads-test\nNative ordered object spreads:18 runtime groups passed.\n3 admissions / 5 malformed refusals / 2 shared budget refusals / 1 Form tag passed.\n\nTesting mithril.native-types-module-test\n\nRan 86 tests containing 444 assertions.\n0 failures, 0 errors.\nJVM launcher marker absent; workspace source classpath.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "string-time-native-reference23",
+      "argv": [
+        "node",
+        "/opt/string-time-controls/prereqs-runtime.mjs",
+        "/opt/string-time-controls/prereqs-reference.mjs"
+      ],
+      "wall_seconds": 0.47009095800000067,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "String/time native prerequisites:23 runtime groups passed.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "string-time-native-candidate23",
+      "argv": [
+        "node",
+        "/opt/string-time-controls/run-check.mjs",
+        "/opt/string-time-controls/prereqs.cljk"
+      ],
+      "wall_seconds": 1.1273841670000002,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "String/time native prerequisites:23 runtime groups passed.\n8 admissions / 18 malformed refusals / 4 budget refusals / 2 Form tags; 5 artifact hashes unchanged.\nJVM launcher marker absent; workspace source classpath.\n"
+    }
+  ],
+  "wall_seconds": 27.519784082999998
+}

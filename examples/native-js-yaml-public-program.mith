@@ -1,0 +1,3 @@
+(mithril/native-js-declaration-program :name "yaml" :runtime-source "native-js-yaml-esm.mith"
+:modules [(rdf/node :name "yaml.api" :source "native-js-yaml-api-types.mith") (rdf/node :name "yaml.public" :source "native-js-yaml-entry-types.mith")]
+:externals [] :entry "yaml.public")

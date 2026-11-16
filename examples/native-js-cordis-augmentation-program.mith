@@ -1,0 +1,301 @@
+(mithril/native-js-declaration-program
+ :name "cordis"
+ :runtime-source "native-js-cordis-augmentation-esm.mith"
+ :modules [(rdf/node
+   :name "cordis.context"
+   :source "native-js-cordis-context-augmentation-module.mith")
+  (rdf/node
+   :name "augmentation.events"
+   :source "native-js-augmentation-events-augmentation-module.mith")
+  (rdf/node
+   :name "augmentation.logger"
+   :source "native-js-augmentation-logger-augmentation-module.mith")
+  (rdf/node
+   :name "augmentation.reflect"
+   :source "native-js-augmentation-reflect-augmentation-module.mith")
+  (rdf/node
+   :name "augmentation.registry"
+   :source "native-js-augmentation-registry-augmentation-module.mith")
+  (rdf/node
+   :name "augmentation.fiber"
+   :source "native-js-augmentation-fiber-augmentation-module.mith")
+  (rdf/node
+   :name "cordis.service"
+   :source "native-js-cordis-augmentation-service.mith")
+  (rdf/node
+   :name "cordis.utils"
+   :source "native-js-cordis-augmentation-utils.mith")
+  (rdf/node
+   :name "cordis.index"
+   :source "native-js-cordis-augmentation-index.mith")]
+ :externals [(rdf/node
+   :name "qualification.context"
+   :specifier "@augmentation/context"
+   :types [(rdf/node
+     :name "Context"
+     :min 0
+     :max 0)]
+   :values ["Context"])
+  (rdf/node
+   :name "qualification.events"
+   :specifier "@augmentation/events"
+   :types [(rdf/node
+     :name "Parameters"
+     :min 1
+     :max 1)
+    (rdf/node
+     :name "ReturnType"
+     :min 1
+     :max 1)
+    (rdf/node
+     :name "ThisType"
+     :min 1
+     :max 1)
+    (rdf/node
+     :name "DispatchMode"
+     :min 0
+     :max 0)
+    (rdf/node
+     :name "EventOptions"
+     :min 0
+     :max 0)
+    (rdf/node
+     :name "Hook"
+     :min 0
+     :max 0)
+    (rdf/node
+     :name "EventsService"
+     :min 0
+     :max 0)
+    (rdf/node
+     :name "Events"
+     :min 0
+     :max 0)]
+   :values ["isBailed"
+    "EventsService"])
+  (rdf/node
+   :name "qualification.logger"
+   :specifier "@augmentation/logger"
+   :types [(rdf/node
+     :name "LoggerType"
+     :min 0
+     :max 0)
+    (rdf/node
+     :name "LoggerMethod"
+     :min 0
+     :max 0)
+    (rdf/node
+     :name "Formatter"
+     :min 0
+     :max 0)
+    (rdf/node
+     :name "LoggerLevel"
+     :min 0
+     :max 0)
+    (rdf/node
+     :name "Message"
+     :min 0
+     :max 0)
+    (rdf/node
+     :name "Exporter"
+     :min 0
+     :max 0)
+    (rdf/node
+     :name "LoggerOptions"
+     :min 0
+     :max 0)
+    (rdf/node
+     :name "Logger"
+     :min 0
+     :max 0)
+    (rdf/node
+     :name "LoggerService.Intercept"
+     :min 0
+     :max 0)
+    (rdf/node
+     :name "LoggerService"
+     :min 0
+     :max 0)]
+   :values ["LoggerLevel"
+    "defaultFormatters"
+    "Logger"
+    "c16"
+    "c256"
+    "LoggerService"])
+  (rdf/node
+   :name "qualification.reflect"
+   :specifier "@augmentation/reflect"
+   :types [(rdf/node
+     :name "Property"
+     :min 0
+     :max 0)
+    (rdf/node
+     :name "Property.Service"
+     :min 0
+     :max 0)
+    (rdf/node
+     :name "Property.Accessor"
+     :min 0
+     :max 0)
+    (rdf/node
+     :name "Impl"
+     :min 0
+     :max 0)
+    (rdf/node
+     :name "ReflectService"
+     :min 0
+     :max 0)]
+   :values ["ReflectService"])
+  (rdf/node
+   :name "qualification.registry"
+   :specifier "@augmentation/registry"
+   :types [(rdf/node
+     :name "Inject"
+     :min 0
+     :max 1)
+    (rdf/node
+     :name "InjectKey"
+     :min 0
+     :max 0)
+    (rdf/node
+     :name "Plugin"
+     :min 0
+     :max 1)
+    (rdf/node
+     :name "Plugin.Base"
+     :min 0
+     :max 1)
+    (rdf/node
+     :name "Plugin.Transform"
+     :min 2
+     :max 2)
+    (rdf/node
+     :name "Plugin.Function"
+     :min 0
+     :max 1)
+    (rdf/node
+     :name "Plugin.Constructor"
+     :min 0
+     :max 1)
+    (rdf/node
+     :name "Plugin.Object"
+     :min 0
+     :max 1)
+    (rdf/node
+     :name "Plugin.Runtime"
+     :min 0
+     :max 0)
+    (rdf/node
+     :name "RegistryService"
+     :min 0
+     :max 0)]
+   :values ["Inject"
+    "RegistryService"])
+  (rdf/node
+   :name "qualification.fiber"
+   :specifier "@augmentation/fiber"
+   :types [(rdf/node
+     :name "ValidationError"
+     :min 0
+     :max 0)
+    (rdf/node
+     :name "Disposable"
+     :min 0
+     :max 1)
+    (rdf/node
+     :name "Effect"
+     :min 0
+     :max 1)
+    (rdf/node
+     :name "EffectMeta"
+     :min 0
+     :max 0)
+    (rdf/node
+     :name "FiberState"
+     :min 0
+     :max 0)
+    (rdf/node
+     :name "CordisError"
+     :min 0
+     :max 0)
+    (rdf/node
+     :name "CordisError.Code"
+     :min 0
+     :max 0)
+    (rdf/node
+     :name "Fiber"
+     :min 0
+     :max 0)]
+   :values ["ValidationError"
+    "resolveConfig"
+    "FiberState"
+    "CordisError"
+    "Fiber"])
+  (rdf/node
+   :name "qualification.utils"
+   :specifier "@augmentation/utils"
+   :types [(rdf/node
+     :name "DisposableList"
+     :min 1
+     :max 1)
+    (rdf/node
+     :name "Tracker"
+     :min 0
+     :max 0)]
+   :values ["DisposableList"
+    "symbols"
+    "isConstructor"
+    "joinPrototype"
+    "isObject"
+    "getPropertyDescriptor"
+    "getTraceable"
+    "withProps"
+    "createCallable"
+    "composeError"
+    "buildOuterStack"
+    "symbols.isolate"
+    "symbols.intercept"
+    "symbols.config"
+    "symbols.tracker"
+    "symbols.internal"
+    "symbols.resolveConfig"
+    "symbols.store"
+    "symbols.label"
+    "symbols.source"])
+  (rdf/node
+   :name "qualification.service"
+   :specifier "@augmentation/service"
+   :types [(rdf/node
+     :name "Service"
+     :min 0
+     :max 1)]
+   :values ["Service"])
+  (rdf/node
+   :name "qualification.cosmokit"
+   :specifier "@deepseek-ai/cosmokit"
+   :types [(rdf/node
+     :name "Dict"
+     :min 0
+     :max 1)
+    (rdf/node
+     :name "Awaitable"
+     :min 1
+     :max 1)
+    (rdf/node
+     :name "Promisify"
+     :min 1
+     :max 1)
+    (rdf/node
+     :name "Spread"
+     :min 1
+     :max 1)]
+   :values [])
+  (rdf/node
+   :name "qualification.schema"
+   :specifier "@standard-schema/spec"
+   :types [(rdf/node
+     :name "StandardSchemaV1"
+     :min 0
+     :max 2)]
+   :values [])]
+ :entry "cordis.index")

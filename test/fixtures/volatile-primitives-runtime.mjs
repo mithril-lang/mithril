@@ -1,0 +1,19 @@
+import assert from 'node:assert/strict';import {pathToFileURL} from 'node:url';
+const factory=(await import(pathToFileURL(process.argv[2]).href)).instantiateMithrilNative, api=factory({});let count=0;const pass=()=>count++;
+const a={},b=Promise.resolve(1),x=api.mutable(a),y=api.mutable(2);assert.equal(x.get(),a);assert.equal(x.set(b),undefined);assert.equal(x.get(),b);assert.equal(y.get(),2);assert.equal(x.get.name,'get');assert.equal(x.set.name,'set');assert.equal(x.get.length,0);assert.equal(x.set.length,1);assert.throws(()=>Reflect.construct(x.set,[]),TypeError);pass();
+for(let i=0;i<2000;i++){const value={i};assert.equal(x.set(value),undefined);assert.equal(x.get(),value);}pass();
+for(const value of [undefined,null,0,'failure',a,Symbol('failure')])assert.throws(()=>api.throwValue(value),e=>e===value);pass();
+let events=[];assert.equal(api.cleanup(()=>{events.push('body');return a},()=>{events.push('finally');return b}),a);assert.deepEqual(events,['body','finally']);pass();
+events=[];assert.throws(()=>api.cleanup(()=>{events.push('body');throw a},()=>{events.push('finally')}),e=>e===a);assert.deepEqual(events,['body','finally']);pass();
+assert.throws(()=>api.cleanup(()=>a,()=>{throw b}),e=>e===b);assert.throws(()=>api.cleanup(()=>{throw a},()=>{throw b}),e=>e===b);pass();
+const thenable={get then(){throw a}};assert.equal(api.cleanup(()=>thenable,()=>{}),thenable);pass();
+assert.equal(api.has('x',Object.create({x:1})),true);assert.equal(api.has('x',{}),false);const sym=Symbol('key');assert.equal(api.has(sym,{[sym]:0}),true);pass();
+let seen;const proxy=new Proxy({},{has(t,key){seen=key;return true},get(){throw a}});assert.equal(api.has(sym,proxy),true);assert.equal(seen,sym);assert.throws(()=>api.has('x',new Proxy({},{has(){throw a}})),e=>e===a);pass();
+for(const v of [null,undefined,0,'x',true])assert.throws(()=>api.has('x',v),TypeError);pass();
+const visit=api.recursive(a);assert.equal(visit.name,'visit');assert.equal(visit.length,1);assert.equal(Object.hasOwn(visit,'prototype'),true);assert.equal(visit(false),a);assert.equal(visit(true),a);const other=api.recursive(b);assert.equal(other(true),b);pass();
+let calls=0;const f=()=>{calls++;return a};assert.equal(api.defaults.length,1);assert.deepEqual(api.defaults(f,undefined,2),[a,2]);assert.equal(calls,1);assert.deepEqual(api.defaults(f,null,3),[null,3]);assert.equal(calls,1);pass();
+assert.throws(()=>api.defaults(()=>{throw a}),e=>e===a);assert.throws(()=>api.tdz(undefined,1),ReferenceError);assert.deepEqual(api.tdz(3,4),3);pass();
+assert.equal(api.moduleGet(),9);assert.equal(api.moduleSet(a),a);assert.equal(api.moduleGet(),a);const second=factory({});assert.equal(second.moduleGet(),9);pass();
+assert.equal(api.shadow(a)(b),b);assert.equal(api.moduleGet(),a);pass();
+if(api.collision){const f=api.collision(b);assert.equal(f.name,'__mithril_native_v1');assert.equal(f(),a);console.log('Named-function/generated-binding collision regression passed.');}
+assert.equal(count,15);console.log('Native volatile prerequisites: 15 runtime contract groups passed.');

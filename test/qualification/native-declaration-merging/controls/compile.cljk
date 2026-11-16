@@ -1,0 +1,110 @@
+(ns compile-declaration-merging
+ (:require [mithril.native-declarations :as declarations] [mithril.native-declaration-emit :as emit] [mithril.native-esm :as esm]
+           ["node:fs" :as fs] ["node:child_process" :as child]))
+(defn ensure [p label] (when-not p (throw (js/Error. label))))
+(defn run [args]
+ (let [r (child/spawnSync js/process.execPath (clj->js args) #js {:encoding "utf8" :timeout 240000})]
+  (ensure (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r)) (.-stdout r)))
+(def engine (.-MITHRIL_DECLARATIONS_ENGINE js/process.env))
+(def compiler (.-MITHRIL_DECLARATIONS_TYPESCRIPT js/process.env))
+(def type-roots (.-MITHRIL_DECLARATIONS_TYPE_ROOTS js/process.env))
+(def runtime-text (fs/readFileSync "examples/native-js-cordis-merge-contracts-esm.mith" "utf8"))
+(def sources (into {} (map #(vector % (fs/readFileSync (str "examples/" %) "utf8")) (esm/source-basenames runtime-text))))
+(def runtime (esm/check-text runtime-text sources))
+(def text (fs/readFileSync "examples/native-js-cordis-merge-contracts.mith" "utf8"))
+(def doc (declarations/parse-text text))
+(def artifact (emit/compile-text text runtime))
+(ensure (= artifact (emit/compile-document doc runtime)) "Merge source/model mismatch")
+(ensure (= 19 (count (:exports artifact))) "Merged runtime export surface mismatch")
+(ensure (= 40 (count (get doc "declarations"))) "Wrong source merge contract form count")
+(defn kw [name] {"op" "keyword" "name" name})
+(defn ref [name] {"op" "name" "name" name "args" []})
+(defn prop [name t] {"kind" "property" "name" name "optional" false "readonly" false "datatype" t})
+(defn iface [name members] {"kind" "interface" "name" name "exported" false "type-params" [] "members" members})
+(defn alias [name t] {"kind" "alias" "name" name "exported" false "type-params" [] "datatype" t})
+(defn nsdecl [name ds] {"kind" "namespace" "name" name "exported" false "declarations" ds})
+(defn klass [name members] {"kind" "class" "name" name "exported" false "abstract" false "type-params" [] "extends" nil "implements" [] "members" members})
+(defn method [name t] {"kind" "method" "key" {"kind" "name" "name" name} "visibility" "public" "static" false "abstract" false "optional" false "type-params" [] "params" [] "returns" t})
+(defn fn-decl [name t] {"kind" "function" "name" name "exported" false "type-params" [] "params" [] "returns" t})
+(defn const-decl [name t] {"kind" "const" "name" name "exported" false "datatype" t})
+(defn publish [d] (assoc d "exported" true))
+(defn gp [name default] {"name" name "constraint" nil "default" default})
+(defn add [ds] (update doc "declarations" into ds))
+(def brand {"kind" "opaque" "key" {"kind" "name" "name" "brand"} "visibility" "private" "static" false})
+(def token {"kind" "property" "key" {"kind" "name" "name" "token"} "visibility" "protected" "static" true "readonly" true "optional" false "datatype" {"op" "unique-symbol"}})
+(def generic-iface (assoc (iface "GenericMerge" [(prop "x" (ref "T"))]) "type-params" [(gp "T" nil)]))
+(def generic-extension (assoc (iface "GenericMerge" [(prop "y" (ref "U"))]) "type-params" [(gp "T" (kw "string")) (gp "U" (kw "number"))]))
+(def private-a (nsdecl "PrivateViews" [(klass "Hidden" [brand]) (publish (alias "A" (ref "Hidden"))) (publish (alias "CtorA" {"op" "typeof" "name" "Hidden"}))]))
+(def private-b (nsdecl "PrivateViews" [(klass "Hidden" [brand]) (publish (alias "B" (ref "Hidden"))) (publish (alias "CtorB" {"op" "typeof" "name" "Hidden"}))]))
+(def base-a (nsdecl "HeritageViews" [(klass "Base" [token]) (publish (assoc (klass "Derived" [(assoc token "key" {"kind" "name" "name" "copy"} "visibility" "public" "datatype" {"op" "typeof" "name" "Base.token"})]) "extends" (ref "Base")))]))
+(def base-b (nsdecl "HeritageViews" [(klass "Base" [token]) (publish (assoc (klass "Child" [(assoc token "key" {"kind" "name" "name" "copy"} "visibility" "public" "datatype" {"op" "typeof" "name" "Derived.copy"})]) "extends" (ref "Derived")))]))
+(def controls
+ [(nsdecl "IdenticalPrivateBlocks" [(klass "Hidden" [brand])])
+  (nsdecl "IdenticalPrivateBlocks" [(klass "Hidden" [brand])])
+  generic-iface generic-extension
+  (publish (alias "GenericMergeType" (ref "GenericMerge")))
+  (publish (assoc (alias "GenericMergeArgs" {"op" "name" "name" "GenericMerge" "args" [(ref "T") (ref "U")]}) "type-params" [(gp "T" nil) (gp "U" nil)]))
+  (iface "Identical" [(prop "x" (kw "string"))]) (iface "Identical" [(prop "x" (kw "string"))]) (publish (alias "IdenticalType" (ref "Identical")))
+  (klass "CallableClass" [brand]) (fn-decl "CallableClass" (ref "CallableClass"))
+  (publish (alias "CallableClassConstructor" {"op" "typeof" "name" "CallableClass"}))
+  (klass "GetterMerge" [{"kind" "getter" "key" {"kind" "name" "name" "x"} "visibility" "public" "static" false "datatype" (kw "number")}])
+  (iface "GetterMerge" [(prop "x" (kw "number"))]) (publish (alias "GetterMergeType" (ref "GetterMerge")))
+  (const-decl "TypeOnlyConst" (kw "number")) (nsdecl "TypeOnlyConst" [(publish (alias "Item" (kw "string")))])
+  (publish (alias "TypeOnlyConstItem" (ref "TypeOnlyConst.Item")))
+  private-a private-b
+  (publish (alias "PrivateA" (ref "PrivateViews.A"))) (publish (alias "PrivateB" (ref "PrivateViews.B")))
+  (publish (alias "PrivateCtorA" (ref "PrivateViews.CtorA"))) (publish (alias "PrivateCtorB" (ref "PrivateViews.CtorB")))
+  base-a base-b (publish (alias "DerivedConstructor" {"op" "typeof" "name" "HeritageViews.Derived"}))
+  (publish (alias "ChildConstructor" {"op" "typeof" "name" "HeritageViews.Child"}))
+  (nsdecl "LexicalViews" [(alias "Hidden" (kw "string")) (publish (alias "A" (ref "Hidden")))])
+  (nsdecl "LexicalViews" [(alias "Hidden" (kw "number")) (publish (alias "B" (ref "Hidden")))])
+  (publish (alias "LexicalA" (ref "LexicalViews.A"))) (publish (alias "LexicalB" (ref "LexicalViews.B")))
+  (nsdecl "NestedViews" [(alias "Hidden" (kw "string")) (publish (nsdecl "Child" [(publish (alias "A" (ref "Hidden")))]))])
+  (nsdecl "NestedViews" [(alias "Hidden" (kw "number")) (publish (nsdecl "Child" [(publish (alias "B" (ref "Hidden")))]))])
+  (publish (alias "NestedA" (ref "NestedViews.Child.A"))) (publish (alias "NestedB" (ref "NestedViews.Child.B")))
+  (nsdecl "QualifiedViews" [(alias "Hidden" (kw "number")) (publish (alias "Local" (ref "Hidden")))
+                           (publish (alias "Public" {"op" "name" "name" "QualifiedViews.Hidden" "args" [(kw "number")]}))])
+  (nsdecl "QualifiedViews" [(publish (assoc (iface "Hidden" [(prop "x" (ref "T"))]) "type-params" [(gp "T" nil)]))])
+  (publish (alias "QualifiedLocal" (ref "QualifiedViews.Local"))) (publish (alias "QualifiedPublic" (ref "QualifiedViews.Public")))])
+(def control-artifact (emit/compile-document (add controls) runtime))
+(def refusals
+ [[:mithril.native-declarations/duplicate [(alias "Bad" (kw "string")) (iface "Bad" [])]]
+  [:mithril.native-declarations/duplicate [(klass "Bad" []) (klass "Bad" [])]]
+  [:mithril.native-declarations/duplicate [(klass "Bad" []) (alias "Bad" (kw "string"))]]
+  [:mithril.native-declarations/duplicate [(klass "Bad" []) (const-decl "Bad" (kw "number"))]]
+  [:mithril.native-declarations/duplicate [(const-decl "Bad" (kw "number")) (const-decl "Bad" (kw "number"))]]
+  [:mithril.native-declarations/duplicate [(const-decl "Bad" (kw "number")) (nsdecl "Bad" [(publish (fn-decl "f" (kw "void")))])]]
+  [:mithril.native-declarations/duplicate [(iface "Bad" []) (publish (iface "Bad" []))]]
+  [:mithril.native-declarations/duplicate [(fn-decl "Bad" (kw "void")) (publish (fn-decl "Bad" (kw "void")))]]
+  [:mithril.native-declarations/duplicate [(nsdecl "Bad" []) (publish (nsdecl "Bad" []))]]
+  [:mithril.native-declarations/duplicate [(nsdecl "Bad" [(publish (alias "Same" (kw "string")))]) (nsdecl "Bad" [(publish (alias "Same" (kw "string")))])]]
+  [:mithril.native-declarations/duplicate [(assoc generic-iface "name" "Bad") (assoc generic-extension "name" "Bad" "type-params" [(gp "X" nil)])]]
+  [:mithril.native-declarations/duplicate [(assoc generic-iface "name" "Bad") (assoc generic-extension "name" "Bad" "type-params" [(gp "T" nil) (gp "U" nil)])]]
+  [:mithril.native-declarations/duplicate [(assoc generic-iface "name" "Bad" "type-params" [(gp "T" (kw "string"))]) (assoc generic-iface "name" "Bad" "type-params" [(gp "T" (kw "number"))])]]
+  [:mithril.native-declarations/duplicate [(assoc generic-iface "name" "Bad" "type-params" [(assoc (gp "T" nil) "constraint" (kw "string"))]) (assoc generic-iface "name" "Bad" "type-params" [(assoc (gp "T" nil) "constraint" (kw "number"))])]]
+  [:mithril.native-declarations/duplicate [(iface "Bad" [(prop "x" (kw "string"))]) (iface "Bad" [(prop "x" (kw "number"))])]]
+  [:mithril.native-declarations/duplicate [(klass "Bad" [brand]) (iface "Bad" [(prop "brand" (kw "string"))])]]
+  [:mithril.native-declarations/duplicate [(klass "Bad" [(method "x" (kw "string"))]) (iface "Bad" [(prop "x" (kw "string"))])]]
+  [:mithril.native-declarations/duplicate [(klass "Bad" [(assoc token "key" {"kind" "name" "name" "value"})]) (nsdecl "Bad" [(publish (const-decl "value" (kw "number")))])]]
+  [:mithril.native-declarations/arity [(nsdecl "Bad" [(alias "Hidden" (kw "string"))]) (nsdecl "Bad" [(publish (alias "Leak" (ref "Hidden")))])]]
+  [:mithril.native-declarations/arity [(nsdecl "Bad" [(alias "Hidden" (kw "string")) (publish (alias "Leak" (ref "Bad.Hidden")))])]]
+  [:mithril.native-declarations/scope [(nsdecl "Bad" [(const-decl "hidden" (kw "string"))]) (nsdecl "Bad" [(publish (alias "Leak" {"op" "typeof" "name" "hidden"}))])]]
+  [:mithril.native-declarations/type [(iface "Bad" []) (assoc (iface "Bad" []) "extends" [(ref "Bad")])]]
+  [:mithril.native-declarations/budget [(iface "Bad" (mapv #(prop (str "a" %) (kw "string")) (range 129))) (iface "Bad" (mapv #(prop (str "b" %) (kw "string")) (range 128)))]]
+  [:mithril.native-declarations/scope [base-a (update-in base-b ["declarations" 1 "members" 0] assoc "datatype" {"op" "typeof" "name" "Base.token"})]]
+  [:mithril.native-declarations/type [(nsdecl "Bad" [(klass "Cycle" []) (assoc (klass "Other" []) "extends" (ref "Cycle")) (assoc (iface "Cycle" []) "extends" [(ref "Other")])])]]])
+(doseq [[code ds] refusals]
+ (let [actual (try (emit/compile-document (add ds) runtime) nil (catch :default e (:mithril/error (ex-data e))))]
+  (ensure (= code actual) (str "Wrong merge refusal: expected " code " got " actual))))
+(println (str "Declaration merging admission:" (count refusals) " exact-code collision/visibility/generic/private-scope/heritage/budget refusals."))
+(def dir (fs/mkdtempSync "/tmp/mithril-merge-types-"))
+(try
+ (fs/writeFileSync (str dir "/offline.edn") "{:paths [\"src\"]}\n")
+ (fs/writeFileSync (str dir "/controls.d.mts") (:source control-artifact))
+ (doseq [target ["js" "js-browser"]]
+  (let [folder (str dir "/" target) output (str folder "/index.d.mts")]
+   (fs/writeFileSync (str folder ".json") (run [engine "--config" (str dir "/offline.edn") "-cp" "src" "bin/mithril-native-esm.cljk" "examples/native-js-cordis-merge-contracts-esm.mith" "--target" target "--output-directory" folder]))
+   (run [engine "--config" (str dir "/offline.edn") "-cp" "src" "bin/mithril-native-declarations.cljk" "examples/native-js-cordis-merge-contracts.mith" "--target" target "--output" output])
+   (ensure (= (:source artifact) (fs/readFileSync output "utf8")) "Merged declaration CLI mismatch")
+   (run ["test/qualification/native-declaration-merging/controls/type-contract.mjs" output compiler type-roots (str dir "/controls.d.mts") (str folder "/index.mjs") (str folder ".json")])))
+ (finally (fs/rmSync dir #js {:recursive true :force true})))

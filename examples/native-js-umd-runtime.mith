@@ -1,0 +1,4 @@
+(mithril/native-js-module :name "umd.api" :imports []
+:functions [(mithril/function :name "bump" :params [] :returns "js-value"
+:body (mithril/local-set :name "count" :value (mithril/host-binary :operator "+" :left (mithril/local :name "count") :right (mithril/literal :datatype "js-value" :value 1))))]
+:bindings [(rdf/node :name "count" :mutable true :value (mithril/literal :datatype "js-value" :value 0))] :exports [(rdf/node :name "count" :value (mithril/local :name "count")) "bump"])

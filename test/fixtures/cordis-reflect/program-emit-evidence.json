@@ -1,0 +1,327 @@
+{
+  "format": "mithril.cordis-program-runtime-graph/v1",
+  "upstream": "441416c0048aa4281bffe59c1c7b5e13e08a9ec1",
+  "typescript": "6.0.3",
+  "pipeline": "actual base+Cordis options with root/outdir/typeRoots adapter, memory-only program emit; no original project/bundle/type success claim",
+  "diagnosticCount": 21,
+  "imports": {
+    "logger": [
+      {
+        "kind": "import",
+        "module": "@deepseek-ai/cosmokit",
+        "names": [
+          "defineProperty",
+          "hyphenate"
+        ]
+      },
+      {
+        "kind": "import",
+        "module": "./utils.js",
+        "names": [
+          "createCallable",
+          "joinPrototype",
+          "symbols"
+        ]
+      }
+    ],
+    "service": [
+      {
+        "kind": "import",
+        "module": "@deepseek-ai/cosmokit",
+        "names": [
+          "defineProperty"
+        ]
+      },
+      {
+        "kind": "import",
+        "module": "./context.js",
+        "names": [
+          "Context"
+        ]
+      },
+      {
+        "kind": "import",
+        "module": "./utils.js",
+        "names": [
+          "createCallable",
+          "joinPrototype",
+          "symbols"
+        ]
+      }
+    ],
+    "index": [
+      {
+        "kind": "reexport",
+        "module": "./context.js",
+        "names": [
+          "*"
+        ]
+      },
+      {
+        "kind": "reexport",
+        "module": "./events.js",
+        "names": [
+          "*"
+        ]
+      },
+      {
+        "kind": "reexport",
+        "module": "./fiber.js",
+        "names": [
+          "*"
+        ]
+      },
+      {
+        "kind": "reexport",
+        "module": "./logger.js",
+        "names": [
+          "*"
+        ]
+      },
+      {
+        "kind": "reexport",
+        "module": "./registry.js",
+        "names": [
+          "*"
+        ]
+      },
+      {
+        "kind": "reexport",
+        "module": "./service.js",
+        "names": [
+          "*"
+        ]
+      },
+      {
+        "kind": "reexport",
+        "module": "./utils.js",
+        "names": [
+          "*"
+        ]
+      }
+    ],
+    "utils": [
+      {
+        "kind": "import",
+        "module": "@deepseek-ai/cosmokit",
+        "names": [
+          "defineProperty"
+        ]
+      }
+    ],
+    "registry": [
+      {
+        "kind": "import",
+        "module": "@deepseek-ai/cosmokit",
+        "names": [
+          "defineProperty"
+        ]
+      },
+      {
+        "kind": "import",
+        "module": "./fiber.js",
+        "names": [
+          "Fiber"
+        ]
+      },
+      {
+        "kind": "import",
+        "module": "./utils.js",
+        "names": [
+          "buildOuterStack",
+          "DisposableList",
+          "symbols",
+          "withProps"
+        ]
+      }
+    ],
+    "reflect": [
+      {
+        "kind": "import",
+        "module": "@deepseek-ai/cosmokit",
+        "names": [
+          "defineProperty",
+          "isNullable"
+        ]
+      },
+      {
+        "kind": "import",
+        "module": "./utils.js",
+        "names": [
+          "getTraceable",
+          "symbols",
+          "withProps"
+        ]
+      }
+    ],
+    "fiber": [
+      {
+        "kind": "import",
+        "module": "@deepseek-ai/cosmokit",
+        "names": [
+          "defineProperty",
+          "isNullable"
+        ]
+      },
+      {
+        "kind": "import",
+        "module": "./context.js",
+        "names": [
+          "Context"
+        ]
+      },
+      {
+        "kind": "import",
+        "module": "./utils.js",
+        "names": [
+          "buildOuterStack",
+          "composeError",
+          "DisposableList",
+          "getTraceable",
+          "isConstructor",
+          "isObject",
+          "symbols"
+        ]
+      }
+    ],
+    "events": [
+      {
+        "kind": "import",
+        "module": "@deepseek-ai/cosmokit",
+        "names": [
+          "defineProperty"
+        ]
+      },
+      {
+        "kind": "import",
+        "module": "./context.js",
+        "names": [
+          "Context"
+        ]
+      },
+      {
+        "kind": "import",
+        "module": "./utils.js",
+        "names": [
+          "DisposableList",
+          "symbols"
+        ]
+      }
+    ],
+    "context": [
+      {
+        "kind": "import",
+        "module": "./events.js",
+        "names": [
+          "EventsService"
+        ]
+      },
+      {
+        "kind": "import",
+        "module": "./logger.js",
+        "names": [
+          "LoggerService"
+        ]
+      },
+      {
+        "kind": "import",
+        "module": "./reflect.js",
+        "names": [
+          "ReflectService"
+        ]
+      },
+      {
+        "kind": "import",
+        "module": "./registry.js",
+        "names": [
+          "RegistryService"
+        ]
+      },
+      {
+        "kind": "import",
+        "module": "./utils.js",
+        "names": [
+          "getTraceable",
+          "symbols"
+        ]
+      },
+      {
+        "kind": "import",
+        "module": "./fiber.js",
+        "names": [
+          "Fiber"
+        ]
+      }
+    ]
+  },
+  "graph": {
+    "logger": [
+      "utils"
+    ],
+    "service": [
+      "context",
+      "utils"
+    ],
+    "index": [
+      "context",
+      "events",
+      "fiber",
+      "logger",
+      "registry",
+      "service",
+      "utils"
+    ],
+    "utils": [],
+    "registry": [
+      "fiber",
+      "utils"
+    ],
+    "reflect": [
+      "utils"
+    ],
+    "fiber": [
+      "context",
+      "utils"
+    ],
+    "events": [
+      "context",
+      "utils"
+    ],
+    "context": [
+      "events",
+      "logger",
+      "reflect",
+      "registry",
+      "utils",
+      "fiber"
+    ]
+  },
+  "dependencyFirstScc": [
+    [
+      "utils"
+    ],
+    [
+      "logger"
+    ],
+    [
+      "reflect"
+    ],
+    [
+      "context",
+      "events",
+      "fiber",
+      "registry"
+    ],
+    [
+      "service"
+    ],
+    [
+      "index"
+    ]
+  ],
+  "constEnumRuntimePresence": {
+    "FiberState": false,
+    "LoggerLevel": false
+  },
+  "projection": "original program static imports AND reexports; dynamic/provider/package runtime not verified"
+}

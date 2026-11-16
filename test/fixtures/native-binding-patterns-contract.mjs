@@ -1,0 +1,45 @@
+import assert from 'node:assert/strict';
+import {pathToFileURL} from 'node:url';
+import {resolve} from 'node:path';
+import * as reference from './native-binding-patterns-reference.mjs';
+const directory=process.argv[2],esm=process.argv[3]==='--native-esm';
+const capture=async f=>{try{return{value:await f()}}catch(error){return{error:error.constructor.name,message:error.message}}};
+for(const target of ['js','js-browser']){
+ const loaded=await import(pathToFileURL(resolve(directory,esm?`binding-patterns-esm-${target}/index.mjs`:`binding-patterns-${target}.mjs`)));
+ const candidate=esm?loaded:loaded.instantiateMithrilNative({});let groups=0;
+ const pair=async(id,run)=>{const a=await run(reference),b=await run(candidate);assert.deepEqual(b,a,id);groups++;};
+ const failure=async(id,run)=>pair(id,async api=>{const r=await capture(()=>run(api));// Engine diagnostics embed source identifiers; compare native failure class here.
+ if(r.error==='ReferenceError'||r.error==='TypeError')delete r.message;return r;});
+ await pair('array-default-hole-nested-rest',api=>api.lexicalArray([undefined,4,undefined,9,10],3));
+ await pair('array-null-no-default',api=>api.lexicalArray([null,0,{v:null}],7));
+ await failure('array-null-nested-throw',api=>api.lexicalArray([1,0,null],4));
+ await pair('nested-rest-binding-pattern',api=>api.nestedRest([1,2,3,4]));
+ await pair('array-nested',api=>api.lexicalNested([[undefined],{x:4}]));
+ const iterable=(values,events,flags={})=>({[Symbol.iterator](){events.push('iterator');let index=0;return{next(){events.push('next'+index);if(flags.nextThrow)throw flags.nextThrow;const done=index>=values.length,value=values[index++];return{get done(){events.push('done');return done},get value(){events.push('value');return value}}},return(){events.push('close');if(flags.closeThrow)throw flags.closeThrow;return{done:true}}}}});
+ await pair('array-hole-iterator-close',api=>{const events=[];return[api.lexicalHoles(iterable([1,2,3],events)),events]});
+ await pair('array-nested-iterator-close',api=>{const events=[];const inner=iterable([1,2],events);return[api.lexicalNested(iterable([inner,{x:8},9],events)),events]});
+ await pair('array-rest-exhaustion',api=>{const events=[];return[api.lexicalArray(iterable([1,2,{v:3},4,5],events),0),events]});
+ await pair('close-after-nested-failure-identity',async api=>{const events=[],marker=new Error('nested');const value={get v(){throw marker}};try{api.lexicalArray(iterable([1,2,value],events),0)}catch(e){assert.equal(e,marker);return events}throw Error('expected failure')});
+ await pair('iterator-close-throw-identity',api=>{const events=[],marker=new Error('close');try{api.lexicalHoles(iterable([1,2,3],events,{closeThrow:marker}))}catch(e){assert.equal(e,marker);return events}throw Error('expected failure')});
+ await pair('object-computed-rest-symbols',api=>{const symbol=Symbol.for('pattern-keep');return api.lexicalObject({z:undefined,x:4,y:5,[symbol]:6},'z',3)});
+ await pair('object-proxy-key-get-rest-order',api=>{const events=[];const input=new Proxy({z:1,x:2,y:3},{get(t,k){events.push('get:'+String(k));return Reflect.get(t,k)},ownKeys(t){events.push('keys');return Reflect.ownKeys(t)},getOwnPropertyDescriptor(t,k){events.push('descriptor:'+String(k));return Reflect.getOwnPropertyDescriptor(t,k)}});const key={[Symbol.toPrimitive](){events.push('key');return'z'}};return[api.lexicalObject(input,key,4),events]});
+ await pair('computed-symbol-and-duplicate-property',api=>{const symbol=Symbol.for('pattern-key'),events=[],input={get x(){events.push('x');return events.length},[symbol]:8,y:2};return[api.lexicalObject(input,'x',3),api.lexicalObject(input,symbol,3),events]});
+ await pair('object-inherited-property-excluded-from-rest',api=>api.lexicalObject(Object.assign(Object.create({x:8}),{z:1,y:2}),'z',4));
+ await failure('object-null-refusal',api=>api.lexicalObject(null,'x',1));
+ await failure('lexical-self-forward-tdz',api=>api.lexicalTDZ([undefined,undefined]));
+ await pair('lexical-early-initialized-value',api=>api.lexicalTDZ([1,undefined]));
+ await failure('lexical-forward-declaration-tdz',api=>api.lexicalForward([]));
+ await failure('lexical-shadow-default-tdz',api=>api.lexicalShadow(3));
+ await pair('lexical-mutability-and-bigint',api=>[api.mutableArray([2]),api.mutableArray([2n])]);
+ await pair('default-anonymous-function-names',api=>[api.defaultNames([]),api.parameterNames([]),api.lexicalName(),api.parameterLeafName(),api.arrowLeafName()]);
+ await pair('native-parameter-length-and-arguments-this',api=>[api.parameterArray.length,api.parameterArray.call({tag:'receiver'},[undefined,2],3),api.parameterObject.length,api.parameterObject(undefined,4)]);
+ await failure('parameter-forward-tdz',api=>api.parameterTDZ([undefined]));
+ await pair('parameter-early-value-and-mutation',api=>[api.parameterTDZ([5]),api.parameterMutable([3n])]);
+ await pair('arrow-object-pattern',api=>[api.arrowObject({x:undefined},3),api.arrowObject.length]);
+ await pair('own-async-parameter-pattern',async api=>await api.asyncPattern([Promise.resolve(5)]));
+ await pair('own-generator-parameter-pattern',api=>{const g=api.generatorPattern([3]);return[g.next(),g.next()]});
+ await pair('source-generator-lexical-default-suspension',api=>{const g=api.lexicalGenerator([]);return[g.next(),g.next(9)]});
+ await pair('local-and-hoisted-pattern-functions',api=>[api.localPattern({x:8}),api.hoistedPattern([]),api.hoistedPattern.length]);
+ await pair('class-and-object-method-headers',api=>{const tag={kind:'receiver'},instance=new api.PatternClass({tag}),object=api.objectMethod();object.tag=tag;return[instance instanceof api.PatternClass,instance.value({}),object.value({x:2}),api.PatternClass.length,instance.value.length]});
+ console.log(`Native binding patterns actual ${target}${esm?' native ESM':''} CLI: ${groups} paired runtime groups passed.`);
+}

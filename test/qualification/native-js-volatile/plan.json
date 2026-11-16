@@ -1,0 +1,32 @@
+{
+  "image": "sha256:313e525b3549e13e7c029889999fc40420eafa8726da43583e909f4276ff02ca",
+  "seed_directory": "/opt/mithril-refactor-base",
+  "timeout_seconds": 180,
+  "checks": [
+    {
+      "id": "retained-source-78-408",
+      "argv": [
+        "node",
+        "/opt/volatile-controls/run-check.mjs",
+        "test/run_modules.cljk"
+      ]
+    },
+    {
+      "id": "volatile-primitives-reference",
+      "argv": [
+        "node",
+        "/opt/volatile-controls/volatile-primitives-runtime.mjs",
+        "/opt/volatile-controls/volatile-primitives-reference.mjs"
+      ]
+    },
+    {
+      "id": "native-volatile-primitives",
+      "variant": "candidate",
+      "argv": [
+        "node",
+        "/opt/volatile-controls/run-check.mjs",
+        "/opt/volatile-controls/volatile-primitives.cljk"
+      ]
+    }
+  ]
+}

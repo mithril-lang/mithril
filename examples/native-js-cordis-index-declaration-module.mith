@@ -1,0 +1,25 @@
+(mithril/native-js-declaration-module
+ :name "cordis.index"
+ :runtime nil
+ :ambient-types []
+ :ambient-values []
+ :imports []
+ :reexports [(rdf/node
+   :module "cordis.service"
+   :type-only false
+   :names nil)
+  (rdf/node
+   :module "cordis.utils"
+   :type-only false
+   :names nil)
+  (rdf/node
+   :module "cordis.logger"
+   :type-only false
+   :names nil)
+  (rdf/node
+   :module "qualification.context"
+   :type-only true
+   :names [(rdf/node
+     :import "Context"
+     :export "Context")])]
+ :declarations [])

@@ -1,0 +1,27 @@
+(mithril/stack
+  :id "https://mithril.fund/stack/aws/ledger/v1"
+  :boundary "simulation"
+  :provider "aws"
+  :name "ledger"
+  :principal "sim-reader"
+  :allow ["sim-reader"]
+  :permission-boundary ["s3:PutObject" "s3:GetObject"]
+  :quota 2
+  :consistency "strong"
+  :fault "none"
+  :tls "ok"
+  :object "hello"
+  :contract "unchecked"
+  :resources [(mithril/resource
+                :name "writer"
+                :domain "com.amazonaws.s3"
+                :operation "put-object"
+                :action "s3:PutObject"
+                :object "stored"
+                :depends [])
+              (mithril/resource
+                :name "reader"
+                :domain "com.amazonaws.s3"
+                :operation "get-object"
+                :action "s3:GetObject"
+                :depends ["writer"])])

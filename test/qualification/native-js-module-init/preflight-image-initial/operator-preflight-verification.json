@@ -1,0 +1,126 @@
+{
+  "format": "mithril.code-refactor-verification/v1",
+  "verified": false,
+  "verification_scope": "Declared checks on selected baseline and candidate snapshots only; not whole-repository or universal API equivalence.",
+  "input_sha256": "20d59992d4938eb7c13955e9f430b0ba180384ceb8a250d3a540bcafc2b7fe8e",
+  "proposal_sha256": "6c010e1c51766975f5fa2705e25bd8bcdaa003cc31111837ec1a3156ff72b683",
+  "candidate_sha256": "ce33bbf4705af5a2cb9d87b16400c8083b667fa7426c998bf23f43510470310d",
+  "image": "sha256:157213f6f35b495587757e390d0df72a3dc9ee4232b72fbfc3029aefe38f0156",
+  "plan": {
+    "image": "sha256:157213f6f35b495587757e390d0df72a3dc9ee4232b72fbfc3029aefe38f0156",
+    "seed_directory": "/opt/mithril-refactor-base",
+    "timeout_seconds": 300,
+    "checks": [
+      {
+        "id": "retained-source-90-458",
+        "argv": [
+          "node",
+          "/opt/init-controls/run-check.mjs",
+          "test/run_modules.cljk"
+        ]
+      },
+      {
+        "id": "native-init-reference12",
+        "argv": [
+          "node",
+          "--experimental-vm-modules",
+          "/opt/init-controls/contract.mjs",
+          "baseline",
+          "/opt/init-controls/reference.mjs",
+          "/opt/init-controls/cases.json",
+          "/opt/init-controls/expected.json"
+        ]
+      },
+      {
+        "id": "native-init-candidate12",
+        "variant": "candidate",
+        "argv": [
+          "node",
+          "/opt/init-controls/run-check.mjs",
+          "/opt/init-controls/compile.cljk"
+        ]
+      }
+    ]
+  },
+  "checks": [
+    {
+      "variant": "baseline",
+      "id": "retained-source-90-458",
+      "argv": [
+        "node",
+        "/opt/init-controls/run-check.mjs",
+        "test/run_modules.cljk"
+      ],
+      "wall_seconds": 16.932772333,
+      "exit_code": 1,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "sha256sum: controls/guide.txt: No such file or directory\nsha256sum: WARNING: 1 listed file could not be read\n"
+    },
+    {
+      "variant": "baseline",
+      "id": "native-init-reference12",
+      "argv": [
+        "node",
+        "--experimental-vm-modules",
+        "/opt/init-controls/contract.mjs",
+        "baseline",
+        "/opt/init-controls/reference.mjs",
+        "/opt/init-controls/cases.json",
+        "/opt/init-controls/expected.json"
+      ],
+      "wall_seconds": 1.5291393750000024,
+      "exit_code": 1,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "sha256sum: controls/guide.txt: No such file or directory\nsha256sum: WARNING: 1 listed file could not be read\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "retained-source-90-458",
+      "argv": [
+        "node",
+        "/opt/init-controls/run-check.mjs",
+        "test/run_modules.cljk"
+      ],
+      "wall_seconds": 0.05497862499999974,
+      "exit_code": 125,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "docker: Error response from daemon: No such image: sha256:157213f6f35b495587757e390d0df72a3dc9ee4232b72fbfc3029aefe38f0156\n\nRun 'docker run --help' for more information\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "native-init-reference12",
+      "argv": [
+        "node",
+        "--experimental-vm-modules",
+        "/opt/init-controls/contract.mjs",
+        "baseline",
+        "/opt/init-controls/reference.mjs",
+        "/opt/init-controls/cases.json",
+        "/opt/init-controls/expected.json"
+      ],
+      "wall_seconds": 0.05135300000000279,
+      "exit_code": 125,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "docker: Error response from daemon: No such image: sha256:157213f6f35b495587757e390d0df72a3dc9ee4232b72fbfc3029aefe38f0156\n\nRun 'docker run --help' for more information\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "native-init-candidate12",
+      "argv": [
+        "node",
+        "/opt/init-controls/run-check.mjs",
+        "/opt/init-controls/compile.cljk"
+      ],
+      "wall_seconds": 0.053018749999999275,
+      "exit_code": 125,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "docker: Error response from daemon: No such image: sha256:157213f6f35b495587757e390d0df72a3dc9ee4232b72fbfc3029aefe38f0156\n\nRun 'docker run --help' for more information\n"
+    }
+  ],
+  "wall_seconds": 18.847346542
+}

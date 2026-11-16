@@ -1,0 +1,101 @@
+{
+  "format": "mithril.code-refactor-verification/v1",
+  "verified": true,
+  "verification_scope": "Declared checks on selected baseline and candidate snapshots only; not whole-repository or universal API equivalence.",
+  "input_sha256": "6bfeb7dbdd4460136b83ab35c0da8051035d7742eb15a439c0c95701dcd72fcd",
+  "proposal_sha256": "fd4201ea1b7b38119fb065c49b8a68420ccdefa89565a743a05cab0ee3a73e5b",
+  "candidate_sha256": "b3e78cffc6fe1b0b78afd46899f109ca95a66f180441abccd8e4335d8f4ff1f8",
+  "image": "sha256:cb146775a9f7f7721cf256cbabf573b57d6dc5d78fba440212cfffad4cb848b3",
+  "plan": {
+    "image": "sha256:cb146775a9f7f7721cf256cbabf573b57d6dc5d78fba440212cfffad4cb848b3",
+    "seed_directory": "/opt/mithril-refactor-base",
+    "timeout_seconds": 180,
+    "checks": [
+      {
+        "id": "retained-source-74-391",
+        "argv": [
+          "node",
+          "/opt/native-controls/run-check.mjs",
+          "test/run_modules.cljk"
+        ]
+      },
+      {
+        "id": "native-primitive-contract",
+        "variant": "candidate",
+        "argv": [
+          "node",
+          "/opt/native-controls/run-check.mjs",
+          "/opt/native-controls/primitive-control.cljk"
+        ]
+      },
+      {
+        "id": "complete-misc-runtime",
+        "variant": "candidate",
+        "argv": [
+          "node",
+          "/opt/native-controls/run-check.mjs",
+          "/opt/native-controls/compile-misc.cljk"
+        ]
+      }
+    ]
+  },
+  "checks": [
+    {
+      "variant": "baseline",
+      "id": "retained-source-74-391",
+      "argv": [
+        "node",
+        "/opt/native-controls/run-check.mjs",
+        "test/run_modules.cljk"
+      ],
+      "wall_seconds": 10.637904209,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "\nTesting mithril.module-test\n\nTesting mithril.module-lower-test\n\nTesting mithril.form-test\n\nTesting mithril.compiler-test\n\nTesting mithril.conditional-test\n\nTesting mithril.branding-test\n\nTesting mithril.undefined-test\n\nTesting mithril.library-test\n\nTesting mithril.module-bindings-test\n\nTesting mithril.module-guest-closure-test\n\nTesting mithril.native-js-test\n\nRan 74 tests containing 391 assertions.\n0 failures, 0 errors.\nJVM launcher marker absent; workspace source classpath.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "retained-source-74-391",
+      "argv": [
+        "node",
+        "/opt/native-controls/run-check.mjs",
+        "test/run_modules.cljk"
+      ],
+      "wall_seconds": 12.131200792,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "\nTesting mithril.module-test\n\nTesting mithril.module-lower-test\n\nTesting mithril.form-test\n\nTesting mithril.compiler-test\n\nTesting mithril.conditional-test\n\nTesting mithril.branding-test\n\nTesting mithril.undefined-test\n\nTesting mithril.library-test\n\nTesting mithril.module-bindings-test\n\nTesting mithril.module-guest-closure-test\n\nTesting mithril.native-js-test\n\nRan 74 tests containing 391 assertions.\n0 failures, 0 errors.\nJVM launcher marker absent; workspace source classpath.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "native-primitive-contract",
+      "argv": [
+        "node",
+        "/opt/native-controls/run-check.mjs",
+        "/opt/native-controls/primitive-control.cljk"
+      ],
+      "wall_seconds": 4.021437207999999,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "Native primitive runtime: strict comparison/raw logical values/spread/assignment/for-of checked.\n11 primitive admissions, 9 refusals, all 8 Form tags checked.\nJVM launcher marker absent; workspace source classpath.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "complete-misc-runtime",
+      "argv": [
+        "node",
+        "/opt/native-controls/run-check.mjs",
+        "/opt/native-controls/compile-misc.cljk"
+      ],
+      "wall_seconds": 2.9035605000000033,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "actual TypeScript baseline: 24 complete misc runtime contract groups passed\nMithril candidate: 24 complete misc runtime contract groups passed\nJVM launcher marker absent; workspace source classpath.\n"
+    }
+  ],
+  "wall_seconds": 30.091809417
+}

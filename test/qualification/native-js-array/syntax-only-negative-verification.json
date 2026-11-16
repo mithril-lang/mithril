@@ -1,0 +1,78 @@
+{
+  "format": "mithril.code-refactor-verification/v1",
+  "verified": false,
+  "verification_scope": "Declared checks on selected baseline and candidate snapshots only; not whole-repository or universal API equivalence.",
+  "input_sha256": "51e318067d1d2532e2761e9390c41cd840f2737fafae3c05f8fbe014fd655858",
+  "proposal_sha256": "b8d1278d37824d85efb44aa354c951245af641205d3c5c0747930be5b9f14ae6",
+  "candidate_sha256": "088142e26b9f7fede8eb6d409b41b3f641bd53e11eba170ae54f59375a024cc5",
+  "image": "sha256:9fa47d43e69b00515e95806498cb773500f53c4423c05ab7e98f77a421db3c63",
+  "plan": {
+    "image": "sha256:9fa47d43e69b00515e95806498cb773500f53c4423c05ab7e98f77a421db3c63",
+    "seed_directory": "/opt/mithril-refactor-base",
+    "timeout_seconds": 180,
+    "checks": [
+      {
+        "id": "retained-source-76-399",
+        "argv": [
+          "node",
+          "/opt/array-controls/run-check.mjs",
+          "test/run_modules.cljk"
+        ]
+      },
+      {
+        "id": "native-array-primitives",
+        "variant": "candidate",
+        "argv": [
+          "node",
+          "/opt/array-controls/run-check.mjs",
+          "/opt/array-controls/array-primitives.cljk"
+        ]
+      }
+    ]
+  },
+  "checks": [
+    {
+      "variant": "baseline",
+      "id": "retained-source-76-399",
+      "argv": [
+        "node",
+        "/opt/array-controls/run-check.mjs",
+        "test/run_modules.cljk"
+      ],
+      "wall_seconds": 12.841758667,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "\nTesting mithril.module-test\n\nTesting mithril.module-lower-test\n\nTesting mithril.form-test\n\nTesting mithril.compiler-test\n\nTesting mithril.conditional-test\n\nTesting mithril.branding-test\n\nTesting mithril.undefined-test\n\nTesting mithril.library-test\n\nTesting mithril.module-bindings-test\n\nTesting mithril.module-guest-closure-test\n\nTesting mithril.native-js-test\n\nTesting mithril.native-misc-test\nNative primitive runtime: strict comparison/raw logical values/spread/assignment/for-of checked.\n11 primitive admissions, 9 refusals, all 8 Form tags checked.\n\nRan 76 tests containing 399 assertions.\n0 failures, 0 errors.\nJVM launcher marker absent; workspace source classpath.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "retained-source-76-399",
+      "argv": [
+        "node",
+        "/opt/array-controls/run-check.mjs",
+        "test/run_modules.cljk"
+      ],
+      "wall_seconds": 12.791624333000001,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "\nTesting mithril.module-test\n\nTesting mithril.module-lower-test\n\nTesting mithril.form-test\n\nTesting mithril.compiler-test\n\nTesting mithril.conditional-test\n\nTesting mithril.branding-test\n\nTesting mithril.undefined-test\n\nTesting mithril.library-test\n\nTesting mithril.module-bindings-test\n\nTesting mithril.module-guest-closure-test\n\nTesting mithril.native-js-test\n\nTesting mithril.native-misc-test\nNative primitive runtime: strict comparison/raw logical values/spread/assignment/for-of checked.\n11 primitive admissions, 9 refusals, all 8 Form tags checked.\n\nRan 76 tests containing 399 assertions.\n0 failures, 0 errors.\nJVM launcher marker absent; workspace source classpath.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "native-array-primitives",
+      "argv": [
+        "node",
+        "/opt/array-controls/run-check.mjs",
+        "/opt/array-controls/array-primitives.cljk"
+      ],
+      "wall_seconds": 2.6288760829999993,
+      "exit_code": 1,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "file:///tmp/array-primitives.mjs:7\nconst __mithril_native_f1=function constructOrder(__mithril_native_v3,__mithril_native_v4){return new (0,__mithril_native_v3)()((0,__mithril_native_v4)());};\n                                                                                                  ^\n\nTypeError: (0 , __mithril_native_v3) is not a constructor\n    at Object.constructOrder (file:///tmp/array-primitives.mjs:7:99)\n    at file:///opt/array-controls/array-primitives-runtime.mjs:8:32\n\nNode.js v24.21.0\nfile:///opt/array-controls/run-check.mjs:7\nif(existsSync(marker))throw Error('forbidden JVM launcher');if(r.error||r.status!==0)throw r.error||Error('source check failed: '+r.status);\n                                                                                                    ^\n\nError: source check failed: 1\n    at file:///opt/array-controls/run-check.mjs:7:101\n    at ModuleJob.run (node:internal/modules/esm/module_job:561:25)\n    at async node:internal/modules/esm/loader:647:26\n    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)\n\nNode.js v24.21.0\n"
+    }
+  ],
+  "wall_seconds": 28.568003207999997
+}

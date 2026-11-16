@@ -1,0 +1,42 @@
+(ns mithril.native-blocks-primitives (:require [mithril.native-js :as n] [mithril.form :as form] ["node:fs" :as fs] ["node:crypto" :as crypto] ["node:child_process" :as child]))
+(defn lit [v] {"@type" "Literal" "datatype" "js-value" "value" v})
+(defn local [n] {"@type" "Local" "name" n})
+(def undef {"@type" "HostUndefined"})
+(defn invoke [name & args] {"@type" "HostInvoke" "function" (local name) "args" (vec args)})
+(defn getp [o k] {"@type" "HostGet" "object" o "key" (lit k)})
+(defn binary [op a b] {"@type" "HostBinary" "operator" op "left" a "right" b})
+(defn sete [name value] {"@type" "LocalSet" "name" name "value" value})
+(defn seqe [& xs] {"@type" "Sequence" "expressions" (vec xs)})
+(defn stringify [value] {"@type" "HostToString" "value" value})
+(defn whilee [condition body result] {"@type" "HostWhile" "condition" condition "body" body "result" result})
+(defn vars [bindings body] {"@type" "Let" "bindings" (mapv (fn [[name value]] {"name" name "value" value "mutable" true}) bindings) "body" body})
+(defn fun [name params body] {"@type" "Function" "name" name "params" (mapv #(hash-map "name" % "datatype" "js-value") params) "returns" "js-value" "body" body})
+(defn doc [body] {"@context" "https://mithril.fund/context/native-js-module/v1" "@type" "NativeJsModule" "name" "types.blocks" "imports" [] "functions" [(fun "probe" ["a" "b"] body)] "exports" ["probe"]})
+(defn verify [file runtime-file]
+(doseq [body [(stringify (local "a")) (whilee (lit false) undef (lit 0))]] (n/compile-document (doc body)))
+(n/compile-document (assoc (doc (lit 0)) "exports" [{"name" "value" "value" (lit 1)}]))
+(doseq [body [(assoc (stringify (local "a")) "hint" "default") (stringify "raw") (assoc (whilee (lit false) undef (lit 0)) "break" true) (dissoc (whilee (lit false) undef (lit 0)) "condition") (whilee (local "missing") undef (lit 0))]]
+ (when-not (try (n/compile-document (doc body)) false (catch :default _ true)) (throw (js/Error. "Malformed native loop/string node admitted"))))
+(doseq [exports [[{"name" "value" "function" "probe" "value" (lit 1)}] [{"name" "value" "value" (local "missing")}] [{"name" "value" "value" {"@type" "HostArgumentsLength"}}] [{"name" "value" "value" {"@type" "NativeLambda" "params" [] "body" {"@type" "HostArgumentsLength"}}}] [{"name" "value" "value" (lit 1) "extra" 0}] [{"name" "probe" "value" (lit 1)} "probe"] [{"name" "value" "value" {"@type" "FunctionRef" "name" "missing"}}]]]
+ (when-not (try (n/compile-document (assoc (doc (lit 0)) "exports" exports)) false (catch :default _ true)) (throw (js/Error. "Malformed value export admitted"))))
+(doseq [d [(doc (reduce (fn [x _] (stringify x)) (lit 0) (range 65))) (doc (whilee (lit false) {"@type" "HostArray" "items" (vec (repeat 4096 (lit 0)))} (lit 0))) (assoc (doc (lit 0)) "functions" [] "exports" (vec (map (fn [i] {"name" (str "v" i) "value" {"@type" "HostArray" "items" (vec (repeat 32 (lit 0)))}}) (range 128))))]]
+ (when-not (= :mithril.native-js/budget (try (n/compile-document d) nil (catch :default e (:mithril/error (ex-data e))))) (throw (js/Error. "Shared loop/export/string source budget bypassed"))))
+(doseq [[tag fields] [["host-to-string" ":value (mithril/host-undefined)"] ["host-while" ":condition (mithril/literal :datatype \"js-value\" :value false) :body (mithril/host-undefined) :result (mithril/host-undefined)"]]]
+ (n/compile-text (str "(mithril/native-js-module :name \"types.blocks\" :imports [] :exports [\"probe\"] :functions [(mithril/function :name \"probe\" :params [] :returns \"js-value\" :body (mithril/" tag " " fields "))])")))
+(def index (local "index"))
+(def functions [(fun "identity" ["value"] (local "value"))
+ (fun "stringify" ["value"] (stringify (local "value")))
+ (fun "pair" ["left" "right"] (binary "+" (stringify (invoke "left")) (stringify (invoke "right"))))
+ (fun "sum" ["a"] (vars [["index" (lit 0)] ["total" (lit 0)]] (whilee (binary "<" index (getp (local "a") "length")) (seqe (sete "total" (binary "+" (local "total") {"@type" "HostGet" "object" (local "a") "key" index})) (sete "index" (binary "+" index (lit 1)))) (local "total"))))
+ (fun "equal" ["a" "b"] {"@type" "If" "condition" (binary "!==" (getp (local "a") "length") (getp (local "b") "length")) "then" (lit false) "else" (vars [["index" (lit 0)] ["valid" (lit true)]] (whilee {"@type" "HostLogical" "operator" "&&" "left" (local "valid") "right" (binary "<" index (getp (local "a") "length"))} {"@type" "If" "condition" (binary "===" {"@type" "HostGet" "object" (local "a") "key" index} {"@type" "HostGet" "object" (local "b") "key" index}) "then" (sete "index" (binary "+" index (lit 1))) "else" (sete "valid" (lit false))} (local "valid")))})
+ (fun "effects" ["condition" "body" "result"] (whilee (invoke "condition") (invoke "body") (invoke "result")))
+ (fun "argumentsLoop" [] (vars [["index" (lit 0)] ["seen" (lit 0)]] (whilee (binary "<" index (lit 1)) (seqe (sete "seen" {"@type" "HostArgumentsLength"}) (sete "index" (lit 1))) (local "seen"))))])
+(def ns-value {"@type" "HostObject" "entries" [{"key" (lit "method") "value" {"@type" "FunctionRef" "name" "identity"}} {"key" (lit "__proto__") "value" (lit 9)}]})
+(def exports (into (mapv #(get % "name") functions) [{"name" "Box" "value" ns-value} {"name" "Alias" "function" "identity"} {"name" "marker" "value" (local "state")} {"name" "first" "value" {"@type" "HostInvoke" "function" {"@type" "HostImport" "name" "tick"} "args" [(lit "first")]}} {"name" "second" "value" {"@type" "HostInvoke" "function" {"@type" "HostImport" "name" "tick"} "args" [(lit "second")]}}]))
+(let [artifact (n/compile-document (assoc (doc (lit 0)) "imports" ["tick"] "bindings" [{"name" "state" "value" (lit 7)}] "functions" functions "exports" exports))]
+ (fs/writeFileSync file (:source artifact))
+ (let [r (child/spawnSync js/process.execPath #js [runtime-file file] #js {:stdio "inherit" :timeout 30000})] (when-not (= 0 (.-status r)) (js/process.exit 1))))
+(doseq [[name expected] [["map-values" "5420bbe2a9932b27141280438674906d4d72c7941477690f37201a4eb1b72191"] ["misc" "b2e52089674875efa3b5a8c135e4fccd37b258c8d5d72adcfc05338f38c0a4fb"] ["array" "d2de5ed22d8b5afe5dea4c0125af71805573541a7156c55efc19b34672c26db8"] ["volatile" "a866812a56dfaba0fdcf682d478f3e4590e1d2b48820c273d51c22aaae6d1bd1"]]]
+ (when-not (= expected (-> (crypto/createHash "sha256") (.update (:source (n/compile-text (fs/readFileSync (str "examples/native-js-" name ".mith") "utf8")))) (.digest "hex"))) (throw (js/Error. "Old native artifact changed"))))
+(println "3 admissions / 12 malformed or scope refusals / 3 budget refusals / 2 Form tags passed.")
+)

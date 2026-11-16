@@ -1,0 +1,39 @@
+{
+  "image": "sha256:61dcb0b476c65d755e68f86f614d0d480f0e627f0c749d0034f6c96b2276d823",
+  "seed_directory": "/opt/mithril-refactor-base",
+  "timeout_seconds": 180,
+  "checks": [
+    {
+      "id": "retained-source-78-408",
+      "argv": [
+        "node",
+        "/opt/volatile-controls/run-check.mjs",
+        "test/run_modules.cljk"
+      ]
+    },
+    {
+      "id": "native-volatile-prerequisites",
+      "argv": [
+        "node",
+        "/opt/volatile-controls/run-check.mjs",
+        "/opt/volatile-controls/volatile-primitives.cljk"
+      ]
+    },
+    {
+      "id": "actual-typescript-volatile-baseline",
+      "argv": [
+        "node",
+        "/opt/volatile-controls/volatile-contract.mjs"
+      ]
+    },
+    {
+      "id": "complete-volatile-native-cli",
+      "variant": "candidate",
+      "argv": [
+        "node",
+        "/opt/volatile-controls/run-check.mjs",
+        "/opt/volatile-controls/compile-volatile.cljk"
+      ]
+    }
+  ]
+}

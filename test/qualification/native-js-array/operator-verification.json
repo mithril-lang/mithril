@@ -1,0 +1,78 @@
+{
+  "format": "mithril.code-refactor-verification/v1",
+  "verified": true,
+  "verification_scope": "Declared checks on selected baseline and candidate snapshots only; not whole-repository or universal API equivalence.",
+  "input_sha256": "51e318067d1d2532e2761e9390c41cd840f2737fafae3c05f8fbe014fd655858",
+  "proposal_sha256": "575e58f6da38b1a3a045e22fbc1fcd1770c73ba499fde1addcc91a6a30715d44",
+  "candidate_sha256": "e5918f4480feb2dcd186e3c830ad452f9949c9f069ccc191cfc0e290d9f711c3",
+  "image": "sha256:9fa47d43e69b00515e95806498cb773500f53c4423c05ab7e98f77a421db3c63",
+  "plan": {
+    "image": "sha256:9fa47d43e69b00515e95806498cb773500f53c4423c05ab7e98f77a421db3c63",
+    "seed_directory": "/opt/mithril-refactor-base",
+    "timeout_seconds": 180,
+    "checks": [
+      {
+        "id": "retained-source-76-399",
+        "argv": [
+          "node",
+          "/opt/array-controls/run-check.mjs",
+          "test/run_modules.cljk"
+        ]
+      },
+      {
+        "id": "native-array-primitives",
+        "variant": "candidate",
+        "argv": [
+          "node",
+          "/opt/array-controls/run-check.mjs",
+          "/opt/array-controls/array-primitives.cljk"
+        ]
+      }
+    ]
+  },
+  "checks": [
+    {
+      "variant": "baseline",
+      "id": "retained-source-76-399",
+      "argv": [
+        "node",
+        "/opt/array-controls/run-check.mjs",
+        "test/run_modules.cljk"
+      ],
+      "wall_seconds": 13.110841334,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "\nTesting mithril.module-test\n\nTesting mithril.module-lower-test\n\nTesting mithril.form-test\n\nTesting mithril.compiler-test\n\nTesting mithril.conditional-test\n\nTesting mithril.branding-test\n\nTesting mithril.undefined-test\n\nTesting mithril.library-test\n\nTesting mithril.module-bindings-test\n\nTesting mithril.module-guest-closure-test\n\nTesting mithril.native-js-test\n\nTesting mithril.native-misc-test\nNative primitive runtime: strict comparison/raw logical values/spread/assignment/for-of checked.\n11 primitive admissions, 9 refusals, all 8 Form tags checked.\n\nRan 76 tests containing 399 assertions.\n0 failures, 0 errors.\nJVM launcher marker absent; workspace source classpath.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "retained-source-76-399",
+      "argv": [
+        "node",
+        "/opt/array-controls/run-check.mjs",
+        "test/run_modules.cljk"
+      ],
+      "wall_seconds": 13.829724833,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "\nTesting mithril.module-test\n\nTesting mithril.module-lower-test\n\nTesting mithril.form-test\n\nTesting mithril.compiler-test\n\nTesting mithril.conditional-test\n\nTesting mithril.branding-test\n\nTesting mithril.undefined-test\n\nTesting mithril.library-test\n\nTesting mithril.module-bindings-test\n\nTesting mithril.module-guest-closure-test\n\nTesting mithril.native-js-test\n\nTesting mithril.native-misc-test\nNative primitive runtime: strict comparison/raw logical values/spread/assignment/for-of checked.\n11 primitive admissions, 9 refusals, all 8 Form tags checked.\n\nRan 76 tests containing 399 assertions.\n0 failures, 0 errors.\nJVM launcher marker absent; workspace source classpath.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "native-array-primitives",
+      "argv": [
+        "node",
+        "/opt/array-controls/run-check.mjs",
+        "/opt/array-controls/array-primitives.cljk"
+      ],
+      "wall_seconds": 1.7704175420000028,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "Native array primitives: 20 runtime contract groups passed.\n4 admissions / 13 malformed refusals / 2 budget refusals / 3 Form tags passed.\nJVM launcher marker absent; workspace source classpath.\n"
+    }
+  ],
+  "wall_seconds": 29.077663667
+}

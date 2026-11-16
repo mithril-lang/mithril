@@ -1,0 +1,9 @@
+(ns fund.mithril.lib.siso.c2sim (:export [library-id library-iri accepts request]))
+(defn library-id [] :string "fund.mithril.lib.siso.c2sim")
+(defn library-iri [] :string "https://mithril.fund/lib/fund.mithril.lib.siso.c2sim")
+(defn accepts [member :string] :i64 (if (= (string-compare member "c2sim-import") 0) 1 (if (= (string-compare member "c2sim-project") 0) 1 0)))
+(defn request [member :string arguments-json :string] :string
+  (if (= (accepts member) 1)
+    (string-concat "{\"operation\":\"library-call\",\"libraryId\":\"fund.mithril.lib.siso.c2sim\",\"member\":\""
+      (string-concat member (string-concat "\",\"arguments\":" (string-concat arguments-json "}"))))
+    "{\"operation\":\"invalid-library-member\"}"))

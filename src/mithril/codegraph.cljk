@@ -1,0 +1,440 @@
+(ns mithril.codegraph
+  "Immutable code index and bounded exploration of Mithril codegraph IR."
+  (:require [clojure.string :as str]
+            [mithril.codegraph-extract :as extract]
+            [mithril.codegraph-contract :as contract]
+            [mithril.codegraph-communities :as communities]
+            [mithril.compiler :as compiler]
+            [mithril.execution :as execution]
+            [rdf-canon.core :as canon]
+            [mithril.reason-rdf :as rdf]))
+
+(def version "mithril.codegraph/index-v4-mith")
+(def rdf-type "http://www.w3.org/1999/02/22-rdf-syntax-ns#type")
+(def xsd "http://www.w3.org/2001/XMLSchema#")
+
+(defn- refuse! [reason detail]
+  (throw (ex-info detail {:mithril/error :mithril.codegraph/refused :reason reason})))
+
+(defn- node-id [project kind key] (extract/id kind [project key]))
+(defn- file-node [project path entry]
+  {:id (node-id project :file path) :kind :file :name path :path path
+   :source-digest (:source-digest entry)})
+
+(defn- edge [project path source target relation provenance location]
+  {:id (node-id project :edge [path source target relation location])
+   :source source :target target :relation relation :provenance provenance
+   :path path :span location})
+
+(defn- project-graph [project files selected]
+  (let [file-nodes (mapv (fn [[p e]] (file-node project p e)) files)
+        definitions (vec (for [[path entry] files def (:definitions entry)]
+                           (assoc def :id (node-id project :definition [path (:name def)])
+                                  :path path :source-digest (:source-digest entry))))
+        by-name (group-by :name definitions)
+        by-ns (group-by (comp :namespace val) files)
+        unique-def (fn [name] (let [candidates (get by-name name)]
+                               (when (= 1 (count candidates)) (first candidates))))
+        document-target (fn [ref]
+                          (if-let [path (:target-path ref)]
+                            (if (seq (:fragment ref))
+                              (let [matches (filter #(and (= path (:path %))
+                                                          (or (= (:fragment ref) (:anchor %))
+                                                              (= (:fragment ref) (:name %)))) definitions)]
+                                (when (= 1 (count matches)) (first matches)))
+                              (first (filter #(= path (:path %)) file-nodes)))
+                            (unique-def (:target ref))))
+        defines (for [definition definitions :when (contains? selected (:path definition))]
+                  (edge project (:path definition)
+                        (node-id project :file (:path definition)) (:id definition)
+                        :defines :extracted (:span definition)))
+        resolved (for [[path entry] files :when (contains? selected path) ref (:references entry)]
+                   (let [owner (unique-def (:owner ref)) target (document-target ref)]
+                     (if (and owner target)
+                       {:edge (edge project path (:id owner) (:id target)
+                                    (cond (= :documents (:relation ref)) :documents
+                                          (and (= :invokes (:relation ref))
+                                               (= :function (:kind target))) :calls
+                                          :else :references)
+                                    (or (:provenance ref) :resolved) (:span ref))}
+                       {:unresolved (assoc ref :path path
+                                          :classification
+                                          (cond (and (not owner) (> (count (get by-name (:owner ref))) 1)) :ambiguous-owner
+                                                (> (count (get by-name (:target ref))) 1) :ambiguous-target
+                                                (:core-candidate ref) :builtin
+                                                (:target-path ref) :missing-document-target
+                                                (re-find #"^[a-zA-Z][a-zA-Z0-9+.-]*:" (or (:target ref) "")) :external-iri
+                                                (and (str/includes? (or (:target ref) "") "/")
+                                                     (not (contains? by-ns (first (str/split (:target ref) #"/"))))) :external-dependency
+                                                :else :missing-project-definition)
+                                          :reason (if (> (count (get by-name (:target ref))) 1)
+                                                    :ambiguous :not-indexed))})))
+        imports (for [[path entry] files :when (contains? selected path) import (:imports entry)]
+                  (let [targets (get by-ns (:target import))]
+                    (if (= 1 (count targets))
+                      {:edge (edge project path (node-id project :file path)
+                                   (node-id project :file (key (first targets)))
+                                   :imports :resolved (:span import))}
+                      {:unresolved (assoc import :path path :classification (if (seq targets) :ambiguous-namespace :external-dependency) :reason
+                                          (if (seq targets) :ambiguous :not-indexed))})))]
+    {:nodes (vec (sort-by :id (filter #(contains? selected (:path %)) (concat file-nodes definitions))))
+     :edges (vec (sort-by :id (distinct (concat defines (keep :edge resolved) (keep :edge imports)))))
+     :unresolved (vec (sort-by pr-str (concat (keep :unresolved resolved) (keep :unresolved imports))))}))
+
+(defn- term [v]
+  (if (integer? v) {"@value" (str v) "@type" (str xsd "integer")}
+      {"@value" (str v)}))
+
+(defn rdf-document
+  "Expanded JSON-LD with reified, located edges. Resolution provenance is
+  separate from OWL entailment; no dynamic runtime-call claim is made."
+  [snapshot]
+  (let [base contract/base
+        class-name {:file "File" :function "Function" :macro "Macro"
+                    :test "Test" :document "Document" :section "Section" :entity "Entity" :var "Definition"}
+        file-id #(node-id (:project snapshot) :file %)
+        locations (fn [node span]
+                    (reduce (fn [n [key field]] (assoc n (str base field) [(term (get span key))]))
+                            node [[:start-line "startLine"] [:start-column "startColumn"]
+                                  [:end-line "endLine"] [:end-column "endColumn"]]))
+        nodes (for [node (:nodes snapshot)]
+                (let [doc {"@id" (:id node)
+                           rdf-type [{"@id" (str base (get class-name (:kind node)))}]
+                           (str base "name") [(term (:name node))]
+                           (str base "locationPrecision") [(term (name (or (:location-precision node) :syntax))) ]
+                           (str base "path") [(term (:path node))]
+                           (str base "sourceDigest") [(term (:source-digest node))]}]
+                  (if (= :file (:kind node)) doc
+                      (locations (assoc doc (str base "file") [{"@id" (file-id (:path node))}])
+                                 (:span node)))))
+        edges (for [e (:edges snapshot)]
+                (locations {"@id" (:id e) rdf-type [{"@id" (str base "Edge")}]
+                            (str base "source") [{"@id" (:source e)}]
+                            (str base "target") [{"@id" (:target e)}]
+                            (str base "file") [{"@id" (file-id (:path e))}]
+                            (str base "relation") [(term (name (:relation e)))]
+                            (str base "provenance") [(term (name (:provenance e)))]}
+                           (:span e)))]
+    [{"@id" (extract/id :graph [(:project snapshot) (:contract-digest snapshot)])
+      "@graph" (vec (concat nodes edges))}]))
+
+(defn verify! [snapshot artifact]
+  (when-not (and (= version (:version snapshot))
+                 (= (:graph-digest artifact) (:contract-digest snapshot))
+                 (= (:ontology-digest artifact) (:ontology-digest snapshot))
+                 (= (:bootstrap-digest artifact) (:bootstrap-digest snapshot))
+                 (= (:snapshot-digest snapshot)
+                    (extract/digest (dissoc snapshot :snapshot-digest))))
+    (refuse! :invalid-snapshot "index version, contract or snapshot digest mismatch"))
+  snapshot)
+
+(defn- dependency-keys [entry]
+  (set (concat
+         (mapcat (fn [r]
+                   (concat (when (:target r) [[:name (:target r)]])
+                           (when (:owner r) [[:name (:owner r)]])
+                           (when (:target-path r) [[:path (:target-path r)]])
+                           (when (str/includes? (or (:target r) "") "/")
+                             [[:namespace (first (str/split (:target r) #"/"))]]))) (:references entry))
+         (map #(vector :namespace (:target %)) (:imports entry)))))
+
+(defn- update-dependents [previous files changed deleted]
+  (let [removed (set (concat changed deleted))
+        retained (into (sorted-map)
+                       (keep (fn [[k paths]] (let [paths (vec (remove removed paths))]
+                                               (when (seq paths) [k paths])))) previous)]
+    (into (sorted-map)
+          (map (fn [[k paths]] [k (vec (sort (distinct paths)))]))
+          (reduce (fn [index p]
+                    (reduce #(update %1 %2 (fnil conj []) p) index (dependency-keys (get files p))))
+                  retained changed))))
+
+(defn sync-index
+  "A full source manifest replaces the prior one. Parse only added/changed
+  files; resolve reverse dependents and canonicalize only affected file partitions."
+  [previous sources artifact project]
+  (when-not (= contract/format-id (:format artifact))
+    (refuse! :invalid-artifact "expected compiled codegraph IR"))
+  (when-not (and (string? project) (seq project) (map? sources)
+                 (every? string? (vals sources)))
+    (refuse! :invalid-manifest "expected a project identity and source text manifest"))
+  (when previous (verify! previous artifact))
+  (when (and previous (not= project (:project previous)))
+    (refuse! :wrong-project "index belongs to a different project"))
+  (let [ir (:codegraph-ir artifact)
+        byte-count #(.byteLength (.-Buffer (js/require "buffer")) % "utf8")
+        total (reduce + 0 (map byte-count (vals sources)))]
+    (when (or (> (count sources) (:max-files ir)) (> total (:max-total-bytes ir)))
+      (refuse! :manifest-budget "source manifest exceeds compiled budgets"))
+    (doseq [[path text] sources]
+      (extract/safe-path! path)
+      (when-not (contains? (set (:extensions ir)) (compiler/extension path))
+        (refuse! :unsupported-language (str "source extension not admitted: " path)))
+      (when (> (byte-count text) (:max-file-bytes ir))
+        (refuse! :source-budget (str "source exceeds byte budget: " path))))
+    (let [changed (vec (sort (for [[path text] sources
+                                 :when (not= (extract/source-digest text)
+                                             (get-in previous [:files path :source-digest]))] path)))
+          deleted (vec (sort (remove #(contains? sources %) (keys (:files previous)))))
+          files (into (sorted-map)
+                      (for [[path text] sources]
+                        [path (if (contains? (set changed) path)
+                                (try (extract/extract path text)
+                                     (catch :default e
+                                       {:path path :source text
+                                        :source-digest (extract/source-digest text)
+                                        :parser-profile extract/parser-profile
+                                        :namespace nil :definitions [] :imports [] :references []
+                                        :diagnostics [{:reason :extraction-failed
+                                                       :error (some-> e ex-data :mithril/error str)
+                                                       :detail (.-message e)}]}))
+                                (get-in previous [:files path]))]))
+          changes (set (concat changed deleted))
+          signatures (fn [entry]
+                       {:names (set (map :name (:definitions entry)))
+                        :namespaces (if-let [n (:namespace entry)] #{n} #{})})
+          affected-names (set (mapcat #(concat (:names (signatures (get files %)))
+                                              (:names (signatures (get-in previous [:files %])))) changes))
+          affected-ns (set (mapcat #(concat (:namespaces (signatures (get files %)))
+                                           (:namespaces (signatures (get-in previous [:files %])))) changes))
+          dependents (update-dependents (:dependents previous) files changed deleted)
+          invalidated (concat (map #(vector :name %) affected-names)
+                              (map #(vector :namespace %) affected-ns)
+                              (map #(vector :path %) changes))
+          affected (if-not previous (set (keys files))
+                       (into changes (mapcat #(get dependents %) invalidated)))
+          affected (set (filter #(contains? files %) affected))
+          graph (when (or (nil? previous) (seq changes)) (project-graph project files affected))
+          partitions (when graph
+                       (merge (apply dissoc (:partitions previous) (concat deleted affected))
+                              (into (sorted-map)
+                                    (for [p (sort affected)]
+                                      [p {:nodes (vec (filter #(= p (:path %)) (:nodes graph)))
+                                          :edges (vec (filter #(= p (:path %)) (:edges graph)))
+                                          :unresolved (vec (filter #(= p (:path %)) (:unresolved graph)))}]))))
+          snapshot (if (and previous (empty? changes)) previous
+                       (let [s {:version version :project project
+                                :contract-digest (:graph-digest artifact)
+                                :bootstrap-digest (:bootstrap-digest artifact)
+                                :ontology-digest (:ontology-digest artifact) :files files :dependents dependents
+                                :nodes (vec (sort-by :id (mapcat :nodes (vals partitions))))
+                                :edges (vec (sort-by :id (distinct (mapcat :edges (vals partitions)))))
+                                :unresolved (vec (sort-by pr-str (mapcat :unresolved (vals partitions))))}
+                             partitions (into (sorted-map)
+                                              (for [[p part] partitions]
+                                                [p (if (contains? affected p)
+                                                     (assoc part :rdf-canonical
+                                                       (canon/canonicalize (rdf/quads (rdf-document
+                                                         (assoc s :nodes (:nodes part) :edges (:edges part)))))) part)]))
+                             ;; This projection has only named graph/node IDs, no blank nodes.
+                             ;; Merge canonical per-file N-Quads; never reuse a blank-node label.
+                             lines (sort (distinct (mapcat #(remove str/blank? (str/split (:rdf-canonical %) #"\n"))
+                                                          (vals partitions))))
+                             s (assoc s :partitions partitions :community-analysis (communities/detect s ir (:community-analysis previous))
+                                      :graph-digest (extract/sha256 (if (seq lines) (str (str/join "\n" lines) "\n") "")))]
+                         (assoc s :snapshot-digest (extract/digest s))))]
+      {:snapshot snapshot
+       :receipt {:parsed (count changed) :reused (- (count files) (count changed))
+                 :resolved-files (count affected) :projected-files (count affected)
+                 :affected (vec (sort affected))
+                 :reused-components (count (filter #(contains? (get-in previous [:community-analysis :component-cache]) %)
+                                                  (keys (get-in snapshot [:community-analysis :component-cache]))))
+                 :changed changed :deleted deleted :total-bytes total
+                 :previous-digest (:snapshot-digest previous)
+                 :snapshot-digest (:snapshot-digest snapshot)}})))
+
+(defn- budget! [value maximum name]
+  (when-not (and (integer? value) (<= 1 value maximum))
+    (refuse! :query-budget (str "invalid query " name)))
+  value)
+
+(defn- find-node! [snapshot selector]
+  (let [matches (filter #(or (= selector (:id %)) (= selector (:name %))) (:nodes snapshot))]
+    (when-not (= 1 (count matches))
+      (refuse! (if (seq matches) :ambiguous-node :unknown-node)
+               "node selector must match one full name or node ID"))
+    (first matches)))
+
+(defn- adjacency [snapshot reverse? relations]
+  (group-by (if reverse? :target :source)
+            (filter #(contains? relations (:relation %)) (:edges snapshot))))
+
+(defn- traverse [snapshot start goal reverse? relations depth max-visited]
+  (let [adj (adjacency snapshot reverse? relations)
+        next-id (if reverse? :source :target)]
+    (loop [frontier [start] seen #{start} parents {} level 0]
+      (cond
+        (and goal (contains? seen goal)) {:seen seen :parents parents :found? true :truncated false}
+        (empty? frontier) {:seen seen :parents parents :found? false :truncated false}
+        (>= level depth) {:seen seen :parents parents :found? false
+                         :truncated (boolean (some #(some (fn [e] (not (contains? seen (next-id e))))
+                                                         (get adj %)) frontier))}
+        :else
+        (let [candidates (for [id frontier e (get adj id)
+                               :when (not (contains? seen (next-id e)))]
+                           [(next-id e) {:previous id :edge e}])
+              candidates (into (sorted-map) candidates)
+              available (- max-visited (count seen))
+              accepted (vec (take available candidates))
+              next-frontier (mapv first accepted)
+              next-seen (into seen next-frontier)
+              next-parents (into parents accepted)]
+          (if (> (count candidates) available)
+            {:seen next-seen :parents next-parents :found? (contains? next-seen goal) :truncated true}
+            (recur next-frontier next-seen next-parents (inc level))))))))
+
+(defn- node-source [snapshot node]
+  (if-let [span (:span node)]
+    (let [lines (str/split (get-in snapshot [:files (:path node) :source]) #"\n" -1)
+          selected (subvec (vec lines) (dec (:start-line span)) (:end-line span))]
+      (str/join "\n"
+                (map-indexed (fn [i line]
+                               (let [start (if (zero? i) (dec (:start-column span)) 0)
+                                     end (if (= i (dec (count selected)))
+                                           (dec (:end-column span)) (count line))]
+                                 (subs line start end))) selected)))
+    (get-in snapshot [:files (:path node) :source])))
+
+(defn with-source [snapshot node maximum]
+  (let [source (node-source snapshot node)]
+    {:source (subs source 0 (min maximum (count source)))
+     :source-truncated (> (count source) maximum)}))
+
+(defn- unresolved-for [snapshot nodes limit]
+  (let [owners (set (map :name nodes)) paths (set (map :path nodes))
+        matches (filter #(or (contains? owners (:owner %))
+                              (and (nil? (:owner %)) (contains? paths (:path %)))) (:unresolved snapshot))]
+    {:unresolved (vec (take limit matches)) :unresolved-truncated (> (count matches) limit)}))
+
+(defn- occurrences [line query start]
+  (lazy-seq
+    (when-let [position (str/index-of line query start)]
+      (cons position (occurrences line query (+ position (count query)))))))
+
+(defn dispatch
+  "JSON-shaped exploration API. All results name the exact indexed revision.
+  Pass a verified immutable snapshot; the filesystem adapter verifies on load."
+  [snapshot artifact request]
+  (let [ir (:codegraph-ir artifact) op (:operation request)
+        allowed (into #{:operation :limit :depth :revision :offset}
+                      (case op ("search" "explore" "content") #{:query}
+                            "catalog" #{:kind}
+                            ("node" "callers" "callees" "impact" "neighbors") #{:node}
+                            "path" #{:from :to} "community" #{:community} #{}))
+        _ (when-not (and (map? request) (every? allowed (keys request)))
+            (refuse! :invalid-request "unknown exploration request field"))
+        _ (when-not (contains? (set (:queries ir)) op)
+            (refuse! :unknown-operation "operation not admitted by .mith contract"))
+        _ (when (and (:revision request) (not= (:revision request) (:snapshot-digest snapshot)))
+            (refuse! :stale-revision "refresh the view before querying a different snapshot"))
+        offset (get request :offset 0)
+        _ (when-not (and (integer? offset) (<= 0 offset 67108864))
+            (refuse! :query-budget "invalid query offset"))
+        page (fn [matches key]
+               (let [items (vec (take (inc (get request :limit (:max-results ir))) (drop offset matches)))
+                     more? (> (count items) (get request :limit (:max-results ir)))]
+                 {key (vec (take (get request :limit (:max-results ir)) items))
+                  :offset offset :next-offset (when more? (+ offset (get request :limit (:max-results ir))))
+                  :truncated more?}))
+        limit (budget! (get request :limit (:max-results ir)) (:max-results ir) "limit")
+        depth (budget! (get request :depth (:max-depth ir)) (:max-depth ir) "depth")
+        relations #{:calls :references :imports :defines :documents}
+        result
+        (case op
+          "status"
+          (let [diagnostics (vec (mapcat (fn [[path entry]]
+                                           (map #(assoc % :path path) (:diagnostics entry)))
+                                         (:files snapshot)))]
+            {:files (count (:files snapshot)) :nodes (count (:nodes snapshot))
+             :edges (count (:edges snapshot)) :unresolved-count (count (:unresolved snapshot))
+             :unresolved-by-classification (frequencies (map :classification (:unresolved snapshot)))
+             :diagnostics-by-reason (frequencies (map :reason diagnostics))
+             :unresolved (vec (take limit (:unresolved snapshot)))
+             :diagnostic-count (count diagnostics) :diagnostics (vec (take limit diagnostics))
+             :truncated (or (> (count diagnostics) limit) (> (count (:unresolved snapshot)) limit))})
+          "rdf" {:document (rdf-document snapshot)}
+          "catalog"
+          (let [kind (:kind request)
+                _ (when (and kind (not (contains? #{"file" "function" "macro" "test" "var" "document" "section" "entity"} kind)))
+                    (refuse! :invalid-query "unknown node kind"))]
+            (page (filter #(or (nil? kind) (= kind (name (:kind %)))) (:nodes snapshot)) :nodes))
+          "content"
+          (let [q (:query request)
+                _ (when-not (and (string? q) (<= 1 (count q) 256) (not (str/includes? q "\n")))
+                    (refuse! :invalid-query "literal content query must be 1..256 characters on one line"))
+                matches (for [[path entry] (:files snapshot)
+                              [idx line] (map-indexed vector (str/split (:source entry) #"\n" -1))
+                              pos (occurrences line q 0)]
+                          {:path path :source-digest (:source-digest entry)
+                           :file (node-id (:project snapshot) :file path)
+                           :span {:start-line (inc idx) :end-line (inc idx)
+                                  :start-column (inc pos) :end-column (+ 1 pos (count q))}
+                           :snippet (subs line (max 0 (- pos 80)) (min (count line) (+ pos (count q) 80)))
+                           :snippet-start-column (inc (max 0 (- pos 80))) :match q})]
+            (page matches :matches))
+          "neighbors"
+          (let [node (find-node! snapshot (:node request))
+                matches (filter #(or (= (:id node) (:source %)) (= (:id node) (:target %))) (:edges snapshot))
+                result (page matches :edges) ids (set (mapcat (juxt :source :target) (:edges result)))]
+            (assoc result :node node :nodes (vec (filter #(contains? ids (:id %)) (:nodes snapshot)))))
+          "communities"
+          (let [analysis (:community-analysis snapshot) matches (:communities analysis)]
+            (merge (dissoc analysis :membership :component-cache) (page matches :communities)))
+          "community"
+          (let [analysis (:community-analysis snapshot)
+                selected (first (filter #(= (:community request) (:id %)) (:communities analysis)))
+                _ (when-not selected (refuse! :unknown-community "community ID is not in this snapshot"))
+                members (set (:members selected))
+                network (communities/file-network snapshot (:max-community-edges ir))
+                nodes (filter #(contains? members (:id %)) (:nodes network))
+                edges (filter #(and (contains? members (:source %)) (contains? members (:target %))) (:edges network))]
+            {:community selected :nodes (vec (take limit nodes)) :edges (vec (take limit edges))
+             :truncated (or (:truncated analysis) (> (count nodes) limit) (> (count edges) limit))})
+          "search"
+          (let [q (:query request)
+                _ (when-not (and (string? q) (<= 1 (count q) 256))
+                    (refuse! :invalid-query "query must be 1..256 characters"))
+                matches (filter #(str/includes? (str/lower-case (str (:name %) " " (:label %) " " (:path %))) (str/lower-case q))
+                                (:nodes snapshot))]
+            (page (sort-by (juxt :name :id) matches) :nodes))
+          "node"
+          (let [node (find-node! snapshot (:node request))]
+            (merge {:node node :diagnostics (get-in snapshot [:files (:path node) :diagnostics])}
+                   (with-source snapshot node (:max-source-chars ir))
+                   (unresolved-for snapshot [node] limit)))
+          ("callers" "callees")
+          (let [node (find-node! snapshot (:node request))
+                dir (if (= op "callers") :target :source)
+                matches (filter #(and (= :calls (:relation %)) (= (:id node) (dir %))) (:edges snapshot))
+                edges (vec (take limit matches)) ids (set (mapcat (juxt :source :target) edges))]
+            (merge {:node node :nodes (vec (filter #(contains? ids (:id %)) (:nodes snapshot)))
+                    :edges edges :truncated (> (count matches) limit)}
+                   (unresolved-for snapshot [node] limit)))
+          "impact"
+          (let [node (find-node! snapshot (:node request))
+                walk (traverse snapshot (:id node) nil true relations depth (:max-visited ir))
+                nodes (filter #(and (contains? (:seen walk) (:id %)) (not= (:id node) (:id %)))
+                              (:nodes snapshot))]
+            {:nodes (vec (take limit nodes)) :truncated (or (:truncated walk) (> (count nodes) limit))
+             :visited (count (:seen walk))})
+          "path"
+          (let [start (find-node! snapshot (:from request)) target (find-node! snapshot (:to request))
+                walk (traverse snapshot (:id start) (:id target) false relations depth (:max-visited ir))
+                path (when (:found? walk)
+                       (loop [id (:id target) edges ()]
+                         (if (= id (:id start)) (vec edges)
+                             (let [{:keys [previous edge]} (get (:parents walk) id)]
+                               (recur previous (conj edges edge))))))]
+            {:found? (:found? walk) :edges (or path []) :truncated (:truncated walk)})
+          "explore"
+          (let [search (dispatch snapshot artifact (assoc request :operation "search"))
+                chosen (remove #(= :file (:kind %)) (:nodes search))
+                ids (set (map :id chosen))
+                neighbors (filter #(or (contains? ids (:source %)) (contains? ids (:target %)))
+                                  (:edges snapshot))]
+            (merge {:nodes (mapv #(merge % (with-source snapshot % (:max-source-chars ir))) chosen)
+                    :edges (vec (take limit neighbors))
+                    :truncated (or (:truncated search) (> (count neighbors) limit))}
+                   (unresolved-for snapshot chosen limit))))]
+    (merge {:snapshot-digest (:snapshot-digest snapshot) :graph-digest (:graph-digest snapshot)
+            :contract-digest (:contract-digest snapshot)} result)))

@@ -1,0 +1,4 @@
+(mithril/native-js-module :name "external.forward" :imports ["count" "inc" "defaultValue"] :functions []
+ :exports [(rdf/node :name "count" :value (mithril/host-import :name "count"))
+           (rdf/node :name "inc" :value (mithril/host-import :name "inc"))
+           (rdf/node :name "default" :value (mithril/host-import :name "defaultValue"))])

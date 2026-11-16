@@ -1,0 +1,37 @@
+; Checked mutable function namespace controls, not the complete Registry/Inject decorator.
+(mithril/native-js-esm-package
+ :name "namespace.cycle"
+ :imports ["record"
+"Object"
+"Array"
+"Reflect"
+"symbols"
+"candidate"
+"failure"
+"force"]
+ :modules [(rdf/node
+   :name "namespace.a"
+   :source "a.mith"
+   :dependencies ["namespace.b"]
+   :links [(rdf/node
+     :import "probe"
+     :module "namespace.b"
+     :export "probe")])
+(rdf/node
+   :name "namespace.b"
+   :source "b.mith"
+   :dependencies ["namespace.a"]
+   :links [(rdf/node
+     :import "Inject"
+     :module "namespace.a"
+     :export "Inject")
+(rdf/node
+     :import "read"
+     :module "namespace.a"
+     :export "read")
+(rdf/node
+     :import "set"
+     :module "namespace.a"
+     :export "set")])]
+ :reexports ["namespace.a"
+"namespace.b"])

@@ -1,0 +1,19 @@
+(mithril/native-js-declaration-module
+ :name "cordis.enum_constants"
+ :runtime nil
+ :ambient-types []
+ :ambient-values []
+ :imports []
+ :reexports []
+ :declarations [(rdf/node :kind "const-enum" :name "LoggerLevel" :exported true
+                 :members [(rdf/node :name "ERROR" :value 0)
+                           (rdf/node :name "INFO" :value 1)
+                           (rdf/node :name "WARN" :value 2)
+                           (rdf/node :name "DEBUG" :value 3)])
+                (rdf/node :kind "const-enum" :name "FiberState" :exported true
+                 :members [(rdf/node :name "PENDING" :value 0)
+                           (rdf/node :name "LOADING" :value 1)
+                           (rdf/node :name "ACTIVE" :value 2)
+                           (rdf/node :name "FAILED" :value 3)
+                           (rdf/node :name "DISPOSED" :value 4)
+                           (rdf/node :name "UNLOADING" :value 5)])])

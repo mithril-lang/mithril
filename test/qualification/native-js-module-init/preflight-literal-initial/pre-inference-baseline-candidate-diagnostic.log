@@ -1,0 +1,49 @@
+----- Error --------------------------------------
+Message:  Unknown native function
+Location: /workspace/src/mithril/native_js.cljk:17:3
+
+----- Context ------------------------------------
+13:     "let" "new" "null" "package" "private" "protected" "public" "return"
+14:     "static" "super" "switch" "this" "throw" "true" "try" "typeof" "var"
+15:     "void" "while" "with" "yield" "arguments" "eval"})
+16: (defn- fail! [code detail]
+17:   (throw (ex-info detail {:mithril/error code :detail detail})))
+      ^--- Unknown native function
+18: (defn- shape! [value fields]
+19:   (when-not (and (map? value) (= (set fields) (set (keys value))))
+20:     (fail! :mithril.native-js/shape "Unexpected or missing native JS module fields")))
+21: (defn- optional-flag! [value required flag]
+22:   (shape! value (if (contains? value flag) (conj (vec required) flag) required))
+
+----- Stack trace --------------------------------
+mithril.native-js/fail!            - /workspace/src/mithril/native_js.cljk:17:3 
+mithril.native-js/fail!            - /workspace/src/mithril/native_js.cljk:16:1 
+mithril.native-js/expression!      - /workspace/src/mithril/native_js.cljk:100:15 
+mithril.native-js                  - /workspace/src/mithril/native_js.cljk:74:16 
+clojure.core/mapv                  - cljs/core.cljs:5450:7 
+...
+mithril.native-js/check-document   - /workspace/src/mithril/native_js.cljk:327:30 
+mithril.native-js/check-document   - /workspace/src/mithril/native_js.cljk:292:1 
+mithril.native-js/compile-document - /workspace/src/mithril/native_js.cljk:496:44 
+mithril.native-js/compile-document - /workspace/src/mithril/native_js.cljk:496:1 
+module-init-control                - /opt/init-controls/compile.cljk:4:15 
+
+file:///opt/nbb/lib/nbb_main.js:13
+$APP.aH),$APP.VZ);return g.B?g.B():g.call(null)}):null).then(function(g){$APP.k($APP.k(d)?g!=null:d)&&$APP.dz.o($APP.y([g],0));return g}).catch(function(g){$APP.Dla(g,b);$APP.k($APP.ez.h(b))&&console.error(g);throw Error($APP.Hk(g));})})):console.error("Usage: "+$APP.I.h("nbb")+" \x3cscript\x3e or nbb -e \x3cexpr\x3e.")})();
+                                                                                                                                                                                                                       ^
+
+Error: Unknown native function
+    at file:///opt/nbb/lib/nbb_main.js:13:216
+
+Node.js v24.21.0
+file:///opt/init-controls/run-check.mjs:7
+if(existsSync(marker))throw Error('forbidden JVM launcher');if(r.error||r.status!==0)throw r.error||Error('source check failed: '+r.status);
+                                                                                                    ^
+
+Error: source check failed: 1
+    at file:///opt/init-controls/run-check.mjs:7:101
+    at ModuleJob.run (node:internal/modules/esm/module_job:561:25)
+    at async node:internal/modules/esm/loader:647:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+
+Node.js v24.21.0

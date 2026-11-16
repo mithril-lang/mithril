@@ -1,0 +1,69 @@
+(ns compile-const-generics
+ (:require [mithril.native-declaration-program :as program] [mithril.native-declarations :as declarations]
+           [mithril.native-declaration-emit :as emit] [mithril.native-esm :as esm] [clojure.string :as str]
+           ["node:fs" :as fs] ["node:os" :as os] ["node:child_process" :as child]))
+(defn ensure [p text] (when-not p (throw (js/Error. text))))
+(def engine (.-MITHRIL_DECLARATIONS_ENGINE js/process.env))
+(def compiler (.-MITHRIL_DECLARATIONS_TYPESCRIPT js/process.env))
+(def type-roots (.-MITHRIL_DECLARATIONS_TYPE_ROOTS js/process.env))
+(defn run [args] (let [r (child/spawnSync js/process.execPath (clj->js args) #js {:encoding "utf8" :timeout 240000})] (ensure (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r))))
+(defn render [v] (cond (map? v) (str "(" (case (get v "@type") "NativeJsDeclarationProgram" "mithril/native-js-declaration-program" "NativeJsDeclarationModule" "mithril/native-js-declaration-module" "NativeJsDeclarations" "mithril/native-js-declarations" "rdf/node") " " (str/join " " (for [[k x] v :when (not (str/starts-with? k "@"))] (str ":" k " " (render x)))) ")") (vector? v) (str "[" (str/join " " (map render v)) "]") (nil? v) "nil" :else (js/JSON.stringify v)))
+(def text (fs/readFileSync "examples/native-js-schemastery-const-generic-program.mith" "utf8"))
+(def plan (program/read-plan text))
+(def module-text (fs/readFileSync "examples/native-js-schemastery-const-generics.mith" "utf8"))
+(def module-doc (declarations/parse-text module-text))
+(def runtime-text (fs/readFileSync (str "examples/" (:runtime-source plan)) "utf8"))
+(def runtime-sources (into {} (map #(vector % (fs/readFileSync (str "examples/" %) "utf8")) (esm/source-basenames runtime-text))))
+(def runtime (esm/check-text runtime-text runtime-sources))
+(def artifact (program/compile-text text {"native-js-schemastery-const-generics.mith" module-text} runtime))
+(ensure (empty? (:exports artifact)) "Const generic types invented runtime exports")
+(ensure (= 21 (count (:type-exports artifact))) "Const generic public type surface")
+(def generic {"name" "T" "constraint" nil "default" nil "const" true})
+(def kw {"op" "keyword" "name" "string"})
+(def ref-t {"op" "name" "name" "T" "args" []})
+(defn alias [params datatype] {"kind" "alias" "name" "Bad" "exported" true "type-params" params "datatype" datatype})
+(defn signature [params] {"op" "function" "abstract" false "type-params" params "params" [] "returns" kw})
+(defn klass [params] {"kind" "class" "name" "Bad" "exported" false "abstract" false "type-params" params "extends" nil "implements" [] "members" []})
+(defn refuse [d code]
+ (try (declarations/check-module-program [(update module-doc "declarations" conj d)] [] runtime "schemastery.constgenerics") (throw (js/Error. "Invalid generic admitted"))
+  (catch :default e (ensure (= code (:mithril/error (ex-data e))) (str "Wrong refusal: " e)))))
+(def bads [[(alias [generic] kw) :mithril.native-declarations/shape]
+ [(alias [(assoc generic "const" false)] kw) :mithril.native-declarations/shape]
+ [{"kind" "interface" "name" "Bad" "exported" true "type-params" [generic] "members" []} :mithril.native-declarations/shape]
+ [(alias [] (signature [(assoc generic "const" "true")])) :mithril.native-declarations/shape]
+ [(alias [] (signature [(assoc generic "source" "raw TS")])) :mithril.native-declarations/shape]
+ [(alias [] (signature [(dissoc generic "constraint")])) :mithril.native-declarations/shape]
+ [(alias [] (signature [generic generic])) :mithril.native-declarations/duplicate]
+ [(alias [] (signature [(assoc generic "default" kw) (assoc generic "name" "U")])) :mithril.native-declarations/arity]
+ [(alias [] (signature [(assoc generic "constraint" {"op" "name" "name" "Missing" "args" []})])) :mithril.native-declarations/arity]
+ [(alias [] (signature [(assoc generic "default" ref-t)])) :mithril.native-declarations/arity]
+ [(klass [(assoc generic "variance" nil "const" 1)]) :mithril.native-declarations/shape]
+ [(klass [(assoc generic "variance" "injected")]) :mithril.native-declarations/type]
+ [(klass [generic]) :mithril.native-declarations/shape]
+ [(alias [] (signature [(assoc generic "name" "T;payload")])) :mithril.native-declarations/name]
+ [(alias [] (signature (mapv #(assoc generic "name" (str "T" %)) (range 33)))) :mithril.native-declarations/budget]
+ [{"kind" "namespace" "name" "Bad" "exported" true "declarations" [(alias [generic] kw)]} :mithril.native-declarations/shape]])
+(doseq [[d code] bads] (refuse d code))
+(println "Const generic admission:16 exact-code context/boolean/shape/arity/default/scope/name/variance/collection refusals;alias/interface parameters stay strict.")
+(def legacy-doc {"@context" "https://mithril.fund/context/native-js-declarations/v1" "@type" "NativeJsDeclarations" "name" "cordis.leaves" "runtime-source" (:runtime-source plan) "ambient-types" [] "ambient-values" [] "declarations" (get module-doc "declarations")})
+(def legacy-artifact (emit/compile-document legacy-doc runtime))
+(let [plain (first (filter #(= "PlainFunction" (get % "name")) (get module-doc "declarations")))
+      false-flag (assoc (first (filter #(= "FalseFunction" (get % "name")) (get module-doc "declarations"))) "name" "PlainFunction")]
+ (ensure (= (:source (emit/compile-document (assoc legacy-doc "declarations" [plain]) runtime))
+            (:source (emit/compile-document (assoc legacy-doc "declarations" [false-flag]) runtime))) "False const flag changed ordinary generic declaration bytes"))
+(ensure (= (set (:type-exports artifact)) (set (:type-exports legacy-artifact))) "Legacy const generic type surface")
+(ensure (empty? (:exports legacy-artifact)) "Legacy const generic runtime surface")
+(def dir (fs/mkdtempSync (str (os/tmpdir) "/mithril-const-generics-")))
+(def config (str dir "/offline.edn"))
+(fs/writeFileSync config (str "{:paths [" (js/JSON.stringify (fs/realpathSync "src")) "]}"))
+(try
+ (doseq [[file source] (merge runtime-sources {(:runtime-source plan) runtime-text "legacy.mith" (render legacy-doc)})] (fs/writeFileSync (str dir "/" file) source))
+ (doseq [target ["js" "js-browser"]]
+  (let [out (str dir "/" target "-program") legacy (str dir "/" target "-legacy.d.mts")]
+   (run [engine "--config" config "--classpath" "src" "bin/mithril-native-declaration-program.cljk" "examples/native-js-schemastery-const-generic-program.mith" "--target" target "--output-directory" out])
+   (doseq [[file source] (:files artifact)] (ensure (= source (fs/readFileSync (str out "/" file) "utf8")) "Program const generic CLI artifact"))
+   (run ["test/qualification/native-const-generics/controls/type-contract.mjs" (str out "/index.d.mts") compiler type-roots])
+   (run [engine "--config" config "--classpath" "src" "bin/mithril-native-declarations.cljk" (str dir "/legacy.mith") "--target" target "--output" legacy])
+   (ensure (= (:source legacy-artifact) (fs/readFileSync legacy "utf8")) "Legacy const generic CLI artifact")
+   (run ["test/qualification/native-const-generics/controls/type-contract.mjs" legacy compiler type-roots])))
+ (finally (fs/rmSync dir #js {:recursive true :force true})))

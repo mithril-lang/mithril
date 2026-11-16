@@ -1,0 +1,26 @@
+(ns mithril.artifact-lower
+  "Lower checked Mithril data artifacts to Amu-native EDN exports."
+  (:require [mithril.module-lower :as module-lower]))
+
+(defn lower-native-artifact
+  "Expose a validated Mithril artifact as inert EDN in an Amu-native module.
+
+  This adapter preserves compiled data for a downstream host. It does not claim
+  that an Amu-native artifact executes the artifact's host-specific effects."
+  [source-kind artifact]
+  (let [artifact-edn (pr-str artifact)
+        artifact-format (or (:format artifact) (get artifact "format"))
+        graph-digest (or (:graph-digest artifact) (get artifact "graph-digest"))
+        module-text (str
+                     "(mithril/module :name \"mithril.compiled_artifact\" "
+                     ":exports [\"artifact_edn\"] :functions ["
+                     "(mithril/function :name \"artifact_edn\" :params [] "
+                     ":returns \"string\" :body (mithril/literal "
+                     ":datatype \"string\" :value " (pr-str artifact-edn) "))])")
+        lowered (module-lower/lower-native-text module-text)]
+    (assoc lowered
+           :format :mithril.artifact/amu-native-source-v1
+           :source-kind source-kind
+           :artifact-format artifact-format
+           :graph-digest graph-digest
+           :artifact-edn artifact-edn)))

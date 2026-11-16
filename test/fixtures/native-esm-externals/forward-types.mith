@@ -1,0 +1,5 @@
+(mithril/native-js-declaration-module :name "external.forward" :runtime "external.forward"
+ :ambient-types [] :ambient-values [] :imports []
+ :declarations []
+ :reexports [(rdf/node :module "aaa.fixture" :type-only false
+  :names [(rdf/node :import "count" :export "count") (rdf/node :import "inc" :export "inc") (rdf/node :import "default" :export "default")])])

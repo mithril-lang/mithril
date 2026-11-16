@@ -1,0 +1,651 @@
+(mithril/native-js-module
+:name "scope.index"
+:ambient_imports ["Symbol"
+"WeakMap"
+"Error"
+"Promise"]
+:imports ["CordisContext"
+"Symbol"
+"WeakMap"
+"Error"
+"Promise"
+"AnonymousEntries"
+"NamedEntries"
+"ScopedLayers"]
+:functions [(mithril/function
+:name "linkScopeParent"
+:params [(rdf/node
+:name "key"
+:datatype "js-value")
+(rdf/node
+:name "parent"
+:datatype "js-value")]
+:returns "js-value"
+:body (mithril/sequence
+:expressions [(mithril/host-for
+:initializer (rdf/node
+:bindings [(rdf/node
+:name "cursor"
+:value (mithril/local
+:name "parent")
+:mutable true)])
+:condition (mithril/host-binary
+:operator "!=="
+:left (mithril/local
+:name "cursor")
+:right (mithril/host-undefined))
+:update (mithril/local-set
+:name "cursor"
+:value (mithril/host-method
+:object (mithril/local
+:name "scopeParents")
+:key (mithril/literal
+:datatype "js-value"
+:value "get")
+:args [(mithril/local
+:name "cursor")]))
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "cursor")
+:right (mithril/local
+:name "key"))
+:then (mithril/host-throw
+:value (mithril/host-construct
+:constructor (mithril/host-import
+:name "Error")
+:args [(mithril/literal
+:datatype "js-value"
+:value "dsh-scope: scope parent link would form a cycle")]))
+:else (mithril/host-undefined))
+(mithril/host-undefined)])
+:result (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/host-method
+:object (mithril/local
+:name "scopeParents")
+:key (mithril/literal
+:datatype "js-value"
+:value "set")
+:args [(mithril/local
+:name "key")
+(mithril/local
+:name "parent")])
+(mithril/host-undefined)])])
+:statements true)
+(mithril/function
+:name "bindScopeParent"
+:params [(rdf/node
+:name "key"
+:datatype "js-value")
+(rdf/node
+:name "parent"
+:datatype "js-value")]
+:returns "js-value"
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-method
+:object (mithril/local
+:name "scopeParents")
+:key (mithril/literal
+:datatype "js-value"
+:value "has")
+:args [(mithril/local
+:name "key")])
+:then (mithril/sequence
+:expressions [(mithril/host-throw
+:value (mithril/host-construct
+:constructor (mithril/host-import
+:name "Error")
+:args [(mithril/literal
+:datatype "js-value"
+:value "dsh-scope: scope key is already bound to a parent; re-linking requires the binding returned by the original bind")]))
+(mithril/host-undefined)])
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/host-invoke
+:function (mithril/function-ref
+:name "linkScopeParent")
+:args [(mithril/local
+:name "key")
+(mithril/local
+:name "parent")])
+(mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/host-object
+:entries [(rdf/node
+:kind "method"
+:key (mithril/literal
+:datatype "js-value"
+:value "rebind")
+:params [(rdf/node
+:name "next"
+:datatype "js-value")]
+:rest nil
+:body (mithril/sequence
+:expressions [(mithril/host-invoke
+:function (mithril/function-ref
+:name "linkScopeParent")
+:args [(mithril/local
+:name "key")
+(mithril/local
+:name "next")])
+(mithril/host-undefined)])
+:statements true)]))
+(mithril/host-undefined)])])])
+:statements true)
+(mithril/function
+:name "scopeParentOf"
+:params [(rdf/node
+:name "key"
+:datatype "js-value")]
+:returns "js-value"
+:body (mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/host-method
+:object (mithril/local
+:name "scopeParents")
+:key (mithril/literal
+:datatype "js-value"
+:value "get")
+:args [(mithril/local
+:name "key")]))
+(mithril/host-undefined)])
+:statements true)
+(mithril/function
+:name "scopeChainOf"
+:params [(rdf/node
+:name "key"
+:datatype "js-value")]
+:returns "js-value"
+:body (mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "chain"
+:value (mithril/host-array
+:items []))]
+:body (mithril/sequence
+:expressions [(mithril/host-for
+:initializer (rdf/node
+:bindings [(rdf/node
+:name "cursor"
+:value (mithril/local
+:name "key")
+:mutable true)])
+:condition (mithril/host-binary
+:operator "!=="
+:left (mithril/local
+:name "cursor")
+:right (mithril/host-undefined))
+:update (mithril/local-set
+:name "cursor"
+:value (mithril/host-method
+:object (mithril/local
+:name "scopeParents")
+:key (mithril/literal
+:datatype "js-value"
+:value "get")
+:args [(mithril/local
+:name "cursor")]))
+:body (mithril/host-method
+:object (mithril/local
+:name "chain")
+:key (mithril/literal
+:datatype "js-value"
+:value "push")
+:args [(mithril/local
+:name "cursor")])
+:result (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/local
+:name "chain"))
+(mithril/host-undefined)])]))
+:statements true)
+(mithril/function
+:name "scope"
+:params []
+:returns "js-value"
+:body (mithril/host-undefined)
+:statements true)
+(mithril/function
+:name "createScope"
+:params [(rdf/node
+:name "ctx"
+:datatype "js-value")
+(rdf/node
+:name "key"
+:datatype "js-value")
+(rdf/node
+:name "options"
+:datatype "js-value")]
+:returns "js-value"
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "!=="
+:left (mithril/host-optional-chain
+:base (mithril/local
+:name "options")
+:steps [(rdf/node
+:kind "get"
+:optional true
+:key (mithril/literal
+:datatype "js-value"
+:value "parent"))])
+:right (mithril/host-undefined))
+:then (mithril/host-invoke
+:function (mithril/function-ref
+:name "bindScopeParent")
+:args [(mithril/local
+:name "key")
+(mithril/host-get
+:object (mithril/local
+:name "options")
+:key (mithril/literal
+:datatype "js-value"
+:value "parent"))])
+:else (mithril/host-undefined))
+(mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "fiber"
+:value (mithril/host-method
+:object (mithril/local
+:name "ctx")
+:key (mithril/literal
+:datatype "js-value"
+:value "plugin")
+:args [(mithril/function-ref
+:name "scope")]))
+(rdf/node
+:pattern "scoped"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "fiber")
+:key (mithril/literal
+:datatype "js-value"
+:value "ctx"))
+:key (mithril/literal
+:datatype "js-value"
+:value "extend")
+:args [(mithril/host-object
+:entries [(rdf/node
+:key (mithril/local
+:name "kScope")
+:value (mithril/local
+:name "key"))])]))
+(rdf/node
+:pattern "disposing"
+:value (mithril/host-undefined)
+:mutable true)]
+:body (mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "ctx")
+:value (mithril/local
+:name "scoped"))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "rawDispose")
+:value (mithril/host-get
+:object (mithril/local
+:name "fiber")
+:key (mithril/literal
+:datatype "js-value"
+:value "dispose")))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "dispose")
+:value (mithril/native-lambda
+:params []
+:rest nil
+:body (mithril/host-logical
+:operator "??"
+:left (mithril/local
+:name "disposing")
+:right (mithril/local-set
+:name "disposing"
+:value (mithril/host-invoke
+:function (mithril/local
+:name "quiesceFiber")
+:args [(mithril/local
+:name "fiber")]))))
+:infer_name true)]))
+(mithril/host-undefined)]))])
+:statements true)
+(mithril/function
+:name "scopeOf"
+:params [(rdf/node
+:name "ctx"
+:datatype "js-value")]
+:returns "js-value"
+:body (mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/host-get
+:object (mithril/local
+:name "ctx")
+:key (mithril/local
+:name "kScope")))
+(mithril/host-undefined)])
+:statements true)
+(mithril/function
+:name "scopeTarget"
+:params [(rdf/node
+:name "base"
+:datatype "js-value")
+(rdf/node
+:name "key"
+:datatype "js-value")]
+:returns "js-value"
+:body (mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "baseFilter"
+:value (mithril/host-get
+:object (mithril/local
+:name "base")
+:key (mithril/host-get
+:object (mithril/host-import
+:name "CordisContext")
+:key (mithril/literal
+:datatype "js-value"
+:value "filter"))))
+(rdf/node
+:pattern "carrier"
+:value (mithril/host-object
+:entries [(rdf/node
+:kind "method"
+:key (mithril/host-get
+:object (mithril/host-import
+:name "CordisContext")
+:key (mithril/literal
+:datatype "js-value"
+:value "filter"))
+:params [(rdf/node
+:name "ctx"
+:datatype "js-value")]
+:rest nil
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-logical
+:operator "&&"
+:left (mithril/host-binary
+:operator "!=="
+:left (mithril/local
+:name "baseFilter")
+:right (mithril/host-undefined))
+:right (mithril/host-unary
+:operator "!"
+:value (mithril/host-method
+:object (mithril/local
+:name "baseFilter")
+:key (mithril/literal
+:datatype "js-value"
+:value "call")
+:args [(mithril/local
+:name "base")
+(mithril/local
+:name "ctx")])))
+:then (mithril/host-return
+:value (mithril/literal
+:datatype "js-value"
+:value false))
+:else (mithril/host-undefined))
+(mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "tag"
+:value (mithril/host-invoke
+:function (mithril/function-ref
+:name "scopeOf")
+:args [(mithril/local
+:name "ctx")]))]
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "tag")
+:right (mithril/host-undefined))
+:then (mithril/host-return
+:value (mithril/literal
+:datatype "js-value"
+:value true))
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/host-for
+:initializer (rdf/node
+:bindings [(rdf/node
+:name "cursor"
+:value (mithril/local
+:name "key")
+:mutable true)])
+:condition (mithril/host-binary
+:operator "!=="
+:left (mithril/local
+:name "cursor")
+:right (mithril/host-undefined))
+:update (mithril/local-set
+:name "cursor"
+:value (mithril/host-method
+:object (mithril/local
+:name "scopeParents")
+:key (mithril/literal
+:datatype "js-value"
+:value "get")
+:args [(mithril/local
+:name "cursor")]))
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "cursor")
+:right (mithril/local
+:name "tag"))
+:then (mithril/host-return
+:value (mithril/literal
+:datatype "js-value"
+:value true))
+:else (mithril/host-undefined))
+(mithril/host-undefined)])
+:result (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/literal
+:datatype "js-value"
+:value false))
+(mithril/host-undefined)])])]))])
+:statements true)]))]
+:body (mithril/sequence
+:expressions [(mithril/host-method
+:object (mithril/local
+:name "carrierKeys")
+:key (mithril/literal
+:datatype "js-value"
+:value "set")
+:args [(mithril/local
+:name "carrier")
+(mithril/local
+:name "key")])
+(mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/local
+:name "carrier"))
+(mithril/host-undefined)])]))
+:statements true)
+(mithril/function
+:name "isScopeCarrier"
+:params [(rdf/node
+:name "value"
+:datatype "js-value")]
+:returns "js-value"
+:body (mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/host-logical
+:operator "&&"
+:left (mithril/host-logical
+:operator "&&"
+:left (mithril/host-binary
+:operator "==="
+:left (mithril/host-unary
+:operator "typeof"
+:value (mithril/local
+:name "value"))
+:right (mithril/literal
+:datatype "js-value"
+:value "object"))
+:right (mithril/host-binary
+:operator "!=="
+:left (mithril/local
+:name "value")
+:right (mithril/literal
+:datatype "js-value"
+:value nil)))
+:right (mithril/host-method
+:object (mithril/local
+:name "carrierKeys")
+:key (mithril/literal
+:datatype "js-value"
+:value "has")
+:args [(mithril/local
+:name "value")])))
+(mithril/host-undefined)])
+:statements true)
+(mithril/function
+:name "carrierKeyOf"
+:params [(rdf/node
+:name "value"
+:datatype "js-value")]
+:returns "js-value"
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-unary
+:operator "!"
+:value (mithril/host-invoke
+:function (mithril/function-ref
+:name "isScopeCarrier")
+:args [(mithril/local
+:name "value")]))
+:then (mithril/host-return
+:value (mithril/host-undefined))
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/host-method
+:object (mithril/local
+:name "carrierKeys")
+:key (mithril/literal
+:datatype "js-value"
+:value "get")
+:args [(mithril/local
+:name "value")]))
+(mithril/host-undefined)])])
+:statements true)]
+:bindings [(rdf/node
+:name "kScope"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "Symbol")
+:args [(mithril/literal
+:datatype "js-value"
+:value "dsh.scope")]))
+(rdf/node
+:name "carrierKeys"
+:value (mithril/host-construct
+:constructor (mithril/host-import
+:name "WeakMap")
+:args []))
+(rdf/node
+:name "scopeParents"
+:value (mithril/host-construct
+:constructor (mithril/host-import
+:name "WeakMap")
+:args []))
+(rdf/node
+:name "quiesceFiber"
+:value (mithril/native-function
+:name "quiesceFiber"
+:params [(rdf/node
+:name "fiber"
+:datatype "js-value")]
+:rest nil
+:body (mithril/sequence
+:expressions [(mithril/host-await
+:value (mithril/host-method
+:object (mithril/host-import
+:name "Promise")
+:key (mithril/literal
+:datatype "js-value"
+:value "resolve")
+:args [(mithril/host-method
+:object (mithril/local
+:name "fiber")
+:key (mithril/literal
+:datatype "js-value"
+:value "dispose")
+:args [])]))
+(mithril/sequence
+:expressions [(mithril/host-while
+:condition (mithril/host-binary
+:operator "!=="
+:left (mithril/host-get
+:object (mithril/local
+:name "fiber")
+:key (mithril/literal
+:datatype "js-value"
+:value "inertia"))
+:right (mithril/host-undefined))
+:body (mithril/host-await
+:value (mithril/host-get
+:object (mithril/local
+:name "fiber")
+:key (mithril/literal
+:datatype "js-value"
+:value "inertia")))
+:result (mithril/host-undefined))
+(mithril/host-undefined)])])
+:statements true
+:async true))]
+:exports [(rdf/node
+:name "bindScopeParent"
+:function "bindScopeParent")
+(rdf/node
+:name "scopeParentOf"
+:function "scopeParentOf")
+(rdf/node
+:name "scopeChainOf"
+:function "scopeChainOf")
+(rdf/node
+:name "createScope"
+:function "createScope")
+(rdf/node
+:name "scopeOf"
+:function "scopeOf")
+(rdf/node
+:name "scopeTarget"
+:function "scopeTarget")
+(rdf/node
+:name "isScopeCarrier"
+:function "isScopeCarrier")
+(rdf/node
+:name "carrierKeyOf"
+:function "carrierKeyOf")
+(rdf/node
+:name "AnonymousEntries"
+:value (mithril/host-import
+:name "AnonymousEntries"))
+(rdf/node
+:name "NamedEntries"
+:value (mithril/host-import
+:name "NamedEntries"))
+(rdf/node
+:name "ScopedLayers"
+:value (mithril/host-import
+:name "ScopedLayers"))]
+:lexical_bindings true)

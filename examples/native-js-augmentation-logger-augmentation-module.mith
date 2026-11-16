@@ -1,0 +1,124 @@
+(mithril/native-js-declaration-module
+ :augmentations [(rdf/node
+   :module "cordis.context"
+   :declarations [(rdf/node
+     :kind "interface"
+     :name "Intercept"
+     :exported true
+     :type-params []
+     :extends []
+     :members [(rdf/node
+       :kind "property"
+       :name "logger"
+       :optional false
+       :readonly false
+       :datatype (rdf/node
+        :op "name"
+        :name "LoggerService.Intercept"
+        :args []))])])]
+ :reexports []
+ :runtime nil
+ :ambient-types [(rdf/node
+   :name "Dict"
+   :min 0
+   :max 1)
+  (rdf/node
+   :name "Pick"
+   :min 2
+   :max 2)
+  (rdf/node
+   :name "Omit"
+   :min 2
+   :max 2)
+  (rdf/node
+   :name "Promise"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "PromiseLike"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "Parameters"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "ThisType"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "NoInfer"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "ReturnType"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "Record"
+   :min 2
+   :max 2)
+  (rdf/node
+   :name "Spread"
+   :min 1
+   :max 1)]
+ :name "augmentation.logger"
+ :ambient-values []
+ :declarations []
+ :imports [(rdf/node
+   :module "qualification.context"
+   :type-only false
+   :names [(rdf/node
+     :import "Context"
+     :local "Context")])
+  (rdf/node
+   :module "qualification.fiber"
+   :type-only false
+   :names [(rdf/node
+     :import "Fiber"
+     :local "Fiber")])
+  (rdf/node
+   :module "qualification.utils"
+   :type-only false
+   :names [(rdf/node
+     :import "symbols"
+     :local "symbols")])
+  (rdf/node
+   :module "qualification.logger"
+   :type-only true
+   :names [(rdf/node
+     :import "LoggerType"
+     :local "LoggerType")
+    (rdf/node
+     :import "LoggerMethod"
+     :local "LoggerMethod")
+    (rdf/node
+     :import "Formatter"
+     :local "Formatter")
+    (rdf/node
+     :import "LoggerLevel"
+     :local "LoggerLevel")
+    (rdf/node
+     :import "Message"
+     :local "Message")
+    (rdf/node
+     :import "Exporter"
+     :local "Exporter")
+    (rdf/node
+     :import "LoggerOptions"
+     :local "LoggerOptions")
+    (rdf/node
+     :import "Logger"
+     :local "Logger")
+    (rdf/node
+     :import "LoggerService"
+     :local "LoggerService")
+    (rdf/node
+     :import "defaultFormatters"
+     :local "defaultFormatters")
+    (rdf/node
+     :import "c16"
+     :local "c16")
+    (rdf/node
+     :import "c256"
+     :local "c256")])])

@@ -1,0 +1,689 @@
+(mithril/native-js-declaration-module
+ :name "cordis.utils"
+ :runtime "cordis.utils"
+ :ambient-types [(rdf/node
+   :name "Pick"
+   :min 2
+   :max 2)
+  (rdf/node
+   :name "Omit"
+   :min 2
+   :max 2)
+  (rdf/node
+   :name "Promise"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "PromiseLike"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "Parameters"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "ThisType"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "NoInfer"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "ReturnType"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "Record"
+   :min 2
+   :max 2)
+  (rdf/node
+   :name "Partial"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "Map"
+   :min 2
+   :max 2)
+  (rdf/node
+   :name "WeakRef"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "Error"
+   :min 0
+   :max 0)
+  (rdf/node
+   :name "TypeError"
+   :min 0
+   :max 0)
+  (rdf/node
+   :name "Function"
+   :min 0
+   :max 0)
+  (rdf/node
+   :name "globalThis.Function"
+   :min 0
+   :max 0)
+  (rdf/node
+   :name "ClassDecoratorContext"
+   :min 0
+   :max 1)
+  (rdf/node
+   :name "ClassMethodDecoratorContext"
+   :min 0
+   :max 2)
+  (rdf/node
+   :name "WeakKey"
+   :min 0
+   :max 0)
+  (rdf/node
+   :name "MapIterator"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "TypedPropertyDescriptor"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "ProxyHandler"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "Iterable"
+   :min 1
+   :max 3)
+  (rdf/node
+   :name "AsyncIterable"
+   :min 1
+   :max 3)]
+ :ambient-values ["Symbol.iterator"
+  "Symbol.hasInstance"
+  "Error"
+  "TypeError"]
+ :imports [(rdf/node
+   :module "cordis.index"
+   :type-only true
+   :names [(rdf/node
+     :import "Context"
+     :local "Context")
+    (rdf/node
+     :import "Service"
+     :local "Service")])]
+ :reexports []
+ :declarations [(rdf/node
+   :kind "class"
+   :name "DisposableList"
+   :exported true
+   :abstract false
+   :type-params [(rdf/node
+     :name "T"
+     :constraint (rdf/node
+      :op "name"
+      :name "WeakKey"
+      :args [])
+     :default nil
+     :variance nil)]
+   :extends nil
+   :implements []
+   :members [(rdf/node
+     :kind "opaque"
+     :key (rdf/node
+      :kind "name"
+      :name "sn")
+     :visibility "private"
+     :static false)
+    (rdf/node
+     :kind "opaque"
+     :key (rdf/node
+      :kind "name"
+      :name "map")
+     :visibility "private"
+     :static false)
+    (rdf/node
+     :kind "opaque"
+     :key (rdf/node
+      :kind "name"
+      :name "weak")
+     :visibility "private"
+     :static false)
+    (rdf/node
+     :kind "getter"
+     :key (rdf/node
+      :kind "name"
+      :name "length")
+     :visibility "public"
+     :static false
+     :datatype (rdf/node
+      :op "keyword"
+      :name "number"))
+    (rdf/node
+     :kind "method"
+     :key (rdf/node
+      :kind "name"
+      :name "push")
+     :visibility "public"
+     :static false
+     :abstract false
+     :optional false
+     :type-params []
+     :params [(rdf/node
+       :name "value"
+       :optional false
+       :rest false
+       :datatype (rdf/node
+        :op "name"
+        :name "T"
+        :args []))]
+     :returns (rdf/node
+      :op "function"
+      :abstract false
+      :type-params []
+      :params []
+      :returns (rdf/node
+       :op "keyword"
+       :name "boolean")))
+    (rdf/node
+     :kind "method"
+     :key (rdf/node
+      :kind "name"
+      :name "delete")
+     :visibility "public"
+     :static false
+     :abstract false
+     :optional false
+     :type-params []
+     :params [(rdf/node
+       :name "value"
+       :optional false
+       :rest false
+       :datatype (rdf/node
+        :op "name"
+        :name "T"
+        :args []))]
+     :returns (rdf/node
+      :op "keyword"
+      :name "boolean"))
+    (rdf/node
+     :kind "method"
+     :key (rdf/node
+      :kind "name"
+      :name "clear")
+     :visibility "public"
+     :static false
+     :abstract false
+     :optional false
+     :type-params []
+     :params []
+     :returns (rdf/node
+      :op "array"
+      :item (rdf/node
+       :op "name"
+       :name "T"
+       :args [])))
+    (rdf/node
+     :kind "method"
+     :key (rdf/node
+      :kind "computed"
+      :name "Symbol.iterator")
+     :visibility "public"
+     :static false
+     :abstract false
+     :optional false
+     :type-params []
+     :params []
+     :returns (rdf/node
+      :op "name"
+      :name "MapIterator"
+      :args [(rdf/node
+        :op "name"
+        :name "T"
+        :args [])]))])
+  (rdf/node
+   :kind "interface"
+   :name "Tracker"
+   :exported true
+   :type-params []
+   :extends []
+   :members [(rdf/node
+     :kind "property"
+     :name "associate"
+     :optional true
+     :readonly false
+     :datatype (rdf/node
+      :op "keyword"
+      :name "string"))
+    (rdf/node
+     :kind "property"
+     :name "property"
+     :optional true
+     :readonly false
+     :datatype (rdf/node
+      :op "keyword"
+      :name "string"))
+    (rdf/node
+     :kind "property"
+     :name "noShadow"
+     :optional true
+     :readonly false
+     :datatype (rdf/node
+      :op "keyword"
+      :name "boolean"))])
+  (rdf/node
+   :kind "const"
+   :name "symbols"
+   :exported true
+   :datatype (rdf/node
+    :op "object"
+    :members [(rdf/node
+      :kind "property"
+      :name "shadow"
+      :optional false
+      :readonly false
+      :datatype (rdf/node
+       :op "keyword"
+       :name "symbol"))
+     (rdf/node
+      :kind "property"
+      :name "receiver"
+      :optional false
+      :readonly false
+      :datatype (rdf/node
+       :op "keyword"
+       :name "symbol"))
+     (rdf/node
+      :kind "property"
+      :name "original"
+      :optional false
+      :readonly false
+      :datatype (rdf/node
+       :op "keyword"
+       :name "symbol"))
+     (rdf/node
+      :kind "property"
+      :name "metadata"
+      :optional false
+      :readonly false
+      :datatype (rdf/node
+       :op "keyword"
+       :name "symbol"))
+     (rdf/node
+      :kind "property"
+      :name "initHooks"
+      :optional false
+      :readonly false
+      :datatype (rdf/node
+       :op "keyword"
+       :name "symbol"))
+     (rdf/node
+      :kind "property"
+      :name "checkProto"
+      :optional false
+      :readonly false
+      :datatype (rdf/node
+       :op "keyword"
+       :name "symbol"))
+     (rdf/node
+      :kind "property"
+      :name "effect"
+      :optional false
+      :readonly false
+      :datatype (rdf/node
+       :op "typeof"
+       :name "Context.effect"))
+     (rdf/node
+      :kind "property"
+      :name "filter"
+      :optional false
+      :readonly false
+      :datatype (rdf/node
+       :op "typeof"
+       :name "Context.filter"))
+     (rdf/node
+      :kind "property"
+      :name "isolate"
+      :optional false
+      :readonly false
+      :datatype (rdf/node
+       :op "typeof"
+       :name "Context.isolate"))
+     (rdf/node
+      :kind "property"
+      :name "intercept"
+      :optional false
+      :readonly false
+      :datatype (rdf/node
+       :op "typeof"
+       :name "Context.intercept"))
+     (rdf/node
+      :kind "property"
+      :name "init"
+      :optional false
+      :readonly false
+      :datatype (rdf/node
+       :op "typeof"
+       :name "Service.init"))
+     (rdf/node
+      :kind "property"
+      :name "check"
+      :optional false
+      :readonly false
+      :datatype (rdf/node
+       :op "typeof"
+       :name "Service.check"))
+     (rdf/node
+      :kind "property"
+      :name "config"
+      :optional false
+      :readonly false
+      :datatype (rdf/node
+       :op "typeof"
+       :name "Service.config"))
+     (rdf/node
+      :kind "property"
+      :name "invoke"
+      :optional false
+      :readonly false
+      :datatype (rdf/node
+       :op "typeof"
+       :name "Service.invoke"))
+     (rdf/node
+      :kind "property"
+      :name "extend"
+      :optional false
+      :readonly false
+      :datatype (rdf/node
+       :op "typeof"
+       :name "Service.extend"))
+     (rdf/node
+      :kind "property"
+      :name "tracker"
+      :optional false
+      :readonly false
+      :datatype (rdf/node
+       :op "typeof"
+       :name "Service.tracker"))
+     (rdf/node
+      :kind "property"
+      :name "resolveConfig"
+      :optional false
+      :readonly false
+      :datatype (rdf/node
+       :op "typeof"
+       :name "Service.resolveConfig"))]))
+  (rdf/node
+   :kind "function"
+   :name "isConstructor"
+   :exported true
+   :type-params []
+   :params [(rdf/node
+     :name "func"
+     :optional false
+     :rest false
+     :datatype (rdf/node
+      :op "keyword"
+      :name "any"))]
+   :returns (rdf/node
+    :op "predicate"
+    :name "func"
+    :datatype (rdf/node
+     :op "constructor"
+     :abstract false
+     :type-params []
+     :params [(rdf/node
+       :name "args"
+       :optional false
+       :rest true
+       :datatype (rdf/node
+        :op "keyword"
+        :name "any"))]
+     :returns (rdf/node
+      :op "keyword"
+      :name "any"))))
+  (rdf/node
+   :kind "function"
+   :name "joinPrototype"
+   :exported true
+   :type-params []
+   :params [(rdf/node
+     :name "proto1"
+     :optional false
+     :rest false
+     :datatype (rdf/node
+      :op "object"
+      :members []))
+    (rdf/node
+     :name "proto2"
+     :optional false
+     :rest false
+     :datatype (rdf/node
+      :op "object"
+      :members []))]
+   :returns (rdf/node
+    :op "keyword"
+    :name "any"))
+  (rdf/node
+   :kind "function"
+   :name "isObject"
+   :exported true
+   :type-params []
+   :params [(rdf/node
+     :name "value"
+     :optional false
+     :rest false
+     :datatype (rdf/node
+      :op "keyword"
+      :name "any"))]
+   :returns (rdf/node
+    :op "predicate"
+    :name "value"
+    :datatype (rdf/node
+     :op "object"
+     :members [])))
+  (rdf/node
+   :kind "function"
+   :name "getPropertyDescriptor"
+   :exported true
+   :type-params []
+   :params [(rdf/node
+     :name "target"
+     :optional false
+     :rest false
+     :datatype (rdf/node
+      :op "keyword"
+      :name "any"))
+    (rdf/node
+     :name "prop"
+     :optional false
+     :rest false
+     :datatype (rdf/node
+      :op "union"
+      :items [(rdf/node
+        :op "keyword"
+        :name "string")
+       (rdf/node
+        :op "keyword"
+        :name "symbol")]))]
+   :returns (rdf/node
+    :op "union"
+    :items [(rdf/node
+      :op "name"
+      :name "TypedPropertyDescriptor"
+      :args [(rdf/node
+        :op "keyword"
+        :name "any")])
+     (rdf/node
+      :op "keyword"
+      :name "undefined")]))
+  (rdf/node
+   :kind "function"
+   :name "getTraceable"
+   :exported true
+   :type-params [(rdf/node
+     :name "T"
+     :constraint nil
+     :default nil)]
+   :params [(rdf/node
+     :name "ctx"
+     :optional false
+     :rest false
+     :datatype (rdf/node
+      :op "name"
+      :name "Context"
+      :args []))
+    (rdf/node
+     :name "value"
+     :optional false
+     :rest false
+     :datatype (rdf/node
+      :op "name"
+      :name "T"
+      :args []))]
+   :returns (rdf/node
+    :op "name"
+    :name "T"
+    :args []))
+  (rdf/node
+   :kind "function"
+   :name "withProps"
+   :exported true
+   :type-params []
+   :params [(rdf/node
+     :name "target"
+     :optional false
+     :rest false
+     :datatype (rdf/node
+      :op "keyword"
+      :name "any"))
+    (rdf/node
+     :name "props"
+     :optional true
+     :rest false
+     :datatype (rdf/node
+      :op "object"
+      :members []))]
+   :returns (rdf/node
+    :op "keyword"
+    :name "any"))
+  (rdf/node
+   :kind "function"
+   :name "createCallable"
+   :exported true
+   :type-params []
+   :params [(rdf/node
+     :name "name"
+     :optional false
+     :rest false
+     :datatype (rdf/node
+      :op "keyword"
+      :name "string"))
+    (rdf/node
+     :name "proto"
+     :optional false
+     :rest false
+     :datatype (rdf/node
+      :op "object"
+      :members []))
+    (rdf/node
+     :name "tracker"
+     :optional false
+     :rest false
+     :datatype (rdf/node
+      :op "name"
+      :name "Tracker"
+      :args []))]
+   :returns (rdf/node
+    :op "keyword"
+    :name "any"))
+  (rdf/node
+   :kind "interface"
+   :name "StackInfo"
+   :exported false
+   :type-params []
+   :extends []
+   :members [(rdf/node
+     :kind "property"
+     :name "offset"
+     :optional false
+     :readonly false
+     :datatype (rdf/node
+      :op "keyword"
+      :name "number"))
+    (rdf/node
+     :kind "property"
+     :name "error"
+     :optional false
+     :readonly false
+     :datatype (rdf/node
+      :op "name"
+      :name "Error"
+      :args []))])
+  (rdf/node
+   :kind "function"
+   :name "composeError"
+   :exported true
+   :type-params [(rdf/node
+     :name "T"
+     :constraint nil
+     :default nil)]
+   :params [(rdf/node
+     :name "callback"
+     :optional false
+     :rest false
+     :datatype (rdf/node
+      :op "function"
+      :abstract false
+      :type-params []
+      :params [(rdf/node
+        :name "info"
+        :optional false
+        :rest false
+        :datatype (rdf/node
+         :op "name"
+         :name "StackInfo"
+         :args []))]
+      :returns (rdf/node
+       :op "name"
+       :name "T"
+       :args [])))
+    (rdf/node
+     :name "getOuterStack"
+     :optional true
+     :rest false
+     :datatype (rdf/node
+      :op "function"
+      :abstract false
+      :type-params []
+      :params []
+      :returns (rdf/node
+       :op "array"
+       :item (rdf/node
+        :op "keyword"
+        :name "string"))))]
+   :returns (rdf/node
+    :op "name"
+    :name "T"
+    :args []))
+  (rdf/node
+   :kind "function"
+   :name "buildOuterStack"
+   :exported true
+   :type-params []
+   :params [(rdf/node
+     :name "offset"
+     :optional true
+     :rest false
+     :datatype (rdf/node
+      :op "keyword"
+      :name "number"))]
+   :returns (rdf/node
+    :op "function"
+    :abstract false
+    :type-params []
+    :params []
+    :returns (rdf/node
+     :op "array"
+     :item (rdf/node
+      :op "keyword"
+      :name "string"))))]
+ :augmentations [])

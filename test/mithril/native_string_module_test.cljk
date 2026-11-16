@@ -1,0 +1,31 @@
+(ns mithril.native-string-module-test
+ (:require [cljs.test :refer [deftest is]] [mithril.native-js :as native] [mithril.module :as guest]
+           ["node:fs" :as fs] ["node:os" :as os] ["node:path" :as path]
+           ["node:child_process" :as child] ["node:crypto" :as crypto]))
+(deftest whole-string-runtime-with-source-derived-snapshots
+ (let [text (fs/readFileSync "examples/native-js-string.mith" "utf8") artifact (native/compile-text text)
+       dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-whole-string-")) file (path/join dir "string.mjs")]
+  (try
+   (is (= artifact (native/compile-text text)))
+   (is (= :mithril.native-js/artifact-v1 (:format artifact)))
+   (is (= "cosmokit.string" (:module artifact)))
+   (is (= #{"String" "JSON"} (set (:required-imports artifact))))
+   (is (= #{"capitalize" "uncapitalize" "camelCase" "paramCase" "snakeCase" "camelize" "hyphenate" "formatProperty" "trimSlash" "sanitize"} (set (:exports artifact))))
+   (is (try (guest/check-text text) false (catch :default _ true)))
+   (is (= (js->clj (js/JSON.parse (fs/readFileSync "test/fixtures/string-time-artifact-hashes.json" "utf8")))
+          (into {} (map (fn [name] [name (-> (crypto/createHash "sha256") (.update (:source (native/compile-text (fs/readFileSync (str "examples/native-js-" name ".mith") "utf8")))) (.digest "hex"))]) ["map-values" "misc" "array" "volatile" "types"]))))
+   (fs/writeFileSync file (:source artifact))
+   (doseq [[mode source] [["baseline" "test/fixtures/string-baseline.mjs"] ["candidate" file]]]
+    (let [r (child/spawnSync js/process.execPath (clj->js ["--experimental-vm-modules" "test/fixtures/string-contract.mjs" mode source "test/fixtures/string-cases.json" "test/fixtures/string-expected.json"]) #js {:encoding "utf8" :timeout 30000})]
+     (is (= 0 (.-status r)) (str (.-stdout r) (.-stderr r)))))
+   (finally (fs/rmSync dir #js {:recursive true :force true})))))
+
+(deftest complete-ascii-tokenization-state-boundaries
+ (let [artifact (native/compile-text (fs/readFileSync "examples/native-js-string.mith" "utf8"))
+       dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-string-boundary-")) file (path/join dir "string.mjs")]
+  (try
+   (fs/writeFileSync file (:source artifact))
+   (doseq [[mode source] [["baseline" "test/fixtures/string-baseline.mjs"] ["candidate" file]]]
+    (let [r (child/spawnSync js/process.execPath (clj->js ["--experimental-vm-modules" "test/fixtures/string-boundary-contract.mjs" mode source "test/fixtures/string-boundary-cases.json" "test/fixtures/string-boundary-expected.json"]) #js {:encoding "utf8" :timeout 30000})]
+     (is (= 0 (.-status r)) (str (.-stdout r) (.-stderr r)))))
+   (finally (fs/rmSync dir #js {:recursive true :force true})))))

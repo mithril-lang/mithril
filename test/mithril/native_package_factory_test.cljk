@@ -1,0 +1,24 @@
+(ns mithril.native-package-factory-test
+ (:require [cljs.test :refer [deftest is]] [clojure.string :as str]
+           [mithril.form :as form] [mithril.native-js :as native]
+           ["node:fs" :as fs] ["node:os" :as os] ["node:path" :as path]
+           ["node:child_process" :as child]))
+(deftest private-linked-factory-preserves-lazy-grants-and-function-values
+ (let [doc (form/parse "(mithril/native-js-module :name \"factory\" :imports [\"read\"] :functions [(mithril/function :name \"readValue\" :params [] :returns \"js-value\" :body (mithril/host-invoke :function (mithril/host-import :name \"read\") :args []))] :exports [\"readValue\"])")
+       a (native/compile-package-factory-document doc "linkedFactory")
+       dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-package-factory-")) file (path/join dir "factory.mjs")]
+  (try
+   (is (not (str/includes? (:source a) "export ")))
+   (is (= a (native/compile-package-factory-document doc "linkedFactory")))
+   (is (try (native/compile-package-factory-document doc "eval") false (catch :default _ true)))
+   (fs/writeFileSync file
+    (str "import assert from 'node:assert/strict';import vm from 'node:vm';\n"
+         "const source=" (js/JSON.stringify (:source a)) ";\n"
+         "const c=vm.createContext({Reflect:{ownKeys(){throw Error('unexpected reflection')}}});\n"
+         "vm.runInContext(source+`let reads=0,value=42;const api=linkedFactory({get read(){reads++;return()=>value}});\n"
+         "if(reads!==0)throw Error('eager grant read');if(api.readValue()!==42||reads!==1)throw Error('first call');\n"
+         "value=7;if(api.readValue()!==7||reads!==2)throw Error('frozen grant');\n"
+         "if(api.readValue.name!=='readValue'||api.readValue.length!==0||typeof api.readValue.prototype!=='object')throw Error('function metadata');`,c);"))
+   (let [r (child/spawnSync js/process.execPath #js [file] #js {:encoding "utf8" :timeout 30000})]
+    (is (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))))
+   (finally (fs/rmSync dir #js {:recursive true :force true})))))

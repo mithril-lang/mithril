@@ -1,0 +1,2095 @@
+{
+  "format": "mithril.harness-vendor-source-dependencies/v1",
+  "source_repository": "https://github.com/deepseek-ai/deepseek-harness",
+  "source_commit": "441416c0048aa4281bffe59c1c7b5e13e08a9ec1",
+  "typescript_parser": "6.0.3",
+  "direction": "consumer -> dependency; runtime dependency SCCs precede consumers",
+  "qualification": "Static TS declarations are retained separately from pinned TSC6.0.3 transpiled ESM imports/exports (ES2022/ESNext, verbatimModuleSyntax:false like the source config). Runtime order uses emitted static imports with vendored package names resolved to tracked src/index.ts entries. This is single-file transpilation, not project typechecking or actual tsdown bundling. Other external resolution, dynamic imports and execution remain separate gates. Syntax counts include source syntax without reachability classification.",
+  "units": [
+    {
+      "emitted_runtime_imports": [
+        {
+          "specifier": "./events.ts",
+          "destination": "vendor/cordis/src/events.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./logger.ts",
+          "destination": "vendor/cordis/src/logger.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./reflect.ts",
+          "destination": "vendor/cordis/src/reflect.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./registry.ts",
+          "destination": "vendor/cordis/src/registry.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./utils.ts",
+          "destination": "vendor/cordis/src/utils.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./fiber.ts",
+          "destination": "vendor/cordis/src/fiber.ts",
+          "internal": true
+        }
+      ],
+      "path": "vendor/cordis/src/context.ts",
+      "sha256": "96b388162d6013c1898de61e35f28917abb93809de24174980f2a1a348d0b115",
+      "bytes": 6153,
+      "imports": [
+        {
+          "specifier": "@deepseek-ai/cosmokit",
+          "destination": "vendor/cosmokit/src/index.ts",
+          "kind": "type",
+          "internal": true
+        },
+        {
+          "specifier": "./events.ts",
+          "destination": "vendor/cordis/src/events.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./logger.ts",
+          "destination": "vendor/cordis/src/logger.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./reflect.ts",
+          "destination": "vendor/cordis/src/reflect.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./registry.ts",
+          "destination": "vendor/cordis/src/registry.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./utils.ts",
+          "destination": "vendor/cordis/src/utils.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./fiber.ts",
+          "destination": "vendor/cordis/src/fiber.ts",
+          "kind": "runtime",
+          "internal": true
+        }
+      ],
+      "syntax_feature_occurrences": {
+        "ComputedPropertyName": 7,
+        "ClassDeclaration": 1,
+        "ArrowFunction": 2,
+        "ThisKeyword": 19,
+        "ForOfStatement": 1
+      }
+    },
+    {
+      "emitted_runtime_imports": [
+        {
+          "specifier": "@deepseek-ai/cosmokit",
+          "destination": "vendor/cosmokit/src/index.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./context.ts",
+          "destination": "vendor/cordis/src/context.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./utils.ts",
+          "destination": "vendor/cordis/src/utils.ts",
+          "internal": true
+        }
+      ],
+      "path": "vendor/cordis/src/events.ts",
+      "sha256": "9aff93dcfcad98aebb692c19c36d3bf034a96f9085bc66900a997cda3f79e6fe",
+      "bytes": 14917,
+      "imports": [
+        {
+          "specifier": "@deepseek-ai/cosmokit",
+          "destination": "vendor/cosmokit/src/index.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "@deepseek-ai/cosmokit",
+          "destination": "vendor/cosmokit/src/index.ts",
+          "kind": "type",
+          "internal": true
+        },
+        {
+          "specifier": "./context.ts",
+          "destination": "vendor/cordis/src/context.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./fiber.ts",
+          "destination": "vendor/cordis/src/fiber.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./utils.ts",
+          "destination": "vendor/cordis/src/utils.ts",
+          "kind": "runtime",
+          "internal": true
+        }
+      ],
+      "syntax_feature_occurrences": {
+        "ClassDeclaration": 1,
+        "ThisKeyword": 24,
+        "FunctionExpression": 3,
+        "ArrowFunction": 11,
+        "AwaitExpression": 2,
+        "ForOfStatement": 2
+      }
+    },
+    {
+      "emitted_runtime_imports": [
+        {
+          "specifier": "@deepseek-ai/cosmokit",
+          "destination": "vendor/cosmokit/src/index.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./context.ts",
+          "destination": "vendor/cordis/src/context.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./utils.ts",
+          "destination": "vendor/cordis/src/utils.ts",
+          "internal": true
+        }
+      ],
+      "path": "vendor/cordis/src/fiber.ts",
+      "sha256": "b7661d6c19be76cef6b97d88719a8112c0f8b5abe65bd9e7d5947773fd4b96d4",
+      "bytes": 24960,
+      "imports": [
+        {
+          "specifier": "@deepseek-ai/cosmokit",
+          "destination": "vendor/cosmokit/src/index.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "@deepseek-ai/cosmokit",
+          "destination": "vendor/cosmokit/src/index.ts",
+          "kind": "type",
+          "internal": true
+        },
+        {
+          "specifier": "./context.ts",
+          "destination": "vendor/cordis/src/context.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./registry.ts",
+          "destination": "vendor/cordis/src/registry.ts",
+          "kind": "type",
+          "internal": true
+        },
+        {
+          "specifier": "./utils.ts",
+          "destination": "vendor/cordis/src/utils.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./reflect.ts",
+          "destination": "vendor/cordis/src/reflect.ts",
+          "kind": "type",
+          "internal": true
+        },
+        {
+          "specifier": "@standard-schema/spec",
+          "destination": "@standard-schema/spec",
+          "kind": "type",
+          "internal": false
+        }
+      ],
+      "syntax_feature_occurrences": {
+        "ClassDeclaration": 3,
+        "ArrowFunction": 40,
+        "TryStatement": 9,
+        "ForOfStatement": 7,
+        "ThisKeyword": 138,
+        "FunctionExpression": 1,
+        "AwaitExpression": 12
+      }
+    },
+    {
+      "emitted_runtime_imports": [
+        {
+          "specifier": "./context.ts",
+          "destination": "vendor/cordis/src/context.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./events.ts",
+          "destination": "vendor/cordis/src/events.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./fiber.ts",
+          "destination": "vendor/cordis/src/fiber.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./logger.ts",
+          "destination": "vendor/cordis/src/logger.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./registry.ts",
+          "destination": "vendor/cordis/src/registry.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./service.ts",
+          "destination": "vendor/cordis/src/service.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./utils.ts",
+          "destination": "vendor/cordis/src/utils.ts",
+          "internal": true
+        }
+      ],
+      "path": "vendor/cordis/src/index.ts",
+      "sha256": "071fb226e9a21556625e4391b28e6641b9b34b1cd402155246e0437993d8b740",
+      "bytes": 815,
+      "imports": [
+        {
+          "specifier": "./context.ts",
+          "destination": "vendor/cordis/src/context.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./events.ts",
+          "destination": "vendor/cordis/src/events.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./fiber.ts",
+          "destination": "vendor/cordis/src/fiber.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./logger.ts",
+          "destination": "vendor/cordis/src/logger.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./registry.ts",
+          "destination": "vendor/cordis/src/registry.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./service.ts",
+          "destination": "vendor/cordis/src/service.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./utils.ts",
+          "destination": "vendor/cordis/src/utils.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "@deepseek-ai/cosmokit",
+          "destination": "vendor/cosmokit/src/index.ts",
+          "kind": "type",
+          "internal": true
+        }
+      ],
+      "syntax_feature_occurrences": {}
+    },
+    {
+      "emitted_runtime_imports": [
+        {
+          "specifier": "@deepseek-ai/cosmokit",
+          "destination": "vendor/cosmokit/src/index.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./utils.ts",
+          "destination": "vendor/cordis/src/utils.ts",
+          "internal": true
+        }
+      ],
+      "path": "vendor/cordis/src/logger.ts",
+      "sha256": "05cb6be3e4cf8d078185b5d10c87e536c7d2b2b3ad43c270a0dbafaa28f41fef",
+      "bytes": 8644,
+      "imports": [
+        {
+          "specifier": "@deepseek-ai/cosmokit",
+          "destination": "vendor/cosmokit/src/index.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./context.ts",
+          "destination": "vendor/cordis/src/context.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./fiber.ts",
+          "destination": "vendor/cordis/src/fiber.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./utils.ts",
+          "destination": "vendor/cordis/src/utils.ts",
+          "kind": "runtime",
+          "internal": true
+        }
+      ],
+      "syntax_feature_occurrences": {
+        "ArrowFunction": 15,
+        "ClassDeclaration": 2,
+        "ForOfStatement": 3,
+        "ThisKeyword": 29,
+        "ComputedPropertyName": 1,
+        "FunctionExpression": 1
+      }
+    },
+    {
+      "emitted_runtime_imports": [
+        {
+          "specifier": "@deepseek-ai/cosmokit",
+          "destination": "vendor/cosmokit/src/index.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./utils.ts",
+          "destination": "vendor/cordis/src/utils.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./fiber.ts",
+          "destination": "vendor/cordis/src/fiber.ts",
+          "internal": true
+        }
+      ],
+      "path": "vendor/cordis/src/reflect.ts",
+      "sha256": "6847b9781044023d65aebb5896a873b9f0a3d777eaf7fa0dd2a7a408eb6b74a6",
+      "bytes": 15434,
+      "imports": [
+        {
+          "specifier": "@deepseek-ai/cosmokit",
+          "destination": "vendor/cosmokit/src/index.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "@deepseek-ai/cosmokit",
+          "destination": "vendor/cosmokit/src/index.ts",
+          "kind": "type",
+          "internal": true
+        },
+        {
+          "specifier": "./context.ts",
+          "destination": "vendor/cordis/src/context.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./utils.ts",
+          "destination": "vendor/cordis/src/utils.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./fiber.ts",
+          "destination": "vendor/cordis/src/fiber.ts",
+          "kind": "runtime",
+          "internal": true
+        }
+      ],
+      "syntax_feature_occurrences": {
+        "ClassDeclaration": 1,
+        "ArrowFunction": 18,
+        "TryStatement": 2,
+        "ThisKeyword": 48,
+        "AwaitExpression": 1,
+        "ForOfStatement": 5,
+        "FunctionExpression": 1,
+        "YieldExpression": 1
+      }
+    },
+    {
+      "emitted_runtime_imports": [
+        {
+          "specifier": "@deepseek-ai/cosmokit",
+          "destination": "vendor/cosmokit/src/index.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./fiber.ts",
+          "destination": "vendor/cordis/src/fiber.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./utils.ts",
+          "destination": "vendor/cordis/src/utils.ts",
+          "internal": true
+        }
+      ],
+      "path": "vendor/cordis/src/registry.ts",
+      "sha256": "34bbd60ae502b4f85201c204afb52a9acabde6878d9278493478c1b2183debd3",
+      "bytes": 11753,
+      "imports": [
+        {
+          "specifier": "@deepseek-ai/cosmokit",
+          "destination": "vendor/cosmokit/src/index.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "@deepseek-ai/cosmokit",
+          "destination": "vendor/cosmokit/src/index.ts",
+          "kind": "type",
+          "internal": true
+        },
+        {
+          "specifier": "@standard-schema/spec",
+          "destination": "@standard-schema/spec",
+          "kind": "type",
+          "internal": false
+        },
+        {
+          "specifier": "./context.ts",
+          "destination": "vendor/cordis/src/context.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./fiber.ts",
+          "destination": "vendor/cordis/src/fiber.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./utils.ts",
+          "destination": "vendor/cordis/src/utils.ts",
+          "kind": "runtime",
+          "internal": true
+        }
+      ],
+      "syntax_feature_occurrences": {
+        "ComputedPropertyName": 3,
+        "FunctionExpression": 2,
+        "ThisKeyword": 25,
+        "ArrowFunction": 3,
+        "ForOfStatement": 4,
+        "ClassDeclaration": 1,
+        "TryStatement": 1
+      }
+    },
+    {
+      "emitted_runtime_imports": [
+        {
+          "specifier": "@deepseek-ai/cosmokit",
+          "destination": "vendor/cosmokit/src/index.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./context.ts",
+          "destination": "vendor/cordis/src/context.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./utils.ts",
+          "destination": "vendor/cordis/src/utils.ts",
+          "internal": true
+        }
+      ],
+      "path": "vendor/cordis/src/service.ts",
+      "sha256": "614205c6ce7cf1a057b8b352e96aa4fcd734c967a3d2283a126c9c61f268e3be",
+      "bytes": 4263,
+      "imports": [
+        {
+          "specifier": "@deepseek-ai/cosmokit",
+          "destination": "vendor/cosmokit/src/index.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./context.ts",
+          "destination": "vendor/cordis/src/context.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./utils.ts",
+          "destination": "vendor/cordis/src/utils.ts",
+          "kind": "runtime",
+          "internal": true
+        }
+      ],
+      "syntax_feature_occurrences": {
+        "ClassDeclaration": 1,
+        "ComputedPropertyName": 5,
+        "ThisKeyword": 19
+      }
+    },
+    {
+      "emitted_runtime_imports": [
+        {
+          "specifier": "@deepseek-ai/cosmokit",
+          "destination": "vendor/cosmokit/src/index.ts",
+          "internal": true
+        }
+      ],
+      "path": "vendor/cordis/src/utils.ts",
+      "sha256": "8fe273424583d21267ef13f248840e97454d09d836a0ac08323a9482c2069263",
+      "bytes": 10236,
+      "imports": [
+        {
+          "specifier": "@deepseek-ai/cosmokit",
+          "destination": "vendor/cosmokit/src/index.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./index.ts",
+          "destination": "vendor/cordis/src/index.ts",
+          "kind": "type",
+          "internal": true
+        }
+      ],
+      "syntax_feature_occurrences": {
+        "ClassDeclaration": 1,
+        "ThisKeyword": 12,
+        "ArrowFunction": 9,
+        "ComputedPropertyName": 3,
+        "FunctionExpression": 3,
+        "ForOfStatement": 1,
+        "TryStatement": 1
+      }
+    },
+    {
+      "emitted_runtime_imports": [
+        {
+          "specifier": "./misc.ts",
+          "destination": "vendor/cosmokit/src/misc.ts",
+          "internal": true
+        }
+      ],
+      "path": "vendor/cosmokit/src/array.ts",
+      "sha256": "cf4de899ecffd66a90d8cef6f4c7d127d31f77f776d8e173d41c30d2d7632cf7",
+      "bytes": 1453,
+      "imports": [
+        {
+          "specifier": "./misc.ts",
+          "destination": "vendor/cosmokit/src/misc.ts",
+          "kind": "runtime",
+          "internal": true
+        }
+      ],
+      "syntax_feature_occurrences": {
+        "ArrowFunction": 3
+      }
+    },
+    {
+      "emitted_runtime_imports": [
+        {
+          "specifier": "./array.ts",
+          "destination": "vendor/cosmokit/src/array.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./types.ts",
+          "destination": "vendor/cosmokit/src/types.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./misc.ts",
+          "destination": "vendor/cosmokit/src/misc.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./string.ts",
+          "destination": "vendor/cosmokit/src/string.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./time.ts",
+          "destination": "vendor/cosmokit/src/time.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./volatile.ts",
+          "destination": "vendor/cosmokit/src/volatile.ts",
+          "internal": true
+        }
+      ],
+      "path": "vendor/cosmokit/src/index.ts",
+      "sha256": "1087da74b9c461984e547d524ee766eebcf329a78e4720bff5b60a004ccf6e8c",
+      "bytes": 506,
+      "imports": [
+        {
+          "specifier": "./array.ts",
+          "destination": "vendor/cosmokit/src/array.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./types.ts",
+          "destination": "vendor/cosmokit/src/types.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./misc.ts",
+          "destination": "vendor/cosmokit/src/misc.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./string.ts",
+          "destination": "vendor/cosmokit/src/string.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./time.ts",
+          "destination": "vendor/cosmokit/src/time.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./volatile.ts",
+          "destination": "vendor/cosmokit/src/volatile.ts",
+          "kind": "runtime",
+          "internal": true
+        }
+      ],
+      "syntax_feature_occurrences": {}
+    },
+    {
+      "emitted_runtime_imports": [],
+      "path": "vendor/cosmokit/src/misc.ts",
+      "sha256": "117617943074ea57c15f216905dacd2f6d1c4c2ff16586f97a7a7a87dbf2141f",
+      "bytes": 3865,
+      "imports": [],
+      "syntax_feature_occurrences": {
+        "ArrowFunction": 2,
+        "ForOfStatement": 2
+      }
+    },
+    {
+      "emitted_runtime_imports": [],
+      "path": "vendor/cosmokit/src/string.ts",
+      "sha256": "5564272b3e15e49235cbe3a8b453f27306baf282d23a893982841670f65d3c04",
+      "bytes": 3928,
+      "imports": [],
+      "syntax_feature_occurrences": {
+        "ArrowFunction": 1
+      }
+    },
+    {
+      "emitted_runtime_imports": [],
+      "path": "vendor/cosmokit/src/time.ts",
+      "sha256": "49957c4608465a1fbd738186a92c47fffcd1fc4ba59dbf89524f8a773fe16fe2",
+      "bytes": 3054,
+      "imports": [],
+      "syntax_feature_occurrences": {
+        "ArrowFunction": 1
+      }
+    },
+    {
+      "emitted_runtime_imports": [
+        {
+          "specifier": "./misc.ts",
+          "destination": "vendor/cosmokit/src/misc.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./volatile.ts",
+          "destination": "vendor/cosmokit/src/volatile.ts",
+          "internal": true
+        }
+      ],
+      "path": "vendor/cosmokit/src/types.ts",
+      "sha256": "cc49c12e4a637f7b0754ff78a8299e9c42fa40ee8c678550af0c538a80146a92",
+      "bytes": 7038,
+      "imports": [
+        {
+          "specifier": "./misc.ts",
+          "destination": "vendor/cosmokit/src/misc.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./volatile.ts",
+          "destination": "vendor/cosmokit/src/volatile.ts",
+          "kind": "runtime",
+          "internal": true
+        }
+      ],
+      "syntax_feature_occurrences": {
+        "ArrowFunction": 11,
+        "ForOfStatement": 1,
+        "TryStatement": 1
+      }
+    },
+    {
+      "emitted_runtime_imports": [],
+      "path": "vendor/cosmokit/src/volatile.ts",
+      "sha256": "937433215595f89da249ec7cabb89e331ff4135a40c6686a95666d2095315e55",
+      "bytes": 3637,
+      "imports": [],
+      "syntax_feature_occurrences": {
+        "ComputedPropertyName": 2,
+        "TryStatement": 2,
+        "ArrowFunction": 5
+      }
+    },
+    {
+      "emitted_runtime_imports": [
+        {
+          "specifier": "@deepseek-ai/cordis-plugin-loader",
+          "destination": "vendor/loader/src/index.ts",
+          "internal": true
+        }
+      ],
+      "path": "vendor/group/src/index.ts",
+      "sha256": "e3679df2068439b6624ef2b247f1e28db0de769f4986db3bd3da077f0d2269e6",
+      "bytes": 80,
+      "imports": [
+        {
+          "specifier": "@deepseek-ai/cordis-plugin-loader",
+          "destination": "vendor/loader/src/index.ts",
+          "kind": "runtime",
+          "internal": true
+        }
+      ],
+      "syntax_feature_occurrences": {}
+    },
+    {
+      "emitted_runtime_imports": [
+        {
+          "specifier": "@babel/code-frame",
+          "destination": "@babel/code-frame",
+          "internal": false
+        },
+        {
+          "specifier": "node:fs",
+          "destination": "node:fs",
+          "internal": false
+        }
+      ],
+      "path": "vendor/hmr/src/error.ts",
+      "sha256": "db29dd32cfbae7199eb1055aac524866d3f06c3f98c6390bff33ad384d617ab6",
+      "bytes": 1036,
+      "imports": [
+        {
+          "specifier": "@deepseek-ai/cordis",
+          "destination": "vendor/cordis/src/index.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "esbuild",
+          "destination": "esbuild",
+          "kind": "type",
+          "internal": false
+        },
+        {
+          "specifier": "@babel/code-frame",
+          "destination": "@babel/code-frame",
+          "kind": "runtime",
+          "internal": false
+        },
+        {
+          "specifier": "node:fs",
+          "destination": "node:fs",
+          "kind": "runtime",
+          "internal": false
+        }
+      ],
+      "syntax_feature_occurrences": {
+        "ArrowFunction": 1,
+        "ForOfStatement": 1,
+        "TryStatement": 1
+      }
+    },
+    {
+      "emitted_runtime_imports": [
+        {
+          "specifier": "@deepseek-ai/cordis",
+          "destination": "vendor/cordis/src/index.ts",
+          "internal": true
+        },
+        {
+          "specifier": "chokidar",
+          "destination": "chokidar",
+          "internal": false
+        },
+        {
+          "specifier": "node:path",
+          "destination": "node:path",
+          "internal": false
+        },
+        {
+          "specifier": "node:fs/promises",
+          "destination": "node:fs/promises",
+          "internal": false
+        },
+        {
+          "specifier": "./error.ts",
+          "destination": "vendor/hmr/src/error.ts",
+          "internal": true
+        },
+        {
+          "specifier": "node:url",
+          "destination": "node:url",
+          "internal": false
+        },
+        {
+          "specifier": "node:module",
+          "destination": "node:module",
+          "internal": false
+        },
+        {
+          "specifier": "picomatch",
+          "destination": "picomatch",
+          "internal": false
+        },
+        {
+          "specifier": "@deepseek-ai/schemastery",
+          "destination": "vendor/schemastery/src/index.ts",
+          "internal": true
+        }
+      ],
+      "path": "vendor/hmr/src/index.ts",
+      "sha256": "d30a1a056d76f98e519a0d16b8ac7a206e33e617b5d4b78415755532ee79eda8",
+      "bytes": 13979,
+      "imports": [
+        {
+          "specifier": "@deepseek-ai/cordis",
+          "destination": "vendor/cordis/src/index.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "@deepseek-ai/cosmokit",
+          "destination": "vendor/cosmokit/src/index.ts",
+          "kind": "type",
+          "internal": true
+        },
+        {
+          "specifier": "@deepseek-ai/cordis-plugin-loader",
+          "destination": "vendor/loader/src/index.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "@deepseek-ai/cordis-plugin-include",
+          "destination": "vendor/include/src/index.ts",
+          "kind": "type",
+          "internal": true
+        },
+        {
+          "specifier": "chokidar",
+          "destination": "chokidar",
+          "kind": "runtime",
+          "internal": false
+        },
+        {
+          "specifier": "node:path",
+          "destination": "node:path",
+          "kind": "runtime",
+          "internal": false
+        },
+        {
+          "specifier": "node:fs/promises",
+          "destination": "node:fs/promises",
+          "kind": "runtime",
+          "internal": false
+        },
+        {
+          "specifier": "./error.ts",
+          "destination": "vendor/hmr/src/error.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "@deepseek-ai/cordis-plugin-timer",
+          "destination": "vendor/timer/src/index.ts",
+          "kind": "type",
+          "internal": true
+        },
+        {
+          "specifier": "node:url",
+          "destination": "node:url",
+          "kind": "runtime",
+          "internal": false
+        },
+        {
+          "specifier": "node:module",
+          "destination": "node:module",
+          "kind": "runtime",
+          "internal": false
+        },
+        {
+          "specifier": "picomatch",
+          "destination": "picomatch",
+          "kind": "runtime",
+          "internal": false
+        },
+        {
+          "specifier": "@deepseek-ai/schemastery",
+          "destination": "vendor/schemastery/src/index.ts",
+          "kind": "runtime",
+          "internal": true
+        }
+      ],
+      "syntax_feature_occurrences": {
+        "AwaitExpression": 16,
+        "ClassDeclaration": 1,
+        "ThisKeyword": 81,
+        "SwitchStatement": 1,
+        "ComputedPropertyName": 1,
+        "YieldExpression": 1,
+        "ArrowFunction": 14,
+        "ForOfStatement": 12,
+        "ForInStatement": 3,
+        "TryStatement": 7,
+        "MetaProperty": 1
+      }
+    },
+    {
+      "emitted_runtime_imports": [
+        {
+          "specifier": "@deepseek-ai/cordis-plugin-loader",
+          "destination": "vendor/loader/src/index.ts",
+          "internal": true
+        },
+        {
+          "specifier": "@deepseek-ai/cordis",
+          "destination": "vendor/cordis/src/index.ts",
+          "internal": true
+        },
+        {
+          "specifier": "node:path",
+          "destination": "node:path",
+          "internal": false
+        },
+        {
+          "specifier": "node:fs/promises",
+          "destination": "node:fs/promises",
+          "internal": false
+        },
+        {
+          "specifier": "node:timers/promises",
+          "destination": "node:timers/promises",
+          "internal": false
+        },
+        {
+          "specifier": "node:url",
+          "destination": "node:url",
+          "internal": false
+        },
+        {
+          "specifier": "js-yaml",
+          "destination": "js-yaml",
+          "internal": false
+        }
+      ],
+      "path": "vendor/include/src/index.ts",
+      "sha256": "50005dcc3b35cb8e18e33ee157567aa14210b932fb25e22506d31aee25e59428",
+      "bytes": 11686,
+      "imports": [
+        {
+          "specifier": "@deepseek-ai/cordis-plugin-loader",
+          "destination": "vendor/loader/src/index.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "@deepseek-ai/cordis",
+          "destination": "vendor/cordis/src/index.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "node:path",
+          "destination": "node:path",
+          "kind": "runtime",
+          "internal": false
+        },
+        {
+          "specifier": "node:fs/promises",
+          "destination": "node:fs/promises",
+          "kind": "runtime",
+          "internal": false
+        },
+        {
+          "specifier": "node:timers/promises",
+          "destination": "node:timers/promises",
+          "kind": "runtime",
+          "internal": false
+        },
+        {
+          "specifier": "node:url",
+          "destination": "node:url",
+          "kind": "runtime",
+          "internal": false
+        },
+        {
+          "specifier": "js-yaml",
+          "destination": "js-yaml",
+          "kind": "runtime",
+          "internal": false
+        }
+      ],
+      "syntax_feature_occurrences": {
+        "ArrowFunction": 12,
+        "ForOfStatement": 3,
+        "ClassDeclaration": 1,
+        "ComputedPropertyName": 2,
+        "ThisKeyword": 80,
+        "TryStatement": 5,
+        "AwaitExpression": 15,
+        "YieldExpression": 1
+      }
+    },
+    {
+      "emitted_runtime_imports": [
+        {
+          "specifier": "@deepseek-ai/cosmokit",
+          "destination": "vendor/cosmokit/src/index.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./utils.ts",
+          "destination": "vendor/loader/src/config/utils.ts",
+          "internal": true
+        }
+      ],
+      "path": "vendor/loader/src/config/diff.ts",
+      "sha256": "6025a6b9798a0a16af017bb7d8d6394bbe345685b2ace56b15975add5843edb3",
+      "bytes": 2171,
+      "imports": [
+        {
+          "specifier": "@deepseek-ai/cordis",
+          "destination": "vendor/cordis/src/index.ts",
+          "kind": "type",
+          "internal": true
+        },
+        {
+          "specifier": "@deepseek-ai/cosmokit",
+          "destination": "vendor/cosmokit/src/index.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "@deepseek-ai/schemastery",
+          "destination": "vendor/schemastery/src/index.ts",
+          "kind": "type",
+          "internal": true
+        },
+        {
+          "specifier": "./utils.ts",
+          "destination": "vendor/loader/src/config/utils.ts",
+          "kind": "runtime",
+          "internal": true
+        }
+      ],
+      "syntax_feature_occurrences": {
+        "TryStatement": 1,
+        "ArrowFunction": 1
+      }
+    },
+    {
+      "emitted_runtime_imports": [
+        {
+          "specifier": "@deepseek-ai/cordis",
+          "destination": "vendor/cordis/src/index.ts",
+          "internal": true
+        },
+        {
+          "specifier": "@deepseek-ai/cosmokit",
+          "destination": "vendor/cosmokit/src/index.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./tree.ts",
+          "destination": "vendor/loader/src/config/tree.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./utils.ts",
+          "destination": "vendor/loader/src/config/utils.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./diff.ts",
+          "destination": "vendor/loader/src/config/diff.ts",
+          "internal": true
+        }
+      ],
+      "path": "vendor/loader/src/config/entry.ts",
+      "sha256": "6a061f1d3c2cdaac19409bf8ec6956ec5a0a457c4f1689be658d50af7c9ee294",
+      "bytes": 8252,
+      "imports": [
+        {
+          "specifier": "@deepseek-ai/cordis",
+          "destination": "vendor/cordis/src/index.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "@deepseek-ai/cosmokit",
+          "destination": "vendor/cosmokit/src/index.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "../index.ts",
+          "destination": "vendor/loader/src/index.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./group.ts",
+          "destination": "vendor/loader/src/config/group.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./tree.ts",
+          "destination": "vendor/loader/src/config/tree.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./utils.ts",
+          "destination": "vendor/loader/src/config/utils.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./diff.ts",
+          "destination": "vendor/loader/src/config/diff.ts",
+          "kind": "runtime",
+          "internal": true
+        }
+      ],
+      "syntax_feature_occurrences": {
+        "ForOfStatement": 2,
+        "ArrowFunction": 9,
+        "ClassDeclaration": 1,
+        "ThisKeyword": 75,
+        "ComputedPropertyName": 1,
+        "AwaitExpression": 4,
+        "TryStatement": 4
+      }
+    },
+    {
+      "emitted_runtime_imports": [
+        {
+          "specifier": "@deepseek-ai/cordis",
+          "destination": "vendor/cordis/src/index.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./entry.ts",
+          "destination": "vendor/loader/src/config/entry.ts",
+          "internal": true
+        }
+      ],
+      "path": "vendor/loader/src/config/group.ts",
+      "sha256": "5e138e8a8fad22e21d031859345797c445efbc380559fc32d35b03c835e60ccc",
+      "bytes": 2610,
+      "imports": [
+        {
+          "specifier": "@deepseek-ai/cordis",
+          "destination": "vendor/cordis/src/index.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./entry.ts",
+          "destination": "vendor/loader/src/config/entry.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./tree.ts",
+          "destination": "vendor/loader/src/config/tree.ts",
+          "kind": "runtime",
+          "internal": true
+        }
+      ],
+      "syntax_feature_occurrences": {
+        "ClassDeclaration": 2,
+        "ThisKeyword": 22,
+        "AwaitExpression": 4,
+        "ArrowFunction": 6,
+        "ForOfStatement": 1,
+        "ComputedPropertyName": 2,
+        "YieldExpression": 1
+      }
+    },
+    {
+      "emitted_runtime_imports": [
+        {
+          "specifier": "@deepseek-ai/cordis",
+          "destination": "vendor/cordis/src/index.ts",
+          "internal": true
+        }
+      ],
+      "path": "vendor/loader/src/config/isolate.ts",
+      "sha256": "dfc9e961f61fe5f7701b5593f98902aa971884fb242e208fc0d5207794117094",
+      "bytes": 5560,
+      "imports": [
+        {
+          "specifier": "@deepseek-ai/cordis",
+          "destination": "vendor/cordis/src/index.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "@deepseek-ai/cosmokit",
+          "destination": "vendor/cosmokit/src/index.ts",
+          "kind": "type",
+          "internal": true
+        },
+        {
+          "specifier": "./entry.ts",
+          "destination": "vendor/loader/src/config/entry.ts",
+          "kind": "runtime",
+          "internal": true
+        }
+      ],
+      "syntax_feature_occurrences": {
+        "ForOfStatement": 7,
+        "ClassDeclaration": 3,
+        "ThisKeyword": 8,
+        "ArrowFunction": 4,
+        "ForInStatement": 2
+      }
+    },
+    {
+      "emitted_runtime_imports": [
+        {
+          "specifier": "@deepseek-ai/cordis",
+          "destination": "vendor/cordis/src/index.ts",
+          "internal": true
+        },
+        {
+          "specifier": "@deepseek-ai/cosmokit",
+          "destination": "vendor/cosmokit/src/index.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./group.ts",
+          "destination": "vendor/loader/src/config/group.ts",
+          "internal": true
+        }
+      ],
+      "path": "vendor/loader/src/config/tree.ts",
+      "sha256": "761889adfb6b8a164fb12a0cec49a6ef439598b9267e85073000cfa9b7d682c8",
+      "bytes": 4260,
+      "imports": [
+        {
+          "specifier": "@deepseek-ai/cordis",
+          "destination": "vendor/cordis/src/index.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "@deepseek-ai/cosmokit",
+          "destination": "vendor/cosmokit/src/index.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./entry.ts",
+          "destination": "vendor/loader/src/config/entry.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./group.ts",
+          "destination": "vendor/loader/src/config/group.ts",
+          "kind": "runtime",
+          "internal": true
+        }
+      ],
+      "syntax_feature_occurrences": {
+        "ClassDeclaration": 1,
+        "ThisKeyword": 23,
+        "ForOfStatement": 2,
+        "YieldExpression": 2,
+        "ArrowFunction": 2,
+        "AwaitExpression": 4
+      }
+    },
+    {
+      "emitted_runtime_imports": [
+        {
+          "specifier": "@deepseek-ai/cosmokit",
+          "destination": "vendor/cosmokit/src/index.ts",
+          "internal": true
+        }
+      ],
+      "path": "vendor/loader/src/config/utils.ts",
+      "sha256": "d85b8ac1693af4667e9c0395cd1d6b15ec28387073a81f0d00bd38d909a05f8e",
+      "bytes": 1051,
+      "imports": [
+        {
+          "specifier": "@deepseek-ai/cosmokit",
+          "destination": "vendor/cosmokit/src/index.ts",
+          "kind": "runtime",
+          "internal": true
+        }
+      ],
+      "syntax_feature_occurrences": {
+        "ArrowFunction": 2
+      }
+    },
+    {
+      "emitted_runtime_imports": [
+        {
+          "specifier": "@deepseek-ai/cordis",
+          "destination": "vendor/cordis/src/index.ts",
+          "internal": true
+        },
+        {
+          "specifier": "@deepseek-ai/cosmokit",
+          "destination": "vendor/cosmokit/src/index.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./internal.ts",
+          "destination": "vendor/loader/src/internal.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./config/entry.ts",
+          "destination": "vendor/loader/src/config/entry.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./config/group.ts",
+          "destination": "vendor/loader/src/config/group.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./config/isolate.ts",
+          "destination": "vendor/loader/src/config/isolate.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./config/tree.ts",
+          "destination": "vendor/loader/src/config/tree.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./config/utils.ts",
+          "destination": "vendor/loader/src/config/utils.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./config/entry.ts",
+          "destination": "vendor/loader/src/config/entry.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./config/group.ts",
+          "destination": "vendor/loader/src/config/group.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./config/isolate.ts",
+          "destination": "vendor/loader/src/config/isolate.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./config/tree.ts",
+          "destination": "vendor/loader/src/config/tree.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./config/utils.ts",
+          "destination": "vendor/loader/src/config/utils.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./internal.ts",
+          "destination": "vendor/loader/src/internal.ts",
+          "internal": true
+        }
+      ],
+      "path": "vendor/loader/src/index.ts",
+      "sha256": "a135e2189a0feb0af08ff79de761698fb8ce7b41c96fefda1d4a299e5982fef3",
+      "bytes": 7308,
+      "imports": [
+        {
+          "specifier": "@deepseek-ai/cordis",
+          "destination": "vendor/cordis/src/index.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "@deepseek-ai/cosmokit",
+          "destination": "vendor/cosmokit/src/index.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./internal.ts",
+          "destination": "vendor/loader/src/internal.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./config/entry.ts",
+          "destination": "vendor/loader/src/config/entry.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./config/group.ts",
+          "destination": "vendor/loader/src/config/group.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./config/isolate.ts",
+          "destination": "vendor/loader/src/config/isolate.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./config/tree.ts",
+          "destination": "vendor/loader/src/config/tree.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./config/utils.ts",
+          "destination": "vendor/loader/src/config/utils.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./config/entry.ts",
+          "destination": "vendor/loader/src/config/entry.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./config/group.ts",
+          "destination": "vendor/loader/src/config/group.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./config/isolate.ts",
+          "destination": "vendor/loader/src/config/isolate.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./config/tree.ts",
+          "destination": "vendor/loader/src/config/tree.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./config/utils.ts",
+          "destination": "vendor/loader/src/config/utils.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./internal.ts",
+          "destination": "vendor/loader/src/internal.ts",
+          "kind": "runtime",
+          "internal": true
+        }
+      ],
+      "syntax_feature_occurrences": {
+        "ClassDeclaration": 1,
+        "ComputedPropertyName": 2,
+        "ThisKeyword": 26,
+        "FunctionExpression": 3,
+        "ArrowFunction": 1
+      }
+    },
+    {
+      "emitted_runtime_imports": [
+        {
+          "specifier": "node:module",
+          "destination": "node:module",
+          "internal": false
+        }
+      ],
+      "path": "vendor/loader/src/internal.ts",
+      "sha256": "35a50d597fed58656a11e3c5294fdf99524ed8c106739b4fab522a288eefa877",
+      "bytes": 5765,
+      "imports": [
+        {
+          "specifier": "node:module",
+          "destination": "node:module",
+          "kind": "runtime",
+          "internal": false
+        },
+        {
+          "specifier": "@deepseek-ai/cosmokit",
+          "destination": "vendor/cosmokit/src/index.ts",
+          "kind": "type",
+          "internal": true
+        }
+      ],
+      "syntax_feature_occurrences": {
+        "MetaProperty": 1,
+        "TryStatement": 2
+      }
+    },
+    {
+      "emitted_runtime_imports": [
+        {
+          "specifier": "./shared.ts",
+          "destination": "vendor/logger-console/src/shared.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./shared.ts",
+          "destination": "vendor/logger-console/src/shared.ts",
+          "internal": true
+        }
+      ],
+      "path": "vendor/logger-console/src/browser.ts",
+      "sha256": "a0c375ec601b7263d80798644503bc39985fbe33bb03263dd7979261f1ce07c1",
+      "bytes": 646,
+      "imports": [
+        {
+          "specifier": "@deepseek-ai/cordis",
+          "destination": "vendor/cordis/src/index.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./shared.ts",
+          "destination": "vendor/logger-console/src/shared.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./shared.ts",
+          "destination": "vendor/logger-console/src/shared.ts",
+          "kind": "runtime",
+          "internal": true
+        }
+      ],
+      "syntax_feature_occurrences": {
+        "ClassDeclaration": 1
+      }
+    },
+    {
+      "emitted_runtime_imports": [
+        {
+          "specifier": "node:util",
+          "destination": "node:util",
+          "internal": false
+        },
+        {
+          "specifier": "supports-color",
+          "destination": "supports-color",
+          "internal": false
+        },
+        {
+          "specifier": "./shared.ts",
+          "destination": "vendor/logger-console/src/shared.ts",
+          "internal": true
+        },
+        {
+          "specifier": "./shared.ts",
+          "destination": "vendor/logger-console/src/shared.ts",
+          "internal": true
+        }
+      ],
+      "path": "vendor/logger-console/src/index.ts",
+      "sha256": "b8b3eecf6def3a9c8b3cc5f2fc5c543567d60f13ab56d03e49f0bb1f054483f0",
+      "bytes": 864,
+      "imports": [
+        {
+          "specifier": "@deepseek-ai/cordis",
+          "destination": "vendor/cordis/src/index.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "node:util",
+          "destination": "node:util",
+          "kind": "runtime",
+          "internal": false
+        },
+        {
+          "specifier": "supports-color",
+          "destination": "supports-color",
+          "kind": "runtime",
+          "internal": false
+        },
+        {
+          "specifier": "./shared.ts",
+          "destination": "vendor/logger-console/src/shared.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "./shared.ts",
+          "destination": "vendor/logger-console/src/shared.ts",
+          "kind": "runtime",
+          "internal": true
+        }
+      ],
+      "syntax_feature_occurrences": {
+        "ArrowFunction": 1,
+        "ClassDeclaration": 1
+      }
+    },
+    {
+      "emitted_runtime_imports": [
+        {
+          "specifier": "@deepseek-ai/cordis",
+          "destination": "vendor/cordis/src/index.ts",
+          "internal": true
+        },
+        {
+          "specifier": "@deepseek-ai/cosmokit",
+          "destination": "vendor/cosmokit/src/index.ts",
+          "internal": true
+        },
+        {
+          "specifier": "@deepseek-ai/schemastery",
+          "destination": "vendor/schemastery/src/index.ts",
+          "internal": true
+        }
+      ],
+      "path": "vendor/logger-console/src/shared.ts",
+      "sha256": "4920c2d2f5cfa5e538653494bcd43534ed77a90bd598fba43b292bb5a7fe3979",
+      "bytes": 3125,
+      "imports": [
+        {
+          "specifier": "@deepseek-ai/cordis",
+          "destination": "vendor/cordis/src/index.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "@deepseek-ai/cosmokit",
+          "destination": "vendor/cosmokit/src/index.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "@deepseek-ai/schemastery",
+          "destination": "vendor/schemastery/src/index.ts",
+          "kind": "runtime",
+          "internal": true
+        }
+      ],
+      "syntax_feature_occurrences": {
+        "ClassDeclaration": 1,
+        "ThisKeyword": 21
+      }
+    },
+    {
+      "emitted_runtime_imports": [
+        {
+          "specifier": "@deepseek-ai/cosmokit",
+          "destination": "vendor/cosmokit/src/index.ts",
+          "internal": true
+        },
+        {
+          "specifier": "@deepseek-ai/cosmokit",
+          "destination": "vendor/cosmokit/src/index.ts",
+          "internal": true
+        }
+      ],
+      "path": "vendor/schemastery/src/index.ts",
+      "sha256": "a6647b515659cf439b701fa9f9574c9c310ce3872d26a13a81e9fa4d02ba10ad",
+      "bytes": 36623,
+      "imports": [
+        {
+          "specifier": "@deepseek-ai/cosmokit",
+          "destination": "vendor/cosmokit/src/index.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "@deepseek-ai/cosmokit",
+          "destination": "vendor/cosmokit/src/index.ts",
+          "kind": "runtime",
+          "internal": true
+        },
+        {
+          "specifier": "@standard-schema/spec",
+          "destination": "@standard-schema/spec",
+          "kind": "type",
+          "internal": false
+        }
+      ],
+      "syntax_feature_occurrences": {
+        "ComputedPropertyName": 10,
+        "ClassDeclaration": 1,
+        "ForOfStatement": 9,
+        "FunctionExpression": 23,
+        "ArrowFunction": 58,
+        "ForInStatement": 8,
+        "TryStatement": 10,
+        "ThisKeyword": 45,
+        "SwitchStatement": 2
+      }
+    },
+    {
+      "emitted_runtime_imports": [
+        {
+          "specifier": "@deepseek-ai/cordis",
+          "destination": "vendor/cordis/src/index.ts",
+          "internal": true
+        }
+      ],
+      "path": "vendor/timer/src/index.ts",
+      "sha256": "d723fb34a6c5f107c04611c46198c5c860cc661d6e25eee3dd4e1bc091f0d68c",
+      "bytes": 5228,
+      "imports": [
+        {
+          "specifier": "@deepseek-ai/cordis",
+          "destination": "vendor/cordis/src/index.ts",
+          "kind": "runtime",
+          "internal": true
+        }
+      ],
+      "syntax_feature_occurrences": {
+        "ClassDeclaration": 1,
+        "ThisKeyword": 10,
+        "ArrowFunction": 19,
+        "ComputedPropertyName": 1
+      }
+    }
+  ],
+  "runtime_source_order": [
+    {
+      "id": 0,
+      "members": [
+        "vendor/cosmokit/src/misc.ts"
+      ],
+      "cyclic": false,
+      "depends_on": []
+    },
+    {
+      "id": 1,
+      "members": [
+        "vendor/cosmokit/src/array.ts"
+      ],
+      "cyclic": false,
+      "depends_on": [
+        0
+      ]
+    },
+    {
+      "id": 2,
+      "members": [
+        "vendor/cosmokit/src/volatile.ts"
+      ],
+      "cyclic": false,
+      "depends_on": []
+    },
+    {
+      "id": 3,
+      "members": [
+        "vendor/cosmokit/src/types.ts"
+      ],
+      "cyclic": false,
+      "depends_on": [
+        0,
+        2
+      ]
+    },
+    {
+      "id": 4,
+      "members": [
+        "vendor/cosmokit/src/string.ts"
+      ],
+      "cyclic": false,
+      "depends_on": []
+    },
+    {
+      "id": 5,
+      "members": [
+        "vendor/cosmokit/src/time.ts"
+      ],
+      "cyclic": false,
+      "depends_on": []
+    },
+    {
+      "id": 6,
+      "members": [
+        "vendor/cosmokit/src/index.ts"
+      ],
+      "cyclic": false,
+      "depends_on": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    },
+    {
+      "id": 7,
+      "members": [
+        "vendor/cordis/src/utils.ts"
+      ],
+      "cyclic": false,
+      "depends_on": [
+        6
+      ]
+    },
+    {
+      "id": 8,
+      "members": [
+        "vendor/cordis/src/logger.ts"
+      ],
+      "cyclic": false,
+      "depends_on": [
+        6,
+        7
+      ]
+    },
+    {
+      "id": 9,
+      "members": [
+        "vendor/cordis/src/context.ts",
+        "vendor/cordis/src/events.ts",
+        "vendor/cordis/src/fiber.ts",
+        "vendor/cordis/src/reflect.ts",
+        "vendor/cordis/src/registry.ts"
+      ],
+      "cyclic": true,
+      "depends_on": [
+        6,
+        7,
+        8
+      ]
+    },
+    {
+      "id": 10,
+      "members": [
+        "vendor/cordis/src/service.ts"
+      ],
+      "cyclic": false,
+      "depends_on": [
+        6,
+        7,
+        9
+      ]
+    },
+    {
+      "id": 11,
+      "members": [
+        "vendor/cordis/src/index.ts"
+      ],
+      "cyclic": false,
+      "depends_on": [
+        7,
+        8,
+        9,
+        10
+      ]
+    },
+    {
+      "id": 12,
+      "members": [
+        "vendor/loader/src/internal.ts"
+      ],
+      "cyclic": false,
+      "depends_on": []
+    },
+    {
+      "id": 13,
+      "members": [
+        "vendor/loader/src/config/utils.ts"
+      ],
+      "cyclic": false,
+      "depends_on": [
+        6
+      ]
+    },
+    {
+      "id": 14,
+      "members": [
+        "vendor/loader/src/config/diff.ts"
+      ],
+      "cyclic": false,
+      "depends_on": [
+        6,
+        13
+      ]
+    },
+    {
+      "id": 15,
+      "members": [
+        "vendor/loader/src/config/entry.ts",
+        "vendor/loader/src/config/group.ts",
+        "vendor/loader/src/config/tree.ts"
+      ],
+      "cyclic": true,
+      "depends_on": [
+        6,
+        11,
+        13,
+        14
+      ]
+    },
+    {
+      "id": 16,
+      "members": [
+        "vendor/loader/src/config/isolate.ts"
+      ],
+      "cyclic": false,
+      "depends_on": [
+        11
+      ]
+    },
+    {
+      "id": 17,
+      "members": [
+        "vendor/loader/src/index.ts"
+      ],
+      "cyclic": false,
+      "depends_on": [
+        6,
+        11,
+        12,
+        13,
+        15,
+        16
+      ]
+    },
+    {
+      "id": 18,
+      "members": [
+        "vendor/group/src/index.ts"
+      ],
+      "cyclic": false,
+      "depends_on": [
+        17
+      ]
+    },
+    {
+      "id": 19,
+      "members": [
+        "vendor/hmr/src/error.ts"
+      ],
+      "cyclic": false,
+      "depends_on": []
+    },
+    {
+      "id": 20,
+      "members": [
+        "vendor/schemastery/src/index.ts"
+      ],
+      "cyclic": false,
+      "depends_on": [
+        6
+      ]
+    },
+    {
+      "id": 21,
+      "members": [
+        "vendor/hmr/src/index.ts"
+      ],
+      "cyclic": false,
+      "depends_on": [
+        11,
+        19,
+        20
+      ]
+    },
+    {
+      "id": 22,
+      "members": [
+        "vendor/include/src/index.ts"
+      ],
+      "cyclic": false,
+      "depends_on": [
+        11,
+        17
+      ]
+    },
+    {
+      "id": 23,
+      "members": [
+        "vendor/logger-console/src/shared.ts"
+      ],
+      "cyclic": false,
+      "depends_on": [
+        6,
+        11,
+        20
+      ]
+    },
+    {
+      "id": 24,
+      "members": [
+        "vendor/logger-console/src/browser.ts"
+      ],
+      "cyclic": false,
+      "depends_on": [
+        23
+      ]
+    },
+    {
+      "id": 25,
+      "members": [
+        "vendor/logger-console/src/index.ts"
+      ],
+      "cyclic": false,
+      "depends_on": [
+        23
+      ]
+    },
+    {
+      "id": 26,
+      "members": [
+        "vendor/timer/src/index.ts"
+      ],
+      "cyclic": false,
+      "depends_on": [
+        11
+      ]
+    }
+  ]
+}

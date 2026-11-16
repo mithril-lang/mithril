@@ -1,0 +1,24 @@
+(ns mithril.native-service-test
+ (:require [cljs.test :refer [deftest is]] [mithril.native-js :as native] [mithril.native-esm :as esm]
+           [mithril.native-esm-test :as e] [mithril.form :as form]
+           ["node:fs" :as fs] ["node:os" :as os] ["node:path" :as path] ["node:child_process" :as child]))
+(def source "examples/native-js-cordis-esm.mith")
+(deftest complete-service-and-original-index-native-admission
+ (let [text (fs/readFileSync source "utf8") sources (e/sources-for text "examples")
+       artifact (esm/compile-text text sources)
+       service (native/check-text (get sources "native-js-cordis-service.mith"))]
+  (is (= artifact (esm/compile-document (form/parse text) sources)))
+  (is (= ["Service"] (mapv :name (:exports service))))
+  (is (and (= 15 (count (:module-files artifact))) (= 26 (count (:exports artifact)))
+           (not (some #{"default"} (:exports artifact)))))))
+(deftest actual-service-index-native-cli-runtime
+ (let [dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-service-runtime-"))]
+  (try
+   (let [engine (.-MITHRIL_NATIVE_ENGINE js/process.env) config (path/join dir "offline.edn")]
+    (fs/writeFileSync config "{:paths [\"src\"]}\n")
+    (doseq [target ["js" "js-browser"]]
+     (let [meta (e/cli! engine config source target (path/join dir target))]
+      (fs/writeFileSync (path/join dir (str target ".json")) (js/JSON.stringify (clj->js meta))))))
+   (let [r (child/spawnSync js/process.execPath (clj->js ["test/fixtures/cordis-core/service-contract.mjs" dir]) #js {:encoding "utf8" :timeout 30000})]
+    (is (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r)))
+   (finally (fs/rmSync dir #js {:recursive true :force true})))))

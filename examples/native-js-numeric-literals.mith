@@ -1,0 +1,15 @@
+(mithril/native-js-module
+ :name "native.numericLiterals"
+ :imports []
+ :functions [(mithril/function
+  :name "values" :params [] :returns "js-value"
+  :body (mithril/host-array :items [
+   (mithril/literal :datatype "js-value" :value 0.01)
+   (mithril/literal :value -0.0 :datatype "js-value")
+   (mithril/literal :datatype "js-value" :value 1e-7)
+   (mithril/literal :datatype "js-value" :value 1e21)
+   (mithril/literal :datatype "js-value" :value 1.7976931348623157e308)
+   (mithril/literal :datatype "js-value" :value 5e-324)
+   (mithril/literal :datatype "js-value" :value -2.5)
+   (mithril/literal :datatype "js-value" :value -0e0)]))]
+ :exports ["values"])

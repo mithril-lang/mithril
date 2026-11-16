@@ -1,0 +1,40 @@
+{
+  "format": "mithril.native-esm-declarations-qualification/v1",
+  "source_tests": 59,
+  "source_assertions": 209,
+  "actual_cli_targets": [
+    "js",
+    "js-browser"
+  ],
+  "profiles": [
+    "esm-library",
+    "native-esm"
+  ],
+  "type_nodes": 446,
+  "public_names": 49,
+  "public_values": 40,
+  "public_type_bindings": 11,
+  "dual_names": 2,
+  "positive_type_groups_per_target_profile": 10,
+  "negative_type_groups_per_target_profile": 12,
+  "runtime_groups_per_target_profile": 15,
+  "native_esm_modules": 7,
+  "adjacent_type_entry": "index.d.mts paired with actual index.mjs",
+  "emitted_declaration_bytes_identical_to_old_profile": true,
+  "runtime_identity_refusals": 3,
+  "actual_cli_refusals": 8,
+  "refusal_codes_and_output_preservation_checked": true,
+  "guard_changes": "Only actual checked native-esm format accepted alongside old package; exact name/public surface, full graph/read/scope/type AST guards retained",
+  "source_sha256": {
+    "src/mithril/native_declarations.cljk": "9814c23d5846185e04d5fb782505ee02ca4f9ff941552fc32e28abc01784d6a6",
+    "bin/mithril-native-declarations.cljk": "54e10ae0e77aeca7b9c7ed58315ccc70604efe7f06f113ead126f687ab85fb4b",
+    "examples/native-js-cosmokit-esm-declarations.mith": "bd0b2e3c2ad92b88160f34bb677cf5ba6bcf3a112781ef206c623d9b6457039f",
+    "test/qualification/native-js-declarations/controls/compile-declarations.cljk": "9aacee15931e33cb67b322a9ef5d282513d94fc7f48f9658e5bfea8bb4290b8e"
+  },
+  "system_one": {
+    "new_inferences": 0,
+    "repairs": 0,
+    "model_code_adoption": false
+  },
+  "scope": "Full CosmoKit native ESM typing prerequisite, not Cordis public class/interface/augmentation/const-enum declarations or full Harness parity"
+}

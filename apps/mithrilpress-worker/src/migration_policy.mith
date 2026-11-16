@@ -1,0 +1,97 @@
+; Mithril-authored decisions for migration parity and revision lifecycle.
+(mithril/native-js-module
+ :name "mithrilpress.migration_policy"
+ :imports []
+ :functions
+ [(mithril/function
+   :name "allTrue5"
+   :params [(rdf/node :name "a" :datatype "js-value")
+            (rdf/node :name "b" :datatype "js-value")
+            (rdf/node :name "c" :datatype "js-value")
+            (rdf/node :name "d" :datatype "js-value")
+            (rdf/node :name "e" :datatype "js-value")]
+   :returns "js-value"
+   :body
+   (mithril/host-logical
+    :operator "&&"
+    :left (mithril/host-logical
+           :operator "&&"
+           :left (mithril/host-binary :operator "===" :left (mithril/local :name "a") :right (mithril/literal :datatype "js-value" :value true))
+           :right (mithril/host-binary :operator "===" :left (mithril/local :name "b") :right (mithril/literal :datatype "js-value" :value true)))
+    :right (mithril/host-logical
+            :operator "&&"
+            :left (mithril/host-logical
+                   :operator "&&"
+                   :left (mithril/host-binary :operator "===" :left (mithril/local :name "c") :right (mithril/literal :datatype "js-value" :value true))
+                   :right (mithril/host-binary :operator "===" :left (mithril/local :name "d") :right (mithril/literal :datatype "js-value" :value true)))
+            :right (mithril/host-binary :operator "===" :left (mithril/local :name "e") :right (mithril/literal :datatype "js-value" :value true)))))
+  (mithril/function
+   :name "migrationParityStatus"
+   :params [(rdf/node :name "facts" :datatype "js-value")]
+   :returns "js-value"
+   :body
+   (mithril/if
+    :condition
+    (mithril/host-invoke
+     :function (mithril/function-ref :name "allTrue5")
+     :args [(mithril/host-invoke
+             :function (mithril/function-ref :name "allTrue5")
+             :args [(mithril/host-get :object (mithril/local :name "facts") :key (mithril/literal :datatype "js-value" :value "recordsReconcile"))
+                    (mithril/host-get :object (mithril/local :name "facts") :key (mithril/literal :datatype "js-value" :value "blockScanComplete"))
+                    (mithril/host-get :object (mithril/local :name "facts") :key (mithril/literal :datatype "js-value" :value "noSourceOmissions"))
+                    (mithril/host-get :object (mithril/local :name "facts") :key (mithril/literal :datatype "js-value" :value "noMediaOmissions"))
+                    (mithril/host-get :object (mithril/local :name "facts") :key (mithril/literal :datatype "js-value" :value "noUnsupportedBlocks"))])
+            (mithril/host-invoke
+             :function (mithril/function-ref :name "allTrue5")
+             :args [(mithril/host-get :object (mithril/local :name "facts") :key (mithril/literal :datatype "js-value" :value "noLayoutDegradation"))
+                    (mithril/host-get :object (mithril/local :name "facts") :key (mithril/literal :datatype "js-value" :value "noDynamicBlocks"))
+                    (mithril/host-get :object (mithril/local :name "facts") :key (mithril/literal :datatype "js-value" :value "noUnsafeLinkRemovals"))
+                    (mithril/host-get :object (mithril/local :name "facts") :key (mithril/literal :datatype "js-value" :value "noUnresolvedLinks"))
+                    (mithril/host-get :object (mithril/local :name "facts") :key (mithril/literal :datatype "js-value" :value "noMetadataAndRouteOmissions"))])
+            (mithril/literal :datatype "js-value" :value true)
+            (mithril/literal :datatype "js-value" :value true)
+            (mithril/literal :datatype "js-value" :value true)])
+    :then (mithril/literal :datatype "js-value" :value "supported-slice-complete")
+    :else (mithril/literal :datatype "js-value" :value "owner-review-required")))
+  (mithril/function
+   :name "canApproveRevision"
+   :params [(rdf/node :name "facts" :datatype "js-value")]
+   :returns "js-value"
+   :body (mithril/host-invoke
+          :function (mithril/function-ref :name "allTrue5")
+          :args [(mithril/host-get :object (mithril/local :name "facts") :key (mithril/literal :datatype "js-value" :value "siteActive"))
+                 (mithril/host-get :object (mithril/local :name "facts") :key (mithril/literal :datatype "js-value" :value "privatePreview"))
+                 (mithril/host-get :object (mithril/local :name "facts") :key (mithril/literal :datatype "js-value" :value "parentMatches"))
+                 (mithril/host-get :object (mithril/local :name "facts") :key (mithril/literal :datatype "js-value" :value "entriesComplete"))
+                 (mithril/host-get :object (mithril/local :name "facts") :key (mithril/literal :datatype "js-value" :value "exactRevision"))]))
+  (mithril/function
+   :name "canPublishRevision"
+   :params [(rdf/node :name "facts" :datatype "js-value")]
+   :returns "js-value"
+   :body (mithril/host-invoke
+          :function (mithril/function-ref :name "allTrue5")
+          :args [(mithril/host-get :object (mithril/local :name "facts") :key (mithril/literal :datatype "js-value" :value "siteActive"))
+                 (mithril/host-get :object (mithril/local :name "facts") :key (mithril/literal :datatype "js-value" :value "approved"))
+                 (mithril/host-get :object (mithril/local :name "facts") :key (mithril/literal :datatype "js-value" :value "parentMatches"))
+                 (mithril/host-get :object (mithril/local :name "facts") :key (mithril/literal :datatype "js-value" :value "validOwnerApproval"))
+                 (mithril/host-get :object (mithril/local :name "facts") :key (mithril/literal :datatype "js-value" :value "entriesComplete"))]))
+  (mithril/function
+   :name "canRestorePublishedRevision"
+   :params [(rdf/node :name "facts" :datatype "js-value")]
+   :returns "js-value"
+   :body (mithril/host-invoke
+          :function (mithril/function-ref :name "allTrue5")
+          :args [(mithril/host-get :object (mithril/local :name "facts") :key (mithril/literal :datatype "js-value" :value "siteActive"))
+                 (mithril/host-get :object (mithril/local :name "facts") :key (mithril/literal :datatype "js-value" :value "targetWasPublished"))
+                 (mithril/host-get :object (mithril/local :name "facts") :key (mithril/literal :datatype "js-value" :value "targetSuperseded"))
+                 (mithril/host-get :object (mithril/local :name "facts") :key (mithril/literal :datatype "js-value" :value "validOwnerApproval"))
+                 (mithril/host-invoke :function (mithril/function-ref :name "allTrue5")
+                  :args [(mithril/host-get :object (mithril/local :name "facts") :key (mithril/literal :datatype "js-value" :value "entriesComplete"))
+                         (mithril/host-get :object (mithril/local :name "facts") :key (mithril/literal :datatype "js-value" :value "currentRevisionDiffers"))
+                         (mithril/literal :datatype "js-value" :value true)
+                         (mithril/literal :datatype "js-value" :value true)
+                         (mithril/literal :datatype "js-value" :value true)])]))]
+ :exports [(rdf/node :name "migrationParityStatus" :value (mithril/function-ref :name "migrationParityStatus"))
+           (rdf/node :name "canApproveRevision" :value (mithril/function-ref :name "canApproveRevision"))
+           (rdf/node :name "canPublishRevision" :value (mithril/function-ref :name "canPublishRevision"))
+           (rdf/node :name "canRestorePublishedRevision" :value (mithril/function-ref :name "canRestorePublishedRevision"))])

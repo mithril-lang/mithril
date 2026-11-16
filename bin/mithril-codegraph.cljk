@@ -1,0 +1,10 @@
+(ns mithril.codegraph-main
+  (:require [mithril.codegraph-cli :as cli]))
+
+(let [[command & args] *command-line-args*]
+  (try (cli/run! command args)
+       (catch :default e
+         (binding [*print-fn* *print-err-fn*]
+           (println (str "REFUSE\t" (or (some-> e ex-data :mithril/error name) "codegraph-error")
+                         "\t" (.-message e))))
+         (js/process.exit 1))))

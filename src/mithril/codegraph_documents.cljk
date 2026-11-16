@@ -1,0 +1,156 @@
+(ns mithril.codegraph-documents
+  "Inert document entities and explicit links. Never infer prose semantics."
+  (:require [clojure.string :as str]))
+
+(def max-entities 2000)
+(defn whole-span [text]
+  (let [lines (str/split text #"\n" -1)]
+    {:start-line 1 :start-column 1 :end-line (count lines)
+     :end-column (inc (count (last lines)))}))
+(defn document-name [path] (str "doc:" path))
+(defn slug [s]
+  (-> s str/lower-case (str/replace (js/RegExp. "[^\\p{L}\\p{N}_\\s-]" "gu") "")
+      str/trim (str/replace #"\s+" "-")))
+(defn- matches [pattern text]
+  (let [r (js/RegExp. pattern "g")]
+    (loop [result []]
+      (if-let [m (.exec r text)]
+        (recur (conj result {:groups (vec (array-seq m)) :column (inc (.-index m))})) result))))
+
+(defn- link-reference [path owner target location]
+  (try
+    (let [[raw fragment] (str/split target #"#" 2)
+          raw (js/decodeURIComponent raw)
+          fragment (when fragment (js/decodeURIComponent fragment))]
+      (when-not (or (re-find #"^[a-zA-Z][a-zA-Z0-9+.-]*:" raw)
+                    (str/starts-with? raw "/") (str/includes? raw "\\")
+                    (str/includes? raw "?") (re-find #"[\u0000-\u001f]" raw))
+        (let [posix (.-posix (js/require "path"))
+              relative (if (str/blank? raw) path (.normalize posix (.join posix (.dirname posix path) raw)))]
+          (when-not (or (= relative "..") (str/starts-with? relative "../"))
+            {:owner owner :target-path relative :fragment fragment
+             :relation :documents :provenance :document-link :span location}))))
+    (catch :default _ nil)))
+
+(defn- reference-label [s] (-> s str/trim str/lower-case (str/replace #"\s+" " ")))
+
+(defn- markdown-metadata [lines]
+  (let [visible (loop [xs (map-indexed vector lines) fence nil result {}]
+                  (if-let [[idx line] (first xs)]
+                    (let [marker (second (re-find #"^\s{0,3}(`{3,}|~{3,})" line))
+                          closing? (and fence marker (= (first marker) (first fence))
+                                        (>= (count marker) (count fence))
+                                        (re-matches #"\s{0,3}(`{3,}|~{3,})\s*" line))]
+                      (recur (next xs) (cond closing? nil fence fence marker marker :else nil)
+                             (if (or fence marker) result (assoc result idx line)))) result))]
+    {:labels (reduce (fn [m [_ line]]
+                       (if-let [[_ label target] (re-matches #"^\s{0,3}\[([^\]]+)\]:\s*<?([^\s>]+)>?(?:\s+.*)?$" line)]
+                         (if (contains? m (reference-label label)) m (assoc m (reference-label label) target)) m))
+                     {} (sort-by key visible))
+     :setext (into {} (for [[idx line] visible
+                           :let [underline (get visible (inc idx))]
+                           :when (and (not (str/blank? line))
+                                      (not (re-find #"^\s{0,3}(?:#|>|[-*+]\s|\[.+\]:)" line))
+                                      underline (re-matches #"\s{0,3}(?:=+|-+)\s*" underline))]
+                       [idx (str/trim line)]))}))
+
+(defn extract-text [path text markdown?]
+  (let [lines (str/split text #"\n" -1) root (document-name path)
+        metadata (when markdown? (markdown-metadata lines))
+        state
+        (reduce
+         (fn [{:keys [fence headings owner slugs] :as state} [idx line]]
+           (let [line-no (inc idx) marker (re-find #"^\s{0,3}(`{3,}|~{3,})" line)
+                 fence-token (second marker)]
+             (cond
+               (and markdown? marker)
+               (if fence
+                 (if (and (= (first fence-token) (first fence))
+                          (>= (count fence-token) (count fence))
+                          (re-matches #"\s{0,3}(`{3,}|~{3,})\s*" line))
+                   (assoc state :fence nil) state)
+                 (assoc state :fence fence-token))
+               fence state
+               :else
+               (let [heading (when markdown? (re-matches #"^\s{0,3}(#{1,6})\s+(.+?)\s*#*\s*$" line))
+                     title (or (nth heading 2 nil) (get-in metadata [:setext idx])) anchor (when title (slug title))
+                     occurrence (get slugs anchor 0)
+                     anchor (when anchor (str anchor (when (pos? occurrence) (str "-" occurrence))))
+                     owner (if title (str root "#" anchor) owner)
+                     location {:start-line line-no :start-column 1
+                               :end-line line-no :end-column (inc (count line))}
+                     link-line (str/replace line #"`+[^`]*`+" #(apply str (repeat (count %) " ")))
+                     definition-line? (and markdown? (re-find #"^\s{0,3}\[[^\]]+\]:" line))
+                     links (when (and markdown? (not definition-line?)) (matches "!?\\[[^\\]\\n]*\\]\\(([^\\s)]+)(?:\\s+[^)]*)?\\)" link-line))
+                     reference-links (when (and markdown? (not definition-line?))
+                                       (matches "!?\\[([^\\]\\n]+)\\](?:\\[([^\\]\\n]*)\\])?(?![(:])" link-line))
+                     linked-refs (keep (fn [{:keys [groups column]}]
+                                         (when-let [target (get (:labels metadata)
+                                                               (reference-label (if (seq (nth groups 2 nil))
+                                                                                  (nth groups 2) (nth groups 1))))]
+                                           (link-reference path owner target
+                                             (assoc location :start-column column
+                                                             :end-column (+ column (count (first groups))))))) reference-links)
+                     refs (keep (fn [{:keys [groups column]}]
+                                  (link-reference path owner (nth groups 1)
+                                    (assoc location :start-column column
+                                                   :end-column (+ column (count (first groups)))))) links)
+                     symbols (when markdown? (matches "`([A-Za-z_][A-Za-z0-9_.-]*/[A-Za-z_*!?+<>=.-][A-Za-z0-9_*!?+<>=.-]*)`" line))]
+                 (cond-> (-> state (assoc :owner owner)
+                             (update :references into (concat refs linked-refs))
+                             (update :references into
+                               (map (fn [{:keys [groups column]}]
+                                      {:owner owner :target (nth groups 1) :relation :documents
+                                       :provenance :document-symbol
+                                       :span (assoc location :start-column column
+                                                              :end-column (+ column (count (first groups))))}) symbols)))
+                   title (update :headings conj {:name owner :label title :kind :section
+                                                :anchor anchor :span location :location-precision :section})
+                   title (update-in [:slugs (slug title)] (fnil inc 0)))))))
+         {:fence nil :owner root :headings [] :slugs {} :references []}
+         (map-indexed vector lines))
+        headings (:headings state)
+        headings (mapv (fn [idx h]
+                         (let [end-line (if-let [following (nth headings (inc idx) nil)]
+                                          (dec (get-in following [:span :start-line])) (count lines))]
+                           (assoc h :span (assoc (:span h) :end-line end-line
+                                                 :end-column (inc (count (nth lines (dec end-line) "")))))))
+                       (range (count headings)) headings)]
+    (when (> (+ 1 (count headings)) max-entities)
+      (throw (ex-info "document entity budget exceeded" {:mithril/error :mithril.codegraph/document-budget})))
+    {:namespace root :aliases {} :refers {} :imports []
+     :definitions (into [{:name root :label path :kind :document :span (whole-span text)
+                          :location-precision :document}] headings)
+     :references (into (vec (:references state))
+                       (map (fn [h] {:owner root :target (:name h) :relation :documents
+                                     :provenance :document-structure :span (:span h)}) headings))
+     :diagnostics [] :document-type (if markdown? "Markdown" "Text")}))
+
+(defn extract-entities [doc root location]
+  (let [budget (atom 0) entities (atom {}) references (atom [])]
+    (letfn [(walk [value owner]
+              (when (> (swap! budget inc) 20000)
+                (throw (ex-info "semantic document traversal budget exceeded"
+                                {:mithril/error :mithril.codegraph/document-budget})))
+              (cond
+                (map? value)
+                (let [identity (get value "@id")
+                      defined? (and (string? identity) (> (count value) 1))
+                      next-owner (if defined? identity owner)]
+                  (when (and defined? (not= identity root))
+                    (swap! entities assoc identity {:name identity :label identity :kind :entity
+                                                   :span location :location-precision :document
+                                                   :document-type (get value "@type")}))
+                  (when (and (string? identity) (not= identity owner))
+                    (swap! references conj {:owner owner :target identity :relation :documents
+                                             :provenance :declared-iri :span location}))
+                  (doseq [[k v] value :when (not (contains? #{"@context" "@id"} k))]
+                    (when (and (contains? #{"symbol" "operation" "candidate" "library"} k) (string? v))
+                      (swap! references conj {:owner next-owner :target v :relation :documents
+                                               :provenance :declared-iri :span location}))
+                    (walk v next-owner)))
+                (sequential? value) (doseq [v value] (walk v owner))))]
+      (walk doc root))
+    (when (> (count @entities) max-entities)
+      (throw (ex-info "semantic document entity budget exceeded" {:mithril/error :mithril.codegraph/document-budget})))
+    {:definitions (vec (sort-by :name (vals @entities))) :references (vec (distinct @references))}))

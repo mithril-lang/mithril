@@ -1,0 +1,191 @@
+; Derived from pinned js-yaml 4.2.0 full source. MIT; see test/qualification/native-yaml-source/LICENSE.
+(mithril/native-js-module
+:name "yaml.set"
+:ambient_imports ["Object"]
+:imports ["yamlRoot___commonJSMin"
+"yamlRoot_require_type"
+"Object"]
+:functions []
+:bindings [(rdf/node
+:name "yC0"
+:value (mithril/literal
+:datatype "js-value"
+:value nil))
+(rdf/node
+:name "yamlRoot_require_set"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:name "initialize_yamlRoot_require_set"
+:value (mithril/local-set
+:name "yamlRoot_require_set"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot___commonJSMin")
+:args [(mithril/native-lambda
+:params ["yL299"
+"yL300"]
+:rest nil
+:body (mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "yL301"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:pattern "yL302"
+:value (mithril/host-undefined)
+:mutable true)]
+:body (mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "yL303"
+:value (mithril/native-function
+:name "resolveYamlSet"
+:params [(rdf/node
+:name "yL305"
+:datatype "js-value")]
+:rest nil
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "yL305")
+:right (mithril/local
+:name "yC0"))
+:then (mithril/host-return
+:value (mithril/literal
+:datatype "js-value"
+:value true))
+:else (mithril/host-undefined))
+(mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "yL306"
+:value (mithril/local
+:name "yL305"))]
+:body (mithril/sequence
+:expressions [(mithril/host-for-in
+:object (mithril/local
+:name "yL306")
+:binding "yL307"
+:body (mithril/if
+:condition (mithril/host-method
+:object (mithril/local
+:name "yL302")
+:key (mithril/literal
+:datatype "js-value"
+:value "call")
+:args [(mithril/local
+:name "yL306")
+(mithril/local
+:name "yL307")])
+:then (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "!=="
+:left (mithril/host-get
+:object (mithril/local
+:name "yL306")
+:key (mithril/local
+:name "yL307"))
+:right (mithril/local
+:name "yC0"))
+:then (mithril/host-return
+:value (mithril/literal
+:datatype "js-value"
+:value false))
+:else (mithril/host-undefined))
+(mithril/host-undefined)])
+:else (mithril/host-undefined))
+:result (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/literal
+:datatype "js-value"
+:value true))
+(mithril/host-undefined)])]))])
+:statements true))
+(rdf/node
+:pattern "yL304"
+:value (mithril/native-function
+:name "constructYamlSet"
+:params [(rdf/node
+:name "yL308"
+:datatype "js-value")]
+:rest nil
+:body (mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/if
+:condition (mithril/host-binary
+:operator "!=="
+:left (mithril/local
+:name "yL308")
+:right (mithril/local
+:name "yC0"))
+:then (mithril/local
+:name "yL308")
+:else (mithril/host-object
+:entries [])))
+(mithril/host-undefined)])
+:statements true))]
+:body (mithril/sequence
+:expressions [(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL301"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot_require_type")
+:args []))])
+(mithril/sequence
+:expressions [(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL302"
+:value (mithril/host-get
+:object (mithril/host-get
+:object (mithril/host-import
+:name "Object")
+:key (mithril/literal
+:datatype "js-value"
+:value "prototype"))
+:key (mithril/literal
+:datatype "js-value"
+:value "hasOwnProperty")))])
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/local
+:name "yL300")
+:key (mithril/literal
+:datatype "js-value"
+:value "exports")
+:value (mithril/host-construct
+:constructor (mithril/local
+:name "yL301")
+:args [(mithril/literal
+:datatype "js-value"
+:value "tag:yaml.org,2002:set")
+(mithril/host-object
+:entries [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "kind")
+:value (mithril/literal
+:datatype "js-value"
+:value "mapping"))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "resolve")
+:value (mithril/local
+:name "yL303"))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "construct")
+:value (mithril/local
+:name "yL304"))])]))
+(mithril/host-undefined)])])])))
+:statements true)])))]
+:exports [(rdf/node
+:name "yamlRoot_require_set"
+:value (mithril/local
+:name "yamlRoot_require_set"))]
+:lexical_bindings true)

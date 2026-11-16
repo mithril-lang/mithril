@@ -1,0 +1,319 @@
+(ns mithril.module-lower
+  "Lower checked Mithril source to deterministic Amu Kotoba source."
+  (:require [mithril.module :as module]
+            [clojure.string :as str]))
+
+(defn- amu-namespace [name]
+  (str "mithril.generated." name))
+
+(defn- export-symbol [index]
+  (str "__mithril_f" index))
+
+(defn- parameter-symbol [index]
+  (str "__mithril_p" index))
+
+(defn- intrinsic-symbol [name]
+  (case name
+    "add" "+"
+    "sub" "-"
+    "mul" "*"
+    "eq" "="
+    "not" "not"
+    "js_nullish" "js-nullish?"
+    "js_truthy" "js-truthy?"
+    "js_strict_equal" "js-strict-equal?"
+    "js_typeof" "js-typeof"
+    "js_array" "js-array?"
+    "js_bool_value" "js-bool-value"
+    "js_undefined" "js-undefined"))
+
+(defn- literal-source [type value]
+  (case type
+    :i64 (str value)
+    :bool (str value)
+    :string (pr-str value)))
+
+(defn- expression-source [expr function-indexes parameter-indexes binding-counter contract-indexes]
+  (case (:op expr)
+    :literal (literal-source (:type expr) (:value expr))
+    :local (get parameter-indexes (:name expr))
+    :intrinsic (str "(" (intrinsic-symbol (:name expr))
+                    (if (seq (:args expr))
+                      (str " " (str/join " " (map #(expression-source % function-indexes parameter-indexes binding-counter contract-indexes) (:args expr))))
+                      "")
+                    ")")
+    :call (str "(" (export-symbol (get function-indexes (:name expr)))
+               (if (seq (:args expr))
+                 (str " " (str/join " " (map #(expression-source % function-indexes parameter-indexes binding-counter contract-indexes) (:args expr))))
+                 "")
+               ")")
+    :lambda (let [params (:params expr)
+                  symbols (mapv (fn [_] (str "__mithril_a" (swap! binding-counter inc))) params)
+                  env (into parameter-indexes (map vector (map :name params) symbols))]
+              (str "(__mithril_contract" (get contract-indexes (:type expr))
+                   " (fn [" (str/join " " symbols) "] "
+                   (expression-source (:body expr) function-indexes env binding-counter contract-indexes) "))"))
+    :function-ref (str "(__mithril_contract" (get contract-indexes (:type expr))
+                       " (fn-ref " (export-symbol (get function-indexes (:name expr))) "))")
+    :invoke (str "(__mithril_invoke" (get contract-indexes (:function-type expr)) " "
+                 (expression-source (:function expr) function-indexes parameter-indexes binding-counter contract-indexes)
+                 (apply str (map #(str " " (expression-source % function-indexes parameter-indexes binding-counter contract-indexes)) (:args expr))) ")")
+    :let (loop [remaining (:bindings expr) env parameter-indexes parts []]
+           (if-let [binding (first remaining)]
+             (let [value (expression-source (:value binding) function-indexes env binding-counter contract-indexes)
+                   name (str "__mithril_l" (swap! binding-counter inc))]
+               (recur (next remaining) (assoc env (:name binding) name)
+                      (conj parts (str name " " value))))
+             (str "(let [" (str/join " " parts) "] "
+                  (expression-source (:body expr) function-indexes env binding-counter contract-indexes) ")")))
+    :sequence (str "(do " (str/join " " (map #(expression-source % function-indexes parameter-indexes binding-counter contract-indexes)
+                                             (:expressions expr))) ")")
+    :if (str "(if " (expression-source (:condition expr) function-indexes parameter-indexes binding-counter contract-indexes)
+            " " (expression-source (:then expr) function-indexes parameter-indexes binding-counter contract-indexes)
+            " " (expression-source (:else expr) function-indexes parameter-indexes binding-counter contract-indexes) ")")))
+
+(defn- function-source [declaration index function-indexes contract-indexes]
+  (let [params (mapv (fn [param i] (str (parameter-symbol i) " " (str (:type param)))) (:params declaration) (range (count (:params declaration))))
+        body (expression-source (:body declaration) function-indexes (zipmap (mapv :name (:params declaration)) (mapv parameter-symbol (range (count (:params declaration))))) (atom 0) contract-indexes)]
+    (str "(defn " (export-symbol index) " [" (str/join " " params) "] " (str (:returns declaration)) " " body ")\n")))
+
+(defn- export-target [checked public-name]
+  (get (:export-targets checked) public-name public-name))
+
+(defn- contract-uses [expr]
+  ;; Visit source children explicitly: helper numbering cannot depend on map
+  ;; iteration order. Only new callable nodes create contextual ABI helpers.
+  (let [own (case (:op expr)
+              (:lambda :function-ref) [[:construct (:type expr)]]
+              :invoke [[:invoke (:function-type expr)]]
+              [])
+        children (case (:op expr)
+                   (:call :intrinsic) (:args expr)
+                   :lambda [(:body expr)]
+                   :invoke (into [(:function expr)] (:args expr))
+                   :let (conj (mapv :value (:bindings expr)) (:body expr))
+                   :sequence (:expressions expr)
+                   :if [(:condition expr) (:then expr) (:else expr)]
+                   [])]
+    (into own (mapcat contract-uses children))))
+
+(defn- contract-source [[kind type] index]
+  (let [[params returns] (second type)]
+    (case kind
+      :construct (str "(defn __mithril_contract" index " [__mithril_value " type "] " type " __mithril_value)\n")
+      :invoke (let [symbols (mapv parameter-symbol (range (count params)))]
+                (str "(defn __mithril_invoke" index " [__mithril_callable " type
+                     (apply str (map (fn [name type] (str " " name " " type)) symbols params))
+                     "] " returns " (__mithril_callable"
+                     (apply str (map #(str " " %) symbols)) "))\n")))))
+
+(defn- source [checked]
+  (let [names (mapv :name (:functions checked))
+        indexes (zipmap names (range (count names)))
+        uses (vec (distinct (mapcat #(contract-uses (:body %)) (:functions checked))))
+        contracts (zipmap (vec (distinct (map second uses))) (range))
+        export-symbols (vec (distinct (map (fn [export] (export-symbol (get indexes (export-target checked export)))) (:exports checked))))]
+    (when (> (+ (count names) (count uses)) 128)
+      (throw (ex-info "Callable ABI helpers exceed module function budget"
+                      {:mithril/error :mithril.module/budget})))
+    (str "(ns " (amu-namespace (:name checked)) " (:export [" (str/join " " export-symbols) "]))\n"
+         (apply str (mapv (fn [declaration i] (function-source declaration i indexes contracts)) (:functions checked) (range (count (:functions checked)))))
+         (apply str (map (fn [[_ type :as use]] (contract-source use (get contracts type))) uses)))))
+
+(defn- result [checked]
+  {:format :mithril.module/amu-source-v1
+   :name (:name checked)
+   :source (source checked)
+   :exports (mapv (fn [export] {:name export :symbol (export-symbol (get (zipmap (mapv :name (:functions checked)) (range (count (:functions checked)))) (export-target checked export)))}) (:exports checked))})
+
+(defn lower-document
+  "Lower a checked Mithril module document to Amu Kotoba source."
+  [doc]
+  (result (module/check-document doc)))
+
+(defn lower-text
+  "Lower a Mithril module text to Amu Kotoba source."
+  [text]
+  (result (module/check-text text)))
+
+(def ^:private native-amu-types #{:i64 :bool :string})
+(def ^:private native-amu-intrinsics #{"add" "sub" "mul" "eq" "not"})
+
+(defn- native-amu-type! [type]
+  (when-not (contains? native-amu-types type)
+    (throw (ex-info "Native Amu modules support only i64, bool, and string values"
+                    {:mithril/error :mithril.module/amu-native-type
+                     :type type}))))
+
+(defn- native-amu-expression! [expr]
+  (case (:op expr)
+    :literal (native-amu-type! (:type expr))
+    :local nil
+    :intrinsic (do
+                 (when-not (contains? native-amu-intrinsics (:name expr))
+                   (throw (ex-info "Intrinsic is not in the native Amu module vocabulary"
+                                   {:mithril/error :mithril.module/amu-native-intrinsic
+                                    :intrinsic (:name expr)})))
+                 (doseq [arg (:args expr)] (native-amu-expression! arg)))
+    :call (doseq [arg (:args expr)] (native-amu-expression! arg))
+    :lambda (throw (ex-info "Guest callables are not in the native Amu module vocabulary"
+                            {:mithril/error :mithril.module/amu-native-callable}))
+    :function-ref (throw (ex-info "Guest callables are not in the native Amu module vocabulary"
+                                  {:mithril/error :mithril.module/amu-native-callable}))
+    :invoke (throw (ex-info "Guest callables are not in the native Amu module vocabulary"
+                            {:mithril/error :mithril.module/amu-native-callable}))
+    :let (do
+           (doseq [binding (:bindings expr)]
+             (native-amu-expression! (:value binding)))
+           (native-amu-expression! (:body expr)))
+    :sequence (doseq [child (:expressions expr)] (native-amu-expression! child))
+    :if (doseq [child [(:condition expr) (:then expr) (:else expr)]]
+          (native-amu-expression! child))))
+
+(defn- native-amu-result [checked]
+  (doseq [declaration (:functions checked)]
+    (doseq [type (cons (:returns declaration) (map :type (:params declaration)))]
+      (native-amu-type! type))
+    (native-amu-expression! (:body declaration)))
+  (let [indexes (zipmap (mapv :name (:functions checked))
+                        (range (count (:functions checked))))
+        declarations (into {} (map (juxt :name identity) (:functions checked)))]
+    (assoc (result checked)
+           :format :mithril.module/amu-native-source-v1
+           :abi (mapv (fn [public-name]
+                        (let [canonical (export-target checked public-name)
+                              declaration (get declarations canonical)]
+                          {:name public-name
+                           :symbol (export-symbol (get indexes canonical))
+                           :params (mapv :type (:params declaration))
+                           :returns (:returns declaration)}))
+                      (:exports checked)))))
+
+(defn lower-native-document
+  "Lower a checked scalar Mithril module for Amu's native selfhost compiler.
+
+  This profile deliberately rejects host JS values and guest callables before
+  the Amu compiler is invoked."
+  [doc]
+  (native-amu-result (module/check-document doc)))
+
+(defn lower-native-text
+  "Lower a checked scalar Mithril module text for Amu's native selfhost compiler."
+  [text]
+  (native-amu-result (module/check-text text)))
+
+(defn- library-fail! [code detail]
+  (throw (ex-info detail {:mithril/error code :detail detail})))
+
+(defn- library-specifier! [specifier]
+  (when-not (and (string? specifier)
+                 (re-matches #"\./[A-Za-z0-9_-]+\.mjs" specifier))
+    (library-fail! :mithril.module/library-specifier "Expected a local artifact basename"))
+  specifier)
+
+(defn- library-integer! [value]
+  (when-not (and (js/Number.isSafeInteger value) (<= 0 value))
+    (library-fail! :mithril.module/library-budget "Expanded call budget exceeds exact integer range"))
+  value)
+
+(defn- library-budgets [checked]
+  ;; This vocabulary constructs no aggregate and exposes no state. Fuel counts
+  ;; entries; arguments finish before their callee enters. Analyze every private
+  ;; declaration as well, refusing cycles and future vocabulary explicitly.
+  (let [functions (into {} (map (juxt :name identity) (:functions checked)))
+        memo (atom {})]
+    ;; Guest closure words need the separate host-callable bridge. They must
+    ;; not escape through the existing scalar, acyclic pure JS facade.
+    (doseq [declaration (:functions checked)
+            type (cons (:returns declaration) (map :type (:params declaration)))]
+      (when (vector? type)
+        (library-fail! :mithril.module/library-vocabulary "Guest callable types require a host-callable profile")))
+    (letfn [(sum-fuel [a b] (library-integer! (+ a b)))
+            (sequence-budget [expressions]
+              (reduce (fn [[fuel frames] expression]
+                        (let [[next-fuel next-frames] (expression-budget expression)]
+                          [(sum-fuel fuel next-fuel) (max frames next-frames)]))
+                      [0 0] expressions))
+            (expression-budget [expression]
+              (case (:op expression)
+                :literal [0 0]
+                :local [0 0]
+                :intrinsic (if (contains? #{"add" "sub" "mul" "eq" "not"
+                                           "js_nullish" "js_truthy" "js_strict_equal"
+                                           "js_typeof" "js_array" "js_bool_value" "js_undefined"}
+                                         (:name expression))
+                             (sequence-budget (:args expression))
+                             (library-fail! :mithril.module/library-vocabulary "Unsupported public library intrinsic"))
+                :call (let [[args-fuel args-frames] (sequence-budget (:args expression))
+                            [callee-fuel callee-frames] (function-budget (:name expression))]
+                        [(sum-fuel args-fuel callee-fuel) (max args-frames callee-frames)])
+                :let (sequence-budget (conj (mapv :value (:bindings expression)) (:body expression)))
+                :sequence (sequence-budget (:expressions expression))
+                :if (let [[condition-fuel condition-frames] (expression-budget (:condition expression))
+                          [then-fuel then-frames] (expression-budget (:then expression))
+                          [else-fuel else-frames] (expression-budget (:else expression))]
+                      [(sum-fuel condition-fuel (max then-fuel else-fuel))
+                       (max condition-frames then-frames else-frames)])
+                (library-fail! :mithril.module/library-vocabulary "Unsupported public library expression")))
+            (function-budget [name]
+              (let [cached (get @memo name)]
+                (cond
+                  (= :visiting cached)
+                  (library-fail! :mithril.module/library-cycle "Public library call graph contains a cycle")
+                  cached cached
+                  :else
+                  (do (swap! memo assoc name :visiting)
+                      (let [[fuel frames] (expression-budget (:body (get functions name)))
+                            budgets [(sum-fuel 1 fuel) (sum-fuel 1 frames)]]
+                        (swap! memo assoc name budgets)
+                        budgets)))))]
+      (doseq [declaration (:functions checked)] (function-budget (:name declaration)))
+      (let [[fuel frames] (reduce (fn [[fuel frames] name]
+                                   (let [[next-fuel next-frames] (function-budget (export-target checked name))]
+                                     [(max fuel next-fuel) (max frames next-frames)]))
+                                 [1 1] (:exports checked))]
+        {:fuel fuel :frames frames}))))
+
+(defn- library-source [checked specifier budgets]
+  (let [functions (into {} (map (juxt :name identity) (:functions checked)))
+        mappings (:exports (result checked))
+        symbols (vec (distinct (map :symbol mappings)))
+        wrapper-indexes (zipmap symbols (range (count symbols)))
+        wrapper-name (fn [symbol] (str "__mithril_public_" (get wrapper-indexes symbol)))
+        {:keys [parts]} (reduce
+                         (fn [{:keys [seen parts]} {:keys [name symbol]}]
+                           (let [canonical (export-target checked name)
+                                 params (mapv parameter-symbol (range (count (:params (get functions canonical)))))
+                                 wrapper (wrapper-name symbol)
+                                 definition (when-not (contains? seen symbol)
+                                              (str "function " wrapper "(" (str/join "," params) ") {\n"
+                                                   "const __mithril_exports = __mithril_instantiate({}, {fuel:"
+                                                   (:fuel budgets) ",frames:" (:frames budgets) "});\n"
+                                                   "return __mithril_exports[" (js/JSON.stringify symbol) "](" (str/join "," params) ");\n}\n"
+                                                   "Object.defineProperty(" wrapper ",\"name\",{value:" (js/JSON.stringify canonical) "});\n"))]
+                             {:seen (conj seen symbol)
+                              :parts (conj parts (str definition "export { " wrapper " as " (js/JSON.stringify name) " };\n"))}))
+                         {:seen #{} :parts []} mappings)]
+    (str "import { instantiateKotoba as __mithril_instantiate } from "
+         (js/JSON.stringify specifier) ";\n" (apply str parts))))
+
+(defn- library-result [checked specifier]
+  (let [budgets (library-budgets checked)]
+    {:format :mithril.module/js-library-facade-v1
+     :name (:name checked)
+     :exports (:exports (result checked))
+     :budgets budgets
+     :source (library-source checked specifier budgets)}))
+
+(defn js-library-document
+  "Emit a public facade for a checked acyclic pure module and a local Amu artifact.
+  Each invocation gets its statically derived budget; restricted lowering is unchanged."
+  [doc artifact-specifier]
+  (library-specifier! artifact-specifier)
+  (library-result (module/check-document doc) artifact-specifier))
+
+(defn js-library-text
+  "Validate inert Mithril Form text and emit its acyclic pure library facade."
+  [text artifact-specifier]
+  (library-specifier! artifact-specifier)
+  (library-result (module/check-text text) artifact-specifier))

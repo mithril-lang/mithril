@@ -4,12 +4,16 @@
             [mithril.desktop :as desktop]
             [mithril.hermes-fleet :as fleet]
             [mithril.reason-cli :as reason-cli]
+            [mithril.codegraph-cli :as codegraph-cli]
+            [mithril.language :as language]
             [mithril.twin-sim :as twin]
             [mithril.web :as web]))
 
 (defn- usage! []
   (println "usage:")
   (println "  mithril compile <program.mith|program.mithril>")
+  (println "  mithril compile-language")
+  (println "  mithril compile-trace <program.mith|program.mithril>")
   (println "  mithril compile-ontology <ontology.mith|ontology.mithril>")
   (println "  mithril compile-library <library.mith|library.mithril>")
   (println "  mithril compile-bot <profile.mith|profile.mithril>")
@@ -19,7 +23,8 @@
   (println "  mithril compile-web <app.mith|app.mithril> <library.mith>...")
   (println "  mithril request <app.mith|app.mithril> <library.mith> <METHOD> <PATH>")
   (println "  mithril twin <twin-service.mith> <service> <METHOD> <PATH> [body]")
-  (println "  mithril reason <ontology.mith> <data.(nq|nt|jsonld)> [--query-type <iri>] [--json]")
+  (println "  mithril reason <ontology.mith> <data.(mith|nq|nt|jsonld)> [--query-type <iri>] [--save-mith <result.mith>] [--json]")
+  (println "  mithril codegraph <compile|index|query|reason|verify|evidence|serve|ui|web> [repository-root] [JSON request|--rebuild]")
   (js/process.exit 2))
 
 (defn- keyword-string [x]
@@ -50,68 +55,81 @@
 
 (let [[command path & args] *command-line-args*]
   (try
-    (case command
-      "compile"
-      (if (and path (empty? args))
-        (print-json (compiler/compile-text path (read-text path)))
-        (usage!))
+    (let [kernel (language/load!)]
+      (language/admit-entrypoint! kernel command)
+      (case command
+        "compile-language"
+        (if (and (nil? path) (empty? args)) (print-json kernel) (usage!))
 
-      "compile-ontology"
-      (if (and path (empty? args))
-        (print-json (compiler/compile-ontology-text path (read-text path)))
-        (usage!))
+        "compile"
+        (if (and path (empty? args))
+          (print-json (language/compile-program kernel path (read-text path)))
+          (usage!))
 
-      "compile-library"
-      (if (and path (empty? args))
-        (print-json (compile-library path))
-        (usage!))
+        "compile-trace"
+        (if (and path (empty? args))
+          (print-json (language/run-compiler kernel path (read-text path)))
+          (usage!))
 
-      "compile-bot"
-      (if (and path (empty? args))
-        (print-json (bot/compile-text path (read-text path)))
-        (usage!))
+        "compile-ontology"
+        (if (and path (empty? args))
+          (print-json (compiler/compile-ontology-text path (read-text path)))
+          (usage!))
 
-      "compile-desktop"
-      (if (and path (empty? args))
-        (print-json (desktop/compile-text path (read-text path)))
-        (usage!))
+        "compile-library"
+        (if (and path (empty? args))
+          (print-json (compile-library path))
+          (usage!))
 
-      "compile-hermes-profile"
-      (if (and path (empty? args))
-        (print-json (fleet/compile-text path (read-text path)))
-        (usage!))
+        "compile-bot"
+        (if (and path (empty? args))
+          (print-json (bot/compile-text path (read-text path)))
+          (usage!))
 
-      "emit-desktop"
-      (if (and path (empty? args))
-        (print (desktop/emit-plugin (desktop/compile-text path (read-text path))))
-        (usage!))
+        "compile-desktop"
+        (if (and path (empty? args))
+          (print-json (desktop/compile-text path (read-text path)))
+          (usage!))
 
-      "compile-web"
-      (if (and path (seq args))
-        (print-json (compile-web path args))
-        (usage!))
+        "compile-hermes-profile"
+        (if (and path (empty? args))
+          (print-json (fleet/compile-text path (read-text path)))
+          (usage!))
 
-      "reason"
-      (reason-cli/run! path args)
+        "emit-desktop"
+        (if (and path (empty? args))
+          (print (desktop/emit-plugin (desktop/compile-text path (read-text path))))
+          (usage!))
 
-      "request"
-      (let [[library-path method request-path & extra] args]
-        (if (and path library-path method request-path (empty? extra))
-          (print-json (web/dispatch (compile-web path [library-path])
-                                    {:method method :path request-path}))
-          (usage!)))
+        "compile-web"
+        (if (and path (seq args))
+          (print-json (compile-web path args))
+          (usage!))
 
-      "twin"
-      (let [[service method request-path body & extra] args]
-        (if (and path service method request-path (empty? extra))
-          (print-json (twin/invoke (compiler/parse-source (read-text path))
-                                   (cond-> {:service service
-                                            :method method
-                                            :path request-path}
-                                     body (assoc :body body))))
-          (usage!)))
+        "reason"
+        (reason-cli/run! path args)
 
-      (usage!))
+        "codegraph"
+        (codegraph-cli/run! path args)
+
+        "request"
+        (let [[library-path method request-path & extra] args]
+          (if (and path library-path method request-path (empty? extra))
+            (print-json (web/dispatch (compile-web path [library-path])
+                                      {:method method :path request-path}))
+            (usage!)))
+
+        "twin"
+        (let [[service method request-path body & extra] args]
+          (if (and path service method request-path (empty? extra))
+            (print-json (twin/invoke (compiler/parse-source (read-text path))
+                                     (cond-> {:service service
+                                              :method method
+                                              :path request-path}
+                                       body (assoc :body body))))
+            (usage!)))
+
+        (usage!)))
     (catch :default e
       (println (str "REFUSE\t" (or (some-> e ex-data :mithril/error name) "compile-error")
                     "\t" (.-message e)))

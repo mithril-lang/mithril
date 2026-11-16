@@ -1,0 +1,2145 @@
+(mithril/native-js-module
+:name "include"
+:ambient_imports ["Set"
+"Object"
+"structuredClone"
+"Map"
+"Array"
+"Promise"
+"URL"
+"Error"
+"JSON"
+"TypeError"
+"clearTimeout"
+"setTimeout"]
+:imports ["EntryGroup"
+"EntryTree"
+"isJsExpr"
+"Service"
+"extname"
+"access"
+"constants"
+"readFile"
+"rename"
+"writeFile"
+"delay"
+"fileURLToPath"
+"pathToFileURL"
+"yaml"
+"Set"
+"Object"
+"structuredClone"
+"Map"
+"Array"
+"Promise"
+"URL"
+"Error"
+"JSON"
+"TypeError"
+"clearTimeout"
+"setTimeout"]
+:functions [(mithril/function
+:name "retryableWriteError"
+:params [(rdf/node
+:name "error"
+:datatype "js-value")]
+:returns "js-value"
+:body (mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "code"
+:value (mithril/host-optional-chain
+:base (mithril/local
+:name "error")
+:steps [(rdf/node
+:kind "get"
+:optional true
+:key (mithril/literal
+:datatype "js-value"
+:value "code"))]))]
+:body (mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/host-logical
+:operator "||"
+:left (mithril/host-logical
+:operator "||"
+:left (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "code")
+:right (mithril/literal
+:datatype "js-value"
+:value "EACCES"))
+:right (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "code")
+:right (mithril/literal
+:datatype "js-value"
+:value "EBUSY")))
+:right (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "code")
+:right (mithril/literal
+:datatype "js-value"
+:value "EPERM"))))
+(mithril/host-undefined)]))
+:statements true)
+(mithril/function
+:name "applyEntryPatches"
+:params [(rdf/node
+:name "data"
+:datatype "js-value"
+:mutable true)
+(rdf/node
+:name "patches"
+:datatype "js-value")
+(rdf/node
+:name "warn"
+:datatype "js-value")]
+:returns "js-value"
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-unary
+:operator "!"
+:value (mithril/host-optional-chain
+:base (mithril/local
+:name "patches")
+:steps [(rdf/node
+:kind "get"
+:optional true
+:key (mithril/literal
+:datatype "js-value"
+:value "length"))]))
+:then (mithril/host-return
+:value (mithril/host-array-items
+:items [(rdf/node
+:spread (mithril/local
+:name "data"))]))
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "data"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "structuredClone")
+:args [(mithril/local
+:name "data")]))
+(mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "entryMap"
+:value (mithril/host-construct
+:constructor (mithril/host-import
+:name "Map")
+:args []))
+(rdf/node
+:pattern "buildMap"
+:value (mithril/native-lambda
+:params ["entries"]
+:rest nil
+:body (mithril/sequence
+:expressions [(mithril/host-for-of
+:iterable (mithril/local
+:name "entries")
+:binding "entry"
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-get
+:object (mithril/local
+:name "entry")
+:key (mithril/literal
+:datatype "js-value"
+:value "id"))
+:then (mithril/host-method
+:object (mithril/local
+:name "entryMap")
+:key (mithril/literal
+:datatype "js-value"
+:value "set")
+:args [(mithril/host-get
+:object (mithril/local
+:name "entry")
+:key (mithril/literal
+:datatype "js-value"
+:value "id"))
+(mithril/local
+:name "entry")])
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-logical
+:operator "&&"
+:left (mithril/host-get
+:object (mithril/local
+:name "entry")
+:key (mithril/literal
+:datatype "js-value"
+:value "group"))
+:right (mithril/host-method
+:object (mithril/host-import
+:name "Array")
+:key (mithril/literal
+:datatype "js-value"
+:value "isArray")
+:args [(mithril/host-get
+:object (mithril/local
+:name "entry")
+:key (mithril/literal
+:datatype "js-value"
+:value "config"))]))
+:then (mithril/sequence
+:expressions [(mithril/host-invoke
+:function (mithril/local
+:name "buildMap")
+:args [(mithril/host-get
+:object (mithril/local
+:name "entry")
+:key (mithril/literal
+:datatype "js-value"
+:value "config"))])
+(mithril/host-undefined)])
+:else (mithril/host-undefined))
+(mithril/host-undefined)])])
+:result (mithril/host-undefined))
+(mithril/host-undefined)])
+:statements true))]
+:body (mithril/sequence
+:expressions [(mithril/host-invoke
+:function (mithril/local
+:name "buildMap")
+:args [(mithril/local
+:name "data")])
+(mithril/sequence
+:expressions [(mithril/host-for-of
+:iterable (mithril/local
+:name "patches")
+:binding "patch"
+:body (mithril/host-binding-let
+:bindings [(rdf/node
+:pattern (rdf/node
+:object [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "id")
+:pattern "id")
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "insert")
+:pattern "insert")
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "name")
+:pattern "name")]
+:rest "overrides")
+:value (mithril/local
+:name "patch"))]
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/local
+:name "insert")
+:then (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/local
+:name "id")
+:then (mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "blockBinding2879_target"
+:value (mithril/host-method
+:object (mithril/local
+:name "entryMap")
+:key (mithril/literal
+:datatype "js-value"
+:value "get")
+:args [(mithril/local
+:name "id")]))]
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-unary
+:operator "!"
+:value (mithril/local
+:name "blockBinding2879_target"))
+:then (mithril/sequence
+:expressions [(mithril/host-invoke
+:function (mithril/local
+:name "warn")
+:args [(mithril/literal
+:datatype "js-value"
+:value "patch insert: entry %C not found")
+(mithril/local
+:name "id")])
+(mithril/sequence
+:expressions [(mithril/host-continue)
+(mithril/host-undefined)])])
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-unary
+:operator "!"
+:value (mithril/host-get
+:object (mithril/local
+:name "blockBinding2879_target")
+:key (mithril/literal
+:datatype "js-value"
+:value "group")))
+:then (mithril/sequence
+:expressions [(mithril/host-invoke
+:function (mithril/local
+:name "warn")
+:args [(mithril/literal
+:datatype "js-value"
+:value "patch insert: entry %C is not a group")
+(mithril/local
+:name "id")])
+(mithril/sequence
+:expressions [(mithril/host-continue)
+(mithril/host-undefined)])])
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-unary
+:operator "!"
+:value (mithril/host-method
+:object (mithril/host-import
+:name "Array")
+:key (mithril/literal
+:datatype "js-value"
+:value "isArray")
+:args [(mithril/host-get
+:object (mithril/local
+:name "blockBinding2879_target")
+:key (mithril/literal
+:datatype "js-value"
+:value "config"))]))
+:then (mithril/host-set
+:object (mithril/local
+:name "blockBinding2879_target")
+:key (mithril/literal
+:datatype "js-value"
+:value "config")
+:value (mithril/host-array
+:items []))
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/host-method-items
+:object (mithril/host-get
+:object (mithril/local
+:name "blockBinding2879_target")
+:key (mithril/literal
+:datatype "js-value"
+:value "config"))
+:key (mithril/literal
+:datatype "js-value"
+:value "push")
+:items [(rdf/node
+:spread (mithril/local
+:name "insert"))])
+(mithril/host-undefined)])])])]))
+:else (mithril/sequence
+:expressions [(mithril/host-method-items
+:object (mithril/local
+:name "data")
+:key (mithril/literal
+:datatype "js-value"
+:value "push")
+:items [(rdf/node
+:spread (mithril/local
+:name "insert"))])
+(mithril/host-undefined)]))
+(mithril/sequence
+:expressions [(mithril/host-invoke
+:function (mithril/local
+:name "buildMap")
+:args [(mithril/local
+:name "insert")])
+(mithril/sequence
+:expressions [(mithril/host-continue)
+(mithril/host-undefined)])])])
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-unary
+:operator "!"
+:value (mithril/local
+:name "id"))
+:then (mithril/sequence
+:expressions [(mithril/host-invoke
+:function (mithril/local
+:name "warn")
+:args [(mithril/literal
+:datatype "js-value"
+:value "patch: id is required for non-insert patches")])
+(mithril/sequence
+:expressions [(mithril/host-continue)
+(mithril/host-undefined)])])
+:else (mithril/host-undefined))
+(mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "target"
+:value (mithril/host-method
+:object (mithril/local
+:name "entryMap")
+:key (mithril/literal
+:datatype "js-value"
+:value "get")
+:args [(mithril/local
+:name "id")]))]
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-unary
+:operator "!"
+:value (mithril/local
+:name "target"))
+:then (mithril/sequence
+:expressions [(mithril/host-invoke
+:function (mithril/local
+:name "warn")
+:args [(mithril/literal
+:datatype "js-value"
+:value "patch: entry %C not found")
+(mithril/local
+:name "id")])
+(mithril/sequence
+:expressions [(mithril/host-continue)
+(mithril/host-undefined)])])
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-logical
+:operator "&&"
+:left (mithril/local
+:name "name")
+:right (mithril/host-binary
+:operator "!=="
+:left (mithril/local
+:name "name")
+:right (mithril/host-get
+:object (mithril/local
+:name "target")
+:key (mithril/literal
+:datatype "js-value"
+:value "name"))))
+:then (mithril/sequence
+:expressions [(mithril/host-invoke
+:function (mithril/local
+:name "warn")
+:args [(mithril/literal
+:datatype "js-value"
+:value "patch: name mismatch for %C (expected %C, got %C), skipping")
+(mithril/local
+:name "id")
+(mithril/host-get
+:object (mithril/local
+:name "target")
+:key (mithril/literal
+:datatype "js-value"
+:value "name"))
+(mithril/local
+:name "name")])
+(mithril/sequence
+:expressions [(mithril/host-continue)
+(mithril/host-undefined)])])
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/host-for-of
+:iterable (mithril/host-method
+:object (mithril/host-import
+:name "Object")
+:key (mithril/literal
+:datatype "js-value"
+:value "entries")
+:args [(mithril/local
+:name "overrides")])
+:binding (rdf/node
+:array ["key"
+"value"])
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "key")
+:right (mithril/literal
+:datatype "js-value"
+:value "id"))
+:then (mithril/host-continue)
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/local
+:name "target")
+:key (mithril/local
+:name "key")
+:value (mithril/local
+:name "value"))
+(mithril/host-undefined)])])
+:result (mithril/host-undefined))
+(mithril/host-undefined)])])]))])]))
+:result (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/local
+:name "data"))
+(mithril/host-undefined)])])]))])])
+:statements true)]
+:bindings [(rdf/node
+:name "JsExpr"
+:value (mithril/host-construct
+:constructor (mithril/host-get
+:object (mithril/host-import
+:name "yaml")
+:key (mithril/literal
+:datatype "js-value"
+:value "Type"))
+:args [(mithril/literal
+:datatype "js-value"
+:value "tag:yaml.org,2002:js")
+(mithril/host-object
+:entries [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "kind")
+:value (mithril/literal
+:datatype "js-value"
+:value "scalar"))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "resolve")
+:value (mithril/native-lambda
+:params ["data"]
+:rest nil
+:body (mithril/host-binary
+:operator "==="
+:left (mithril/host-unary
+:operator "typeof"
+:value (mithril/local
+:name "data"))
+:right (mithril/literal
+:datatype "js-value"
+:value "string")))
+:infer_name true)
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "construct")
+:value (mithril/native-lambda
+:params ["data"]
+:rest nil
+:body (mithril/host-object
+:entries [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "__jsExpr")
+:value (mithril/local
+:name "data"))]))
+:infer_name true)
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "predicate")
+:value (mithril/host-import
+:name "isJsExpr"))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "represent")
+:value (mithril/native-lambda
+:params ["data"]
+:rest nil
+:body (mithril/host-get
+:object (mithril/local
+:name "data")
+:key (mithril/literal
+:datatype "js-value"
+:value "__jsExpr")))
+:infer_name true)])]))
+(rdf/node
+:name "entryListSchema"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/host-import
+:name "yaml")
+:key (mithril/literal
+:datatype "js-value"
+:value "JSON_SCHEMA"))
+:key (mithril/literal
+:datatype "js-value"
+:value "extend")
+:args [(mithril/local
+:name "JsExpr")]))
+(rdf/node
+:name "schema"
+:value (mithril/local
+:name "entryListSchema"))
+(rdf/node
+:name "writable"
+:value (mithril/host-object
+:entries [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value ".json")
+:value (mithril/literal
+:datatype "js-value"
+:value "application/json"))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value ".yaml")
+:value (mithril/literal
+:datatype "js-value"
+:value "application/yaml"))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value ".yml")
+:value (mithril/literal
+:datatype "js-value"
+:value "application/yaml"))]))
+(rdf/node
+:name "supported"
+:value (mithril/host-construct
+:constructor (mithril/host-import
+:name "Set")
+:args [(mithril/host-method
+:object (mithril/host-import
+:name "Object")
+:key (mithril/literal
+:datatype "js-value"
+:value "keys")
+:args [(mithril/local
+:name "writable")])]))
+(rdf/node
+:name "WRITE_RETRY_LIMIT"
+:value (mithril/literal
+:datatype "js-value"
+:value 10))
+(rdf/node
+:name "WRITE_RETRY_DELAY_MS"
+:value (mithril/literal
+:datatype "js-value"
+:value 50))
+(rdf/node
+:name "Include"
+:value (mithril/native-class
+:name "Include"
+:extends (mithril/host-import
+:name "EntryTree")
+:constructor (rdf/node
+:params [(rdf/node
+:name "ctx"
+:datatype "js-value")
+(rdf/node
+:name "config"
+:datatype "js-value")]
+:rest nil
+:body (mithril/sequence
+:expressions [(mithril/host-super-call
+:items [(rdf/node
+:value (mithril/local
+:name "ctx"))])
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "config")
+:value (mithril/local
+:name "config"))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "enableLogs")
+:value (mithril/host-logical
+:operator "??"
+:left (mithril/host-logical
+:operator "??"
+:left (mithril/host-get
+:object (mithril/local
+:name "config")
+:key (mithril/literal
+:datatype "js-value"
+:value "enableLogs"))
+:right (mithril/host-optional-chain
+:base (mithril/local
+:name "ctx")
+:steps [(rdf/node
+:kind "get"
+:optional false
+:key (mithril/literal
+:datatype "js-value"
+:value "fiber"))
+(rdf/node
+:kind "get"
+:optional false
+:key (mithril/literal
+:datatype "js-value"
+:value "entry"))
+(rdf/node
+:kind "get"
+:optional true
+:key (mithril/literal
+:datatype "js-value"
+:value "parent"))
+(rdf/node
+:kind "get"
+:optional false
+:key (mithril/literal
+:datatype "js-value"
+:value "tree"))
+(rdf/node
+:kind "get"
+:optional false
+:key (mithril/literal
+:datatype "js-value"
+:value "enableLogs"))]))
+:right (mithril/literal
+:datatype "js-value"
+:value false)))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "filename")
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "fileURLToPath")
+:args [(mithril/host-construct
+:constructor (mithril/host-import
+:name "URL")
+:args [(mithril/host-get
+:object (mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "config"))
+:key (mithril/literal
+:datatype "js-value"
+:value "path"))
+(mithril/host-get
+:object (mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "ctx"))
+:key (mithril/literal
+:datatype "js-value"
+:value "baseUrl"))])]))
+(mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "ext"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "extname")
+:args [(mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "filename"))]))]
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-unary
+:operator "!"
+:value (mithril/host-method
+:object (mithril/local
+:name "supported")
+:key (mithril/literal
+:datatype "js-value"
+:value "has")
+:args [(mithril/local
+:name "ext")]))
+:then (mithril/sequence
+:expressions [(mithril/host-throw
+:value (mithril/host-construct
+:constructor (mithril/host-import
+:name "Error")
+:args [(mithril/host-binary
+:operator "+"
+:left (mithril/host-binary
+:operator "+"
+:left (mithril/literal
+:datatype "js-value"
+:value "extension \"")
+:right (mithril/host-to-string
+:value (mithril/local
+:name "ext")))
+:right (mithril/literal
+:datatype "js-value"
+:value "\" not supported"))]))
+(mithril/host-undefined)])
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "type")
+:value (mithril/host-get
+:object (mithril/local
+:name "writable")
+:key (mithril/local
+:name "ext")))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "readonly")
+:value (mithril/host-unary
+:operator "!"
+:value (mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "type"))))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "ctx"))
+:key (mithril/literal
+:datatype "js-value"
+:value "baseUrl")
+:value (mithril/host-get
+:object (mithril/host-construct
+:constructor (mithril/host-import
+:name "URL")
+:args [(mithril/literal
+:datatype "js-value"
+:value ".")
+(mithril/host-invoke
+:function (mithril/host-import
+:name "pathToFileURL")
+:args [(mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "filename"))])])
+:key (mithril/literal
+:datatype "js-value"
+:value "href")))
+(mithril/sequence
+:expressions [(mithril/host-method
+:object (mithril/local
+:name "ctx")
+:key (mithril/literal
+:datatype "js-value"
+:value "on")
+:args [(mithril/literal
+:datatype "js-value"
+:value "internal/update")
+(mithril/native-lambda
+:params ["config"
+"_"
+"next"]
+:rest nil
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "!=="
+:left (mithril/host-get
+:object (mithril/local
+:name "config")
+:key (mithril/literal
+:datatype "js-value"
+:value "path"))
+:right (mithril/host-get
+:object (mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "config"))
+:key (mithril/literal
+:datatype "js-value"
+:value "path")))
+:then (mithril/host-return
+:value (mithril/host-invoke
+:function (mithril/local
+:name "next")
+:args []))
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "config")
+:value (mithril/local
+:name "config"))
+(mithril/sequence
+:expressions [(mithril/host-method
+:object (mithril/host-method
+:object (mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "root"))
+:key (mithril/literal
+:datatype "js-value"
+:value "update")
+:args [(mithril/host-method
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "applyPatches")
+:args [(mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "data"))
+(mithril/host-get
+:object (mithril/local
+:name "config")
+:key (mithril/literal
+:datatype "js-value"
+:value "patches"))])])
+:key (mithril/literal
+:datatype "js-value"
+:value "catch")
+:args [(mithril/native-lambda
+:params ["error"]
+:rest nil
+:body (mithril/sequence
+:expressions [(mithril/host-method
+:object (mithril/host-get
+:object (mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "ctx"))
+:key (mithril/literal
+:datatype "js-value"
+:value "logger"))
+:key (mithril/literal
+:datatype "js-value"
+:value "warn")
+:args [(mithril/literal
+:datatype "js-value"
+:value "config update at %C failed")
+(mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "filename"))])
+(mithril/sequence
+:expressions [(mithril/host-method
+:object (mithril/host-get
+:object (mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "ctx"))
+:key (mithril/literal
+:datatype "js-value"
+:value "logger"))
+:key (mithril/literal
+:datatype "js-value"
+:value "warn")
+:args [(mithril/local
+:name "error")])
+(mithril/host-undefined)])])
+:statements true)])
+(mithril/host-undefined)])])])
+:statements true)])
+(mithril/host-undefined)])])])])]))])])])])
+:statements true)
+:members [(rdf/node
+:kind "field"
+:static false
+:key (mithril/literal
+:datatype "js-value"
+:value "config")
+:value (mithril/host-undefined))
+(rdf/node
+:kind "field"
+:static true
+:key (mithril/literal
+:datatype "js-value"
+:value "inject")
+:value (mithril/host-array
+:items [(mithril/literal
+:datatype "js-value"
+:value "loader")]))
+(rdf/node
+:kind "field"
+:static true
+:key (mithril/host-get
+:object (mithril/host-import
+:name "EntryGroup")
+:key (mithril/literal
+:datatype "js-value"
+:value "key"))
+:value (mithril/literal
+:datatype "js-value"
+:value true))
+(rdf/node
+:kind "field"
+:static false
+:key (mithril/literal
+:datatype "js-value"
+:value "filename")
+:value (mithril/host-undefined))
+(rdf/node
+:kind "field"
+:static false
+:key (mithril/literal
+:datatype "js-value"
+:value "type")
+:value (mithril/host-undefined))
+(rdf/node
+:kind "field"
+:static false
+:key (mithril/literal
+:datatype "js-value"
+:value "readonly")
+:value (mithril/host-undefined))
+(rdf/node
+:kind "field"
+:static false
+:key (mithril/literal
+:datatype "js-value"
+:value "content")
+:value (mithril/host-undefined))
+(rdf/node
+:kind "field"
+:static false
+:key (mithril/literal
+:datatype "js-value"
+:value "data")
+:value (mithril/host-undefined))
+(rdf/node
+:kind "field"
+:static false
+:key (mithril/literal
+:datatype "js-value"
+:value "writeTask")
+:value (mithril/host-undefined))
+(rdf/node
+:kind "field"
+:static false
+:key (mithril/literal
+:datatype "js-value"
+:value "pendingWrite")
+:value (mithril/host-undefined))
+(rdf/node
+:kind "field"
+:static false
+:key (mithril/literal
+:datatype "js-value"
+:value "writeQueue")
+:value (mithril/host-method
+:object (mithril/host-import
+:name "Promise")
+:key (mithril/literal
+:datatype "js-value"
+:value "resolve")
+:args []))
+(rdf/node
+:kind "method"
+:static false
+:key (mithril/literal
+:datatype "js-value"
+:value "checkAccess")
+:params []
+:rest nil
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-unary
+:operator "!"
+:value (mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "type")))
+:then (mithril/host-return
+:value (mithril/host-undefined))
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/host-try-catch
+:body (mithril/sequence
+:expressions [(mithril/host-await
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "access")
+:args [(mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "filename"))
+(mithril/host-get
+:object (mithril/host-import
+:name "constants")
+:key (mithril/literal
+:datatype "js-value"
+:value "W_OK"))]))
+(mithril/host-undefined)])
+:binding "ignoredCatch6577"
+:handler (mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "readonly")
+:value (mithril/literal
+:datatype "js-value"
+:value true))
+(mithril/host-undefined)]))
+(mithril/host-undefined)])])
+:statements true
+:async true)
+(rdf/node
+:kind "method"
+:static false
+:key (mithril/literal
+:datatype "js-value"
+:value "read")
+:params [(rdf/node
+:name "forced"
+:datatype "js-value"
+:default (mithril/literal
+:datatype "js-value"
+:value false))]
+:rest nil
+:body (mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "content"
+:value (mithril/host-await
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "readFile")
+:args [(mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "filename"))
+(mithril/literal
+:datatype "js-value"
+:value "utf8")])))]
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-logical
+:operator "&&"
+:left (mithril/host-unary
+:operator "!"
+:value (mithril/local
+:name "forced"))
+:right (mithril/host-binary
+:operator "==="
+:left (mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "content"))
+:right (mithril/local
+:name "content")))
+:then (mithril/host-return
+:value (mithril/literal
+:datatype "js-value"
+:value false))
+:else (mithril/host-undefined))
+(mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "data"
+:value (mithril/host-undefined)
+:mutable true)]
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "type"))
+:right (mithril/literal
+:datatype "js-value"
+:value "application/yaml"))
+:then (mithril/sequence
+:expressions [(mithril/local-set
+:name "data"
+:value (mithril/host-method
+:object (mithril/host-import
+:name "yaml")
+:key (mithril/literal
+:datatype "js-value"
+:value "load")
+:args [(mithril/local
+:name "content")
+(mithril/host-object
+:entries [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "schema")
+:value (mithril/local
+:name "entryListSchema"))])]))
+(mithril/host-undefined)])
+:else (mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "type"))
+:right (mithril/literal
+:datatype "js-value"
+:value "application/json"))
+:then (mithril/sequence
+:expressions [(mithril/local-set
+:name "data"
+:value (mithril/host-method
+:object (mithril/host-import
+:name "JSON")
+:key (mithril/literal
+:datatype "js-value"
+:value "parse")
+:args [(mithril/local
+:name "content")]))
+(mithril/host-undefined)])
+:else (mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "module"
+:value (mithril/host-await
+:value (mithril/host-dynamic-import
+:source (mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "filename")))))]
+:body (mithril/sequence
+:expressions [(mithril/local-set
+:name "data"
+:value (mithril/host-logical
+:operator "||"
+:left (mithril/host-get
+:object (mithril/local
+:name "module")
+:key (mithril/literal
+:datatype "js-value"
+:value "default"))
+:right (mithril/local
+:name "module")))
+(mithril/host-undefined)]))))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-unary
+:operator "!"
+:value (mithril/host-method
+:object (mithril/host-import
+:name "Array")
+:key (mithril/literal
+:datatype "js-value"
+:value "isArray")
+:args [(mithril/local
+:name "data")]))
+:then (mithril/sequence
+:expressions [(mithril/host-throw
+:value (mithril/host-construct
+:constructor (mithril/host-import
+:name "TypeError")
+:args [(mithril/host-binary
+:operator "+"
+:left (mithril/literal
+:datatype "js-value"
+:value "config file must be a top-level array of entries: ")
+:right (mithril/host-to-string
+:value (mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "filename"))))]))
+(mithril/host-undefined)])
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "content")
+:value (mithril/local
+:name "content"))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "data")
+:value (mithril/local
+:name "data"))
+(mithril/sequence
+:expressions [(mithril/host-await
+:value (mithril/host-method
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "checkAccess")
+:args []))
+(mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/literal
+:datatype "js-value"
+:value true))
+(mithril/host-undefined)])])])])])]))]))
+:statements true
+:async true)
+(rdf/node
+:kind "method"
+:static false
+:key (mithril/literal
+:datatype "js-value"
+:value "applyPatches")
+:params [(rdf/node
+:name "data"
+:datatype "js-value")
+(rdf/node
+:name "patches"
+:datatype "js-value"
+:default (mithril/host-get
+:object (mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "config"))
+:key (mithril/literal
+:datatype "js-value"
+:value "patches")))]
+:rest nil
+:body (mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/host-invoke
+:function (mithril/function-ref
+:name "applyEntryPatches")
+:args [(mithril/local
+:name "data")
+(mithril/local
+:name "patches")
+(mithril/native-lambda
+:params ["message"]
+:rest "args"
+:body (mithril/sequence
+:expressions [(mithril/host-optional-chain
+:base (mithril/host-this)
+:steps [(rdf/node
+:kind "get"
+:optional false
+:key (mithril/literal
+:datatype "js-value"
+:value "ctx"))
+(rdf/node
+:kind "get"
+:optional false
+:key (mithril/literal
+:datatype "js-value"
+:value "root"))
+(rdf/node
+:kind "get"
+:optional false
+:key (mithril/literal
+:datatype "js-value"
+:value "logger"))
+(rdf/node
+:kind "call"
+:optional true
+:items [(rdf/node
+:value (mithril/literal
+:datatype "js-value"
+:value "loader"))])
+(rdf/node
+:kind "get"
+:optional false
+:key (mithril/literal
+:datatype "js-value"
+:value "warn"))
+(rdf/node
+:kind "call"
+:optional false
+:items [(rdf/node
+:value (mithril/local
+:name "message"))
+(rdf/node
+:spread (mithril/local
+:name "args"))])])
+(mithril/host-undefined)])
+:statements true)]))
+(mithril/host-undefined)])
+:statements true)
+(rdf/node
+:kind "method"
+:static false
+:key (mithril/host-get
+:object (mithril/host-import
+:name "Service")
+:key (mithril/literal
+:datatype "js-value"
+:value "init"))
+:params []
+:rest nil
+:body (mithril/sequence
+:expressions [(mithril/host-try-catch
+:body (mithril/sequence
+:expressions [(mithril/host-await
+:value (mithril/host-method
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "read")
+:args []))
+(mithril/host-undefined)])
+:binding "error"
+:handler (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "!=="
+:left (mithril/host-optional-chain
+:base (mithril/local
+:name "error")
+:steps [(rdf/node
+:kind "get"
+:optional true
+:key (mithril/literal
+:datatype "js-value"
+:value "code"))])
+:right (mithril/literal
+:datatype "js-value"
+:value "ENOENT"))
+:then (mithril/host-throw
+:value (mithril/local
+:name "error"))
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-get
+:object (mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "config"))
+:key (mithril/literal
+:datatype "js-value"
+:value "initial"))
+:then (mithril/sequence
+:expressions [(mithril/host-await
+:value (mithril/host-method
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "_writeFile")
+:args [(mithril/host-get
+:object (mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "config"))
+:key (mithril/literal
+:datatype "js-value"
+:value "initial"))]))
+(mithril/sequence
+:expressions [(mithril/host-await
+:value (mithril/host-method
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "read")
+:args [(mithril/literal
+:datatype "js-value"
+:value true)]))
+(mithril/host-undefined)])])
+:else (mithril/sequence
+:expressions [(mithril/host-throw
+:value (mithril/host-construct
+:constructor (mithril/host-import
+:name "Error")
+:args [(mithril/host-binary
+:operator "+"
+:left (mithril/literal
+:datatype "js-value"
+:value "config file not found: ")
+:right (mithril/host-to-string
+:value (mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "filename"))))]))
+(mithril/host-undefined)]))
+(mithril/host-undefined)])]))
+(mithril/sequence
+:expressions [(mithril/host-yield
+:value (mithril/native-lambda
+:params []
+:rest nil
+:body (mithril/host-method
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "stop")
+:args [])))
+(mithril/sequence
+:expressions [(mithril/host-await
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "root"))
+:key (mithril/literal
+:datatype "js-value"
+:value "update")
+:args [(mithril/host-method
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "applyPatches")
+:args [(mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "data"))])]))
+(mithril/host-undefined)])])])
+:statements true
+:async true
+:generator true)
+(rdf/node
+:kind "method"
+:static false
+:key (mithril/literal
+:datatype "js-value"
+:value "stop")
+:params []
+:rest nil
+:body (mithril/sequence
+:expressions [(mithril/host-try-finally
+:body (mithril/sequence
+:expressions [(mithril/host-await
+:value (mithril/host-method
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "flushWrite")
+:args []))
+(mithril/host-undefined)])
+:finally (mithril/sequence
+:expressions [(mithril/host-method
+:object (mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "root"))
+:key (mithril/literal
+:datatype "js-value"
+:value "stop")
+:args [])
+(mithril/sequence
+:expressions [(mithril/host-await
+:value (mithril/host-method
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "flushWrite")
+:args []))
+(mithril/host-undefined)])]))
+(mithril/host-undefined)])
+:statements true
+:async true)
+(rdf/node
+:kind "method"
+:static false
+:key (mithril/literal
+:datatype "js-value"
+:value "refresh")
+:params []
+:rest nil
+:body (mithril/sequence
+:expressions [(mithril/host-try-catch
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-unary
+:operator "!"
+:value (mithril/host-await
+:value (mithril/host-method
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "read")
+:args [])))
+:then (mithril/host-return
+:value (mithril/host-undefined))
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/host-await
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "root"))
+:key (mithril/literal
+:datatype "js-value"
+:value "update")
+:args [(mithril/host-method
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "applyPatches")
+:args [(mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "data"))])]))
+(mithril/host-undefined)])])
+:binding "error"
+:handler (mithril/sequence
+:expressions [(mithril/host-method
+:object (mithril/host-get
+:object (mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "ctx"))
+:key (mithril/literal
+:datatype "js-value"
+:value "logger"))
+:key (mithril/literal
+:datatype "js-value"
+:value "warn")
+:args [(mithril/literal
+:datatype "js-value"
+:value "config reload at %C failed; keeping the running tree")
+(mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "filename"))])
+(mithril/sequence
+:expressions [(mithril/host-method
+:object (mithril/host-get
+:object (mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "ctx"))
+:key (mithril/literal
+:datatype "js-value"
+:value "logger"))
+:key (mithril/literal
+:datatype "js-value"
+:value "warn")
+:args [(mithril/local
+:name "error")])
+(mithril/host-undefined)])]))
+(mithril/host-undefined)])
+:statements true
+:async true)
+(rdf/node
+:kind "method"
+:static false
+:key (mithril/literal
+:datatype "js-value"
+:value "_writeFile")
+:params [(rdf/node
+:name "config"
+:datatype "js-value")]
+:rest nil
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "readonly"))
+:then (mithril/sequence
+:expressions [(mithril/host-throw
+:value (mithril/host-construct
+:constructor (mithril/host-import
+:name "Error")
+:args [(mithril/literal
+:datatype "js-value"
+:value "cannot overwrite readonly config")]))
+(mithril/host-undefined)])
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "type"))
+:right (mithril/literal
+:datatype "js-value"
+:value "application/yaml"))
+:then (mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "content")
+:value (mithril/host-method
+:object (mithril/host-import
+:name "yaml")
+:key (mithril/literal
+:datatype "js-value"
+:value "dump")
+:args [(mithril/local
+:name "config")
+(mithril/host-object
+:entries [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "schema")
+:value (mithril/local
+:name "schema"))])]))
+(mithril/host-undefined)])
+:else (mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "type"))
+:right (mithril/literal
+:datatype "js-value"
+:value "application/json"))
+:then (mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "content")
+:value (mithril/host-method
+:object (mithril/host-import
+:name "JSON")
+:key (mithril/literal
+:datatype "js-value"
+:value "stringify")
+:args [(mithril/local
+:name "config")
+(mithril/literal
+:datatype "js-value"
+:value nil)
+(mithril/literal
+:datatype "js-value"
+:value 2)]))
+(mithril/host-undefined)])
+:else (mithril/host-undefined)))
+(mithril/sequence
+:expressions [(mithril/host-await
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "writeFile")
+:args [(mithril/host-binary
+:operator "+"
+:left (mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "filename"))
+:right (mithril/literal
+:datatype "js-value"
+:value ".tmp"))
+(mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "content"))]))
+(mithril/sequence
+:expressions [(mithril/host-for
+:initializer (rdf/node
+:bindings [(rdf/node
+:name "retry"
+:value (mithril/literal
+:datatype "js-value"
+:value 0)
+:mutable true)])
+:condition nil
+:update (mithril/host-local-update
+:name "retry"
+:operator "++"
+:prefix false)
+:body (mithril/sequence
+:expressions [(mithril/host-try-catch
+:body (mithril/sequence
+:expressions [(mithril/host-await
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "rename")
+:args [(mithril/host-binary
+:operator "+"
+:left (mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "filename"))
+:right (mithril/literal
+:datatype "js-value"
+:value ".tmp"))
+(mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "filename"))]))
+(mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/host-undefined))
+(mithril/host-undefined)])])
+:binding "error"
+:handler (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-logical
+:operator "||"
+:left (mithril/host-unary
+:operator "!"
+:value (mithril/host-invoke
+:function (mithril/function-ref
+:name "retryableWriteError")
+:args [(mithril/local
+:name "error")]))
+:right (mithril/host-binary
+:operator ">="
+:left (mithril/local
+:name "retry")
+:right (mithril/local
+:name "WRITE_RETRY_LIMIT")))
+:then (mithril/host-throw
+:value (mithril/local
+:name "error"))
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/host-await
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "delay")
+:args [(mithril/host-binary
+:operator "*"
+:left (mithril/host-binary
+:operator "+"
+:left (mithril/local
+:name "retry")
+:right (mithril/literal
+:datatype "js-value"
+:value 1))
+:right (mithril/local
+:name "WRITE_RETRY_DELAY_MS"))]))
+(mithril/host-undefined)])]))
+(mithril/host-undefined)])
+:result (mithril/host-undefined))
+(mithril/host-undefined)])])])])
+:statements true
+:async true)
+(rdf/node
+:kind "method"
+:static false
+:key (mithril/literal
+:datatype "js-value"
+:value "writeFile")
+:params [(rdf/node
+:name "config"
+:datatype "js-value")]
+:rest nil
+:body (mithril/sequence
+:expressions [(mithril/host-invoke
+:function (mithril/host-import
+:name "clearTimeout")
+:args [(mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "writeTask"))])
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "pendingWrite")
+:value (mithril/local
+:name "config"))
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "writeTask")
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "setTimeout")
+:args [(mithril/native-lambda
+:params []
+:rest nil
+:body (mithril/sequence
+:expressions [(mithril/host-unary
+:operator "void"
+:value (mithril/host-method
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "flushWrite")
+:args []))
+(mithril/host-undefined)])
+:statements true)
+(mithril/literal
+:datatype "js-value"
+:value 0)]))
+(mithril/host-undefined)])])])
+:statements true)
+(rdf/node
+:kind "method"
+:static false
+:key (mithril/literal
+:datatype "js-value"
+:value "flushWrite")
+:params []
+:rest nil
+:body (mithril/sequence
+:expressions [(mithril/host-invoke
+:function (mithril/host-import
+:name "clearTimeout")
+:args [(mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "writeTask"))])
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "writeTask")
+:value (mithril/host-undefined))
+(mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "config"
+:value (mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "pendingWrite")))]
+:body (mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "pendingWrite")
+:value (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "config")
+:right (mithril/host-undefined))
+:then (mithril/host-return
+:value (mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "writeQueue")))
+:else (mithril/host-undefined))
+(mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "run"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "writeQueue"))
+:key (mithril/literal
+:datatype "js-value"
+:value "then")
+:args [(mithril/native-lambda
+:params []
+:rest nil
+:body (mithril/host-method
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "_writeFile")
+:args [(mithril/local
+:name "config")]))
+(mithril/native-lambda
+:params []
+:rest nil
+:body (mithril/host-method
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "_writeFile")
+:args [(mithril/local
+:name "config")]))]))]
+:body (mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "writeQueue")
+:value (mithril/local
+:name "run"))
+(mithril/sequence
+:expressions [(mithril/host-unary
+:operator "void"
+:value (mithril/host-method
+:object (mithril/local
+:name "run")
+:key (mithril/literal
+:datatype "js-value"
+:value "catch")
+:args [(mithril/native-lambda
+:params ["error"]
+:rest nil
+:body (mithril/sequence
+:expressions [(mithril/host-optional-chain
+:base (mithril/host-this)
+:steps [(rdf/node
+:kind "get"
+:optional false
+:key (mithril/literal
+:datatype "js-value"
+:value "ctx"))
+(rdf/node
+:kind "get"
+:optional false
+:key (mithril/literal
+:datatype "js-value"
+:value "root"))
+(rdf/node
+:kind "get"
+:optional false
+:key (mithril/literal
+:datatype "js-value"
+:value "logger"))
+(rdf/node
+:kind "call"
+:optional true
+:items [(rdf/node
+:value (mithril/literal
+:datatype "js-value"
+:value "loader"))])
+(rdf/node
+:kind "get"
+:optional false
+:key (mithril/literal
+:datatype "js-value"
+:value "warn"))
+(rdf/node
+:kind "call"
+:optional false
+:items [(rdf/node
+:value (mithril/literal
+:datatype "js-value"
+:value "failed to write config file %C"))
+(rdf/node
+:value (mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "filename")))])])
+(mithril/sequence
+:expressions [(mithril/host-optional-chain
+:base (mithril/host-this)
+:steps [(rdf/node
+:kind "get"
+:optional false
+:key (mithril/literal
+:datatype "js-value"
+:value "ctx"))
+(rdf/node
+:kind "get"
+:optional false
+:key (mithril/literal
+:datatype "js-value"
+:value "root"))
+(rdf/node
+:kind "get"
+:optional false
+:key (mithril/literal
+:datatype "js-value"
+:value "logger"))
+(rdf/node
+:kind "call"
+:optional true
+:items [(rdf/node
+:value (mithril/literal
+:datatype "js-value"
+:value "loader"))])
+(rdf/node
+:kind "get"
+:optional false
+:key (mithril/literal
+:datatype "js-value"
+:value "warn"))
+(rdf/node
+:kind "call"
+:optional false
+:items [(rdf/node
+:value (mithril/local
+:name "error"))])])
+(mithril/host-undefined)])])
+:statements true)]))
+(mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/local
+:name "run"))
+(mithril/host-undefined)])])]))])]))])])
+:statements true)
+(rdf/node
+:kind "method"
+:static false
+:key (mithril/literal
+:datatype "js-value"
+:value "write")
+:params []
+:rest nil
+:body (mithril/sequence
+:expressions [(mithril/host-method
+:object (mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "context"))
+:key (mithril/literal
+:datatype "js-value"
+:value "emit")
+:args [(mithril/literal
+:datatype "js-value"
+:value "loader/config-update")])
+(mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/host-method
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "writeFile")
+:args [(mithril/host-get
+:object (mithril/host-get
+:object (mithril/host-this)
+:key (mithril/literal
+:datatype "js-value"
+:value "root"))
+:key (mithril/literal
+:datatype "js-value"
+:value "data"))]))
+(mithril/host-undefined)])])
+:statements true)]))]
+:exports [(rdf/node
+:name "default"
+:value (mithril/local
+:name "Include"))
+(rdf/node
+:name "entryListSchema"
+:value (mithril/local
+:name "entryListSchema"))
+(rdf/node
+:name "applyEntryPatches"
+:function "applyEntryPatches")
+(rdf/node
+:name "Include"
+:value (mithril/local
+:name "Include"))]
+:lexical_bindings true)

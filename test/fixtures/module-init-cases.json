@@ -1,0 +1,50 @@
+[
+  [
+    "early function availability and TDZ",
+    "(()=>{const ev=[];const a=factory({observe(fs){ev.push(fs.map(f=>[f.name,f.length,Object.hasOwn(f,'prototype')]));ev.push(fs.slice(0,4).map(f=>{try{return f()}catch(e){return e instanceof ReferenceError}}))},after(n){ev.push(Object.keys(n));ev.push([n.read(),n.later(),n.cross(),n.defaults()])}});return [a.value,ev]})()"
+  ],
+  [
+    "early identities stay stable",
+    "(()=>{let fs;const a=factory({observe(x){fs=x},after(){}});return Object.values(a.namespace).map((f,i)=>[f===fs[i],new f(3) instanceof f,Object.getPrototypeOf(f)===Function.prototype])})()"
+  ],
+  [
+    "inherited setters observe registration before late",
+    "(()=>{const ev=[];let fs;Object.defineProperty(Object.prototype,'read',{configurable:true,set(f){ev.push(['setter',f===fs[0],f(),fs[3]()]);try{fs[1]()}catch(e){ev.push(e instanceof ReferenceError)}Object.defineProperty(this,'read',{value:f,enumerable:true,configurable:true,writable:true})}});try{const a=factory({observe(x){fs=x;ev.push('observe')},after(){ev.push('after')}});return [ev,a.namespace.later(),Object.keys(a.namespace)]}finally{delete Object.prototype.read}})()"
+  ],
+  [
+    "opaque early hook stops all registration",
+    "(()=>{const token={},ev=[];Object.defineProperty(Object.prototype,'read',{configurable:true,set(){ev.push('setter')}});try{try{factory({observe(){ev.push('observe');throw token},after(){ev.push('after')}})}catch(e){return [e===token,ev]}}finally{delete Object.prototype.read}})()"
+  ],
+  [
+    "opaque setter stops following registration and after",
+    "(()=>{const token={},ev=[];for(const k of ['read','later'])Object.defineProperty(Object.prototype,k,{configurable:true,set(){ev.push(k);if(k==='read')throw token}});try{try{factory({observe(){ev.push('observe')},after(){ev.push('after')}})}catch(e){return [e===token,ev]}}finally{delete Object.prototype.read;delete Object.prototype.later}})()"
+  ],
+  [
+    "mutable closure and default parameter remain live",
+    "(()=>{const ev=[];const a=factory({observe(){},after(n){n.mutate(33);ev.push([n.read(),n.defaults(),n.defaults(undefined),n.defaults(null)])}});return [a.value,ev,a.namespace.cross()]})()"
+  ],
+  [
+    "live grant getters and value-call receiver",
+    "(()=>{const ev=[];const grants={};for(const k of ['observe','after'])Object.defineProperty(grants,k,{enumerable:true,get(){ev.push(k+':get');return function(v){ev.push([k,this===undefined,Array.isArray(v)])}}});const a=factory(grants);return [a.value,ev]})()"
+  ],
+  [
+    "isolated instantiation closures",
+    "(()=>{const a=factory({observe(){},after(){}}),b=factory({observe(){},after(){}});a.namespace.mutate(99);return [a.namespace!==b.namespace,a.namespace.read!==b.namespace.read,a.namespace.read(),b.namespace.read(),a.namespace.defaults(),b.namespace.defaults()]})()"
+  ],
+  [
+    "default evaluation observes opaque caller values",
+    "(()=>{const token={},a=factory({observe(){},after(){}});a.namespace.mutate(token);return [a.namespace.defaults()===token,a.namespace.defaults(undefined)===token,a.namespace.defaults(false),a.namespace.defaults(0)]})()"
+  ],
+  [
+    "missing grants refuse before init effects",
+    "(()=>{const ev=[];try{factory({observe(){ev.push('observe')}})}catch(e){return [e.message,ev]}})()"
+  ],
+  [
+    "symbol extra grant refuses before getters",
+    "(()=>{const ev=[],g={after(){},[Symbol()]:true};Object.defineProperty(g,'observe',{enumerable:true,get(){ev.push('get');return ()=>{}}});try{factory(g)}catch(e){return [e.message,ev]}})()"
+  ],
+  [
+    "early caller captures function and calls after bindings",
+    "(()=>{let fs;const a=factory({observe(x){fs=x},after(){}});return [fs[0](),fs[1](),fs[2](),fs[3](),fs[4](6)===undefined,fs[0](),Object.keys(a.namespace)]})()"
+  ]
+]

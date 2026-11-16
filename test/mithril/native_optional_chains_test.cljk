@@ -1,0 +1,55 @@
+(ns mithril.native-optional-chains-test
+  (:require [cljs.test :refer [deftest is]] [mithril.native-js :as native] [mithril.native-class-test :as c]
+            [mithril.native-esm-test :as e] [mithril.form :as form]
+            ["node:fs" :as fs] ["node:os" :as os] ["node:path" :as path] ["node:child_process" :as child]))
+(def get-step {"kind" "get" "optional" true "key" (c/lit "f")})
+(def call-step {"kind" "call" "optional" true "items" []})
+(defn chain [steps] {"@type" "HostOptionalChain" "base" (c/lit nil) "steps" steps})
+(defn refused? [x] (try (native/compile-document (c/document x [])) false (catch :default _ true)))
+(deftest optional-chain-bounded-own-context-admission
+  (let [base (chain [get-step call-step])
+        await {"@type" "HostAwait" "value" c/undef} yield {"@type" "HostYield" "value" c/undef}
+        bad (vec (concat
+             [(assoc base "source" "raw") (dissoc base "base") (dissoc base "steps")
+              (chain []) (chain [true]) (chain [(assoc get-step "optional" false)])
+              (chain (vec (repeat 65 get-step))) (assoc base "base" (c/local "missing"))
+              (chain [(assoc get-step "key" (c/local "missing"))])
+              (chain [(assoc get-step "kind" "unknown")]) (chain [(assoc get-step "extra" true)])
+              (chain [(dissoc get-step "key")]) (chain [(assoc call-step "items" {})])
+              (chain [(assoc call-step "items" (vec (repeat 65 {"value" c/undef})))])
+              (chain [(assoc call-step "items" [{"value" c/undef "spread" c/undef}])])
+              (chain [(assoc call-step "items" [{"source" "raw"}])])
+              (chain [(assoc get-step "key" await)])
+              (chain [(assoc call-step "items" [{"value" yield}])])
+              (assoc (c/normal (chain [(assoc get-step "key" yield)])) "async" true)
+              (assoc (c/normal (chain [(assoc get-step "key" await)])) "generator" true)
+              (assoc (c/normal c/undef) "async" true "params" [(assoc (c/param "value") "default" (chain [(assoc get-step "key" await)]))])
+              (chain [(assoc get-step "key" {"@type" "HostReturn" "value" c/undef})])]
+             (for [flag [nil 1 "true"]] (chain [(assoc get-step "optional" flag)]))))
+        good [base (chain [(assoc get-step "optional" false) call-step])
+              (chain [(assoc call-step "optional" false) get-step])
+              (assoc (c/normal (chain [(assoc get-step "key" await)])) "async" true)
+              (assoc (c/normal (chain [(assoc call-step "items" [{"spread" await}])])) "async" true)
+              (assoc (c/normal (chain [(assoc get-step "key" yield)])) "generator" true)]]
+    (is (= (form/parse "(mithril/host-optional-chain :base (mithril/literal :datatype \"js-value\" :value nil) :steps [(rdf/node :kind \"get\" :optional true :key (mithril/literal :datatype \"js-value\" :value \"f\"))])") (chain [get-step])))
+    (is (and (= 25 (count bad)) (every? refused? bad)))
+    (is (every? (complement refused?) good))))
+(deftest actual-native-optional-chain-cli
+  (let [text (fs/readFileSync "examples/native-js-optional-chains.mith" "utf8") checked (native/check-text text)
+        dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-optional-chains-"))]
+    (is (= (native/compile-text text) (native/compile-document (form/parse text))))
+    (is (= 11 (count (:exports checked))))
+    (try
+      (let [engine (.-MITHRIL_NATIVE_ENGINE js/process.env) config (path/join dir "offline.edn")]
+        (fs/writeFileSync config "{:paths [\"src\"]}\n")
+        (doseq [target ["js" "js-browser"]]
+          (e/result! [engine "--config" config "-cp" "src" "bin/mithril-native-js.cljk" "examples/native-js-optional-chains.mith" "--target" target "--output" (path/join dir (str target ".mjs"))])
+          (let [manifest {"@type" "NativeJsEsmPackage" "name" "optional.chains" "imports" []
+                          "modules" [{"name" "cordis.optionalChains" "source" "source.mith" "dependencies" [] "links" []}]
+                          "reexports" ["cordis.optionalChains"]} input (path/join dir (str target "-input.mith"))]
+            (fs/writeFileSync (path/join dir "source.mith") text)
+            (fs/writeFileSync input (e/source-form manifest))
+            (e/cli! engine config input target (path/join dir (str target "-esm"))))))
+      (let [r (child/spawnSync js/process.execPath (clj->js ["test/fixtures/optional-chains/contract.mjs" dir]) #js {:encoding "utf8" :timeout 30000})]
+        (is (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r)))
+      (finally (fs/rmSync dir #js {:recursive true :force true})))))

@@ -1,0 +1,6 @@
+(mithril/native-js-esm-package
+ :name "loader.internal" :imports ["process" "Number" "Object"]
+ :externals [(rdf/node :name "node.module" :specifier "node:module" :exports ["createRequire"])]
+ :modules [(rdf/node :name "loader.internal" :source "loader-internal.mith"
+  :dependencies ["node.module"] :links [(rdf/node :import "createRequire" :module "node.module" :export "createRequire")])]
+ :reexports ["loader.internal"])

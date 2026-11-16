@@ -1,0 +1,72 @@
+(ns mithril.export-alias-test
+  (:require [cljs.test :refer [deftest is]]
+            [clojure.string :as str]
+            [mithril.module :as module]
+            [mithril.module-lower :as lower]
+            [mithril.module-lower-test :as f]))
+(defn alias [name target] {"name" name "function" target})
+(defn keep [name]
+  (f/function name [{"name" "v" "datatype" "js-value"}] "js-value" (f/local "v")))
+(defn code [doc]
+  (try (module/check-document doc) nil (catch :default e (:mithril/error (ex-data e)))))
+(deftest aliases-normalize-public-names-and-validate-declared-targets
+  (let [doc (f/document [(keep "keep")] [(alias "alsoKeep" "keep") "keep"])
+        checked (module/check-document doc)
+        old (module/check-document (f/document [(keep "keep")] ["keep"]))]
+    (is (= ["alsoKeep" "keep"] (:exports checked)))
+    (is (= {"alsoKeep" "keep" "keep" "keep"} (:export-targets checked)))
+    (is (not (contains? old :export-targets)))
+    (is (= (:functions old) (:functions checked)))))
+(deftest aliases-share-one-private-amu-export-in-first-target-order
+  (let [functions [(keep "keepA") (keep "keepB")]
+        doc (f/document functions [(alias "aliasB" "keepB") (alias "aliasA" "keepA") "keepB" "keepA"])
+        result (lower/lower-document doc)
+        plain (lower/lower-document (f/document functions ["keepB" "keepA"]))]
+    (is (= (:source plain) (:source result)))
+    (is (= [{:name "aliasB" :symbol "__mithril_f1"} {:name "aliasA" :symbol "__mithril_f0"}
+            {:name "keepB" :symbol "__mithril_f1"} {:name "keepA" :symbol "__mithril_f0"}] (:exports result)))
+    (is (= 2 (count (re-seq #"function __mithril_public_[0-9]+\(" (:source (lower/js-library-document doc "./artifact.mjs"))))))))
+(deftest alias-library-budgets-follow-the-actual-declaration
+  (let [doc (f/document [(keep "inner")
+                        (f/function "keep" [{"name" "v" "datatype" "js-value"}] "js-value"
+                                    (f/call "inner" [(f/local "v")]))]
+                       [(alias "default" "keep") "keep"])
+        result (lower/js-library-document doc "./artifact.mjs")]
+    (is (= {:fuel 2 :frames 2} (:budgets result)))
+    (is (= [{:name "default" :symbol "__mithril_f1"} {:name "keep" :symbol "__mithril_f1"}] (:exports result)))
+    (is (= 1 (count (re-seq #"function __mithril_public_[0-9]+\(" (:source result)))))))
+(deftest malformed-aliases-unknown-targets-and-public-duplicates-are-refused
+  (doseq [[exports expected]
+          [[["keep" (alias "keep" "keep")] :mithril.module/duplicate-export]
+           [[(alias "same" "keep") (alias "same" "other")] :mithril.module/duplicate-export]
+           [[(alias "new" "missing")] :mithril.module/unknown-export]
+           [[{"name" "new"}] :mithril.module/invalid-shape]
+           [[{"name" "new" "function" "keep" "extra" true}] :mithril.module/invalid-shape]
+           [[(alias "bad:name" "keep")] :mithril.module/invalid-name]
+           [[(alias "new" "bad:name")] :mithril.module/invalid-name]]]
+    (is (= expected (code (f/document [(keep "keep") (keep "other")] exports))))))
+(deftest exports-do-not-create-or-shadow-private-call-bindings
+  (is (= :mithril.module/unknown-call
+         (code (f/document [(keep "keep")
+                            (f/function "caller" [] "js-value" (f/call "public" []))]
+                           [(alias "public" "keep")]))))
+  (let [doc (f/document [(keep "keep")
+                        (f/function "public" [] "js-value" (f/call "js_undefined" []))
+                        (f/function "caller" [] "js-value" (f/call "public" []))]
+                       [(alias "public" "keep")])
+        result (lower/lower-document doc)]
+    (is (= [{:name "public" :symbol "__mithril_f0"}] (:exports result)))
+    (is (str/includes? (:source result) "(defn __mithril_f2 [] :js-value (__mithril_f1))"))))
+(deftest existing-form-export-syntax-is-sufficient
+  (let [text "(mithril/module :name \"alias.probe\" :exports [(mithril/export :name \"alsoKeep\" :function \"keep\") \"keep\"] :functions [(mithril/function :name \"keep\" :params [(rdf/node :name \"v\" :datatype \"js-value\")] :returns \"js-value\" :body (mithril/local :name \"v\"))])"
+        checked (module/check-text text)]
+    (is (= {"alsoKeep" "keep" "keep" "keep"} (:export-targets checked)))
+    (is (= [{:name "alsoKeep" :symbol "__mithril_f0"} {:name "keep" :symbol "__mithril_f0"}]
+           (:exports (lower/lower-text text))))
+    (is (= {:fuel 1 :frames 1} (:budgets (lower/js-library-text text "./artifact.mjs"))))))
+(deftest aliasing-does-not-admit-recursion-into-the-pure-library
+  (let [doc (f/document [(f/function "loop" [] "bool" (f/call "loop" []))] [(alias "publicLoop" "loop")])]
+    (is (= :mithril.module/library-cycle
+           (try (lower/js-library-document doc "./artifact.mjs") nil
+                (catch :default e (:mithril/error (ex-data e))))))
+    (is (= [{:name "publicLoop" :symbol "__mithril_f0"}] (:exports (lower/lower-document doc))))))

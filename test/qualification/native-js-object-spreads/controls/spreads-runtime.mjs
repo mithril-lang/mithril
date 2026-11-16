@@ -1,0 +1,20 @@
+import assert from 'node:assert/strict';import {pathToFileURL} from 'node:url';const api=(await import(pathToFileURL(process.argv[2]).href)).instantiateMithrilNative({});let count=0;function test(fn){fn();count++}
+test(()=>{const a=api.empty(),b=api.empty();assert.notEqual(a,b);assert.equal(Object.getPrototypeOf(a),Object.prototype);assert.deepEqual(a,{})});
+test(()=>{for(const x of [undefined,null,0,false,1n,Symbol('x')])assert.deepEqual(api.merge(x,undefined),{});assert.deepEqual(api.merge('ab',undefined),{0:'a',1:'b'})});
+test(()=>{const sym=Symbol();const r=api.merge({a:1,b:2,[sym]:3},{a:4,c:5,[sym]:6});assert.deepEqual(Reflect.ownKeys(r),['a','b','c',sym]);assert.equal(r.a,4);assert.equal(r[sym],6)});
+test(()=>{let reads=0;const r=api.merge({get x(){reads++;return 1}},{});assert.equal(reads,1);assert.deepEqual(Object.getOwnPropertyDescriptor(r,'x'),{value:1,writable:true,enumerable:true,configurable:true})});
+test(()=>{const sym=Symbol(),a=Object.create({inherited:1});Object.defineProperty(a,'hidden',{value:2});a.x=3;a[sym]=4;assert.deepEqual(Reflect.ownKeys(api.merge(a,{})),['x',sym])});
+test(()=>{const a={['__proto__']:{poison:true}},r=api.merge(a,{});assert.equal(Object.getPrototypeOf(r),Object.prototype);assert.equal(Object.hasOwn(r,'__proto__'),true);assert.equal(r.__proto__,a.__proto__)});
+test(()=>{let calls=0;Object.defineProperty(Object.prototype,'spreadSetter',{configurable:true,set(){calls++}});try{const r=api.merge({}, {spreadSetter:3});assert.equal(calls,0);assert.equal(r.spreadSetter,3)}finally{delete Object.prototype.spreadSetter}});
+test(()=>{const events=[];const r=api.ordered(()=>{events.push('left');return {get a(){events.push('a');return 1}}},()=>{events.push('right');return {get b(){events.push('b');return 2}}});assert.deepEqual(events,['left','a','right','b']);assert.deepEqual(r,{a:1,b:2})});
+test(()=>{const events=[],s=Symbol();const a=new Proxy({x:1,[s]:2},{ownKeys(t){events.push('keys');return Reflect.ownKeys(t)},getOwnPropertyDescriptor(t,k){events.push('desc:'+String(k));return Reflect.getOwnPropertyDescriptor(t,k)},get(t,k){events.push('get:'+String(k));return t[k]}});assert.equal(api.merge(a,{}).x,1);assert.deepEqual(events,['keys','desc:x','get:x','desc:Symbol()','get:Symbol()'])});
+test(()=>{const token={};let right=false;assert.throws(()=>api.ordered(()=>({get x(){throw token}}),()=>{right=true;return {}}),e=>e===token);assert.equal(right,false)});
+test(()=>{const token={};assert.throws(()=>api.merge(new Proxy({},{ownKeys(){throw token}}),{}),e=>e===token)});
+test(()=>{const f=()=>{};f.a=1;assert.deepEqual(api.merge(f,{}),{a:1});assert.deepEqual(api.merge([,1],{}),{1:1})});
+test(()=>{const sym=Symbol();const r=api.merge({'10':10,a:1,[sym]:1},{'2':2,b:2});assert.deepEqual(Reflect.ownKeys(r),['2','10','a','b',sym])});
+test(()=>{const a={x:1},r=api.merge(a,{});r.x=2;r.y=3;assert.equal(a.x,1);assert.equal(a.y,undefined);assert.notEqual(api.merge(a,{}),r)});
+test(()=>{const nested={};assert.equal(api.merge({nested},{}).nested,nested)});
+test(()=>{const O=globalThis.Object,R=globalThis.Reflect;let r;try{globalThis.Object=new Proxy(O,{get(){throw Error('extra Object lookup')}});globalThis.Reflect=new Proxy(R,{get(){throw Error('extra Reflect lookup')}});r=api.merge({a:1},{b:2})}finally{globalThis.Object=O;globalThis.Reflect=R}assert.deepEqual(r,{a:1,b:2})});
+test(()=>{assert.deepEqual(api.argc(),{count:0});assert.deepEqual(api.argc(1,undefined,3),{count:3})});
+test(()=>{assert.equal(api.merge.name,'merge');assert.equal(api.merge.length,2);assert.ok(Object.hasOwn(api.merge,'prototype'));const second=(Object.getPrototypeOf(api.merge)===Function.prototype);assert.equal(second,true)});
+assert.equal(count,18);console.log('Native ordered object spreads:18 runtime groups passed.');

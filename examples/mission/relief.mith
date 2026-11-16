@@ -1,0 +1,230 @@
+{
+  "@type": "MissionModel",
+  "@id": "urn:relief:model",
+  "records": [
+    {
+      "@id": "urn:relief:team",
+      "standard": "msdl",
+      "version": "mithril-normalized-v1",
+      "document": "urn:relief:source:msdl",
+      "record": "team",
+      "type": "Unit",
+      "payload": {
+        "name": "災害支援チーム"
+      },
+      "refs": {
+        "initialState": "urn:relief:ready"
+      }
+    },
+    {
+      "@id": "urn:relief:shelter",
+      "standard": "c-bml",
+      "version": "mithril-normalized-v1",
+      "document": "urn:relief:source:c-bml",
+      "record": "shelter",
+      "type": "Location",
+      "payload": {
+        "name": "避難所"
+      },
+      "refs": {}
+    },
+    {
+      "@id": "urn:relief:capacity",
+      "standard": "dm2",
+      "version": "mithril-normalized-v1",
+      "document": "urn:relief:source:dm2",
+      "record": "capacity",
+      "type": "Capability",
+      "payload": {
+        "description": "物資配送"
+      },
+      "refs": {
+        "entity": "urn:relief:team"
+      }
+    },
+    {
+      "@id": "urn:relief:goal",
+      "standard": "c-bml",
+      "version": "mithril-normalized-v1",
+      "document": "urn:relief:source:c-bml",
+      "record": "goal",
+      "type": "Goal",
+      "payload": {
+        "condition": "避難所への物資受領が記録された"
+      },
+      "refs": {}
+    },
+    {
+      "@id": "urn:relief:ready",
+      "standard": "msdl",
+      "version": "mithril-normalized-v1",
+      "document": "urn:relief:source:msdl",
+      "record": "ready",
+      "type": "InitialState",
+      "payload": {
+        "status": "ready"
+      },
+      "refs": {
+        "entity": "urn:relief:team"
+      }
+    },
+    {
+      "@id": "urn:relief:delivered",
+      "standard": "mim",
+      "version": "mithril-normalized-v1",
+      "document": "urn:relief:source:mim",
+      "record": "delivered",
+      "type": "Status",
+      "payload": {
+        "status": "delivered"
+      },
+      "refs": {
+        "entity": "urn:relief:team"
+      }
+    },
+    {
+      "@id": "urn:relief:consent",
+      "standard": "dmn",
+      "version": "mithril-normalized-v1",
+      "document": "urn:relief:source:dmn",
+      "record": "consent",
+      "type": "Rule",
+      "payload": {
+        "description": "受領者が確認した"
+      },
+      "refs": {}
+    },
+    {
+      "@id": "urn:relief:event",
+      "standard": "c-bml",
+      "version": "mithril-normalized-v1",
+      "document": "urn:relief:source:c-bml",
+      "record": "event",
+      "type": "Event",
+      "payload": {
+        "name": "受領確認"
+      },
+      "refs": {
+        "entity": "urn:relief:team"
+      }
+    },
+    {
+      "@id": "urn:relief:order",
+      "standard": "c-bml",
+      "version": "mithril-normalized-v1",
+      "document": "urn:relief:source:c-bml",
+      "record": "order",
+      "type": "Order",
+      "payload": {
+        "what": "物資配送",
+        "when": "訓練開始後",
+        "why": "避難所支援"
+      },
+      "refs": {
+        "actor": "urn:relief:team",
+        "location": "urn:relief:shelter",
+        "goal": "urn:relief:goal",
+        "capability": "urn:relief:capacity",
+        "constraints": [
+          "urn:relief:consent"
+        ]
+      }
+    },
+    {
+      "@id": "urn:relief:decision",
+      "standard": "dmn",
+      "version": "mithril-normalized-v1",
+      "document": "urn:relief:source:dmn",
+      "record": "decision",
+      "type": "Decision",
+      "payload": {
+        "description": "配送完了確認"
+      },
+      "refs": {
+        "dependsOn": [
+          "urn:relief:order"
+        ],
+        "constraints": [
+          "urn:relief:consent"
+        ]
+      }
+    },
+    {
+      "@id": "urn:relief:receipt",
+      "standard": "forms",
+      "version": "mithril-normalized-v1",
+      "document": "urn:relief:source:forms",
+      "record": "receipt",
+      "type": "Submission",
+      "payload": {
+        "received": true
+      },
+      "refs": {
+        "entity": "urn:relief:team"
+      }
+    },
+    {
+      "@id": "urn:relief:observation",
+      "standard": "mim",
+      "version": "mithril-normalized-v1",
+      "document": "urn:relief:source:mim",
+      "record": "observation",
+      "type": "Observation",
+      "payload": {
+        "status": "受領記録を確認"
+      },
+      "refs": {
+        "entity": "urn:relief:team"
+      }
+    },
+    {
+      "@id": "urn:relief:workflow",
+      "standard": "bpmn",
+      "version": "mithril-normalized-v1",
+      "document": "urn:relief:source:bpmn",
+      "record": "workflow",
+      "type": "ServiceTask",
+      "payload": {
+        "action": "record-receipt"
+      },
+      "refs": {
+        "dependsOn": [
+          "urn:relief:order"
+        ]
+      }
+    },
+    {
+      "@id": "urn:relief:transition",
+      "standard": "dm2",
+      "version": "mithril-normalized-v1",
+      "document": "urn:relief:source:dm2",
+      "record": "transition",
+      "type": "Transition",
+      "payload": {},
+      "refs": {
+        "entity": "urn:relief:team",
+        "from": "urn:relief:ready",
+        "to": "urn:relief:delivered",
+        "trigger": "urn:relief:event",
+        "constraints": [
+          "urn:relief:consent"
+        ]
+      }
+    },
+    {
+      "@id": "urn:relief:relationship",
+      "standard": "jc3iedm",
+      "version": "mithril-normalized-v1",
+      "document": "urn:relief:source:jc3iedm",
+      "record": "relationship",
+      "type": "Association",
+      "payload": {
+        "description": "支援担当"
+      },
+      "refs": {
+        "subject": "urn:relief:team",
+        "object": "urn:relief:shelter"
+      }
+    }
+  ]
+}

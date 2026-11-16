@@ -35,7 +35,18 @@
    'mithril/assembly "Assembly"
    'mithril/stack "Stack"
    'mithril/twin-run "TwinRun"
-   'mithril/cluster "Cluster"})
+   'mithril/cluster "Cluster"
+   'mithril/module "Module"
+   'mithril/native-js-module "NativeJsModule"
+   'mithril/native-js-package "NativeJsPackage"
+   'mithril/native-js-esm-package "NativeJsEsmPackage"
+   'mithril/native-js-esm-entry-package "NativeJsEsmEntryPackage"
+   'mithril/native-js-declarations "NativeJsDeclarations"
+   'mithril/native-js-declaration-module "NativeJsDeclarationModule"
+   'mithril/native-js-declaration-program "NativeJsDeclarationProgram"
+   'mithril/native-js-declaration-composition "NativeJsDeclarationComposition"
+   'mithril/language "LanguageKernel"
+   'mithril/codegraph "CodeGraphApplication"})
 
 (def ^:private nested-tags
   #{'mithril/choice 'mithril/export 'mithril/import 'mithril/route
@@ -58,7 +69,79 @@
    'bpmn/end-event "bpmn:EndEvent"
    'bpmn/exclusive-gateway "bpmn:ExclusiveGateway"
    'bpmn/service-task "bpmn:ServiceTask"
-   'bpmn/sequence-flow "bpmn:SequenceFlow"})
+   'bpmn/sequence-flow "bpmn:SequenceFlow"
+   'mithril/function "Function"
+   'mithril/call "Call"
+   'mithril/function-set "FunctionSet"
+   'mithril/host-optional-chain "HostOptionalChain"
+   'mithril/local "Local"
+   'mithril/literal "Literal"
+   'mithril/if "If"
+   'mithril/let "Let"
+   'mithril/sequence "Sequence"
+   'mithril/function-type "FunctionType"
+   'mithril/lambda "Lambda"
+   'mithril/invoke "Invoke"
+   'mithril/function-ref "FunctionRef"
+   'mithril/host-import "HostImport"
+   'mithril/host-import-meta "HostImportMeta"
+   'mithril/host-dynamic-import "HostDynamicImport"
+   'mithril/host-optional-get "HostOptionalGet"
+   'mithril/host-get "HostGet"
+   'mithril/host-invoke "HostInvoke"
+   'mithril/host-invoke-items "HostInvokeItems"
+   'mithril/host-optional-invoke "HostOptionalInvoke"
+   'mithril/host-optional-invoke-items "HostOptionalInvokeItems"
+   'mithril/host-method "HostMethod"
+   'mithril/host-array "HostArray"
+   'mithril/native-lambda "NativeLambda"
+   'mithril/native-function "NativeFunction"
+   'mithril/native-class "NativeClass"
+   'mithril/host-update "HostUpdate"
+   'mithril/host-super-call "HostSuperCall"
+   'mithril/host-super-get "HostSuperGet"
+   'mithril/host-super-set "HostSuperSet"
+   'mithril/host-super-method "HostSuperMethod"
+   'mithril/host-this "HostThis"
+   'mithril/host-new-target "HostNewTarget"
+   'mithril/host-undefined "HostUndefined"
+   'mithril/host-unary "HostUnary"
+   'mithril/host-binary "HostBinary"
+   'mithril/host-logical "HostLogical"
+   'mithril/host-logical-assign "HostLogicalAssign"
+   'mithril/host-compound-assign "HostCompoundAssign"
+   'mithril/host-object "HostObject"
+   'mithril/host-spread "HostSpread"
+   'mithril/host-set "HostSet"
+   'mithril/host-delete "HostDelete"
+   'mithril/host-for-of "HostForOf"
+   'mithril/host-for-in "HostForIn"
+   'mithril/host-switch "HostSwitch"
+   'mithril/host-binding-let "HostBindingLet"
+   'mithril/host-for "HostFor"
+   'mithril/host-local-update "HostLocalUpdate"
+   'mithril/host-construct "HostConstruct"
+   'mithril/host-array-items "HostArrayItems"
+   'mithril/host-optional-method "HostOptionalMethod"
+   'mithril/local-set "LocalSet"
+   'mithril/host-return "HostReturn"
+   'mithril/host-await "HostAwait"
+   'mithril/host-yield "HostYield"
+   'mithril/host-continue "HostContinue"
+   'mithril/host-break "HostBreak"
+   'mithril/host-throw "HostThrow"
+   'mithril/host-try-catch "HostTryCatch"
+   'mithril/host-try-finally "HostTryFinally"
+   'mithril/local-function "LocalFunction"
+   'mithril/host-arguments "HostArguments"
+   'mithril/host-arguments-length "HostArgumentsLength"
+   'mithril/host-while "HostWhile"
+   'mithril/host-do-while "HostDoWhile"
+   'mithril/host-to-string "HostToString"
+   'mithril/host-object-spreads "HostObjectSpreads"
+   'mithril/host-tagged-template "HostTaggedTemplate"
+   'mithril/host-regexp "HostRegExp"
+   'mithril/host-method-items "HostMethodItems"})
 
 (def ^:private key-names
   {:id "@id"
@@ -134,6 +217,8 @@
    :source "source"
    :target "target"
    :condition "condition"
+   :then "then"
+   :else "else"
    :default "default"
    :action "action"
    ;; Twin document profile (mithril.twin, context twin/v1). Multi-word twin
@@ -239,7 +324,7 @@
   (throw (ex-info detail {:mithril/error code :detail detail})))
 
 (defn source? [text]
-  (str/starts-with? (str/triml (or text "")) "("))
+  (boolean (re-find #"^(?:\s|;[^\n]*(?:\n|$))*\(" (or text ""))))
 
 (defn- key-name [k]
   (when-not (keyword? k)
@@ -266,16 +351,21 @@
 ;; explicit value objects; the RDF -- and so every graph digest -- is the
 ;; same either way at this pin, checked by form_test.)
 
-(defn- fields [xs]
-  (when (odd? (count xs))
-    (fail! :mithril.form/field-arity "Mithril forms require keyword/value pairs"))
-  (let [pairs (partition 2 xs)
-        names (map (comp key-name first) pairs)]
-    (when-not (= (count names) (count (set names)))
-      (fail! :mithril.form/duplicate-field "Mithril form fields must be unique"))
-    (into {} (map (fn [[k v]]
-                    [(key-name k) (lower-value v)])
-                  pairs))))
+(defn- fields
+  ([xs] (fields xs false))
+  ([xs js-value-literal?]
+   (when (odd? (count xs))
+     (fail! :mithril.form/field-arity "Mithril forms require keyword/value pairs"))
+   (let [pairs (partition 2 xs)
+         names (map (comp key-name first) pairs)]
+     (when-not (= (count names) (count (set names)))
+       (fail! :mithril.form/duplicate-field "Mithril form fields must be unique"))
+     (into {} (map (fn [[k v]]
+                     (let [name (key-name k)]
+                       [name (if (and js-value-literal? (= name "value") (number? v))
+                               (if (js/Number.isFinite v) v
+                                   (fail! :mithril.form/unsupported-value "Native JS numeric literals must be finite"))
+                               (lower-value v))])) pairs)))))
 
 (def ^:private path-tags
   "SHACL property path sub-syntax (SHACL §2.3.1). Positional, not keyword
@@ -340,17 +430,62 @@
 
 (declare lower-tagged)
 
+(defn- rdf-id! [value blank?]
+  (when-not (and (string? value)
+                (not (re-find #"[\s<>\u0000-\u001f]" value))
+                (or (and blank? (re-matches #"_:[A-Za-z0-9_.-]+" value))
+                    (re-find #"^[A-Za-z][A-Za-z0-9+.-]*:" value)))
+    (fail! :mithril.form/invalid-rdf-iri "RDF data requires an absolute IRI or admitted blank node"))
+  value)
+
+(defn- lower-rdf-data [[tag & args]]
+  (let [children! (fn [children expected]
+                    (when-not (every? #(and (list? %) (= expected (first %))) children)
+                      (fail! :mithril.form/invalid-rdf-data (str tag " requires " expected " children")))
+                    (mapv lower-form children))]
+    (case tag
+      rdf/dataset (vec (mapcat (fn [g] (if (get g "@id") [g] (get g "@graph")))
+                              (children! args 'rdf/graph)))
+      rdf/graph (let [[identity & nodes] args]
+                  (when (empty? args) (fail! :mithril.form/invalid-rdf-data "rdf/graph needs a graph identity or nil"))
+                  (cond-> {"@graph" (children! nodes 'rdf/description)}
+                    identity (assoc "@id" (rdf-id! identity true))))
+      rdf/description
+      (let [[identity & properties] args
+            _ (rdf-id! identity true)
+            _ (children! properties 'rdf/property)]
+        (reduce (fn [node [_ predicate & values]]
+                  (let [predicate (rdf-id! predicate false)]
+                    (when (contains? node predicate)
+                      (fail! :mithril.form/invalid-rdf-data "duplicate RDF property"))
+                    (assoc node predicate (mapv lower-form values)))) {"@id" identity} properties))
+      rdf/property
+      (let [[predicate & values] args]
+        (rdf-id! predicate false)
+        (when-not (and (seq values) (every? #(and (list? %) (contains? #{'rdf/iri 'rdf/literal} (first %))) values))
+          (fail! :mithril.form/invalid-rdf-data "rdf/property needs explicit RDF terms"))
+        (mapv lower-form values))
+      rdf/iri (do (when-not (= 1 (count args))
+                    (fail! :mithril.form/invalid-rdf-data "rdf/iri takes exactly one identity"))
+                  {"@id" (rdf-id! (first args) true)}))))
+
 (defn lower-form [form]
   (when-not (and (list? form) (symbol? (first form)))
     (fail! :mithril.form/invalid-form "Mithril source must be one tagged S-expression"))
   (cond
+    (contains? #{'rdf/dataset 'rdf/graph 'rdf/description 'rdf/property 'rdf/iri} (first form))
+    (lower-rdf-data form)
     (contains? path-tags (first form)) (lower-path-form form)
     (= 'rdf/literal (first form)) (lower-literal form)
     :else (lower-tagged form)))
 
 (defn- lower-tagged [form]
   (let [tag (first form)
-        body (fields (rest form))
+        ;; Only this typed literal's scalar value admits native finite doubles.
+        ;; General fields, guest numeric datatypes and RDF/policy forms stay inert
+        ;; and integer-only; the native backend still checks context/type/shape.
+        body (fields (rest form) (and (= tag 'mithril/literal)
+                                     (some #(= [:datatype "js-value"] (vec %)) (partition 2 (rest form)))))
         types (let [t (get body "@type")] (if (vector? t) t [t]))]
     (when-let [bad (some not-owl2-rl-types types)]
       (fail! :mithril.form/not-owl2-rl
@@ -366,6 +501,24 @@
                                 "https://mithril.fund/context/bot-checkpoint/v1"
                                 (= tag 'mithril/twin-document)
                                 "https://mithril.fund/context/twin/v1"
+                                (= tag 'mithril/module)
+                                "https://mithril.fund/context/module/v1"
+                                (= tag 'mithril/native-js-module)
+                                "https://mithril.fund/context/native-js-module/v1"
+                                (= tag 'mithril/native-js-package)
+                                "https://mithril.fund/context/native-js-package/v1"
+                                (= tag 'mithril/native-js-esm-package)
+                                "https://mithril.fund/context/native-js-esm-package/v1"
+                                (= tag 'mithril/native-js-esm-entry-package)
+                                "https://mithril.fund/context/native-js-esm-package/v2"
+                                (= tag 'mithril/native-js-declarations)
+                                "https://mithril.fund/context/native-js-declarations/v1"
+                                (= tag 'mithril/native-js-declaration-module)
+                                "https://mithril.fund/context/native-js-declaration-module/v1"
+                                (= tag 'mithril/native-js-declaration-program)
+                                "https://mithril.fund/context/native-js-declaration-program/v1"
+                                (= tag 'mithril/native-js-declaration-composition)
+                                "https://mithril.fund/context/native-js-declaration-composition/v1"
                                 :else "https://mithril.fund/context/v1")
                   "@type" (get top-level-tags tag))
 

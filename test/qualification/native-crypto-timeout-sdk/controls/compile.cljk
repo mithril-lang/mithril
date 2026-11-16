@@ -1,0 +1,41 @@
+(ns compile-crypto-timeout-sdk
+ (:require [mithril.native-esm :as esm] [mithril.native-declaration-program :as program]
+           ["node:fs" :as fs] ["node:os" :as os] ["node:child_process" :as child]))
+(defn ensure [p label] (when-not p (throw (js/Error. label))))
+(def engine (.-MITHRIL_DECLARATIONS_ENGINE js/process.env))
+(def compiler (.-MITHRIL_DECLARATIONS_TYPESCRIPT js/process.env))
+(def type-roots (.-MITHRIL_DECLARATIONS_TYPE_ROOTS js/process.env))
+(defn contract [pkg values types]
+ (let [runtime-text (fs/readFileSync (str "examples/native-js-" pkg "-esm.mith") "utf8")
+       runtime-sources (into {} (map #(vector % (fs/readFileSync (str "examples/" %) "utf8")) (esm/source-basenames runtime-text)))
+       checked (esm/check-text runtime-text runtime-sources) runtime (esm/compile-text runtime-text runtime-sources)
+       text (fs/readFileSync (str "examples/native-js-" pkg "-program.mith") "utf8")
+       sources (into {} (map #(vector % (fs/readFileSync (str "examples/" %) "utf8")) (:sources (program/read-plan text))))
+       declarations (program/compile-text text sources checked)]
+  (ensure (= 1 (count (:module-files runtime)) (count (:module-files declarations))) "Complete single-source SDK owner")
+  (ensure (= values (set (:exports runtime)) (set (:exports declarations))) "All original runtime exports")
+  (ensure (= types (set (:type-exports declarations))) "All original public types")
+  {:runtime runtime :types declarations}))
+(def contracts {"crypto" (contract "crypto" #{"bytesToBase64" "randomUUID"} #{"Uuid"})
+                "timeout" (contract "timeout" #{"TimeoutReason" "MAX_TIMER_DELAY_MS" "clampTimeout" "deadline" "idleWatchdog" "timeoutOf"}
+                                    #{"TimeoutReason" "Deadline" "IdleWatchdog"})})
+(def dir (fs/mkdtempSync (str (os/tmpdir) "/mithril-crypto-timeout-sdk-")))
+(def config (str dir "/offline.edn"))
+(fs/writeFileSync config (str "{:paths [" (js/JSON.stringify (fs/realpathSync "src")) "]}"))
+(defn run [args]
+ (let [r (child/spawnSync js/process.execPath (clj->js args) #js {:encoding "utf8" :timeout 240000 :maxBuffer 4194304})]
+  (ensure (= 0 (.-status r)) (str "Control exit=" (.-status r) " signal=" (.-signal r) " error=" (some-> (.-error r) .-message) "\n" (.-stdout r) (.-stderr r))) (print (.-stdout r)) (.-stdout r)))
+(try
+ (doseq [target ["js" "js-browser"]]
+  (doseq [pkg ["crypto" "timeout"]]
+   (let [output (str dir "/" target "-" pkg) typed (str output "-types") c (get contracts pkg)]
+    (fs/writeFileSync (str output ".log") (run [engine "--config" config "-cp" "src" "bin/mithril-native-esm.cljk"
+     (str "examples/native-js-" pkg "-esm.mith") "--target" target "--output-directory" output]))
+    (doseq [[file bytes] (:files (:runtime c))] (ensure (= bytes (fs/readFileSync (str output "/" file) "utf8")) "Exact SDK runtime CLI bytes"))
+    (fs/writeFileSync (str typed ".log") (run [engine "--config" config "-cp" "src" "bin/mithril-native-declaration-program.cljk"
+     (str "examples/native-js-" pkg "-program.mith") "--target" target "--output-directory" typed]))
+    (doseq [[file bytes] (:files (:types c))] (ensure (= bytes (fs/readFileSync (str typed "/" file) "utf8")) "Exact SDK declaration CLI bytes"))))
+  (run ["test/qualification/native-crypto-timeout-sdk/controls/runtime.mjs" compiler (str dir "/" target "-crypto") (str dir "/" target "-timeout")])
+  (run ["test/qualification/native-crypto-timeout-sdk/controls/check.mjs" compiler type-roots (str dir "/" target "-crypto")
+        (str dir "/" target "-crypto-types") (str dir "/" target "-timeout") (str dir "/" target "-timeout-types")]))
+ (finally (fs/rmSync dir #js {:recursive true :force true})))

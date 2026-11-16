@@ -1,0 +1,147 @@
+{
+  "format": "mithril.code-refactor-verification/v1",
+  "verified": true,
+  "verification_scope": "Declared checks on selected baseline and candidate snapshots only; not whole-repository or universal API equivalence.",
+  "input_sha256": "54dcd74eab7b711da2578d927c096e1fffce14b5222b645c8178742ceb07b16e",
+  "proposal_sha256": "64f7a93ff96469f9e1cec4c60f767b34a872a8c286e0737613e013d492d9f6e8",
+  "candidate_sha256": "25742ca7040f24a38ea477d50393a9087dc00ad64513a7edb0617ea3f1f564c4",
+  "image": "sha256:61dcb0b476c65d755e68f86f614d0d480f0e627f0c749d0034f6c96b2276d823",
+  "plan": {
+    "image": "sha256:61dcb0b476c65d755e68f86f614d0d480f0e627f0c749d0034f6c96b2276d823",
+    "seed_directory": "/opt/mithril-refactor-base",
+    "timeout_seconds": 180,
+    "checks": [
+      {
+        "id": "retained-source-78-408",
+        "argv": [
+          "node",
+          "/opt/volatile-controls/run-check.mjs",
+          "test/run_modules.cljk"
+        ]
+      },
+      {
+        "id": "native-volatile-prerequisites",
+        "argv": [
+          "node",
+          "/opt/volatile-controls/run-check.mjs",
+          "/opt/volatile-controls/volatile-primitives.cljk"
+        ]
+      },
+      {
+        "id": "actual-typescript-volatile-baseline",
+        "argv": [
+          "node",
+          "/opt/volatile-controls/volatile-contract.mjs"
+        ]
+      },
+      {
+        "id": "complete-volatile-native-cli",
+        "variant": "candidate",
+        "argv": [
+          "node",
+          "/opt/volatile-controls/run-check.mjs",
+          "/opt/volatile-controls/compile-volatile.cljk"
+        ]
+      }
+    ]
+  },
+  "checks": [
+    {
+      "variant": "baseline",
+      "id": "retained-source-78-408",
+      "argv": [
+        "node",
+        "/opt/volatile-controls/run-check.mjs",
+        "test/run_modules.cljk"
+      ],
+      "wall_seconds": 8.190224375,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "\nTesting mithril.module-test\n\nTesting mithril.module-lower-test\n\nTesting mithril.form-test\n\nTesting mithril.compiler-test\n\nTesting mithril.conditional-test\n\nTesting mithril.branding-test\n\nTesting mithril.undefined-test\n\nTesting mithril.library-test\n\nTesting mithril.module-bindings-test\n\nTesting mithril.module-guest-closure-test\n\nTesting mithril.native-js-test\n\nTesting mithril.native-misc-test\nNative primitive runtime: strict comparison/raw logical values/spread/assignment/for-of checked.\n11 primitive admissions, 9 refusals, all 8 Form tags checked.\n\nTesting mithril.native-array-test\nNative array primitives: 20 runtime contract groups passed.\n4 admissions / 13 malformed refusals / 2 budget refusals / 3 Form tags passed.\n\nRan 78 tests containing 408 assertions.\n0 failures, 0 errors.\nJVM launcher marker absent; workspace source classpath.\n"
+    },
+    {
+      "variant": "baseline",
+      "id": "native-volatile-prerequisites",
+      "argv": [
+        "node",
+        "/opt/volatile-controls/run-check.mjs",
+        "/opt/volatile-controls/volatile-primitives.cljk"
+      ],
+      "wall_seconds": 1.688238374999999,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "Native volatile prerequisites: 15 runtime contract groups passed.\n7 admissions / 15 malformed refusals / 2 budget refusals / 4 Form tags passed.\nJVM launcher marker absent; workspace source classpath.\n"
+    },
+    {
+      "variant": "baseline",
+      "id": "actual-typescript-volatile-baseline",
+      "argv": [
+        "node",
+        "/opt/volatile-controls/volatile-contract.mjs"
+      ],
+      "wall_seconds": 3.8890329579999996,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "actual TypeScript volatile baseline: 30 complete volatile runtime contract groups passed.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "retained-source-78-408",
+      "argv": [
+        "node",
+        "/opt/volatile-controls/run-check.mjs",
+        "test/run_modules.cljk"
+      ],
+      "wall_seconds": 13.477931625,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "\nTesting mithril.module-test\n\nTesting mithril.module-lower-test\n\nTesting mithril.form-test\n\nTesting mithril.compiler-test\n\nTesting mithril.conditional-test\n\nTesting mithril.branding-test\n\nTesting mithril.undefined-test\n\nTesting mithril.library-test\n\nTesting mithril.module-bindings-test\n\nTesting mithril.module-guest-closure-test\n\nTesting mithril.native-js-test\n\nTesting mithril.native-misc-test\nNative primitive runtime: strict comparison/raw logical values/spread/assignment/for-of checked.\n11 primitive admissions, 9 refusals, all 8 Form tags checked.\n\nTesting mithril.native-array-test\nNative array primitives: 20 runtime contract groups passed.\n4 admissions / 13 malformed refusals / 2 budget refusals / 3 Form tags passed.\n\nRan 78 tests containing 408 assertions.\n0 failures, 0 errors.\nJVM launcher marker absent; workspace source classpath.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "native-volatile-prerequisites",
+      "argv": [
+        "node",
+        "/opt/volatile-controls/run-check.mjs",
+        "/opt/volatile-controls/volatile-primitives.cljk"
+      ],
+      "wall_seconds": 1.6662957499999975,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "Native volatile prerequisites: 15 runtime contract groups passed.\n7 admissions / 15 malformed refusals / 2 budget refusals / 4 Form tags passed.\nJVM launcher marker absent; workspace source classpath.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "actual-typescript-volatile-baseline",
+      "argv": [
+        "node",
+        "/opt/volatile-controls/volatile-contract.mjs"
+      ],
+      "wall_seconds": 5.216445416999999,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "actual TypeScript volatile baseline: 30 complete volatile runtime contract groups passed.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "complete-volatile-native-cli",
+      "argv": [
+        "node",
+        "/opt/volatile-controls/run-check.mjs",
+        "/opt/volatile-controls/compile-volatile.cljk"
+      ],
+      "wall_seconds": 5.230593166999999,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "{\"format\":\"mithril.native-js/artifact-v1\",\"target\":\"js\",\"module\":\"cosmokit.volatile\",\"required-imports\":[\"Object\",\"Array\",\"Set\",\"TypeError\",\"Symbol\"],\"exports\":[\"createVolatile\",\"isVolatile\",\"volatileEntries\",\"updateVolatile\"],\"output\":\"/tmp/volatile-js.mjs\"}\nactual TypeScript volatile baseline: 30 complete volatile runtime contract groups passed.\nMithril volatile candidate: 30 complete volatile runtime contract groups passed.\nCross-copy symbol protocol and module-instance initialization passed.\n{\"format\":\"mithril.native-js/artifact-v1\",\"target\":\"js-browser\",\"module\":\"cosmokit.volatile\",\"required-imports\":[\"Object\",\"Array\",\"Set\",\"TypeError\",\"Symbol\"],\"exports\":[\"createVolatile\",\"isVolatile\",\"volatileEntries\",\"updateVolatile\"],\"output\":\"/tmp/volatile-js-browser.mjs\"}\nactual TypeScript volatile baseline: 30 complete volatile runtime contract groups passed.\nMithril volatile candidate: 30 complete volatile runtime contract groups passed.\nCross-copy symbol protocol and module-instance initialization passed.\nActual native CLI js/js-browser SHA256 a866812a56dfaba0fdcf682d478f3e4590e1d2b48820c273d51c22aaae6d1bd1\nJVM launcher marker absent; workspace source classpath.\n"
+    }
+  ],
+  "wall_seconds": 39.529138541
+}

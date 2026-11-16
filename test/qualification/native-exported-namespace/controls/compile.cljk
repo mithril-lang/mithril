@@ -1,0 +1,104 @@
+(ns compile-yaml-public-namespace
+ (:require [mithril.native-esm :as esm] [mithril.native-declarations :as declarations] [mithril.native-declaration-program :as program] ["node:fs" :as fs] ["node:os" :as os] ["node:child_process" :as child]))
+(defn ensure [p message] (when-not p (throw (js/Error. message))))
+(def text (fs/readFileSync "examples/native-js-yaml-esm.mith" "utf8"))
+(def sources (into {} (map #(vector % (fs/readFileSync (str "examples/" %) "utf8")) (esm/source-basenames text))))
+(def artifact (esm/compile-text text sources))
+(ensure (= artifact (esm/compile-text text sources)) "Deterministic whole YAML source package")
+(ensure (= 29 (count (:module-files artifact))) "Complete own YAML source module closure")
+(ensure (= #{"default" "CORE_SCHEMA" "DEFAULT_SCHEMA" "FAILSAFE_SCHEMA" "JSON_SCHEMA" "Schema" "Type" "YAMLException" "dump" "load" "loadAll" "safeDump" "safeLoad" "safeLoadAll" "types"} (set (:exports artifact))) "Exact original YAML runtime surface")
+(ensure (empty? (:external-modules artifact)) "No original YAML runtime dependency")
+(def include-text (fs/readFileSync "examples/native-js-include-native-yaml-esm.mith" "utf8"))
+(def include-sources (into {} (map #(vector % (fs/readFileSync (str "examples/" %) "utf8")) (esm/source-basenames include-text))))
+(def include-artifact (esm/compile-text include-text include-sources))
+(ensure (= "@mithril/native-yaml" (get (:external-modules include-artifact) "js.yaml")) "Include links the own YAML artifact package")
+(def type-text (fs/readFileSync "examples/native-js-include-native-yaml-program.mith" "utf8"))
+(def type-sources (into {} (map #(vector % (fs/readFileSync (str "examples/" %) "utf8")) (:sources (program/read-plan type-text)))))
+(def types (program/compile-text type-text type-sources (esm/check-text include-text include-sources)))
+(ensure (= 19 (count (:module-files types))) "Complete Include declaration graph with own native YAML declarations")
+(def yaml-type-text (fs/readFileSync "examples/native-js-yaml-public-program.mith" "utf8"))
+(def yaml-type-sources (into {} (map #(vector % (fs/readFileSync (str "examples/" %) "utf8")) (:sources (program/read-plan yaml-type-text)))))
+(def yaml-types (program/compile-text yaml-type-text yaml-type-sources (esm/check-text text sources)))
+(ensure (= 2 (count (:module-files yaml-types))) "Whole original API and actual namespace wrapper")
+(ensure (= 11 (count (:exports yaml-types))) "Original named typed values plus namespace default")
+(def api-doc (declarations/parse-text (get yaml-type-sources "native-js-yaml-api-types.mith")))
+(def public-doc (declarations/parse-text (get yaml-type-sources "native-js-yaml-entry-types.mith")))
+(def runtime (esm/check-text text sources))
+(def ns-export (first (get public-doc "namespace-exports")))
+(defn refuse [docs entry code]
+ (let [actual (try (declarations/check-module-program docs [] runtime entry) nil
+                  (catch :default e (:mithril/error (ex-data e))))]
+  (ensure (= code actual) (str "Namespace refusal expected " code " got " actual))))
+(defn bad-export [e] (assoc public-doc "namespace-exports" [e]))
+(def bads
+ [[(assoc public-doc "namespace-exports" nil) :mithril.native-declarations/budget]
+  [(assoc public-doc "namespace-exports" ns-export) :mithril.native-declarations/budget]
+  [(assoc public-doc "namespace-exports" (vec (repeat 129 ns-export))) :mithril.native-declarations/budget]
+  [(bad-export (dissoc ns-export "runtime-export")) :mithril.native-declarations/shape]
+  [(bad-export (assoc ns-export "body" "injected")) :mithril.native-declarations/shape]
+  [(bad-export (assoc ns-export "local" "yamlApi; payload()")) :mithril.native-declarations/name]
+  [(bad-export (assoc ns-export "export" "default; payload()")) :mithril.native-declarations/name]
+  [(bad-export (assoc ns-export "runtime-export" "default; payload()")) :mithril.native-declarations/name]
+  [(assoc public-doc "namespace-exports" [ns-export ns-export]) :mithril.native-declarations/duplicate]
+  [(bad-export (assoc ns-export "local" "Missing")) :mithril.native-declarations/export]
+  [(assoc-in public-doc ["imports" 0 "type-only"] true) :mithril.native-declarations/export]
+  [(assoc-in public-doc ["imports" 0 "names" 0 "import"] "load") :mithril.native-declarations/export]
+  [(assoc-in public-doc ["imports" 0 "module"] "Missing") :mithril.native-declarations/export]
+  [(bad-export (assoc ns-export "runtime-export" "Missing")) :mithril.native-declarations/surface]
+  [(bad-export (assoc ns-export "runtime-export" "load")) :mithril.native-declarations/surface]
+  [(assoc (bad-export (assoc ns-export "export" "Collision")) "declarations" [{"kind" "alias" "name" "Collision" "exported" true "type-params" [] "datatype" {"op" "keyword" "name" "number"}}]) :mithril.native-declarations/duplicate]
+  [(assoc public-doc "reexports" [{"module" "yaml.api" "type-only" false "names" [{"import" "load" "export" "default"}]}]) :mithril.native-declarations/duplicate]])
+(doseq [[doc code] bads] (refuse [api-doc doc] "yaml.public" code))
+(refuse [(assoc api-doc "runtime" nil) public-doc] "yaml.public" :mithril.native-declarations/export)
+(defn alias [datatype] {"kind" "alias" "name" "Probe" "exported" false "type-params" [] "datatype" datatype})
+(def consumer {"@context" "https://mithril.fund/context/native-js-declaration-module/v1" "@type" "NativeJsDeclarationModule"
+               "name" "yaml.consumer" "runtime" nil "ambient-types" [] "ambient-values" [] "reexports" []
+               "imports" [{"module" "yaml.public" "type-only" false "names" [{"import" "default" "local" "yaml"}]}]
+               "declarations" []})
+(def public-with-consumer (update public-doc "imports" conj {"module" "yaml.consumer" "type-only" false "names" nil}))
+(doseq [datatype [{"op" "name" "name" "yaml.Schema" "args" []}
+                 {"op" "typeof" "name" "yaml"}
+                 {"op" "import-type" "module" "yaml.public" "name" "default.Schema" "args" [] "query" false}
+                 {"op" "import-type" "module" "yaml.public" "name" "default" "args" [] "query" true}]]
+ (let [checked (declarations/check-module-program [api-doc public-with-consumer (assoc consumer "declarations" [(alias datatype)])] [] runtime "yaml.public")]
+  (ensure (= (:exports checked) (:exports yaml-types)) "Qualified native namespace query changed root values")))
+(def private-api (update api-doc "declarations" conj (assoc (alias {"op" "keyword" "name" "number"}) "name" "PrivateMeta")))
+(refuse [private-api public-with-consumer (assoc consumer "declarations" [(alias {"op" "name" "name" "yaml.PrivateMeta" "args" []})])] "yaml.public" :mithril.native-declarations/arity)
+(def private-static-api
+ (update api-doc "declarations" (fn [ds] (mapv (fn [d] (if (= "Type" (get d "name"))
+                                                      (update d "members" conj {"kind" "property" "key" {"kind" "name" "name" "Secret"} "visibility" "private" "static" true "readonly" false "optional" false "datatype" {"op" "keyword" "name" "number"}}) d)) ds))))
+(refuse [private-static-api public-with-consumer (assoc consumer "declarations" [(alias {"op" "typeof" "name" "yaml.Type.Secret"})])] "yaml.public" :mithril.native-declarations/scope)
+(println "Namespace export admission: 20 exact-code malformed/origin/collision/private-owner refusals; four native qualified/import/typeof namespace queries retain actual class owners.")
+(def compiler (.-MITHRIL_DECLARATIONS_TYPESCRIPT js/process.env))
+(def type-roots (.-MITHRIL_DECLARATIONS_TYPE_ROOTS js/process.env))
+(def engine (.-MITHRIL_DECLARATIONS_ENGINE js/process.env))
+(def dir (fs/mkdtempSync (str (os/tmpdir) "/mithril-yaml-public-namespace-")))
+(def config (str dir "/offline.edn"))
+(fs/writeFileSync config (str "{:paths [" (js/JSON.stringify (fs/realpathSync "src")) "]}"))
+(defn run [args]
+ (let [r (child/spawnSync js/process.execPath (clj->js args) #js {:encoding "utf8" :timeout 120000 :maxBuffer 4194304})]
+  (ensure (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r)) (.-stdout r)))
+(try
+ (doseq [target ["js" "js-browser"]]
+  (let [sdk (str dir "/" target)]
+   (fs/writeFileSync (str sdk ".log") (run [engine "--config" config "-cp" "src" "bin/mithril-native-esm.cljk" "examples/native-js-yaml-esm.mith" "--target" target "--output-directory" sdk]))
+   (doseq [[file bytes] (:files artifact)] (ensure (= bytes (fs/readFileSync (str sdk "/" file) "utf8")) "Actual full-source YAML CLI artifact bytes"))
+   (run ["test/qualification/native-yaml-source/controls/runtime.mjs" sdk])
+   (let [typed-yaml (str sdk "-types")]
+    (run [engine "--config" config "-cp" "src" "bin/mithril-native-declaration-program.cljk" "examples/native-js-yaml-public-program.mith" "--target" target "--output-directory" typed-yaml])
+    (doseq [[file bytes] (:files yaml-types)]
+     (ensure (= bytes (fs/readFileSync (str typed-yaml "/" file) "utf8")) "Actual native YAML declaration bytes")
+     (fs/copyFileSync (str typed-yaml "/" file) (str sdk "/" file))))
+   (fs/writeFileSync (str sdk "/package.json") "{\"name\":\"@mithril/native-yaml\",\"exports\":{\".\":{\"types\":\"./index.d.mts\",\"default\":\"./index.mjs\"}}}")
+   (run ["test/qualification/native-exported-namespace/controls/types.mjs" compiler type-roots sdk])
+   (let [include-sdk (str sdk "-include") typed (str include-sdk "-types")]
+    (fs/writeFileSync (str include-sdk ".log") (run [engine "--config" config "-cp" "src" "bin/mithril-native-esm.cljk" "examples/native-js-include-native-yaml-esm.mith" "--target" target "--output-directory" include-sdk]))
+    (doseq [[file bytes] (:files include-artifact)] (ensure (= bytes (fs/readFileSync (str include-sdk "/" file) "utf8")) "Actual Include CLI artifact bytes with own YAML package"))
+    (fs/writeFileSync (str typed ".log") (run [engine "--config" config "-cp" "src" "bin/mithril-native-declaration-program.cljk" "examples/native-js-include-native-yaml-program.mith" "--target" target "--output-directory" typed]))
+    (doseq [[file bytes] (:files types)] (ensure (= bytes (fs/readFileSync (str typed "/" file) "utf8")) "Actual Include type CLI artifact bytes"))
+    (run ["test/qualification/native-include-sdk/controls/types.mjs" compiler type-roots typed sdk])
+    (doseq [[file _] (:files types)] (fs/copyFileSync (str typed "/" file) (str include-sdk "/" file)))
+    (run ["test/qualification/native-exported-namespace/controls/include-package.mjs" compiler type-roots include-sdk sdk])
+    (run ["test/qualification/native-include-sdk/controls/runtime.mjs" include-sdk sdk]))))
+ (finally (fs/rmSync dir #js {:recursive true :force true})))
+(println "YAML native public ESM types: complete original named declarations and default namespace, own checked runtime and actual Include composition; real browser/native/Q9 and other package modes remain pending.")

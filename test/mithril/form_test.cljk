@@ -1,7 +1,33 @@
 (ns mithril.form-test
   (:require [cljs.test :refer [deftest is testing]]
             [mithril.app :as app]
+            [mithril.form :as form]
             [mithril.compiler :as compiler]))
+
+(deftest module-form-admits-inert-typed-nodes
+  (let [doc (form/parse "(mithril/module :name \"example\" :exports [\"main\"] :functions [(mithril/function :name \"main\" :returns \"i64\" :body (mithril/call :name \"add\" :args [(mithril/local :name \"x\") (mithril/literal :value 1 :datatype \"i64\")]))])")
+        f (first (get doc "functions"))
+        call (get f "body")]
+    (is (= "Module" (get doc "@type")))
+    (is (= "https://mithril.fund/context/module/v1" (get doc "@context")))
+    (is (= "Function" (get f "@type")))
+    (is (= "Call" (get call "@type")))
+    (is (= ["Local" "Literal"] (mapv #(get % "@type") (get call "args"))))
+    (is (= 1 (get (second (get call "args")) "value")))))
+
+(deftest module-form-preserves-contexts-and-refusals
+  (doseq [[tag context] [["program" "v1"] ["growth-decision" "growth-decision/v1"]
+                         ["jev-decision" "jev-decision/v2"] ["bot-checkpoint-semantic" "bot-checkpoint/v1"]
+                         ["twin-document" "twin/v1"]]]
+    (is (= (str "https://mithril.fund/context/" context)
+           (get (form/parse (str "(mithril/" tag ")")) "@context"))))
+  (doseq [[text expected] [["(mithril/module :host/eval \"x\")" :mithril.form/unknown-field]
+                          ["(mithril/module :body (js/eval :source \"x\"))" :mithril.form/unknown-tag]
+                          ["(mithril/module :name \"a\" :name \"b\")" :mithril.form/duplicate-field]
+                          ["(mithril/module) (mithril/module)" :mithril.form/form-count]
+                          ["(mithril/module :body alert)" :mithril.form/unsupported-value]]]
+    (is (= expected (try (form/parse text) nil
+                     (catch :default e (:mithril/error (ex-data e))))))))
 
 (defn read-text [path] (.readFileSync (js/require "fs") path "utf8"))
 (defn error-code [f] (try (f) nil (catch :default e (:mithril/error (ex-data e)))))

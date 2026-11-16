@@ -1,0 +1,299 @@
+(ns mithril.module
+  "Check inert Mithril modules before lowering. No source evaluation or code emission."
+  (:require [clojure.string :as str]
+            [mithril.form :as form]))
+
+(def ^:private max-depth 64)
+(def ^:private max-nodes 4096)
+(def ^:private max-functions 128)
+(def ^:private max-exports 128)
+(def ^:private max-params 64)
+(def ^:private intrinsic-signatures
+  {"add" {:params [:i64 :i64] :returns :i64}
+   "sub" {:params [:i64 :i64] :returns :i64}
+   "mul" {:params [:i64 :i64] :returns :i64}
+   "eq" {:params [:scalar :scalar] :returns :bool}
+   "not" {:params [:bool] :returns :bool}
+   "js_nullish" {:params [:js-value] :returns :bool}
+   "js_truthy" {:params [:js-value] :returns :bool}
+   "js_strict_equal" {:params [:js-value :js-value] :returns :bool}
+   "js_typeof" {:params [:js-value] :returns :string}
+   "js_array" {:params [:js-value] :returns :bool}
+   "js_bool_value" {:params [:bool] :returns :js-value}
+   "js_undefined" {:params [] :returns :js-value}})
+
+(defn- fail! [code detail]
+  (throw (ex-info detail {:mithril/error code :detail detail})))
+
+(defn- shape! [value fields]
+  (when-not (and (map? value) (= (set fields) (set (keys value))))
+    (fail! :mithril.module/invalid-shape "Unexpected or missing module fields")))
+
+(defn- vector! [value limit]
+  (when-not (vector? value)
+    (fail! :mithril.module/invalid-shape "Module collections must be vectors"))
+  (when (> (count value) limit)
+    (fail! :mithril.module/budget "Module collection exceeds its budget")))
+
+(defn- name! [value module?]
+  (when-not (and (string? value)
+                (re-matches (if module?
+                              #"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*"
+                              #"[A-Za-z_][A-Za-z0-9_]*") value))
+    (fail! :mithril.module/invalid-name "Invalid module identifier"))
+  value)
+
+(defn- callable-type? [type]
+  (and (vector? type) (= :fn (first type))))
+
+(defn- type! [value]
+  (let [nodes (atom 0)]
+    (letfn [(check [value depth]
+              (when (or (> depth 16) (> (swap! nodes inc) 64))
+                (fail! :mithril.module/budget "Module type budget exceeded"))
+              (if (map? value)
+                (do (shape! value ["@type" "params" "returns"])
+                    (when-not (= "FunctionType" (get value "@type"))
+                      (fail! :mithril.module/unsupported-type "Expected a FunctionType"))
+                    (let [params (get value "params")]
+                      (vector! params 4)
+                      [:fn [(mapv #(check % (inc depth)) params)
+                            (check (get value "returns") (inc depth))]]))
+                (or (get {"i64" :i64 "bool" :bool "string" :string "js-value" :js-value} value)
+                    (fail! :mithril.module/unsupported-type "Unsupported module type"))))]
+      (check value 1))))
+
+(defn- unique! [values code]
+  (when-not (= (count values) (count (set values)))
+    (fail! code "Duplicate module declaration")))
+
+(defn- i64! [value]
+  ;; Decimal string comparison keeps every signed 64-bit boundary exact. Host
+  ;; Numbers enter only when exactly representable; no Long/float coercion.
+  (let [decimal (cond
+                  (and (number? value) (js/Number.isSafeInteger value)) (str value)
+                  (string? value) value
+                  :else nil)]
+    (when-not (and decimal (re-matches #"(?:0|[1-9][0-9]*|-[1-9][0-9]*)" decimal))
+      (fail! :mithril.module/invalid-literal "Invalid canonical i64 literal"))
+    (let [negative? (str/starts-with? decimal "-")
+          digits (if negative? (subs decimal 1) decimal)
+          bound (if negative? "9223372036854775808" "9223372036854775807")]
+      (when (or (> (count digits) (count bound))
+                (and (= (count digits) (count bound)) (pos? (compare digits bound))))
+        (fail! :mithril.module/invalid-literal "i64 literal is outside signed bounds")))
+    decimal))
+
+(defn- literal! [datatype value]
+  (case datatype
+    :i64 (i64! value)
+    :bool (if (boolean? value) value
+            (fail! :mithril.module/invalid-literal "Expected a boolean literal"))
+    :string (if (string? value) value
+              (fail! :mithril.module/invalid-literal "Expected a string literal"))
+    :js-value (fail! :mithril.module/invalid-literal
+                    "Opaque host values cannot be module literals")
+    (fail! :mithril.module/invalid-literal "Function values cannot be module literals")))
+
+(defn- compatible-args? [identifier declared? expected actual]
+  (if (and (not declared?) (= identifier "eq"))
+    (and (apply = actual)
+         (contains? #{:i64 :bool :string} (first actual)))
+    (= expected actual)))
+
+(defn- checked-params [params limit]
+  (vector! params limit)
+  (let [checked (mapv (fn [param]
+                       (shape! param ["name" "datatype"])
+                       {:name (name! (get param "name") false)
+                        :type (type! (get param "datatype"))}) params)]
+    (unique! (mapv :name checked) :mithril.module/duplicate-parameter)
+    checked))
+
+(defn- signature! [function]
+  (shape! function ["@type" "name" "params" "returns" "body"])
+  (when-not (= "Function" (get function "@type"))
+    (fail! :mithril.module/invalid-shape "Expected a Function declaration"))
+  {:name (name! (get function "name") false)
+   :params (checked-params (get function "params") max-params)
+   :returns (type! (get function "returns"))})
+
+(defn- check-expression [expr signatures locals depth nodes calls]
+  (when (or (> depth max-depth) (> (swap! nodes inc) max-nodes))
+    (fail! :mithril.module/budget "Module expression budget exceeded"))
+  (when-not (map? expr)
+    (fail! :mithril.module/invalid-shape "Expected a module expression"))
+  (case (get expr "@type")
+    "Literal"
+    (do (shape! expr ["@type" "datatype" "value"])
+        (let [datatype (type! (get expr "datatype"))]
+          {:op :literal :type datatype :value (literal! datatype (get expr "value"))}))
+    "Local"
+    (do (shape! expr ["@type" "name"])
+        (let [identifier (name! (get expr "name") false)]
+          (when-not (contains? locals identifier)
+            (fail! :mithril.module/unknown-local "Unknown module local"))
+          {:op :local :name identifier :type (get locals identifier)}))
+    "Call"
+    (do (shape! expr ["@type" "name" "args"])
+        (let [identifier (name! (get expr "name") false)
+              args (get expr "args")
+              declared? (contains? signatures identifier)
+              signature (if declared? (get signatures identifier)
+                            (get intrinsic-signatures identifier))]
+          ;; At most max-nodes arguments can fit the shared expression budget.
+          (vector! args max-nodes)
+          (when-not signature
+            (fail! :mithril.module/unknown-call "Unknown module call"))
+          (when-not (= (count args) (count (:params signature)))
+            (fail! :mithril.module/arity "Module call arity mismatch"))
+          (let [checked (mapv (fn [arg] (check-expression arg signatures locals (inc depth) nodes calls)) args)
+                actual (mapv :type checked)
+                expected (if declared? (mapv :type (:params signature)) (:params signature))]
+            (when-not (compatible-args? identifier declared? expected actual)
+              (fail! :mithril.module/type-mismatch "Module call type mismatch"))
+            (when declared? (swap! calls conj identifier))
+            {:op (if declared? :call :intrinsic) :name identifier
+             :type (:returns signature) :args checked})))
+    "Lambda"
+    (do (shape! expr ["@type" "params" "returns" "body"])
+        (let [params (checked-params (get expr "params") 4)
+              returns (type! (get expr "returns"))
+              env (into locals (map (juxt :name :type) params))
+              body (check-expression (get expr "body") signatures env (inc depth) nodes calls)]
+          (when-not (= returns (:type body))
+            (fail! :mithril.module/type-mismatch "Module lambda return type mismatch"))
+          {:op :lambda :params params :returns returns :body body
+           :type [:fn [(mapv :type params) returns]]}))
+    "FunctionRef"
+    (do (shape! expr ["@type" "name"])
+        (let [identifier (name! (get expr "name") false)
+              signature (get signatures identifier)]
+          (when-not signature
+            (fail! :mithril.module/unknown-call "Unknown module function reference"))
+          (when (> (count (:params signature)) 4)
+            (fail! :mithril.module/budget "Function reference exceeds guest callable arity"))
+          (swap! calls conj identifier)
+          {:op :function-ref :name identifier
+           :type [:fn [(mapv :type (:params signature)) (:returns signature)]]}))
+    "Invoke"
+    (do (shape! expr ["@type" "function" "args"])
+        (let [callee (check-expression (get expr "function") signatures locals (inc depth) nodes calls)
+              args (get expr "args")]
+          (vector! args 4)
+          (when-not (callable-type? (:type callee))
+            (fail! :mithril.module/type-mismatch "Guest invocation requires a FunctionType"))
+          (let [[expected returns] (second (:type callee))]
+            (when-not (= (count expected) (count args))
+              (fail! :mithril.module/arity "Guest invocation arity mismatch"))
+            (let [checked (mapv #(check-expression % signatures locals (inc depth) nodes calls) args)]
+              (when-not (= expected (mapv :type checked))
+                (fail! :mithril.module/type-mismatch "Guest invocation argument type mismatch"))
+              {:op :invoke :function callee :function-type (:type callee)
+               :args checked :type returns}))))
+    "Let"
+    (do (shape! expr ["@type" "bindings" "body"])
+        (let [bindings (get expr "bindings")]
+          (vector! bindings max-nodes)
+          (loop [remaining (seq bindings) env locals checked []]
+            (if-let [binding (first remaining)]
+              (do (shape! binding ["name" "value"])
+                  (let [identifier (name! (get binding "name") false)
+                        value (check-expression (get binding "value") signatures env (inc depth) nodes calls)]
+                    (recur (next remaining) (assoc env identifier (:type value))
+                           (conj checked {:name identifier :value value :type (:type value)}))))
+              (let [body (check-expression (get expr "body") signatures env (inc depth) nodes calls)]
+                {:op :let :bindings checked :body body :type (:type body)})))))
+    "Sequence"
+    (do (shape! expr ["@type" "expressions"])
+        (let [expressions (get expr "expressions")]
+          (vector! expressions max-nodes)
+          (when (empty? expressions)
+            (fail! :mithril.module/invalid-shape "Module sequence requires a result expression"))
+          (let [checked (mapv #(check-expression % signatures locals (inc depth) nodes calls) expressions)]
+            {:op :sequence :expressions checked :type (:type (peek checked))})))
+    "If"
+    (do (shape! expr ["@type" "condition" "then" "else"])
+        (let [checked-condition (check-expression (get expr "condition") signatures locals (inc depth) nodes calls)
+              checked-then (check-expression (get expr "then") signatures locals (inc depth) nodes calls)
+              checked-else (check-expression (get expr "else") signatures locals (inc depth) nodes calls)]
+          (when-not (= :bool (:type checked-condition))
+            (fail! :mithril.module/type-mismatch "Module if condition type mismatch"))
+          (when-not (= (:type checked-then) (:type checked-else))
+            (fail! :mithril.module/type-mismatch "Module if branch type mismatch"))
+          {:op :if :type (:type checked-then) :condition checked-condition
+           :then checked-then :else checked-else}))
+    (fail! :mithril.module/invalid-shape "Unknown module expression type")))
+
+(defn- check-export [export]
+  (if (map? export)
+    (do (shape! export ["name" "function"])
+        {:name (name! (get export "name") false)
+         :target (name! (get export "function") false)})
+    (let [name (name! export false)] {:name name :target name})))
+
+(defn check-document
+  "Validate all signatures, then bounded bodies, and return deterministic typed IR."
+  [doc]
+  (shape! doc ["@context" "@type" "name" "functions" "exports"])
+  (when-not (and (= "Module" (get doc "@type"))
+                (= "https://mithril.fund/context/module/v1" (get doc "@context")))
+    (fail! :mithril.module/invalid-shape "Expected the module context and type"))
+  (let [module-name (name! (get doc "name") true)
+        functions (get doc "functions")
+        exports (get doc "exports")]
+    (vector! functions max-functions)
+    (vector! exports max-exports)
+    (let [declarations (mapv signature! functions)
+          names (mapv :name declarations)]
+      (unique! names :mithril.module/duplicate-function)
+      (let [checked-exports (mapv check-export exports)
+            public-names (mapv :name checked-exports)]
+        (unique! public-names :mithril.module/duplicate-export)
+      (let [signatures (zipmap names declarations)
+            nodes (atom 0)
+            graph (atom {})]
+        (doseq [export checked-exports]
+          (when-not (contains? signatures (:target export))
+            (fail! :mithril.module/unknown-export "Unknown module export")))
+        (let [checked (mapv
+                        (fn [function declaration]
+                          (let [locals (into {} (map (juxt :name :type) (:params declaration)))
+                                calls (atom #{})
+                                body (check-expression (get function "body") signatures locals 1 nodes calls)]
+                            (when-not (= (:returns declaration) (:type body))
+                              (fail! :mithril.module/type-mismatch "Module return type mismatch"))
+                            (swap! graph assoc (:name declaration) (vec (sort @calls)))
+                            (assoc declaration :body body))) functions declarations)]
+          (cond-> {:format :mithril.module/checked-v1 :name module-name :exports public-names
+                   :functions checked :call-graph @graph}
+            (some map? exports)
+            (assoc :export-targets (into {} (map (juxt :name :target) checked-exports))))))))))
+
+(defn check-source-text!
+  "Refuse oversized or excessively nested inert module source before Form parsing."
+  [text]
+  (when-not (string? text)
+    (fail! :mithril.module/invalid-shape "Module text must be a string"))
+  (when (> (count text) 262144)
+    (fail! :mithril.module/budget "Module source exceeds its character budget"))
+  ;; Refuse pathological nesting before the existing recursive Form lowering.
+  ;; Strings, escaped quotes and line comments do not change structural depth.
+  (loop [chars (seq text) depth 0 quoted? false escaped? false comment? false]
+    (when-let [ch (first chars)]
+      (cond
+        comment? (recur (next chars) depth false false (not (= ch \newline)))
+        quoted? (recur (next chars) depth (or escaped? (not (= ch \")))
+                       (and (not escaped?) (= ch \\)) false)
+        (= ch \;) (recur (next chars) depth false false true)
+        (= ch \") (recur (next chars) depth true false false)
+        (contains? #{\( \[ \{} ch)
+        (let [nested (inc depth)]
+          (when (> nested 140) (fail! :mithril.module/budget "Module source nesting exceeds its budget"))
+          (recur (next chars) nested false false false))
+        (contains? #{\) \] \}} ch) (recur (next chars) (dec depth) false false false)
+        :else (recur (next chars) depth false false false)))))
+
+(defn check-text [text]
+  (check-source-text! text)
+  (check-document (form/parse text)))

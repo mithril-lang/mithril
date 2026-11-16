@@ -1,0 +1,438 @@
+(mithril/native-js-module :name "attachment.index"
+:ambient_imports ["Promise"]
+:imports ["Service"
+"admitFileInput"
+"admitEncodedImages"
+"AttachmentError"
+"matchesAttachmentError"
+"Promise"
+"__attachment_export_AttachmentId"
+"__attachment_export_ImageVariantId"
+"__attachment_export_AttachmentError"
+"__attachment_export_isAttachmentError"
+"__attachment_export_isImageAdmissionError"
+"__attachment_export_admitEncodedFile"
+"__attachment_export_admitEncodedImages"
+"__attachment_export_longEdgeDimensions"
+"__attachment_export_requestImageDimensions"]
+:functions []
+:bindings [(rdf/node :name "AttachmentStore"
+:value (mithril/native-class :name "AttachmentStore"
+:extends (mithril/host-import :name "Service")
+:constructor (rdf/node :params [(rdf/node :name "ctx"
+:datatype "js-value")]
+:rest nil
+:body (mithril/sequence :expressions [(mithril/host-super-call :items [(rdf/node :value (mithril/local :name "ctx"))
+(rdf/node :value (mithril/literal :datatype "js-value"
+:value "attachments"))])
+(mithril/host-undefined )])
+:statements true)
+:members [(rdf/node :kind "method"
+:static false
+:key (mithril/literal :datatype "js-value"
+:value "validateImageBatch")
+:params [(rdf/node :name "inputs"
+:datatype "js-value")]
+:rest nil
+:body (mithril/host-binding-let :bindings [(rdf/node :pattern (rdf/node :object [(rdf/node :key (mithril/literal :datatype "js-value"
+:value "maxImagesPerMessage")
+:pattern "maxImagesPerMessage")
+(rdf/node :key (mithril/literal :datatype "js-value"
+:value "maxMessageImageBytes")
+:pattern "maxMessageImageBytes")
+(rdf/node :key (mithril/literal :datatype "js-value"
+:value "mediaTypes")
+:pattern "mediaTypes")])
+:value (mithril/host-get :object (mithril/host-this )
+:key (mithril/literal :datatype "js-value"
+:value "imageLimits")))]
+:body (mithril/sequence :expressions [(mithril/if :condition (mithril/host-binary :operator ">"
+:left (mithril/host-get :object (mithril/local :name "inputs")
+:key (mithril/literal :datatype "js-value"
+:value "length"))
+:right (mithril/local :name "maxImagesPerMessage"))
+:then (mithril/sequence :expressions [(mithril/host-throw :value (mithril/host-construct :constructor (mithril/host-import :name "AttachmentError")
+:args [(mithril/literal :datatype "js-value"
+:value "Image batch exceeds the configured image-count limit.")
+(mithril/literal :datatype "js-value"
+:value "TOO_MANY_IMAGES")]))
+(mithril/host-undefined )])
+:else (mithril/host-undefined ))
+(mithril/host-binding-let :bindings [(rdf/node :pattern "totalBytes"
+:value (mithril/host-method :object (mithril/local :name "inputs")
+:key (mithril/literal :datatype "js-value"
+:value "reduce")
+:args [(mithril/native-lambda :params ["sum"
+"input"]
+:rest nil
+:body (mithril/host-binary :operator "+"
+:left (mithril/local :name "sum")
+:right (mithril/host-get :object (mithril/host-get :object (mithril/local :name "input")
+:key (mithril/literal :datatype "js-value"
+:value "data"))
+:key (mithril/literal :datatype "js-value"
+:value "byteLength"))))
+(mithril/literal :datatype "js-value"
+:value 0)]))]
+:body (mithril/sequence :expressions [(mithril/if :condition (mithril/host-binary :operator ">"
+:left (mithril/local :name "totalBytes")
+:right (mithril/local :name "maxMessageImageBytes"))
+:then (mithril/sequence :expressions [(mithril/host-throw :value (mithril/host-construct :constructor (mithril/host-import :name "AttachmentError")
+:args [(mithril/literal :datatype "js-value"
+:value "Image batch exceeds the configured aggregate image-byte limit.")
+(mithril/literal :datatype "js-value"
+:value "IMAGES_TOO_LARGE")]))
+(mithril/host-undefined )])
+:else (mithril/host-undefined ))
+(mithril/sequence :expressions [(mithril/host-for-of :iterable (mithril/local :name "inputs")
+:binding "input"
+:body (mithril/sequence :expressions [(mithril/if :condition (mithril/host-unary :operator "!"
+:value (mithril/host-method :object (mithril/local :name "mediaTypes")
+:key (mithril/literal :datatype "js-value"
+:value "includes")
+:args [(mithril/host-get :object (mithril/local :name "input")
+:key (mithril/literal :datatype "js-value"
+:value "mediaType"))]))
+:then (mithril/sequence :expressions [(mithril/host-throw :value (mithril/host-construct :constructor (mithril/host-import :name "AttachmentError")
+:args [(mithril/host-binary :operator "+"
+:left (mithril/host-binary :operator "+"
+:left (mithril/literal :datatype "js-value"
+:value "Image type ")
+:right (mithril/host-to-string :value (mithril/host-get :object (mithril/local :name "input")
+:key (mithril/literal :datatype "js-value"
+:value "mediaType"))))
+:right (mithril/literal :datatype "js-value"
+:value " is not accepted by this deployment."))
+(mithril/literal :datatype "js-value"
+:value "UNSUPPORTED_IMAGE_TYPE")]))
+(mithril/host-undefined )])
+:else (mithril/host-undefined ))
+(mithril/host-undefined )])
+:result (mithril/host-undefined ))
+(mithril/host-undefined )])]))]))
+:statements true)
+(rdf/node :kind "method"
+:static false
+:key (mithril/literal :datatype "js-value"
+:value "saveImages")
+:params [(rdf/node :name "inputs"
+:datatype "js-value")]
+:rest nil
+:body (mithril/sequence :expressions [(mithril/host-method :object (mithril/host-this )
+:key (mithril/literal :datatype "js-value"
+:value "validateImageBatch")
+:args [(mithril/local :name "inputs")])
+(mithril/sequence :expressions [(mithril/host-for-of :iterable (mithril/local :name "inputs")
+:binding "input"
+:body (mithril/host-await :value (mithril/host-method :object (mithril/host-this )
+:key (mithril/literal :datatype "js-value"
+:value "validateImage")
+:args [(mithril/local :name "input")]))
+:result (mithril/host-undefined ))
+(mithril/host-binding-let :bindings [(rdf/node :pattern "refs"
+:value (mithril/host-array :items []))]
+:body (mithril/sequence :expressions [(mithril/host-for-of :iterable (mithril/local :name "inputs")
+:binding "input"
+:body (mithril/host-method :object (mithril/local :name "refs")
+:key (mithril/literal :datatype "js-value"
+:value "push")
+:args [(mithril/host-await :value (mithril/host-method :object (mithril/host-this )
+:key (mithril/literal :datatype "js-value"
+:value "saveImage")
+:args [(mithril/local :name "input")]))])
+:result (mithril/host-undefined ))
+(mithril/sequence :expressions [(mithril/host-return :value (mithril/local :name "refs"))
+(mithril/host-undefined )])]))])])
+:statements true
+:async true)
+(rdf/node :kind "method"
+:static false
+:key (mithril/literal :datatype "js-value"
+:value "admitPromptContent")
+:params [(rdf/node :name "content"
+:datatype "js-value")]
+:rest nil
+:body (mithril/sequence :expressions [(mithril/if :condition (mithril/host-method :object (mithril/local :name "content")
+:key (mithril/literal :datatype "js-value"
+:value "every")
+:args [(mithril/native-lambda :params ["part"]
+:rest nil
+:body (mithril/host-binary :operator "!=="
+:left (mithril/host-get :object (mithril/local :name "part")
+:key (mithril/literal :datatype "js-value"
+:value "type"))
+:right (mithril/literal :datatype "js-value"
+:value "image")))])
+:then (mithril/sequence :expressions [(mithril/host-return :value (mithril/host-method :object (mithril/local :name "content")
+:key (mithril/literal :datatype "js-value"
+:value "map")
+:args [(mithril/native-lambda :params ["part"]
+:rest nil
+:body (mithril/if :condition (mithril/host-binary :operator "==="
+:left (mithril/host-get :object (mithril/local :name "part")
+:key (mithril/literal :datatype "js-value"
+:value "type"))
+:right (mithril/literal :datatype "js-value"
+:value "text"))
+:then (mithril/host-object :entries [(rdf/node :key (mithril/literal :datatype "js-value"
+:value "type")
+:value (mithril/literal :datatype "js-value"
+:value "text"))
+(rdf/node :key (mithril/literal :datatype "js-value"
+:value "text")
+:value (mithril/host-get :object (mithril/local :name "part")
+:key (mithril/literal :datatype "js-value"
+:value "text")))])
+:else (mithril/host-object :entries [(rdf/node :key (mithril/literal :datatype "js-value"
+:value "type")
+:value (mithril/literal :datatype "js-value"
+:value "file"))
+(rdf/node :key (mithril/literal :datatype "js-value"
+:value "attachment")
+:value (mithril/host-get :object (mithril/local :name "part")
+:key (mithril/literal :datatype "js-value"
+:value "attachment")))])))]))
+(mithril/host-undefined )])
+:else (mithril/host-undefined ))
+(mithril/host-binding-let :bindings [(rdf/node :pattern "refs"
+:value (mithril/host-await :value (mithril/host-invoke :function (mithril/host-import :name "admitEncodedImages")
+:args [(mithril/host-this )
+(mithril/host-method :object (mithril/local :name "content")
+:key (mithril/literal :datatype "js-value"
+:value "filter")
+:args [(mithril/native-lambda :params ["part"]
+:rest nil
+:body (mithril/host-binary :operator "==="
+:left (mithril/host-get :object (mithril/local :name "part")
+:key (mithril/literal :datatype "js-value"
+:value "type"))
+:right (mithril/literal :datatype "js-value"
+:value "image")))])])))
+(rdf/node :pattern "next"
+:value (mithril/literal :datatype "js-value"
+:value 0)
+:mutable true)]
+:body (mithril/sequence :expressions [(mithril/host-return :value (mithril/host-method :object (mithril/local :name "content")
+:key (mithril/literal :datatype "js-value"
+:value "map")
+:args [(mithril/native-lambda :params ["part"]
+:rest nil
+:body (mithril/sequence :expressions [(mithril/if :condition (mithril/host-binary :operator "==="
+:left (mithril/host-get :object (mithril/local :name "part")
+:key (mithril/literal :datatype "js-value"
+:value "type"))
+:right (mithril/literal :datatype "js-value"
+:value "text"))
+:then (mithril/host-return :value (mithril/host-object :entries [(rdf/node :key (mithril/literal :datatype "js-value"
+:value "type")
+:value (mithril/literal :datatype "js-value"
+:value "text"))
+(rdf/node :key (mithril/literal :datatype "js-value"
+:value "text")
+:value (mithril/host-get :object (mithril/local :name "part")
+:key (mithril/literal :datatype "js-value"
+:value "text")))]))
+:else (mithril/host-undefined ))
+(mithril/sequence :expressions [(mithril/if :condition (mithril/host-binary :operator "==="
+:left (mithril/host-get :object (mithril/local :name "part")
+:key (mithril/literal :datatype "js-value"
+:value "type"))
+:right (mithril/literal :datatype "js-value"
+:value "file"))
+:then (mithril/host-return :value (mithril/host-object :entries [(rdf/node :key (mithril/literal :datatype "js-value"
+:value "type")
+:value (mithril/literal :datatype "js-value"
+:value "file"))
+(rdf/node :key (mithril/literal :datatype "js-value"
+:value "attachment")
+:value (mithril/host-get :object (mithril/local :name "part")
+:key (mithril/literal :datatype "js-value"
+:value "attachment")))]))
+:else (mithril/host-undefined ))
+(mithril/sequence :expressions [(mithril/host-return :value (mithril/host-object :entries [(rdf/node :key (mithril/literal :datatype "js-value"
+:value "type")
+:value (mithril/literal :datatype "js-value"
+:value "image"))
+(rdf/node :key (mithril/literal :datatype "js-value"
+:value "attachment")
+:value (mithril/host-get :object (mithril/local :name "refs")
+:key (mithril/host-local-update :name "next"
+:operator "++"
+:prefix false)))]))
+(mithril/host-undefined )])])])
+:statements true)]))
+(mithril/host-undefined )]))])
+:statements true
+:async true)
+(rdf/node :kind "method"
+:static false
+:key (mithril/literal :datatype "js-value"
+:value "admitEncodedFile")
+:params [(rdf/node :name "input"
+:datatype "js-value")]
+:rest nil
+:body (mithril/sequence :expressions [(mithril/host-return :value (mithril/host-invoke :function (mithril/host-import :name "admitFileInput")
+:args [(mithril/host-this )
+(mithril/local :name "input")]))
+(mithril/host-undefined )])
+:statements true)
+(rdf/node :kind "method"
+:static false
+:key (mithril/literal :datatype "js-value"
+:value "isAttachmentError")
+:params [(rdf/node :name "error"
+:datatype "js-value")]
+:rest nil
+:body (mithril/sequence :expressions [(mithril/host-return :value (mithril/host-invoke :function (mithril/host-import :name "matchesAttachmentError")
+:args [(mithril/local :name "error")]))
+(mithril/host-undefined )])
+:statements true)
+(rdf/node :kind "method"
+:static false
+:key (mithril/literal :datatype "js-value"
+:value "imageHostPath")
+:params [(rdf/node :name "ref"
+:datatype "js-value")]
+:rest nil
+:body (mithril/sequence :expressions [(mithril/host-unary :operator "void"
+:value (mithril/local :name "ref"))
+(mithril/sequence :expressions [(mithril/host-return :value (mithril/host-undefined ))
+(mithril/host-undefined )])])
+:statements true)
+(rdf/node :kind "method"
+:static false
+:key (mithril/literal :datatype "js-value"
+:value "saveFile")
+:params [(rdf/node :name "input"
+:datatype "js-value")]
+:rest nil
+:body (mithril/sequence :expressions [(mithril/host-unary :operator "void"
+:value (mithril/local :name "input"))
+(mithril/sequence :expressions [(mithril/host-return :value (mithril/host-method :object (mithril/host-import :name "Promise")
+:key (mithril/literal :datatype "js-value"
+:value "reject")
+:args [(mithril/host-construct :constructor (mithril/host-import :name "AttachmentError")
+:args [(mithril/literal :datatype "js-value"
+:value "The mounted attachment provider cannot store verbatim files.")
+(mithril/literal :datatype "js-value"
+:value "ATTACHMENT_FILES_UNSUPPORTED")])]))
+(mithril/host-undefined )])])
+:statements true)
+(rdf/node :kind "method"
+:static false
+:key (mithril/literal :datatype "js-value"
+:value "saveFileStream")
+:params [(rdf/node :name "input"
+:datatype "js-value")]
+:rest nil
+:body (mithril/sequence :expressions [(mithril/host-unary :operator "void"
+:value (mithril/local :name "input"))
+(mithril/sequence :expressions [(mithril/host-return :value (mithril/host-method :object (mithril/host-import :name "Promise")
+:key (mithril/literal :datatype "js-value"
+:value "reject")
+:args [(mithril/host-construct :constructor (mithril/host-import :name "AttachmentError")
+:args [(mithril/literal :datatype "js-value"
+:value "The mounted attachment provider cannot stream verbatim files.")
+(mithril/literal :datatype "js-value"
+:value "ATTACHMENT_FILES_UNSUPPORTED")])]))
+(mithril/host-undefined )])])
+:statements true)
+(rdf/node :kind "method"
+:static false
+:key (mithril/literal :datatype "js-value"
+:value "readFileStream")
+:params [(rdf/node :name "ref"
+:datatype "js-value")
+(rdf/node :name "signal"
+:datatype "js-value")]
+:rest nil
+:body (mithril/sequence :expressions [(mithril/host-optional-chain :base (mithril/local :name "signal")
+:steps [(rdf/node :kind "get"
+:optional true
+:key (mithril/literal :datatype "js-value"
+:value "throwIfAborted"))
+(rdf/node :kind "call"
+:optional false
+:items [])])
+(mithril/sequence :expressions [(mithril/host-unary :operator "void"
+:value (mithril/local :name "ref"))
+(mithril/sequence :expressions [(mithril/host-await :value (mithril/host-method :object (mithril/host-import :name "Promise")
+:key (mithril/literal :datatype "js-value"
+:value "reject")
+:args [(mithril/host-construct :constructor (mithril/host-import :name "AttachmentError")
+:args [(mithril/literal :datatype "js-value"
+:value "The mounted attachment provider cannot read verbatim files.")
+(mithril/literal :datatype "js-value"
+:value "ATTACHMENT_FILES_UNSUPPORTED")])]))
+(mithril/host-undefined )])])])
+:statements true
+:async true
+:generator true)
+(rdf/node :kind "method"
+:static false
+:key (mithril/literal :datatype "js-value"
+:value "fileHostPath")
+:params [(rdf/node :name "ref"
+:datatype "js-value")]
+:rest nil
+:body (mithril/sequence :expressions [(mithril/host-unary :operator "void"
+:value (mithril/local :name "ref"))
+(mithril/sequence :expressions [(mithril/host-return :value (mithril/host-undefined ))
+(mithril/host-undefined )])])
+:statements true)
+(rdf/node :kind "method"
+:static false
+:key (mithril/literal :datatype "js-value"
+:value "readImageRequest")
+:params [(rdf/node :name "ref"
+:datatype "js-value")
+(rdf/node :name "target"
+:datatype "js-value")
+(rdf/node :name "signal"
+:datatype "js-value")]
+:rest nil
+:body (mithril/sequence :expressions [(mithril/host-optional-chain :base (mithril/local :name "signal")
+:steps [(rdf/node :kind "get"
+:optional true
+:key (mithril/literal :datatype "js-value"
+:value "throwIfAborted"))
+(rdf/node :kind "call"
+:optional false
+:items [])])
+(mithril/sequence :expressions [(mithril/host-unary :operator "void"
+:value (mithril/local :name "ref"))
+(mithril/sequence :expressions [(mithril/host-unary :operator "void"
+:value (mithril/local :name "target"))
+(mithril/sequence :expressions [(mithril/host-return :value (mithril/host-method :object (mithril/host-import :name "Promise")
+:key (mithril/literal :datatype "js-value"
+:value "reject")
+:args [(mithril/host-construct :constructor (mithril/host-import :name "AttachmentError")
+:args [(mithril/literal :datatype "js-value"
+:value "The mounted attachment provider cannot derive model-request images.")
+(mithril/literal :datatype "js-value"
+:value "ATTACHMENT_PROJECTION_UNSUPPORTED")])]))
+(mithril/host-undefined )])])])])
+:statements true)]))]
+:exports [(rdf/node :name "default"
+:value (mithril/local :name "AttachmentStore"))
+(rdf/node :name "AttachmentStore"
+:value (mithril/local :name "AttachmentStore"))
+(rdf/node :name "AttachmentId"
+:value (mithril/host-import :name "__attachment_export_AttachmentId"))
+(rdf/node :name "ImageVariantId"
+:value (mithril/host-import :name "__attachment_export_ImageVariantId"))
+(rdf/node :name "AttachmentError"
+:value (mithril/host-import :name "__attachment_export_AttachmentError"))
+(rdf/node :name "isAttachmentError"
+:value (mithril/host-import :name "__attachment_export_isAttachmentError"))
+(rdf/node :name "isImageAdmissionError"
+:value (mithril/host-import :name "__attachment_export_isImageAdmissionError"))
+(rdf/node :name "admitEncodedFile"
+:value (mithril/host-import :name "__attachment_export_admitEncodedFile"))
+(rdf/node :name "admitEncodedImages"
+:value (mithril/host-import :name "__attachment_export_admitEncodedImages"))
+(rdf/node :name "longEdgeDimensions"
+:value (mithril/host-import :name "__attachment_export_longEdgeDimensions"))
+(rdf/node :name "requestImageDimensions"
+:value (mithril/host-import :name "__attachment_export_requestImageDimensions"))]
+:lexical_bindings true)

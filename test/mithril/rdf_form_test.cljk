@@ -1,0 +1,110 @@
+(ns mithril.rdf-form-test
+  (:require [cljs.test :refer [deftest is]]
+            [clojure.string :as str]
+            [mithril.rdf-form :as mith]
+            [mithril.form :as form]
+            [mithril.codegraph-test :as fixtures]
+            [mithril.codegraph-fs :as local]
+            [mithril.codegraph-store :as store]
+            [mithril.reason :as reason]
+            [mithril.reason-rdf :as rdf]
+            [mithril.reason-cli :as cli]
+            [mithril.rdf-form-fs :as mith-fs]
+            [rdf-canon.core :as canon]))
+
+(deftest lossless-mith-dataset-roundtrip
+  (let [documents [[{"@id" "urn:default" "urn:p" [{"@value" "自然言語\n\"quoted\" </script>"}]}]
+                   [{"@id" "urn:g" "@graph" [{"@id" "_:a" "urn:p" [{"@id" "_:b"}]
+                                              "urn:label" [{"@value" "日本語" "@language" "ja"}]
+                                              "urn:number" [{"@value" "42" "@type" "http://www.w3.org/2001/XMLSchema#integer"}]}
+                                             {"@id" "_:b" "urn:p" [{"@id" "urn:target"}]}]}
+                    {"@id" "urn:empty-layer" "@graph" []}]]]
+    (doseq [doc documents]
+      (let [text (mith/write doc)]
+        (is (str/starts-with? text "(rdf/dataset"))
+        (is (= (rdf/graph-digest doc) (rdf/graph-digest (mith/read text))))
+        (is (= (rdf/graph-digest doc) (str "sha256:" (canon/canonical-hash (reason/parse-data "saved.mith" text)))))
+        (is (= text (mith/write (mith/read text))))))
+    (is (some #(= "urn:empty-layer" (get % "@id")) (mith/read (mith/write (second documents)))))))
+
+(deftest rdf-data-syntax-is-closed-and-inert
+  (doseq [text ["(rdf/dataset (evil/eval \"x\"))"
+                "(rdf/dataset (rdf/graph \"urn:g\" (rdf/description \"urn:s\" (rdf/property \"urn:p\" \"untyped\"))))"
+                "(rdf/dataset (rdf/graph \"urn:g\" (rdf/description \"urn:s\" (rdf/property \"relative\" (rdf/iri \"urn:x\")))))"
+                "(rdf/dataset (rdf/graph \"urn:g\" (rdf/description \"urn:s\" (rdf/property \"urn:p\" (rdf/iri \"urn:x\")) (rdf/property \"urn:p\" (rdf/iri \"urn:y\")))))"
+                "(rdf/dataset) (rdf/dataset)"
+                "#=(throw (Exception.))"]]
+    (is (some? (fixtures/refusal #(form/parse text))))))
+
+(defn in-repository [f]
+  (let [fs (js/require "fs") p (js/require "path")
+        root (.realpathSync fs (.mkdtempSync fs (.join p (.tmpdir (js/require "os")) "mithril-mith-store-")))]
+    (try (.execFileSync (js/require "child_process") "git" #js ["init" "-q" root])
+         (.writeFileSync fs (.join p root "a.cljk") "(ns a) (defn leaf [] 1)")
+         (.writeFileSync fs (.join p root "guide.txt") "自然言語の原文。推測を事実にしない。")
+         (f root fs p)
+         (finally (.rmSync fs root #js {:recursive true :force true})))))
+
+(deftest persisted-mith-premises-drive-inference-and-source-evidence
+  (in-repository
+   (fn [root fs p]
+     (let [a (fixtures/artifact) synced (local/sync! root a) snapshot (:snapshot synced)
+           dir (get-in synced [:archive :directory])
+           result (store/reason! dir snapshot a)
+           evidence (mith/read (.readFileSync fs (.join p dir "sources.mith") "utf8"))
+           output (mith/read (.readFileSync fs (:reasoned-path result) "utf8"))
+           inferred (first (filter #(= "https://mithril.fund/graph/reason-output/v1/inferred" (get % "@id")) output))
+           asserted (first (filter #(= "https://mithril.fund/graph/reason-output/v1/asserted" (get % "@id")) output))
+           doc (first (filter #(= "doc:guide.txt" (:name %)) (:nodes snapshot)))
+           type "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
+           definition "https://mithril.fund/ns/codegraph/v1#Definition"]
+       (is (= :conforms (:status result)))
+       (is (= snapshot (local/read-index! root a)))
+       (is (= (:graph-digest snapshot) (rdf/graph-digest (mith/read (.readFileSync fs (.join p dir "asserted.mith") "utf8")))))
+       (is (some #(= "自然言語の原文。推測を事実にしない。" (get-in % [(str store/base "sourceText") 0 "@value"])) (get-in evidence [0 "@graph"])))
+       (is (some #(and (= (:id doc) (get % "@id")) (some (fn [v] (= definition (get v "@id"))) (get % type))) (get inferred "@graph")))
+       (is (not-any? #(and (= (:id doc) (get % "@id")) (some (fn [v] (= definition (get v "@id"))) (get % type))) (get asserted "@graph")))
+       (is (= (:reasoned-graph-digest result) (rdf/graph-digest output)))
+       (let [noop (local/sync! root a)] (is (= (:archive synced) (:archive noop))))
+       (.unlinkSync fs (.join p root "guide.txt"))
+       (let [updated (local/sync! root a)]
+         (is (not= dir (get-in updated [:archive :directory])))
+         (is (= 1 (count (get-in (mith/read (.readFileSync fs (.join p (get-in updated [:archive :directory]) "sources.mith") "utf8")) [0 "@graph"])))))))))
+
+(deftest cache-refuses-modified-or-missing-mith-authority
+  (in-repository
+   (fn [root fs p]
+     (let [a (fixtures/artifact) synced (local/sync! root a) dir (get-in synced [:archive :directory])
+           file (.join p dir "asserted.mith") original (.readFileSync fs file "utf8")]
+       (.writeFileSync fs file (str original "\n; changed bytes"))
+       (is (= :archive-digest (fixtures/refusal #(local/read-index! root a))))
+       (.writeFileSync fs file original)
+       (is (= (:snapshot synced) (local/read-index! root a)))
+       (.unlinkSync fs file)
+       (is (some? (fixtures/refusal #(local/read-index! root a))))))))
+
+(deftest natural-language-declaration-is-replayed-and-saved-as-mith
+  (let [read-text #(.readFileSync (js/require "fs") % "utf8")
+        result (cli/run read-text "examples/codegraph/natural-language-ontology.mith"
+                        ["examples/codegraph/natural-language.mith" "--save-mith" "result.mith"])
+        doc (mith/read (get-in result [:mith-output :text]))
+        inferred (first (filter #(= "https://mithril.fund/graph/reason-output/v1/inferred" (get % "@id")) doc))]
+    (is (= 0 (:exit result)))
+    (is (= "result.mith" (get-in result [:mith-output :path])))
+    (is (some #(and (= "urn:example:tama" (get % "@id"))
+                    (some (fn [v] (= "urn:example:Animal" (get v "@id")))
+                          (get % "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"))) (get inferred "@graph")))
+    (is (some #(= "urn:mithril:reason:quoted-rule-facts" (get % "@id")) doc))))
+
+(deftest result-output-protects-inputs-and-refuses-symlinks
+  (in-repository
+   (fn [root fs p]
+     (let [source (.join p root "source.mith") output (.join p root "output.mith") text "(rdf/dataset)\n"]
+       (.writeFileSync fs source text)
+       (is (= :mithril.rdf-form/invalid-output (fixtures/refusal #(mith-fs/write! source text [source]))))
+       (.symlinkSync fs source output)
+       (is (= :mithril.rdf-form/output-symlink (fixtures/refusal #(mith-fs/write! output text [source]))))
+       (.unlinkSync fs output)
+       (is (= output (mith-fs/write! output text [source])))
+       (is (= text (.readFileSync fs source "utf8")))
+       (is (= 384 (bit-and 511 (.-mode (.statSync fs output)))))))))

@@ -1,0 +1,519 @@
+(mithril/native-js-declaration-module :name "protocol.index"
+:runtime "protocol.index"
+:ambient-types [(rdf/node :name "ClassMethodDecoratorContext"
+:min 0
+:max 2)
+(rdf/node :name "Extract"
+:min 2
+:max 2)]
+:ambient-values ["Error"
+"Symbol.dispose"]
+:imports [(rdf/node :module "cordis.index"
+:type-only false
+:names [(rdf/node :import "Context"
+:local "Context")])
+(rdf/node :module "cordis.index"
+:type-only false
+:names [(rdf/node :import "Service"
+:local "Service")])
+(rdf/node :module "protocol.types"
+:type-only true
+:names [(rdf/node :import "TypertContextMap"
+:local "TypertContextMap")])]
+:declarations [(rdf/node :kind "function"
+:name "isTypertRemoteSegment"
+:exported true
+:type-params []
+:params [(rdf/node :name "value"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))]
+:returns (rdf/node :op "keyword"
+:name "boolean"))
+(rdf/node :kind "interface"
+:name "TypertGatewayBindingOptions"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "namespace"
+:optional true
+:readonly true
+:datatype (rdf/node :op "keyword"
+:name "string"))])
+(rdf/node :kind "interface"
+:name "TypertGatewayBinding"
+:exported true
+:type-params [(rdf/node :name "Service"
+:constraint (rdf/node :op "keyword"
+:name "object")
+:default (rdf/node :op "keyword"
+:name "object"))]
+:extends []
+:members [(rdf/node :kind "property"
+:name "service"
+:optional false
+:readonly true
+:datatype (rdf/node :op "name"
+:name "Service"
+:args []))
+(rdf/node :kind "property"
+:name "serviceKey"
+:optional false
+:readonly true
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:name "namespace"
+:optional false
+:readonly true
+:datatype (rdf/node :op "keyword"
+:name "string"))])
+(rdf/node :kind "alias"
+:name "RemoteInvocationMarker"
+:exported true
+:type-params []
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "object"
+:members [(rdf/node :kind "property"
+:name "kind"
+:optional false
+:readonly true
+:datatype (rdf/node :op "literal"
+:value "direct"))])
+(rdf/node :op "object"
+:members [(rdf/node :kind "property"
+:name "kind"
+:optional false
+:readonly true
+:datatype (rdf/node :op "literal"
+:value "context"))
+(rdf/node :kind "property"
+:name "context"
+:optional false
+:readonly true
+:datatype (rdf/node :op "keyword"
+:name "string"))])]))
+(rdf/node :kind "interface"
+:name "RemoteMethodMarker"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "method"
+:optional false
+:readonly true
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:name "exportName"
+:optional true
+:readonly true
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:name "mode"
+:optional true
+:readonly true
+:datatype (rdf/node :op "literal"
+:value "stream"))
+(rdf/node :kind "property"
+:name "invocation"
+:optional false
+:readonly true
+:datatype (rdf/node :op "name"
+:name "RemoteInvocationMarker"
+:args []))])
+(rdf/node :kind "interface"
+:name "RemoteMethodOptions"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "mode"
+:optional false
+:readonly true
+:datatype (rdf/node :op "literal"
+:value "stream"))])
+(rdf/node :kind "alias"
+:name "RemoteMethodDecorator"
+:exported false
+:type-params []
+:datatype (rdf/node :op "function"
+:abstract false
+:type-params [(rdf/node :name "This"
+:constraint (rdf/node :op "keyword"
+:name "object")
+:default nil)
+(rdf/node :name "Args"
+:constraint (rdf/node :op "array"
+:item (rdf/node :op "keyword"
+:name "unknown"))
+:default nil)
+(rdf/node :name "Result"
+:constraint nil
+:default nil)]
+:params [(rdf/node :name "method"
+:optional false
+:rest false
+:datatype (rdf/node :op "function"
+:abstract false
+:type-params []
+:params [(rdf/node :name "this"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "This"
+:args []))
+(rdf/node :name "args"
+:optional false
+:rest true
+:datatype (rdf/node :op "name"
+:name "Args"
+:args []))]
+:returns (rdf/node :op "name"
+:name "Result"
+:args [])))
+(rdf/node :name "context"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "ClassMethodDecoratorContext"
+:args [(rdf/node :op "name"
+:name "This"
+:args [])
+(rdf/node :op "function"
+:abstract false
+:type-params []
+:params [(rdf/node :name "this"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "This"
+:args []))
+(rdf/node :name "args"
+:optional false
+:rest true
+:datatype (rdf/node :op "name"
+:name "Args"
+:args []))]
+:returns (rdf/node :op "name"
+:name "Result"
+:args []))]))]
+:returns (rdf/node :op "keyword"
+:name "void")))
+(rdf/node :kind "function"
+:name "bindTypertRemote"
+:exported true
+:type-params [(rdf/node :name "Service"
+:constraint (rdf/node :op "keyword"
+:name "object")
+:default nil)]
+:params [(rdf/node :name "service"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "Service"
+:args []))
+(rdf/node :name "serviceKey"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :name "options"
+:optional true
+:rest false
+:datatype (rdf/node :op "name"
+:name "TypertGatewayBindingOptions"
+:args []))]
+:returns (rdf/node :op "name"
+:name "TypertGatewayBinding"
+:args [(rdf/node :op "name"
+:name "Service"
+:args [])]))
+(rdf/node :kind "class"
+:name "TypertRemoteService"
+:exported true
+:abstract true
+:type-params [(rdf/node :name "T"
+:constraint nil
+:default (rdf/node :op "keyword"
+:name "never")
+:variance "out")]
+:extends (rdf/node :op "name"
+:name "Service"
+:args [(rdf/node :op "name"
+:name "T"
+:args [])])
+:implements []
+:members [(rdf/node :kind "property"
+:key (rdf/node :kind "name"
+:name "typertRemote")
+:visibility "public"
+:static false
+:readonly true
+:optional false
+:datatype (rdf/node :op "name"
+:name "TypertGatewayBinding"
+:args [(rdf/node :op "this")]))
+(rdf/node :kind "constructor"
+:visibility "protected"
+:params [(rdf/node :name "ctx"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "Context"
+:args []))
+(rdf/node :name "serviceKey"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :name "options"
+:optional true
+:rest false
+:datatype (rdf/node :op "name"
+:name "TypertGatewayBindingOptions"
+:args []))])])
+(rdf/node :kind "function"
+:name "Remote"
+:exported true
+:type-params [(rdf/node :name "This"
+:constraint (rdf/node :op "keyword"
+:name "object")
+:default nil)
+(rdf/node :name "Args"
+:constraint (rdf/node :op "array"
+:item (rdf/node :op "keyword"
+:name "unknown"))
+:default nil)
+(rdf/node :name "Result"
+:constraint nil
+:default nil)]
+:params [(rdf/node :name "_method"
+:optional false
+:rest false
+:datatype (rdf/node :op "function"
+:abstract false
+:type-params []
+:params [(rdf/node :name "this"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "This"
+:args []))
+(rdf/node :name "args"
+:optional false
+:rest true
+:datatype (rdf/node :op "name"
+:name "Args"
+:args []))]
+:returns (rdf/node :op "name"
+:name "Result"
+:args [])))
+(rdf/node :name "context"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "ClassMethodDecoratorContext"
+:args [(rdf/node :op "name"
+:name "This"
+:args [])
+(rdf/node :op "function"
+:abstract false
+:type-params []
+:params [(rdf/node :name "this"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "This"
+:args []))
+(rdf/node :name "args"
+:optional false
+:rest true
+:datatype (rdf/node :op "name"
+:name "Args"
+:args []))]
+:returns (rdf/node :op "name"
+:name "Result"
+:args []))]))]
+:returns (rdf/node :op "keyword"
+:name "void"))
+(rdf/node :kind "function"
+:name "Remote"
+:exported true
+:type-params []
+:params [(rdf/node :name "option"
+:optional false
+:rest false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "keyword"
+:name "string")
+(rdf/node :op "name"
+:name "RemoteMethodOptions"
+:args [])]))]
+:returns (rdf/node :op "name"
+:name "RemoteMethodDecorator"
+:args []))
+(rdf/node :kind "function"
+:name "RemoteScope"
+:exported true
+:type-params []
+:params [(rdf/node :name "key"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "Extract"
+:args [(rdf/node :op "keyof"
+:datatype (rdf/node :op "name"
+:name "TypertContextMap"
+:args []))
+(rdf/node :op "keyword"
+:name "string")]))
+(rdf/node :name "exportName"
+:optional true
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))]
+:returns (rdf/node :op "name"
+:name "RemoteMethodDecorator"
+:args []))
+(rdf/node :kind "function"
+:name "remoteMethods"
+:exported true
+:type-params []
+:params [(rdf/node :name "service"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "object"))]
+:returns (rdf/node :op "readonly"
+:datatype (rdf/node :op "array"
+:item (rdf/node :op "name"
+:name "RemoteMethodMarker"
+:args []))))]
+:reexports [(rdf/node :module "protocol.remote_error"
+:type-only false
+:names [(rdf/node :import "RemoteError"
+:export "RemoteError")
+(rdf/node :import "remoteErrorOf"
+:export "remoteErrorOf")])
+(rdf/node :module "protocol.owned_value"
+:type-only false
+:names [(rdf/node :import "TYPERT_OWNED_VALUE"
+:export "TYPERT_OWNED_VALUE")
+(rdf/node :import "isTypertOwnedValue"
+:export "isTypertOwnedValue")
+(rdf/node :import "typertOwnedValue"
+:export "typertOwnedValue")])
+(rdf/node :module "protocol.owned_value"
+:type-only true
+:names [(rdf/node :import "TypertOwnedValue"
+:export "TypertOwnedValue")])
+(rdf/node :module "protocol.json_value"
+:type-only false
+:names [(rdf/node :import "isRemoteJsonValue"
+:export "isRemoteJsonValue")
+(rdf/node :import "isRemoteUplinkItem"
+:export "isRemoteUplinkItem")])
+(rdf/node :module "protocol.types"
+:type-only true
+:names [(rdf/node :import "InvocationDescriptor"
+:export "InvocationDescriptor")
+(rdf/node :import "InvocationParameterDescriptor"
+:export "InvocationParameterDescriptor")
+(rdf/node :import "InvocationSourceLocation"
+:export "InvocationSourceLocation")
+(rdf/node :import "PeerId"
+:export "PeerId")
+(rdf/node :import "PeerScope"
+:export "PeerScope")
+(rdf/node :import "RemoteErrorCode"
+:export "RemoteErrorCode")
+(rdf/node :import "RemoteErrorDetailsMap"
+:export "RemoteErrorDetailsMap")
+(rdf/node :import "RemoteFailure"
+:export "RemoteFailure")
+(rdf/node :import "RemoteInvocation"
+:export "RemoteInvocation")
+(rdf/node :import "RemoteResult"
+:export "RemoteResult")
+(rdf/node :import "RemoteStream"
+:export "RemoteStream")
+(rdf/node :import "RemoteStreamHandle"
+:export "RemoteStreamHandle")
+(rdf/node :import "TypertClientEventListener"
+:export "TypertClientEventListener")
+(rdf/node :import "TypertClientRemote"
+:export "TypertClientRemote")
+(rdf/node :import "TypertClientContextAdapter"
+:export "TypertClientContextAdapter")
+(rdf/node :import "TypertCodec"
+:export "TypertCodec")
+(rdf/node :import "TypertContext"
+:export "TypertContext")
+(rdf/node :import "TypertContextMap"
+:export "TypertContextMap")
+(rdf/node :import "TypertContextRegistry"
+:export "TypertContextRegistry")
+(rdf/node :import "TypertContextWire"
+:export "TypertContextWire")
+(rdf/node :import "TypertDisposer"
+:export "TypertDisposer")
+(rdf/node :import "TypertForwardableEvent"
+:export "TypertForwardableEvent")
+(rdf/node :import "TypertForwardableEventEntry"
+:export "TypertForwardableEventEntry")
+(rdf/node :import "TypertHostContextAdapter"
+:export "TypertHostContextAdapter")
+(rdf/node :import "TypertHostContextResolver"
+:export "TypertHostContextResolver")
+(rdf/node :import "TypertLocalRegistry"
+:export "TypertLocalRegistry")
+(rdf/node :import "TypertLookup"
+:export "TypertLookup")
+(rdf/node :import "TypertLookupDefinition"
+:export "TypertLookupDefinition")
+(rdf/node :import "TypertLookupHost"
+:export "TypertLookupHost")
+(rdf/node :import "TypertLookupMap"
+:export "TypertLookupMap")
+(rdf/node :import "TypertLookupProvider"
+:export "TypertLookupProvider")
+(rdf/node :import "TypertLookupResolver"
+:export "TypertLookupResolver")
+(rdf/node :import "TypertLookupRegistry"
+:export "TypertLookupRegistry")
+(rdf/node :import "TypertLookupWire"
+:export "TypertLookupWire")
+(rdf/node :import "TypertRemoteScopeApi"
+:export "TypertRemoteScopeApi")
+(rdf/node :import "TypertRemoteScopeMap"
+:export "TypertRemoteScopeMap")
+(rdf/node :import "TypertRemoteScopeNamespace"
+:export "TypertRemoteScopeNamespace")
+(rdf/node :import "TypertRemoteContribution"
+:export "TypertRemoteContribution")
+(rdf/node :import "TypertRemoteEvent"
+:export "TypertRemoteEvent")
+(rdf/node :import "TypertRemoteEventSelection"
+:export "TypertRemoteEventSelection")
+(rdf/node :import "TypertRemoteMap"
+:export "TypertRemoteMap")
+(rdf/node :import "TypertRemoteNamespace"
+:export "TypertRemoteNamespace")
+(rdf/node :import "TypertRemoteNamespaceMap"
+:export "TypertRemoteNamespaceMap")
+(rdf/node :import "TypertRemoteRegistry"
+:export "TypertRemoteRegistry")
+(rdf/node :import "TypertRegistryChange"
+:export "TypertRegistryChange")
+(rdf/node :import "TypertRegistryListener"
+:export "TypertRegistryListener")
+(rdf/node :import "TypertSchema"
+:export "TypertSchema")
+(rdf/node :import "TypertRegistryContract"
+:export "TypertRegistryContract")])]
+:augmentations []
+:local-exports [])

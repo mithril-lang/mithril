@@ -1,0 +1,501 @@
+(ns mithril.amu-cli
+  "Validate and lower Mithril .mith sources for Amu's native selfhost compiler."
+  (:require [mithril.module-lower :as lower]
+            [mithril.program-lower :as program-lower]
+            [mithril.web-lower :as web-lower]
+            [mithril.artifact-lower :as artifact-lower]
+            [mithril.compiler :as compiler]
+            [mithril.reason :as reason]
+            [mithril.form :as form]
+            [mithril.native-js :as native-js]
+            [mithril.native-package :as native-package]
+            [mithril.native-esm :as native-esm]
+            [mithril.native-declarations :as declarations]
+            [mithril.native-declaration-emit :as declaration-emit]
+            [mithril.native-declaration-program :as declaration-program]
+            [mithril.native-declaration-composition :as declaration-composition]
+            [mithril.synthesis :as synthesis]
+            [mithril.hermes-scheduler :as hermes-scheduler]
+            [mithril.components :as components]
+            [mithril.cluster :as cluster]
+            [mithril.stack :as stack]
+            [mithril.twin :as twin]
+            [mithril.twin-sim :as twin-sim]
+            [mithril.bot :as bot]
+            [mithril.desktop :as desktop]
+            [mithril.hermes-fleet :as fleet]
+            [mithril.growth :as growth]
+            [mithril.mission :as mission]
+            [mithril.app :as app]
+            [mithril.graph :as graph]
+            [mithril.language :as language]
+            [mithril.codegraph-contract :as codegraph-contract]
+            ["node:fs" :as fs]
+            ["node:path" :as path]
+            ["node:crypto" :as crypto]))
+
+(defn- cli-options [args]
+  (loop [args args result {:libraries [] :source-root nil :bot-profile nil}]
+    (if (empty? args)
+      result
+      (cond
+        (and (= "--library" (first args)) (second args))
+        (recur (nnext args) (update result :libraries conj (second args)))
+
+        (and (= "--source-root" (first args)) (second args) (nil? (:source-root result)))
+        (recur (nnext args) (assoc result :source-root (second args)))
+
+        (and (= "--bot-profile" (first args)) (second args) (nil? (:bot-profile result)))
+        (recur (nnext args) (assoc result :bot-profile (second args)))
+
+        :else
+        (throw (ex-info "Expected repeated --library <library.mith>, one --source-root <directory>, or one --bot-profile <profile.mith> option"
+                        {:mithril/error :mithril/amu-cli-arguments}))))))
+
+(defn- format-value [value]
+  (if (keyword? value)
+    (if-let [space (namespace value)]
+      (str space "/" (name value))
+      (name value))
+    value))
+
+(defn- sha256-text [text]
+  (let [digest (.createHash crypto "sha256")]
+    (.update digest text "utf8")
+    (.digest digest "hex")))
+
+(defn- repository-relative [file]
+  (let [root (.realpathSync fs (js/process.cwd))
+        real (.realpathSync fs file)
+        relative (.relative path root real)]
+    (when (or (= relative "")
+              (.isAbsolute path relative)
+              (= relative "..")
+              (.startsWith relative (str ".." (.-sep path))))
+      (throw (ex-info "Native source dependencies must remain inside the Mithril checkout"
+                      {:mithril/error :mithril/amu-source-dependency})))
+    (.replaceAll relative (.-sep path) "/")))
+
+(defn- read-source-input [source-root name]
+  (when-not (and (string? name) (re-matches #"[A-Za-z0-9][A-Za-z0-9_-]*\.mith" name))
+    (throw (ex-info "Native source plans require local Mithril basenames"
+                    {:mithril/error :mithril/amu-source-dependency})))
+  (let [root (.realpathSync fs source-root)
+        file (.resolve path root name)
+        stat (.lstatSync fs file)]
+    (when-not (and (.isFile stat) (not (.isSymbolicLink stat)) (<= (.-size stat) 1048576))
+      (throw (ex-info "Expected a bounded regular Mithril source dependency"
+                      {:mithril/error :mithril/amu-source-dependency})))
+    (let [real (.realpathSync fs file)
+          relative (.relative path root real)]
+      (when (or (.isAbsolute path relative)
+                (= relative "..")
+                (.startsWith relative (str ".." (.-sep path))))
+        (throw (ex-info "Mithril source dependency escaped its source root"
+                        {:mithril/error :mithril/amu-source-dependency})))
+      (let [text (.readFileSync fs real "utf8")]
+        {:name name :text text :path (repository-relative real)
+         :sha256 (sha256-text text)}))))
+
+(defn- read-repository-input [relative-name]
+  (let [root (.realpathSync fs (js/process.cwd))
+        file (.resolve path root relative-name)
+        stat (.lstatSync fs file)]
+    (when-not (and (.isFile stat) (not (.isSymbolicLink stat)) (<= (.-size stat) 1048576))
+      (throw (ex-info "Pinned Mithril inputs must be bounded regular files"
+                      {:mithril/error :mithril/amu-source-dependency})))
+    (let [real (.realpathSync fs file)
+          relative (.relative path root real)]
+      (when (or (.isAbsolute path relative)
+                (= relative "..")
+                (.startsWith relative (str ".." (.-sep path))))
+        (throw (ex-info "Pinned Mithril inputs must remain inside the checkout"
+                        {:mithril/error :mithril/amu-source-dependency})))
+      (let [text (.readFileSync fs real "utf8")]
+        {:name relative-name :text text :path (.replaceAll relative (.-sep path) "/")
+         :sha256 (sha256-text text)}))))
+
+(defn- checked-inputs [source-root names]
+  (let [inputs (mapv #(read-source-input source-root %) names)]
+    {:sources (into {} (map (juxt :name :text) inputs))
+     :dependency-files (mapv :path inputs)
+     :dependency-hashes (into {} (map (juxt :path :sha256) inputs))}))
+
+(defn- component-source-files [relative-directory]
+  (let [root (.realpathSync fs (js/process.cwd))
+        walk (fn walk [relative]
+               (let [directory (.resolve path root relative)
+                     directory-stat (.lstatSync fs directory)
+                     _ (when-not (and (.isDirectory directory-stat)
+                                      (not (.isSymbolicLink directory-stat)))
+                         (throw (ex-info "Component catalog directories must be regular directories"
+                                         {:mithril/error :mithril/amu-source-dependency})))
+                     entries (js->clj (.readdirSync fs directory))]
+                 (mapcat (fn [entry]
+                           (let [child (str relative "/" entry)
+                                 file (.resolve path root child)
+                                 stat (.lstatSync fs file)]
+                             (when (.isSymbolicLink stat)
+                               (throw (ex-info "Component catalogs cannot contain symlinks"
+                                               {:mithril/error :mithril/amu-source-dependency})))
+                             (cond
+                               (.isDirectory stat) (walk child)
+                               (and (.isFile stat)
+                                    (.endsWith child "/v1.mith")
+                                    ;; lib/web/v1.mith is a Mithril Library, not a
+                                    ;; reverse-domain Component. Keep only paths
+                                    ;; that can be admitted by domain-of-relative.
+                                    (re-matches #"lib/(?:[a-z][a-z0-9]*/){2,}v1\.mith" child))
+                               (do
+                                 (when (> (.-size stat) 1048576)
+                                   (throw (ex-info "Component source exceeds its byte budget"
+                                                   {:mithril/error :mithril/amu-source-dependency})))
+                                 (let [text (.readFileSync fs file "utf8")]
+                                   (when (form/source? text)
+                                     [{:path (.replaceAll child (.-sep path) "/")
+                                       :text text :sha256 (sha256-text text)}])))
+                               :else [])))
+                         entries)))]
+    (walk relative-directory)))
+
+(defn- component-catalog []
+  (let [inputs (vec (component-source-files "lib"))
+        catalog (reduce (fn [result input]
+                          (let [relative (subs (:path input) 4)
+                                domain (components/domain-of-relative relative)
+                                admitted (components/admit-component
+                                          (form/parse (:text input)) domain)]
+                            (when (contains? result domain)
+                              (throw (ex-info (str "Duplicate component source " domain)
+                                              {:mithril/error :mithril/component-duplicate})))
+                            (assoc result domain admitted)))
+                        {} inputs)]
+    (when (empty? catalog)
+      (throw (ex-info "No component sources were found in lib"
+                      {:mithril/error :mithril/component-empty})))
+    {:catalog catalog
+     :dependency-files (mapv :path inputs)
+     :dependency-hashes (into {} (map (juxt :path :sha256) inputs))}))
+
+(defn- checked-runtime-package [source-root runtime-text]
+  (let [runtime-doc (form/parse runtime-text)
+        runtime-type (get runtime-doc "@type")
+        kind (case runtime-type
+               "NativeJsPackage" :package
+               "NativeJsEsmPackage" :esm
+               "NativeJsEsmEntryPackage" :esm
+               (throw (ex-info "Expected a checked native package runtime"
+                               {:mithril/error :mithril/native-declarations-runtime})))
+        names (case kind
+                :package (native-package/source-basenames runtime-text)
+                :esm (native-esm/source-basenames runtime-text))
+        inputs (checked-inputs source-root names)
+        runtime (case kind
+                  :package (native-package/check-text runtime-text (:sources inputs))
+                  :esm (native-esm/check-text runtime-text (:sources inputs)))]
+    {:runtime runtime
+     :dependency-files (:dependency-files inputs)
+     :dependency-hashes (:dependency-hashes inputs)}))
+
+(defn- merge-dependencies [result & dependency-sets]
+  (let [files (vec (distinct (mapcat :dependency-files dependency-sets)))
+        hashes (apply merge (map :dependency-hashes dependency-sets))]
+    (assoc result :dependency-files files :dependency-hashes hashes)))
+
+(defn- lower-source [source text library-paths source-root bot-profile-path]
+  (let [doc (compiler/parse-source text)
+        source-type (get doc "@type")
+        scheduler-contract? (contains? #{"HermesBpmnSchedulerContract"
+                                         "HermesBpmnCodingSchedulerContract"} source-type)
+        _ (when (and bot-profile-path (not scheduler-contract?))
+            (throw (ex-info (str source-type " does not accept --bot-profile")
+                            {:mithril/error :mithril/amu-cli-arguments})))
+        libraries (mapv (fn [path]
+                          (compiler/compile-library-text path
+                            (fs/readFileSync path "utf8")))
+                        library-paths)
+        no-libraries! (fn []
+                        (when (seq library-paths)
+                          (throw (ex-info (str source-type " does not accept --library")
+                                          {:mithril/error :mithril/amu-cli-arguments}))))]
+    (case source-type
+      "Module" (do
+                 (no-libraries!)
+                 (assoc (lower/lower-native-document doc)
+                        :source-kind :mithril/module))
+      "NativeJsModule" (do
+                         (no-libraries!)
+                         (artifact-lower/lower-native-artifact
+                          :mithril/native-js-module
+                          (native-js/compile-document doc)))
+      "NativeJsPackage"
+      (do
+        (no-libraries!)
+        (let [names (native-package/source-basenames text)
+              inputs (checked-inputs source-root names)]
+          (merge-dependencies
+           (artifact-lower/lower-native-artifact
+            :mithril/native-js-package
+            (native-package/compile-text text (:sources inputs)))
+           inputs)))
+      ("NativeJsEsmPackage" "NativeJsEsmEntryPackage")
+      (do
+        (no-libraries!)
+        (let [names (native-esm/source-basenames text)
+              inputs (checked-inputs source-root names)]
+          (merge-dependencies
+           (artifact-lower/lower-native-artifact
+            :mithril/native-js-esm-package
+            (native-esm/compile-text text (:sources inputs)))
+           inputs)))
+      "NativeJsDeclarations"
+      (do
+        (no-libraries!)
+        (let [runtime-name (declarations/runtime-basename text)
+              runtime-input (read-source-input source-root runtime-name)
+              checked-runtime (checked-runtime-package source-root (:text runtime-input))
+              declaration-artifact (declaration-emit/compile-text text (:runtime checked-runtime))
+              base (assoc checked-runtime
+                          :dependency-files (into [(:path runtime-input)] (:dependency-files checked-runtime))
+                          :dependency-hashes (assoc (:dependency-hashes checked-runtime)
+                                                    (:path runtime-input) (:sha256 runtime-input)))]
+          (merge-dependencies
+           (artifact-lower/lower-native-artifact
+            :mithril/native-js-declarations declaration-artifact)
+           base)))
+      "NativeJsDeclarationProgram"
+      (do
+        (no-libraries!)
+        (let [plan (declaration-program/read-plan text)
+              runtime-input (read-source-input source-root (:runtime-source plan))
+              checked-runtime (checked-runtime-package source-root (:text runtime-input))
+              declaration-inputs (checked-inputs source-root (:sources plan))
+              declaration-artifact (declaration-program/compile-text
+                                    text (:sources declaration-inputs)
+                                    (:runtime checked-runtime))
+              base (merge-dependencies
+                    {:dependency-files [(:path runtime-input)]
+                     :dependency-hashes {(:path runtime-input) (:sha256 runtime-input)}}
+                    checked-runtime declaration-inputs)]
+          (merge-dependencies
+           (artifact-lower/lower-native-artifact
+            :mithril/native-js-declaration-program declaration-artifact)
+           base)))
+      "NativeJsDeclarationComposition"
+      (do
+        (no-libraries!)
+        (let [{:keys [program-sources]} (declaration-composition/read-plan text)
+              program-inputs (checked-inputs source-root program-sources)
+              plans (mapv #(declaration-program/read-plan (get (:sources program-inputs) %))
+                          program-sources)
+              runtime-names (mapv :runtime-source plans)
+              _ (when-not (= (count runtime-names) (count (set runtime-names)))
+                  (throw (ex-info "Repeated native declaration runtime source"
+                                  {:mithril/error :mithril/amu-source-dependency})))
+              runtime-inputs (checked-inputs source-root runtime-names)
+              source-plan (declaration-composition/read-source-plan
+                           text (:sources program-inputs) (:sources runtime-inputs))
+              all-inputs (checked-inputs source-root (:sources source-plan))
+              declaration-artifact (declaration-composition/compile-text
+                                    text (:sources all-inputs))]
+          (merge-dependencies
+           (artifact-lower/lower-native-artifact
+            :mithril/native-js-declaration-composition declaration-artifact)
+           all-inputs)))
+      ("SynthesizeWebApplication" "SynthesizeWebPipelineApplication")
+      (do
+        (when bot-profile-path
+          (throw (ex-info (str source-type " does not accept --bot-profile")
+                          {:mithril/error :mithril/amu-cli-arguments})))
+        (artifact-lower/lower-native-artifact
+         :mithril/synthesis-request
+         (synthesis/prepare-request source doc libraries)))
+      ("HermesBpmnSchedulerContract" "HermesBpmnCodingSchedulerContract")
+      (do
+        (no-libraries!)
+        (when-not bot-profile-path
+          (throw (ex-info "Hermes scheduler contracts require --bot-profile"
+                          {:mithril/error :mithril/amu-bot-profile-required})))
+        (let [profile-stat (.lstatSync fs bot-profile-path)]
+          (when-not (and (.isFile profile-stat) (not (.isSymbolicLink profile-stat))
+                         (<= (.-size profile-stat) 1048576))
+            (throw (ex-info "Bot profile input must be a bounded regular Mithril source"
+                            {:mithril/error :mithril/amu-source-dependency})))
+          (let [profile-text (.readFileSync fs bot-profile-path "utf8")
+                profile-doc (compiler/parse-source profile-text)
+                profile-artifact (bot/compile-document bot-profile-path profile-doc)
+                contract (hermes-scheduler/compile-document source doc profile-artifact)]
+            (assoc (artifact-lower/lower-native-artifact :mithril/hermes-scheduler-contract contract)
+                   :bot-profile-sha256 (sha256-text profile-text)))))
+      "Component"
+      (do
+        (no-libraries!)
+        (artifact-lower/lower-native-artifact
+         :mithril/component
+         {:format :mithril.component/artifact-v1
+          :component (components/admit-component doc)}))
+      "Assembly"
+      (do
+        (no-libraries!)
+        (let [{:keys [catalog] :as inputs} (component-catalog)]
+          (merge-dependencies
+           (artifact-lower/lower-native-artifact
+            :mithril/assembly
+            {:format :mithril.assembly/artifact-v1
+             :assembly (components/compose-assembly catalog doc)})
+           inputs)))
+      "Cluster"
+      (do
+        (no-libraries!)
+        (let [admitted (cluster/admit doc)]
+          (artifact-lower/lower-native-artifact
+           :mithril/cluster
+           {:format :mithril.cluster/artifact-v1
+            :document admitted
+            :compose-yaml (cluster/render admitted)})))
+      "Stack"
+      (do
+        (no-libraries!)
+        (let [{:keys [catalog] :as inputs} (component-catalog)]
+          (merge-dependencies
+           (artifact-lower/lower-native-artifact
+            :mithril/stack
+            {:format :mithril.stack/artifact-v1
+             :plan (stack/plan catalog doc)})
+           inputs)))
+      "TwinDocument"
+      (do
+        (no-libraries!)
+        (artifact-lower/lower-native-artifact
+         :mithril/twin-document
+         (twin/compile-twin-document source doc)))
+      "TwinService"
+      (do
+        (no-libraries!)
+        (artifact-lower/lower-native-artifact
+         :mithril/twin-service
+         {:format :mithril.twin/service-artifact-v1
+          :document (twin-sim/admit doc)}))
+      "TwinRun"
+      (do
+        (no-libraries!)
+        (let [{:keys [catalog] :as inputs} (component-catalog)]
+          (merge-dependencies
+           (artifact-lower/lower-native-artifact
+            :mithril/twin-run
+            {:format :mithril.twin/run-artifact-v1
+             :result (twin-sim/execute catalog doc)})
+           inputs)))
+      "Program" (do
+                  (no-libraries!)
+                  (program-lower/lower-native-program-text source text))
+      "WebApplication"
+      (web-lower/lower-native-document source doc libraries)
+      "Library" (do
+                  (no-libraries!)
+                  (artifact-lower/lower-native-artifact
+                   :mithril/library (compiler/compile-library-document source doc)))
+      "Ontology" (do
+                   (no-libraries!)
+                   (artifact-lower/lower-native-artifact
+                    :mithril/ontology (compiler/compile-ontology-document source doc)))
+      "http://www.w3.org/2002/07/owl#Ontology"
+      (do
+        (no-libraries!)
+        (let [artifact (compiler/compile-raw-owl-ontology-document source doc)]
+          ;; Raw OWL ontology documents use the pinned JSON-LD context, then
+          ;; pass the same closed OWL 2 RL / SHACL checks as reasoner inputs.
+          (reason/compile-ontology artifact)
+          (artifact-lower/lower-native-artifact :mithril/ontology artifact)))
+      "BotProfile" (do
+                     (no-libraries!)
+                     (artifact-lower/lower-native-artifact
+                      :mithril/bot-profile (bot/compile-document source doc)))
+      "DesktopApplication" (do
+                             (no-libraries!)
+                             (artifact-lower/lower-native-artifact
+                              :mithril/desktop-application (desktop/compile-document source doc)))
+      "HermesProfile" (do
+                       (no-libraries!)
+                       (artifact-lower/lower-native-artifact
+                        :mithril/hermes-profile (fleet/compile-document source doc)))
+      "GrowthProfile" (do
+                       (no-libraries!)
+                       (artifact-lower/lower-native-artifact
+                        :mithril/growth-profile (growth/compile-document source doc)))
+      "MissionModel" (do
+                      (no-libraries!)
+                      (artifact-lower/lower-native-artifact
+                       :mithril/mission-model (mission/compile-document doc)))
+      "AppAgentApplication"
+      (artifact-lower/lower-native-artifact
+       :mithril/app-agent (app/compile-document source doc libraries))
+      "GraphAgentApplication"
+      (artifact-lower/lower-native-artifact
+       :mithril/graph-agent (graph/compile-document source doc libraries))
+      "LanguageKernel"
+      (do
+        (no-libraries!)
+        (let [bootstrap (read-repository-input "lib/mithril/bootstrap-v1.mith")]
+          (merge-dependencies
+           (artifact-lower/lower-native-artifact
+            :mithril/language-kernel
+            (language/compile-text
+             text (compiler/compile-library-text (:path bootstrap) (:text bootstrap))))
+           {:dependency-files [(:path bootstrap)]
+            :dependency-hashes {(:path bootstrap) (:sha256 bootstrap)}})))
+      "CodeGraphApplication"
+      (do
+        (no-libraries!)
+        (let [operations (read-repository-input "lib/codegraph/operations-v1.mith")
+              ontology (read-repository-input "ontology/codegraph-v1.mith")]
+          (merge-dependencies
+           (artifact-lower/lower-native-artifact
+            :mithril/codegraph-application
+            (codegraph-contract/compile-text
+             source text
+             (compiler/compile-library-text (:path operations) (:text operations))
+             (compiler/compile-ontology-text (:path ontology) (:text ontology))))
+           {:dependency-files [(:path operations) (:path ontology)]
+            :dependency-hashes {(:path operations) (:sha256 operations)
+                                (:path ontology) (:sha256 ontology)}})))
+      (throw (ex-info (str "Source type is not yet admitted by the Amu native profile: " source-type)
+                      {:mithril/error :mithril/amu-unsupported-source-type
+                       :source-type source-type})))))
+
+(let [[source output & extra] *command-line-args*]
+  (when-not (and source output)
+    (js/console.error "usage: mithril-amu <source.mith|source.mithril> <new-output.kotoba> [--library <library.mith> ...] [--source-root <directory>] [--bot-profile <profile.mith>]")
+    (js/process.exit 64))
+  (when (fs/existsSync output)
+    (js/console.error "REFUSE\toutput-exists\tOutput path already exists")
+    (js/process.exit 65))
+  (try
+    ;; Admission and lowering complete before the first output write.
+    (let [{:keys [libraries source-root bot-profile]} (cli-options extra)
+          text (fs/readFileSync source "utf8")
+          result (lower-source source text libraries (or source-root (.dirname path (.resolve path source))) bot-profile)]
+      (fs/writeFileSync output (:source result))
+      (println (js/JSON.stringify
+                 (clj->js {:format (str (namespace (:format result)) "/" (name (:format result)))
+                           :source-kind (str (namespace (:source-kind result)) "/"
+                                             (name (:source-kind result)))
+                           :program-format (:program-format result)
+                           :artifact-format (format-value (:artifact-format result))
+                           :dependency-hashes (:dependency-hashes result)
+                           :bot-profile-sha256 (:bot-profile-sha256 result)
+                           :graph-digest (:graph-digest result)
+                           :transaction-edn (:transaction-edn result)
+                           :artifact-edn (:artifact-edn result)
+                           :dependency-files (:dependency-files result)
+                           :native-execution-cases (:native-execution-cases result)
+                           :name (:name result)
+                           :exports (:exports result)
+                           :abi (:abi result)
+                           :output output}))))
+    (catch :default error
+      (js/console.error (str "REFUSE\t"
+                             (or (some-> error ex-data :mithril/error name)
+                                 "compile-error")
+                             "\t" (.-message error)))
+      (js/process.exit 65))))

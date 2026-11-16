@@ -1,0 +1,27 @@
+(ns mithril.native-declaration-program-cli
+ (:require [mithril.native-declaration-program :as program] [mithril.native-esm :as esm]
+           ["node:fs" :as fs] ["node:path" :as path]))
+(defn read-file [file]
+ (let [stat (fs/lstatSync file)]
+  (when-not (and (.isFile stat) (not (.isSymbolicLink stat)) (<= (.-size stat) 1048576))
+   (throw (ex-info "Expected bounded regular Mithril source" {:mithril/error :mithril.native-declarations/source})))
+  (fs/readFileSync file "utf8")))
+(let [[source flag target out-flag output & extra] *command-line-args* created? (atom false)]
+ (when-not (and source (= flag "--target") (= out-flag "--output-directory") output (empty? extra))
+  (js/console.error "usage: mithril-native-declaration-program <program.mith> --target js|js-browser --output-directory <new-directory>") (js/process.exit 64))
+ (when-not (contains? #{"js" "js-browser"} target)
+  (js/console.error "REFUSE\tnative-declarations-target\tNative declarations require target js or js-browser") (js/process.exit 65))
+ (try
+  (let [text (read-file source) plan (program/read-plan text) directory (path/dirname (path/resolve source))
+        runtime-text (read-file (path/join directory (:runtime-source plan)))
+        runtime-sources (into {} (map #(vector % (read-file (path/join directory %))) (esm/source-basenames runtime-text)))
+        runtime (esm/check-text runtime-text runtime-sources)
+        sources (into {} (map #(vector % (read-file (path/join directory %))) (:sources plan)))
+        artifact (program/compile-text text sources runtime)]
+   ;; Complete admission precedes output creation; cleanup owns only our new dir.
+   (fs/mkdirSync output) (reset! created? true)
+   (doseq [[name contents] (:files artifact)] (fs/writeFileSync (path/join output name) contents #js {:flag "wx"}))
+   (println (js/JSON.stringify (clj->js (assoc (dissoc artifact :files) :target target :output-directory output)))))
+  (catch :default e
+   (when @created? (fs/rmSync output #js {:recursive true :force true}))
+   (js/console.error (str "REFUSE\t" (or (some-> e ex-data :mithril/error name) "compile-error") "\t" (.-message e))) (js/process.exit 65))))

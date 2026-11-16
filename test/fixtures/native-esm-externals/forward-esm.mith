@@ -1,0 +1,8 @@
+(mithril/native-js-esm-package :name "external.forward" :imports []
+ :externals [(rdf/node :name "aaa.fixture" :specifier "fixture.external" :exports ["count" "inc" "default"])]
+ :modules [(rdf/node :name "external.forward" :source "forward.mith" :dependencies ["aaa.fixture"]
+  :links [(rdf/node :import "count" :module "aaa.fixture" :export "count")
+          (rdf/node :import "inc" :module "aaa.fixture" :export "inc")
+          (rdf/node :import "defaultValue" :module "aaa.fixture" :export "default")])]
+ :reexports ["external.forward"]
+ :entry-exports [(rdf/node :module "external.forward" :import "default" :export "default")])

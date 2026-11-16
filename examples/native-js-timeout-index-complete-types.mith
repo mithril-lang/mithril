@@ -1,0 +1,250 @@
+(mithril/native-js-declaration-module :name "timeout.index"
+:runtime "timeout.index"
+:ambient-types [(rdf/node :name "Error"
+:min 0
+:max 0)
+(rdf/node :name "AbortSignal"
+:min 0
+:max 0)
+(rdf/node :name "AsyncIterator"
+:min 1
+:max 3)
+(rdf/node :name "IteratorResult"
+:min 1
+:max 2)
+(rdf/node :name "Promise"
+:min 1
+:max 1)]
+:ambient-values ["Error"
+"Symbol.dispose"]
+:imports []
+:declarations [(rdf/node :kind "class"
+:name "TimeoutReason"
+:exported true
+:abstract false
+:type-params []
+:extends (rdf/node :op "name"
+:name "Error"
+:args [])
+:implements []
+:members [(rdf/node :kind "property"
+:key (rdf/node :kind "name"
+:name "code")
+:visibility "public"
+:static false
+:readonly true
+:optional false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:key (rdf/node :kind "name"
+:name "timeoutMs")
+:visibility "public"
+:static false
+:readonly true
+:optional false
+:datatype (rdf/node :op "keyword"
+:name "number"))
+(rdf/node :kind "property"
+:key (rdf/node :kind "name"
+:name "name")
+:visibility "public"
+:static false
+:readonly false
+:optional false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "constructor"
+:visibility "public"
+:params [(rdf/node :name "code"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :name "timeoutMs"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "number"))])])
+(rdf/node :kind "const"
+:name "MAX_TIMER_DELAY_MS"
+:exported true
+:datatype (rdf/node :op "literal"
+:value 2147483647))
+(rdf/node :kind "function"
+:name "clampTimeout"
+:exported true
+:type-params []
+:params [(rdf/node :name "requested"
+:optional false
+:rest false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "keyword"
+:name "number")
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :name "def"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "number"))
+(rdf/node :name "max"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "number"))
+(rdf/node :name "name"
+:optional true
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))]
+:returns (rdf/node :op "keyword"
+:name "number"))
+(rdf/node :kind "interface"
+:name "Deadline"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "signal"
+:optional false
+:readonly true
+:datatype (rdf/node :op "name"
+:name "AbortSignal"
+:args []))
+(rdf/node :kind "computed-method"
+:name "Symbol.dispose"
+:optional false
+:type-params []
+:params []
+:returns (rdf/node :op "keyword"
+:name "void"))])
+(rdf/node :kind "interface"
+:name "IdleWatchdog"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "signal"
+:optional false
+:readonly true
+:datatype (rdf/node :op "name"
+:name "AbortSignal"
+:args []))
+(rdf/node :kind "method"
+:name "next"
+:optional false
+:type-params [(rdf/node :name "T"
+:constraint nil
+:default nil)]
+:params [(rdf/node :name "iterator"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "AsyncIterator"
+:args [(rdf/node :op "name"
+:name "T"
+:args [])]))]
+:returns (rdf/node :op "name"
+:name "Promise"
+:args [(rdf/node :op "name"
+:name "IteratorResult"
+:args [(rdf/node :op "name"
+:name "T"
+:args [])])]))
+(rdf/node :kind "method"
+:name "pulse"
+:optional false
+:type-params []
+:params []
+:returns (rdf/node :op "keyword"
+:name "void"))
+(rdf/node :kind "computed-method"
+:name "Symbol.dispose"
+:optional false
+:type-params []
+:params []
+:returns (rdf/node :op "keyword"
+:name "void"))])
+(rdf/node :kind "function"
+:name "deadline"
+:exported true
+:type-params []
+:params [(rdf/node :name "upstream"
+:optional false
+:rest false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "AbortSignal"
+:args [])
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :name "timeoutMs"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "number"))
+(rdf/node :name "code"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))]
+:returns (rdf/node :op "name"
+:name "Deadline"
+:args []))
+(rdf/node :kind "function"
+:name "idleWatchdog"
+:exported true
+:type-params []
+:params [(rdf/node :name "upstream"
+:optional false
+:rest false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "AbortSignal"
+:args [])
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :name "timeoutMs"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "number"))
+(rdf/node :name "code"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))]
+:returns (rdf/node :op "name"
+:name "IdleWatchdog"
+:args []))
+(rdf/node :kind "function"
+:name "timeoutOf"
+:exported true
+:type-params []
+:params [(rdf/node :name "x"
+:optional false
+:rest false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "AbortSignal"
+:args [])
+(rdf/node :op "object"
+:members [(rdf/node :kind "property"
+:name "reason"
+:optional true
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "unknown"))])]))
+(rdf/node :name "code"
+:optional true
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))]
+:returns (rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "TimeoutReason"
+:args [])
+(rdf/node :op "keyword"
+:name "undefined")]))]
+:reexports [])

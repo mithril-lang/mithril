@@ -1,0 +1,114 @@
+{
+  "format": "mithril.code-refactor-verification/v1",
+  "verified": true,
+  "verification_scope": "Declared checks on selected baseline and candidate snapshots only; not whole-repository or universal API equivalence.",
+  "input_sha256": "f7aebab41effb8f774d45334d50a563acd6e87b4bd3803a3cc172016e3287602",
+  "proposal_sha256": "6d178c43f6346ba9de26bca886e523177cbcac28c5e9bd543634002dac6b8d35",
+  "candidate_sha256": "40b6275fac2214544a70c90a56b1d11194c6584e63900e14e64d1a3beb146309",
+  "image": "sha256:f73b2ecd3adebf79a19ba8f32bed6b0231ae056c0908d63e4d660fbcb570e383",
+  "plan": {
+    "image": "sha256:f73b2ecd3adebf79a19ba8f32bed6b0231ae056c0908d63e4d660fbcb570e383",
+    "seed_directory": "/opt/mithril-refactor-base",
+    "timeout_seconds": 180,
+    "checks": [
+      {
+        "id": "retained-source-81-431",
+        "argv": [
+          "node",
+          "/opt/types-controls/run-check.mjs",
+          "test/run_modules.cljk"
+        ]
+      },
+      {
+        "id": "types-primitives-reference",
+        "argv": [
+          "node",
+          "/opt/types-controls/types-primitives-runtime.mjs",
+          "/opt/types-controls/types-primitives-reference.mjs"
+        ]
+      },
+      {
+        "id": "native-types-primitives",
+        "variant": "candidate",
+        "argv": [
+          "node",
+          "/opt/types-controls/run-check.mjs",
+          "/opt/types-controls/types-primitives.cljk"
+        ]
+      }
+    ]
+  },
+  "checks": [
+    {
+      "variant": "baseline",
+      "id": "retained-source-81-431",
+      "argv": [
+        "node",
+        "/opt/types-controls/run-check.mjs",
+        "test/run_modules.cljk"
+      ],
+      "wall_seconds": 3.754341541,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "\nTesting mithril.module-test\n\nTesting mithril.module-lower-test\n\nTesting mithril.form-test\n\nTesting mithril.compiler-test\n\nTesting mithril.conditional-test\n\nTesting mithril.branding-test\n\nTesting mithril.undefined-test\n\nTesting mithril.library-test\n\nTesting mithril.module-bindings-test\n\nTesting mithril.module-guest-closure-test\n\nTesting mithril.native-js-test\n\nTesting mithril.native-misc-test\nNative primitive runtime: strict comparison/raw logical values/spread/assignment/for-of checked.\n11 primitive admissions, 9 refusals, all 8 Form tags checked.\n\nTesting mithril.native-array-test\nNative array primitives: 20 runtime contract groups passed.\n4 admissions / 13 malformed refusals / 2 budget refusals / 3 Form tags passed.\n\nTesting mithril.native-volatile-test\nNamed-function/generated-binding collision regression passed.\nNative volatile prerequisites: 15 runtime contract groups passed.\n7 admissions / 15 malformed refusals / 2 budget refusals / 4 Form tags passed.\n\nRan 81 tests containing 431 assertions.\n0 failures, 0 errors.\nJVM launcher marker absent; workspace source classpath.\n"
+    },
+    {
+      "variant": "baseline",
+      "id": "types-primitives-reference",
+      "argv": [
+        "node",
+        "/opt/types-controls/types-primitives-runtime.mjs",
+        "/opt/types-controls/types-primitives-reference.mjs"
+      ],
+      "wall_seconds": 0.25648274999999965,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "Native type prerequisites: 16 runtime contract groups passed.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "retained-source-81-431",
+      "argv": [
+        "node",
+        "/opt/types-controls/run-check.mjs",
+        "test/run_modules.cljk"
+      ],
+      "wall_seconds": 5.293267333000001,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "\nTesting mithril.module-test\n\nTesting mithril.module-lower-test\n\nTesting mithril.form-test\n\nTesting mithril.compiler-test\n\nTesting mithril.conditional-test\n\nTesting mithril.branding-test\n\nTesting mithril.undefined-test\n\nTesting mithril.library-test\n\nTesting mithril.module-bindings-test\n\nTesting mithril.module-guest-closure-test\n\nTesting mithril.native-js-test\n\nTesting mithril.native-misc-test\nNative primitive runtime: strict comparison/raw logical values/spread/assignment/for-of checked.\n11 primitive admissions, 9 refusals, all 8 Form tags checked.\n\nTesting mithril.native-array-test\nNative array primitives: 20 runtime contract groups passed.\n4 admissions / 13 malformed refusals / 2 budget refusals / 3 Form tags passed.\n\nTesting mithril.native-volatile-test\nNamed-function/generated-binding collision regression passed.\nNative volatile prerequisites: 15 runtime contract groups passed.\n7 admissions / 15 malformed refusals / 2 budget refusals / 4 Form tags passed.\n\nRan 81 tests containing 431 assertions.\n0 failures, 0 errors.\nJVM launcher marker absent; workspace source classpath.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "types-primitives-reference",
+      "argv": [
+        "node",
+        "/opt/types-controls/types-primitives-runtime.mjs",
+        "/opt/types-controls/types-primitives-reference.mjs"
+      ],
+      "wall_seconds": 0.5303491250000006,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "Native type prerequisites: 16 runtime contract groups passed.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "native-types-primitives",
+      "argv": [
+        "node",
+        "/opt/types-controls/run-check.mjs",
+        "/opt/types-controls/types-primitives.cljk"
+      ],
+      "wall_seconds": 1.0526352499999994,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "Native type prerequisites: 16 runtime contract groups passed.\n6 admissions / 6 malformed or scope refusals / 2 budget refusals / 1 Form tag passed.\nJVM launcher marker absent; workspace source classpath.\n"
+    }
+  ],
+  "wall_seconds": 10.942343042000001
+}

@@ -1,0 +1,30 @@
+(ns compile-tagged-templates
+ (:require [mithril.native-js :as native] [mithril.form :as form]
+           [clojure.string :as str] ["node:fs" :as fs] ["node:os" :as os]
+           ["node:child_process" :as child]))
+(defn ensure [p message] (when-not p (throw (js/Error. message))))
+(def engine (.-MITHRIL_DECLARATIONS_ENGINE js/process.env))
+(def text (fs/readFileSync "examples/native-js-tagged-template-controls.mith" "utf8"))
+(def compiled (native/compile-text text))
+(ensure (= 9 (count (:exports compiled))) "Complete independent template control exports")
+(def dir (fs/mkdtempSync (str (os/tmpdir) "/mithril-tagged-templates-")))
+(def config (str dir "/offline.edn"))
+(fs/writeFileSync config (str "{:paths [" (js/JSON.stringify (fs/realpathSync "src")) "]}"))
+(defn run [args]
+ (let [r (child/spawnSync js/process.execPath (clj->js args) #js {:encoding "utf8" :timeout 240000 :maxBuffer 4194304})]
+  (ensure (= 0 (.-status r)) (str "Control exit=" (.-status r) " signal=" (.-signal r) "\n" (.-stdout r) (.-stderr r)))
+  (print (.-stdout r)) (.-stdout r)))
+(run [engine "--config" config "-cp" "src" "test/qualification/native-tagged-templates/controls/admission.cljk"])
+(try
+ (doseq [target ["js" "js-browser"]]
+  (let [output (str dir "/" target ".mjs") invalid (str dir "/" target "-invalid.mith") refused-output (str dir "/" target "-refused.mjs")]
+   (run [engine "--config" config "-cp" "src" "bin/mithril-native-js.cljk"
+         "examples/native-js-tagged-template-controls.mith" "--target" target "--output" output])
+   (ensure (= (:source compiled) (fs/readFileSync output "utf8")) "Exact checked template CLI bytes")
+   (run ["test/qualification/native-tagged-templates/controls/runtime.mjs" output])
+   (fs/writeFileSync invalid (str/replace-first text ":values []" ":values nil"))
+   (let [r (child/spawnSync js/process.execPath (clj->js [engine "--config" config "-cp" "src" "bin/mithril-native-js.cljk" invalid "--target" target "--output" refused-output]) #js {:encoding "utf8" :timeout 30000})]
+    (ensure (= 65 (.-status r)) "Invalid template CLI refusal status")
+    (ensure (str/starts-with? (.-stderr r) "REFUSE\tshape\t") "Exact invalid template CLI refusal code")
+    (ensure (not (fs/existsSync refused-output)) "Complete template admission precedes first artifact write"))))
+ (finally (fs/rmSync dir #js {:recursive true :force true})))

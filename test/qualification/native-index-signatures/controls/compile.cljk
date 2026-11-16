@@ -1,0 +1,45 @@
+(ns qualify-index-signatures
+ (:require [mithril.native-declarations :as declarations] [mithril.native-declaration-emit :as emit]
+           [mithril.native-esm :as esm] ["node:fs" :as fs] ["node:os" :as os]
+           ["node:child_process" :as child]))
+(defn ensure [p label] (when-not p (throw (js/Error. label))))
+(def text (fs/readFileSync "examples/native-js-index-signatures.mith" "utf8"))
+(def doc (declarations/parse-text text))
+(def rt (fs/readFileSync "examples/native-js-cordis-type-leaves-esm.mith" "utf8"))
+(def sources (into {} (map #(vector % (fs/readFileSync (str "examples/" %) "utf8")) (esm/source-basenames rt))))
+(def runtime (esm/check-text rt sources))
+(def artifact (emit/compile-text text runtime))
+(ensure (= artifact (emit/compile-document doc runtime)) "Index source/model mismatch")
+(ensure (empty? (:exports artifact)) "Erased index signatures changed runtime exports")
+(def member (get-in doc ["declarations" 0 "members" 0]))
+(defn bad [m] (assoc-in doc ["declarations" 0 "members" 0] m))
+(def refusals
+ [[:mithril.native-declarations/shape (bad (assoc member "optional" true))]
+  [:mithril.native-declarations/shape (bad (assoc member "body" "injected"))]
+  [:mithril.native-declarations/shape (bad (dissoc member "readonly"))]
+  [:mithril.native-declarations/name (bad (assoc member "name" "key]; injected()"))]
+  [:mithril.native-declarations/type (bad (assoc-in member ["key" "name"] "boolean"))]
+  [:mithril.native-declarations/type (bad (assoc member "key" {"op" "literal" "value" "key"}))]
+  [:mithril.native-declarations/shape (bad (assoc-in member ["key" "extra"] true))]
+  [:mithril.native-declarations/arity (bad (assoc member "datatype" {"op" "name" "name" "Missing" "args" []}))]
+  [:mithril.native-declarations/scope (bad (assoc member "datatype" {"op" "typeof" "name" "key"}))]
+  [:mithril.native-declarations/duplicate (update-in doc ["declarations" 0 "members"] conj (assoc member "name" "renamed"))]
+  [:mithril.native-declarations/duplicate (update doc "declarations" conj (assoc (get-in doc ["declarations" 0]) "members" [(assoc member "name" "other")]))]])
+(doseq [[code d] refusals]
+ (ensure (= code (try (emit/compile-document d runtime) nil (catch :default e (:mithril/error (ex-data e)))))
+         (str "Index signature refusal " code)))
+(def dir (fs/mkdtempSync (str (os/tmpdir) "/mithril-index-signatures-")))
+(defn run [args]
+ (let [r (child/spawnSync js/process.execPath (clj->js args) #js {:encoding "utf8" :timeout 240000})]
+  (ensure (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r))))
+(try
+ (fs/writeFileSync (str dir "/offline.edn") "{:paths [\"src\"]}")
+ (doseq [target ["js" "js-browser"]]
+  (let [output (str dir "/" target ".d.mts")]
+   (run [(.-MITHRIL_DECLARATIONS_ENGINE js/process.env) "--config" (str dir "/offline.edn") "-cp" "src"
+         "bin/mithril-native-declarations.cljk" "examples/native-js-index-signatures.mith" "--target" target "--output" output])
+   (ensure (= (:source artifact) (fs/readFileSync output "utf8")) "Index CLI bytes differ")
+   (run ["test/qualification/native-index-signatures/controls/types.mjs" output
+         (.-MITHRIL_DECLARATIONS_TYPESCRIPT js/process.env) (.-MITHRIL_DECLARATIONS_TYPE_ROOTS js/process.env)])))
+ (println "Index signatures: string/number/symbol, readonly, generic, inline and interface merging; 11 exact-code refusals.")
+ (finally (fs/rmSync dir #js {:recursive true :force true})))

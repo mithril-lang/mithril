@@ -1,0 +1,21 @@
+(mithril/module :name "example.amu_native" :exports ["increment" "choose" "is_zero"]
+  :functions
+  [(mithril/function :name "increment"
+     :params [(rdf/node :name "value" :datatype "i64")]
+     :returns "i64"
+     :body (mithril/call :name "add"
+             :args [(mithril/local :name "value")
+                    (mithril/literal :datatype "i64" :value "1")]))
+   (mithril/function :name "choose"
+     :params [(rdf/node :name "condition" :datatype "bool")]
+     :returns "i64"
+     :body (mithril/if
+             :condition (mithril/local :name "condition")
+             :then (mithril/literal :datatype "i64" :value "7")
+             :else (mithril/literal :datatype "i64" :value "0")))
+   (mithril/function :name "is_zero"
+     :params [(rdf/node :name "value" :datatype "i64")]
+     :returns "bool"
+     :body (mithril/call :name "eq"
+             :args [(mithril/local :name "value")
+                    (mithril/literal :datatype "i64" :value "0")]))])

@@ -1,0 +1,19 @@
+(mithril/module :name "host.conditional" :exports ["choose" "lazy"]
+  :functions
+  [(mithril/function :name "choose"
+     :params [(rdf/node :name "value" :datatype "js-value")
+              (rdf/node :name "fallback" :datatype "js-value")]
+     :returns "js-value"
+     :body (mithril/if
+             :condition (mithril/call :name "js_nullish" :args [(mithril/local :name "value")])
+             :then (mithril/local :name "fallback")
+             :else (mithril/local :name "value")))
+   (mithril/function :name "lazy"
+     :params [(rdf/node :name "condition" :datatype "bool")]
+     :returns "i64"
+     :body (mithril/if
+             :condition (mithril/local :name "condition")
+             :then (mithril/literal :datatype "i64" :value "7")
+             :else (mithril/call :name "spin" :args [])))
+   (mithril/function :name "spin" :params [] :returns "i64"
+     :body (mithril/call :name "spin" :args []))])

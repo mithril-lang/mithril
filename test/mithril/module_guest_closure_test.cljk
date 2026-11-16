@@ -1,0 +1,67 @@
+(ns mithril.module-guest-closure-test
+  (:require [cljs.test :refer [deftest is]]
+            [clojure.string :as str]
+            [mithril.module :as module]
+            [mithril.module-lower :as lower]
+            [mithril.module-lower-test :refer [literal local call function document]]
+            [mithril.module-bindings-test :refer [binding-node let-node sequence-node]]))
+(defn function-type [params returns] {"@type" "FunctionType" "params" params "returns" returns})
+(defn lambda-node [params returns body] {"@type" "Lambda" "params" params "returns" returns "body" body})
+(defn invoke-node [f args] {"@type" "Invoke" "function" f "args" args})
+(defn ref-node [name] {"@type" "FunctionRef" "name" name})
+(def js-param [{"name" "v" "datatype" "js-value"}])
+(defn doc [body returns] (document [(function "keep" js-param returns body)] ["keep"]))
+(defn refusal [d] (try (module/check-document d) nil (catch :default e (:mithril/error (ex-data e)))))
+(deftest checked-lambda-capture-and-invocation-retain-their-types
+  (let [d (doc (let-node [(binding-node "f" (lambda-node [] "js-value" (local "v")))]
+                        (invoke-node (local "f") [])) "js-value")
+        checked (module/check-document d)
+        body (get-in checked [:functions 0 :body])
+        result (lower/lower-document d)]
+    (is (= [:fn [[] :js-value]] (get-in body [:bindings 0 :type])))
+    (is (= :js-value (get-in body [:body :type])))
+    (is (str/includes? (:source result) "(__mithril_contract0 (fn [] __mithril_p0))"))
+    (is (str/includes? (:source result) "(defn __mithril_invoke0 [__mithril_callable [:fn [[] :js-value]]] :js-value (__mithril_callable))"))
+    (is (= result (lower/lower-document d)))))
+(deftest typed-guest-arguments-and-references-use-explicit-contracts
+  (let [d (document [(function "id" js-param "js-value" (local "v"))
+                    (function "keep" js-param "js-value" (invoke-node (ref-node "id") [(local "v")]))] ["keep"])
+        result (lower/lower-document d)]
+    (is (str/includes? (:source result) "(fn-ref __mithril_f0)"))
+    (is (= {"id" [] "keep" ["id"]} (:call-graph (module/check-document d))))
+    (is (str/includes? (:source result) "__mithril_p0 :js-value] :js-value (__mithril_callable __mithril_p0)")))
+  (let [f-type (function-type ["js-value"] "js-value")
+        d (document [(function "apply" [{"name" "f" "datatype" f-type} {"name" "v" "datatype" "js-value"}]
+                              "js-value" (invoke-node (local "f") [(local "v")]))] [])]
+    (is (= [:fn [[:js-value] :js-value]] (get-in (module/check-document d) [:functions 0 :params 0 :type])))))
+(deftest closure-scope-contract-and-host-callback-refusals
+  (doseq [body [(invoke-node (local "v") [])
+               (invoke-node (lambda-node [] "js-value" (local "v")) [(local "v")])
+               (invoke-node (lambda-node [{"name" "x" "datatype" "i64"}] "i64" (local "x")) [(local "v")])
+               (lambda-node [] "bool" (local "v"))
+               (lambda-node [{"name" "x" "datatype" "i64"} {"name" "x" "datatype" "i64"}] "i64" (local "x"))
+               (ref-node "missing")
+               (literal (function-type [] "js-value") 0)]]
+    (is (some? (refusal (doc body "js-value"))))))
+(deftest callable-types-and-helper-counts-have-bounded-admission
+  (let [deep (reduce (fn [type _] (function-type [] type)) "js-value" (range 17))]
+    (is (= :mithril.module/budget (refusal (doc (local "v") deep)))))
+  (is (= :mithril.module/budget
+         (refusal (doc (lambda-node (mapv #(hash-map "name" (str "p" %) "datatype" "i64") (range 5)) "i64" (literal "i64" 0)) "i64"))))
+  (let [d (document (into [(function "keep" js-param "js-value" (invoke-node (lambda-node [] "js-value" (local "v")) []))]
+                          (mapv #(function (str "f" %) [] "i64" (literal "i64" 0)) (range 127))) ["keep"])]
+    (is (= :mithril.module/budget
+           (try (lower/lower-document d) nil (catch :default e (:mithril/error (ex-data e))))))))
+(deftest contextual-callables-cannot-escape-the-pure-public-facade
+  (doseq [d [(doc (invoke-node (lambda-node [] "js-value" (local "v")) []) "js-value")
+             (doc (lambda-node [] "js-value" (local "v")) (function-type [] "js-value"))
+             (document [(function "keep" [{"name" "f" "datatype" (function-type [] "i64")}] "i64" (literal "i64" 7))] ["keep"])]]
+    (is (= :mithril.module/library-vocabulary
+           (try (lower/js-library-document d "./artifact.mjs") nil
+                (catch :default e (:mithril/error (ex-data e))))))))
+(deftest inert-source-spelling-retains-typed-lambda-arguments
+  (let [text "(mithril/module :name \"closures\" :exports [\"keep\"] :functions [(mithril/function :name \"keep\" :params [(rdf/node :name \"v\" :datatype \"js-value\")] :returns \"js-value\" :body (mithril/invoke :function (mithril/lambda :params [(rdf/node :name \"v\" :datatype \"js-value\")] :returns \"js-value\" :body (mithril/local :name \"v\")) :args [(mithril/local :name \"v\")]))])"
+        result (lower/lower-text text)]
+    (is (str/includes? (:source result) "(fn [__mithril_a1] __mithril_a1)"))
+    (is (str/includes? (:source result) "[:fn [[:js-value] :js-value]]"))
+    (is (= result (lower/lower-text text)))))

@@ -1,0 +1,29 @@
+(ns mithril.mission-main
+  (:require [mithril.compiler :as compiler]
+            [mithril.mission :as mission]))
+
+(defn- print-json [value]
+  (println (.stringify js/JSON (clj->js value) nil 2)))
+
+(let [[command path & extra] *command-line-args*]
+  (try
+    (when (or (seq extra) (not (contains? #{"catalog" "compile" "validate" "rdf" "export"} command))
+              (if (= command "catalog") path (nil? path)))
+      (throw (ex-info "usage: mithril-mission <catalog|compile|validate|rdf|export> [model.mith]"
+                      {:mithril/error :mithril.mission/usage})))
+    (if (= command "catalog")
+      (print-json mission/standards)
+      (let [doc (compiler/parse-source (.readFileSync (js/require "node:fs") path "utf8"))
+            artifact (if (= mission/format-id (get doc "format"))
+                       (mission/validate doc) (mission/compile-document doc))]
+        (case command
+          "compile" (print-json artifact)
+          "export" (print-json (mission/export-document artifact))
+          "validate" (print-json {:valid true :nodes (count (get artifact "nodes"))
+                                   :wire-conformance false :source-execution false})
+          "rdf" (print-json (mission/rdf-document artifact)))))
+    (catch :default e
+      (binding [*print-fn* *print-err-fn*]
+        (println (str "REFUSE\t" (or (some-> e ex-data :mithril/error name) "mission-error")
+                      "\t" (.-message e))))
+      (js/process.exit 1))))

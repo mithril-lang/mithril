@@ -1,0 +1,55 @@
+(ns mithril.native-esm-externals-test
+ (:require [cljs.test :refer [deftest is]] [mithril.native-esm :as esm]
+           [mithril.native-package :as package] [mithril.native-js :as native]
+           [mithril.form :as form] [mithril.module :as guest]
+           ["node:fs" :as fs] ["node:os" :as os] ["node:path" :as path]
+           ["node:child_process" :as child]))
+(def fixture "test/fixtures/native-esm-externals/")
+(defn read [file] (fs/readFileSync (str fixture file) "utf8"))
+(defn sources [text] (into {} (map #(vector % (read %)) (esm/source-basenames text))))
+(defn refusal [doc source] (try (esm/check-document doc source) nil (catch :default e (:mithril/error (ex-data e)))))
+(deftest explicit-external-module-admission-and-origin
+ (let [text (read "loader-esm.mith") doc (form/parse text) src (sources text)
+       artifact (esm/compile-text text src) e (first (get doc "externals"))]
+  (is (= {"node.module" "node:module"} (:external-modules artifact)))
+  (is (= {"loader.internal" "module-0.mjs"} (:module-files artifact)))
+  (is (= ["process" "Number" "Object"] (:required-imports artifact)))
+  (doseq [[bad code] [[(assoc doc "externals" {}) :mithril.native-package/budget]
+                     [(assoc doc "externals" [(assoc e "specifier" "../secret.mjs")]) :mithril.native-package/link]
+                     [(assoc doc "externals" [(assoc e "specifier" "https://host/module")]) :mithril.native-package/link]
+                     [(assoc doc "externals" [(assoc e "specifier" "node:module;x")]) :mithril.native-package/link]
+                     [(assoc doc "externals" [(assoc e "raw" "code")]) :mithril.native-package/shape]
+                     [(assoc doc "externals" [e e]) :mithril.native-package/duplicate]
+                     [(assoc doc "externals" [e (assoc e "name" "other.module")]) :mithril.native-package/duplicate]
+                     [(assoc doc "externals" [(assoc e "name" "loader.internal")]) :mithril.native-package/duplicate]
+                     [(assoc doc "externals" [(assoc e "exports" ["createRequire" "createRequire"])]) :mithril.native-package/duplicate]
+                     [(assoc doc "externals" (vec (repeat 65 e))) :mithril.native-package/budget]
+                     [(assoc doc "externals" [(assoc e "exports" (vec (repeat 129 "x")))]) :mithril.native-package/budget]
+                     [(assoc-in doc ["modules" 0 "dependencies"] []) :mithril.native-package/link]
+                     [(assoc-in doc ["modules" 0 "links" 0 "export"] "missing") :mithril.native-package/link]
+                     [(update doc "externals" conj {"name" "extra.module" "specifier" "node:path" "exports" []}) :mithril.native-package/link]
+                     [(assoc doc "imports" ["createRequire" "process" "Number" "Object"]) :mithril.native-package/grants]
+                     [(assoc doc "reexports" ["node.module"]) :mithril.native-package/link]]]
+   (is (= code (refusal bad src))))
+  (let [leaf (form/parse (read "loader-internal.mith"))]
+   (is (= :mithril.native-js/link
+          (try (native/compile-esm-document leaf [{"import" "createRequire" "source" "node:module" "export" "createRequire"}] ["node:module"]) nil
+               (catch :default e (:mithril/error (ex-data e)))))))
+  (let [ordinary (fs/readFileSync "examples/native-js-cosmokit-esm.mith" "utf8")
+        source (into {} (map #(vector % (fs/readFileSync (str "examples/" %) "utf8")) (esm/source-basenames ordinary)))
+        base (form/parse ordinary)]
+   (is (= (esm/compile-document base source) (esm/compile-document (assoc base "externals" []) source))))
+  (is (some? (try (guest/check-text text) nil (catch :default e (:mithril/error (ex-data e))))))))
+(deftest actual-esm-clis-link-node-and-bare-external-modules
+ (let [dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-esm-externals-"))
+       config (path/join dir "offline.edn") engine (aget (.-argv js/process) 1)]
+  (try
+   (fs/writeFileSync config "{:paths []}")
+   (doseq [target ["js" "js-browser"] kind ["loader" "forward"]]
+    (let [out (path/join dir (str target "-" kind))
+          result (child/spawnSync js/process.execPath (clj->js [engine "--config" config "-cp" "src" "bin/mithril-native-esm.cljk" (str fixture kind "-esm.mith") "--target" target "--output-directory" out]) #js {:encoding "utf8" :timeout 30000})]
+     (is (= 0 (.-status result)) (str (.-stdout result) (.-stderr result)))
+     (doseq [flags (if (= kind "loader") [[] ["--expose-internals"]] [[]])]
+      (let [result (child/spawnSync js/process.execPath (clj->js (concat flags [(str fixture "contract.mjs") out kind])) #js {:encoding "utf8" :timeout 30000})]
+       (is (= 0 (.-status result)) (str (.-stdout result) (.-stderr result)))))))
+   (finally (fs/rmSync dir #js {:recursive true :force true})))))

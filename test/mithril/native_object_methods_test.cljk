@@ -1,0 +1,42 @@
+(ns mithril.native-object-methods-test
+ (:require [cljs.test :refer [deftest is]] [mithril.native-js :as native] [mithril.form :as form]
+           [mithril.native-class-test :as c]
+           ["node:fs" :as fs] ["node:os" :as os] ["node:path" :as path] ["node:child_process" :as child]))
+(def methodx {"kind" "method" "key" (c/lit "get") "params" [] "rest" nil "body" c/this})
+(defn objectx [method] {"@type" "HostObject" "entries" [method]})
+(defn refused? [v] (try (native/check-document (c/document v [])) false (catch :default _ true)))
+(deftest checked-object-method-contexts
+ (let [awaitx {"@type" "HostAwait" "value" c/undef} yieldx {"@type" "HostYield" "value" c/undef}
+       bad [(assoc methodx "source" "raw JS") (assoc methodx "value" c/undef) (assoc methodx "infer_name" true)
+            (assoc methodx "kind" "get") (assoc methodx "kind" "constructor") (dissoc methodx "key")
+            (assoc methodx "async" 1) (assoc methodx "generator" nil)
+            (assoc methodx "body" awaitx) (assoc methodx "body" yieldx)
+            (assoc methodx "params" [(c/param "x") (c/param "x")])
+            (assoc methodx "params" [(c/param "x")] "rest" "x")
+            (assoc methodx "async" true "params" [(assoc (c/param "x") "default" awaitx)])
+            (assoc methodx "generator" true "params" [(assoc (c/param "x") "default" yieldx)])
+            (assoc methodx "key" (c/super-get "x"))
+            (assoc methodx "body" (c/super-call []))
+            (assoc methodx "body" (c/normal (c/super-get "x")))
+            (assoc methodx "async" true "body" (c/normal awaitx))
+            (assoc methodx "body" {"@type" "HostReturn" "value" c/undef})
+            (assoc methodx "statements" true "body" {"@type" "HostBreak"})]
+       text (fs/readFileSync "examples/native-js-object-methods.mith" "utf8")]
+  (is (every? (comp refused? objectx) bad))
+  (is (not (refused? (objectx (assoc methodx "body" (c/arrow (c/super-get "x")))))))
+  (is (= (native/compile-document (c/document (objectx methodx) []))
+         (native/compile-document (c/document (objectx (assoc methodx "async" false "generator" false "statements" false)) []))))
+  (is (= (native/compile-text text) (native/compile-document (form/parse text))))))
+(deftest native-object-method-cli
+ (let [dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-object-methods-"))]
+  (try
+   (let [engine (.-MITHRIL_NATIVE_ENGINE js/process.env) config (path/join dir "offline.edn")]
+    (fs/writeFileSync config "{:paths [\"src\"]}\n")
+    (doseq [target ["js" "js-browser"]]
+     (let [r (child/spawnSync js/process.execPath
+              (clj->js [engine "--config" config "-cp" "src" "bin/mithril-native-js.cljk" "examples/native-js-object-methods.mith" "--target" target "--output" (path/join dir (str target ".mjs"))])
+              #js {:encoding "utf8" :timeout 30000})]
+      (when-not (= 0 (.-status r)) (throw (js/Error. (str (.-stdout r) (.-stderr r))))))))
+   (let [r (child/spawnSync js/process.execPath (clj->js ["test/fixtures/native-object-methods-contract.mjs" dir]) #js {:encoding "utf8" :timeout 30000})]
+    (is (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r)))
+   (finally (fs/rmSync dir #js {:recursive true :force true})))))

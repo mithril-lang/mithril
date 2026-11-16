@@ -1,0 +1,60 @@
+(ns mithril.native-ambient-imports-test
+ (:require [cljs.test :refer [deftest is]]
+           [mithril.native-js :as native] [mithril.module :as guest]
+           [mithril.form :as form] [mithril.native-package :as package]
+           [mithril.native-js-test :as helpers]
+           ["node:fs" :as fs] ["node:os" :as os]
+           ["node:path" :as path] ["node:child_process" :as child]))
+(defn refusal [doc] (try (native/compile-document doc) nil (catch :default e (:mithril/error (ex-data e)))))
+(deftest ambient-import-admission-preserves-ordinary-grants-and-refuses-collisions
+ (let [text (fs/readFileSync "examples/native-js-ambient-imports.mith" "utf8")
+       doc (form/parse text) artifact (native/compile-document doc)
+       ordinary (dissoc doc "ambient_imports")]
+  (is (= ["Object"] (:required-imports artifact)))
+  (is (= ["Date" "isNaN" "__mithril_native_grants" "__mithril_esm_globals" "__mithril_package_grants" "__mithril_package_public" "__mithril_package_factory_0" "instantiateMithrilNative" "instantiateMithrilNativePackage"] (:required-ambient-imports artifact)))
+  (is (= (native/compile-document ordinary) (native/compile-document (assoc ordinary "ambient_imports" []))))
+  (doseq [[bad code] [[(assoc doc "ambient_imports" "Date") :mithril.native-js/shape]
+                     [(assoc doc "ambient_imports" ["Date" "Date"]) :mithril.native-js/duplicate]
+                     [(assoc doc "ambient_imports" ["missing"]) :mithril.native-js/import]
+                     [(assoc doc "ambient_imports" ["Date;x()"]) :mithril.native-js/name]
+                     [(assoc doc "imports" ["eval"] "ambient_imports" ["eval"]) :mithril.native-js/import]
+                     [(assoc doc "ambient_imports" (vec (repeat 129 "Date"))) :mithril.native-js/budget]
+                     [(assoc doc "functions" [(helpers/function "Date" [] (helpers/import-node "Date"))] "exports" ["Date"]) :mithril.native-js/scope]
+                     [(assoc doc "functions" [(helpers/function "factory" [] {"@type" "NativeFunction" "name" "Date" "params" [] "rest" nil "body" (helpers/import-node "Date")})] "exports" ["factory"]) :mithril.native-js/scope]]]
+   (is (= code (refusal bad))))
+  (is (some? (try (guest/check-text text) nil (catch :default e (:mithril/error (ex-data e))))))))
+(deftest actual-cli-standalone-and-esm-serialized-callbacks-retain-native-global-references
+ (let [dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-ambient-imports-"))
+       config (path/join dir "offline.edn") engine (aget (.-argv js/process) 1)]
+  (try
+   (fs/writeFileSync config "{:paths []}")
+   (doseq [target ["js" "js-browser"] mode ["standalone" "esm" "library" "explicit-package"]]
+    (let [output (path/join dir (str target "-" mode))
+          arguments (case mode
+                      "esm" ["bin/mithril-native-esm.cljk" "examples/native-js-ambient-imports-esm.mith" "--target" target "--output-directory" output]
+                      "library" ["bin/mithril-native-package.cljk" "examples/native-js-ambient-imports-package.mith" "--target" target "--output" (str output ".mjs")]
+                      "explicit-package" ["-e" (str "(require '[mithril.native-package :as p] '[\"node:fs\" :as fs]) (fs/writeFileSync " (js/JSON.stringify (str output ".mjs")) " (:source (p/compile-text (fs/readFileSync \"examples/native-js-ambient-imports-package.mith\" \"utf8\") {\"native-js-ambient-imports.mith\" (fs/readFileSync \"examples/native-js-ambient-imports.mith\" \"utf8\")})))")]
+                      ["bin/mithril-native-js.cljk" "examples/native-js-ambient-imports.mith" "--target" target "--output" (str output ".mjs")])
+          compiled (child/spawnSync js/process.execPath (clj->js (concat [engine "--config" config "--classpath" "src"] arguments)) #js {:encoding "utf8" :timeout 30000})]
+     (is (= 0 (.-status compiled)) (.-stderr compiled))
+     (let [result (child/spawnSync js/process.execPath #js ["test/fixtures/native-ambient-imports-contract.mjs" (if (= mode "esm") (path/join output "index.mjs") (str output ".mjs")) mode] #js {:encoding "utf8" :timeout 30000})]
+      (is (= 0 (.-status result)) (str (.-stdout result) (.-stderr result))))))
+   (finally (fs/rmSync dir #js {:recursive true :force true})))))
+
+(deftest ambient-imports-retain-parent-capabilities-and-cannot-be-relinked
+ (let [text (fs/readFileSync "examples/native-js-ambient-imports.mith" "utf8")
+       source (form/parse text)
+       manifest (form/parse (fs/readFileSync "examples/native-js-ambient-imports-esm.mith" "utf8"))
+       sources {"native-js-ambient-imports.mith" text}]
+  (is (= :mithril.native-package/grants
+         (try (package/check-esm-document (update manifest "imports" #(vec (remove #{"Date"} %))) sources) nil
+              (catch :default e (:mithril/error (ex-data e))))))
+  (is (= "Ambient imports cannot also be linked imports"
+         (try (package/check-esm-document
+               (-> manifest
+                   (assoc-in ["modules" 0 "dependencies"] ["native.ambientImports"])
+                   (assoc-in ["modules" 0 "links"] [{"import" "Date" "module" "native.ambientImports" "export" "make"}])) sources) nil
+              (catch :default e (.-message e)))))
+  (is (= :mithril.native-js/link
+         (try (native/compile-esm-document source [{"import" "Date" "source" "./module-0.mjs" "export" "make"}] ["./module-0.mjs"]) nil
+              (catch :default e (:mithril/error (ex-data e))))))))

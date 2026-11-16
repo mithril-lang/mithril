@@ -1,5 +1,5 @@
 (ns mithril.reason-cli
-  "`mithril reason <ontology.mith> <data.(nq|nt|jsonld)> [--query-type <iri>] [--json]`
+  "`mithril reason <ontology.mith> <data.(mith|nq|nt|jsonld)> [--query-type <iri>] [--save-mith <result.mith>] [--json]`
 
   Exit 0: the data conforms to the ontology's shapes after entailment.
   Exit 1: the SHACL Core validation report does not conform (any severity),
@@ -15,12 +15,19 @@
   (:require [clojure.string :as str]
             [mithril.compiler :as compiler]
             [mithril.reason :as reason]
-            [mithril.shacl :as shacl]))
+            [mithril.shacl :as shacl]
+            [mithril.reason-rdf :as rdf]
+            [mithril.rdf-form :as mith]
+            [mithril.rdf-form-fs :as mith-fs]
+            [rdf-canon.core :as canon]))
 
 (defn- parse-args [args]
   (loop [[a & more] args opts {}]
     (cond
       (nil? a) opts
+      (= "--save-mith" a) (if (and (first more) (str/ends-with? (first more) ".mith"))
+                              (recur (rest more) (assoc opts :save-mith (first more)))
+                              (assoc opts :bad-arg a))
       (= "--json" a) (recur more (assoc opts :json? true))
       (= "--query-type" a) (if (and (first more) (not (str/starts-with? (first more) "--")))
                              (recur (rest more) (assoc opts :query-type (first more)))
@@ -84,21 +91,23 @@
   [read-text ontology-path args]
   (let [[data-path & flags] args
         opts (parse-args flags)
-        usage "usage: mithril reason <ontology.mith> <data.(nq|nt|jsonld)> [--query-type <iri>] [--json]"]
+        usage "usage: mithril reason <ontology.mith> <data.(mith|nq|nt|jsonld)> [--query-type <iri>] [--save-mith <result.mith>] [--json]"]
     (cond
       (or (nil? ontology-path) (nil? data-path) (:bad-arg opts))
       {:exit 2 :out [(str "REFUSE\tusage\t" usage)]}
 
       (nil? (reason/data-format data-path))
       {:exit 2 :out [(str "REFUSE\tunknown-data-format\t"
-                          (pr-str {:path data-path :supported [".nq" ".nt" ".jsonld" ".json"]}))]}
+                          (pr-str {:path data-path :supported [".mith" ".mithril" ".nq" ".nt" ".jsonld" ".json"]}))]}
 
       :else
       (let [result (try
                      (let [artifact (compiler/compile-ontology-text ontology-path
                                                                     (read-text ontology-path))
                            data (reason/parse-data data-path (read-text data-path))]
-                       (reason/reason artifact data (select-keys opts [:query-type])))
+                       (cond-> (reason/reason artifact data (select-keys opts [:query-type]))
+                         (:save-mith opts) (assoc :source-ontology-digest (:graph-digest artifact)
+                                                :source-data-digest (str "sha256:" (canon/canonical-hash data)))))
                      (catch :default e
                        {:status :refused
                         :refusal {:reason (error-reason e) :detail (ex-message e)}}))]
@@ -110,6 +119,10 @@
                       "\t" (pr-str (get-in result [:refusal :detail])))]}
           {:exit (if (= :conforms (:status result)) 0 1)
            :result result
+           :mith-output (when (:save-mith opts)
+                          {:path (:save-mith opts)
+                           :text (mith/write (mith/reason-document result (:source-ontology-digest result)
+                                                           (:source-data-digest result) (:query-type opts)))})
            :out (vec (text-lines result))})))))
 
 (defn- json-safe [x]
@@ -124,8 +137,9 @@
   "Entry for bin/mithril.cljk: prints and exits."
   [ontology-path args]
   (let [read-text #(.readFileSync (js/require "fs") % "utf8")
-        {:keys [exit out result]} (run read-text ontology-path args)
+        {:keys [exit out result mith-output]} (run read-text ontology-path args)
         json? (some #{"--json"} args)]
+    (when mith-output (mith-fs/write! (:path mith-output) (:text mith-output) [ontology-path (first args)]))
     (if (and json? result)
       (println (.stringify js/JSON
                            (clj->js (json-safe (-> result

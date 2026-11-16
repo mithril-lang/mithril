@@ -1,0 +1,35 @@
+(* Mithril Form surface grammar, draft. This describes canonical source shape;
+   token decoding follows cljs.reader, and each tag has a closed contract. *)
+
+form-source       = trivia, tagged-form, trivia ;
+tagged-form       = "(", symbol, { trivia, argument }, trivia, ")" ;
+argument          = keyword, trivia, value
+                  | value ; (* positional arguments are tag-specific *)
+value             = string
+                  | integer
+                  | boolean
+                  | nil
+                  | vector
+                  | tagged-form ;
+vector            = "[", [ value, { trivia, value } ], "]" ;
+
+symbol            = reader-symbol-token ;
+keyword           = reader-keyword-token ;
+reader-symbol-token  = ? token read by cljs.reader as a symbol ? ;
+reader-keyword-token = ? token read by cljs.reader as a keyword ? ;
+
+boolean           = "true" | "false" ;
+nil               = "nil" ;
+integer           = ? token read by cljs.reader as an integer ? ;
+string            = '"', { string-character | escape }, '"' ;
+escape            = "\\", ( '"' | "\\" | "n" | "r" | "t" | "b" | "f"
+                  | "u", hex-digit, hex-digit, hex-digit, hex-digit ) ;
+
+trivia            = { whitespace | comma | comment } ;
+comment           = ";", { any-character-except-line-break }, [ line-break ] ;
+whitespace        = " " | "\t" | line-break ;
+comma             = "," ; (* commas are reader whitespace *)
+line-break        = "\n" | "\r\n" ;
+digit             = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
+hex-digit         = digit | "a"…"f" | "A"…"F" ;
+letter            = "a"…"z" | "A"…"Z" ;

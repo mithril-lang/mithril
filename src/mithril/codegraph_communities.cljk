@@ -1,0 +1,126 @@
+(ns mithril.codegraph-communities
+  "Deterministic bounded local modularity optimization on a file projection.
+  Communities are structural suggestions, never inferred semantic facts."
+  (:require [mithril.codegraph-extract :as extract]))
+
+(def algorithm "mithril.codegraph/file-component-modularity-local-v2")
+
+(defn file-network [snapshot max-edges]
+  (let [nodes (vec (sort-by :path (filter #(= :file (:kind %)) (:nodes snapshot))))
+        by-id (into {} (map (juxt :id identity) (:nodes snapshot)))
+        by-path (into {} (map (juxt :path :id) nodes))
+        cross (filter (fn [edge]
+                        (let [a (get-in by-id [(:source edge) :path])
+                              b (get-in by-id [(:target edge) :path])]
+                          (and a b (not= a b)))) (:edges snapshot))
+        weights (reduce (fn [acc edge]
+                          (let [a (get by-path (get-in by-id [(:source edge) :path]))
+                                b (get by-path (get-in by-id [(:target edge) :path]))
+                                pair (vec (sort [a b]))]
+                            (update acc pair (fnil inc 0))))
+                        (sorted-map) (take max-edges cross))]
+    {:nodes nodes :edges (mapv (fn [[[a b] w]] {:source a :target b :weight w}) weights)
+     :truncated (> (count cross) max-edges)
+     :considered-edges (min max-edges (count cross)) :total-cross-edges (count cross)}))
+
+(defn- detect-component [snapshot ir]
+  (let [network (file-network snapshot (:max-community-edges ir))
+        ids (mapv :id (:nodes network))
+        adjacency (reduce (fn [adj {:keys [source target weight]}]
+                            (-> adj (assoc-in [source target] weight) (assoc-in [target source] weight)))
+                          {} (:edges network))
+        degree (into {} (map (fn [id] [id (reduce + 0 (vals (get adjacency id)))]) ids))
+        two-m (reduce + 0 (vals degree))
+        labels (atom (zipmap ids ids)) totals (atom degree)
+        result
+        (loop [pass 0]
+          (if (>= pass (:max-community-passes ir)) {:passes pass :converged false}
+              (let [moves
+                    (reduce
+                     (fn [moves id]
+                       (let [old (get @labels id) k (get degree id)
+                             weights (reduce (fn [acc [neighbor weight]]
+                                               (update acc (get @labels neighbor) (fnil + 0) weight))
+                                             {} (get adjacency id))]
+                         (swap! totals update old - k)
+                         (let [score (fn [label]
+                                       (- (get weights label 0)
+                                          (if (zero? two-m) 0 (/ (* k (get @totals label 0)) two-m))))
+                               best (reduce (fn [best candidate]
+                                              (if (> (score candidate) (+ (score best) 1e-10)) candidate best))
+                                            old (sort (keys weights)))]
+                           (swap! labels assoc id best)
+                           (swap! totals update best (fnil + 0) k)
+                           (if (= old best) moves (inc moves)))))
+                     0 ids)]
+                (if (zero? moves) {:passes (inc pass) :converged true}
+                    (recur (inc pass))))))
+        groups (vals (group-by #(get @labels %) ids))
+        communities (vec (sort-by (juxt (comp - :size) :id)
+                          (map (fn [members]
+                                 (let [members (vec (sort members))]
+                                   {:id (extract/id :community [(:project snapshot) members])
+                                    :members members :size (count members)})) groups)))
+        membership (into {} (for [c communities id (:members c)] [id (:id c)]))
+        internal (reduce + 0 (map :weight (filter #(= (membership (:source %))
+                                                       (membership (:target %))) (:edges network))))
+        modularity (if (zero? two-m) 0
+                      (- (/ (* 2 internal) two-m)
+                         (reduce + 0 (map (fn [c]
+                                            (let [fraction (/ (reduce + 0 (map degree (:members c))) two-m)]
+                                              (* fraction fraction))) communities))))]
+    (merge result {:algorithm algorithm :projection :undirected-weighted-files
+                   :modularity modularity :communities communities :membership membership
+                   :file-count (count ids) :edge-count (count (:edges network))
+                   :considered-edges (:considered-edges network)
+                   :total-cross-edges (:total-cross-edges network)
+                   :truncated (:truncated network)})))
+
+(defn- components [network]
+  (let [adj (reduce (fn [m e] (-> m (update (:source e) (fnil conj #{}) (:target e))
+                                  (update (:target e) (fnil conj #{}) (:source e)))) {} (:edges network))]
+    (loop [pending (set (map :id (:nodes network))) groups []]
+      (if (empty? pending) groups
+          (let [start (first (sort pending))
+                members (loop [frontier #{start} seen #{}]
+                          (if (empty? frontier) seen
+                              (recur (set (remove #(contains? (into seen frontier) %)
+                                                  (mapcat #(get adj %) frontier)))
+                                     (into seen frontier))))]
+            (recur (set (remove members pending)) (conj groups members)))))))
+
+(defn detect
+  ([snapshot ir] (detect snapshot ir nil))
+  ([snapshot ir previous]
+   (let [network (file-network snapshot (:max-community-edges ir))
+         parts (for [members (components network)]
+                 (let [nodes (vec (filter #(contains? members (:id %)) (:nodes network)))
+                       edges (vec (filter #(contains? members (:source %)) (:edges network)))
+                       signature (extract/digest [algorithm (:project snapshot) (:max-community-passes ir)
+                                                  (mapv :id nodes) edges])
+                       ;; Already weighted projection; expand only within the admitted edge budget.
+                       sub {:project (:project snapshot) :nodes nodes
+                            :edges (vec (mapcat #(repeat (:weight %) (dissoc % :weight)) edges))}
+                       result (or (get-in previous [:component-cache signature]) (detect-component sub ir))]
+                   {:signature signature :members (vec (sort members)) :result result}))
+         all (vec (sort-by (juxt (comp - :size) :id) (mapcat #(get-in % [:result :communities]) parts)))
+         membership (into {} (for [c all id (:members c)] [id (:id c)]))
+         degree (reduce (fn [m e] (-> m (update (:source e) (fnil + 0) (:weight e))
+                                       (update (:target e) (fnil + 0) (:weight e)))) {} (:edges network))
+         two-m (reduce + 0 (vals degree))
+         internal (reduce + 0 (map :weight (filter #(= (membership (:source %)) (membership (:target %))) (:edges network))))]
+     {:algorithm algorithm :projection :undirected-weighted-files
+      :modularity (if (zero? two-m) 0
+                      (- (/ (* 2 internal) two-m)
+                         (reduce + 0 (for [c all :let [fraction (/ (reduce + 0 (map #(get degree % 0) (:members c))) two-m)]]
+                                       (* fraction fraction)))))
+      :passes (reduce max 0 (map #(get-in % [:result :passes]) parts))
+      :converged (every? #(get-in % [:result :converged]) parts)
+      :communities all :membership membership
+      :hierarchy (vec (sort-by :id (for [p parts]
+                    {:id (extract/id :component [(:project snapshot) (:members p)])
+                     :members (:members p) :children (vec (sort (map :id (get-in p [:result :communities]))))})))
+      :component-cache (into (sorted-map) (map (juxt :signature :result) parts))
+      :file-count (count (:nodes network)) :edge-count (count (:edges network))
+      :considered-edges (:considered-edges network) :total-cross-edges (:total-cross-edges network)
+      :truncated (:truncated network)})))

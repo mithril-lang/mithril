@@ -1,0 +1,37 @@
+(ns compile-brand-sdk
+  (:require [mithril.native-esm :as esm] [mithril.native-declaration-program :as program]
+            ["node:fs" :as fs] ["node:os" :as os] ["node:child_process" :as child]))
+(defn ensure [p message] (when-not p (throw (js/Error. message))))
+(def engine (.-MITHRIL_DECLARATIONS_ENGINE js/process.env))
+(def compiler (.-MITHRIL_DECLARATIONS_TYPESCRIPT js/process.env))
+(def runtime-text (fs/readFileSync "examples/native-js-brand-esm.mith" "utf8"))
+(def runtime-sources (into {} (map #(vector % (fs/readFileSync (str "examples/" %) "utf8")) (esm/source-basenames runtime-text))))
+(def runtime (esm/check-text runtime-text runtime-sources))
+(def artifact (esm/compile-text runtime-text runtime-sources))
+(def text (fs/readFileSync "examples/native-js-brand-program.mith" "utf8"))
+(def plan (program/read-plan text))
+(def sources (into {} (map #(vector % (fs/readFileSync (str "examples/" %) "utf8")) (:sources plan))))
+(def types (program/compile-text text sources runtime))
+(ensure (= 1 (count (:module-files artifact))) "Complete original Brand runtime")
+(ensure (= 1 (count (:module-files types))) "Complete original Brand declarations")
+(ensure (= #{"brandString" "brandNumber"} (set (:exports artifact)) (set (:exports types))) "Original public runtime values")
+(ensure (= #{"Branded" "BrandedNumber"} (set (:type-exports types))) "Original public types")
+(def dir (fs/mkdtempSync (str (os/tmpdir) "/mithril-brand-sdk-")))
+(def config (str dir "/offline.edn"))
+(fs/writeFileSync config (str "{:paths [" (js/JSON.stringify (fs/realpathSync "src")) "]}"))
+(defn run [args]
+  (let [r (child/spawnSync js/process.execPath (clj->js args) #js {:encoding "utf8" :timeout 240000 :maxBuffer 4194304})]
+    (ensure (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r)) (.-stdout r)))
+(try
+  (doseq [target ["js" "js-browser"]]
+    (let [output (str dir "/" target) typed (str output "-types")]
+      (fs/writeFileSync (str output ".log")
+        (run [engine "--config" config "-cp" "src" "bin/mithril-native-esm.cljk"
+              "examples/native-js-brand-esm.mith" "--target" target "--output-directory" output]))
+      (doseq [[file bytes] (:files artifact)] (ensure (= bytes (fs/readFileSync (str output "/" file) "utf8")) "Exact Brand runtime CLI bytes"))
+      (fs/writeFileSync (str typed ".log")
+        (run [engine "--config" config "-cp" "src" "bin/mithril-native-declaration-program.cljk"
+              "examples/native-js-brand-program.mith" "--target" target "--output-directory" typed]))
+      (doseq [[file bytes] (:files types)] (ensure (= bytes (fs/readFileSync (str typed "/" file) "utf8")) "Exact Brand declaration CLI bytes"))
+      (run ["test/qualification/native-brand-sdk/controls/check.mjs" compiler output typed])))
+  (finally (fs/rmSync dir #js {:recursive true :force true})))

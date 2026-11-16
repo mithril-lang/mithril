@@ -1,0 +1,85 @@
+; Derived from pinned js-yaml 4.2.0 full source. MIT; see test/qualification/native-yaml-source/LICENSE.
+(mithril/native-js-module
+:name "yaml.default"
+:ambient_imports []
+:imports ["yamlRoot___commonJSMin"
+"yamlRoot_require_core"
+"yamlRoot_require_timestamp"
+"yamlRoot_require_merge"
+"yamlRoot_require_binary"
+"yamlRoot_require_omap"
+"yamlRoot_require_pairs"
+"yamlRoot_require_set"]
+:functions []
+:bindings [(rdf/node
+:name "yamlRoot_require_default"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:name "initialize_yamlRoot_require_default"
+:value (mithril/local-set
+:name "yamlRoot_require_default"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot___commonJSMin")
+:args [(mithril/native-lambda
+:params ["yL309"
+"yL310"]
+:rest nil
+:body (mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/local
+:name "yL310")
+:key (mithril/literal
+:datatype "js-value"
+:value "exports")
+:value (mithril/host-method
+:object (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot_require_core")
+:args [])
+:key (mithril/literal
+:datatype "js-value"
+:value "extend")
+:args [(mithril/host-object
+:entries [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "implicit")
+:value (mithril/host-array
+:items [(mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot_require_timestamp")
+:args [])
+(mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot_require_merge")
+:args [])]))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "explicit")
+:value (mithril/host-array
+:items [(mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot_require_binary")
+:args [])
+(mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot_require_omap")
+:args [])
+(mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot_require_pairs")
+:args [])
+(mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot_require_set")
+:args [])]))])]))
+(mithril/host-undefined)])
+:statements true)])))]
+:exports [(rdf/node
+:name "yamlRoot_require_default"
+:value (mithril/local
+:name "yamlRoot_require_default"))]
+:lexical_bindings true)

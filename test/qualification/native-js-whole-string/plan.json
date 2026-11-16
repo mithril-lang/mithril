@@ -1,0 +1,36 @@
+{
+  "image": "sha256:f5568511e80d5ab177b8f0783357d44bfa0788edf7d1b152c37792df2aa8e9cf",
+  "seed_directory": "/opt/mithril-refactor-base",
+  "timeout_seconds": 300,
+  "checks": [
+    {
+      "id": "retained-source-88-447",
+      "argv": [
+        "node",
+        "/opt/string-controls/run-check.mjs",
+        "test/run_modules.cljk"
+      ]
+    },
+    {
+      "id": "whole-string-source42",
+      "argv": [
+        "node",
+        "--experimental-vm-modules",
+        "/opt/string-controls/string-contract.mjs",
+        "baseline",
+        "/opt/string-controls/string-baseline.mjs",
+        "/opt/string-controls/string-cases.json",
+        "/opt/string-controls/string-expected.json"
+      ]
+    },
+    {
+      "id": "whole-string-native-cli42",
+      "variant": "candidate",
+      "argv": [
+        "node",
+        "/opt/string-controls/run-check.mjs",
+        "/opt/string-controls/compile-string.cljk"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,139 @@
+(ns mithril.language
+  "Bootstrap adapter for Mithril's own .mith language kernel. Primitive
+  readers, canonicalization and host execution remain explicit adapters."
+  (:require [mithril.compiler :as compiler]
+            [mithril.execution :as execution]
+            [json-ld-api.core :as jsonld]
+            [json-ld-api.to-rdf :as to-rdf]
+            [rdf-canon.core :as canon]))
+
+(def source-path "src/mithril/language.mith")
+(def library-path "lib/mithril/bootstrap-v1.mith")
+(def ontology-path "ontology/language-v1.mith")
+(def base "https://mithril.fund/ns/language/v1#")
+(def package-root (.resolve (js/require "path") (.dirname (js/require "path") *file*) "../.."))
+(def primitive-kinds
+  {"compile" :compiler "compile-trace" :compiler "compile-language" :compiler "compile-ontology" :compiler "compile-library" :compiler
+   "compile-bot" :compiler "compile-desktop" :compiler "compile-hermes-profile" :compiler
+   "emit-desktop" :compiler "compile-web" :compiler "request" :handler
+   "twin" :handler "reason" :reasoner "codegraph" :query})
+
+(defn- refuse! [detail]
+  (throw (ex-info detail {:mithril/error :mithril.language/invalid-kernel})))
+
+(defn- validate-library! [artifact]
+  (let [{:keys [id ontology version exports]} (:library artifact)
+        doc {"@context" compiler/context-uri "@id" id "@type" "Library"
+             "ontology" ontology "version" version
+             "exports" (mapv (fn [{:keys [symbol kind label confidence-floor]}]
+                               {"symbol" symbol "kind" (str "mith:" (name kind))
+                                "label" label "confidenceFloor" confidence-floor}) exports)}]
+    (when-not (= artifact (compiler/compile-library-document library-path doc))
+      (refuse! "bootstrap library IR does not match its canonical identity"))))
+
+(defn- validate-pipeline! [pipeline exports]
+  (when-not (and (vector? pipeline)
+                 (= (set pipeline) (set (keys compiler/compiler-stages)))
+                 (= (count pipeline) (count compiler/compiler-stages)))
+    (refuse! "pipeline must contain each admitted compiler primitive exactly once"))
+  (reduce (fn [available stage]
+            (let [{:keys [inputs outputs]} (get compiler/compiler-stages stage)]
+              (when-not (and (= :compiler (get exports (str base stage)))
+                             (every? available inputs)
+                             (not-any? available outputs))
+                (refuse! "pipeline primitive is unimported or its dependencies are unavailable"))
+              (into available outputs)))
+          #{:path :source} pipeline))
+
+(defn compile-text [text library]
+  (validate-library! library)
+  (let [doc (compiler/parse-source text)
+        fields #{"@context" "@id" "@type" "ontology" "imports" "source-formats" "pipeline" "routes"}
+        routes (get doc "routes")
+        exports (into {} (map (juxt :symbol :kind) (get-in library [:library :exports])))]
+    (when-not (and (= fields (set (keys doc)))
+                   (= compiler/context-uri (get doc "@context"))
+                   (= "LanguageKernel" (get doc "@type"))
+                   (= "https://mithril.fund/id/language/mithril" (get doc "@id"))
+                   (= (get doc "ontology") (get-in library [:library :ontology]))
+                   (= [{"library" (get-in library [:library :id]) "digest" (:graph-digest library)}]
+                      (get doc "imports"))
+                   (vector? (get doc "source-formats")) (seq (get doc "source-formats"))
+                   (= (count (get doc "source-formats")) (count (set (get doc "source-formats"))))
+                   (every? #{compiler/form-media-type compiler/media-type} (get doc "source-formats"))
+                   (vector? routes) (seq routes)
+                   (= (count routes) (count (set (map #(get % "path") routes)))))
+      (refuse! "language kernel violates the bootstrap contract"))
+    (validate-pipeline! (get doc "pipeline") exports)
+    (doseq [route routes]
+      (let [command (get route "path") expected (get primitive-kinds command)]
+        (when-not (and (= #{"path" "operation"} (set (keys route))) expected
+                       (= (str base command) (get route "operation"))
+                       (= expected (get exports (get route "operation"))))
+          (refuse! "language entrypoint is not an imported bootstrap primitive"))))
+    ;; Lists retain order in the RDF identity. This is an executable contract,
+    ;; so changing an ordered stage must never retain the same graph digest.
+    (let [context {"LanguageKernel" (str base "Kernel")
+                   "ontology" (str base "ontology")
+                   "imports" (str base "imports") "library" {"@id" (str base "library") "@type" "@id"}
+                   "digest" (str base "digest")
+                   "source-formats" {"@id" (str base "sourceFormats") "@container" "@list"}
+                   "pipeline" {"@id" (str base "pipeline") "@container" "@list"}
+                   "routes" (str base "entrypoint") "path" (str base "command")
+                   "operation" {"@id" (str base "operation") "@type" "@id"}}
+          doc (assoc doc "@context" context)]
+      {:format "https://mithril.fund/artifact/language-kernel-v1"
+       :source-text text :bootstrap-library library
+       :rdf-document doc
+       :graph-digest (str "sha256:" (canon/canonical-hash (to-rdf/to-rdf (jsonld/expand doc))))
+       :language-ir {:source-formats (get doc "source-formats") :pipeline (get doc "pipeline")
+                     :entrypoints (into {} (map (fn [r] [(get r "path") (get r "operation")]) routes))
+                     :library-digest (:graph-digest library)}})))
+
+(defn load! []
+  (let [read-text #(.readFileSync (js/require "fs") (.resolve (js/require "path") package-root %) "utf8")
+        library (compiler/compile-library-text library-path (read-text library-path))
+        ontology (compiler/compile-ontology-text ontology-path (read-text ontology-path))]
+    (when-not (= (:graph-digest ontology) (str "sha256:" (get-in library [:library :ontology])))
+      (refuse! "bootstrap library does not bind the language ontology"))
+    (compile-text (read-text source-path) library)))
+
+(defn admit-entrypoint! [kernel command]
+  (when-not (contains? (get-in kernel [:language-ir :entrypoints]) command)
+    (refuse! (str "entrypoint is not declared by Mithril's .mith kernel: " command)))
+  (get-in kernel [:language-ir :entrypoints command]))
+
+(defn run-compiler
+  "Run the admitted .mith pipeline and bind each actual stage result to a receipt."
+  [kernel path source]
+  (when-not (= kernel (compile-text (:source-text kernel) (:bootstrap-library kernel)))
+    (refuse! "kernel artifact differs from its compiled source"))
+  (let [result
+        (reduce
+         (fn [{:keys [facts receipts]} stage]
+           (let [{:keys [inputs outputs]} (get compiler/compiler-stages stage)
+                 produced (compiler/run-compiler-stage stage facts)]
+             (when-not (= outputs (set (keys produced)))
+               (refuse! "bootstrap primitive returned an invalid result"))
+             (when (and (= stage "read-inert")
+                        (not (some #{(:source-format produced)}
+                                   (get-in kernel [:language-ir :source-formats]))))
+               (refuse! "source format is not admitted by the .mith kernel"))
+             {:facts (merge facts produced)
+              :receipts (conj receipts {:operation (str base stage)
+                                       :input-digest (execution/digest (select-keys facts inputs))
+                                       :output-digest (execution/digest produced)})}))
+         {:facts {:path path :source source} :receipts []}
+         (get-in kernel [:language-ir :pipeline]))]
+    {:format "https://mithril.fund/receipt/compiler-pipeline-v1"
+     :kernel-digest (:graph-digest kernel)
+     :library-digest (get-in kernel [:language-ir :library-digest])
+     :bootstrap-digest
+     (execution/digest
+      (mapv #(.readFileSync (js/require "fs")
+                            (.resolve (js/require "path") package-root %) "utf8")
+            ["src/mithril/language.cljk" "src/mithril/compiler.cljk" "src/mithril/form.cljk"]))
+     :artifact (get-in result [:facts :artifact]) :receipts (:receipts result)}))
+
+(defn compile-program [kernel path source]
+  (:artifact (run-compiler kernel path source)))

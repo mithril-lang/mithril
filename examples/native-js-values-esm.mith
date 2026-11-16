@@ -1,0 +1,33 @@
+(mithril/native-js-esm-package
+:name "values"
+:imports ["JSON"
+"String"
+"Error"
+"Object"
+"Function"
+"Array"
+"Reflect"
+"Set"
+"Number"
+"WeakSet"
+"AbortSignal"
+"WeakMap"
+"Map"
+"Math"]
+:modules [(rdf/node
+:name "values.index"
+:source "native-js-values-index.mith"
+:links [(rdf/node
+:import "PartialArguments"
+:module "values.partial_json"
+:export "PartialArguments")]
+:dependencies ["values.partial_json"])
+(rdf/node
+:name "values.partial_json"
+:source "native-js-values-partial-json.mith"
+:links [(rdf/node
+:import "assertNever"
+:module "values.index"
+:export "assertNever")]
+:dependencies ["values.index"])]
+:reexports ["values.index"])

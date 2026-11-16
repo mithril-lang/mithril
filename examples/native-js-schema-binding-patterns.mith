@@ -1,0 +1,634 @@
+; Exact original binding patterns under explicit observation wrappers.
+(mithril/native-js-module
+:name "schema.binding.observations"
+:imports ["Schema"
+"Infinity"]
+:functions []
+:exports [(rdf/node
+:name "lexical0"
+:value (mithril/native-function
+:name nil
+:params [(rdf/node
+:name "data"
+:datatype "js-value")
+(rdf/node
+:name "inner"
+:datatype "js-value")
+(rdf/node
+:name "options"
+:datatype "js-value")
+(rdf/node
+:name "strict"
+:datatype "js-value")
+(rdf/node
+:name "meta"
+:datatype "js-value")
+(rdf/node
+:name "key"
+:datatype "js-value")
+(rdf/node
+:name "schema"
+:datatype "js-value")]
+:rest nil
+:body (mithril/host-binding-let
+:bindings [(rdf/node
+:pattern (rdf/node
+:array ["value"
+"adapted"])
+:value (mithril/host-method
+:object (mithril/host-import
+:name "Schema")
+:key (mithril/literal
+:datatype "js-value"
+:value "resolve")
+:args [(mithril/local
+:name "data")
+(mithril/local
+:name "inner")
+(mithril/local
+:name "options")
+(mithril/local
+:name "strict")]))]
+:body (mithril/host-array
+:items [(mithril/local
+:name "value")
+(mithril/local
+:name "adapted")]))
+:statements true))
+(rdf/node
+:name "parameter0"
+:value (mithril/native-lambda
+:params [(rdf/node
+:pattern (rdf/node
+:object [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "value")
+:pattern "value")]))]
+:body (mithril/host-array
+:items [(mithril/local
+:name "value")])))
+(rdf/node
+:name "lexical1"
+:value (mithril/native-function
+:name nil
+:params [(rdf/node
+:name "data"
+:datatype "js-value")
+(rdf/node
+:name "inner"
+:datatype "js-value")
+(rdf/node
+:name "options"
+:datatype "js-value")
+(rdf/node
+:name "strict"
+:datatype "js-value")
+(rdf/node
+:name "meta"
+:datatype "js-value")
+(rdf/node
+:name "key"
+:datatype "js-value")
+(rdf/node
+:name "schema"
+:datatype "js-value")]
+:rest nil
+:body (mithril/host-binding-let
+:bindings [(rdf/node
+:pattern (rdf/node
+:object [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "max")
+:pattern (rdf/node
+:binding "max"
+:default (mithril/host-import
+:name "Infinity")))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "min")
+:pattern (rdf/node
+:binding "min"
+:default (mithril/host-unary
+:operator "-"
+:value (mithril/host-import
+:name "Infinity"))))])
+:value (mithril/local
+:name "meta"))]
+:body (mithril/host-array
+:items [(mithril/local
+:name "max")
+(mithril/local
+:name "min")]))
+:statements true))
+(rdf/node
+:name "parameter1"
+:value (mithril/native-lambda
+:params [(rdf/node
+:pattern (rdf/node
+:object [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "meta")
+:pattern "meta")]))]
+:body (mithril/host-array
+:items [(mithril/local
+:name "meta")])))
+(rdf/node
+:name "parameter2"
+:value (mithril/native-lambda
+:params [(rdf/node
+:pattern (rdf/node
+:object [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "meta")
+:pattern "meta")]))]
+:body (mithril/host-array
+:items [(mithril/local
+:name "meta")])))
+(rdf/node
+:name "lexical2"
+:value (mithril/native-function
+:name nil
+:params [(rdf/node
+:name "data"
+:datatype "js-value")
+(rdf/node
+:name "inner"
+:datatype "js-value")
+(rdf/node
+:name "options"
+:datatype "js-value")
+(rdf/node
+:name "strict"
+:datatype "js-value")
+(rdf/node
+:name "meta"
+:datatype "js-value")
+(rdf/node
+:name "key"
+:datatype "js-value")
+(rdf/node
+:name "schema"
+:datatype "js-value")]
+:rest nil
+:body (mithril/host-binding-let
+:bindings [(rdf/node
+:pattern (rdf/node
+:object [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "step")
+:pattern "step")])
+:value (mithril/local
+:name "meta"))]
+:body (mithril/host-array
+:items [(mithril/local
+:name "step")]))
+:statements true))
+(rdf/node
+:name "parameter3"
+:value (mithril/native-lambda
+:params [(rdf/node
+:pattern (rdf/node
+:object [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "bits")
+:pattern "bits")
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "meta")
+:pattern "meta")]))]
+:body (mithril/host-array
+:items [(mithril/local
+:name "bits")
+(mithril/local
+:name "meta")])))
+(rdf/node
+:name "parameter4"
+:value (mithril/native-lambda
+:params [(rdf/node
+:pattern (rdf/node
+:object [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "constructor")
+:pattern "constructor")]))]
+:body (mithril/host-array
+:items [(mithril/local
+:name "constructor")])))
+(rdf/node
+:name "lexical3"
+:value (mithril/native-function
+:name nil
+:params [(rdf/node
+:name "data"
+:datatype "js-value")
+(rdf/node
+:name "inner"
+:datatype "js-value")
+(rdf/node
+:name "options"
+:datatype "js-value")
+(rdf/node
+:name "strict"
+:datatype "js-value")
+(rdf/node
+:name "meta"
+:datatype "js-value")
+(rdf/node
+:name "key"
+:datatype "js-value")
+(rdf/node
+:name "schema"
+:datatype "js-value")]
+:rest nil
+:body (mithril/host-binding-let
+:bindings [(rdf/node
+:pattern (rdf/node
+:array ["value"
+"adapted"])
+:value (mithril/host-method
+:object (mithril/host-import
+:name "Schema")
+:key (mithril/literal
+:datatype "js-value"
+:value "resolve")
+:args [(mithril/host-get
+:object (mithril/local
+:name "data")
+:key (mithril/local
+:name "key"))
+(mithril/local
+:name "schema")
+(mithril/host-object-spreads
+:values [(mithril/local
+:name "options")
+(mithril/host-object
+:entries [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "path")
+:value (mithril/host-array-items
+:items [(rdf/node
+:spread (mithril/host-logical
+:operator "||"
+:left (mithril/host-get
+:object (mithril/local
+:name "options")
+:key (mithril/literal
+:datatype "js-value"
+:value "path"))
+:right (mithril/host-array
+:items [])))
+(rdf/node
+:value (mithril/local
+:name "key"))]))])])]))]
+:body (mithril/host-array
+:items [(mithril/local
+:name "value")
+(mithril/local
+:name "adapted")]))
+:statements true))
+(rdf/node
+:name "parameter5"
+:value (mithril/native-lambda
+:params [(rdf/node
+:pattern (rdf/node
+:object [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "inner")
+:pattern "inner")
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "meta")
+:pattern "meta")]))]
+:body (mithril/host-array
+:items [(mithril/local
+:name "inner")
+(mithril/local
+:name "meta")])))
+(rdf/node
+:name "parameter6"
+:value (mithril/native-lambda
+:params [(rdf/node
+:pattern (rdf/node
+:object [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "inner")
+:pattern "inner")
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "sKey")
+:pattern "sKey")]))]
+:body (mithril/host-array
+:items [(mithril/local
+:name "inner")
+(mithril/local
+:name "sKey")])))
+(rdf/node
+:name "parameter7"
+:value (mithril/native-lambda
+:params [(rdf/node
+:pattern (rdf/node
+:object [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "list")
+:pattern "list")]))]
+:body (mithril/host-array
+:items [(mithril/local
+:name "list")])))
+(rdf/node
+:name "parameter8"
+:value (mithril/native-lambda
+:params [(rdf/node
+:pattern (rdf/node
+:object [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "dict")
+:pattern "dict")]))]
+:body (mithril/host-array
+:items [(mithril/local
+:name "dict")])))
+(rdf/node
+:name "parameter9"
+:value (mithril/native-lambda
+:params [(rdf/node
+:pattern (rdf/node
+:object [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "list")
+:pattern "list")
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "toString")
+:pattern "toString")]))]
+:body (mithril/host-array
+:items [(mithril/local
+:name "list")
+(mithril/local
+:name "toString")])))
+(rdf/node
+:name "parameter10"
+:value (mithril/native-lambda
+:params [(rdf/node
+:pattern (rdf/node
+:object [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "list")
+:pattern "list")
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "toString")
+:pattern "toString")]))]
+:body (mithril/host-array
+:items [(mithril/local
+:name "list")
+(mithril/local
+:name "toString")])))
+(rdf/node
+:name "parameter11"
+:value (mithril/native-lambda
+:params [(rdf/node
+:pattern (rdf/node
+:object [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "inner")
+:pattern "inner")
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "callback")
+:pattern "callback")
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "preserve")
+:pattern "preserve")]))]
+:body (mithril/host-array
+:items [(mithril/local
+:name "inner")
+(mithril/local
+:name "callback")
+(mithril/local
+:name "preserve")])))
+(rdf/node
+:name "lexical4"
+:value (mithril/native-function
+:name nil
+:params [(rdf/node
+:name "data"
+:datatype "js-value")
+(rdf/node
+:name "inner"
+:datatype "js-value")
+(rdf/node
+:name "options"
+:datatype "js-value")
+(rdf/node
+:name "strict"
+:datatype "js-value")
+(rdf/node
+:name "meta"
+:datatype "js-value")
+(rdf/node
+:name "key"
+:datatype "js-value")
+(rdf/node
+:name "schema"
+:datatype "js-value")]
+:rest nil
+:body (mithril/host-binding-let
+:bindings [(rdf/node
+:pattern (rdf/node
+:array ["result"
+(rdf/node
+:binding "adapted"
+:default (mithril/local
+:name "data"))])
+:value (mithril/host-method
+:object (mithril/host-import
+:name "Schema")
+:key (mithril/literal
+:datatype "js-value"
+:value "resolve")
+:args [(mithril/local
+:name "data")
+(mithril/local
+:name "inner")
+(mithril/local
+:name "options")
+(mithril/literal
+:datatype "js-value"
+:value true)]))]
+:body (mithril/host-array
+:items [(mithril/local
+:name "result")
+(mithril/local
+:name "adapted")]))
+:statements true))
+(rdf/node
+:name "parameter12"
+:value (mithril/native-lambda
+:params [(rdf/node
+:pattern (rdf/node
+:object [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "constructor")
+:pattern "constructor")]))]
+:body (mithril/host-array
+:items [(mithril/local
+:name "constructor")])))
+(rdf/node
+:name "parameter13"
+:value (mithril/native-lambda
+:params [(rdf/node
+:pattern (rdf/node
+:object [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "value")
+:pattern "value")]))]
+:body (mithril/host-array
+:items [(mithril/local
+:name "value")])))
+(rdf/node
+:name "parameter14"
+:value (mithril/native-lambda
+:params [(rdf/node
+:pattern (rdf/node
+:object [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "inner")
+:pattern "inner")]))]
+:body (mithril/host-array
+:items [(mithril/local
+:name "inner")])))
+(rdf/node
+:name "parameter15"
+:value (mithril/native-lambda
+:params [(rdf/node
+:pattern (rdf/node
+:object [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "inner")
+:pattern "inner")
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "sKey")
+:pattern "sKey")]))]
+:body (mithril/host-array
+:items [(mithril/local
+:name "inner")
+(mithril/local
+:name "sKey")])))
+(rdf/node
+:name "parameter16"
+:value (mithril/native-lambda
+:params [(rdf/node
+:pattern (rdf/node
+:object [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "list")
+:pattern "list")]))]
+:body (mithril/host-array
+:items [(mithril/local
+:name "list")])))
+(rdf/node
+:name "parameter17"
+:value (mithril/native-lambda
+:params [(rdf/node
+:pattern (rdf/node
+:object [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "dict")
+:pattern "dict")]))]
+:body (mithril/host-array
+:items [(mithril/local
+:name "dict")])))
+(rdf/node
+:name "parameter18"
+:value (mithril/native-lambda
+:params [(rdf/node
+:pattern (rdf/node
+:array ["key"
+"inner"]))]
+:body (mithril/host-array
+:items [(mithril/local
+:name "key")
+(mithril/local
+:name "inner")])))
+(rdf/node
+:name "parameter19"
+:value (mithril/native-lambda
+:params [(rdf/node
+:pattern (rdf/node
+:object [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "list")
+:pattern "list")]))]
+:body (mithril/host-array
+:items [(mithril/local
+:name "list")])))
+(rdf/node
+:name "parameter20"
+:value (mithril/native-lambda
+:params [(rdf/node
+:pattern (rdf/node
+:object [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "toString")
+:pattern "format")]))]
+:body (mithril/host-array
+:items [(mithril/local
+:name "format")])))
+(rdf/node
+:name "parameter21"
+:value (mithril/native-lambda
+:params [(rdf/node
+:pattern (rdf/node
+:object [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "list")
+:pattern "list")]))]
+:body (mithril/host-array
+:items [(mithril/local
+:name "list")])))
+(rdf/node
+:name "parameter22"
+:value (mithril/native-lambda
+:params [(rdf/node
+:pattern (rdf/node
+:object [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "inner")
+:pattern "inner")]))]
+:body (mithril/host-array
+:items [(mithril/local
+:name "inner")])))])

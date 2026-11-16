@@ -1,0 +1,49 @@
+{
+  "format": "mithril.system-one-whole-string-evaluation/v1",
+  "benchmark_valid": true,
+  "task_sha256": "bddfa825a4ebdd0cf6ced1e81ef597ad5f4fc0ff5f2da29e65bc60e03a4fc420",
+  "model_attempts": 1,
+  "model_repairs": 0,
+  "model_scope_admitted": true,
+  "model_fixed_plan_verified": false,
+  "model_first_observed_failure": "Form parser Unsupported escape character: \\/",
+  "model_runtime_executed": false,
+  "model_receipt": {
+    "format": "mithril.code-refactor-inference/v1",
+    "provider": "mithril",
+    "endpoint": "https://api.mithril.fund/v1/chat/completions",
+    "model": "qwen/qwen3.8-27b",
+    "completion_id": "chatcmpl-be6633a5-dbf4-4c85-956f-985459654c01",
+    "request_id": "chat:be6633a5-dbf4-4c85-956f-985459654c01",
+    "input_sha256": "bddfa825a4ebdd0cf6ced1e81ef597ad5f4fc0ff5f2da29e65bc60e03a4fc420",
+    "usage": {
+      "prompt_tokens": 26736,
+      "completion_tokens": 3616
+    },
+    "wall_seconds": 130.928,
+    "attempts": 1,
+    "api_cost_usd": null,
+    "verification_scope": "Edit scope and source preconditions only; compilation and behavior have not been checked."
+  },
+  "operator_source_independently_qualified_before_inference": true,
+  "operator_final_original_plan_verified": true,
+  "operator_source_changed_after_inference": false,
+  "original_runtime_groups": 42,
+  "additional_ascii_boundary_groups": 2,
+  "additional_ascii_sequences": 449,
+  "native_source_suite": {
+    "tests": 25,
+    "assertions": 107,
+    "failures": 0,
+    "errors": 0
+  },
+  "full_source_suite": {
+    "tests": 90,
+    "assertions": 458,
+    "failures": 0,
+    "errors": 0
+  },
+  "actual_browser_verified": false,
+  "public_package_linking_verified": false,
+  "full_harness_equivalence_verified": false
+}

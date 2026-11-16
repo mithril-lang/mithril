@@ -1,0 +1,34 @@
+{
+  "image": "sha256:213ca54a230d120b888afd7763a57e0b66f378634058519edb42c44ea8f0af37",
+  "seed_directory": "/opt/mithril-refactor-base",
+  "timeout_seconds": 300,
+  "checks": [
+    {
+      "id": "retained-native28-121",
+      "argv": [
+        "node",
+        "/opt/package-controls/run-check.mjs",
+        "test/run_native_js.cljk"
+      ]
+    },
+    {
+      "id": "original-esm15-40",
+      "argv": [
+        "node",
+        "--experimental-vm-modules",
+        "test/fixtures/cosmokit-package/contract.mjs",
+        "test/fixtures/cosmokit-package/index.js",
+        "test/fixtures/cosmokit-package/index.js"
+      ]
+    },
+    {
+      "id": "checked-package-full-contract",
+      "variant": "candidate",
+      "argv": [
+        "node",
+        "/opt/package-controls/run-check.mjs",
+        "test/qualification/native-js-package/controls/compile-package.cljk"
+      ]
+    }
+  ]
+}

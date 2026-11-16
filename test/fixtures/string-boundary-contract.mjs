@@ -1,0 +1,6 @@
+import assert from 'node:assert/strict';import vm from 'node:vm';import {readFile,writeFile} from 'node:fs/promises';
+const [mode,file,casesFile,expectedFile]=process.argv.slice(2),cases=JSON.parse(await readFile(casesFile,'utf8')),source=await readFile(file,'utf8'),snapshots=[];
+for(const [name,expression]of cases){const context=vm.createContext({}),get=x=>vm.runInContext(x,context),module=new vm.SourceTextModule(source,{context});await module.link(()=>{throw Error('unexpected source dependency')});await module.evaluate();let api;
+if(mode==='candidate'){const grants={};for(const name of ['String','JSON'])Object.defineProperty(grants,name,{enumerable:true,get:()=>get(name)});api=module.namespace.instantiateMithrilNative(grants)}else api=module.namespace;
+context.api=api;let value;try{value=vm.runInContext(expression,context)}catch(e){throw Error('Case '+name+' failed: '+String(e))}snapshots.push([name,JSON.parse(JSON.stringify(value))]);}
+if(mode==='record'){await writeFile(expectedFile,JSON.stringify(snapshots,null,2)+'\n');console.log('Recorded '+snapshots.length+' original-source runtime groups.')}else{assert.deepEqual(snapshots,JSON.parse(await readFile(expectedFile,'utf8')));assert.equal(snapshots.length,2);console.log('Whole string '+mode+':2 source-derived runtime groups passed.');}

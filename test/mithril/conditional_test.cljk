@@ -1,0 +1,71 @@
+(ns mithril.conditional-test
+  (:require [cljs.test :refer [deftest is]]
+            [mithril.module :as module]
+            [mithril.module-lower :as lower]
+            [mithril.module-test :as fixture]))
+
+(defn choose [condition then else]
+  {"@type" "If" "condition" condition "then" then "else" else})
+(def truth (fixture/literal "bool" true))
+(def falsehood (fixture/literal "bool" false))
+(defn doc [body returns]
+  (fixture/document [(fixture/function "main" [] returns body)] ["main"]))
+
+(deftest branch-types-and-static-refusals
+  (doseq [[type a b] [["i64" "-9223372036854775808" "9223372036854775807"]
+                     ["bool" true false] ["string" "日本語" ""]]]
+    (let [body (choose truth (fixture/literal type a) (fixture/literal type b))
+          checked (module/check-document (doc body type))]
+      (is (= (keyword type) (get-in checked [:functions 0 :body :type])))
+      (is (= :if (get-in checked [:functions 0 :body :op])))))
+  (doseq [[body expected]
+          [[(choose (fixture/literal "i64" 1) truth falsehood) :mithril.module/type-mismatch]
+           [(choose truth truth (fixture/literal "i64" 1)) :mithril.module/type-mismatch]
+           [(choose truth truth (fixture/local "missing")) :mithril.module/unknown-local]
+           [(choose falsehood (fixture/call "missing" []) falsehood) :mithril.module/unknown-call]
+           [(dissoc (choose truth truth falsehood) "else") :mithril.module/invalid-shape]
+           [(assoc (choose truth truth falsehood) "effect" true) :mithril.module/invalid-shape]]]
+    (is (= expected (fixture/code (doc body "bool")))))
+  (is (= :mithril.module/type-mismatch
+         (fixture/code (doc (choose truth truth falsehood) "i64")))))
+
+(deftest opaque-branches-and-call-graph
+  (let [params [{"name" "v" "datatype" "js-value"} {"name" "fallback" "datatype" "js-value"}]
+        branch (choose (fixture/call "js_nullish" [(fixture/local "v")])
+                       (fixture/call "fallback" [(fixture/local "fallback")])
+                       (fixture/call "keep" [(fixture/local "v")]))
+        document (fixture/document
+                   [(fixture/function "choose" params "js-value" branch)
+                    (fixture/function "fallback" [(first params)] "js-value" (fixture/local "v"))
+                    (fixture/function "keep" [(first params)] "js-value" (fixture/local "v"))] ["choose"])
+        checked (module/check-document document)
+        result (lower/lower-document document)]
+    (is (= :js-value (get-in checked [:functions 0 :body :type])))
+    (is (= ["fallback" "keep"] (get-in checked [:call-graph "choose"])))
+    (is (= [{:name "choose" :symbol "__mithril_f0"}] (:exports result)))
+    (is (= result (lower/lower-document document)))
+    (is (= (str "(ns mithril.generated.example (:export [__mithril_f0]))\n"
+                "(defn __mithril_f0 [__mithril_p0 :js-value __mithril_p1 :js-value] :js-value (if (js-nullish? __mithril_p0) (__mithril_f1 __mithril_p1) (__mithril_f2 __mithril_p0)))\n"
+                "(defn __mithril_f1 [__mithril_p0 :js-value] :js-value __mithril_p0)\n"
+                "(defn __mithril_f2 [__mithril_p0 :js-value] :js-value __mithril_p0)\n") (:source result)))))
+
+(deftest conditionals-share-depth-and-total-node-budgets
+  (let [at-depth (reduce (fn [node _] (choose truth node falsehood)) truth (range 63))]
+    (is (nil? (fixture/code (doc at-depth "bool"))))
+    (is (= :mithril.module/budget (fixture/code (doc (choose truth at-depth falsehood) "bool")))))
+  ;; N(0)=1, N(d)=2N(d-1)+2. Each depth-six tree has 190 nodes.
+  ;; 21 trees + 106 literals = 4096 across 127 functions; one more exceeds it.
+  (let [tree (reduce (fn [node _] (choose truth node node)) truth (range 6))
+        functions (mapv (fn [i] (fixture/function (str "f" i) [] "bool" (if (< i 21) tree truth))) (range 127))]
+    (is (nil? (fixture/code (fixture/document functions []))))
+    (is (= :mithril.module/budget
+           (fixture/code (fixture/document (conj functions (fixture/function "extra" [] "bool" truth)) []))))))
+
+(deftest form-syntax-is-inert-and-lowers-both-branches
+  (let [source "(mithril/module :name \"branch\" :exports [\"choose\"] :functions [(mithril/function :name \"choose\" :params [(rdf/node :name \"c\" :datatype \"bool\")] :returns \"string\" :body (mithril/if :condition (mithril/local :name \"c\") :then (mithril/literal :datatype \"string\" :value \"(not code)\") :else (mithril/literal :datatype \"string\" :value \"\")))])"
+        checked (module/check-text source)]
+    (is (= :if (get-in checked [:functions 0 :body :op])))
+    (is (= "(not code)" (get-in checked [:functions 0 :body :then :value])))
+    (is (= (str "(ns mithril.generated.branch (:export [__mithril_f0]))\n"
+                "(defn __mithril_f0 [__mithril_p0 :bool] :string (if __mithril_p0 \"(not code)\" \"\"))\n")
+           (:source (lower/lower-text source))))))

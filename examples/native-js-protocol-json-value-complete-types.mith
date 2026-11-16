@@ -1,0 +1,31 @@
+(mithril/native-js-declaration-module :name "protocol.json_value"
+:runtime "protocol.json_value"
+:ambient-types []
+:ambient-values ["Error"
+"Symbol.dispose"]
+:imports []
+:declarations [(rdf/node :kind "function"
+:name "isRemoteJsonValue"
+:exported true
+:type-params []
+:params [(rdf/node :name "value"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "unknown"))]
+:returns (rdf/node :op "keyword"
+:name "boolean"))
+(rdf/node :kind "function"
+:name "isRemoteUplinkItem"
+:exported true
+:type-params []
+:params [(rdf/node :name "value"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "unknown"))]
+:returns (rdf/node :op "keyword"
+:name "boolean"))]
+:reexports []
+:augmentations []
+:local-exports [])

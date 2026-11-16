@@ -1,0 +1,993 @@
+(ns mithril.native-declarations
+ "Admission of inert native declaration AST: syntax, scope, arity, surface and budgets."
+ (:require [clojure.string :as str] [mithril.form :as form] [mithril.module :as module] [mithril.native-package :as package] [mithril.js-identifier :as identifier]))
+(def ^:private reserved #{"break" "case" "catch" "class" "const" "continue" "debugger" "default" "delete" "do" "else" "enum" "export" "extends" "false" "finally" "for" "function" "if" "import" "in" "instanceof" "let" "new" "null" "return" "super" "switch" "this" "throw" "true" "try" "var" "void" "while" "with" "yield" "await"})
+(defn- fail! [code text] (throw (ex-info text {:mithril/error code})))
+(defn- shape! [x fields]
+ (when-not (and (map? x) (= (set fields) (set (keys x)))) (fail! :mithril.native-declarations/shape "Unexpected declaration fields")))
+(defn- vector! [x n]
+ (when-not (and (vector? x) (<= (count x) n)) (fail! :mithril.native-declarations/budget "Declaration collection budget")))
+(defn- unique! [xs]
+ (when-not (= (count xs) (count (set xs))) (fail! :mithril.native-declarations/duplicate "Duplicate declaration")))
+(defn- identifier! [s]
+ (when-not (and (string? s) (<= (count s) 128) (identifier/valid? s) (not (contains? reserved s)))
+  (fail! :mithril.native-declarations/name "Invalid declaration identifier")) s)
+(defn- export-name! [s] (if (= "default" s) s (identifier! s)))
+(defn- runtime-only-shape! [doc]
+ (when (contains? doc "runtime-only-exports")
+  (vector! (get doc "runtime-only-exports") 128)
+  (doseq [name (get doc "runtime-only-exports")] (export-name! name))
+  (unique! (get doc "runtime-only-exports"))))
+(defn- runtime-surface! [values expected omitted detail]
+ (let [values (set values) expected (set expected) omitted (set omitted)]
+  (when-not (and (not-any? values omitted) (= expected (into values omitted)))
+   (fail! :mithril.native-declarations/surface detail))))
+(defn- reference-name! [s default-head?]
+ (when-not (and (string? s) (<= (count s) 256) (seq s)) (fail! :mithril.native-declarations/name "Invalid reference name"))
+ (doseq [[i part] (map-indexed vector (str/split s #"\." -1))]
+  (if (or default-head? (pos? i)) (export-name! part) (identifier! part))) s)
+(defn- type-identifier! [s]
+ (identifier! s)
+ (when (contains? #{"any" "unknown" "never" "string" "number" "boolean" "object" "symbol" "undefined"} s) (fail! :mithril.native-declarations/name "Type keyword is not a type binding")) s)
+(defn- qualified! [s]
+ (when-not (and (string? s) (<= (count s) 256) (seq s)) (fail! :mithril.native-declarations/name "Invalid qualified name"))
+ (doseq [p (str/split s #"\." -1)] (identifier! p)) s)
+(defn- flag! [x] (when-not (boolean? x) (fail! :mithril.native-declarations/shape "Expected boolean flag")))
+(defn- text! [s] (when-not (and (string? s) (<= (count s) 4096)) (fail! :mithril.native-declarations/budget "Expected bounded text data")))
+(defn- nullable-type! [v]
+ (when-not (or (nil? v) (map? v)) (fail! :mithril.native-declarations/type "Optional type must be nil or a structured node")))
+(defn- source! [s]
+ (when-not (and (string? s) (re-matches #"[A-Za-z0-9][A-Za-z0-9_-]*\.mith" s)) (fail! :mithril.native-declarations/source "Expected local runtime Mithril basename")))
+(defn- charge! [budget depth]
+ (when (or (> depth 64) (> (swap! budget inc) 16384)) (fail! :mithril.native-declarations/budget "Declaration node/depth budget")))
+(defn parse-text [text] (module/check-source-text! text) (form/parse text))
+(defn runtime-basename [text]
+ (let [doc (parse-text text)]
+  (shape! doc (cond-> ["@context" "@type" "name" "runtime-source" "ambient-types" "ambient-values" "declarations"] (contains? doc "globals") (conj "globals") (contains? doc "umd-namespace") (conj "umd-namespace") (contains? doc "runtime-only-exports") (conj "runtime-only-exports")))
+  (when-not (and (= "NativeJsDeclarations" (get doc "@type")) (= "https://mithril.fund/context/native-js-declarations/v1" (get doc "@context")))
+   (fail! :mithril.native-declarations/context "Expected native declaration context"))
+  (source! (get doc "runtime-source")) (get doc "runtime-source")))
+(defn- arity
+ ([params] (arity params false))
+ ([params const?]
+  (vector! params 32)
+  (doseq [p params]
+   (shape! p (cond-> ["name" "constraint" "default"] (and const? (contains? p "const")) (conj "const")))
+   (when (contains? p "const") (flag! (get p "const")))
+   (type-identifier! (get p "name")) (nullable-type! (get p "constraint")) (nullable-type! (get p "default")))
+  (unique! (mapv #(get % "name") params))
+  (let [required (count (take-while #(nil? (get % "default")) params))]
+   (when (some #(nil? (get % "default")) (drop required params)) (fail! :mithril.native-declarations/arity "Required generic after default"))
+   {:min required :max (count params)})))
+(defn- class-params! [params]
+ (vector! params 32)
+ (doseq [p params]
+  (shape! p (cond-> ["name" "constraint" "default" "variance"] (contains? p "const") (conj "const")))
+  (when-not (contains? #{nil "in" "out" "in-out"} (get p "variance"))
+   (fail! :mithril.native-declarations/type "Invalid class variance")))
+ (let [plain (mapv #(dissoc % "variance") params)] (arity plain true) plain))
+(defn- class-key! [key]
+ (case (get key "kind")
+  "name" (do (shape! key ["kind" "name"]) (text! (get key "name")))
+  "computed" (do (shape! key ["kind" "name"]) (qualified! (get key "name")))
+  (fail! :mithril.native-declarations/type "Unknown class member key")))
+(defn- visibility! [v]
+ (when-not (contains? #{"public" "protected" "private"} v)
+  (fail! :mithril.native-declarations/type "Unknown class visibility")))
+(defn- class-member-shape! [m]
+ (when-not (= "private-brand" (get m "kind")) (visibility! (get m "visibility")))
+ (case (get m "kind")
+  "private-brand" (shape! m ["kind"])
+  "constructor" (shape! m ["kind" "visibility" "params"])
+  "property" (shape! m (cond-> ["kind" "key" "visibility" "static" "readonly" "optional" "datatype"]
+                           (contains? m "abstract") (conj "abstract")))
+  "opaque" (do (shape! m (cond-> ["kind" "key" "visibility" "static"]
+                           (contains? m "readonly") (conj "readonly")))
+    (when-not (and (= "private" (get m "visibility")) (= "name" (get-in m ["key" "kind"])))
+     (fail! :mithril.native-declarations/type "Only named private members may omit their type")))
+  "method" (shape! m ["kind" "key" "visibility" "static" "abstract" "optional" "type-params" "params" "returns"])
+  "getter" (shape! m ["kind" "key" "visibility" "static" "datatype"])
+  (fail! :mithril.native-declarations/type "Unknown class member"))
+ (when-not (contains? #{"constructor" "private-brand"} (get m "kind"))
+  (class-key! (get m "key")) (flag! (get m "static")))
+ (when (contains? m "optional") (flag! (get m "optional")))
+ (when (contains? m "readonly") (flag! (get m "readonly")))
+ (when (contains? m "abstract") (flag! (get m "abstract"))))
+(defn- add! [registry space name value]
+ (when (contains? (get @registry space) name) (fail! :mithril.native-declarations/duplicate "Duplicate declaration symbol"))
+ (swap! registry assoc-in [space name] value))
+(defn- declaration-shape! [d]
+ (case (get d "kind")
+  "function" (shape! d ["kind" "name" "exported" "type-params" "params" "returns"])
+  ("const" "let") (shape! d ["kind" "name" "exported" "datatype"])
+  "const-enum" (do (shape! d ["kind" "name" "exported" "members"])
+                    (vector! (get d "members") 128)
+                    (doseq [m (get d "members")]
+                     (shape! m ["name" "value"]) (identifier! (get m "name"))
+                     (let [v (get m "value")]
+                      (when-not (or (and (number? v) (js/Number.isFinite v)) (string? v))
+                       (fail! :mithril.native-declarations/type "Const enum member requires finite numeric or string literal"))
+                      (when (string? v) (text! v))))
+                    (unique! (mapv #(get % "name") (get d "members"))))
+  "alias" (shape! d ["kind" "name" "exported" "type-params" "datatype"])
+  "interface" (do (shape! d (cond-> ["kind" "name" "exported" "type-params" "members"] (contains? d "extends") (conj "extends")))
+                  (when (contains? d "extends") (vector! (get d "extends") 32)))
+  "namespace" (shape! d ["kind" "name" "exported" "declarations"])
+  "class" (do (shape! d ["kind" "name" "exported" "abstract" "type-params" "extends" "implements" "members"]) (flag! (get d "abstract")) (class-params! (get d "type-params")) (nullable-type! (get d "extends")) (vector! (get d "implements") 32) (vector! (get d "members") 256) (doseq [m (get d "members")] (class-member-shape! m)))
+  "export-alias" (shape! d ["kind" "name" "target"])
+  (fail! :mithril.native-declarations/declaration "Unknown declaration kind"))
+ (if (= "export-alias" (get d "kind")) (export-name! (get d "name")) (identifier! (get d "name")))
+ (when-not (= "export-alias" (get d "kind")) (flag! (get d "exported"))))
+(declare namespace-value? register!)
+(defn- merged-params! [ds]
+ (let [lists (mapv #(if (= "class" (get % "kind")) (class-params! (get % "type-params")) (get % "type-params")) ds)
+       size (apply max (map count lists))
+       params (mapv (fn [index]
+         (let [slots (keep #(get % index) lists) names (set (map #(get % "name") slots))
+               constraints (set (keep #(get % "constraint") slots)) defaults (set (keep #(get % "default") slots))]
+          (when (or (not= 1 (count names)) (> (count constraints) 1) (> (count defaults) 1)
+                    (and (< (count slots) (count lists)) (empty? defaults)))
+           (fail! :mithril.native-declarations/duplicate "Incompatible merged type parameters"))
+          {"name" (first names) "constraint" (first constraints) "default" (first defaults)})) (range size))]
+  (arity params) params))
+(defn- member-identity [m]
+ (cond
+  (= "index-signature" (get m "kind")) ["index-signature" (get m "key")]
+  (contains? #{"call" "construct"} (get m "kind")) [(get m "kind")]
+  :else [(if (str/starts-with? (get m "kind" "") "computed-") "computed" "name") (get m "name")]))
+(defn- merged-members! [interfaces klass]
+ (let [members (vec (mapcat #(get % "members") interfaces))]
+  (vector! members 256)
+  (doseq [[_ entries] (group-by second
+                        (mapcat (fn [d] (map (fn [m]
+                                             [m (if-let [owner (when (contains? #{"computed-property" "computed-method"} (get m "kind")) (get (::computed-owners (meta d)) (get m "name")))]
+                                                  [:computed owner] (member-identity m))]) (get d "members"))) interfaces))
+          :let [ms (mapv first entries)] :when (> (count ms) 1)]
+   (when-not (and (not-any? #(= "index-signature" (get % "kind")) ms)
+              (or (apply = (map #(dissoc % "name") ms))
+                 (and (every? #(contains? #{"method" "computed-method" "call" "construct"} (get % "kind")) ms)
+                      (= 1 (count (set (map #(select-keys % ["kind" "optional"]) ms)))))))
+    (fail! :mithril.native-declarations/duplicate "Incompatible merged interface member")))
+  (when klass
+   (doseq [m (get klass "members") :when (and (not (get m "static")) (not= "constructor" (get m "kind")))
+           im members :when (= [(get-in m ["key" "kind"]) (get-in m ["key" "name"])] (member-identity im))]
+    (let [method? (= "method" (get m "kind"))
+          compatible (if method?
+                       (and (contains? #{"method" "computed-method"} (get im "kind")) (= (get m "optional") (get im "optional")))
+                       (and (contains? #{"property" "getter"} (get m "kind")) (contains? #{"property" "computed-property"} (get im "kind"))
+                            (if (= "getter" (get m "kind"))
+                             (and (not (get im "optional")) (not (get im "readonly")) (= (get m "datatype") (get im "datatype")))
+                             (= (select-keys m ["optional" "readonly" "datatype"]) (select-keys im ["optional" "readonly" "datatype"])))))]
+     (when-not (and (= "public" (get m "visibility")) compatible)
+      (fail! :mithril.native-declarations/duplicate "Class/interface member or visibility collision"))))) members))
+(defn- group-info! [ds]
+ (doseq [d ds] (declaration-shape! d))
+ (let [by-kind (group-by #(get % "kind") ds) kinds (set (keys by-kind))
+       klass (first (get by-kind "class")) aliases (get by-kind "alias") interfaces (get by-kind "interface")
+       types (filterv #(contains? #{"class" "interface" "alias" "const-enum"} (get % "kind")) ds)
+       values (filterv #(or (contains? #{"class" "function" "const" "let" "const-enum"} (get % "kind")) (and (= "namespace" (get % "kind")) (namespace-value? %))) ds)
+       namespaces (get by-kind "namespace")]
+  (when (or (> (count aliases) 1) (> (count (get by-kind "class")) 1) (> (+ (count (get by-kind "const")) (count (get by-kind "let"))) 1)
+            (and aliases (or klass (seq interfaces)))
+            (and (some kinds ["const" "let"]) (or klass (contains? kinds "function") (some namespace-value? namespaces)))
+            (and (contains? kinds "export-alias") (> (count ds) 1))
+            (and (contains? kinds "const-enum") (not= kinds #{"const-enum"})))
+   (fail! :mithril.native-declarations/duplicate "Incompatible declaration merge"))
+  (doseq [space [types values namespaces] :when (seq space)]
+   (when (> (count (set (map #(get % "exported") space))) 1)
+    (fail! :mithril.native-declarations/duplicate "Inconsistent merged space visibility")))
+  (doseq [d ds :when (contains? #{"function" "alias" "interface"} (get d "kind"))] (arity (get d "type-params") (= "function" (get d "kind"))))
+  (merged-members! interfaces klass)
+  (let [bases (vec (distinct (mapcat #(get % "extends") interfaces)))]
+   (vector! bases 32)
+   {:kinds kinds :klass klass :interfaces interfaces :bases bases :types types :namespaces namespaces
+    :params (when (seq types) (if (= kinds #{"const-enum"}) [] (merged-params! types)))})))
+(defn- block-view [registry id]
+ (let [root (or (:public registry) registry)]
+  (if id
+   (let [r (block-view root (first id)) private (get-in root [:blocks id])]
+    (assoc (reduce (fn [r space] (update r space merge (get private space))) r [:types :values :namespaces])
+           :public root :context-id id)) root)))
+(defn- definition-view [registry metadata] (block-view registry (:context metadata)))
+(defn- block-overlay [registry scope index] (block-view registry [(:context-id registry) scope index]))
+(defn- registration-name [d] (or (::registration-name (meta d)) (get d "name")))
+(defn- register!
+ ([decls prefix registry depth] (register! decls prefix registry depth (repeat (count decls) nil)))
+ ([decls prefix registry depth contexts] (register! decls prefix registry depth contexts (range (count decls))))
+ ([decls prefix registry depth contexts positions]
+ (when (> depth 8) (fail! :mithril.native-declarations/budget "Namespace depth budget"))
+ (vector! decls 256)
+ (doseq [[name entries] (group-by #(registration-name (first %)) (map vector decls contexts positions))]
+  (let [ds (mapv first entries) {:keys [kinds klass types namespaces params]} (group-info! ds) n (str prefix name)
+        type-entry (or (first (filter #(= "class" (get (first %) "kind")) entries)) (first (filter #(contains? #{"interface" "alias" "const-enum"} (get (first %) "kind")) entries)))
+        class-context (second (first (filter #(= "class" (get (first %) "kind")) entries)))
+        heritage (vec (distinct (mapcat (fn [[d c]] (case (get d "kind")
+                               "class" (when-let [base (get d "extends")] [{:node base :context c}])
+                               "interface" (map #(hash-map :node % :context c) (get d "extends")) [])) entries)))]
+   (vector! heritage 32)
+   (when (seq types)
+    (type-identifier! name)
+    (add! registry :types n (assoc (arity params) :params params :kind (if klass "class" (get (first types) "kind"))
+                                 :base (get klass "extends") :heritage heritage :context (second type-entry)
+                                 :scope prefix :exported (get (first types) "exported"))))
+   (when-let [[v context] (or (first (filter #(= "class" (get (first %) "kind")) entries))
+                            (first (filter #(contains? #{"function" "const" "let" "const-enum"} (get (first %) "kind")) entries)))]
+    (add! registry :values n (cond-> {:kind (get v "kind") :context context :scope prefix :exported (get v "exported")}
+                             klass (assoc :class-name n)
+                             (= "const-enum" (get v "kind")) (assoc :erased true)
+                             (contains? #{"const" "let"} (get v "kind")) (assoc :datatype (get v "datatype")))))
+   (when (contains? kinds "const-enum")
+    (let [members (vec (mapcat #(get % "members") ds)) context (second (first entries)) exported (get (first ds) "exported")]
+     (add! registry :namespaces n {:value? false :scope prefix :context context :exported exported :erased true})
+     (vector! members 128) (unique! (mapv #(get % "name") members))
+     (doseq [m members]
+      (let [child (str n "." (get m "name")) metadata {:kind "enum-member" :scope prefix :context context :exported exported :owner n :erased true}]
+       (add! registry :types child (assoc metadata :min 0 :max 0))
+       (add! registry :values child (assoc metadata :datatype {"op" "literal" "value" (get m "value")}))))))
+   (when klass
+    (doseq [[key ms] (group-by #(get-in % ["key" "name"]) (filter #(and (get % "static") (= "name" (get-in % ["key" "kind"]))) (get klass "members")))]
+     (identifier! key)
+     (let [m (first ms)]
+      (add! registry :values (str n "." key) {:kind (get m "kind") :scope prefix :context class-context :exported (get klass "exported") :owner n :visibility (get m "visibility") :datatype (get m "datatype")}))))
+   (when (seq namespaces)
+    (add! registry :namespaces n {:value? (boolean (some namespace-value? namespaces)) :scope prefix :exported (get (first namespaces) "exported")})
+    (let [child-prefix (str n ".") blocks (filter #(= "namespace" (get (first %) "kind")) entries)
+          public (vec (mapcat (fn [[d c index]] (let [id [c prefix index]] (keep-indexed (fn [i child] (when (get child "exported") [child id i])) (get d "declarations")))) blocks))]
+     (register! (mapv first public) child-prefix registry (inc depth) (mapv second public) (mapv #(nth % 2) public))
+     (doseq [[d c index] blocks]
+      (let [id [c prefix index] children (get d "declarations") private (vec (keep-indexed (fn [i child] (when-not (get child "exported") [child i])) children))
+            local (atom {:types {} :values {} :namespaces {} :blocks {}})]
+       (vector! children 256)
+       (doseq [[_ group] (group-by #(get % "name") children)] (group-info! group))
+       (register! (mapv first private) child-prefix local (inc depth) (repeat (count private) id) (mapv second private))
+       (swap! local (fn [r] (reduce (fn [r space] (update r space #(into {} (map (fn [[k v]] [k (assoc v :lexical true)]) %)))) r [:types :values :namespaces])))
+       (swap! registry update :blocks merge (:blocks @local))
+       (swap! registry assoc-in [:blocks id] (dissoc @local :blocks))))))
+   (when (and (contains? kinds "export-alias") (pos? depth))
+    (fail! :mithril.native-declarations/declaration "Export aliases are top-level"))))))
+(defn- accessible? [metadata scope]
+ (or (nil? (:scope metadata)) (empty? (:scope metadata)) (:exported metadata) (str/starts-with? scope (or (:access-scope metadata) (:scope metadata)))))
+(defn- resolve-entry [registry space scope n]
+ (some (fn [prefix]
+  (let [candidate (str prefix n) qualified? (str/includes? n ".") receiver (str prefix (first (str/split n #"\.")))
+        ns (when qualified? (get-in registry [:namespaces receiver]))
+        lookup (if (and ns (not (:lexical ns))) (or (:public registry) registry) registry)
+        metadata (when-not (and (:module-tables registry) (nil? prefix)) (get-in lookup [space candidate])) parts (str/split candidate #"\.")
+        parents (map #(str/join "." (take % parts)) (range 1 (count parts)))]
+   (when (and metadata (accessible? metadata scope)
+              (or (not ns) (:owner metadata) (:exported metadata))
+              (every? #(let [p (get-in lookup [:namespaces %])]
+                         (and (accessible? p scope)
+                              (or (not ns) (not (str/starts-with? % (str receiver "."))) (:exported p)))) parents))
+    ;; Return metadata from the chosen public/lexical view, even when a private
+    ;; same-name binding shadows it in the current namespace block.
+    [(or (:canonical metadata) candidate) metadata])))
+  (let [parts (vec (remove str/blank? (str/split scope #"\.")))]
+   (distinct (concat (map #(when (pos? %) (str (str/join "." (take % parts)) ".")) (range (count parts) -1 -1))
+                     (when-let [prefix (:global-prefix registry)] [prefix]))))))
+(defn- value-metadata [registry scope name depth]
+ (when (> depth 32) (fail! :mithril.native-declarations/budget "Value member query depth"))
+ (if-let [entry (resolve-entry registry :values scope name)]
+  (second entry)
+  (let [parts (str/split name #"\.") field (last parts) parent (str/join "." (butlast parts))]
+   (when (seq parent)
+    (when-let [base (value-metadata registry scope parent (inc depth))]
+     (cond
+      (= "typeof" (get (:datatype base) "op"))
+      (value-metadata (definition-view registry base) (:scope base) (str (get (:datatype base) "name") "." field) (inc depth))
+      (= "class" (:kind base))
+      (let [r (definition-view registry base) class-name (:class-name base) t (get-in r [:types class-name])
+            member (get-in r [:values (str class-name "." field)])]
+       (or (when (or (= class-name (:owner member))
+                     (and (:exported member) (= (str class-name ".") (:scope member)))) member)
+           (when-let [parent-type (:base t)]
+            (value-metadata r (:scope t) (str (get parent-type "name") "." field) (inc depth)))))
+      :else
+      (let [datatype (:datatype base)
+            member (when (= "object" (get datatype "op"))
+                     (first (filter #(= field (get % "name")) (get datatype "members"))))]
+       (when (= "property" (get member "kind")) (assoc base :datatype (get member "datatype"))))))))))
+
+(defn- type-identity [entry] [(first entry) (:context (second entry))])
+(defn- subclass-of? [registry name owner]
+ (loop [entry [name (get-in registry [:types name])] seen #{}]
+  (cond
+   (= (type-identity entry) owner) true
+   (or (nil? (first entry)) (contains? seen (type-identity entry))) false
+   :else (let [t (second entry) base (:base t) r (definition-view registry t)]
+           (recur (when base (resolve-entry r :types (:scope t) (get base "name"))) (conj seen (type-identity entry)))))))
+(defn- value-known? [registry scope env values name]
+ (when (and (str/includes? name ".") (contains? values (first (str/split name #"\."))))
+  (fail! :mithril.native-declarations/scope "Qualified query cannot borrow a shadowed outer value"))
+ (or (contains? values name)
+     (when-let [v (value-metadata registry scope name 0)]
+      (when (and (contains? #{"private" "protected"} (:visibility v))
+                 (not (let [owner [(:owner v) (:context v)] current [(:class (meta env)) (:context (get-in registry [:types (:class (meta env))]))]]
+                        (if (= "protected" (:visibility v)) (subclass-of? registry (:class (meta env)) owner) (= owner current)))))
+       (fail! :mithril.native-declarations/scope "Non-public static class member")) true)
+     (let [entry (resolve-entry registry :namespaces scope name)] (true? (:value? (second entry))))))
+(declare check-type! check-members!)
+(defn- generic-env! [params env values mode depth budget registry scope const?]
+ (arity params const?)
+ (let [all (into env (map #(get % "name") params))]
+  (loop [xs params previous env]
+   (when-let [p (first xs)]
+    (when-let [c (get p "constraint")] (check-type! c all values :normal (inc depth) budget registry scope nil))
+    (when-let [d (get p "default")] (check-type! d previous values :normal (inc depth) budget registry scope nil))
+    (recur (next xs) (conj previous (get p "name"))))) all))
+(defn- signature! [x env values mode depth budget registry scope constructor?]
+ (let [tenv (generic-env! (get x "type-params") env values mode depth budget registry scope true)
+       params (get x "params")]
+  (vector! params 64)
+  (doseq [[index p] (map-indexed vector params)]
+   (shape! p ["name" "optional" "rest" "datatype"]) (flag! (get p "optional")) (flag! (get p "rest"))
+   (if (= "this" (get p "name"))
+    (when (or constructor? (pos? index) (get p "optional") (get p "rest"))
+     (fail! :mithril.native-declarations/params "Receiver must be first, required, non-rest and non-constructor"))
+    (identifier! (get p "name"))))
+  (unique! (mapv #(get % "name") params))
+  (when (or (some #(get % "rest") (butlast params)) (some #(and (get % "optional") (get % "rest")) params))
+   (fail! :mithril.native-declarations/params "Rest parameter must be final and required"))
+  (loop [xs params optional? false]
+   (when-let [p (first xs)]
+    (when (and optional? (not (get p "optional")) (not (get p "rest"))) (fail! :mithril.native-declarations/params "Required parameter after optional"))
+    (recur (next xs) (or optional? (get p "optional")))))
+  (let [names (set (map #(get % "name") params)) venv (into values names)
+        binds (reduce into #{} (map #(check-type! (get % "datatype") tenv venv mode (inc depth) budget registry scope nil) params))
+        ret (check-type! (get x "returns") tenv venv mode (inc depth) budget registry scope (when-not constructor? (cond-> names (:this? (meta env)) (conj "this"))))]
+   (into binds ret))))
+(defn- direct-array-rest? [t]
+ (or (= "array" (get t "op"))
+     (and (= "readonly" (get t "op")) (= "array" (get-in t ["datatype" "op"])))))
+(defn- check-tuple-state! [items env values mode depth budget registry scope initial-optional? initial-array-rest?]
+ (vector! items 128)
+ (loop [xs items optional? initial-optional? array-rest? initial-array-rest? binds #{}]
+  (if-let [item (first xs)]
+   (let [named? (= "named-tuple-item" (get item "op"))
+         wrapped? (contains? #{"optional-tuple-item" "rest-tuple-item"} (get item "op"))
+         opt? (or (= "optional-tuple-item" (get item "op")) (and named? (get item "optional")))
+         rest? (or (= "rest-tuple-item" (get item "op")) (and named? (true? (get item "rest"))))
+         datatype (if (or named? wrapped?) (get item "datatype") item)
+         array? (and rest? (direct-array-rest? datatype))]
+    (when (or named? wrapped?)
+     (charge! budget (inc depth))
+     (if named?
+      (do (shape! item (cond-> ["op" "name" "optional" "datatype"] (contains? item "rest") (conj "rest")))
+          (identifier! (get item "name")) (flag! (get item "optional"))
+          (when (contains? item "rest") (flag! (get item "rest"))))
+      (shape! item ["op" "datatype"])))
+    (when (and rest? opt?) (fail! :mithril.native-declarations/tuple "Tuple rest element cannot be optional"))
+    (when (and rest? (not (or (contains? #{"array" "tuple" "readonly" "name" "infer" "union" "intersection" "conditional" "index" "typeof" "import-type"} (get datatype "op"))
+                             (and (= "keyword" (get datatype "op")) (contains? #{"any" "never"} (get datatype "name"))))))
+     (fail! :mithril.native-declarations/type "Tuple rest requires array-like type syntax"))
+    (let [fixed (when rest? (cond (= "tuple" (get datatype "op")) datatype
+                                  (and (= "readonly" (get datatype "op")) (= "tuple" (get-in datatype ["datatype" "op"]))) (get datatype "datatype")))
+          child-depth (if (or named? wrapped?) (+ depth 2) (inc depth))]
+     (if fixed
+      (let [readonly? (= "readonly" (get datatype "op")) tuple-depth (+ child-depth (if readonly? 1 0))]
+       (when readonly? (charge! budget child-depth) (shape! datatype ["op" "datatype"]))
+       (charge! budget tuple-depth) (shape! fixed ["op" "items"])
+       (let [state (check-tuple-state! (get fixed "items") env values mode tuple-depth budget registry scope optional? array-rest?)]
+        (recur (next xs) (:optional state) (:array-rest state) (into binds (:binds state)))))
+      (do
+       (when (and array-rest? (or opt? array?))
+        (fail! :mithril.native-declarations/tuple "Optional or second array rest after array rest"))
+       (when (and optional? (not opt?) (not rest?))
+        (fail! :mithril.native-declarations/tuple "Required tuple element after optional"))
+       (recur (next xs) (or optional? opt?) (or array-rest? array?)
+              (into binds (check-type! datatype env values mode child-depth budget registry scope nil)))))))
+   {:binds binds :optional optional? :array-rest array-rest?})))
+(defn- check-tuple! [items env values mode depth budget registry scope]
+ (:binds (check-tuple-state! items env values mode depth budget registry scope false false)))
+(defn- program-type-binding [tables module name]
+ (let [[head & tail] (str/split name #"\.") b (get-in tables [module head]) suffix (str/join "." tail)]
+  (if (empty? tail) b
+   (when (and b
+              (every? #(get-in b [:children [:namespaces (str/join "." (take % tail))] :exported]) (range 1 (count tail))))
+    (into {} (keep (fn [space]
+                    (when-let [m (get-in b [:children [space suffix]])]
+                     (when (and (:exported m) (not (contains? #{"private" "protected"} (:visibility m)))) [space m]))) [:types :values :namespaces]))))))
+(defn- check-type! [x env values mode depth budget registry scope predicate-names]
+ (charge! budget depth)
+ (when-not (map? x) (fail! :mithril.native-declarations/type "Expected structured type"))
+ (let [op (get x "op") child-mode (if (= :unique mode) :normal mode) check #(check-type! % env values child-mode (inc depth) budget registry scope nil)
+       normal #(check-type! % env values :normal (inc depth) budget registry scope nil)
+       items! (fn [items] (vector! items 128) (when (empty? items) (fail! :mithril.native-declarations/type "Empty type collection")) (reduce into #{} (map check items)))]
+  (case op
+   "this" (do (shape! x ["op"]) (when-not (:this? (meta env)) (fail! :mithril.native-declarations/scope "This type requires instance class/interface scope")) #{})
+   "unique-symbol" (do (shape! x ["op"]) (when-not (= :unique mode) (fail! :mithril.native-declarations/type "Unique symbol requires const or readonly static class property")) #{})
+   "keyword" (do (shape! x ["op" "name"]) (when-not (contains? #{"any" "unknown" "never" "string" "number" "boolean" "void" "undefined" "object" "symbol"} (get x "name")) (fail! :mithril.native-declarations/type "Unknown type keyword")) #{})
+   "name" (do (shape! x ["op" "name" "args"]) (reference-name! (get x "name") false) (vector! (get x "args") 32)
+    (let [n (get x "name") local? (contains? env n) a (if local? {:min 0 :max 0} (second (resolve-entry registry :types scope n)))]
+     (when-not (and a (<= (:min a) (count (get x "args")) (:max a))) (fail! :mithril.native-declarations/arity (str "Unknown type name or wrong generic arity: " n " in " scope)))
+     (reduce into #{} (map check (get x "args")))))
+   "import-type" (do (shape! x ["op" "module" "name" "args" "query"]) (qualified! (get x "module")) (reference-name! (get x "name") true)
+    (flag! (get x "query")) (vector! (get x "args") 32)
+    (when-not (contains? (:module-tables registry) (get x "module")) (fail! :mithril.native-declarations/link "Unknown inline import module"))
+    (let [b (program-type-binding (:module-tables registry) (get x "module") (get x "name")) a (:types b)]
+     (when-not (if (get x "query") (and (or (:values b) (get-in b [:namespaces :value?])) (empty? (get x "args")))
+                  (and a (<= (:min a) (count (get x "args")) (:max a))))
+      (fail! :mithril.native-declarations/arity "Unknown imported type/value or wrong arity"))
+     (reduce into #{} (map check (get x "args")))))
+   "literal" (do (shape! x ["op" "value"]) (when-not (and (not (identical? js/undefined (get x "value"))) (or (nil? (get x "value")) (string? (get x "value")) (boolean? (get x "value")) (and (number? (get x "value")) (js/Number.isFinite (get x "value"))))) (fail! :mithril.native-declarations/type "Expected finite type literal")) (when (string? (get x "value")) (text! (get x "value"))) #{})
+   "array" (do (shape! x ["op" "item"]) (check (get x "item")))
+   "tuple" (do (shape! x ["op" "items"]) (check-tuple! (get x "items") env values child-mode depth budget registry scope))
+   ("union" "intersection") (do (shape! x ["op" "items"]) (items! (get x "items")))
+   "keyof" (do (shape! x ["op" "datatype"]) (check (get x "datatype")))
+   "readonly" (do (shape! x ["op" "datatype"]) (when-not (contains? #{"array" "tuple"} (get-in x ["datatype" "op"])) (fail! :mithril.native-declarations/type "Readonly type requires array or tuple")) (check (get x "datatype")))
+   "typeof" (do (shape! x ["op" "name"]) (reference-name! (get x "name") false)
+    (let [parts (str/split (get x "name") #"\.") parent (str/join "." (butlast parts))]
+     (when (and (seq parent) (= "const-enum" (:kind (value-metadata registry scope parent 0))))
+      (fail! :mithril.native-declarations/type "Direct const enum member type query is not admitted by TypeScript")))
+    (when-not (value-known? registry scope env values (get x "name")) (fail! :mithril.native-declarations/scope "Unknown value in type query")) #{})
+   "index" (do (shape! x ["op" "object" "key"]) (into (check (get x "object")) (check (get x "key"))))
+   "conditional" (do (shape! x ["op" "test" "extends" "then" "else"])
+    (normal (get x "test"))
+    (let [inferred (check-type! (get x "extends") env values :pattern (inc depth) budget registry scope nil)]
+     (check-type! (get x "then") (into env inferred) values :normal (inc depth) budget registry scope nil)
+     (normal (get x "else"))) #{})
+   "infer" (do (shape! x ["op" "name" "constraint"]) (identifier! (get x "name"))
+    (when-not (= :pattern mode) (fail! :mithril.native-declarations/scope "Infer is confined to conditional extends patterns"))
+    (nullable-type! (get x "constraint")) (when-let [c (get x "constraint")] (normal c)) #{(get x "name")})
+   ("function" "constructor") (do (shape! x ["op" "abstract" "type-params" "params" "returns"]) (flag! (get x "abstract"))
+    (when (and (= op "function") (get x "abstract")) (fail! :mithril.native-declarations/type "Abstract flag is constructor-only"))
+    (signature! x env values child-mode depth budget registry scope (= op "constructor")))
+   "predicate" (do (shape! x ["op" "name" "datatype"]) (when-not (= "this" (get x "name")) (identifier! (get x "name")))
+    (when-not (contains? predicate-names (get x "name")) (fail! :mithril.native-declarations/scope "Predicate must refine its own parameter")) (normal (get x "datatype")) #{})
+   "object" (do (shape! x ["op" "members"]) (check-members! (get x "members") env values child-mode depth budget registry scope))
+   "mapped" (do (shape! x ["op" "name" "keys" "remap" "readonly" "optional" "value"]) (identifier! (get x "name")) (flag! (get x "readonly")) (flag! (get x "optional")) (nullable-type! (get x "remap"))
+    (let [binds (check (get x "keys")) e (conj env (get x "name"))]
+     (when-let [r (get x "remap")] (check-type! r e values child-mode (inc depth) budget registry scope nil))
+     (into binds (check-type! (get x "value") e values child-mode (inc depth) budget registry scope nil))))
+   "template" (do (shape! x ["op" "head" "spans"]) (text! (get x "head")) (vector! (get x "spans") 128)
+    (reduce into #{} (map #(do (shape! % ["datatype" "tail"]) (text! (get % "tail")) (check (get % "datatype"))) (get x "spans"))))
+   (fail! :mithril.native-declarations/type "Unknown type operation"))))
+(defn- check-members! [members env values mode depth budget registry scope]
+ (vector! members 256)
+ (doseq [[_ ms] (group-by member-identity members)
+         :when (> (count ms) 1)]
+  (when-not (and (every? #(contains? #{"method" "computed-method" "call" "construct"} (get % "kind")) ms)
+                 (= 1 (count (set (map #(select-keys % ["kind" "optional"]) ms)))))
+   (fail! :mithril.native-declarations/duplicate "Interface/object overload or member collision")))
+ (reduce into #{} (map (fn [m]
+  (charge! budget (inc depth))
+  (when-not (contains? #{"call" "construct" "index-signature"} (get m "kind"))
+   (text! (get m "name")) (flag! (get m "optional")))
+  (when (contains? #{"computed-property" "computed-method"} (get m "kind"))
+   (qualified! (get m "name"))
+   (when-not (value-known? registry scope env values (get m "name"))
+    (fail! :mithril.native-declarations/scope "Unknown computed type member value")))
+  (case (get m "kind")
+   "index-signature" (do
+    (shape! m ["kind" "name" "key" "readonly" "datatype"])
+    (identifier! (get m "name")) (flag! (get m "readonly"))
+    (when-not (and (= "keyword" (get-in m ["key" "op"]))
+                  (contains? #{"string" "number" "symbol"} (get-in m ["key" "name"])))
+     (fail! :mithril.native-declarations/type "Index signature keys require string, number or symbol"))
+    (into (check-type! (get m "key") env values mode (inc depth) budget registry scope nil)
+          (check-type! (get m "datatype") env values mode (inc depth) budget registry scope nil)))
+   ("property" "computed-property") (do (shape! m ["kind" "name" "optional" "readonly" "datatype"]) (flag! (get m "readonly")) (check-type! (get m "datatype") env values mode (inc depth) budget registry scope nil))
+   ("method" "computed-method") (do (shape! m ["kind" "name" "optional" "type-params" "params" "returns"]) (signature! m env values mode (inc depth) budget registry scope false))
+   ("call" "construct") (do (shape! m ["kind" "type-params" "params" "returns"]) (signature! m env values mode (inc depth) budget registry scope (= "construct" (get m "kind"))))
+   (fail! :mithril.native-declarations/type "Unknown type member"))) members)))
+(defn- class-env [env class-name instance?]
+ (with-meta env {:class class-name :this? instance?}))
+(defn- check-class! [d env values depth budget registry scope]
+ (let [name (str scope (get d "name"))
+       e (generic-env! (class-params! (get d "type-params")) env values :normal depth budget registry scope true)
+       members (get d "members") groups (group-by #(if (= "constructor" (get % "kind")) :constructor [(get % "static") (get % "key")]) members)]
+  (when-let [base (get d "extends")]
+   (when-not (= "name" (get base "op")) (fail! :mithril.native-declarations/type "Class base requires named constructor type"))
+   (check-type! base e values :normal (inc depth) budget registry scope nil)
+   (let [v (value-metadata registry scope (get base "name") 0)]
+    (when-not (or (= "class" (:kind v)) (= "ambient" v) (= "ambient" (:kind v))) (fail! :mithril.native-declarations/type "Class base requires declared constructor value"))))
+  (doseq [t (get d "implements")]
+   (when-not (= "name" (get t "op")) (fail! :mithril.native-declarations/type "Implements requires named type"))
+   (check-type! t e values :normal (inc depth) budget registry scope nil))
+  (doseq [[_ ms] groups :when (> (count ms) 1)]
+   (when-not (and (or (every? #(= "constructor" (get % "kind")) ms) (every? #(= "method" (get % "kind")) ms))
+                 (= 1 (count (set (map #(select-keys % ["visibility" "abstract" "optional"]) ms)))))
+    (fail! :mithril.native-declarations/duplicate "Class overload/member collision")))
+  (doseq [m members]
+   (charge! budget (inc depth))
+   (let [kind (get m "kind") instance? (and (not (get m "static")) (not= kind "constructor"))
+         menv (class-env (if (get m "static") env e) name instance?)]
+    (when-not (= kind "constructor") (charge! budget (+ depth 2)))
+    (when (= "computed" (get-in m ["key" "kind"]))
+     (when-not (value-known? registry scope menv values (get-in m ["key" "name"]))
+      (fail! :mithril.native-declarations/scope "Unknown computed class member value")))
+    (when (and (= kind "property") (get m "abstract")
+               (or (not (get d "abstract")) (get m "static") (= "private" (get m "visibility"))))
+     (fail! :mithril.native-declarations/type "Abstract property requires abstract instance class and non-private visibility"))
+    (case kind
+     ("opaque" "private-brand") nil
+     "property" (check-type! (get m "datatype") menv values (if (and (get m "static") (get m "readonly") (not (get m "optional"))) :unique :normal) (+ depth 2) budget registry scope nil)
+     "getter" (check-type! (get m "datatype") menv values :normal (+ depth 2) budget registry scope nil)
+     "constructor" (signature! {"type-params" [] "params" (get m "params") "returns" {"op" "keyword" "name" "void"}} menv values :normal (inc depth) budget registry scope true)
+     "method" (do
+       (when (and (get m "abstract") (or (not (get d "abstract")) (get m "static") (= "private" (get m "visibility"))))
+        (fail! :mithril.native-declarations/type "Abstract method requires abstract instance class and non-private visibility"))
+       (signature! m menv values :normal (inc depth) budget registry scope false)))))))
+(defn- class-inheritance! [registry]
+ (doseq [[name t] (:types registry) :when (= "class" (:kind t))]
+  (loop [entry [name t] seen #{}]
+   (when (contains? seen (type-identity entry)) (fail! :mithril.native-declarations/type "Cyclic class inheritance"))
+   (let [t (second entry) base (:base t) r (definition-view registry t)]
+    (when (and (= "class" (:kind t)) base)
+     (when-let [next (resolve-entry r :types (:scope t) (get base "name"))]
+      (recur next (conj seen (type-identity entry)))))))))
+(defn- interface-inheritance! [registry]
+ (let [heights (atom {})]
+  (letfn [(visit [entry path depth]
+           (when (> depth 64) (fail! :mithril.native-declarations/budget "Heritage depth budget"))
+           (let [id (type-identity entry)]
+            (when (contains? path id) (fail! :mithril.native-declarations/type "Cyclic interface/class heritage"))
+            (let [height (if (contains? @heights id) (get @heights id)
+                          (let [t (second entry)
+                                children (keep (fn [{:keys [node context]}]
+                                                (resolve-entry (block-view registry context) :types (:scope t) (get node "name"))) (:heritage t))
+                                height (if (seq children) (inc (apply max (map #(visit % (conj path id) (inc depth)) children))) 0)]
+                           (swap! heights assoc id height) height))]
+             (when (> (+ depth height) 64) (fail! :mithril.native-declarations/budget "Heritage depth budget")) height)))]
+   (doseq [[name t] (:types registry) :when (seq (:heritage t))] (visit [name t] #{} 0)))))
+(defn- check-declarations! [decls env values budget registry scope depth]
+ (doseq [[index d] (map-indexed vector decls)]
+  (charge! budget depth)
+  (let [kind (get d "kind")]
+   (case kind
+    "function" (signature! d env values :normal depth budget registry scope false)
+    "const-enum" (doseq [_ (get d "members")] (charge! budget (inc depth)))
+    "const" (check-type! (get d "datatype") env values :unique (inc depth) budget registry scope nil)
+    "let" (check-type! (get d "datatype") env values :normal (inc depth) budget registry scope nil)
+    "alias" (let [e (generic-env! (get d "type-params") env values :normal depth budget registry scope false)] (check-type! (get d "datatype") e values :normal (inc depth) budget registry scope nil))
+    "interface" (let [e (generic-env! (get d "type-params") env values :normal depth budget registry scope false)]
+                  (doseq [base (get d "extends")]
+                   (when (or (not= "name" (get base "op")) (contains? e (get base "name")))
+                    (fail! :mithril.native-declarations/type "Interface heritage requires declared named type"))
+                   (check-type! base e values :normal (inc depth) budget registry scope nil))
+                  (check-members! (get d "members") (with-meta e {:this? true}) values :normal depth budget registry scope))
+    "class" (check-class! d env values depth budget registry scope)
+    "namespace" (let [r (block-overlay registry scope index)] (class-inheritance! r) (interface-inheritance! r)
+                  (check-declarations! (get d "declarations") env values budget r (str scope (get d "name") ".") (inc depth)))
+    "export-alias" (do (identifier! (get d "target")) (when-not (or (contains? (:values registry) (get d "target")) (contains? (:types registry) (get d "target"))) (fail! :mithril.native-declarations/export "Unknown alias target")))))))
+(defn- namespace-value? [d]
+ (some #(or (contains? #{"function" "const" "let" "class"} (get % "kind")) (and (= "namespace" (get % "kind")) (namespace-value? %))) (get d "declarations")))
+(defn- mutable-runtime-export! [runtime module-name public-name]
+ (when-not (contains? #{:mithril.native-esm/checked-v1 :mithril.native-esm/checked-v2} (:format runtime))
+  (fail! :mithril.native-declarations/surface "Mutable module exports require native ESM live bindings"))
+ (let [[owner kind target] (package/export-origin runtime module-name public-name)
+       declarations (get-in runtime [:modules owner :checked (case kind :binding :bindings :function :functions nil)])
+       binding (first (filter #(= target (:name %)) declarations))]
+  (when-not (true? (:mutable binding))
+   (fail! :mithril.native-declarations/surface "Mutable declaration requires an actual native mutable binding"))))
+(defn- global-blocks! [groups]
+ (vector! groups 128)
+ (doseq [g groups]
+  (shape! g ["declarations"]) (vector! (get g "declarations") 256)
+  (when (empty? (get g "declarations")) (fail! :mithril.native-declarations/declaration "Empty global block"))))
+(defn- ambient-global-declaration [d source-view source-prefix depth]
+ (when (> depth 8) (fail! :mithril.native-declarations/budget "Global namespace depth budget"))
+ (declaration-shape! d)
+ (when-not (contains? #{"alias" "interface" "namespace"} (get d "kind"))
+  (fail! :mithril.native-declarations/declaration "Global blocks contain type declarations, not invented runtime bindings"))
+ (let [d (assoc d "exported" true)]
+  (case (get d "kind")
+   "namespace" (do (vector! (get d "declarations") 256)
+                    (assoc d "declarations" (mapv #(ambient-global-declaration % source-view source-prefix (inc depth)) (get d "declarations"))))
+   "interface" (do (vector! (get d "members") 256) (with-meta d {::computed-owners
+                             (into {} (for [m (get d "members") :when (contains? #{"computed-property" "computed-method"} (get m "kind"))
+                                            :let [n (get m "name") _ (qualified! n) v (value-metadata source-view source-prefix n 0)]]
+                                        [n (if (= "ambient" (:kind v)) [:ambient n]
+                                             [(or (:canonical v) (str source-prefix n)) (:context v)])]))}))
+   d)))
+(defn- install-global-blocks! [registry sources]
+ (let [groups (vec (mapcat (fn [{:keys [prefix id groups]}]
+                            (global-blocks! groups)
+                            (map #(hash-map :prefix prefix :source-view (block-view @registry id) :group %) groups)) sources))]
+  (vector! groups 128)
+  (when (seq groups)
+   (let [prefix "#global."
+         groups (mapv (fn [index {:keys [group source-view] source-prefix :prefix :as g}]
+                        (assoc g :id [nil :global-block index]
+                                 :declarations (mapv #(ambient-global-declaration % source-view source-prefix 0) (get group "declarations")))) (range) groups)
+         entries (vec (mapcat (fn [{:keys [id declarations]}] (map-indexed #(vector %2 id %1) declarations)) groups))]
+    ;; The synthetic prefix cannot be a source identifier. Global names never enter
+    ;; a module export table, and nil-prefix module-private lookups remain refused.
+    (swap! registry assoc :global-prefix prefix)
+    (register! (mapv first entries) prefix registry 0 (mapv second entries) (mapv #(nth % 2) entries))
+    (doseq [{:keys [id source-view declarations] source-prefix :prefix} groups
+            :let [declared (set (map #(get % "name") declarations))]
+            space [:types :values :namespaces] [n metadata] (get source-view space)
+            :when (str/starts-with? n source-prefix)]
+     (let [suffix (subs n (count source-prefix)) root (first (str/split suffix #"\."))]
+      (when-not (and (contains? declared root) (get-in @registry [space (str prefix root)]))
+       (swap! registry assoc-in [:blocks id space (str prefix suffix)]
+              (assoc metadata :canonical (or (:canonical metadata) n) :access-scope prefix :lexical true))))) groups))))
+(defn- check-global-blocks! [groups budget registry]
+ (doseq [{:keys [id declarations]} groups]
+  (charge! budget 0)
+  (let [view (block-view registry id)]
+   (class-inheritance! view) (interface-inheritance! view)
+   (check-declarations! declarations #{} #{} budget view "#global." 0))))
+(defn check-document [doc runtime]
+ (shape! doc (cond-> ["@context" "@type" "name" "runtime-source" "ambient-types" "ambient-values" "declarations"] (contains? doc "globals") (conj "globals") (contains? doc "umd-namespace") (conj "umd-namespace") (contains? doc "runtime-only-exports") (conj "runtime-only-exports")))
+ (when-not (and (= "NativeJsDeclarations" (get doc "@type")) (= "https://mithril.fund/context/native-js-declarations/v1" (get doc "@context"))) (fail! :mithril.native-declarations/context "Expected declaration context"))
+ (when (contains? doc "umd-namespace") (identifier! (get doc "umd-namespace")))
+ (runtime-only-shape! doc)
+ (qualified! (get doc "name")) (source! (get doc "runtime-source"))
+ (when-not (and (contains? #{:mithril.native-package/checked-v1 :mithril.native-esm/checked-v1 :mithril.native-esm/checked-v2} (:format runtime)) (= (get doc "name") (:name runtime)))
+  (fail! :mithril.native-declarations/runtime "Matching checked runtime package required"))
+ (let [ambient (get doc "ambient-types") values (get doc "ambient-values") registry (atom {:types {} :values {} :namespaces {}})]
+  (vector! ambient 64) (vector! values 64)
+  (doseq [a ambient]
+   (shape! a ["name" "min" "max"]) (type-identifier! (get a "name"))
+   (when-not (and (integer? (get a "min")) (integer? (get a "max")) (<= 0 (get a "min") (get a "max") 32)) (fail! :mithril.native-declarations/arity "Invalid ambient type arity"))
+   (add! registry :types (get a "name") {:min (get a "min") :max (get a "max")}))
+  (doseq [v values] (qualified! v) (add! registry :values v "ambient"))
+  (register! (get doc "declarations") "" registry 0)
+  (doseq [d (get doc "declarations") :when (= "export-alias" (get d "kind"))]
+   (let [target (get d "target") n (get d "name")]
+    (when-let [t (get-in @registry [:types target])] (add! registry :types n t))
+    (when-let [v (get-in @registry [:values target])]
+     (add! registry :values n v)
+     (when (:erased v)
+      (when-let [ns (get-in @registry [:namespaces target])] (add! registry :namespaces n (assoc ns :canonical target)))
+      (doseq [space [:types :values] [child metadata] (get @registry space) :when (str/starts-with? child (str target "."))]
+       (add! registry space (str n (subs child (count target))) (assoc metadata :canonical (or (:canonical metadata) child))))))))
+  (let [globals (install-global-blocks! registry [{:prefix "" :id nil :groups (get doc "globals" [])}]) budget (atom 0)]
+   (class-inheritance! @registry) (interface-inheritance! @registry)
+   (check-declarations! (get doc "declarations") #{} #{} budget @registry "" 0)
+   (check-global-blocks! globals budget @registry))
+  (let [decls (get doc "declarations")
+        public? #(or (get % "exported") (= "export-alias" (get % "kind")))
+        exports (vec (distinct (map #(get % "name") (filter #(and (public? %) (or (or (contains? #{"function" "const" "let" "class"} (get % "kind")) (and (= "export-alias" (get % "kind")) (and (contains? (:values @registry) (get % "name")) (not (:erased (get-in @registry [:values (get % "name")])))))) (and (= "namespace" (get % "kind")) (namespace-value? %)))) decls))))
+        types (vec (distinct (map #(get % "name") (filter #(and (public? %) (or (contains? #{"alias" "interface" "class" "const-enum"} (get % "kind")) (and (= "export-alias" (get % "kind")) (contains? (:types @registry) (get % "name"))))) decls))))]
+   (runtime-surface! exports (map :name (:exports runtime)) (get doc "runtime-only-exports" []) "Public runtime declaration surface mismatch")
+   (doseq [{:keys [name module export]} (:exports runtime) :when (= "let" (get-in @registry [:values name :kind]))]
+    (mutable-runtime-export! runtime module (or export name)))
+   (cond-> {:format :mithril.native-declarations/checked-v1 :name (get doc "name") :runtime-source (get doc "runtime-source")
+    :declarations decls :exports exports :type-exports types}
+    (contains? doc "globals") (assoc :globals (get doc "globals" []))
+    (contains? doc "umd-namespace") (assoc :umd-namespace (get doc "umd-namespace"))
+    (contains? doc "runtime-only-exports") (assoc :runtime-only-exports (get doc "runtime-only-exports"))))))
+(defn check-text [text runtime] (check-document (parse-text text) runtime))
+
+;; Program linking uses the same checker and lexical ownership as single modules.
+;; Module names in this registry are internal identifiers, never emitted source.
+(defn- binding-id [binding]
+ (into {} (map (fn [[space metadata]] [space [(:canonical metadata) (:context metadata)]])
+           (select-keys binding [:types :values :namespaces]))))
+(defn- exported-binding
+ ([registry prefix name] (exported-binding registry prefix name true))
+ ([registry prefix name public-only?]
+ (let [full (str prefix name)
+       spaces (into {} (keep (fn [space]
+                       (when-let [m (get-in registry [space full])]
+                        (when (or (not public-only?) (:exported m)) [space (cond-> (assoc m :canonical full) (not public-only?) (assoc :exported true))]))) [:types :values :namespaces]))
+       descendants (into {} (for [space [:types :values :namespaces]
+                                  [n m] (get registry space)
+                                  :when (and (str/starts-with? n (str full ".")) (or (:owner m) (:exported m)))]
+                              [[space (subs n (inc (count full)))] (cond-> (assoc m :canonical n) (and (not public-only?) (:owner m) (not (contains? #{"private" "protected"} (:visibility m)))) (assoc :exported true))]))]
+  (when (seq spaces) (assoc spaces :children descendants :erased-value (boolean (get-in spaces [:values :erased])))))))
+(defn- erase-binding [binding erased?]
+ (if erased? (assoc binding :type-only-value true) binding))
+(defn- add-program-binding [table name binding own?]
+ (if-let [old (get table name)]
+  (cond own? table
+        (= (binding-id old) (binding-id binding))
+        (assoc table name (assoc old :type-only-value (and (:type-only-value old) (:type-only-value binding))))
+        :else (fail! :mithril.native-declarations/link "Ambiguous declaration reexport"))
+  (assoc table name binding)))
+(defn- install-program-binding! [registry id prefix local binding namespace?]
+ (let [full (str prefix local)
+       put! (fn [space n m]
+              (let [path [:blocks id space n]]
+               (when (or (get-in @registry path) (get-in @registry [space n])) (fail! :mithril.native-declarations/duplicate "Imported binding collides with local declaration"))
+               (swap! registry assoc-in path (assoc m :lexical true))))]
+  (when namespace?
+   (put! :namespaces full {:value? true :scope prefix :exported false :lexical true :canonical full}))
+  (doseq [[space metadata] (select-keys binding [:types :values :namespaces])] (put! space full metadata))
+  (doseq [[[space suffix] metadata] (:children binding)] (put! space (str full "." suffix) metadata))))
+(defn- import-group! [group export?]
+ (shape! group ["module" "type-only" "names"])
+ (qualified! (get group "module")) (flag! (get group "type-only"))
+ (when (and (not export?) (nil? (get group "names")) (get group "type-only"))
+  (fail! :mithril.native-declarations/link "Side-effect imports cannot be type-only"))
+ (when-let [names (get group "names")]
+  (vector! names 128)
+  (when (empty? names) (fail! :mithril.native-declarations/link "Empty named import/export list"))
+  (doseq [n names]
+   (shape! n (if export? ["import" "export"] ["import" "local"]))
+   (if (and (not export?) (= "*" (get n "import"))) nil (export-name! (get n "import")))
+   (if export? (export-name! (get n "export")) (identifier! (get n "local"))))
+  (when (and (not export?) (some #(= "*" (get % "import")) names) (not= 1 (count names)))
+   (fail! :mithril.native-declarations/link "Namespace import must be its own group"))
+  (unique! (mapv #(get % (if export? "export" "local")) names))))
+(defn- namespace-export-binding [doc e documents prefixes runtime tables]
+ (let [local (get e "local")
+       group (first (filter (fn [g] (and (not (get g "type-only"))
+                           (= [{"import" "*" "local" local}] (get g "names")))) (get doc "imports")))
+       source (first (filter #(= (get group "module") (get % "name")) documents))
+       native (get source "runtime") target (get tables (get group "module")) export (get e "runtime-export")]
+  (when-not (and group native target)
+   (fail! :mithril.native-declarations/export "Namespace export requires a value namespace import from an internal native module"))
+  (when-not (some #{export} (:exports (get-in runtime [:modules native])))
+   (fail! :mithril.native-declarations/surface "Namespace export requires an actual source runtime export"))
+  (let [children (vec (mapcat
+                       (fn [[name b]]
+                        (concat (map (fn [[space metadata]] [[space name] metadata]) (select-keys b [:types :values :namespaces]))
+                                (map (fn [[[space suffix] metadata]] [[space (str name "." suffix)] metadata]) (:children b)))) target))]
+   (vector! children 16384)
+   {:namespaces {:value? true :scope "" :canonical (str/replace (get prefixes (get source "name")) #"\.$" "") :exported true}
+    :children (into {} children) :origin {:module native :export export}})))
+(defn- augmentation-targets [documents]
+ ;; Resolve exports before augmentations introduce new names. Keep all origins
+ ;; so ambiguous stars cannot accidentally choose a class to augment.
+ (let [own (into {} (map (fn [doc]
+                          [(get doc "name")
+                           (merge (into {} (for [d (get doc "declarations") :when (get d "exported")]
+                                             [(get d "name") #{[(get doc "name") (get d "name")]}]))
+                                  (into {} (for [e (get doc "local-exports")]
+                                             [(get e "export") #{[(get doc "name") (get e "local")]}])))]) documents))]
+  (loop [tables own round 0]
+   (when (> round 64) (fail! :mithril.native-declarations/budget "Augmentation export graph budget"))
+   (let [next (into {} (for [doc documents
+                            :let [name (get doc "name") initial (get own name)
+                                  groups (get doc "reexports")
+                                  explicit (into (set (keys initial)) (mapcat #(map (fn [n] (get n "export")) (get % "names")) groups))]]
+                        [name (reduce (fn [table g]
+                                        (let [target (get tables (get g "module"))]
+                                         (reduce (fn [t [out in]]
+                                                   (if (or (contains? initial out)
+                                                           (and (nil? (get g "names")) (contains? explicit out))) t
+                                                    (if-let [origins (get target in)] (update t out (fnil into #{}) origins) t))) table
+                                                 (if-let [ns (get g "names")] (map #(vector (get % "export") (get % "import")) ns)
+                                                  (map #(vector % %) (remove #{"default"} (keys target))))))) initial groups)]))]
+    (if (= tables next) tables (recur next (inc round)))))))
+(defn check-module-program
+ "Link finite checked module documents and external symbol contracts. No file reads."
+ [modules externals runtime entry]
+ (vector! modules 64) (vector! externals 32) (qualified! entry)
+ (when (empty? modules) (fail! :mithril.native-declarations/link "Empty declaration program"))
+ (unique! (mapv #(get % "name") modules))
+ (unique! (mapv #(get % "specifier") externals))
+ (unique! (into (mapv #(get % "name") modules) (map #(get % "name") externals)))
+ (when-not (some #{entry} (map #(get % "name") modules)) (fail! :mithril.native-declarations/link "Entry must be an internal declaration module"))
+ (let [registry (atom {:types {} :values {} :namespaces {} :blocks {}})
+       names (mapv #(get % "name") modules) indexes (zipmap names (range)) prefixes (zipmap names (map #(str "D" % ".") (range)))
+       documents (mapv (fn [doc]
+                   (shape! doc (cond-> ["@context" "@type" "name" "runtime" "ambient-types" "ambient-values" "imports" "reexports" "declarations"] (contains? doc "augmentations") (conj "augmentations") (contains? doc "local-exports") (conj "local-exports") (contains? doc "globals") (conj "globals") (contains? doc "umd-namespace") (conj "umd-namespace") (contains? doc "runtime-only-exports") (conj "runtime-only-exports") (contains? doc "namespace-exports") (conj "namespace-exports")))
+                   (when-not (and (= "NativeJsDeclarationModule" (get doc "@type")) (= "https://mithril.fund/context/native-js-declaration-module/v1" (get doc "@context")))
+                    (fail! :mithril.native-declarations/context "Expected checked declaration module"))
+                   (when (contains? doc "umd-namespace") (identifier! (get doc "umd-namespace")))
+                   (runtime-only-shape! doc)
+                   (qualified! (get doc "name"))
+                   (when-let [n (get doc "runtime")] (qualified! n) (when-not (get-in runtime [:modules n]) (fail! :mithril.native-declarations/runtime "Unknown runtime module")))
+                   (doseq [field ["imports" "reexports"]]
+                    (vector! (get doc field) 128) (doseq [g (get doc field)] (import-group! g (= field "reexports"))))
+                   (unique! (vec (mapcat #(map (fn [n] (get n "local")) (get % "names")) (get doc "imports"))))
+                   (unique! (vec (mapcat #(map (fn [n] (get n "export")) (get % "names")) (get doc "reexports"))))
+                   (when (contains? doc "augmentations")
+                    (vector! (get doc "augmentations") 128)
+                    (doseq [g (get doc "augmentations")]
+                     (shape! g ["module" "declarations"]) (qualified! (get g "module"))
+                     (when-not (some #{(get g "module")} names) (fail! :mithril.native-declarations/link "Augmentation target must be an internal module"))
+                     (vector! (get g "declarations") 256)
+                     (when (empty? (get g "declarations")) (fail! :mithril.native-declarations/link "Empty module augmentation"))
+                     (doseq [d (get g "declarations")]
+                      (declaration-shape! d)
+                      (when-not (and (= "interface" (get d "kind")) (get d "exported"))
+                       (fail! :mithril.native-declarations/declaration "Module augmentations contain public interfaces")))))
+                   (when (contains? doc "local-exports")
+                    (vector! (get doc "local-exports") 128)
+                    (doseq [e (get doc "local-exports")]
+                     (shape! e ["local" "export" "type-only"]) (identifier! (get e "local")) (export-name! (get e "export")) (flag! (get e "type-only")))
+                    (unique! (mapv #(get % "export") (get doc "local-exports"))))
+                   (when (contains? doc "namespace-exports")
+                    (vector! (get doc "namespace-exports") 128)
+                    (doseq [e (get doc "namespace-exports")]
+                     (shape! e ["local" "export" "runtime-export"])
+                     (identifier! (get e "local")) (export-name! (get e "export")) (export-name! (get e "runtime-export")))
+                    (unique! (mapv #(get % "export") (get doc "namespace-exports"))))
+                   (when (some #(= "export-alias" (get % "kind")) (get doc "declarations"))
+                    (fail! :mithril.native-declarations/link "Program exports use explicit checked reexport groups")) doc) modules)
+       targets (augmentation-targets documents)
+       augmentations (vec (mapcat (fn [[index doc]]
+                                    (for [g (get doc "augmentations") d (get g "declarations")
+                                          :let [origins (get-in targets [(get g "module") (get d "name")])
+                                                _ (when (> (count origins) 1) (fail! :mithril.native-declarations/link "Ambiguous augmentation export"))
+                                                [owner local] (or (first origins) [(get g "module") (get d "name")])]]
+                                     (assoc g "module" owner "declarations" [(with-meta d (assoc (meta d) ::registration-name local))]
+                                              :source-index index))) (map-indexed vector documents)))
+       wrappers (into (mapv (fn [index doc] {"kind" "namespace" "name" (str "D" index) "exported" true "declarations" (get doc "declarations")}) (range) documents)
+                  (map (fn [g] {"kind" "namespace" "name" (str/replace (get prefixes (get g "module")) #"\.$" "") "exported" true "declarations" (get g "declarations")}) augmentations))]
+  (register! wrappers "" registry -1)
+  (doseq [[index doc] (map-indexed vector documents)]
+   (let [id [nil "" index] prefix (get prefixes (get doc "name"))]
+    (vector! (get doc "ambient-types") 64) (vector! (get doc "ambient-values") 64)
+    (doseq [a (get doc "ambient-types")]
+     (shape! a ["name" "min" "max"]) (qualified! (get a "name")) (type-identifier! (last (str/split (get a "name") #"\.")))
+     (when-not (and (integer? (get a "min")) (integer? (get a "max")) (<= 0 (get a "min") (get a "max") 32))
+      (fail! :mithril.native-declarations/arity "Invalid ambient module arity"))
+     (when (or (get-in @registry [:types (str prefix (get a "name"))]) (get-in @registry [:blocks id :types (str prefix (get a "name"))]))
+      (fail! :mithril.native-declarations/duplicate "Ambient module binding collision"))
+     (swap! registry assoc-in [:blocks id :types (str prefix (get a "name"))] {:min (get a "min") :max (get a "max") :scope prefix :context id :lexical true}))
+    (doseq [v (get doc "ambient-values")]
+     (qualified! v)
+     (when (or (get-in @registry [:values (str prefix v)]) (get-in @registry [:blocks id :values (str prefix v)]))
+      (fail! :mithril.native-declarations/duplicate "Ambient module value collision"))
+     (swap! registry assoc-in [:blocks id :values (str prefix v)] {:kind "ambient" :scope prefix :context id :lexical true}))))
+  (let [own (into {} (map (fn [doc]
+                      (let [prefix (get prefixes (get doc "name"))
+                            public (distinct (map registration-name (filter #(get % "exported")
+                                               (concat (get doc "declarations") (mapcat #(get % "declarations") (filter #(= (get doc "name") (get % "module")) augmentations))))))]
+                       [(get doc "name")
+                        (reduce (fn [table e]
+                                  (let [local (get e "local") out (get e "export") native (get doc "runtime")
+                                        view (block-view @registry [nil "" (get indexes (get doc "name"))])
+                                        binding (exported-binding view prefix local false)]
+                                   (when-not (and binding (some #(= local (get % "name")) (get doc "declarations")))
+                                    (fail! :mithril.native-declarations/export "Local export requires its own declaration"))
+                                   (when (contains? table out) (fail! :mithril.native-declarations/duplicate "Local export collision"))
+                                   (when (and native (not (get e "type-only")) (or (:values binding) (get-in binding [:namespaces :value?])) (not (:erased-value binding)))
+                                    (let [[owner kind target] (package/export-origin runtime native out)]
+                                     (when-not (and (= owner native) (contains? #{:binding :function} kind) (= target local))
+                                      (fail! :mithril.native-declarations/surface "Local export native binding identity mismatch"))))
+                                   (assoc table out (assoc (erase-binding binding (get e "type-only")) :origin {:module native :export out}))))
+                                (into {} (keep #(when-let [b (exported-binding @registry prefix %)] [% (assoc b :origin {:module (get doc "runtime") :export %})]) public))
+                                (get doc "local-exports"))])) documents))
+        external (into {} (map (fn [e]
+                    (shape! e ["name" "specifier" "types" "values"])
+                    (qualified! (get e "name"))
+                    (when-not (or (and (string? (get e "specifier")) (<= (count (get e "specifier")) 128)
+                                       (re-matches #"(?:@[A-Za-z0-9_-]+/)?[A-Za-z0-9][A-Za-z0-9_.-]*" (get e "specifier")))
+                                  (try (package/external-specifier! (get e "specifier")) true (catch :default _ false)))
+                     (fail! :mithril.native-declarations/source "External module requires a bounded package specifier"))
+                    (when-let [m (get-in runtime [:external-modules (get e "name")])]
+                     (when-not (= (:specifier m) (get e "specifier"))
+                      (fail! :mithril.native-declarations/source "External declaration and runtime specifiers differ")))
+                    (vector! (get e "types") 64) (vector! (get e "values") 128)
+                    (unique! (mapv #(get % "name") (get e "types"))) (unique! (get e "values"))
+                    (let [table (reduce (fn [t a]
+                                         (shape! a ["name" "min" "max"]) (reference-name! (get a "name") true) (when-not (= "default" (last (str/split (get a "name") #"\."))) (type-identifier! (last (str/split (get a "name") #"\."))))
+                                         (when-not (and (integer? (get a "min")) (integer? (get a "max")) (<= 0 (get a "min") (get a "max") 32))
+                                          (fail! :mithril.native-declarations/arity "Invalid external type arity"))
+                                         (let [[head & tail] (str/split (get a "name") #"\.")
+                                               metadata {:min (get a "min") :max (get a "max") :canonical (str "external:" (get e "name") "." (get a "name")) :exported true}]
+                                          (if (empty? tail) (assoc-in t [head :types] metadata)
+                                           (let [t (assoc-in t [head :children [:types (str/join "." tail)]] metadata)]
+                                            (reduce (fn [t size]
+                                                      (let [suffix (str/join "." (take size tail)) n (str head (when (seq suffix) (str "." suffix)))
+                                                            m {:value? false :exported true :canonical (str "external:" (get e "name") "." n)}]
+                                                       (if (zero? size) (assoc-in t [head :namespaces] m) (assoc-in t [head :children [:namespaces suffix]] m)))) t (range (count tail))))))) {} (get e "types"))
+                          table (reduce (fn [t v]
+                                         (reference-name! v true)
+                                         (let [[head & tail] (str/split v #"\.") m {:kind "external" :exported true :canonical (str "external:" (get e "name") "." v)}]
+                                          (if (seq tail) (assoc-in t [head :children [:values (str/join "." tail)]] m) (assoc-in t [head :values] m)))) table (get e "values"))]
+                     (doseq [[_ b] table :when (seq (:children b))]
+                      (when-not (or (:values b) (:namespaces b)) (fail! :mithril.native-declarations/link "External member requires its exported owner")))
+                     [(get e "name")
+                      (if-let [m (get-in runtime [:external-modules (get e "name")])]
+                       (reduce (fn [t n] (if (get-in t [n :values])
+                                          (assoc-in t [n :origin] {:module (get e "name") :export n}) t)) table (:exports m))
+                       table)]))) externals)
+        tables (atom (merge own external))]
+   ;; A monotone fixed point admits forward and cyclic type/barrel dependencies.
+   (loop [round 0]
+    (when (> round 64) (fail! :mithril.native-declarations/budget "Declaration reexport graph budget"))
+    (let [next (reduce (fn [all doc]
+                         (let [name (get doc "name")
+                               initial (reduce (fn [table e]
+                                                  (when (contains? table (get e "export"))
+                                                   (fail! :mithril.native-declarations/duplicate "Namespace export collides with own export"))
+                                                  (assoc table (get e "export") (namespace-export-binding doc e documents prefixes runtime @tables)))
+                                                (get own name) (get doc "namespace-exports"))
+                               groups (get doc "reexports")
+                               explicit (into (set (keys initial)) (mapcat #(map (fn [n] (get n "export")) (get % "names")) groups))
+                               ordered (concat (filter #(get % "names") groups) (remove #(get % "names") groups))
+                               table (reduce (fn [table g]
+                                               (let [target (get @tables (get g "module"))]
+                                                (when-not target (fail! :mithril.native-declarations/link "Unknown declaration module"))
+                                                (reduce (fn [t [out in]]
+                                                          (if (and (nil? (get g "names")) (contains? explicit out)) t
+                                                           (if-let [b (get target in)]
+                                                            (do (when (and (get g "names") (contains? initial out))
+                                                                  (fail! :mithril.native-declarations/duplicate "Named reexport collides with own export"))
+                                                             (add-program-binding t out (erase-binding b (get g "type-only")) false)) t))) table
+                                                 (if-let [ns (get g "names")] (map #(vector (get % "export") (get % "import")) ns) (map #(vector % %) (remove #{"default"} (keys target))))))) initial ordered)]
+                          (doseq [space [:types :values :namespaces]]
+                            (vector! (vec (for [[name binding] table :when (get binding space)] name)) 128)) (assoc all name table))) external documents)]
+     (if (= next @tables) nil (do (reset! tables next) (recur (inc round))))))
+   (doseq [[index doc] (map-indexed vector documents)]
+    (let [id [nil "" index] prefix (get prefixes (get doc "name"))]
+     (doseq [g (get doc "reexports") n (get g "names")]
+      (when-not (get-in @tables [(get g "module") (get n "import")]) (fail! :mithril.native-declarations/link "Unknown reexported symbol")))
+     (doseq [g (get doc "imports")]
+      (let [target (get @tables (get g "module"))]
+       (when-not target (fail! :mithril.native-declarations/link "Unknown imported declaration module"))
+       (doseq [n (get g "names")]
+        (if (= "*" (get n "import"))
+         (do (install-program-binding! registry id prefix (get n "local") {} true)
+             (doseq [[name b] target]
+              (install-program-binding! registry id (str prefix (get n "local") ".") name b false)))
+         (if-let [b (get target (get n "import"))]
+          (install-program-binding! registry id prefix (get n "local") b false)
+          (fail! :mithril.native-declarations/link (str "Unknown imported declaration symbol " (get n "import") " from " (get g "module"))))))))
+     (let [values (set (for [[name b] (get @tables (get doc "name"))
+                            :when (and (not (:type-only-value b)) (not (:erased-value b)) (or (:values b) (get-in b [:namespaces :value?])))] name))
+           native (get doc "runtime") expected (set (:exports (get-in runtime [:modules native])))]
+      (when native
+       (runtime-surface! values expected (get doc "runtime-only-exports" []) "Declaration module runtime surface mismatch")
+       (doseq [name values]
+        (let [binding (get-in @tables [(get doc "name") name]) origin (:origin binding)]
+         (when (= "let" (get-in binding [:values :kind])) (mutable-runtime-export! runtime native name))
+         (when-not (and (:module origin)
+                        (= (package/export-origin runtime native name) (package/export-origin runtime (:module origin) (:export origin))))
+          (fail! :mithril.native-declarations/surface "Declaration module binding origin mismatch")))))
+      (when (and (nil? native) (not= entry (get doc "name")) (seq (get doc "runtime-only-exports")))
+       (fail! :mithril.native-declarations/surface "Runtime-only exports require actual native module or program entry identity"))
+      (when (and (nil? native) (not= entry (get doc "name")) (seq values))
+       (fail! :mithril.native-declarations/surface "Value barrel requires actual native module identity")))))
+   ;; An augmentation owns declarations in the target module, but its type
+   ;; references resolve the source module's lexical imports/private bindings.
+   ;; Each block has its own frame; never rewrite AST names or symbol owners.
+   (doseq [[offset g] (map-indexed vector augmentations)]
+    (let [source-index (:source-index g) source-prefix (get prefixes (nth names source-index))
+          target-prefix (get prefixes (get g "module")) id [nil "" (+ (count documents) offset)]
+          source-view (block-view @registry [nil "" source-index])
+          declared (set (map registration-name (get g "declarations")))]
+     ;; A renamed reexport augments the same original declaration. Its spelling
+     ;; stays lexical to this block; neither emitted AST nor class owner changes.
+     (doseq [d (get g "declarations")
+             :let [local (registration-name d) name (get d "name")]
+             :when (not= local name)
+             space [:types :values :namespaces]
+             :let [metadata (get-in @registry [space (str target-prefix local)])]
+             :when metadata]
+      (swap! registry assoc-in [:blocks id space (str target-prefix name)]
+             (assoc metadata :canonical (str target-prefix local) :access-scope target-prefix :lexical true)))
+     (doseq [space [:types :values :namespaces] [n metadata] (get source-view space)
+             :when (str/starts-with? n source-prefix)]
+      (let [suffix (subs n (count source-prefix)) root (first (str/split suffix #"\."))]
+       (when-not (and (contains? declared root) (get-in @registry [space (str target-prefix root)]))
+        (swap! registry assoc-in [:blocks id space (str target-prefix suffix)]
+               (assoc metadata :canonical (or (:canonical metadata) n) :access-scope target-prefix :lexical true)))))))
+   (swap! registry assoc :module-tables @tables)
+   (let [globals (install-global-blocks! registry (mapv (fn [index doc] {:prefix (get prefixes (get doc "name")) :id [nil "" index] :groups (get doc "globals" [])}) (range) documents))
+         budget (atom 0)]
+    (class-inheritance! @registry) (interface-inheritance! @registry)
+    (check-declarations! wrappers #{} #{} budget @registry "" -1)
+    (check-global-blocks! globals budget @registry))
+   (let [visited (atom #{}) by-name (zipmap names documents)]
+    (letfn [(inline-modules [node]
+              (cond (map? node) (concat (when (= "import-type" (get node "op")) [(get node "module")]) (mapcat inline-modules (vals node)))
+                    (vector? node) (mapcat inline-modules node) :else []))
+            (visit [name]
+              (when-not (contains? @visited name)
+               (swap! visited conj name)
+               (when-let [doc (get by-name name)]
+                (doseq [target (concat (map #(get % "module") (concat (get doc "imports") (get doc "reexports"))) (map #(get % "module") (get doc "augmentations")) (inline-modules (get doc "declarations")) (inline-modules (get doc "augmentations")) (inline-modules (get doc "globals")))]
+                 (when-not (contains? @tables target) (fail! :mithril.native-declarations/link "Unknown declaration dependency"))
+                 (visit target)))))]
+     (visit entry)
+     ;; Every module in the checked runtime order is reachable from an actual
+     ;; package root, including roots with no exports and side-effect imports.
+     (let [seen-runtime (atom #{})]
+      (letfn [(visit-runtime [native]
+                (when-not (contains? @seen-runtime native)
+                 (swap! seen-runtime conj native)
+                 (doseq [doc documents :when (= native (get doc "runtime"))] (visit (get doc "name")))
+                 (doseq [dependency (get-in runtime [:modules native :dependencies])] (visit-runtime dependency))))]
+       (doseq [native (:order runtime)] (visit-runtime native))))
+     (when-not (every? @visited names) (fail! :mithril.native-declarations/link "Unreachable declaration module"))))
+   (when-not (contains? own entry) (fail! :mithril.native-declarations/link "Entry must be an internal declaration module"))
+   (let [surface (get @tables entry)
+         values (set (for [[name b] surface :when (and (not (:type-only-value b)) (not (:erased-value b)) (or (:values b) (get-in b [:namespaces :value?])))] name))]
+    (runtime-surface! values (map :name (:exports runtime)) (get (first (filter #(= entry (get % "name")) documents)) "runtime-only-exports" []) "Program root runtime surface mismatch")
+    (doseq [{:keys [name module export]} (:exports runtime) :when (contains? values name)]
+     (let [origin (:origin (get surface name))]
+      (when-not (and (:module origin)
+                     (= (package/export-origin runtime module (or export name)) (package/export-origin runtime (:module origin) (:export origin))))
+       (fail! :mithril.native-declarations/surface "Program root binding origin mismatch"))))
+    {:format :mithril.native-declarations/program-checked-v1 :modules documents :tables @tables :entry entry
+     :exports (vec (sort values)) :type-exports (vec (sort (for [[name b] surface :when (:types b)] name)))}))))

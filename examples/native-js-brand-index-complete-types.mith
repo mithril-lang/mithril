@@ -1,0 +1,90 @@
+(mithril/native-js-declaration-module :name "brand.index"
+:runtime "brand.index"
+:ambient-types []
+:ambient-values []
+:imports []
+:declarations [(rdf/node :kind "const"
+:name "BRAND"
+:exported false
+:datatype (rdf/node :op "unique-symbol"))
+(rdf/node :kind "alias"
+:name "Branded"
+:exported true
+:type-params [(rdf/node :name "B"
+:constraint (rdf/node :op "keyword"
+:name "string")
+:default nil)]
+:datatype (rdf/node :op "intersection"
+:items [(rdf/node :op "keyword"
+:name "string")
+(rdf/node :op "object"
+:members [(rdf/node :kind "computed-property"
+:name "BRAND"
+:optional false
+:readonly true
+:datatype (rdf/node :op "name"
+:name "B"
+:args []))])]))
+(rdf/node :kind "alias"
+:name "BrandedNumber"
+:exported true
+:type-params [(rdf/node :name "B"
+:constraint (rdf/node :op "keyword"
+:name "string")
+:default nil)]
+:datatype (rdf/node :op "intersection"
+:items [(rdf/node :op "keyword"
+:name "number")
+(rdf/node :op "object"
+:members [(rdf/node :kind "computed-property"
+:name "BRAND"
+:optional false
+:readonly true
+:datatype (rdf/node :op "name"
+:name "B"
+:args []))])]))
+(rdf/node :kind "function"
+:name "brandString"
+:exported true
+:type-params [(rdf/node :name "T"
+:constraint (rdf/node :op "name"
+:name "Branded"
+:args [(rdf/node :op "keyword"
+:name "string")])
+:default nil)]
+:params [(rdf/node :name "value"
+:optional false
+:rest false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "keyword"
+:name "string")
+(rdf/node :op "name"
+:name "T"
+:args [])]))]
+:returns (rdf/node :op "name"
+:name "T"
+:args []))
+(rdf/node :kind "function"
+:name "brandNumber"
+:exported true
+:type-params [(rdf/node :name "T"
+:constraint (rdf/node :op "name"
+:name "BrandedNumber"
+:args [(rdf/node :op "keyword"
+:name "string")])
+:default nil)]
+:params [(rdf/node :name "value"
+:optional false
+:rest false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "keyword"
+:name "number")
+(rdf/node :op "name"
+:name "T"
+:args [])]))]
+:returns (rdf/node :op "name"
+:name "T"
+:args []))]
+:reexports []
+:augmentations []
+:local-exports [])

@@ -1,0 +1,19 @@
+(mithril/ontology
+ :id "https://mithril.fund/ontology/language-v1"
+ :profile ["https://www.w3.org/TR/rdf11-concepts/" "https://www.w3.org/TR/owl2-profiles/#OWL_2_RL" "https://www.w3.org/TR/shacl/"]
+ :graph [
+  (owl/class :id "https://mithril.fund/ns/language/v1#Kernel")
+  (owl/class :id "https://mithril.fund/ns/language/v1#Entrypoint")
+  (owl/object-property :id "https://mithril.fund/ns/language/v1#sourceFormats")
+  (owl/object-property :id "https://mithril.fund/ns/language/v1#pipeline")
+  (owl/object-property :id "https://mithril.fund/ns/language/v1#entrypoint")
+  (owl/object-property :id "https://mithril.fund/ns/language/v1#operation")
+  (owl/datatype-property :id "https://mithril.fund/ns/language/v1#ontology")
+  (owl/datatype-property :id "https://mithril.fund/ns/language/v1#command")
+  (owl/datatype-property :id "https://mithril.fund/ns/language/v1#digest")
+  (shacl/node-shape :id "https://mithril.fund/ns/language/v1#KernelShape" :sh/target-class "https://mithril.fund/ns/language/v1#Kernel" :sh/property [
+   (shacl/property-shape :sh/path "https://mithril.fund/ns/language/v1#sourceFormats" :sh/min-count 1)
+   (shacl/property-shape :sh/path "https://mithril.fund/ns/language/v1#pipeline" :sh/min-count 1)
+   (shacl/property-shape :sh/path "https://mithril.fund/ns/language/v1#entrypoint" :sh/min-count 1)
+  ])
+ ])

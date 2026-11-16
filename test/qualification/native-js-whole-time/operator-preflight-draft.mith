@@ -1,0 +1,907 @@
+; Complete CosmoKit time.ts runtime, native Mithril host forms.
+; Original MIT source: vendor/cosmokit/src/time.ts.
+(mithril/native-js-module
+ :name "cosmokit.time"
+ :imports ["Date" "Math" "RegExp" "parseFloat"]
+ :bindings [
+  (rdf/node :name "Time" :value (mithril/host-object :entries []))
+  (rdf/node
+   :name "constants"
+   :value (mithril/sequence
+    :expressions [
+     (mithril/host-set
+      :object (mithril/local :name "Time")
+      :key (mithril/literal :datatype "js-value" :value "millisecond")
+      :value (mithril/literal :datatype "js-value" :value 1)
+     )
+     (mithril/host-set
+      :object (mithril/local :name "Time")
+      :key (mithril/literal :datatype "js-value" :value "second")
+      :value (mithril/literal :datatype "js-value" :value 1000)
+     )
+     (mithril/host-set
+      :object (mithril/local :name "Time")
+      :key (mithril/literal :datatype "js-value" :value "minute")
+      :value (mithril/host-binary
+       :operator "*"
+       :left (mithril/host-get
+        :object (mithril/local :name "Time")
+        :key (mithril/literal :datatype "js-value" :value "second")
+       )
+       :right (mithril/literal :datatype "js-value" :value 60)
+      )
+     )
+     (mithril/host-set
+      :object (mithril/local :name "Time")
+      :key (mithril/literal :datatype "js-value" :value "hour")
+      :value (mithril/host-binary
+       :operator "*"
+       :left (mithril/host-get
+        :object (mithril/local :name "Time")
+        :key (mithril/literal :datatype "js-value" :value "minute")
+       )
+       :right (mithril/literal :datatype "js-value" :value 60)
+      )
+     )
+     (mithril/host-set
+      :object (mithril/local :name "Time")
+      :key (mithril/literal :datatype "js-value" :value "day")
+      :value (mithril/host-binary
+       :operator "*"
+       :left (mithril/host-get
+        :object (mithril/local :name "Time")
+        :key (mithril/literal :datatype "js-value" :value "hour")
+       )
+       :right (mithril/literal :datatype "js-value" :value 24)
+      )
+     )
+     (mithril/host-set
+      :object (mithril/local :name "Time")
+      :key (mithril/literal :datatype "js-value" :value "week")
+      :value (mithril/host-binary
+       :operator "*"
+       :left (mithril/host-get
+        :object (mithril/local :name "Time")
+        :key (mithril/literal :datatype "js-value" :value "day")
+       )
+       :right (mithril/literal :datatype "js-value" :value 7)
+      )
+     )
+     (mithril/host-undefined )
+    ]
+   )
+  )
+  (rdf/node
+   :name "timezoneOffset"
+   :value (mithril/host-method
+    :object (mithril/host-construct :constructor (mithril/host-import :name "Date") :args [])
+    :key (mithril/literal :datatype "js-value" :value "getTimezoneOffset")
+    :args []
+   )
+   :mutable true
+  )
+  (rdf/node
+   :name "initialRegistration"
+   :value (mithril/sequence
+    :expressions [
+     (mithril/host-set
+      :object (mithril/local :name "Time")
+      :key (mithril/literal :datatype "js-value" :value "setTimezoneOffset")
+      :value (mithril/function-ref :name "setTimezoneOffset")
+     )
+     (mithril/host-set
+      :object (mithril/local :name "Time")
+      :key (mithril/literal :datatype "js-value" :value "getTimezoneOffset")
+      :value (mithril/function-ref :name "getTimezoneOffset")
+     )
+     (mithril/host-set
+      :object (mithril/local :name "Time")
+      :key (mithril/literal :datatype "js-value" :value "getDateNumber")
+      :value (mithril/function-ref :name "getDateNumber")
+     )
+     (mithril/host-set
+      :object (mithril/local :name "Time")
+      :key (mithril/literal :datatype "js-value" :value "fromDateNumber")
+      :value (mithril/function-ref :name "fromDateNumber")
+     )
+     (mithril/host-undefined )
+    ]
+   )
+  )
+  (rdf/node
+   :name "numeric"
+   :value (mithril/host-get
+    :object (mithril/host-regexp :pattern "\\d+(?:\\.\\d+)?" :flags "")
+    :key (mithril/literal :datatype "js-value" :value "source")
+   )
+  )
+  (rdf/node
+   :name "timeRegExp"
+   :value (mithril/host-construct
+    :constructor (mithril/host-import :name "RegExp")
+    :args [
+     (mithril/host-binary
+      :operator "+"
+      :left (mithril/host-binary
+       :operator "+"
+       :left (mithril/literal :datatype "js-value" :value "^")
+       :right (mithril/host-to-string
+        :value (mithril/host-method
+         :object (mithril/host-method
+          :object (mithril/host-array
+           :items [
+            (mithril/literal :datatype "js-value" :value "w(?:eek(?:s)?)?")
+            (mithril/literal :datatype "js-value" :value "d(?:ay(?:s)?)?")
+            (mithril/literal :datatype "js-value" :value "h(?:our(?:s)?)?")
+            (mithril/literal :datatype "js-value" :value "m(?:in(?:ute)?(?:s)?)?")
+            (mithril/literal :datatype "js-value" :value "s(?:ec(?:ond)?(?:s)?)?")
+           ]
+          )
+          :key (mithril/literal :datatype "js-value" :value "map")
+          :args [
+           (mithril/native-lambda
+            :params ["unit"]
+            :body (mithril/host-binary
+             :operator "+"
+             :left (mithril/host-binary
+              :operator "+"
+              :left (mithril/host-binary
+               :operator "+"
+               :left (mithril/literal :datatype "js-value" :value "(")
+               :right (mithril/host-to-string :value (mithril/local :name "numeric"))
+              )
+              :right (mithril/host-to-string :value (mithril/local :name "unit"))
+             )
+             :right (mithril/literal :datatype "js-value" :value ")?")
+            )
+           )
+          ]
+         )
+         :key (mithril/literal :datatype "js-value" :value "join")
+         :args [(mithril/literal :datatype "js-value" :value "")]
+        )
+       )
+      )
+      :right (mithril/literal :datatype "js-value" :value "$")
+     )
+    ]
+   )
+  )
+  (rdf/node
+   :name "remainingRegistration"
+   :value (mithril/sequence
+    :expressions [
+     (mithril/host-set
+      :object (mithril/local :name "Time")
+      :key (mithril/literal :datatype "js-value" :value "parseTime")
+      :value (mithril/function-ref :name "parseTime")
+     )
+     (mithril/host-set
+      :object (mithril/local :name "Time")
+      :key (mithril/literal :datatype "js-value" :value "parseDate")
+      :value (mithril/function-ref :name "parseDate")
+     )
+     (mithril/host-set
+      :object (mithril/local :name "Time")
+      :key (mithril/literal :datatype "js-value" :value "format")
+      :value (mithril/function-ref :name "format")
+     )
+     (mithril/host-set
+      :object (mithril/local :name "Time")
+      :key (mithril/literal :datatype "js-value" :value "toDigits")
+      :value (mithril/function-ref :name "toDigits")
+     )
+     (mithril/host-set
+      :object (mithril/local :name "Time")
+      :key (mithril/literal :datatype "js-value" :value "template")
+      :value (mithril/function-ref :name "template")
+     )
+     (mithril/host-undefined )
+    ]
+   )
+  )
+ ]
+ :functions [
+  (mithril/function
+   :name "setTimezoneOffset"
+   :params [(rdf/node :name "offset" :datatype "js-value")]
+   :returns "js-value"
+   :body (mithril/sequence
+    :expressions [
+     (mithril/local-set :name "timezoneOffset" :value (mithril/local :name "offset"))
+     (mithril/host-undefined )
+    ]
+   )
+  )
+  (mithril/function
+   :name "getTimezoneOffset"
+   :params []
+   :returns "js-value"
+   :body (mithril/local :name "timezoneOffset")
+  )
+  (mithril/function
+   :name "getDateNumber"
+   :params [
+    (rdf/node
+     :name "date"
+     :datatype "js-value"
+     :default (mithril/host-construct :constructor (mithril/host-import :name "Date") :args [])
+    )
+    (rdf/node :name "offset" :datatype "js-value")
+   ]
+   :returns "js-value"
+   :body (mithril/let
+    :bindings [
+     (rdf/node :name "date" :value (mithril/local :name "date") :mutable true)
+     (rdf/node :name "offset" :value (mithril/local :name "offset") :mutable true)
+    ]
+    :body (mithril/sequence
+     :expressions [
+      (mithril/if
+       :condition (mithril/host-binary
+        :operator "==="
+        :left (mithril/host-unary :operator "typeof" :value (mithril/local :name "date"))
+        :right (mithril/literal :datatype "js-value" :value "number")
+       )
+       :then (mithril/local-set
+        :name "date"
+        :value (mithril/host-construct
+         :constructor (mithril/host-import :name "Date")
+         :args [(mithril/local :name "date")]
+        )
+       )
+       :else (mithril/host-undefined )
+      )
+      (mithril/if
+       :condition (mithril/host-binary
+        :operator "==="
+        :left (mithril/local :name "offset")
+        :right (mithril/host-undefined )
+       )
+       :then (mithril/local-set :name "offset" :value (mithril/local :name "timezoneOffset"))
+       :else (mithril/host-undefined )
+      )
+      (mithril/host-method
+       :object (mithril/host-import :name "Math")
+       :key (mithril/literal :datatype "js-value" :value "floor")
+       :args [
+        (mithril/host-binary
+         :operator "/"
+         :left (mithril/host-binary
+          :operator "-"
+          :left (mithril/host-binary
+           :operator "/"
+           :left (mithril/host-method
+            :object (mithril/local :name "date")
+            :key (mithril/literal :datatype "js-value" :value "valueOf")
+            :args []
+           )
+           :right (mithril/host-get
+            :object (mithril/local :name "Time")
+            :key (mithril/literal :datatype "js-value" :value "minute")
+           )
+          )
+          :right (mithril/local :name "offset")
+         )
+         :right (mithril/literal :datatype "js-value" :value 1440)
+        )
+       ]
+      )
+     ]
+    )
+   )
+  )
+  (mithril/function
+   :name "fromDateNumber"
+   :params [(rdf/node :name "value" :datatype "js-value") (rdf/node :name "offset" :datatype "js-value")]
+   :returns "js-value"
+   :body (mithril/let
+    :bindings [
+     (rdf/node
+      :name "date"
+      :value (mithril/host-construct
+       :constructor (mithril/host-import :name "Date")
+       :args [
+        (mithril/host-binary
+         :operator "*"
+         :left (mithril/local :name "value")
+         :right (mithril/host-get
+          :object (mithril/local :name "Time")
+          :key (mithril/literal :datatype "js-value" :value "day")
+         )
+        )
+       ]
+      )
+      :mutable true
+     )
+     (rdf/node :name "offset" :value (mithril/local :name "offset") :mutable true)
+    ]
+    :body (mithril/sequence
+     :expressions [
+      (mithril/if
+       :condition (mithril/host-binary
+        :operator "==="
+        :left (mithril/local :name "offset")
+        :right (mithril/host-undefined )
+       )
+       :then (mithril/local-set :name "offset" :value (mithril/local :name "timezoneOffset"))
+       :else (mithril/host-undefined )
+      )
+      (mithril/host-construct
+       :constructor (mithril/host-import :name "Date")
+       :args [
+        (mithril/host-binary
+         :operator "+"
+         :left (mithril/host-unary :operator "+" :value (mithril/local :name "date"))
+         :right (mithril/host-binary
+          :operator "*"
+          :left (mithril/local :name "offset")
+          :right (mithril/host-get
+           :object (mithril/local :name "Time")
+           :key (mithril/literal :datatype "js-value" :value "minute")
+          )
+         )
+        )
+       ]
+      )
+     ]
+    )
+   )
+  )
+  (mithril/function
+   :name "parseTime"
+   :params [(rdf/node :name "source" :datatype "js-value")]
+   :returns "js-value"
+   :body (mithril/let
+    :bindings [
+     (rdf/node
+      :name "capture"
+      :value (mithril/host-method
+       :object (mithril/local :name "timeRegExp")
+       :key (mithril/literal :datatype "js-value" :value "exec")
+       :args [(mithril/local :name "source")]
+      )
+     )
+    ]
+    :body (mithril/if
+     :condition (mithril/host-unary :operator "!" :value (mithril/local :name "capture"))
+     :then (mithril/literal :datatype "js-value" :value 0)
+     :else (mithril/host-binary
+      :operator "+"
+      :left (mithril/host-binary
+       :operator "+"
+       :left (mithril/host-binary
+        :operator "+"
+        :left (mithril/host-binary
+         :operator "+"
+         :left (mithril/host-logical
+          :operator "||"
+          :left (mithril/host-binary
+           :operator "*"
+           :left (mithril/host-invoke
+            :function (mithril/host-import :name "parseFloat")
+            :args [
+             (mithril/host-get
+              :object (mithril/local :name "capture")
+              :key (mithril/literal :datatype "js-value" :value 1)
+             )
+            ]
+           )
+           :right (mithril/host-get
+            :object (mithril/local :name "Time")
+            :key (mithril/literal :datatype "js-value" :value "week")
+           )
+          )
+          :right (mithril/literal :datatype "js-value" :value 0)
+         )
+         :right (mithril/host-logical
+          :operator "||"
+          :left (mithril/host-binary
+           :operator "*"
+           :left (mithril/host-invoke
+            :function (mithril/host-import :name "parseFloat")
+            :args [
+             (mithril/host-get
+              :object (mithril/local :name "capture")
+              :key (mithril/literal :datatype "js-value" :value 2)
+             )
+            ]
+           )
+           :right (mithril/host-get
+            :object (mithril/local :name "Time")
+            :key (mithril/literal :datatype "js-value" :value "day")
+           )
+          )
+          :right (mithril/literal :datatype "js-value" :value 0)
+         )
+        )
+        :right (mithril/host-logical
+         :operator "||"
+         :left (mithril/host-binary
+          :operator "*"
+          :left (mithril/host-invoke
+           :function (mithril/host-import :name "parseFloat")
+           :args [
+            (mithril/host-get
+             :object (mithril/local :name "capture")
+             :key (mithril/literal :datatype "js-value" :value 3)
+            )
+           ]
+          )
+          :right (mithril/host-get
+           :object (mithril/local :name "Time")
+           :key (mithril/literal :datatype "js-value" :value "hour")
+          )
+         )
+         :right (mithril/literal :datatype "js-value" :value 0)
+        )
+       )
+       :right (mithril/host-logical
+        :operator "||"
+        :left (mithril/host-binary
+         :operator "*"
+         :left (mithril/host-invoke
+          :function (mithril/host-import :name "parseFloat")
+          :args [
+           (mithril/host-get
+            :object (mithril/local :name "capture")
+            :key (mithril/literal :datatype "js-value" :value 4)
+           )
+          ]
+         )
+         :right (mithril/host-get
+          :object (mithril/local :name "Time")
+          :key (mithril/literal :datatype "js-value" :value "minute")
+         )
+        )
+        :right (mithril/literal :datatype "js-value" :value 0)
+       )
+      )
+      :right (mithril/host-logical
+       :operator "||"
+       :left (mithril/host-binary
+        :operator "*"
+        :left (mithril/host-invoke
+         :function (mithril/host-import :name "parseFloat")
+         :args [
+          (mithril/host-get
+           :object (mithril/local :name "capture")
+           :key (mithril/literal :datatype "js-value" :value 5)
+          )
+         ]
+        )
+        :right (mithril/host-get
+         :object (mithril/local :name "Time")
+         :key (mithril/literal :datatype "js-value" :value "second")
+        )
+       )
+       :right (mithril/literal :datatype "js-value" :value 0)
+      )
+     )
+    )
+   )
+  )
+  (mithril/function
+   :name "parseDate"
+   :params [(rdf/node :name "date" :datatype "js-value")]
+   :returns "js-value"
+   :body (mithril/let
+    :bindings [(rdf/node :name "date" :value (mithril/local :name "date") :mutable true)]
+    :body (mithril/let
+     :bindings [(rdf/node :name "parsed" :value (mithril/call :name "parseTime" :args [(mithril/local :name "date")]))]
+     :body (mithril/sequence
+      :expressions [
+       (mithril/if
+        :condition (mithril/local :name "parsed")
+        :then (mithril/local-set
+         :name "date"
+         :value (mithril/host-binary
+          :operator "+"
+          :left (mithril/host-method
+           :object (mithril/host-import :name "Date")
+           :key (mithril/literal :datatype "js-value" :value "now")
+           :args []
+          )
+          :right (mithril/local :name "parsed")
+         )
+        )
+        :else (mithril/if
+         :condition (mithril/host-method
+          :object (mithril/host-regexp :pattern "^\\d{1,2}(:\\d{1,2}){1,2}$" :flags "")
+          :key (mithril/literal :datatype "js-value" :value "test")
+          :args [(mithril/local :name "date")]
+         )
+         :then (mithril/local-set
+          :name "date"
+          :value (mithril/host-binary
+           :operator "+"
+           :left (mithril/host-binary
+            :operator "+"
+            :left (mithril/host-to-string
+             :value (mithril/host-method
+              :object (mithril/host-construct :constructor (mithril/host-import :name "Date") :args [])
+              :key (mithril/literal :datatype "js-value" :value "toLocaleDateString")
+              :args []
+             )
+            )
+            :right (mithril/literal :datatype "js-value" :value "-")
+           )
+           :right (mithril/host-to-string :value (mithril/local :name "date"))
+          )
+         )
+         :else (mithril/if
+          :condition (mithril/host-method
+           :object (mithril/host-regexp :pattern "^\\d{1,2}-\\d{1,2}-\\d{1,2}(:\\d{1,2}){1,2}$" :flags "")
+           :key (mithril/literal :datatype "js-value" :value "test")
+           :args [(mithril/local :name "date")]
+          )
+          :then (mithril/local-set
+           :name "date"
+           :value (mithril/host-binary
+            :operator "+"
+            :left (mithril/host-binary
+             :operator "+"
+             :left (mithril/host-to-string
+              :value (mithril/host-method
+               :object (mithril/host-construct :constructor (mithril/host-import :name "Date") :args [])
+               :key (mithril/literal :datatype "js-value" :value "getFullYear")
+               :args []
+              )
+             )
+             :right (mithril/literal :datatype "js-value" :value "-")
+            )
+            :right (mithril/host-to-string :value (mithril/local :name "date"))
+           )
+          )
+          :else (mithril/host-undefined )
+         )
+        )
+       )
+       (mithril/if
+        :condition (mithril/local :name "date")
+        :then (mithril/host-construct
+         :constructor (mithril/host-import :name "Date")
+         :args [(mithril/local :name "date")]
+        )
+        :else (mithril/host-construct :constructor (mithril/host-import :name "Date") :args [])
+       )
+      ]
+     )
+    )
+   )
+  )
+  (mithril/function
+   :name "format"
+   :params [(rdf/node :name "ms" :datatype "js-value")]
+   :returns "js-value"
+   :body (mithril/let
+    :bindings [
+     (rdf/node
+      :name "abs"
+      :value (mithril/host-method
+       :object (mithril/host-import :name "Math")
+       :key (mithril/literal :datatype "js-value" :value "abs")
+       :args [(mithril/local :name "ms")]
+      )
+     )
+    ]
+    :body (mithril/if
+     :condition (mithril/host-binary
+      :operator ">="
+      :left (mithril/local :name "abs")
+      :right (mithril/host-binary
+       :operator "-"
+       :left (mithril/host-get
+        :object (mithril/local :name "Time")
+        :key (mithril/literal :datatype "js-value" :value "day")
+       )
+       :right (mithril/host-binary
+        :operator "/"
+        :left (mithril/host-get
+         :object (mithril/local :name "Time")
+         :key (mithril/literal :datatype "js-value" :value "hour")
+        )
+        :right (mithril/literal :datatype "js-value" :value 2)
+       )
+      )
+     )
+     :then (mithril/host-binary
+      :operator "+"
+      :left (mithril/host-method
+       :object (mithril/host-import :name "Math")
+       :key (mithril/literal :datatype "js-value" :value "round")
+       :args [
+        (mithril/host-binary
+         :operator "/"
+         :left (mithril/local :name "ms")
+         :right (mithril/host-get
+          :object (mithril/local :name "Time")
+          :key (mithril/literal :datatype "js-value" :value "day")
+         )
+        )
+       ]
+      )
+      :right (mithril/literal :datatype "js-value" :value "d")
+     )
+     :else (mithril/if
+      :condition (mithril/host-binary
+       :operator ">="
+       :left (mithril/local :name "abs")
+       :right (mithril/host-binary
+        :operator "-"
+        :left (mithril/host-get
+         :object (mithril/local :name "Time")
+         :key (mithril/literal :datatype "js-value" :value "hour")
+        )
+        :right (mithril/host-binary
+         :operator "/"
+         :left (mithril/host-get
+          :object (mithril/local :name "Time")
+          :key (mithril/literal :datatype "js-value" :value "minute")
+         )
+         :right (mithril/literal :datatype "js-value" :value 2)
+        )
+       )
+      )
+      :then (mithril/host-binary
+       :operator "+"
+       :left (mithril/host-method
+        :object (mithril/host-import :name "Math")
+        :key (mithril/literal :datatype "js-value" :value "round")
+        :args [
+         (mithril/host-binary
+          :operator "/"
+          :left (mithril/local :name "ms")
+          :right (mithril/host-get
+           :object (mithril/local :name "Time")
+           :key (mithril/literal :datatype "js-value" :value "hour")
+          )
+         )
+        ]
+       )
+       :right (mithril/literal :datatype "js-value" :value "h")
+      )
+      :else (mithril/if
+       :condition (mithril/host-binary
+        :operator ">="
+        :left (mithril/local :name "abs")
+        :right (mithril/host-binary
+         :operator "-"
+         :left (mithril/host-get
+          :object (mithril/local :name "Time")
+          :key (mithril/literal :datatype "js-value" :value "minute")
+         )
+         :right (mithril/host-binary
+          :operator "/"
+          :left (mithril/host-get
+           :object (mithril/local :name "Time")
+           :key (mithril/literal :datatype "js-value" :value "second")
+          )
+          :right (mithril/literal :datatype "js-value" :value 2)
+         )
+        )
+       )
+       :then (mithril/host-binary
+        :operator "+"
+        :left (mithril/host-method
+         :object (mithril/host-import :name "Math")
+         :key (mithril/literal :datatype "js-value" :value "round")
+         :args [
+          (mithril/host-binary
+           :operator "/"
+           :left (mithril/local :name "ms")
+           :right (mithril/host-get
+            :object (mithril/local :name "Time")
+            :key (mithril/literal :datatype "js-value" :value "minute")
+           )
+          )
+         ]
+        )
+        :right (mithril/literal :datatype "js-value" :value "m")
+       )
+       :else (mithril/if
+        :condition (mithril/host-binary
+         :operator ">="
+         :left (mithril/local :name "abs")
+         :right (mithril/host-get
+          :object (mithril/local :name "Time")
+          :key (mithril/literal :datatype "js-value" :value "second")
+         )
+        )
+        :then (mithril/host-binary
+         :operator "+"
+         :left (mithril/host-method
+          :object (mithril/host-import :name "Math")
+          :key (mithril/literal :datatype "js-value" :value "round")
+          :args [
+           (mithril/host-binary
+            :operator "/"
+            :left (mithril/local :name "ms")
+            :right (mithril/host-get
+             :object (mithril/local :name "Time")
+             :key (mithril/literal :datatype "js-value" :value "second")
+            )
+           )
+          ]
+         )
+         :right (mithril/literal :datatype "js-value" :value "s")
+        )
+        :else (mithril/host-binary
+         :operator "+"
+         :left (mithril/local :name "ms")
+         :right (mithril/literal :datatype "js-value" :value "ms")
+        )
+       )
+      )
+     )
+    )
+   )
+  )
+  (mithril/function
+   :name "toDigits"
+   :params [
+    (rdf/node :name "source" :datatype "js-value")
+    (rdf/node :name "length" :datatype "js-value" :default (mithril/literal :datatype "js-value" :value 2))
+   ]
+   :returns "js-value"
+   :body (mithril/host-method
+    :object (mithril/host-method
+     :object (mithril/local :name "source")
+     :key (mithril/literal :datatype "js-value" :value "toString")
+     :args []
+    )
+    :key (mithril/literal :datatype "js-value" :value "padStart")
+    :args [(mithril/local :name "length") (mithril/literal :datatype "js-value" :value "0")]
+   )
+  )
+  (mithril/function
+   :name "template"
+   :params [
+    (rdf/node :name "template" :datatype "js-value")
+    (rdf/node
+     :name "time"
+     :datatype "js-value"
+     :default (mithril/host-construct :constructor (mithril/host-import :name "Date") :args [])
+    )
+   ]
+   :returns "js-value"
+   :body (mithril/host-method
+    :object (mithril/host-method
+     :object (mithril/host-method
+      :object (mithril/host-method
+       :object (mithril/host-method
+        :object (mithril/host-method
+         :object (mithril/host-method
+          :object (mithril/host-method
+           :object (mithril/local :name "template")
+           :key (mithril/literal :datatype "js-value" :value "replace")
+           :args [
+            (mithril/literal :datatype "js-value" :value "yyyy")
+            (mithril/host-method
+             :object (mithril/host-method
+              :object (mithril/local :name "time")
+              :key (mithril/literal :datatype "js-value" :value "getFullYear")
+              :args []
+             )
+             :key (mithril/literal :datatype "js-value" :value "toString")
+             :args []
+            )
+           ]
+          )
+          :key (mithril/literal :datatype "js-value" :value "replace")
+          :args [
+           (mithril/literal :datatype "js-value" :value "yy")
+           (mithril/host-method
+            :object (mithril/host-method
+             :object (mithril/host-method
+              :object (mithril/local :name "time")
+              :key (mithril/literal :datatype "js-value" :value "getFullYear")
+              :args []
+             )
+             :key (mithril/literal :datatype "js-value" :value "toString")
+             :args []
+            )
+            :key (mithril/literal :datatype "js-value" :value "slice")
+            :args [(mithril/literal :datatype "js-value" :value 2)]
+           )
+          ]
+         )
+         :key (mithril/literal :datatype "js-value" :value "replace")
+         :args [
+          (mithril/literal :datatype "js-value" :value "MM")
+          (mithril/call
+           :name "toDigits"
+           :args [
+            (mithril/host-binary
+             :operator "+"
+             :left (mithril/host-method
+              :object (mithril/local :name "time")
+              :key (mithril/literal :datatype "js-value" :value "getMonth")
+              :args []
+             )
+             :right (mithril/literal :datatype "js-value" :value 1)
+            )
+           ]
+          )
+         ]
+        )
+        :key (mithril/literal :datatype "js-value" :value "replace")
+        :args [
+         (mithril/literal :datatype "js-value" :value "dd")
+         (mithril/call
+          :name "toDigits"
+          :args [
+           (mithril/host-method
+            :object (mithril/local :name "time")
+            :key (mithril/literal :datatype "js-value" :value "getDate")
+            :args []
+           )
+          ]
+         )
+        ]
+       )
+       :key (mithril/literal :datatype "js-value" :value "replace")
+       :args [
+        (mithril/literal :datatype "js-value" :value "hh")
+        (mithril/call
+         :name "toDigits"
+         :args [
+          (mithril/host-method
+           :object (mithril/local :name "time")
+           :key (mithril/literal :datatype "js-value" :value "getHours")
+           :args []
+          )
+         ]
+        )
+       ]
+      )
+      :key (mithril/literal :datatype "js-value" :value "replace")
+      :args [
+       (mithril/literal :datatype "js-value" :value "mm")
+       (mithril/call
+        :name "toDigits"
+        :args [
+         (mithril/host-method
+          :object (mithril/local :name "time")
+          :key (mithril/literal :datatype "js-value" :value "getMinutes")
+          :args []
+         )
+        ]
+       )
+      ]
+     )
+     :key (mithril/literal :datatype "js-value" :value "replace")
+     :args [
+      (mithril/literal :datatype "js-value" :value "ss")
+      (mithril/call
+       :name "toDigits"
+       :args [
+        (mithril/host-method
+         :object (mithril/local :name "time")
+         :key (mithril/literal :datatype "js-value" :value "getSeconds")
+         :args []
+        )
+       ]
+      )
+     ]
+    )
+    :key (mithril/literal :datatype "js-value" :value "replace")
+    :args [
+     (mithril/literal :datatype "js-value" :value "SSS")
+     (mithril/call
+      :name "toDigits"
+      :args [
+       (mithril/host-method
+        :object (mithril/local :name "time")
+        :key (mithril/literal :datatype "js-value" :value "getMilliseconds")
+        :args []
+       )
+       (mithril/literal :datatype "js-value" :value 3)
+      ]
+     )
+    ]
+   )
+  )
+ ]
+ :exports [(rdf/node :name "Time" :value (mithril/local :name "Time"))]
+)

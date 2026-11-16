@@ -1,0 +1,14 @@
+(mithril/native-js-module :name "namespace.root"
+ :imports ["ns" "again" "count" "cjs" "yaml" "leaf"]
+ :bindings [(rdf/node :name "view" :value (mithril/host-import :name "ns"))]
+ :functions [(mithril/function :name "load" :params [] :returns "js-value"
+  :body (mithril/host-dynamic-import :source (mithril/literal :datatype "js-value" :value "fixture.external")))
+  (mithril/function :name "write" :params [] :returns "js-value"
+   :body (mithril/host-set :object (mithril/host-import :name "ns") :key (mithril/literal :datatype "js-value" :value "count") :value (mithril/literal :datatype "js-value" :value 7)))]
+ :exports [(rdf/node :name "view" :value (mithril/local :name "view"))
+           (rdf/node :name "ns" :value (mithril/host-import :name "ns"))
+           (rdf/node :name "again" :value (mithril/host-import :name "again"))
+           (rdf/node :name "count" :value (mithril/host-import :name "count"))
+           (rdf/node :name "cjs" :value (mithril/host-import :name "cjs"))
+           (rdf/node :name "yaml" :value (mithril/host-import :name "yaml"))
+           (rdf/node :name "leaf" :value (mithril/host-import :name "leaf")) "load" "write"])

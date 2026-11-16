@@ -1,0 +1,4 @@
+(mithril/native-js-declaration-program :name "external.forward" :runtime-source "forward-esm.mith"
+ :modules [(rdf/node :name "external.forward" :source "forward-types.mith")]
+ :externals [(rdf/node :name "aaa.fixture" :specifier "fixture.external" :types [] :values ["count" "inc" "default"])]
+ :entry "external.forward")

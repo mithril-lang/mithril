@@ -1,0 +1,29 @@
+(ns mithril.native-esm-cli
+  (:require [mithril.native-esm :as esm] ["node:fs" :as fs] ["node:path" :as path]))
+(let [[source flag target out-flag output & extra] *command-line-args*
+      created? (atom false)]
+  (when-not (and source (= flag "--target") (= out-flag "--output-directory") output (empty? extra))
+    (js/console.error "usage: mithril-native-esm <package.mith> --target js|js-browser --output-directory <new-directory>")
+    (js/process.exit 64))
+  (when-not (contains? #{"js" "js-browser"} target)
+    (js/console.error "REFUSE\tnative-esm-target\tNative ESM packages require target js or js-browser")
+    (js/process.exit 65))
+  (try
+    (let [text (fs/readFileSync source "utf8") names (esm/source-basenames text)
+          directory (path/dirname (path/resolve source))
+          sources (into {} (map (fn [name]
+                                 (let [file (path/join directory name) stat (fs/lstatSync file)]
+                                   (when-not (and (.isFile stat) (not (.isSymbolicLink stat)) (<= (.-size stat) 1048576))
+                                     (throw (ex-info "Expected bounded regular Mithril source" {:mithril/error :mithril.native-esm/source})))
+                                   [name (fs/readFileSync file "utf8")])) names))
+          result (esm/compile-text text sources)]
+      ;; Admission finishes before any output. Existing directories are refused;
+      ;; cleanup owns only the directory successfully created by this invocation.
+      (fs/mkdirSync output) (reset! created? true)
+      (doseq [[name contents] (:files result)]
+        (fs/writeFileSync (path/join output name) contents #js {:flag "wx"}))
+      (println (js/JSON.stringify (clj->js (assoc (dissoc result :files) :target target :output-directory output)))))
+    (catch :default e
+      (when @created? (fs/rmSync output #js {:recursive true :force true}))
+      (js/console.error (str "REFUSE\t" (or (some-> e ex-data :mithril/error name) "compile-error") "\t" (.-message e)))
+      (js/process.exit 65))))

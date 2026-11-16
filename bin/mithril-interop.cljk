@@ -1,0 +1,14 @@
+(ns mithril.interop-main
+  (:require [mithril.mission-native :as native]))
+
+(let [[python adapter-root request-path & extra] *command-line-args*]
+  (try
+    (when (or (not (and python adapter-root request-path)) (seq extra))
+      (throw (ex-info "usage: mithril-interop <python> <adapter-repo> <request.json>"
+                      {:mithril/error :mithril.mission/native-usage})))
+    (let [request (js->clj (.parse js/JSON (.readFileSync (js/require "node:fs") request-path "utf8")))
+          receipt (native/invoke! {:python python :adapter-root adapter-root} request)]
+      (println (.stringify js/JSON (clj->js receipt) nil 2)))
+    (catch :default e
+      (binding [*print-fn* *print-err-fn*] (println (str "REFUSE\t" (.-message e))))
+      (js/process.exit 1))))

@@ -1,0 +1,22 @@
+(mithril/ontology :id "https://mithril.fund/ontology/sd-v1"
+:profile ["https://www.w3.org/TR/rdf11-concepts/" "https://www.w3.org/TR/owl2-profiles/#OWL_2_RL" "https://www.w3.org/TR/shacl/"]
+:graph [
+(owl/class :id "https://mithril.fund/ns/sd/v1#Program")
+(owl/class :id "https://mithril.fund/ns/sd/v1#Run")
+(owl/class :id "https://mithril.fund/ns/sd/v1#Stock")
+(owl/class :id "https://mithril.fund/ns/sd/v1#Rate")
+(owl/class :id "https://mithril.fund/ns/sd/v1#Auxiliary")
+(owl/datatype-property :id "https://mithril.fund/ns/sd/v1#key")
+(owl/datatype-property :id "https://mithril.fund/ns/sd/v1#model")
+(owl/datatype-property :id "https://mithril.fund/ns/sd/v1#specification")
+(owl/datatype-property :id "https://mithril.fund/ns/sd/v1#status")
+(owl/datatype-property :id "https://mithril.fund/ns/sd/v1#dt")
+(owl/datatype-property :id "https://mithril.fund/ns/sd/v1#horizon")
+(owl/datatype-property :id "https://mithril.fund/ns/sd/v1#steps")
+(owl/datatype-property :id "https://mithril.fund/ns/sd/v1#series")
+(shacl/node-shape :id "https://mithril.fund/ns/sd/v1#ProgramShape" :sh/target-class "https://mithril.fund/ns/sd/v1#Program" :sh/property [
+(shacl/property-shape :sh/path "https://mithril.fund/ns/sd/v1#key" :sh/datatype "http://www.w3.org/2001/XMLSchema#string" :sh/min-count 1 :sh/max-count 1)
+(shacl/property-shape :sh/path "https://mithril.fund/ns/sd/v1#model" :sh/datatype "http://www.w3.org/2001/XMLSchema#string" :sh/min-count 1 :sh/max-count 1)
+(shacl/property-shape :sh/path "https://mithril.fund/ns/sd/v1#specification" :sh/datatype "http://www.w3.org/2001/XMLSchema#string" :sh/min-count 1 :sh/max-count 1)
+])
+])

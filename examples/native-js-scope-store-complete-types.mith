@@ -1,0 +1,518 @@
+(mithril/native-js-declaration-module :name "scope.store"
+:runtime "scope.store"
+:ambient-types [(rdf/node :name "IterableIterator"
+:min 1
+:max 1)
+(rdf/node :name "Error"
+:min 0
+:max 0)
+(rdf/node :name "Promise"
+:min 1
+:max 1)
+(rdf/node :name "Partial"
+:min 1
+:max 1)
+(rdf/node :name "Omit"
+:min 2
+:max 2)
+(rdf/node :name "Pick"
+:min 2
+:max 2)
+(rdf/node :name "Map"
+:min 2
+:max 2)
+(rdf/node :name "ArrayBuffer"
+:min 0
+:max 0)
+(rdf/node :name "URL"
+:min 0
+:max 0)
+(rdf/node :name "ImportAttributes"
+:min 0
+:max 0)
+(rdf/node :name "NodeJS.Signals"
+:min 0
+:max 0)
+(rdf/node :name "Generator"
+:min 0
+:max 3)
+(rdf/node :name "AsyncGenerator"
+:min 0
+:max 3)]
+:ambient-values []
+:imports [(rdf/node :module "cordis.index"
+:type-only true
+:names [(rdf/node :import "Context"
+:local "Context")])
+(rdf/node :module "scope.index"
+:type-only true
+:names [(rdf/node :import "ScopeKey"
+:local "ScopeKey")])]
+:declarations [(rdf/node :kind "interface"
+:name "ScopeLayer"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "method"
+:name "isEmpty"
+:optional false
+:type-params []
+:params []
+:returns (rdf/node :op "keyword"
+:name "boolean"))])
+(rdf/node :kind "interface"
+:name "EntryValues"
+:exported false
+:type-params [(rdf/node :name "V"
+:constraint nil
+:default nil)]
+:extends []
+:members [(rdf/node :kind "method"
+:name "values"
+:optional false
+:type-params []
+:params []
+:returns (rdf/node :op "name"
+:name "IterableIterator"
+:args [(rdf/node :op "name"
+:name "V"
+:args [])]))
+(rdf/node :kind "method"
+:name "isEmpty"
+:optional false
+:type-params []
+:params []
+:returns (rdf/node :op "keyword"
+:name "boolean"))])
+(rdf/node :kind "class"
+:name "NamedEntries"
+:exported true
+:abstract false
+:type-params [(rdf/node :name "V"
+:constraint nil
+:default nil
+:variance nil)]
+:extends nil
+:implements [(rdf/node :op "name"
+:name "EntryValues"
+:args [(rdf/node :op "name"
+:name "V"
+:args [])])]
+:members [(rdf/node :kind "opaque"
+:key (rdf/node :kind "name"
+:name "duplicateError")
+:visibility "private"
+:static false
+:readonly true)
+(rdf/node :kind "opaque"
+:key (rdf/node :kind "name"
+:name "data")
+:visibility "private"
+:static false)
+(rdf/node :kind "constructor"
+:visibility "public"
+:params [(rdf/node :name "duplicateError"
+:optional false
+:rest false
+:datatype (rdf/node :op "function"
+:abstract false
+:type-params []
+:params [(rdf/node :name "name"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))]
+:returns (rdf/node :op "name"
+:name "Error"
+:args [])))])
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "insert")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "name"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :name "value"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "V"
+:args []))]
+:returns (rdf/node :op "function"
+:abstract false
+:type-params []
+:params []
+:returns (rdf/node :op "keyword"
+:name "void")))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "get")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "name"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))]
+:returns (rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "V"
+:args [])
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "has")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "name"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))]
+:returns (rdf/node :op "keyword"
+:name "boolean"))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "keys")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params []
+:returns (rdf/node :op "name"
+:name "IterableIterator"
+:args [(rdf/node :op "keyword"
+:name "string")]))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "entries")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params []
+:returns (rdf/node :op "name"
+:name "IterableIterator"
+:args [(rdf/node :op "tuple"
+:items [(rdf/node :op "keyword"
+:name "string")
+(rdf/node :op "name"
+:name "V"
+:args [])])]))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "values")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params []
+:returns (rdf/node :op "name"
+:name "IterableIterator"
+:args [(rdf/node :op "name"
+:name "V"
+:args [])]))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "isEmpty")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params []
+:returns (rdf/node :op "keyword"
+:name "boolean"))])
+(rdf/node :kind "class"
+:name "AnonymousEntries"
+:exported true
+:abstract false
+:type-params [(rdf/node :name "V"
+:constraint nil
+:default nil
+:variance nil)]
+:extends nil
+:implements [(rdf/node :op "name"
+:name "EntryValues"
+:args [(rdf/node :op "name"
+:name "V"
+:args [])])]
+:members [(rdf/node :kind "opaque"
+:key (rdf/node :kind "name"
+:name "data")
+:visibility "private"
+:static false)
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "append")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "value"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "V"
+:args []))]
+:returns (rdf/node :op "function"
+:abstract false
+:type-params []
+:params []
+:returns (rdf/node :op "keyword"
+:name "void")))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "values")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params []
+:returns (rdf/node :op "name"
+:name "IterableIterator"
+:args [(rdf/node :op "name"
+:name "V"
+:args [])]))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "isEmpty")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params []
+:returns (rdf/node :op "keyword"
+:name "boolean"))])
+(rdf/node :kind "class"
+:name "ScopedLayers"
+:exported true
+:abstract false
+:type-params [(rdf/node :name "L"
+:constraint (rdf/node :op "name"
+:name "ScopeLayer"
+:args [])
+:default nil
+:variance nil)]
+:extends nil
+:implements []
+:members [(rdf/node :kind "opaque"
+:key (rdf/node :kind "name"
+:name "createLayer")
+:visibility "private"
+:static false
+:readonly true)
+(rdf/node :kind "opaque"
+:key (rdf/node :kind "name"
+:name "onChange")
+:visibility "private"
+:static false
+:readonly true)
+(rdf/node :kind "property"
+:key (rdf/node :kind "name"
+:name "global")
+:visibility "public"
+:static false
+:readonly true
+:optional false
+:datatype (rdf/node :op "name"
+:name "L"
+:args []))
+(rdf/node :kind "opaque"
+:key (rdf/node :kind "name"
+:name "scoped")
+:visibility "private"
+:static false
+:readonly true)
+(rdf/node :kind "constructor"
+:visibility "public"
+:params [(rdf/node :name "createLayer"
+:optional false
+:rest false
+:datatype (rdf/node :op "function"
+:abstract false
+:type-params []
+:params [(rdf/node :name "scope"
+:optional false
+:rest false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "ScopeKey"
+:args [])
+(rdf/node :op "keyword"
+:name "undefined")]))]
+:returns (rdf/node :op "name"
+:name "L"
+:args [])))
+(rdf/node :name "onChange"
+:optional false
+:rest false
+:datatype (rdf/node :op "function"
+:abstract false
+:type-params []
+:params []
+:returns (rdf/node :op "keyword"
+:name "void")))])
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "peek")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "scope"
+:optional false
+:rest false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "ScopeKey"
+:args [])
+(rdf/node :op "keyword"
+:name "undefined")]))]
+:returns (rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "L"
+:args [])
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "chainLayers")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "scope"
+:optional false
+:rest false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "ScopeKey"
+:args [])
+(rdf/node :op "keyword"
+:name "undefined")]))]
+:returns (rdf/node :op "array"
+:item (rdf/node :op "name"
+:name "L"
+:args [])))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "merge")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params [(rdf/node :name "V"
+:constraint nil
+:default nil)]
+:params [(rdf/node :name "scope"
+:optional false
+:rest false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "ScopeKey"
+:args [])
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :name "pick"
+:optional false
+:rest false
+:datatype (rdf/node :op "function"
+:abstract false
+:type-params []
+:params [(rdf/node :name "layer"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "L"
+:args []))]
+:returns (rdf/node :op "name"
+:name "NamedEntries"
+:args [(rdf/node :op "name"
+:name "V"
+:args [])])))]
+:returns (rdf/node :op "name"
+:name "Map"
+:args [(rdf/node :op "keyword"
+:name "string")
+(rdf/node :op "name"
+:name "V"
+:args [])]))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "effect")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "ctx"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "Context"
+:args []))
+(rdf/node :name "action"
+:optional false
+:rest false
+:datatype (rdf/node :op "function"
+:abstract false
+:type-params []
+:params [(rdf/node :name "layer"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "L"
+:args []))]
+:returns (rdf/node :op "function"
+:abstract false
+:type-params []
+:params []
+:returns (rdf/node :op "keyword"
+:name "void"))))
+(rdf/node :name "options"
+:optional false
+:rest false
+:datatype (rdf/node :op "object"
+:members [(rdf/node :kind "property"
+:name "label"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:name "notify"
+:optional true
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "boolean"))]))]
+:returns (rdf/node :op "function"
+:abstract false
+:type-params []
+:params []
+:returns (rdf/node :op "keyword"
+:name "void")))])]
+:reexports []
+:augmentations []
+:local-exports [])

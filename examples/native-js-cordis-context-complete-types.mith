@@ -1,0 +1,436 @@
+(mithril/native-js-declaration-module
+ :name "cordis.context"
+ :runtime "cordis.context"
+ :ambient-types [(rdf/node
+   :name "Pick"
+   :min 2
+   :max 2)
+  (rdf/node
+   :name "Omit"
+   :min 2
+   :max 2)
+  (rdf/node
+   :name "Promise"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "PromiseLike"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "Parameters"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "ThisType"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "NoInfer"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "ReturnType"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "Record"
+   :min 2
+   :max 2)
+  (rdf/node
+   :name "Partial"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "Map"
+   :min 2
+   :max 2)
+  (rdf/node
+   :name "WeakRef"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "Error"
+   :min 0
+   :max 0)
+  (rdf/node
+   :name "TypeError"
+   :min 0
+   :max 0)
+  (rdf/node
+   :name "Function"
+   :min 0
+   :max 0)
+  (rdf/node
+   :name "globalThis.Function"
+   :min 0
+   :max 0)
+  (rdf/node
+   :name "ClassDecoratorContext"
+   :min 0
+   :max 1)
+  (rdf/node
+   :name "ClassMethodDecoratorContext"
+   :min 0
+   :max 2)
+  (rdf/node
+   :name "WeakKey"
+   :min 0
+   :max 0)
+  (rdf/node
+   :name "MapIterator"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "TypedPropertyDescriptor"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "ProxyHandler"
+   :min 1
+   :max 1)
+  (rdf/node
+   :name "Iterable"
+   :min 1
+   :max 3)
+  (rdf/node
+   :name "AsyncIterable"
+   :min 1
+   :max 3)]
+ :ambient-values ["Symbol.iterator"
+  "Symbol.hasInstance"
+  "Error"
+  "TypeError"]
+ :imports [(rdf/node
+   :module "cosmokit"
+   :type-only true
+   :names [(rdf/node
+     :import "Dict"
+     :local "Dict")])
+  (rdf/node
+   :module "cordis.events"
+   :type-only false
+   :names [(rdf/node
+     :import "EventsService"
+     :local "EventsService")])
+  (rdf/node
+   :module "cordis.logger"
+   :type-only false
+   :names [(rdf/node
+     :import "LoggerService"
+     :local "LoggerService")])
+  (rdf/node
+   :module "cordis.reflect"
+   :type-only false
+   :names [(rdf/node
+     :import "ReflectService"
+     :local "ReflectService")])
+  (rdf/node
+   :module "cordis.registry"
+   :type-only false
+   :names [(rdf/node
+     :import "RegistryService"
+     :local "RegistryService")
+    (rdf/node
+     :import "InjectKey"
+     :local "InjectKey")])
+  (rdf/node
+   :module "cordis.utils"
+   :type-only false
+   :names [(rdf/node
+     :import "symbols"
+     :local "symbols")])
+  (rdf/node
+   :module "cordis.fiber"
+   :type-only false
+   :names nil)]
+ :reexports []
+ :declarations [(rdf/node
+   :kind "interface"
+   :name "Context"
+   :exported true
+   :type-params []
+   :extends []
+   :members [(rdf/node
+     :kind "computed-property"
+     :name "symbols.isolate"
+     :optional false
+     :readonly false
+     :datatype (rdf/node
+      :op "name"
+      :name "Dict"
+      :args [(rdf/node
+        :op "keyword"
+        :name "symbol")]))
+    (rdf/node
+     :kind "computed-property"
+     :name "symbols.intercept"
+     :optional false
+     :readonly false
+     :datatype (rdf/node
+      :op "name"
+      :name "Dict"
+      :args []))
+    (rdf/node
+     :kind "property"
+     :name "root"
+     :optional false
+     :readonly false
+     :datatype (rdf/node
+      :op "this"))
+    (rdf/node
+     :kind "property"
+     :name "baseUrl"
+     :optional true
+     :readonly false
+     :datatype (rdf/node
+      :op "keyword"
+      :name "string"))
+    (rdf/node
+     :kind "property"
+     :name "events"
+     :optional false
+     :readonly false
+     :datatype (rdf/node
+      :op "name"
+      :name "EventsService"
+      :args []))
+    (rdf/node
+     :kind "property"
+     :name "logger"
+     :optional false
+     :readonly false
+     :datatype (rdf/node
+      :op "name"
+      :name "LoggerService"
+      :args []))
+    (rdf/node
+     :kind "property"
+     :name "reflect"
+     :optional false
+     :readonly false
+     :datatype (rdf/node
+      :op "name"
+      :name "ReflectService"
+      :args []))
+    (rdf/node
+     :kind "property"
+     :name "registry"
+     :optional false
+     :readonly false
+     :datatype (rdf/node
+      :op "name"
+      :name "RegistryService"
+      :args []))])
+  (rdf/node
+   :kind "class"
+   :name "Context"
+   :exported true
+   :abstract false
+   :type-params []
+   :extends nil
+   :implements []
+   :members [(rdf/node
+     :kind "property"
+     :key (rdf/node
+      :kind "name"
+      :name "effect")
+     :visibility "public"
+     :static true
+     :readonly true
+     :optional false
+     :datatype (rdf/node
+      :op "unique-symbol"))
+    (rdf/node
+     :kind "property"
+     :key (rdf/node
+      :kind "name"
+      :name "filter")
+     :visibility "public"
+     :static true
+     :readonly true
+     :optional false
+     :datatype (rdf/node
+      :op "unique-symbol"))
+    (rdf/node
+     :kind "property"
+     :key (rdf/node
+      :kind "name"
+      :name "isolate")
+     :visibility "public"
+     :static true
+     :readonly true
+     :optional false
+     :datatype (rdf/node
+      :op "unique-symbol"))
+    (rdf/node
+     :kind "property"
+     :key (rdf/node
+      :kind "name"
+      :name "intercept")
+     :visibility "public"
+     :static true
+     :readonly true
+     :optional false
+     :datatype (rdf/node
+      :op "unique-symbol"))
+    (rdf/node
+     :kind "method"
+     :key (rdf/node
+      :kind "name"
+      :name "is")
+     :visibility "public"
+     :static true
+     :abstract false
+     :optional false
+     :type-params []
+     :params [(rdf/node
+       :name "value"
+       :optional false
+       :rest false
+       :datatype (rdf/node
+        :op "keyword"
+        :name "any"))]
+     :returns (rdf/node
+      :op "predicate"
+      :name "value"
+      :datatype (rdf/node
+       :op "name"
+       :name "Context"
+       :args [])))
+    (rdf/node
+     :kind "constructor"
+     :visibility "public"
+     :params [])
+    (rdf/node
+     :kind "method"
+     :key (rdf/node
+      :kind "name"
+      :name "extend")
+     :visibility "public"
+     :static false
+     :abstract false
+     :optional false
+     :type-params []
+     :params [(rdf/node
+       :name "meta"
+       :optional true
+       :rest false
+       :datatype (rdf/node
+        :op "object"
+        :members []))]
+     :returns (rdf/node
+      :op "this"))
+    (rdf/node
+     :kind "method"
+     :key (rdf/node
+      :kind "name"
+      :name "isolate")
+     :visibility "public"
+     :static false
+     :abstract false
+     :optional false
+     :type-params []
+     :params [(rdf/node
+       :name "name"
+       :optional false
+       :rest false
+       :datatype (rdf/node
+        :op "keyword"
+        :name "string"))
+      (rdf/node
+       :name "label"
+       :optional true
+       :rest false
+       :datatype (rdf/node
+        :op "keyword"
+        :name "symbol"))]
+     :returns (rdf/node
+      :op "this"))
+    (rdf/node
+     :kind "method"
+     :key (rdf/node
+      :kind "name"
+      :name "intercept")
+     :visibility "public"
+     :static false
+     :abstract false
+     :optional false
+     :type-params [(rdf/node
+       :name "K"
+       :constraint (rdf/node
+        :op "name"
+        :name "InjectKey"
+        :args [])
+       :default nil)]
+     :params [(rdf/node
+       :name "name"
+       :optional false
+       :rest false
+       :datatype (rdf/node
+        :op "name"
+        :name "K"
+        :args []))
+      (rdf/node
+       :name "config"
+       :optional false
+       :rest false
+       :datatype (rdf/node
+        :op "conditional"
+        :test (rdf/node
+         :op "index"
+         :object (rdf/node
+          :op "name"
+          :name "Context"
+          :args [])
+         :key (rdf/node
+          :op "name"
+          :name "K"
+          :args []))
+        :extends (rdf/node
+         :op "object"
+         :members [(rdf/node
+           :kind "computed-property"
+           :name "symbols.config"
+           :optional false
+           :readonly false
+           :datatype (rdf/node
+            :op "infer"
+            :name "T"
+            :constraint nil))])
+        :then (rdf/node
+         :op "name"
+         :name "T"
+         :args [])
+        :else (rdf/node
+         :op "keyword"
+         :name "never")))]
+     :returns (rdf/node
+      :op "this"))
+    (rdf/node
+     :kind "method"
+     :key (rdf/node
+      :kind "name"
+      :name "intercept")
+     :visibility "public"
+     :static false
+     :abstract false
+     :optional false
+     :type-params []
+     :params [(rdf/node
+       :name "name"
+       :optional false
+       :rest false
+       :datatype (rdf/node
+        :op "keyword"
+        :name "string"))
+      (rdf/node
+       :name "config"
+       :optional false
+       :rest false
+       :datatype (rdf/node
+        :op "keyword"
+        :name "any"))]
+     :returns (rdf/node
+      :op "this"))])]
+ :augmentations [])

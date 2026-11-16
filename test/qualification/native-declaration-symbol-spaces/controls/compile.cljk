@@ -1,0 +1,41 @@
+(ns compile-declaration-symbol-spaces
+ (:require [mithril.native-esm :as esm] [mithril.native-declaration-program :as program]
+           [clojure.string :as str] ["node:fs" :as fs] ["node:os" :as os]
+           ["node:child_process" :as child]))
+(defn ensure [p label] (when-not p (throw (js/Error. label))))
+(def engine (.-MITHRIL_DECLARATIONS_ENGINE js/process.env))
+(def compiler (.-MITHRIL_DECLARATIONS_TYPESCRIPT js/process.env))
+(def dir (fs/mkdtempSync (str (os/tmpdir) "/mithril-declaration-spaces-")))
+(def config (str dir "/offline.edn"))
+(fs/writeFileSync config (str "{:paths [" (js/JSON.stringify (fs/realpathSync "src")) "]}"))
+(defn run [args env]
+ (let [r (child/spawnSync js/process.execPath (clj->js args) (clj->js {:encoding "utf8" :timeout 240000 :maxBuffer 4194304 :env env}))]
+  (ensure (= 0 (.-status r)) (str "Control exit=" (.-status r) "\n" (.-stdout r) (.-stderr r)))
+  (print (.-stdout r)) (.-stdout r)))
+(def env (into {} (map #(vector % (aget js/process.env %)) (js/Object.keys js/process.env))))
+(try
+ (run [engine "--config" config "-cp" "src" "test/qualification/native-declaration-symbol-spaces/controls/admission.cljk"]
+      (assoc env "MITHRIL_SYMBOL_SPACE_FIXTURES" dir))
+ (doseq [target ["js" "js-browser"] fixture ["" "side-"]]
+  (let [runtime-input (str dir "/" fixture "runtime.mith") type-input (str dir "/" fixture "program.mith")
+        text (fs/readFileSync runtime-input "utf8") sources (into {} (map #(vector % (fs/readFileSync (str dir "/" %) "utf8")) (esm/source-basenames text)))
+        runtime (esm/check-text text sources) artifact (esm/compile-text text sources)
+        types-text (fs/readFileSync type-input "utf8") type-sources (into {} (map #(vector % (fs/readFileSync (str dir "/" %) "utf8")) (:sources (program/read-plan types-text))))
+        typed (program/compile-text types-text type-sources runtime)
+        output (str dir "/" fixture target) type-output (str output "-types")]
+   (run [engine "--config" config "-cp" "src" "bin/mithril-native-esm.cljk" runtime-input "--target" target "--output-directory" output] env)
+   (run [engine "--config" config "-cp" "src" "bin/mithril-native-declaration-program.cljk" type-input "--target" target "--output-directory" type-output] env)
+   (doseq [[file bytes] (:files artifact)] (ensure (= bytes (fs/readFileSync (str output "/" file) "utf8")) "Exact runtime CLI artifact bytes"))
+   (doseq [[file bytes] (:files typed)] (ensure (= bytes (fs/readFileSync (str type-output "/" file) "utf8")) "Exact declaration CLI artifact bytes"))
+   (ensure (empty? (:exports artifact)) "Independent probes retain empty public runtime surface")
+   (ensure (= 2 (count (:module-files typed))) "Complete private runtime declaration retention")
+   (when (= fixture "")
+    (ensure (= 64 (count (:type-exports typed))) "Exact mixed type exports")
+    (run ["test/qualification/native-declaration-symbol-spaces/controls/check.mjs" compiler output type-output] env)
+    (let [refused (str dir "/" target "-refused")
+          r (child/spawnSync js/process.execPath (clj->js [engine "--config" config "-cp" "src" "bin/mithril-native-declaration-program.cljk" (str dir "/invalid-program.mith") "--target" target "--output-directory" refused]) #js {:encoding "utf8" :timeout 30000})]
+     (ensure (= 65 (.-status r)) "129-type CLI refusal status")
+     (ensure (str/starts-with? (.-stderr r) "REFUSE\tbudget\t") "Exact CLI symbol-space budget refusal")
+     (ensure (not (fs/existsSync refused)) "Complete admission before artifact creation")))))
+ (println "Declaration symbol-space CLI: both Node execution labels, exact runtime/declaration bytes, empty/side-effect roots, private declaration retention and pre-write budget refusals passed.")
+ (finally (fs/rmSync dir #js {:recursive true :force true})))

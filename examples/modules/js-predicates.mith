@@ -1,0 +1,22 @@
+(mithril/module :name "host.predicates"
+  :exports ["isNullable" "isNonNullable" "isTruthy" "strictEqual"]
+  :functions [(mithril/function :name "isNullable"
+                :params [(rdf/node :name "value" :datatype "js-value")]
+                :returns "bool"
+                :body (mithril/call :name "js_nullish" :args [(mithril/local :name "value")]))
+              (mithril/function :name "isNonNullable"
+                :params [(rdf/node :name "value" :datatype "js-value")]
+                :returns "bool"
+                :body (mithril/call :name "not"
+                        :args [(mithril/call :name "isNullable"
+                                 :args [(mithril/local :name "value")])]))
+              (mithril/function :name "isTruthy"
+                :params [(rdf/node :name "value" :datatype "js-value")]
+                :returns "bool"
+                :body (mithril/call :name "js_truthy" :args [(mithril/local :name "value")]))
+              (mithril/function :name "strictEqual"
+                :params [(rdf/node :name "left" :datatype "js-value")
+                         (rdf/node :name "right" :datatype "js-value")]
+                :returns "bool"
+                :body (mithril/call :name "js_strict_equal"
+                        :args [(mithril/local :name "left") (mithril/local :name "right")]))])

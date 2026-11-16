@@ -1,0 +1,22 @@
+(ns mithril.native-string-time-test
+ (:require [cljs.test :refer [deftest is]] [mithril.native-js :as n] [mithril.module :as guest] [mithril.native-string-time-primitives :as p]
+           ["node:fs" :as fs] ["node:os" :as os] ["node:path" :as path]))
+(deftest native-string-time-language-prerequisites
+ (let [dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-string-time-"))]
+  (try (is (nil? (p/verify (path/join dir "prereqs.mjs")
+                           (path/resolve "test/fixtures/string-time-prereqs-runtime.mjs")
+                           (path/resolve "test/fixtures/string-time-artifact-hashes.json"))))
+   (finally (fs/rmSync dir #js {:recursive true :force true})))))
+
+(deftest method-items-retain-export-arguments-and-guest-boundaries
+ (let [body {"@type" "HostMethodItems"
+             "object" {"@type" "HostObject" "entries" []}
+             "key" (p/lit "m")
+             "items" [{"spread" {"@type" "HostArray" "items" [{"@type" "HostArgumentsLength"}]}}]}
+       doc {"@context" "https://mithril.fund/context/native-js-module/v1"
+            "@type" "NativeJsModule" "name" "scope.method_items" "imports" [] "functions" []
+            "exports" [{"name" "result" "value" body}]}]
+  (is (= :mithril.native-js/scope
+         (try (n/check-document doc) nil (catch :default e (:mithril/error (ex-data e))))))
+  (is (try (guest/check-text "(mithril/native-js-module :name \"guest.regex\" :imports [] :functions [] :exports [])")
+           false (catch :default _ true)))))

@@ -1,0 +1,25 @@
+(mithril/library
+  :id "https://mithril.fund/lib/codegraph/v1"
+  :ontology "c362b0f569c0e8251d6b9769513c49be82827cfb2a6725764337f7bf4211e5eb"
+  :version 1
+  :exports [
+    (mithril/export :symbol "https://mithril.fund/ns/codegraph/v1#catalog" :kind "mith:query" :label "catalog" :confidence-floor 10000)
+    (mithril/export :symbol "https://mithril.fund/ns/codegraph/v1#content" :kind "mith:query" :label "content" :confidence-floor 10000)
+    (mithril/export :symbol "https://mithril.fund/ns/codegraph/v1#neighbors" :kind "mith:query" :label "neighbors" :confidence-floor 10000)
+
+    (mithril/export :symbol "https://mithril.fund/ns/codegraph/v1#detect-communities" :kind "mith:analyzer" :label "detect-communities" :confidence-floor 10000)
+    (mithril/export :symbol "https://mithril.fund/ns/codegraph/v1#communities" :kind "mith:query" :label "communities" :confidence-floor 10000)
+    (mithril/export :symbol "https://mithril.fund/ns/codegraph/v1#community" :kind "mith:query" :label "community" :confidence-floor 10000)
+    (mithril/export :symbol "https://mithril.fund/ns/codegraph/v1#extract" :kind "mith:collector" :label "extract" :confidence-floor 10000)
+    (mithril/export :symbol "https://mithril.fund/ns/codegraph/v1#resolve" :kind "mith:analyzer" :label "resolve" :confidence-floor 10000)
+    (mithril/export :symbol "https://mithril.fund/ns/codegraph/v1#project" :kind "mith:compiler" :label "project" :confidence-floor 10000)
+    (mithril/export :symbol "https://mithril.fund/ns/codegraph/v1#search" :kind "mith:query" :label "search" :confidence-floor 10000)
+    (mithril/export :symbol "https://mithril.fund/ns/codegraph/v1#node" :kind "mith:query" :label "node" :confidence-floor 10000)
+    (mithril/export :symbol "https://mithril.fund/ns/codegraph/v1#callers" :kind "mith:query" :label "callers" :confidence-floor 10000)
+    (mithril/export :symbol "https://mithril.fund/ns/codegraph/v1#callees" :kind "mith:query" :label "callees" :confidence-floor 10000)
+    (mithril/export :symbol "https://mithril.fund/ns/codegraph/v1#impact" :kind "mith:query" :label "impact" :confidence-floor 10000)
+    (mithril/export :symbol "https://mithril.fund/ns/codegraph/v1#path" :kind "mith:query" :label "path" :confidence-floor 10000)
+    (mithril/export :symbol "https://mithril.fund/ns/codegraph/v1#explore" :kind "mith:query" :label "explore" :confidence-floor 10000)
+    (mithril/export :symbol "https://mithril.fund/ns/codegraph/v1#status" :kind "mith:query" :label "status" :confidence-floor 10000)
+    (mithril/export :symbol "https://mithril.fund/ns/codegraph/v1#rdf" :kind "mith:query" :label "rdf" :confidence-floor 10000)
+  ])

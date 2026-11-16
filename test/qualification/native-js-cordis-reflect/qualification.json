@@ -1,0 +1,38 @@
+{
+  "format": "mithril.native-whole-reflect-qualification/v1",
+  "source_tests": 44,
+  "source_assertions": 168,
+  "runtime_groups": {
+    "reflect_per_target": 44,
+    "reflect_total": 88,
+    "logical_assignment": 60
+  },
+  "scope_refusals": 6,
+  "actual_cli_targets": [
+    "js",
+    "js-browser"
+  ],
+  "execution_host": "Node",
+  "retained": {
+    "package_exports": 40,
+    "runtime_groups_per_target": 15,
+    "frozen_leaf_artifacts": 7,
+    "type_nodes": 446,
+    "strict_type_positive_groups_per_target": 10,
+    "strict_type_negative_groups_per_target": 12
+  },
+  "system_one": {
+    "new_inferences": 0,
+    "repairs": 0,
+    "model_code_adoption": false
+  },
+  "source_sha256": {
+    "src/mithril/native_js.cljk": "f02e96546136090aeac92c9e5c79727615913528c3007ea4f23b600efdc81001",
+    "src/mithril/form.cljk": "90960d3aa8d94c856aa272726233a9806e098a93f8a7f68cc26331acb14218fe",
+    "examples/native-js-cordis-reflect.mith": "278b4145982b86c3954a427e3260f3469f8956a9fbed70f969435084627126d7",
+    "test/mithril/native_reflect_test.cljk": "563d962dff71350f331de0dd3d081d308abbf160aacd68637d239a6cd5e7c16b",
+    "test/fixtures/native-reflect-contract.mjs": "0896d3c2e846a786bbb438f714fef374f010f0fc270f333625362524a3ad037e",
+    "test/fixtures/native-logical-assign-contract.mjs": "476f1c82a3bb2e0ad0cc887e5dc10810366257feced7459c456af058433534ca"
+  },
+  "scope": "Complete standalone reflect runtime; owner/event observation fixtures. Actual core SCC/live ESM, Cordis types, Schemastery, full Harness parity and org destination pending."
+}

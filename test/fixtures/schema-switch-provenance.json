@@ -1,0 +1,27 @@
+{
+  "format": "mithril.schema-switch-source/v1",
+  "original_sha256": "a6647b515659cf439b701fa9f9574c9c310ce3872d26a13a81e9fa4d02ba10ad",
+  "helpers": [
+    "Schema",
+    "valueMap"
+  ],
+  "qualification_only": true,
+  "switches": [
+    {
+      "name": "from",
+      "start": 22658,
+      "end": 22950,
+      "line": 564,
+      "source": "switch (source) {\n      case String: return Schema.string().required()\n      case Number: return Schema.number().required()\n      case Boolean: return Schema.boolean().required()\n      case Function: return Schema.function().required()\n      default: return Schema.is(source).required()\n    }",
+      "sha256": "f1563aceb8436bc3fe26225e4cfaa8e488a9b64f93965fe662f602a7f4ada04a"
+    },
+    {
+      "name": "factory",
+      "start": 33672,
+      "end": 34747,
+      "line": 884,
+      "source": "switch (key) {\n          case 'sKey': schema.sKey = args[index] ?? Schema.string(); break\n          case 'inner': schema.inner = Schema.from(args[index]); break\n          case 'list': schema.list = args[index].map(Schema.from); break\n          case 'dict': schema.dict = valueMap(args[index], Schema.from); break\n          case 'bits': {\n            schema.bits = {}\n            for (const key in args[index]) {\n              if (typeof args[index][key] !== 'number') continue\n              schema.bits[key] = args[index][key]\n            }\n            break\n          }\n          case 'callback': {\n            const callback = schema.callback = args[index]\n            ;callback['toJSON'] ||= () => callback.toString()\n            break\n          }\n          case 'constructor': {\n            const constructor = schema.constructor = args[index]\n            if (typeof constructor === 'function') {\n              ;constructor['toJSON'] ||= () => constructor['name']\n            }\n            break\n          }\n          default: schema[key] = args[index] as never\n        }",
+      "sha256": "dc3cb64817959b254b14366b111d7d2a79a3317542aeda4f5d57390d5c33b13b"
+    }
+  ]
+}

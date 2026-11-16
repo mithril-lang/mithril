@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Mithril is an ontology-based programming language with a distinct Form surface that is mutually convertible with JSON-LD and a Kotoba and Amu execution foundation.">
+    <meta name="theme-color" content="#101828">
+    <link rel="canonical" href="https://lang.mithril.fund/">
+    <link rel="stylesheet" href="./styles.css">
+    <title>Mithril Language</title>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="wordmark" href="#top" aria-label="Mithril Language home">
+        <span class="mark" aria-hidden="true">M</span>
+        <span>Mithril <span class="muted">Language</span></span>
+      </a>
+      <nav aria-label="Main navigation">
+        <a href="#language">Language</a>
+        <a href="#grammar">Grammar</a>
+        <a href="#execution">Execution</a>
+        <a class="source-link" href="https://github.com/mithril-lang/mithril">Source on GitHub</a>
+      </nav>
+    </header>
+
+    <main id="top">
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <p class="eyebrow">An ontology-based programming language</p>
+          <h1 id="hero-title">Make programs<br><span>inspectable by design.</span></h1>
+          <p class="lede">Mithril is its own ontology-based language. Its structured Form source is distinct from JSON-LD, and the two representations can be converted in either direction under a pinned context.</p>
+          <div class="hero-actions">
+            <a class="button primary" href="#grammar">Read the grammar</a>
+            <a class="button quiet" href="https://github.com/mithril-lang/mithril/tree/main/examples">Browse examples <span aria-hidden="true">↗</span></a>
+          </div>
+          <p class="status"><span class="status-dot" aria-hidden="true"></span>Language reference · living draft</p>
+        </div>
+        <div class="code-card" aria-label="Mithril Form source example">
+          <div class="code-head"><span class="code-dot"></span><span class="code-dot"></span><span class="code-dot"></span><span class="file-name">conditional.mith</span></div>
+          <pre><code><span class="syntax-tag">(mithril/module</span><br>  <span class="syntax-key">:name</span> <span class="syntax-string">"host.conditional"</span><br>  <span class="syntax-key">:exports</span> [<span class="syntax-string">"choose"</span> <span class="syntax-string">"lazy"</span>]<br>  <span class="syntax-key">:functions</span><br>  [<span class="syntax-tag">(mithril/function</span><br>     <span class="syntax-key">:name</span> <span class="syntax-string">"choose"</span><br>     <span class="syntax-key">:params</span> [<span class="syntax-tag">(rdf/node</span> <span class="syntax-key">:name</span> <span class="syntax-string">"value"</span> <span class="syntax-key">:datatype</span> <span class="syntax-string">"js-value"</span>)<br>              <span class="syntax-tag">(rdf/node</span> <span class="syntax-key">:name</span> <span class="syntax-string">"fallback"</span> <span class="syntax-key">:datatype</span> <span class="syntax-string">"js-value"</span>)]<br>     <span class="syntax-key">:returns</span> <span class="syntax-string">"js-value"</span><br>     <span class="syntax-key">:body</span> <span class="syntax-tag">(mithril/if</span><br>       <span class="syntax-key">:condition</span> <span class="syntax-tag">(mithril/call</span> <span class="syntax-key">:name</span> <span class="syntax-string">"js_nullish"</span><br>         <span class="syntax-key">:args</span> [<span class="syntax-tag">(mithril/local</span> <span class="syntax-key">:name</span> <span class="syntax-string">"value"</span>)])<br>       <span class="syntax-key">:then</span> <span class="syntax-tag">(mithril/local</span> <span class="syntax-key">:name</span> <span class="syntax-string">"fallback"</span>)<br>       <span class="syntax-key">:else</span> <span class="syntax-tag">(mithril/local</span> <span class="syntax-key">:name</span> <span class="syntax-string">"value"</span>)))])</code></pre>
+          <div class="code-foot"><span>Tagged forms are inert data.</span><span>One source → one checked meaning</span></div>
+        </div>
+      </section>
+
+      <section class="principles" aria-label="Language principles">
+        <article><span class="number">01</span><h2>Explicit meaning</h2><p>Programs name their ontology and vocabulary. The compiler checks admitted forms instead of evaluating arbitrary host code.</p></article>
+        <article><span class="number">02</span><h2>Portable source</h2><p>Mithril Form and JSON-LD 1.1 are distinct, mutually convertible representations. Sources denoting the same graph share a canonical RDF Dataset identity.</p></article>
+        <article><span class="number">03</span><h2>Bounded execution</h2><p>Typed actions cross into Kotoba and Amu through checked interfaces, with host capabilities kept explicit.</p></article>
+      </section>
+
+      <section class="section" id="language" aria-labelledby="language-title">
+        <div class="section-intro">
+          <p class="eyebrow">01 · The language</p>
+          <h2 id="language-title">A source form with a visible contract.</h2>
+          <p>Mithril is an ontology-based language for describing programs and their meaning. A source document identifies the vocabulary it uses; the compiler projects it into RDF, validates its declared shape, and emits a typed action artifact.</p>
+        </div>
+        <div class="facts-grid">
+          <div class="fact"><span class="fact-label">Source files</span><strong><code>.mith</code> · <code>.mithril</code></strong><p>Both suffixes are accepted aliases.</p></div>
+          <div class="fact"><span class="fact-label">Readable surface</span><strong>Mithril Form</strong><p>Tagged S-expressions with keyword fields, nested forms, and vectors.</p></div>
+          <div class="fact"><span class="fact-label">Convertible representations</span><strong>Mithril Form ↔ JSON-LD 1.1</strong><p>Distinct source formats, convertible in both directions under a pinned context.</p></div>
+          <div class="fact"><span class="fact-label">Current contract</span><strong>Closed and explicit</strong><p>Unknown tags, fields, or shapes are refused by their admitted profile.</p></div>
+        </div>
+      </section>
+
+      <section class="grammar-band" id="grammar" aria-labelledby="grammar-title">
+        <div class="section-intro">
+          <p class="eyebrow">02 · Source grammar</p>
+          <h2 id="grammar-title">Forms are read, checked, then compiled.</h2>
+            <p>The grammar below describes the canonical reader-level shape. Token decoding follows the ClojureScript reader; each form tag defines its own allowed fields, argument positions, types, and vocabulary. The reader accepts one top-level form and treats it as data; it does not run Clojure, resolve namespaces, or invoke host functions.</p>
+        </div>
+        <div class="grammar-layout">
+          <div class="grammar-notes">
+            <h3>Reader rules</h3>
+            <ul>
+              <li>A source file contains exactly one tagged top-level form.</li>
+              <li>Fields are keyword/value pairs; duplicate fields are rejected.</li>
+              <li>Vectors preserve ordered values. Nested forms must use admitted tags.</li>
+              <li>Strings, integers, booleans, <code>nil</code>, vectors, and nested tags are the supported general values.</li>
+              <li>Positional forms such as RDF constructors are specified by their own tag contract.</li>
+              <li>JSON-LD is a distinct, mutually convertible representation with its own JSON-LD syntax and pinned context.</li>
+            </ul>
+            <a class="text-link" href="./grammar.ebnf" download>Download the EBNF reader grammar <span aria-hidden="true">↓</span></a>
+          </div>
+          <pre class="grammar-code"><code>form-source  = trivia, tagged-form, trivia ;<br>tagged-form  = "(", symbol, { trivia, argument }, trivia, ")" ;<br>argument     = keyword, trivia, value | value ;<br>value        = string | integer | boolean | nil | vector | tagged-form ;<br>vector       = "[", [ value, { trivia, value } ], "]" ;<br><br>symbol       = reader-symbol-token ;<br>keyword      = reader-keyword-token ;<br>integer      = reader-integer-token ;<br>boolean      = "true" | "false" ;<br>nil          = "nil" ;<br>string       = '"', { character | escape }, '"' ;<br>trivia       = { whitespace | comma | comment } ;</code></pre>
+        </div>
+        <p class="fine-print">This EBNF describes the canonical source spelling; lexical tokens follow <code>cljs.reader</code>. It is not a promise that every tag accepts every syntactically valid value. Type and field rules are defined by the selected Mithril vocabulary and compiler profile. <a href="./grammar.ebnf">Full EBNF</a>.</p>
+      </section>
+
+      <section class="section execution" id="execution" aria-labelledby="execution-title">
+        <div class="section-intro">
+          <p class="eyebrow">03 · Execution model</p>
+          <h2 id="execution-title">Mithril sits above Kotoba and Amu.</h2>
+          <p>The execution foundation is Kotoba Lang’s typed runtime and Amu compiler/backend. Amu’s self-hosting compiler path belongs to the Kotoba/Amu toolchain; Mithril’s own compiler front end remains implemented with CLJK/CLJS host primitives.</p>
+        </div>
+        <ol class="pipeline" aria-label="Mithril compilation and execution pipeline">
+          <li><span>01</span><strong>Read inert source</strong><small>Mithril Form or JSON-LD</small></li>
+          <li><span>02</span><strong>Check meaning</strong><small>Canonical RDF and closed vocabulary admission</small></li>
+          <li><span>03</span><strong>Build typed action</strong><small>OaK transaction and Execution IR</small></li>
+          <li><span>04</span><strong>Execute through Kotoba</strong><small>Osaho semantics → Amu backend</small></li>
+        </ol>
+        <p class="callout"><strong>Boundary:</strong> Amu self-hosting does not mean the Mithril compiler itself is self-hosted. Mithril’s declared <code>.mith</code> language kernel describes and admits its orchestration; host readers, RDF adapters, and compiler primitives remain explicit implementation components.</p>
+      </section>
+
+      <section class="next-steps" aria-labelledby="next-title">
+        <div><p class="eyebrow">Explore the source</p><h2 id="next-title">See the contracts behind the syntax.</h2><p>This reference tracks the open-source implementation and will evolve with its admitted forms.</p></div>
+        <div class="resource-links">
+          <a href="https://github.com/mithril-lang/mithril/tree/main/examples/modules">Module examples <span aria-hidden="true">↗</span></a>
+          <a href="https://github.com/mithril-lang/mithril/blob/main/src/mithril/form.cljk">Form reader <span aria-hidden="true">↗</span></a>
+          <a href="https://github.com/mithril-lang/mithril/blob/main/README.md#semantic-core-and-execution-core">Execution architecture <span aria-hidden="true">↗</span></a>
+          <a href="https://github.com/kotoba-lang/amu">Kotoba Lang · Amu <span aria-hidden="true">↗</span></a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer"><a class="wordmark" href="#top"><span class="mark" aria-hidden="true">M</span><span>Mithril <span class="muted">Language</span></span></a><span>Open source · Living draft</span><a href="https://github.com/mithril-lang/mithril">View source on GitHub ↗</a></footer>
+  </body>
+</html>

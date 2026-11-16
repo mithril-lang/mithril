@@ -1,0 +1,3 @@
+(mithril/module :name "cosmokit.noop" :exports ["noop"]
+  :functions [(mithril/function :name "noop" :params [] :returns "js-value"
+                :body (mithril/call :name "js_undefined" :args []))])

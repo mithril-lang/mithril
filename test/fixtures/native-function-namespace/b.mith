@@ -1,0 +1,65 @@
+; Checked mutable function namespace controls, not the complete Registry/Inject decorator.
+(mithril/native-js-module
+ :name "namespace.b"
+ :imports ["Inject"
+"read"
+"set"
+"force"
+"record"]
+ :functions [(mithril/function
+   :name "probe"
+   :params []
+   :returns "js-value"
+   :body (mithril/local
+    :name "early"))]
+ :bindings [(rdf/node
+   :name "early"
+   :value (mithril/host-import
+    :name "Inject"))
+(rdf/node
+   :name "before"
+   :value (mithril/host-invoke
+    :function (mithril/host-import
+     :name "read")
+    :args []))
+(rdf/node
+   :name "invoked"
+   :value (mithril/host-invoke
+    :function (mithril/host-import
+     :name "Inject")
+    :args []))
+(rdf/node
+   :name "reset"
+   :value (mithril/if
+    :condition (mithril/host-import
+     :name "force")
+    :then (mithril/host-invoke
+     :function (mithril/host-import
+      :name "set")
+     :args [(mithril/host-undefined)])
+    :else (mithril/host-undefined)))
+(rdf/node
+   :name "recorded"
+   :value (mithril/host-invoke
+    :function (mithril/host-import
+     :name "record")
+    :args [(mithril/literal
+      :datatype "js-value"
+      :value "b")
+(mithril/local
+      :name "early")]))]
+ :exports [(rdf/node
+   :name "probe"
+   :function "probe")
+(rdf/node
+   :name "early"
+   :value (mithril/local
+    :name "early"))
+(rdf/node
+   :name "before"
+   :value (mithril/local
+    :name "before"))
+(rdf/node
+   :name "invoked"
+   :value (mithril/local
+    :name "invoked"))])

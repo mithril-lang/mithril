@@ -1,0 +1,31 @@
+(ns compile-complete-cordis-types
+ (:require [mithril.native-declaration-program :as program] [mithril.native-esm :as esm]
+           ["node:fs" :as fs] ["node:os" :as os] ["node:child_process" :as child]))
+(defn ensure [p text] (when-not p (throw (js/Error. text))))
+(def engine (.-MITHRIL_DECLARATIONS_ENGINE js/process.env))
+(def compiler (.-MITHRIL_DECLARATIONS_TYPESCRIPT js/process.env))
+(def type-roots (.-MITHRIL_DECLARATIONS_TYPE_ROOTS js/process.env))
+(defn run [args] (let [r (child/spawnSync js/process.execPath (clj->js args) #js {:encoding "utf8" :timeout 240000})] (ensure (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r))))
+(def text (fs/readFileSync "examples/native-js-cordis-complete-type-program.mith" "utf8"))
+(def plan (program/read-plan text))
+(def runtime-text (fs/readFileSync (str "examples/" (:runtime-source plan)) "utf8"))
+(def runtime-sources (into {} (map #(vector % (fs/readFileSync (str "examples/" %) "utf8")) (esm/source-basenames runtime-text))))
+(def runtime (esm/check-text runtime-text runtime-sources))
+(def sources (into {} (map #(vector % (fs/readFileSync (str "examples/" %) "utf8")) (:sources plan))))
+(def artifact (program/compile-text text sources runtime))
+(ensure (empty? (get (:document plan) "externals")) "External type adapter retained")
+(ensure (= 11 (count (:module-files artifact))) "Incomplete dependency graph")
+(ensure (= 26 (count (:exports artifact))) "Runtime public surface")
+(ensure (= 35 (count (:type-exports artifact))) "Type public surface")
+(def dir (fs/mkdtempSync (str (os/tmpdir) "/mithril-cordis-complete-types-")))
+(def config (str dir "/offline.edn"))
+(fs/writeFileSync config (str "{:paths [" (js/JSON.stringify (fs/realpathSync "src")) "]}"))
+(try
+ (doseq [target ["js" "js-browser"]]
+  (let [out (str dir "/" target "-types") rout (str dir "/" target "-runtime") meta (str dir "/" target ".json")]
+   (run [engine "--config" config "--classpath" "src" "bin/mithril-native-esm.cljk" (str "examples/" (:runtime-source plan)) "--target" target "--output-directory" rout])
+   (run [engine "--config" config "--classpath" "src" "bin/mithril-native-declaration-program.cljk" "examples/native-js-cordis-complete-type-program.mith" "--target" target "--output-directory" out])
+   (doseq [[file expected] (:files artifact)] (ensure (= expected (fs/readFileSync (str out "/" file) "utf8")) "CLI declaration artifact mismatch") (fs/writeFileSync (str rout "/" file) expected))
+   (fs/writeFileSync meta (js/JSON.stringify (clj->js (dissoc artifact :files))))
+   (run ["test/qualification/native-cordis-complete-types/controls/type-contract.mjs" (str out "/index.d.mts") compiler type-roots meta (str rout "/index.mjs")])) )
+ (finally (fs/rmSync dir #js {:recursive true :force true})))

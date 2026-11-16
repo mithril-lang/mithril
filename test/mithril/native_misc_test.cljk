@@ -1,0 +1,29 @@
+(ns mithril.native-misc-test
+  (:require [cljs.test :refer [deftest is]] [mithril.native-js :as native]
+            [mithril.module :as guest] [mithril.native-misc-primitives :as primitives]
+            ["node:fs" :as fs] ["node:os" :as os] ["node:path" :as path]
+            ["node:child_process" :as child]))
+(deftest complete-misc-source-and-paired-native-runtime
+  (let [text (fs/readFileSync "examples/native-js-misc.mith" "utf8")
+        artifact (native/compile-text text)
+        dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-misc-"))
+        file (path/join dir "misc.mjs")]
+    (try
+      (is (= artifact (native/compile-text text)))
+      (is (= :mithril.native-js/artifact-v1 (:format artifact)))
+      (is (= "cosmokit.misc" (:module artifact)))
+      (is (= #{"Object" "Array" "Reflect"} (set (:required-imports artifact))))
+      (is (= #{"noop" "isNullable" "isNonNullable" "isPlainObject" "filterKeys"
+               "mapValues" "valueMap" "pick" "omit" "defineProperty"} (set (:exports artifact))))
+      (is (try (guest/check-text text) false (catch :default _ true)))
+      (fs/writeFileSync file (:source artifact))
+      (let [r (child/spawnSync js/process.execPath #js ["test/fixtures/misc-contract.mjs" file]
+                               #js {:encoding "utf8" :timeout 30000})]
+        (is (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))))
+      (finally (fs/rmSync dir #js {:recursive true :force true})))))
+(deftest generic-native-primitive-admission-refusal-and-runtime
+  (let [dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-primitives-"))]
+    (try
+      (is (nil? (primitives/verify (path/join dir "primitives.mjs")
+                                  (path/resolve "test/fixtures/primitive-runtime.mjs"))))
+      (finally (fs/rmSync dir #js {:recursive true :force true})))))

@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "provider": "mithril-independent-actions",
+  "repository": "mithril-lang/mithril",
+  "controller": {
+    "repository": "mithril-lang/.github",
+    "revision": "0c227a7a7b3ce4431904c32270d755302a8aae93",
+    "entrypoint": "tools/independent-actions/cli.mjs"
+  },
+  "profile": "mithrilpress-worker",
+  "scope": "MithrilPress Worker unit and owner-auth integration, D1 migrations, and JavaScript syntax checks",
+  "state": "prepared",
+  "release": {
+    "state": "held",
+    "gates": [
+      "service-specific owner",
+      "exact clean current main",
+      "scoped credential",
+      "signed artifacts",
+      "rollback or immutable prior release",
+      "live or installed-client read-back"
+    ]
+  }
+}

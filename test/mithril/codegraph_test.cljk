@@ -1,0 +1,261 @@
+(ns mithril.codegraph-test
+  (:require [cljs.test :refer [deftest is testing]]
+            [clojure.string :as str]
+            [mithril.codegraph :as graph]
+            [mithril.codegraph-contract :as contract]
+            [mithril.codegraph-extract :as extract]
+            [mithril.codegraph-fs :as local]
+            [mithril.codegraph-mcp :as mcp]
+            [mithril.language :as language]
+            [mithril.execution :as execution]
+            [mithril.compiler :as compiler]
+            [mithril.reason :as reason]
+            [mithril.reason-rdf :as rdf]
+            [rdf-canon.core :as canon]
+            [mithril.reason-ipld :as evidence]))
+
+(defn artifact [] (contract/load!))
+(def sources
+  {"src/a.cljk" "(ns a)\n(defn leaf [x] x)\n(defn middle [x] (leaf x))\n"
+   "src/b.cljk" "(ns b (:require [a :as a :refer [leaf]]))\n(defn entry [x] (a/middle x) (leaf x))\n"})
+(defn index [sources] (:snapshot (graph/sync-index nil sources (artifact) "fixture")))
+(defn query [s r] (graph/dispatch s (artifact) r))
+(defn refusal [f] (try (f) nil (catch :default e (or (:reason (ex-data e)) (:mithril/error (ex-data e)) :exception))))
+
+(deftest static-resolution-and-source-locations
+  (let [s (index sources) edges (:edges (query s {:operation "callees" :node "b/entry"}))
+        node (:node (query s {:operation "node" :node "b/entry"}))
+        names (into {} (map (juxt :id :name) (:nodes s)))]
+    (is (= #{"a/middle" "a/leaf"} (set (map #(get names (:target %)) edges))))
+    (is (= "(defn entry [x] (a/middle x) (leaf x))"
+           (:source (query s {:operation "node" :node "b/entry"}))))
+    (is (= 2 (get-in node [:span :start-line])))
+    (is (= #{:resolved} (set (map :provenance edges))))
+    (is (every? #(= 2 (get-in % [:span :start-line])) edges))
+    (is (= 2 (count (:edges (query s {:operation "callers" :node "a/leaf"})))))
+    (is (:found? (query s {:operation "path" :from "b/entry" :to "a/leaf"})))
+    (is (seq (:nodes (query s {:operation "impact" :node "a/leaf"}))))
+    (is (= 1 (count (:nodes (query s {:operation "search" :query "entry"})))))))
+
+(deftest inert-reader-and-lexical-scope
+  (let [text "(ns scoped)\n(defn f [x] x)\n(defn g [f] (f 1))\n(defn h [] (let [f identity] (f 1)) '(f 2) \"(f 3)\")\n(defn i [] #_(f 4) (f 5))\n(defn j [] (fn f [x] (f x)))\n(defn k [] (for [f [identity]] (f 1)))"
+        s (index {"scoped.cljk" text})]
+    (doseq [name ["g" "h" "j" "k"]]
+      (is (empty? (:edges (query s {:operation "callees" :node (str "scoped/" name)})))))
+    (is (= 1 (count (:edges (query s {:operation "callees" :node "scoped/i"})))))
+    (is (empty? (-> s :files (get "scoped.cljk") :diagnostics)))
+    (is (some? (refusal #(extract/extract "bad.cljk" "(ns bad) #=(throw (Exception.))"))))))
+
+(deftest reader-profile-and-no-fabricated-dynamic-edges
+  (let [s (index {"conditional.cljc"
+                  "(ns conditional) #?(:cljs (defn leaf [] 1) :clj (defn other [] 2)) (defn run [] (leaf))"})]
+    (is (= 1 (count (:edges (query s {:operation "callees" :node "conditional/run"})))))
+    (is (empty? (:nodes (query s {:operation "search" :query "other"})))))
+  (let [s (index {"x.cljk" "(ns x) (defmacro m [x] x) (defn f [] (m (external/call)))"})]
+    (is (empty? (:edges (query s {:operation "callees" :node "x/f"}))))
+    (is (some #(= "external/call" (:target %)) (:unresolved s)))))
+
+(deftest incremental-updates-reresolve-unchanged-callers
+  (let [a (artifact) first (graph/sync-index nil sources a "fixture") s (:snapshot first)
+        unchanged (graph/sync-index s sources a "fixture")
+        changed-sources (assoc sources "src/a.cljk" "(ns a) (defn replacement [] 0)")
+        changed (graph/sync-index s changed-sources a "fixture")
+        removed (graph/sync-index s (dissoc sources "src/a.cljk") a "fixture")]
+    (is (= 0 (get-in unchanged [:receipt :parsed])))
+    (is (= s (:snapshot unchanged)))
+    (is (= 1 (get-in changed [:receipt :parsed])))
+    (is (= 1 (get-in changed [:receipt :reused])))
+    (is (empty? (:edges (query (:snapshot changed) {:operation "callees" :node "b/entry"}))))
+    (is (= ["src/a.cljk"] (get-in removed [:receipt :deleted])))
+    (is (empty? (:edges (query (:snapshot removed) {:operation "callees" :node "b/entry"}))))
+    (is (not= (:graph-digest s) (get-in removed [:snapshot :graph-digest])))
+    (is (= (:graph-digest s) (:graph-digest (index (into (sorted-map) (reverse (seq sources)))))))))
+
+(deftest ambiguity-diagnostics-and-budgets
+  (let [s (index (assoc sources "other.cljk" "(ns a) (defn leaf [] 0)"))]
+    (is (some #(= :ambiguous (:reason %)) (:unresolved s)))
+    (is (= :ambiguous-node (refusal #(query s {:operation "node" :node "a/leaf"}))))
+    (is (= :query-budget (refusal #(query s {:operation "search" :query "a" :limit 0}))))
+    (is (:truncated (query s {:operation "search" :query "a" :limit 1}))))
+  (is (= :mithril.codegraph/invalid-path
+         (refusal #(graph/sync-index nil {"../escape.cljk" "(ns escape)"} (artifact) "fixture"))))
+  (is (= :wrong-project (refusal #(graph/sync-index (index sources) sources (artifact) "other"))))
+  (let [s (index {"bad.cljk" "(ns bad) (defn broken ["})]
+    (is (= 1 (count (:nodes s))))
+    (is (= :extraction-failed (-> s :files (get "bad.cljk") :diagnostics first :reason)))))
+
+(deftest mith-contract-controls-the-runtime-and-binds-every-field
+  (let [read-text #(.readFileSync local/fs % "utf8")
+        text (read-text contract/contract-path)
+        library (compiler/compile-library-text contract/library-path (read-text contract/library-path))
+        ontology (compiler/compile-ontology-text contract/ontology-path (read-text contract/ontology-path))
+        a (artifact)
+        smaller (contract/compile-text contract/contract-path
+                                       (str/replace text ":max-results 100" ":max-results 10")
+                                       library ontology)]
+    (is (not= (:graph-digest a) (:graph-digest smaller)))
+    (let [changed-library (compiler/compile-library-text
+                           contract/library-path
+                           (str/replace (read-text contract/library-path) ":label \"extract\""
+                                        ":label \"extract with evidence\""))
+          changed-import (str/replace text (:graph-digest library) (:graph-digest changed-library))]
+      (is (not= (:graph-digest a)
+                (:graph-digest (contract/compile-text contract/contract-path changed-import changed-library ontology)))))
+    (is (= :mithril.codegraph/invalid-contract
+           (refusal #(contract/compile-text "bad.mith" (str/replace text "\"extract\"" "\"eval\"")
+                                            library ontology))))
+    (is (= :query-budget
+           (refusal #(graph/dispatch (:snapshot (graph/sync-index nil sources smaller "fixture"))
+                                    smaller {:operation "search" :query "a" :limit 11}))))
+    (is (= :invalid-snapshot
+           (refusal #(graph/verify! (assoc (index sources) :nodes []) a))))))
+
+(deftest rdf-shacl-and-existing-cid-evidence-integration
+  (let [s (index sources) doc (graph/rdf-document s)
+        text (.readFileSync local/fs contract/ontology-path "utf8")
+        ontology (compiler/compile-ontology-text contract/ontology-path text)
+        result (reason/reason ontology (rdf/quads doc))
+        blocks (evidence/blocks text "snapshot.jsonld" (.stringify js/JSON (clj->js doc)) nil [])
+        memory (into {} (map (fn [b] [(:cid b) (:bytes b)]) (vals blocks)))
+        replay (evidence/read! #(get memory %) (get-in blocks [:evidence :cid]))]
+    (is (= :conforms (:status result)))
+    (is (pos? (get-in result [:counts :inferred])))
+    (is (= :conforms (get-in replay [:result :status])))
+    (is (= (:graph-digest s) (rdf/graph-digest doc)))
+    (let [bad (update-in doc [0 "@graph"]
+                         (fn [nodes] (mapv #(if (contains? % (str contract/base "startLine"))
+                                             (dissoc % (str contract/base "startLine")) %) nodes)))]
+      (is (= :violations (:status (reason/reason ontology (rdf/quads bad))))))))
+
+(deftest mith-document-imports-and-document-location-precision
+  (let [library (.readFileSync local/fs contract/library-path "utf8")
+        application (.readFileSync local/fs contract/contract-path "utf8")
+        s (index {"library.mith" library "application.mith" application})]
+    (is (= 1 (count (filter #(= :imports (:relation %)) (:edges s)))))
+    (is (= :form (get-in s [:files "application.mith" :location-precision])))))
+
+(deftest git-manifest-refresh-atomicity-and-symlink-refusal
+  (let [root (.mkdtempSync local/fs (.join local/path-api (.tmpdir (js/require "os")) "mithril-codegraph-test-"))
+        a (artifact)
+        write! #(.writeFileSync local/fs (.join local/path-api root %1) %2)]
+    (try
+      (.execFileSync local/child-process "git" #js ["init" "-q" root])
+      (write! ".gitignore" ".mithril-codegraph/\nignored.cljk\n")
+      (write! "ignored.cljk" "(ns ignored) (defn hidden [] 0)")
+      (write! "a.cljk" "(ns a) (defn f [] 0)")
+      (is (= 1 (get-in (local/sync! root a) [:receipt :parsed])))
+      (is (empty? (:nodes (local/query! root a {:operation "search" :query "hidden"}))))
+      (write! "a.cljk" "(ns a) (defn renamed [] 0)")
+      (is (= 1 (count (:nodes (local/query! root a {:operation "search" :query "renamed"})))))
+      (is (local/freshness! root a))
+      (let [before (.readFileSync local/fs (.join local/path-api root ".mithril-codegraph/index.edn") "utf8")]
+        (.symlinkSync local/fs (.join local/path-api root "a.cljk") (.join local/path-api root "link.cljk"))
+        (is (= :symlink (refusal #(local/sync! root a))))
+        (is (= before (.readFileSync local/fs (.join local/path-api root ".mithril-codegraph/index.edn") "utf8")))
+        (is (not (.existsSync local/fs (.join local/path-api root ".mithril-codegraph/index.lock")))))
+      (finally (.rmSync local/fs root #js {:recursive true :force true})))))
+
+(deftest bounded-source-and-cyclic-traversal
+  (let [s (index {"cycle.cljk" (str "(ns cycle) (defn a [] (b)) (defn b [] (a))"
+                                    " (defn large [] \"" (apply str (repeat 5000 "x")) "\")")})
+        n (query s {:operation "node" :node "cycle/large"})]
+    (is (= 4096 (count (:source n))))
+    (is (:source-truncated n))
+    (is (= 3 (:visited (query s {:operation "impact" :node "cycle/a"}))))
+    (is (:found? (query s {:operation "path" :from "cycle/a" :to "cycle/b"})))
+    (is (= :invalid-request (refusal #(query s {:operation "search" :query "a" :eval true}))))))
+
+(deftest native-hashes-preserve-existing-mithril-identity
+  (doseq [value ["λ\r\nabc" {:a [1 true nil] :b #{:x :y}}]]
+    (is (= (execution/digest value) (extract/digest value)))))
+
+(deftest mithril-language-kernel-admits-only-its-mith-entrypoints
+  (let [kernel (language/load!)
+        text (.readFileSync local/fs language/source-path "utf8")
+        library (compiler/compile-library-text language/library-path
+                                               (.readFileSync local/fs language/library-path "utf8"))]
+    (is (= "https://mithril.fund/ns/language/v1#codegraph"
+           (language/admit-entrypoint! kernel "codegraph")))
+    (is (= :conforms
+           (:status (reason/reason
+                     (compiler/compile-ontology-text language/ontology-path
+                                                     (.readFileSync local/fs language/ontology-path "utf8"))
+                     (rdf/quads (:rdf-document kernel))))))
+    (is (= :mithril.language/invalid-kernel (refusal #(language/admit-entrypoint! kernel "eval"))))
+    (is (= :mithril.language/invalid-kernel
+           (refusal #(language/compile-text (str/replace text "\"read-inert\"" "\"eval\"") library))))
+    (is (= :mithril.language/invalid-kernel
+           (refusal #(language/compile-text (str/replace text ":path \"codegraph\"" ":path \"compile\"") library))))))
+
+(deftest mcp-lifecycle-and-local-query-integration
+  (let [session (atom :new) a (artifact) s (index sources)
+        handle #(mcp/handle! session a (fn [r] (graph/dispatch s a r)) %)]
+    (is (= -32002 (get-in (handle {:jsonrpc "2.0" :id 0 :method "tools/list"}) [:error :code])))
+    (is (= "2025-06-18" (get-in (handle {:jsonrpc "2.0" :id 1 :method "initialize"
+                                        :params {:protocolVersion "2025-06-18"}}) [:result :protocolVersion])))
+    (is (nil? (handle {:jsonrpc "2.0" :method "notifications/initialized"})))
+    (is (= "mithril_codegraph" (get-in (handle {:jsonrpc "2.0" :id 2 :method "tools/list"})
+                                      [:result :tools 0 :name])))
+    (let [response (handle {:jsonrpc "2.0" :id 3 :method "tools/call"
+                            :params {:name "mithril_codegraph"
+                                     :arguments {:operation "node" :node "b/entry"}}})]
+      (is (= false (get-in response [:result :isError])))
+      (is (= "b/entry" (get-in response [:result :structuredContent :node :name]))))
+    (is (get-in (handle {:jsonrpc "2.0" :id 4 :method "tools/call"
+                         :params {:name "mithril_codegraph" :arguments {:operation "shell"}}})
+                [:result :isError]))
+    (is (= -32601 (get-in (handle {:jsonrpc "2.0" :id 5 :method "exec"}) [:error :code])))))
+
+(deftest expanded-scopes-and-classified-unknowns
+  (let [s (index {"scope.cljk" "(ns scope (:require [dep :refer [map] :rename {map external-map}]))
+(defn leaf [] 1)
+(defn branches [] (if-let [leaf identity] (leaf) (leaf)))
+(defn comprehensions [] (for [leaf [identity] :let [f leaf] :when (f)] (leaf)))
+(defn mutual [] (letfn [(leaf [] (other)) (other [] (leaf))] (leaf)))
+(defn defaults [{:keys [x] :or {x (leaf)}}] x)
+(defn default-shadow [{:keys [leaf] :or {leaf (leaf)}}] leaf)
+(defn default-sequence [{:keys [leaf x] :or {leaf identity x (leaf)}}] x)
+(defn pipeline [] (as-> (leaf) leaf (leaf)))
+(defn qualified [] (cljs.core/let [leaf identity] (leaf)))
+(defn unknowns [] (map identity []) (external-map) (scope/missing) (external/call))"})
+        count-calls #(count (:edges (query s {:operation "callees" :node (str "scope/" %)})))
+        kinds (into {} (map (juxt :target :classification) (:unresolved s)))]
+    (is (= 1 (count-calls "branches")))
+    (is (= 1 (count-calls "defaults")))
+    (is (= 1 (count-calls "default-shadow")))
+    (is (= 1 (count-calls "pipeline")))
+    (doseq [n ["comprehensions" "mutual" "qualified" "default-sequence"]] (is (zero? (count-calls n))))
+    (is (= :builtin (get kinds "scope/map")))
+    (is (= :external-dependency (get kinds "dep/map")))
+    (is (= :missing-project-definition (get kinds "scope/missing")))
+    (is (= :external-dependency (get kinds "external/call")))))
+
+(deftest partitions-and-reverse-dependencies-match-clean-rebuilds
+  (let [a (artifact) initial (assoc sources "independent.cljk" "(ns independent) (defn isolated [] \"日本語\")")
+        base (:snapshot (graph/sync-index nil initial a "differential"))
+        manifests [(assoc initial "src/a.cljk" "(ns a) (defn leaf [x] x)")
+                   (assoc initial "duplicate.cljk" "(ns a) (defn leaf [] 9)")
+                   (dissoc initial "src/a.cljk")
+                   (assoc initial "note.md" "# 文書\n`a/leaf`\n")
+                   initial {} initial]]
+    (loop [previous base remaining manifests]
+      (when-let [manifest (first remaining)]
+        (let [update (graph/sync-index previous manifest a "differential")
+              incremental (:snapshot update) clean (:snapshot (graph/sync-index nil manifest a "differential"))]
+          (is (= clean incremental))
+          (is (= (:graph-digest incremental) (extract/sha256 (canon/canonicalize (rdf/quads (graph/rdf-document incremental))))))
+          (recur incremental (next remaining)))))
+    (let [result (graph/sync-index base (assoc initial "src/a.cljk" "(ns a) (defn leaf [x] x)") a "differential")]
+      (is (= ["src/a.cljk" "src/b.cljk"] (get-in result [:receipt :affected])))
+      (is (= (get-in base [:partitions "independent.cljk"])
+             (get-in result [:snapshot :partitions "independent.cljk"])))
+      (is (pos? (get-in result [:receipt :reused-components]))))))
+
+(deftest complete-index-pagination-and-revision-binding
+  (let [s (index sources) r (query s {:operation "catalog" :limit 1})
+        next (query s {:operation "catalog" :limit 1 :offset (:next-offset r) :revision (:snapshot-digest r)})]
+    (is (= 1 (count (:nodes r))))
+    (is (not= (:nodes r) (:nodes next)))
+    (is (= :stale-revision (refusal #(query s {:operation "catalog" :revision "old"}))))
+    (is (= :query-budget (refusal #(query s {:operation "catalog" :offset -1}))))
+    (is (seq (:edges (query s {:operation "neighbors" :node "a/leaf"}))))))

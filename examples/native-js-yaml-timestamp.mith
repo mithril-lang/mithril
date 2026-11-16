@@ -1,0 +1,564 @@
+; Derived from pinned js-yaml 4.2.0 full source. MIT; see test/qualification/native-yaml-source/LICENSE.
+(mithril/native-js-module
+:name "yaml.timestamp"
+:ambient_imports ["Error"
+"Date"
+"RegExp"]
+:imports ["yamlRoot___commonJSMin"
+"yamlRoot_require_type"
+"Error"
+"Date"
+"RegExp"]
+:functions []
+:bindings [(rdf/node
+:name "yC0"
+:value (mithril/literal
+:datatype "js-value"
+:value nil))
+(rdf/node
+:name "yC1"
+:value (mithril/literal
+:datatype "js-value"
+:value "exec"))
+(rdf/node
+:name "yC2"
+:value (mithril/literal
+:datatype "js-value"
+:value 0))
+(rdf/node
+:name "yC3"
+:value (mithril/literal
+:datatype "js-value"
+:value 3))
+(rdf/node
+:name "yamlRoot_require_timestamp"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:name "initialize_yamlRoot_require_timestamp"
+:value (mithril/local-set
+:name "yamlRoot_require_timestamp"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot___commonJSMin")
+:args [(mithril/native-lambda
+:params ["yL204"
+"yL205"]
+:rest nil
+:body (mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "yL206"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:pattern "yL207"
+:value (mithril/host-undefined)
+:mutable true)
+(rdf/node
+:pattern "yL208"
+:value (mithril/host-undefined)
+:mutable true)]
+:body (mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "yL209"
+:value (mithril/native-function
+:name "resolveYamlTimestamp"
+:params [(rdf/node
+:name "yL212"
+:datatype "js-value")]
+:rest nil
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "yL212")
+:right (mithril/local
+:name "yC0"))
+:then (mithril/host-return
+:value (mithril/literal
+:datatype "js-value"
+:value false))
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "!=="
+:left (mithril/host-method
+:object (mithril/local
+:name "yL207")
+:key (mithril/local
+:name "yC1")
+:args [(mithril/local
+:name "yL212")])
+:right (mithril/local
+:name "yC0"))
+:then (mithril/host-return
+:value (mithril/literal
+:datatype "js-value"
+:value true))
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "!=="
+:left (mithril/host-method
+:object (mithril/local
+:name "yL208")
+:key (mithril/local
+:name "yC1")
+:args [(mithril/local
+:name "yL212")])
+:right (mithril/local
+:name "yC0"))
+:then (mithril/host-return
+:value (mithril/literal
+:datatype "js-value"
+:value true))
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/literal
+:datatype "js-value"
+:value false))
+(mithril/host-undefined)])])])])
+:statements true))
+(rdf/node
+:pattern "yL210"
+:value (mithril/native-function
+:name "constructYamlTimestamp"
+:params [(rdf/node
+:name "yL213"
+:datatype "js-value")]
+:rest nil
+:body (mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "yL214"
+:value (mithril/local
+:name "yC2")
+:mutable true)
+(rdf/node
+:pattern "yL215"
+:value (mithril/local
+:name "yC0")
+:mutable true)
+(rdf/node
+:pattern "yL216"
+:value (mithril/host-method
+:object (mithril/local
+:name "yL207")
+:key (mithril/local
+:name "yC1")
+:args [(mithril/local
+:name "yL213")])
+:mutable true)]
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "yL216")
+:right (mithril/local
+:name "yC0"))
+:then (mithril/local-set
+:name "yL216"
+:value (mithril/host-method
+:object (mithril/local
+:name "yL208")
+:key (mithril/local
+:name "yC1")
+:args [(mithril/local
+:name "yL213")]))
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/local
+:name "yL216")
+:right (mithril/local
+:name "yC0"))
+:then (mithril/host-throw
+:value (mithril/host-construct
+:constructor (mithril/host-import
+:name "Error")
+:args [(mithril/literal
+:datatype "js-value"
+:value "Date resolve error")]))
+:else (mithril/host-undefined))
+(mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "yL217"
+:value (mithril/host-unary
+:operator "+"
+:value (mithril/host-get
+:object (mithril/local
+:name "yL216")
+:key (mithril/literal
+:datatype "js-value"
+:value 1))))
+(rdf/node
+:pattern "yL218"
+:value (mithril/host-binary
+:operator "-"
+:left (mithril/host-unary
+:operator "+"
+:value (mithril/host-get
+:object (mithril/local
+:name "yL216")
+:key (mithril/literal
+:datatype "js-value"
+:value 2)))
+:right (mithril/literal
+:datatype "js-value"
+:value 1)))
+(rdf/node
+:pattern "yL219"
+:value (mithril/host-unary
+:operator "+"
+:value (mithril/host-get
+:object (mithril/local
+:name "yL216")
+:key (mithril/local
+:name "yC3"))))]
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-unary
+:operator "!"
+:value (mithril/host-get
+:object (mithril/local
+:name "yL216")
+:key (mithril/literal
+:datatype "js-value"
+:value 4)))
+:then (mithril/host-return
+:value (mithril/host-construct
+:constructor (mithril/host-import
+:name "Date")
+:args [(mithril/host-method
+:object (mithril/host-import
+:name "Date")
+:key (mithril/literal
+:datatype "js-value"
+:value "UTC")
+:args [(mithril/local
+:name "yL217")
+(mithril/local
+:name "yL218")
+(mithril/local
+:name "yL219")])]))
+:else (mithril/host-undefined))
+(mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "yL220"
+:value (mithril/host-unary
+:operator "+"
+:value (mithril/host-get
+:object (mithril/local
+:name "yL216")
+:key (mithril/literal
+:datatype "js-value"
+:value 4))))
+(rdf/node
+:pattern "yL221"
+:value (mithril/host-unary
+:operator "+"
+:value (mithril/host-get
+:object (mithril/local
+:name "yL216")
+:key (mithril/literal
+:datatype "js-value"
+:value 5))))
+(rdf/node
+:pattern "yL222"
+:value (mithril/host-unary
+:operator "+"
+:value (mithril/host-get
+:object (mithril/local
+:name "yL216")
+:key (mithril/literal
+:datatype "js-value"
+:value 6))))]
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-get
+:object (mithril/local
+:name "yL216")
+:key (mithril/literal
+:datatype "js-value"
+:value 7))
+:then (mithril/sequence
+:expressions [(mithril/local-set
+:name "yL214"
+:value (mithril/host-method
+:object (mithril/host-get
+:object (mithril/local
+:name "yL216")
+:key (mithril/literal
+:datatype "js-value"
+:value 7))
+:key (mithril/literal
+:datatype "js-value"
+:value "slice")
+:args [(mithril/local
+:name "yC2")
+(mithril/local
+:name "yC3")]))
+(mithril/sequence
+:expressions [(mithril/host-while
+:condition (mithril/host-binary
+:operator "<"
+:left (mithril/host-get
+:object (mithril/local
+:name "yL214")
+:key (mithril/literal
+:datatype "js-value"
+:value "length"))
+:right (mithril/local
+:name "yC3"))
+:body (mithril/local-set
+:name "yL214"
+:value (mithril/host-binary
+:operator "+"
+:left (mithril/local
+:name "yL214")
+:right (mithril/literal
+:datatype "js-value"
+:value "0")))
+:result (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL214"
+:value (mithril/host-unary
+:operator "+"
+:value (mithril/local
+:name "yL214")))
+(mithril/host-undefined)])])])
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-get
+:object (mithril/local
+:name "yL216")
+:key (mithril/literal
+:datatype "js-value"
+:value 9))
+:then (mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "yL223"
+:value (mithril/host-unary
+:operator "+"
+:value (mithril/host-get
+:object (mithril/local
+:name "yL216")
+:key (mithril/literal
+:datatype "js-value"
+:value 10))))
+(rdf/node
+:pattern "yL224"
+:value (mithril/host-unary
+:operator "+"
+:value (mithril/host-logical
+:operator "||"
+:left (mithril/host-get
+:object (mithril/local
+:name "yL216")
+:key (mithril/literal
+:datatype "js-value"
+:value 11))
+:right (mithril/local
+:name "yC2"))))]
+:body (mithril/sequence
+:expressions [(mithril/local-set
+:name "yL215"
+:value (mithril/host-binary
+:operator "*"
+:left (mithril/host-binary
+:operator "+"
+:left (mithril/host-binary
+:operator "*"
+:left (mithril/local
+:name "yL223")
+:right (mithril/literal
+:datatype "js-value"
+:value 60))
+:right (mithril/local
+:name "yL224"))
+:right (mithril/literal
+:datatype "js-value"
+:value 60000)))
+(mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/host-binary
+:operator "==="
+:left (mithril/host-get
+:object (mithril/local
+:name "yL216")
+:key (mithril/literal
+:datatype "js-value"
+:value 9))
+:right (mithril/literal
+:datatype "js-value"
+:value "-"))
+:then (mithril/local-set
+:name "yL215"
+:value (mithril/host-unary
+:operator "-"
+:value (mithril/local
+:name "yL215")))
+:else (mithril/host-undefined))
+(mithril/host-undefined)])]))
+:else (mithril/host-undefined))
+(mithril/host-binding-let
+:bindings [(rdf/node
+:pattern "yL225"
+:value (mithril/host-construct
+:constructor (mithril/host-import
+:name "Date")
+:args [(mithril/host-method
+:object (mithril/host-import
+:name "Date")
+:key (mithril/literal
+:datatype "js-value"
+:value "UTC")
+:args [(mithril/local
+:name "yL217")
+(mithril/local
+:name "yL218")
+(mithril/local
+:name "yL219")
+(mithril/local
+:name "yL220")
+(mithril/local
+:name "yL221")
+(mithril/local
+:name "yL222")
+(mithril/local
+:name "yL214")])]))]
+:body (mithril/sequence
+:expressions [(mithril/if
+:condition (mithril/local
+:name "yL215")
+:then (mithril/host-method
+:object (mithril/local
+:name "yL225")
+:key (mithril/literal
+:datatype "js-value"
+:value "setTime")
+:args [(mithril/host-binary
+:operator "-"
+:left (mithril/host-method
+:object (mithril/local
+:name "yL225")
+:key (mithril/literal
+:datatype "js-value"
+:value "getTime")
+:args [])
+:right (mithril/local
+:name "yL215"))])
+:else (mithril/host-undefined))
+(mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/local
+:name "yL225"))
+(mithril/host-undefined)])]))])]))]))])]))
+:statements true))
+(rdf/node
+:pattern "yL211"
+:value (mithril/native-function
+:name "representYamlTimestamp"
+:params [(rdf/node
+:name "yL226"
+:datatype "js-value")]
+:rest nil
+:body (mithril/sequence
+:expressions [(mithril/host-return
+:value (mithril/host-method
+:object (mithril/local
+:name "yL226")
+:key (mithril/literal
+:datatype "js-value"
+:value "toISOString")
+:args []))
+(mithril/host-undefined)])
+:statements true))]
+:body (mithril/sequence
+:expressions [(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL206"
+:value (mithril/host-invoke
+:function (mithril/host-import
+:name "yamlRoot_require_type")
+:args []))])
+(mithril/sequence
+:expressions [(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL207"
+:value (mithril/host-construct
+:constructor (mithril/host-import
+:name "RegExp")
+:args [(mithril/literal
+:datatype "js-value"
+:value "^([0-9][0-9][0-9][0-9])-([0-9][0-9])-([0-9][0-9])$")]))])
+(mithril/sequence
+:expressions [(mithril/sequence
+:expressions [(mithril/local-set
+:name "yL208"
+:value (mithril/host-construct
+:constructor (mithril/host-import
+:name "RegExp")
+:args [(mithril/literal
+:datatype "js-value"
+:value "^([0-9][0-9][0-9][0-9])-([0-9][0-9]?)-([0-9][0-9]?)(?:[Tt]|[ \\t]+)([0-9][0-9]?):([0-9][0-9]):([0-9][0-9])(?:\\.([0-9]*))?(?:[ \\t]*(Z|([-+])([0-9][0-9]?)(?::([0-9][0-9]))?))?$")]))])
+(mithril/sequence
+:expressions [(mithril/host-set
+:object (mithril/local
+:name "yL205")
+:key (mithril/literal
+:datatype "js-value"
+:value "exports")
+:value (mithril/host-construct
+:constructor (mithril/local
+:name "yL206")
+:args [(mithril/literal
+:datatype "js-value"
+:value "tag:yaml.org,2002:timestamp")
+(mithril/host-object
+:entries [(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "kind")
+:value (mithril/literal
+:datatype "js-value"
+:value "scalar"))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "resolve")
+:value (mithril/local
+:name "yL209"))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "construct")
+:value (mithril/local
+:name "yL210"))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "instanceOf")
+:value (mithril/host-import
+:name "Date"))
+(rdf/node
+:key (mithril/literal
+:datatype "js-value"
+:value "represent")
+:value (mithril/local
+:name "yL211"))])]))
+(mithril/host-undefined)])])])])))
+:statements true)])))]
+:exports [(rdf/node
+:name "yamlRoot_require_timestamp"
+:value (mithril/local
+:name "yamlRoot_require_timestamp"))]
+:lexical_bindings true)

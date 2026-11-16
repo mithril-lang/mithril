@@ -1,0 +1,6 @@
+(mithril/native-js-esm-package :name "namespace.typed" :imports []
+ :externals [(rdf/node :name "external.fixture" :specifier "fixture.external" :exports ["count" "inc" "default"])]
+ :modules [(rdf/node :name "namespace.typed" :source "typed.mith" :dependencies ["external.fixture"]
+  :links [(rdf/node :import "ns" :module "external.fixture" :export "*")
+          (rdf/node :import "count" :module "external.fixture" :export "count")])]
+ :reexports ["namespace.typed"])

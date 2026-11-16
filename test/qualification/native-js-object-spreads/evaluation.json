@@ -1,0 +1,44 @@
+{
+  "format": "mithril.system-one-object-spreads-evaluation/v1",
+  "source_main": "4f33eefeb985bdf1d6dfdb99a04a66346854e95f",
+  "model_failure": {
+    "format": "mithril.code-refactor-failure/v1",
+    "input_sha256": "c52d33c39a546b95f6cb766b788e3c8b32c247d6f1803fde92fe08a37e2218e2",
+    "model": "qwen/qwen3.8-27b",
+    "rejection_reason": "invalid_refactor_proposal",
+    "rejection_detail": "change_shape",
+    "completion_id": "chatcmpl-a2903641-dcda-4011-ba28-d039ff29f51c",
+    "usage": {
+      "prompt_tokens": 24152,
+      "completion_tokens": 317
+    },
+    "attempts": 1,
+    "wall_seconds": 15.334,
+    "api_cost_usd": null,
+    "verified": false
+  },
+  "model_attempt_budget": 1,
+  "model_repair_budget": 0,
+  "unassisted_acceptance": false,
+  "accepted_model_source_available": false,
+  "operator_authored": true,
+  "operator_original_fixed_plan_verified": true,
+  "operator_form_tag_before_inference": true,
+  "runtime_groups": 18,
+  "whole_types_runtime_qualified": false,
+  "remaining": [
+    "whole types runtime port qualification after native object spreads",
+    "public types/package linking,string,time,index",
+    "downstreamHarness API/plugin/Session/native/Q9"
+  ],
+  "native_final_suite": {
+    "tests": 20,
+    "assertions": 84
+  },
+  "full_final_suite": {
+    "tests": 85,
+    "assertions": 435
+  },
+  "final_source_failures": 0,
+  "final_source_errors": 0
+}

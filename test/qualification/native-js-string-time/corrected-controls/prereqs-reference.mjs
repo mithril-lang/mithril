@@ -1,0 +1,4 @@
+export function instantiateMithrilNative(){
+function regex(){return /[_-][a-z]/g}function property(){return /^[a-z_$][\w$]*$/i}function numeric(){return /\d+(?:\.\d+)?/}function escaped(){return /\/\n\r\u2028\u2029/}function attack(){return /a\/;globalThis.__mithril_injected=1;\/\//}function empty(){return /(?:)/}function unicode(){return /[\p{ASCII}&&\p{Letter}]/v}function flags(){return /a/dgimsuy}
+function method(o,k,a,b){return o[k](0,...a,1,...b,2)}function none(o,k){return o[k]()}function counted(o,k){return o[k](... [arguments.length])}function chars(o,a){return o.fromCharCode(...a)}function le(a,b){return a<=b}function mul(a,b){return a*b}function div(a,b){return a/b}function plus(a){return +a}
+return {attack,regex,property,numeric,escaped,empty,unicode,flags,method,none,counted,chars,le,mul,div,plus}}

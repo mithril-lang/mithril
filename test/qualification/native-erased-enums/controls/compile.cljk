@@ -1,0 +1,102 @@
+(ns compile-erased-enums
+ (:require [mithril.native-declaration-program :as program] [mithril.native-declarations :as declarations]
+           [mithril.native-declaration-emit :as emit] [mithril.native-esm :as esm] [clojure.string :as str]
+           ["node:fs" :as fs] ["node:os" :as os] ["node:child_process" :as child]))
+(defn ensure [p text] (when-not p (throw (js/Error. text))))
+(defn run [args] (let [r (child/spawnSync js/process.execPath (clj->js args) #js {:encoding "utf8" :timeout 240000})] (ensure (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r)) (.-stdout r)))
+(defn render [v] (cond (map? v) (str "(" (case (get v "@type") "NativeJsDeclarationProgram" "mithril/native-js-declaration-program" "NativeJsDeclarationModule" "mithril/native-js-declaration-module" "rdf/node") " " (str/join " " (for [[k x] v :when (not (str/starts-with? k "@"))] (str ":" k " " (render x)))) ")") (vector? v) (str "[" (str/join " " (map render v)) "]") (nil? v) "nil" :else (js/JSON.stringify v)))
+(def engine (.-MITHRIL_DECLARATIONS_ENGINE js/process.env))
+(def compiler (.-MITHRIL_DECLARATIONS_TYPESCRIPT js/process.env))
+(def type-roots (.-MITHRIL_DECLARATIONS_TYPE_ROOTS js/process.env))
+(def base-text (fs/readFileSync "examples/native-js-cordis-augmentation-program.mith" "utf8"))
+(def plan (program/read-plan base-text))
+(def base-doc (:document plan))
+(def enum-source "native-js-cordis-erased-enums.mith")
+(def enum-text (fs/readFileSync (str "examples/" enum-source) "utf8"))
+(def enum-doc (declarations/parse-text enum-text))
+(def doc (update base-doc "modules" conj {"name" "cordis.enum_constants" "source" enum-source}))
+(def sources (-> (into {} (map #(vector % (fs/readFileSync (str "examples/" %) "utf8")) (:sources plan)))
+                 (assoc enum-source enum-text)
+                 (update "native-js-cordis-augmentation-index.mith" #(render (update (declarations/parse-text %) "reexports" conj {"module" "cordis.enum_constants" "type-only" false "names" nil})))))
+(def runtime-text (fs/readFileSync (str "examples/" (:runtime-source plan)) "utf8"))
+(def runtime-sources (into {} (map #(vector % (fs/readFileSync (str "examples/" %) "utf8")) (esm/source-basenames runtime-text))))
+(def runtime (esm/check-text runtime-text runtime-sources))
+(def artifact (program/compile-text (render doc) sources runtime))
+(ensure (= ["Context"] (:exports artifact)) "Enums leaked into runtime root")
+(ensure (= ["Context" "FiberState" "Intercept" "LoggerLevel" "Service"] (:type-exports artifact)) "Erased type bindings lost")
+(defn alias [name datatype] {"kind" "alias" "name" name "exported" true "type-params" [] "datatype" datatype})
+(defn ref [name] {"op" "name" "name" name "args" []})
+(defn klass [name base] {"kind" "class" "name" name "exported" false "abstract" false "type-params" [] "extends" (ref base) "implements" [] "members" []})
+(def generic (-> enum-doc
+ (assoc "imports" [{"module" "cordis.enum_constants" "type-only" false "names" [{"import" "*" "local" "Own"}]}])
+ (assoc "ambient-types" [{"name" "TypeError" "min" 0 "max" 0} {"name" "Error" "min" 0 "max" 0}])
+ (assoc "ambient-values" ["TypeError" "Error"])
+ (update "declarations" into [(klass "TypeErrorProbe" "TypeError") (klass "ErrorProbe" "Error")
+   (alias "TypeErrorConstructor" {"op" "typeof" "name" "TypeErrorProbe"}) (alias "ErrorConstructor" {"op" "typeof" "name" "ErrorProbe"})
+   {"kind" "const-enum" "name" "StringState" "exported" true "members" [{"name" "READY" "value" "ready"} {"name" "DONE" "value" "done"}]}
+   (alias "QualifiedActive" (ref "Own.FiberState.ACTIVE"))
+   (alias "ImportedActive" {"op" "import-type" "module" "cordis.enum_constants" "name" "FiberState.ACTIVE" "args" [] "query" false})
+   (alias "RootEnumQuery" {"op" "typeof" "name" "Own.FiberState"})
+   (alias "ImportedActiveQuery" {"op" "import-type" "module" "cordis.enum_constants" "name" "FiberState.ACTIVE" "args" [] "query" true})])))
+(def generic-sources (assoc sources enum-source (render generic)))
+(def generic-artifact (program/compile-text (render doc) generic-sources runtime))
+(defn reject [bad code]
+ (try (program/compile-text (render doc) (assoc sources enum-source (render bad)) runtime) (throw (js/Error. "Invalid enum admitted"))
+  (catch :default e (ensure (= code (:mithril/error (ex-data e))) (str "Wrong refusal: " e)))))
+(def e (first (get enum-doc "declarations")))
+(def bads [[(assoc-in enum-doc ["declarations" 0 "members" 0 "value"] true) :mithril.native-declarations/type]
+           [(assoc-in enum-doc ["declarations" 0 "members" 0 "value"] nil) :mithril.native-declarations/type]
+           [(assoc-in enum-doc ["declarations" 0 "members" 0 "value"] {"op" "eval"}) :mithril.native-declarations/type]
+           [(assoc-in enum-doc ["declarations" 0 "members" 0 "value"] js/Infinity) :mithril.native-declarations/type]
+           [(assoc-in enum-doc ["declarations" 0 "members" 0 "name"] "../bad") :mithril.native-declarations/name]
+           [(assoc-in enum-doc ["declarations" 0 "members" 1 "name"] "ERROR") :mithril.native-declarations/duplicate]
+           [(assoc-in enum-doc ["declarations" 0 "members"] (mapv #(hash-map "name" (str "E" %) "value" %) (range 129))) :mithril.native-declarations/budget]
+           [(assoc-in enum-doc ["declarations" 0 "erased"] false) :mithril.native-declarations/shape]
+           [(assoc-in enum-doc ["declarations" 0 "members" 0 "raw"] "source") :mithril.native-declarations/shape]
+           [(assoc-in enum-doc ["declarations" 0 "members" 0 "value"] (apply str (repeat 4097 "x"))) :mithril.native-declarations/budget]
+           [(update enum-doc "declarations" conj {"kind" "const" "name" "LoggerLevel" "exported" true "datatype" {"op" "keyword" "name" "number"}}) :mithril.native-declarations/duplicate]
+           [(update enum-doc "declarations" conj (assoc e "exported" false)) :mithril.native-declarations/duplicate]
+           [(update enum-doc "declarations" conj (klass "InvalidBase" "LoggerLevel")) :mithril.native-declarations/type]
+           [(update enum-doc "declarations" conj (alias "MissingMember" (ref "FiberState.MISSING"))) :mithril.native-declarations/arity]
+           [(update enum-doc "declarations" conj (alias "WrongArity" {"op" "name" "name" "FiberState" "args" [{"op" "keyword" "name" "number"}]})) :mithril.native-declarations/arity]])
+;; Infinity cannot serialize through the inert source renderer; check it in the
+;; structured checker directly rather than turning it into JSON null.
+(doseq [[bad code] bads]
+ (if (= js/Infinity (get-in bad ["declarations" 0 "members" 0 "value"]))
+  (try (declarations/check-module-program [bad] [] runtime "cordis.enum_constants") (throw (js/Error. "Infinite enum admitted"))
+   (catch :default err (ensure (= code (:mithril/error (ex-data err))) "Infinite enum refusal")))
+  (reject bad code)))
+;; An arbitrary external value is not an ambient global constructor.
+(def bad-external (-> generic (assoc "ambient-values" []) (update "ambient-types" #(filterv (fn [t] (not= "TypeError" (get t "name"))) %)) (assoc "imports" [{"module" "qualification.context" "type-only" false "names" [{"import" "Context" "local" "TypeError"}]}])))
+(reject bad-external :mithril.native-declarations/type)
+(reject (update enum-doc "declarations" conj (alias "InvalidDirectQuery" {"op" "typeof" "name" "FiberState.ACTIVE"})) :mithril.native-declarations/type)
+(def counterfeit-sources (update runtime-sources "native-js-cordis-augmentation-barrel.mith"
+                         #(str/replace % ":exports [" ":exports [(rdf/node :name \"FiberState\" :value (mithril/host-import :name \"Context\")) ")))
+(def counterfeit-runtime (esm/check-text runtime-text counterfeit-sources))
+(try (program/compile-text (render doc) sources counterfeit-runtime) (throw (js/Error. "Enum runtime object admitted"))
+ (catch :default err (ensure (= :mithril.native-declarations/surface (:mithril/error (ex-data err))) "Enum runtime object refusal")))
+(println "Erased enum admission:18 exact-code literal/name/shape/merge/scope/arity/budget/constructor refusals.")
+(def empty-runtime-text (fs/readFileSync "examples/native-js-cordis-type-leaves-esm.mith" "utf8"))
+(def empty-runtime (esm/check-text empty-runtime-text (into {} (map #(vector % (fs/readFileSync (str "examples/" %) "utf8")) (esm/source-basenames empty-runtime-text)))))
+(def legacy-doc {"@context" "https://mithril.fund/context/native-js-declarations/v1" "@type" "NativeJsDeclarations" "name" "cordis.leaves" "runtime-source" "native-js-cordis-type-leaves-esm.mith" "ambient-types" [] "ambient-values" []
+ "declarations" (into (get enum-doc "declarations") [{"kind" "export-alias" "name" "Severity" "target" "LoggerLevel"} (alias "AliasMember" (ref "Severity.ERROR"))])})
+(def legacy-artifact (emit/compile-document legacy-doc empty-runtime))
+(ensure (empty? (:exports legacy-artifact)) "Legacy enum alias leaked runtime export")
+(ensure (= ["LoggerLevel" "FiberState" "Severity" "AliasMember"] (:type-exports legacy-artifact)) "Legacy enum alias type lost")
+(def dir (fs/mkdtempSync (str (os/tmpdir) "/mithril-erased-enums-")))
+(def config (str dir "/offline.edn"))
+(fs/writeFileSync config (str "{:paths [" (js/JSON.stringify (fs/realpathSync "src")) "]}"))
+(try
+ (fs/writeFileSync (str dir "/legacy.d.mts") (:source legacy-artifact))
+ (run ["test/qualification/native-erased-enums/controls/legacy-alias.mjs" (str dir "/legacy.d.mts") compiler type-roots])
+ (doseq [[file source] (merge runtime-sources sources {(:runtime-source plan) runtime-text "program.mith" (render doc)})] (fs/writeFileSync (str dir "/" file) source))
+ (doseq [target ["js" "js-browser"]]
+  (let [out (str dir "/" target "-types") rout (str dir "/" target "-runtime") meta (str dir "/" target ".json") scoped (str dir "/" target "-generic")]
+   (run [engine "--config" config "--classpath" "src" "bin/mithril-native-esm.cljk" (str "examples/" (:runtime-source plan)) "--target" target "--output-directory" rout])
+   (run [engine "--config" config "--classpath" "src" "bin/mithril-native-declaration-program.cljk" (str dir "/program.mith") "--target" target "--output-directory" out])
+   (doseq [[file expected] (:files artifact)] (ensure (= expected (fs/readFileSync (str out "/" file) "utf8")) "CLI enum artifact mismatch") (fs/writeFileSync (str rout "/" file) expected))
+   (fs/writeFileSync meta (js/JSON.stringify (clj->js artifact)))
+   (fs/mkdirSync scoped)
+   (doseq [[file source] (:files generic-artifact)] (fs/writeFileSync (str scoped "/" file) source))
+   (run ["test/qualification/native-erased-enums/controls/type-contract.mjs" (str out "/index.d.mts") compiler type-roots meta (str rout "/index.mjs") (str scoped "/index.d.mts")])))
+ (finally (fs/rmSync dir #js {:recursive true :force true})))

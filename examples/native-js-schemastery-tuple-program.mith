@@ -1,0 +1,8 @@
+(mithril/native-js-declaration-program
+ :name "cordis.leaves"
+ :runtime-source "native-js-cordis-type-leaves-esm.mith"
+ :modules [(rdf/node
+   :name "schemastery.tuples"
+   :source "native-js-schemastery-tuples.mith")]
+ :externals []
+ :entry "schemastery.tuples")

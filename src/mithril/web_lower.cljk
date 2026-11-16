@@ -1,0 +1,70 @@
+(ns mithril.web-lower
+  "Lower checked static Mithril web applications to Amu-native dispatch code."
+  (:require [mithril.compiler :as compiler]
+            [mithril.module-lower :as module-lower]
+            [mithril.web :as web]))
+
+(defn- literal [value]
+  (str "(mithril/literal :datatype \"string\" :value " (pr-str value) ")"))
+
+(defn- equal? [local value]
+  (str "(mithril/call :name \"eq\" :args [(mithril/local :name \""
+       local "\") " (literal value) "])"))
+
+(defn- if-expression [condition then else]
+  (str "(mithril/if :condition " condition " :then " then " :else " else ")"))
+
+(defn- response-edn [artifact method path]
+  (pr-str (web/dispatch artifact {:method method :path path})))
+
+(defn- request-cases [artifact]
+  (let [routes (get-in artifact [:web-ir :routes])
+        route-paths (set (map :path routes))
+        unmatched-path (loop [index 0]
+                         (let [candidate (str "/__mithril_unmatched_" index "__")]
+                           (if (contains? route-paths candidate)
+                             (recur (inc index))
+                             candidate)))
+        routed (mapcat (fn [route]
+                         (cond-> [[(:method route) (:path route)]]
+                           (= "GET" (:method route))
+                           (conj ["HEAD" (:path route)])))
+                       routes)
+        requests (vec (distinct (concat routed
+                                        [["GET" unmatched-path]])))]
+    (mapv (fn [[method path]]
+            {:export "dispatch_edn"
+             :args [method path]
+             :expected (response-edn artifact method path)})
+          requests)))
+
+(defn lower-native-document
+  "Compile a checked WebApplication and lower its finite route table to native
+  Amu code. The exported dispatcher has the same closed behavior as
+  mithril.web/dispatch for every admitted route and returns response EDN."
+  [path doc library-artifacts]
+  (let [artifact (compiler/compile-web-document path doc library-artifacts)
+        cases (request-cases artifact)
+        unmatched (last cases)
+        route-cases (butlast cases)
+        body (reduce (fn [else {:keys [args expected]}]
+                       (let [[method path] args
+                             matched (if-expression (equal? "path" path)
+                                                    (literal expected) else)]
+                         (if-expression (equal? "method" method) matched else)))
+                     (literal (:expected unmatched))
+                     (reverse route-cases))
+        module-text (str
+                     "(mithril/module :name \"mithril.web_application\" "
+                     ":exports [\"dispatch_edn\"] :functions ["
+                     "(mithril/function :name \"dispatch_edn\" :params ["
+                     "(rdf/node :name \"method\" :datatype \"string\") "
+                     "(rdf/node :name \"path\" :datatype \"string\")] "
+                     ":returns \"string\" :body " body ")])")
+        lowered (module-lower/lower-native-text module-text)]
+    (assoc lowered
+           :format :mithril.web/amu-native-source-v1
+           :source-kind :mithril/web-application
+           :artifact-format (:format artifact)
+           :graph-digest (:graph-digest artifact)
+           :native-execution-cases cases)))

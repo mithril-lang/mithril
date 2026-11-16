@@ -1,0 +1,96 @@
+(ns declaration-composition-boundaries
+ (:require [mithril.native-declaration-composition :as composition]
+           [mithril.native-declaration-program :as program] [mithril.native-esm :as esm]
+           [clojure.string :as str] ["node:fs" :as fs]))
+(defn ensure [p label] (when-not p (throw (js/Error. label))))
+(defn data-form [v] (cond (map? v) (cons 'rdf/node (mapcat (fn [[k x]] [(keyword k) (data-form x)]) v)) (vector? v) (mapv data-form v) :else v))
+(defn text [tag v] (pr-str (cons tag (mapcat (fn [[k x]] [(keyword k) (data-form x)]) v))))
+(defn doc [name runtime declarations reexports]
+ {"name" name "runtime" runtime "ambient-types" [] "ambient-values" [] "imports" [] "declarations" declarations "reexports" reexports})
+(def number-type {"op" "keyword" "name" "number"})
+(def function-type {"kind" "function" "name" "inc" "exported" true "type-params" [] "params" [{"name" "n" "datatype" number-type "optional" false "rest" false}] "returns" number-type})
+(defn named [module] {"module" module "type-only" false "names" [{"import" "inc" "export" "inc"} {"import" "default" "export" "default"}]})
+(def sources (atom {}))
+(defn source! [name tag v] (swap! sources assoc name (text tag v)))
+;; Independently authored real producer: named/default aliases of one function.
+(swap! sources assoc "base.mith" (pr-str '(mithril/native-js-module :name "base" :imports [] :functions
+ [(mithril/function :name "inc" :params [(rdf/node :name "n" :datatype "js-value")] :returns "js-value" :body (mithril/host-binary :operator "+" :left (mithril/local :name "n") :right (mithril/literal :datatype "js-value" :value 1)))]
+ :exports [(rdf/node :name "inc" :function "inc") (rdf/node :name "default" :function "inc")])))
+(source! "base-runtime.mith" 'mithril/native-js-esm-package
+ {"name" "base.package" "imports" [] "modules" [{"name" "base" "source" "base.mith" "dependencies" [] "links" []}] "reexports" ["base"] "entry-exports" [{"module" "base" "import" "default" "export" "default"}]})
+(source! "base-types.mith" 'mithril/native-js-declaration-module (doc "base.types" "base" [function-type] [{"module" "base.types" "type-only" false "names" [{"import" "inc" "export" "default"}]}]))
+(source! "base-root.mith" 'mithril/native-js-declaration-module (doc "base.root" nil [] [(named "base.types")]))
+(source! "base-program.mith" 'mithril/native-js-declaration-program {"name" "base.package" "runtime-source" "base-runtime.mith" "modules" [{"name" "base.root" "source" "base-root.mith"} {"name" "base.types" "source" "base-types.mith"}] "externals" [] "entry" "base.root"})
+(defn forward! [prefix native alias specifier target-doc]
+ (swap! sources assoc (str prefix ".mith") (pr-str (list 'mithril/native-js-module :name native :imports ["inc" "defaultValue"] :functions [] :exports
+  [(list 'rdf/node :name "inc" :value (list 'mithril/host-import :name "inc")) (list 'rdf/node :name "default" :value (list 'mithril/host-import :name "defaultValue"))])))
+ (source! (str prefix "-runtime.mith") 'mithril/native-js-esm-package
+  {"name" (str prefix ".package") "imports" [] "externals" [{"name" alias "specifier" specifier "exports" ["inc" "default"]}]
+   "modules" [{"name" native "source" (str prefix ".mith") "dependencies" [alias] "links" [{"import" "inc" "module" alias "export" "inc"} {"import" "defaultValue" "module" alias "export" "default"}]}]
+   "reexports" [native] "entry-exports" [{"module" native "import" "default" "export" "default"}]})
+ (source! (str prefix "-types.mith") 'mithril/native-js-declaration-module (doc (str prefix ".types") native [] [(named target-doc)]))
+ (source! (str prefix "-program.mith") 'mithril/native-js-declaration-program
+  {"name" (str prefix ".package") "runtime-source" (str prefix "-runtime.mith") "modules" [{"name" (str prefix ".types") "source" (str prefix "-types.mith")}] "externals" [] "entry" (str prefix ".types")}))
+(forward! "bridge" "bridge" "baseAlias" "@probe/base" "base.root")
+(forward! "consumer" "consumer" "bridgeAlias" "@probe/bridge" "bridge.types")
+(def plan {"name" "consumer.package" "consumer-program" "consumer-program.mith" "consumer-package" "@probe/consumer" "consumer-version" "1.2.3"
+ "consumer-entries" [{"module" "consumer.types" "specifier" "@probe/consumer"}]
+ "producers" [{"package" "@probe/base" "version" "1.0.0" "program" "base-program.mith" "entries" [{"module" "base.root" "specifier" "@probe/base"} {"module" "base.root" "specifier" "@probe/base/src/index"}]}
+               {"package" "@probe/bridge" "version" "2.0.0" "program" "bridge-program.mith" "entries" [{"module" "bridge.types" "specifier" "@probe/bridge"}]}]})
+(defn compile [p s] (composition/compile-text (text 'mithril/native-js-declaration-composition p) s))
+(def artifact (compile plan @sources))
+(ensure (= ["default" "inc"] (:exports artifact)) "Actual chained root exports")
+(ensure (= 3 (count (:packages artifact))) "Three independently owned packages")
+(ensure (= "index.mjs" (get-in artifact [:packages 1 :entries 0 :runtime])) "Derived producer root route")
+;; Standalone source-owned producer declaration bytes must remain unchanged.
+(let [rt (esm/check-text (get @sources "base-runtime.mith") (select-keys @sources ["base.mith"]))
+      out (program/compile-text (get @sources "base-program.mith") (select-keys @sources ["base-root.mith" "base-types.mith"]) rt)]
+ (doseq [[file bytes] (:files out)] (ensure (= bytes (get-in artifact [:files (str "producer-0/" file)])) "Standalone producer declaration byte identity")))
+;; A real empty runtime submodule can publish complete type-only declarations.
+;; Its route must behave consistently when another actual package imports it.
+(let [empty-leaf (pr-str '(mithril/native-js-module :name "empty.types" :imports [] :functions [] :exports []))
+      empty-doc (doc "empty.types" nil [{"kind" "alias" "name" "EmptyValue" "exported" true "type-params" [] "datatype" number-type}] [])
+      base-runtime {"name" "base.package" "imports" [] "modules" [{"name" "base" "source" "base.mith" "dependencies" ["empty.types"] "links" []} {"name" "empty.types" "source" "empty.mith" "dependencies" [] "links" []}] "reexports" ["base"] "entry-exports" [{"module" "base" "import" "default" "export" "default"}]}
+      consumer-runtime {"name" "consumer.package" "imports" [] "externals" [{"name" "bridgeAlias" "specifier" "@probe/bridge" "exports" ["inc" "default"]} {"name" "emptyAlias" "specifier" "@probe/base/empty" "exports" []}]
+       "modules" [{"name" "consumer" "source" "consumer.mith" "dependencies" ["bridgeAlias" "emptyAlias"] "links" [{"import" "inc" "module" "bridgeAlias" "export" "inc"} {"import" "defaultValue" "module" "bridgeAlias" "export" "default"}]}] "reexports" ["consumer"] "entry-exports" [{"module" "consumer" "import" "default" "export" "default"}]}
+      base-program {"name" "base.package" "runtime-source" "base-runtime.mith" "modules" [{"name" "base.root" "source" "base-root.mith"} {"name" "base.types" "source" "base-types.mith"} {"name" "empty.types" "source" "empty-types.mith"}] "externals" [] "entry" "base.root"}
+      consumer-doc (doc "consumer.types" "consumer" [] [(named "bridge.types") {"module" "empty.types" "type-only" true "names" nil}])
+      input (assoc @sources "empty.mith" empty-leaf "empty-types.mith" (text 'mithril/native-js-declaration-module empty-doc)
+       "base-runtime.mith" (text 'mithril/native-js-esm-package base-runtime) "base-program.mith" (text 'mithril/native-js-declaration-program base-program)
+       "consumer-runtime.mith" (text 'mithril/native-js-esm-package consumer-runtime) "consumer-types.mith" (text 'mithril/native-js-declaration-module consumer-doc))
+      out (compile (update-in plan ["producers" 0 "entries"] conj {"module" "empty.types" "specifier" "@probe/base/empty"}) input)]
+ (ensure (= ["EmptyValue"] (:type-exports out)) "Actual empty source subpath retains type declarations")
+ (ensure (= "module-1.mjs" (get-in out [:packages 1 :entries 2 :runtime])) "Actual empty module route"))
+(ensure (= (get-in artifact [:packages 1 :entries 0 :declarations]) (get-in artifact [:packages 1 :entries 1 :declarations])) "Published aliases retain one declaration body")
+(ensure (= (get-in artifact [:packages 1 :entries 0 :runtime]) (get-in artifact [:packages 1 :entries 1 :runtime])) "Published aliases retain one runtime body")
+(def refusals (atom 0))
+(defn refuse [p s code label]
+ (let [actual (try (compile p s) :admitted (catch :default e (:mithril/error (ex-data e))))]
+  (ensure (= code actual) (str label ": expected " code " got " actual)) (swap! refusals inc)))
+(refuse (assoc plan "consumer-program" "../consumer.mith") @sources :mithril.native-declarations/source "Traversal")
+(refuse (assoc plan "producers" []) @sources :mithril.native-declarations/link "Missing producer")
+(refuse (assoc-in plan ["producers" 0 "package"] "@probe/consumer") @sources :mithril.native-declarations/source "Foreign entry prefix")
+(refuse (assoc-in plan ["producers" 0 "version"] "latest") @sources :mithril.native-declarations/source "Unbounded version")
+(refuse (assoc-in plan ["producers" 0 "entries" 0 "module"] "unknown") @sources :mithril.native-declarations/link "Unknown published declaration")
+(refuse (assoc-in plan ["producers" 0 "entries" 0 "specifier"] "@probe/base/other") @sources :mithril.native-declarations/link "Unbound actual package entry")
+(refuse plan (assoc @sources "extra.mith" "unused") :mithril.native-declarations/source "Extra source")
+(refuse plan (dissoc @sources "base.mith") :mithril.native-declarations/source "Missing actual source")
+(refuse plan (update @sources "consumer-types.mith" #(str/replace % ":runtime \"consumer\"" ":runtime \"base\"")) :mithril.native-declarations/runtime "Foreign runtime owner")
+(refuse plan (update @sources "bridge-runtime.mith" #(str/replace % "[\"inc\" \"default\"]" "[\"inc\"]")) :mithril.native-package/link "External export mismatch")
+(refuse (assoc plan "producers" (vec (repeat 9 (first (get plan "producers"))))) @sources :mithril.native-declarations/budget "Nine producer budget")
+(refuse (assoc plan "consumer-entries" (vec (repeat 65 (first (get plan "consumer-entries"))))) @sources :mithril.native-declarations/budget "65 published entry budget")
+(refuse (update plan "producers" conj (first (get plan "producers"))) @sources :mithril.native-declarations/duplicate "Duplicate package identity")
+(refuse (assoc-in plan ["producers" 1 "program"] "base-program.mith") @sources :mithril.native-declarations/duplicate "Duplicate source program")
+(refuse (assoc-in plan ["producers" 0 "entries"] []) @sources :mithril.native-declarations/link "Missing used public entry")
+(refuse plan (update @sources "consumer-types.mith" #(str/replace % "bridge.types" "base.types")) :mithril.native-declarations/link "Unpublished cross-owner type path")
+(refuse plan (update @sources "bridge-types.mith" #(str/replace % "bridge.types" "base.types")) :mithril.native-declarations/source "Declaration identity mismatch")
+(refuse plan (assoc @sources "consumer.mith" (apply str (repeat 4194305 " "))) :mithril.native-declarations/source "Aggregate four Mi character budget")
+(refuse plan (assoc @sources "consumer.mith" (apply str (repeat 2097153 " "))) :mithril.native-declarations/source "Aggregate runtime two Mi character budget")
+(refuse plan (assoc @sources "consumer-types.mith" (apply str (repeat 1048577 " "))) :mithril.native-declarations/source "Aggregate declaration one Mi character budget")
+(refuse (update-in plan ["producers" 0 "entries"] conj (first (get-in plan ["producers" 0 "entries"]))) @sources :mithril.native-declarations/duplicate "Repeated publication specifier")
+(def dir (.-MITHRIL_COMPOSITION_FIXTURES js/process.env))
+(when dir
+ (doseq [[file bytes] @sources] (fs/writeFileSync (str dir "/" file) bytes))
+ (fs/writeFileSync (str dir "/composition.mith") (text 'mithril/native-js-declaration-composition plan))
+ (fs/writeFileSync (str dir "/invalid-composition.mith") (text 'mithril/native-js-declaration-composition (assoc-in plan ["producers" 0 "entries" 0 "specifier"] "@probe/base/other"))))
+(println (str "Declaration composition boundaries: actual two-producer chain, root/default/named origins, standalone producer bytes, " @refusals " exact refusals."))

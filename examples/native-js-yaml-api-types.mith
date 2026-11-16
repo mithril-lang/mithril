@@ -1,0 +1,1048 @@
+; Derived from @types/js-yaml 4.0.9; original MIT notices:
+; test/fixtures/include-sdk/yaml-types/LICENSE
+; Full pinned @types/js-yaml 4.0.9 source declarations; default namespace wrapper remains pending.
+(mithril/native-js-declaration-module :name "yaml.api"
+:runtime "yaml.entry"
+:ambient-types [(rdf/node :name "Error"
+:min 0
+:max 0)]
+:ambient-values ["Error"]
+:imports []
+:reexports []
+:declarations [(rdf/node :kind "function"
+:name "load"
+:exported true
+:type-params []
+:params [(rdf/node :name "str"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :name "opts"
+:optional true
+:rest false
+:datatype (rdf/node :op "name"
+:name "LoadOptions"
+:args []))]
+:returns (rdf/node :op "keyword"
+:name "unknown"))
+(rdf/node :kind "class"
+:name "Type"
+:exported true
+:abstract false
+:type-params []
+:extends nil
+:implements []
+:members [(rdf/node :kind "constructor"
+:visibility "public"
+:params [(rdf/node :name "tag"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :name "opts"
+:optional true
+:rest false
+:datatype (rdf/node :op "name"
+:name "TypeConstructorOptions"
+:args []))])
+(rdf/node :kind "property"
+:key (rdf/node :kind "name"
+:name "kind")
+:visibility "public"
+:static false
+:readonly false
+:optional false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "literal"
+:value "sequence")
+(rdf/node :op "literal"
+:value "scalar")
+(rdf/node :op "literal"
+:value "mapping")
+(rdf/node :op "literal"
+:value nil)]))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "resolve")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "data"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "any"))]
+:returns (rdf/node :op "keyword"
+:name "boolean"))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "construct")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "data"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "any"))
+(rdf/node :name "type"
+:optional true
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))]
+:returns (rdf/node :op "keyword"
+:name "any"))
+(rdf/node :kind "property"
+:key (rdf/node :kind "name"
+:name "instanceOf")
+:visibility "public"
+:static false
+:readonly false
+:optional false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "keyword"
+:name "object")
+(rdf/node :op "literal"
+:value nil)]))
+(rdf/node :kind "property"
+:key (rdf/node :kind "name"
+:name "predicate")
+:visibility "public"
+:static false
+:readonly false
+:optional false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "function"
+:abstract false
+:type-params []
+:params [(rdf/node :name "data"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "object"))]
+:returns (rdf/node :op "keyword"
+:name "boolean"))
+(rdf/node :op "literal"
+:value nil)]))
+(rdf/node :kind "property"
+:key (rdf/node :kind "name"
+:name "represent")
+:visibility "public"
+:static false
+:readonly false
+:optional false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "function"
+:abstract false
+:type-params []
+:params [(rdf/node :name "data"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "object"))]
+:returns (rdf/node :op "keyword"
+:name "any"))
+(rdf/node :op "object"
+:members [(rdf/node :kind "index-signature"
+:name "x"
+:key (rdf/node :op "keyword"
+:name "string")
+:readonly false
+:datatype (rdf/node :op "function"
+:abstract false
+:type-params []
+:params [(rdf/node :name "data"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "object"))]
+:returns (rdf/node :op "keyword"
+:name "any")))])
+(rdf/node :op "literal"
+:value nil)]))
+(rdf/node :kind "property"
+:key (rdf/node :kind "name"
+:name "representName")
+:visibility "public"
+:static false
+:readonly false
+:optional false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "function"
+:abstract false
+:type-params []
+:params [(rdf/node :name "data"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "object"))]
+:returns (rdf/node :op "keyword"
+:name "any"))
+(rdf/node :op "literal"
+:value nil)]))
+(rdf/node :kind "property"
+:key (rdf/node :kind "name"
+:name "defaultStyle")
+:visibility "public"
+:static false
+:readonly false
+:optional false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "keyword"
+:name "string")
+(rdf/node :op "literal"
+:value nil)]))
+(rdf/node :kind "property"
+:key (rdf/node :kind "name"
+:name "multi")
+:visibility "public"
+:static false
+:readonly false
+:optional false
+:datatype (rdf/node :op "keyword"
+:name "boolean"))
+(rdf/node :kind "property"
+:key (rdf/node :kind "name"
+:name "styleAliases")
+:visibility "public"
+:static false
+:readonly false
+:optional false
+:datatype (rdf/node :op "object"
+:members [(rdf/node :kind "index-signature"
+:name "x"
+:key (rdf/node :op "keyword"
+:name "string")
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "any"))]))])
+(rdf/node :kind "class"
+:name "Schema"
+:exported true
+:abstract false
+:type-params []
+:extends nil
+:implements []
+:members [(rdf/node :kind "constructor"
+:visibility "public"
+:params [(rdf/node :name "definition"
+:optional false
+:rest false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "SchemaDefinition"
+:args [])
+(rdf/node :op "array"
+:item (rdf/node :op "name"
+:name "Type"
+:args []))
+(rdf/node :op "name"
+:name "Type"
+:args [])]))])
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "extend")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "types"
+:optional false
+:rest false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "SchemaDefinition"
+:args [])
+(rdf/node :op "array"
+:item (rdf/node :op "name"
+:name "Type"
+:args []))
+(rdf/node :op "name"
+:name "Type"
+:args [])]))]
+:returns (rdf/node :op "name"
+:name "Schema"
+:args []))])
+(rdf/node :kind "function"
+:name "loadAll"
+:exported true
+:type-params []
+:params [(rdf/node :name "str"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :name "iterator"
+:optional true
+:rest false
+:datatype (rdf/node :op "literal"
+:value nil))
+(rdf/node :name "opts"
+:optional true
+:rest false
+:datatype (rdf/node :op "name"
+:name "LoadOptions"
+:args []))]
+:returns (rdf/node :op "array"
+:item (rdf/node :op "keyword"
+:name "unknown")))
+(rdf/node :kind "function"
+:name "loadAll"
+:exported true
+:type-params []
+:params [(rdf/node :name "str"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :name "iterator"
+:optional false
+:rest false
+:datatype (rdf/node :op "function"
+:abstract false
+:type-params []
+:params [(rdf/node :name "doc"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "unknown"))]
+:returns (rdf/node :op "keyword"
+:name "void")))
+(rdf/node :name "opts"
+:optional true
+:rest false
+:datatype (rdf/node :op "name"
+:name "LoadOptions"
+:args []))]
+:returns (rdf/node :op "keyword"
+:name "void"))
+(rdf/node :kind "function"
+:name "dump"
+:exported true
+:type-params []
+:params [(rdf/node :name "obj"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "any"))
+(rdf/node :name "opts"
+:optional true
+:rest false
+:datatype (rdf/node :op "name"
+:name "DumpOptions"
+:args []))]
+:returns (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "interface"
+:name "LoadOptions"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "filename"
+:optional true
+:readonly false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "keyword"
+:name "string")
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "method"
+:name "onWarning"
+:optional true
+:type-params []
+:params [(rdf/node :name "this"
+:optional false
+:rest false
+:datatype (rdf/node :op "literal"
+:value nil))
+(rdf/node :name "e"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "YAMLException"
+:args []))]
+:returns (rdf/node :op "keyword"
+:name "void"))
+(rdf/node :kind "property"
+:name "schema"
+:optional true
+:readonly false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "Schema"
+:args [])
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "property"
+:name "json"
+:optional true
+:readonly false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "keyword"
+:name "boolean")
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "method"
+:name "listener"
+:optional true
+:type-params []
+:params [(rdf/node :name "this"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "State"
+:args []))
+(rdf/node :name "eventType"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "EventType"
+:args []))
+(rdf/node :name "state"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "State"
+:args []))]
+:returns (rdf/node :op "keyword"
+:name "void"))])
+(rdf/node :kind "alias"
+:name "EventType"
+:exported true
+:type-params []
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "literal"
+:value "open")
+(rdf/node :op "literal"
+:value "close")]))
+(rdf/node :kind "interface"
+:name "State"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "input"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:name "filename"
+:optional false
+:readonly false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "keyword"
+:name "string")
+(rdf/node :op "literal"
+:value nil)]))
+(rdf/node :kind "property"
+:name "schema"
+:optional false
+:readonly false
+:datatype (rdf/node :op "name"
+:name "Schema"
+:args []))
+(rdf/node :kind "property"
+:name "onWarning"
+:optional false
+:readonly false
+:datatype (rdf/node :op "function"
+:abstract false
+:type-params []
+:params [(rdf/node :name "this"
+:optional false
+:rest false
+:datatype (rdf/node :op "literal"
+:value nil))
+(rdf/node :name "e"
+:optional false
+:rest false
+:datatype (rdf/node :op "name"
+:name "YAMLException"
+:args []))]
+:returns (rdf/node :op "keyword"
+:name "void")))
+(rdf/node :kind "property"
+:name "json"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "boolean"))
+(rdf/node :kind "property"
+:name "length"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "number"))
+(rdf/node :kind "property"
+:name "position"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "number"))
+(rdf/node :kind "property"
+:name "line"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "number"))
+(rdf/node :kind "property"
+:name "lineStart"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "number"))
+(rdf/node :kind "property"
+:name "lineIndent"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "number"))
+(rdf/node :kind "property"
+:name "version"
+:optional false
+:readonly false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "literal"
+:value nil)
+(rdf/node :op "keyword"
+:name "number")]))
+(rdf/node :kind "property"
+:name "checkLineBreaks"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "boolean"))
+(rdf/node :kind "property"
+:name "kind"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:name "result"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "any"))
+(rdf/node :kind "property"
+:name "implicitTypes"
+:optional false
+:readonly false
+:datatype (rdf/node :op "array"
+:item (rdf/node :op "name"
+:name "Type"
+:args [])))])
+(rdf/node :kind "interface"
+:name "DumpOptions"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "indent"
+:optional true
+:readonly false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "keyword"
+:name "number")
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "property"
+:name "noArrayIndent"
+:optional true
+:readonly false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "keyword"
+:name "boolean")
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "property"
+:name "skipInvalid"
+:optional true
+:readonly false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "keyword"
+:name "boolean")
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "property"
+:name "flowLevel"
+:optional true
+:readonly false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "keyword"
+:name "number")
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "property"
+:name "styles"
+:optional true
+:readonly false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "object"
+:members [(rdf/node :kind "index-signature"
+:name "x"
+:key (rdf/node :op "keyword"
+:name "string")
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "any"))])
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "property"
+:name "schema"
+:optional true
+:readonly false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "Schema"
+:args [])
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "property"
+:name "sortKeys"
+:optional true
+:readonly false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "keyword"
+:name "boolean")
+(rdf/node :op "function"
+:abstract false
+:type-params []
+:params [(rdf/node :name "a"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "any"))
+(rdf/node :name "b"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "any"))]
+:returns (rdf/node :op "keyword"
+:name "number"))
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "property"
+:name "lineWidth"
+:optional true
+:readonly false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "keyword"
+:name "number")
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "property"
+:name "noRefs"
+:optional true
+:readonly false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "keyword"
+:name "boolean")
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "property"
+:name "noCompatMode"
+:optional true
+:readonly false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "keyword"
+:name "boolean")
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "property"
+:name "condenseFlow"
+:optional true
+:readonly false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "keyword"
+:name "boolean")
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "property"
+:name "quotingType"
+:optional true
+:readonly false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "literal"
+:value "'")
+(rdf/node :op "literal"
+:value "\"")
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "property"
+:name "forceQuotes"
+:optional true
+:readonly false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "keyword"
+:name "boolean")
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "property"
+:name "replacer"
+:optional true
+:readonly false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "function"
+:abstract false
+:type-params []
+:params [(rdf/node :name "key"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :name "value"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "any"))]
+:returns (rdf/node :op "keyword"
+:name "any"))
+(rdf/node :op "keyword"
+:name "undefined")]))])
+(rdf/node :kind "interface"
+:name "TypeConstructorOptions"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "kind"
+:optional true
+:readonly false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "literal"
+:value "sequence")
+(rdf/node :op "literal"
+:value "scalar")
+(rdf/node :op "literal"
+:value "mapping")
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "property"
+:name "resolve"
+:optional true
+:readonly false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "function"
+:abstract false
+:type-params []
+:params [(rdf/node :name "data"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "any"))]
+:returns (rdf/node :op "keyword"
+:name "boolean"))
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "property"
+:name "construct"
+:optional true
+:readonly false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "function"
+:abstract false
+:type-params []
+:params [(rdf/node :name "data"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "any"))
+(rdf/node :name "type"
+:optional true
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))]
+:returns (rdf/node :op "keyword"
+:name "any"))
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "property"
+:name "instanceOf"
+:optional true
+:readonly false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "keyword"
+:name "object")
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "property"
+:name "predicate"
+:optional true
+:readonly false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "function"
+:abstract false
+:type-params []
+:params [(rdf/node :name "data"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "object"))]
+:returns (rdf/node :op "keyword"
+:name "boolean"))
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "property"
+:name "represent"
+:optional true
+:readonly false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "function"
+:abstract false
+:type-params []
+:params [(rdf/node :name "data"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "object"))]
+:returns (rdf/node :op "keyword"
+:name "any"))
+(rdf/node :op "object"
+:members [(rdf/node :kind "index-signature"
+:name "x"
+:key (rdf/node :op "keyword"
+:name "string")
+:readonly false
+:datatype (rdf/node :op "function"
+:abstract false
+:type-params []
+:params [(rdf/node :name "data"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "object"))]
+:returns (rdf/node :op "keyword"
+:name "any")))])
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "property"
+:name "representName"
+:optional true
+:readonly false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "function"
+:abstract false
+:type-params []
+:params [(rdf/node :name "data"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "object"))]
+:returns (rdf/node :op "keyword"
+:name "any"))
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "property"
+:name "defaultStyle"
+:optional true
+:readonly false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "keyword"
+:name "string")
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "property"
+:name "multi"
+:optional true
+:readonly false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "keyword"
+:name "boolean")
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "property"
+:name "styleAliases"
+:optional true
+:readonly false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "object"
+:members [(rdf/node :kind "index-signature"
+:name "x"
+:key (rdf/node :op "keyword"
+:name "string")
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "any"))])
+(rdf/node :op "keyword"
+:name "undefined")]))])
+(rdf/node :kind "interface"
+:name "SchemaDefinition"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "implicit"
+:optional true
+:readonly false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "array"
+:item (rdf/node :op "name"
+:name "Type"
+:args []))
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "property"
+:name "explicit"
+:optional true
+:readonly false
+:datatype (rdf/node :op "union"
+:items [(rdf/node :op "array"
+:item (rdf/node :op "name"
+:name "Type"
+:args []))
+(rdf/node :op "keyword"
+:name "undefined")]))])
+(rdf/node :kind "let"
+:name "FAILSAFE_SCHEMA"
+:exported true
+:datatype (rdf/node :op "name"
+:name "Schema"
+:args []))
+(rdf/node :kind "let"
+:name "JSON_SCHEMA"
+:exported true
+:datatype (rdf/node :op "name"
+:name "Schema"
+:args []))
+(rdf/node :kind "let"
+:name "CORE_SCHEMA"
+:exported true
+:datatype (rdf/node :op "name"
+:name "Schema"
+:args []))
+(rdf/node :kind "let"
+:name "DEFAULT_SCHEMA"
+:exported true
+:datatype (rdf/node :op "name"
+:name "Schema"
+:args []))
+(rdf/node :kind "interface"
+:name "Mark"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "buffer"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:name "column"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "number"))
+(rdf/node :kind "property"
+:name "line"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "number"))
+(rdf/node :kind "property"
+:name "name"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:name "position"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "number"))
+(rdf/node :kind "property"
+:name "snippet"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "string"))])
+(rdf/node :kind "class"
+:name "YAMLException"
+:exported true
+:abstract false
+:type-params []
+:extends (rdf/node :op "name"
+:name "Error"
+:args [])
+:implements []
+:members [(rdf/node :kind "constructor"
+:visibility "public"
+:params [(rdf/node :name "reason"
+:optional true
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :name "mark"
+:optional true
+:rest false
+:datatype (rdf/node :op "name"
+:name "Mark"
+:args []))])
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "toString")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "compact"
+:optional true
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "boolean"))]
+:returns (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:key (rdf/node :kind "name"
+:name "name")
+:visibility "public"
+:static false
+:readonly false
+:optional false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:key (rdf/node :kind "name"
+:name "reason")
+:visibility "public"
+:static false
+:readonly false
+:optional false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:key (rdf/node :kind "name"
+:name "message")
+:visibility "public"
+:static false
+:readonly false
+:optional false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :kind "property"
+:key (rdf/node :kind "name"
+:name "mark")
+:visibility "public"
+:static false
+:readonly false
+:optional false
+:datatype (rdf/node :op "name"
+:name "Mark"
+:args []))])]
+:umd-namespace "jsyaml"
+:runtime-only-exports ["default"
+"safeDump"
+"safeLoad"
+"safeLoadAll"
+"types"])

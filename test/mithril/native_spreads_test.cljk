@@ -1,0 +1,7 @@
+(ns mithril.native-spreads-test
+ (:require [cljs.test :refer [deftest is]] [mithril.native-spreads-primitives :as p]
+           ["node:fs" :as fs] ["node:os" :as os] ["node:path" :as path]))
+(deftest native-ordered-object-spreads
+ (let [dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-object-spreads-"))]
+  (try (is (nil? (p/verify (path/join dir "spreads.mjs") (path/resolve "test/fixtures/spreads-runtime.mjs"))))
+   (finally (fs/rmSync dir #js {:recursive true :force true})))))

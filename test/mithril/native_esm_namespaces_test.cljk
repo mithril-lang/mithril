@@ -1,0 +1,43 @@
+(ns mithril.native-esm-namespaces-test
+ (:require [cljs.test :refer [deftest is]] [mithril.native-esm :as esm]
+           [mithril.native-package :as package] [mithril.native-js :as native]
+           [mithril.form :as form]
+           ["node:fs" :as fs] ["node:os" :as os] ["node:path" :as path]
+           ["node:child_process" :as child]))
+(def fixture "test/fixtures/native-esm-namespaces/")
+(defn read [file] (fs/readFileSync (str fixture file) "utf8"))
+(defn sources [text] (into {} (map #(vector % (read %)) (esm/source-basenames text))))
+(defn refusal [doc src] (try (esm/check-document doc src) nil (catch :default e (:mithril/error (ex-data e)))))
+(deftest namespace-binding-admission-and-origin
+ (let [text (read "package.mith") doc (form/parse text) src (sources text) checked (esm/check-text text src)]
+  (is (= ["fixture.external" :namespace "*"] (package/export-origin checked "namespace.root" "ns")))
+  (is (= ["namespace.leaf" :namespace "*"] (package/export-origin checked "namespace.root" "leaf")))
+  (is (= [] (:imports checked)))
+  (doseq [[bad code] [[(assoc-in doc ["modules" 0 "links" 0 "module"] "missing.module") :mithril.native-package/link]
+                     [(assoc-in doc ["modules" 0 "links" 0 "export"] "**") :mithril.native-package/name]
+                     [(assoc-in doc ["modules" 0 "links" 0 "export"] "* as injected") :mithril.native-package/name]
+                     [(assoc-in doc ["modules" 0 "links" 0 "import"] "missing") :mithril.native-package/link]
+                     [(assoc-in doc ["modules" 0 "dependencies"] ["external.cjs" "external.yaml" "namespace.leaf"]) :mithril.native-package/link]
+                     [(update-in doc ["modules" 0 "links"] conj (get-in doc ["modules" 0 "links" 0])) :mithril.native-package/duplicate]
+                     [(assoc doc "imports" ["ns"]) :mithril.native-package/grants]]]
+   (is (= code (refusal bad src))))
+  (is (= :mithril.native-package/name
+         (try (package/check-document (-> doc (assoc "@type" "NativeJsPackage" "@context" "https://mithril.fund/context/native-js-package/v1")
+                                            (dissoc "externals") (update "modules" #(mapv (fn [m] (dissoc m "dependencies")) %))) src) nil
+              (catch :default e (:mithril/error (ex-data e))))))
+  (is (= :mithril.native-js/link
+         (try (native/compile-esm-document (form/parse (read "root.mith"))
+                 [{"import" "ns" "export" "*" "source" "./module-0.mjs"}] []) nil
+              (catch :default e (:mithril/error (ex-data e))))))))
+(deftest actual-esm-namespace-clis-and-original-host-contract
+ (let [dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-esm-namespaces-"))
+       config (path/join dir "offline.edn") engine (aget (.-argv js/process) 1)]
+  (try
+   (fs/writeFileSync config "{:paths []}")
+   (doseq [target ["js" "js-browser"]]
+    (let [out (path/join dir target)
+          result (child/spawnSync js/process.execPath (clj->js [engine "--config" config "-cp" "src" "bin/mithril-native-esm.cljk" (str fixture "package.mith") "--target" target "--output-directory" out]) #js {:encoding "utf8" :timeout 30000})]
+     (is (= 0 (.-status result)) (str (.-stdout result) (.-stderr result)))
+     (let [result (child/spawnSync js/process.execPath #js [(str fixture "contract.mjs") out] #js {:encoding "utf8" :timeout 30000})]
+      (is (= 0 (.-status result)) (str (.-stdout result) (.-stderr result))))))
+   (finally (fs/rmSync dir #js {:recursive true :force true})))))

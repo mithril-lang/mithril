@@ -1,0 +1,2 @@
+(ns hashes (:require [mithril.native-js :as n] ["node:fs" :as fs] ["node:crypto" :as crypto]))
+(println (js/JSON.stringify (clj->js (into {} (map (fn [name] [name (-> (crypto/createHash "sha256") (.update (:source (n/compile-text (fs/readFileSync (str "examples/native-js-" name ".mith") "utf8")))) (.digest "hex"))]) ["map-values" "misc" "array" "volatile" "types"])))))

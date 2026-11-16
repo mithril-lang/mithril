@@ -1,0 +1,81 @@
+(ns mithril.language-test
+  (:require [cljs.test :refer [deftest is]]
+            [clojure.string :as str]
+            [mithril.compiler :as compiler]
+            [mithril.execution :as execution]
+            [mithril.language :as language]))
+
+(defn read-text [path] (.readFileSync (js/require "fs") path "utf8"))
+(defn error-code [f] (try (f) nil (catch :default e (:mithril/error (ex-data e)))))
+(defn compile-kernel [text]
+  (language/compile-text text (compiler/compile-library-text language/library-path
+                                                            (read-text language/library-path))))
+(def pipeline "[\"read-inert\" \"project-jsonld\" \"canonicalize-rdf\" \"admit-vocabulary\" \"emit-transaction\"]")
+
+(deftest declared-order-executes-and-preserves-legacy-artifacts
+  (let [kernel (language/load!) text (read-text language/source-path)
+        reordered (compile-kernel (str/replace text pipeline
+                              "[\"read-inert\" \"admit-vocabulary\" \"project-jsonld\" \"canonicalize-rdf\" \"emit-transaction\"]"))]
+    (doseq [path ["examples/tender.mith" "examples/tender.mithril"]]
+      (let [source (read-text path) expected (compiler/compile-text path source)
+            trace (language/run-compiler kernel path source)
+            alternate (language/run-compiler reordered path source)]
+        (is (= expected (:artifact trace) (:artifact alternate)))
+        (is (= (mapv #(str language/base %) (get-in kernel [:language-ir :pipeline]))
+               (mapv :operation (:receipts trace))))
+        (is (= (str language/base "admit-vocabulary") (get-in alternate [:receipts 1 :operation])))
+        (is (not= (:kernel-digest trace) (:kernel-digest alternate)))
+        (is (= (execution/digest {:artifact expected}) (get-in trace [:receipts 4 :output-digest])))
+        (is (= (:bootstrap-digest trace) (:bootstrap-digest alternate)))))
+    ;; Form is parsed by the same primitive and produces the same transaction.
+    (let [doc (compiler/parse-source (read-text "examples/tender.mith"))
+          source (str "(mithril/program :id " (pr-str (get doc "@id"))
+                      " :goal " (pr-str (get doc "goal")) " :ontology " (pr-str (get doc "ontology"))
+                      " :choices [" (str/join " " (map (fn [c]
+                      (str "(mithril/choice :role " (pr-str (get c "role"))
+                           " :candidate " (pr-str (get c "candidate"))
+                           " :confidence " (get c "confidence") ")")) (get doc "choices"))) "])")]
+      (is (= (compiler/compile-text "form.mith" source)
+             (language/compile-program kernel "form.mith" source))))))
+
+(deftest invalid-pipelines-and-forged-kernels-are-refused
+  (let [text (read-text language/source-path) kernel (language/load!)
+        source (read-text "examples/tender.mith")]
+    (doseq [invalid ["[\"project-jsonld\" \"read-inert\" \"canonicalize-rdf\" \"admit-vocabulary\" \"emit-transaction\"]"
+                     "[\"read-inert\" \"canonicalize-rdf\" \"project-jsonld\" \"admit-vocabulary\" \"emit-transaction\"]"
+                     "[\"read-inert\" \"project-jsonld\" \"canonicalize-rdf\" \"emit-transaction\" \"admit-vocabulary\"]"
+                     "[\"read-inert\" \"read-inert\" \"canonicalize-rdf\" \"admit-vocabulary\" \"emit-transaction\"]"
+                     "[\"read-inert\" \"project-jsonld\" \"canonicalize-rdf\" \"admit-vocabulary\"]"
+                     "[\"read-inert\" \"eval\" \"canonicalize-rdf\" \"admit-vocabulary\" \"emit-transaction\"]"]]
+      (is (= :mithril.language/invalid-kernel
+             (error-code #(compile-kernel (str/replace text pipeline invalid))))))
+    (doseq [forged [(assoc kernel :graph-digest "sha256:forged")
+                    (assoc-in kernel [:language-ir :pipeline] ["eval"])
+                    (assoc-in kernel [:bootstrap-library :library :exports 0 :label] "forged")]]
+      (is (= :mithril.language/invalid-kernel
+             (error-code #(language/run-compiler forged "program.mith" source)))))
+    (let [library (compiler/compile-library-text language/library-path (read-text language/library-path))
+          bad (update-in library [:library :exports] #(vec (rest %)))]
+      (is (= :mithril.language/invalid-kernel (error-code #(language/compile-text text bad)))))
+    (let [library-text (read-text language/library-path)
+          missing (compiler/compile-library-text language/library-path
+                    (str/replace library-text
+                      #"\s*\(mithril/export :symbol \"https://mithril.fund/ns/language/v1#read-inert\"[^\)]*\)" ""))
+          repinned (str/replace text (get-in kernel [:language-ir :library-digest]) (:graph-digest missing))]
+      (is (= :mithril.language/invalid-kernel
+             (error-code #(language/compile-text repinned missing)))))))
+
+(deftest declared-source-formats-and-primitive-refusals-are-enforced
+  (let [text (read-text language/source-path) kernel (language/load!)
+        source (read-text "examples/tender.mith")
+        form-only (compile-kernel (str/replace text
+                                    "[\"application/vnd.mithril.form\" \"application/ld+json\"]"
+                                    "[\"application/vnd.mithril.form\"]"))]
+    (is (= :mithril.language/invalid-kernel
+           (error-code #(language/run-compiler form-only "program.mith" source))))
+    (doseq [[path program] [["program.jsonld" source]
+                           ["program.mith" (str/replace source "goal/tender-intake" "goal/unknown")]
+                           ["program.mith" (str/replace source "mith:reasoner" "mith:unknown")]
+                           ["program.mith" "#=(println :unsafe)"]]]
+      (is (= (error-code #(compiler/compile-text path program))
+             (error-code #(language/compile-program kernel path program)))))))

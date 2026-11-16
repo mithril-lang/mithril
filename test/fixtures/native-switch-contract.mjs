@@ -1,0 +1,35 @@
+import assert from 'node:assert/strict';
+import {pathToFileURL} from 'node:url';
+import {join} from 'node:path';
+import {reference} from './native-switch-reference.mjs';
+const dir=process.argv[2];let groups=0;const group=async f=>{await f();groups++};
+const capture=f=>{try{return {value:f()}}catch(e){return e instanceof Error?{error:e.name}:{thrown:e}}};
+const base={label:(name,value)=>value,discriminant:()=>1,mark:()=>{},wait:async v=>v};
+for(const target of ['js','js-browser']){
+ const {instantiateMithrilNative}=await import(pathToFileURL(join(dir,'switch-'+target+'.mjs'))),factories=[instantiateMithrilNative,reference],start=groups;
+ await group(()=>{for(const value of [1,2,3,4,'1',true,null,undefined,NaN,0,-0,1n,Symbol('one'),{},new Number(1)]){const traces=[];for(const factory of factories){const log=[],api=factory({...base,label:(name,v)=>{log.push(name);return v}});traces.push([api.dispatch(value),log])}assert.deepEqual(...traces)}});
+ await group(()=>{const traces=[];for(const factory of factories){const log=[],api=factory({...base,label:(name,v)=>{log.push(name);return v}});traces.push([api.dispatch(1),log])}assert.deepEqual(...traces);assert.deepEqual(traces[0],[['one','two'],['first']])});
+ await group(()=>{for(const value of [3,4]){const log=[],api=instantiateMithrilNative({...base,label:(name,v)=>{log.push(name);return v}});assert.deepEqual(api.dispatch(value),value===3?['three']:['default','three']);assert.deepEqual(log,['first','second','third'])}});
+ await group(()=>{for(const factory of factories){let coercions=0;const obj={[Symbol.toPrimitive](){coercions++;return 1}};assert.deepEqual(factory(base).dispatch(obj),['default','three']);assert.equal(coercions,0)}});
+ await group(()=>{const traces=[];for(const factory of factories){const log=[],api=factory({...base,discriminant(){log.push('value');return 1},label(n,v){log.push(n);return v}});traces.push([api.evaluated(),log])}assert.deepEqual(...traces);assert.deepEqual(traces[0],['one',['value','a']])});
+ await group(()=>{for(const failure of ['value','label']){const traces=[];for(const factory of factories){const log=[],api=factory({...base,discriminant(){log.push('value');if(failure==='value')throw 'failure';return 1},label(){log.push('label');throw 'failure'}});traces.push([capture(()=>api.evaluated()),log])}assert.deepEqual(...traces)}});
+ await group(()=>{for(const name of ['expression','wrapped'])for(const value of [1,2]){const traces=[];for(const factory of factories){const log=[],api=factory({...base,mark:v=>log.push(v)});traces.push([api[name](value),log])}assert.deepEqual(...traces)}});
+ await group(()=>{for(const value of [1,2,3]){const traces=[];for(const factory of factories){const api=factory(base);traces.push(capture(()=>api.shared(value).map(v=>typeof v==='function'?v():v)))}assert.deepEqual(...traces);if(value===2)assert.deepEqual(traces[0],{error:'ReferenceError'})}});
+ await group(()=>{for(const factory of factories){const out=factory(base).shared(0);assert.equal(out.length,1);assert.throws(()=>out[0](),ReferenceError);const initialized=factory(base).shared(1);assert.deepEqual(initialized.map(v=>typeof v==='function'?v():v),[9,'number',9])}});
+ await group(()=>{for(const factory of factories)for(const value of [0,1,2])assert.throws(()=>factory(base).labelTDZ(value),ReferenceError)});
+ await group(()=>{const traces=[];for(const factory of factories){const log=[],api=factory({...base,mark:v=>log.push(v)});traces.push([api.resultScope(1),log])}assert.deepEqual(...traces);assert.deepEqual(traces[0],[3,[7]])});
+ await group(()=>{for(const mode of ['break','return','throw']){const traces=[];for(const factory of factories){const log=[],api=factory({...base,mark:v=>log.push(v)});traces.push([capture(()=>api.control(1,mode)),log])}assert.deepEqual(...traces);assert.deepEqual(traces[0][1],['finally'])}});
+ await group(()=>{for(const factory of factories){const api=factory({...base,mark(){throw 'override'}});for(const mode of ['break','return','throw'])assert.deepEqual(capture(()=>api.control(1,mode)),{thrown:'override'})}});
+ await group(()=>{for(const factory of factories)assert.deepEqual(factory(base).nested({skip:1,break:1,normal:1}),['after:break','normal','after:normal'])});
+ await group(()=>{for(const factory of factories){const receiver={},api=factory(base);assert.deepEqual(api.closures.call(receiver,1).map(f=>f()),[[7,receiver]]);assert.equal(api.closures.call(receiver,0)[0](),receiver)}});
+ await group(()=>{for(const value of [0,1]){const traces=[];for(const factory of factories){const g=factory(base).generate(1);traces.push([g.next(),g.next(value),g.next()])}assert.deepEqual(...traces)}});
+ await group(()=>{for(const factory of factories){const g=factory(base).generate(1);g.next();assert.deepEqual(g.return('closed'),{value:'closed',done:true});assert.deepEqual(g.next(),{value:undefined,done:true})}});
+ await group(async()=>{for(const value of [1,2]){const traces=[];for(const factory of factories){const log=[],api=factory({...base,wait:v=>{log.push(['wait',v]);return {then(resolve){log.push(['then',v]);resolve(v)}}},mark:v=>log.push(['mark',v])});traces.push([await api.asyncDispatch(value),log])}assert.deepEqual(...traces)}});
+ await group(async()=>{for(const failure of [1,2])for(const factory of factories){let count=0;const api=factory({...base,wait:v=>++count===failure?Promise.reject('failure'):Promise.resolve(v)});await assert.rejects(api.asyncDispatch(1),e=>e==='failure');assert.equal(count,failure)}});
+ await group(()=>{for(const factory of factories)for(const value of [undefined,1,Symbol('s')])assert.equal(factory(base).empty(value),42)});
+ await group(()=>{const value={},symbol=Symbol('same');for(const input of [value,symbol,NaN])for(const match of [input,{},Symbol('other')]){const traces=[];for(const factory of factories){const log=[],api=factory({...base,label:(name,v)=>{log.push(name);return name==='first'?match:v}});traces.push([api.dispatch(input),log])}assert.deepEqual(...traces)}});
+ await group(()=>{for(const factory of factories){const api=factory(base);assert.equal(api.shadow(1)(),7);assert.throws(()=>api.shadow(2)(),ReferenceError);assert.deepEqual(api.nestedSwitch(1),['inner','outer']);assert.deepEqual(api.nestedSwitch(2),['default'])}});
+ console.log(`Native switch actual ${target} CLI: ${groups-start} paired runtime groups passed.`);
+}
+assert.equal(groups,44);
+console.log('Native switch: 44 paired runtime groups, shared CaseBlock TDZ and native transfer/coroutines. Node execution of both targets, not actual browser parity.');

@@ -1,0 +1,109 @@
+{
+  "format": "mithril.code-refactor-verification/v1",
+  "verified": true,
+  "verification_scope": "Declared checks on selected baseline and candidate snapshots only; not whole-repository or universal API equivalence.",
+  "input_sha256": "b899f3c9afd6c10e34186399526cfb5799f4d86701ca0d7607d18645f51db924",
+  "proposal_sha256": "c49254f5b2a1079343e4afc16d3fa8cabdee238e3e4ac9ba182aeef3bf8ade7e",
+  "candidate_sha256": "1b7e4517e5b1565cf022492bc0c2273a47f12b989dfebf0ee3b6a8c3f767fffc",
+  "image": "sha256:b72c0b2420cf50bee9cb8088f79fe36307494cd665ecb126465278549ca4e047",
+  "plan": {
+    "image": "sha256:b72c0b2420cf50bee9cb8088f79fe36307494cd665ecb126465278549ca4e047",
+    "seed_directory": "/opt/mithril-refactor-base",
+    "timeout_seconds": 60,
+    "checks": [
+      {
+        "id": "legacy-preservation",
+        "argv": [
+          "node",
+          "/opt/nbb/cli.js",
+          "--config",
+          "/opt/mithril-offline.edn",
+          "qualification/legacy.cljk"
+        ]
+      },
+      {
+        "id": "new-alias-contract",
+        "variant": "candidate",
+        "argv": [
+          "node",
+          "/opt/nbb/cli.js",
+          "--config",
+          "/opt/mithril-offline.edn",
+          "qualification/aliases.cljk"
+        ]
+      },
+      {
+        "id": "compiled-alias-runtime",
+        "variant": "candidate",
+        "argv": [
+          "node",
+          "qualification/runtime-check.mjs"
+        ]
+      }
+    ]
+  },
+  "checks": [
+    {
+      "variant": "baseline",
+      "id": "legacy-preservation",
+      "argv": [
+        "node",
+        "/opt/nbb/cli.js",
+        "--config",
+        "/opt/mithril-offline.edn",
+        "qualification/legacy.cljk"
+      ],
+      "wall_seconds": 1.63411125,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "\nTesting mithril.module-test\n\nTesting mithril.module-lower-test\n\nTesting mithril.form-test\n\nTesting mithril.compiler-test\n\nTesting mithril.conditional-test\n\nTesting mithril.branding-test\n\nTesting mithril.undefined-test\n\nTesting mithril.library-test\n\nRan 53 tests containing 309 assertions.\n0 failures, 0 errors.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "legacy-preservation",
+      "argv": [
+        "node",
+        "/opt/nbb/cli.js",
+        "--config",
+        "/opt/mithril-offline.edn",
+        "qualification/legacy.cljk"
+      ],
+      "wall_seconds": 1.698266042,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "\nTesting mithril.module-test\n\nTesting mithril.module-lower-test\n\nTesting mithril.form-test\n\nTesting mithril.compiler-test\n\nTesting mithril.conditional-test\n\nTesting mithril.branding-test\n\nTesting mithril.undefined-test\n\nTesting mithril.library-test\n\nRan 53 tests containing 309 assertions.\n0 failures, 0 errors.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "new-alias-contract",
+      "argv": [
+        "node",
+        "/opt/nbb/cli.js",
+        "--config",
+        "/opt/mithril-offline.edn",
+        "qualification/aliases.cljk"
+      ],
+      "wall_seconds": 0.4879385830000001,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "\nTesting mithril.export-alias-test\n\nRan 7 tests containing 25 assertions.\n0 failures, 0 errors.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "compiled-alias-runtime",
+      "argv": [
+        "node",
+        "qualification/runtime-check.mjs"
+      ],
+      "wall_seconds": 0.43296112499999984,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "{\"passed\":true,\"alias_identity_pairs\":2,\"distinct_declarations\":true,\"canonical_name_and_arity\":true,\"shared_prototypes\":true,\"comparisons\":120,\"constructed\":60,\"repeated_calls\":8000,\"property_reads\":0,\"scope\":\"toy pure alias foundation over frozen actual normal Amu JS output, not mapValues or whole-Harness equivalence\"}\n"
+    }
+  ],
+  "wall_seconds": 4.435698541
+}

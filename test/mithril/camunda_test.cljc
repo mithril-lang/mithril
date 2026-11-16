@@ -167,3 +167,45 @@
                                                      :type "https://mithril.fund/id/action/other"
                                                      :max-jobs 1
                                                      :worker-id "w"})))))))
+
+(deftest failed-job-preserves-worker-and-status-boundaries
+  (let [started (camunda/start-instance (:store (deploy-fixture))
+                                       {:definition-key "order" :caller "owner"})
+        ik (get-in started [:instance :key])
+        activated (camunda/activate-jobs (:store started)
+                                         {:instance-key ik :type action-a
+                                          :worker-id "owner" :max-jobs 1})
+        state (:store activated)
+        jk (:key (first (:jobs activated)))]
+    (is (= [:CONFLICT :mithril.camunda/job-locked]
+           (error-type #(camunda/fail-job state {:instance-key ik :job-key jk
+                                                 :worker-id "other" :retries-left 0}))))
+    (is (= :active (get-in state [:camunda/instances ik :status])))
+    (is (= 3 (get-in state [:camunda/instances ik :jobs jk :retries])))
+    (doseq [status [:completed :exhausted]]
+      (let [not-locked (assoc-in state [:camunda/instances ik :jobs jk :status] status)]
+        (is (= [:CONFLICT :mithril.camunda/job-not-locked]
+               (error-type #(camunda/fail-job not-locked
+                                             {:instance-key ik :job-key jk
+                                              :worker-id "owner" :retries-left 3}))))
+        (is (= status (get-in not-locked [:camunda/instances ik :jobs jk :status])))))))
+
+(deftest claimed-user-task-cannot-be-reassigned-by-another-principal
+  (let [started (camunda/start-instance (:store (deploy-fixture))
+                                       {:definition-key "order" :caller "starter"})
+        ik (get-in started [:instance :key])
+        search (camunda/search-user-tasks (:store started) {:instance-key ik})
+        tk (:key (first (:tasks search)))
+        claimed (camunda/claim-user-task (:store started)
+                                        {:instance-key ik :task-key tk :caller "owner"})
+        state (:store claimed)]
+    (is (= [:CONFLICT :mithril.camunda/task-assigned]
+           (error-type #(camunda/claim-user-task state
+                                                {:instance-key ik :task-key tk :caller "other"}))))
+    (is (= "owner" (get-in state [:camunda/instances ik :tasks tk :assignee])))
+    (is (= [:CONFLICT :mithril.camunda/task-assigned]
+           (error-type #(camunda/complete-user-task state
+                                                   {:instance-key ik :task-key tk :caller "other"}))))
+    (is (= :completed (get-in (camunda/complete-user-task state
+                                                       {:instance-key ik :task-key tk :caller "owner"})
+                              [:task :status])))))

@@ -1,0 +1,58 @@
+
+Testing mithril.native-js-test
+
+Testing mithril.native-misc-test
+Native primitive runtime: strict comparison/raw logical values/spread/assignment/for-of checked.
+11 primitive admissions, 9 refusals, all 8 Form tags checked.
+
+Testing mithril.native-array-test
+Native array primitives: 20 runtime contract groups passed.
+4 admissions / 13 malformed refusals / 2 budget refusals / 3 Form tags passed.
+
+Ran 13 tests containing 57 assertions.
+0 failures, 0 errors.
+Native JS host backend: 13 tests / 57 assertions; paired mapValues, complete misc and array runtime contracts; no JVM fallback.
+
+Testing mithril.module-test
+
+Testing mithril.module-lower-test
+
+Testing mithril.form-test
+
+Testing mithril.compiler-test
+
+Testing mithril.conditional-test
+
+Testing mithril.branding-test
+
+Testing mithril.undefined-test
+
+Testing mithril.library-test
+
+Testing mithril.module-bindings-test
+
+Testing mithril.module-guest-closure-test
+
+Testing mithril.native-js-test
+
+Testing mithril.native-misc-test
+Native primitive runtime: strict comparison/raw logical values/spread/assignment/for-of checked.
+11 primitive admissions, 9 refusals, all 8 Form tags checked.
+
+Testing mithril.native-array-test
+Native array primitives: 20 runtime contract groups passed.
+4 admissions / 13 malformed refusals / 2 budget refusals / 3 Form tags passed.
+
+Ran 78 tests containing 408 assertions.
+0 failures, 0 errors.
+JVM launcher marker absent; workspace source classpath.
+{"format":"mithril.native-js/artifact-v1","target":"js","module":"cosmokit.array","required-imports":["Array","Set","isNullable"],"exports":["contain","intersection","difference","union","deduplicate","remove","makeArray"],"output":"/tmp/array-js.mjs"}
+JVM launcher marker absent; workspace source classpath.
+{"format":"mithril.native-js/artifact-v1","target":"js-browser","module":"cosmokit.array","required-imports":["Array","Set","isNullable"],"exports":["contain","intersection","difference","union","deduplicate","remove","makeArray"],"output":"/tmp/array-browser.mjs"}
+JVM launcher marker absent; workspace source classpath.
+d2de5ed22d8b5afe5dea4c0125af71805573541a7156c55efc19b34672c26db8  /tmp/array-js.mjs
+d2de5ed22d8b5afe5dea4c0125af71805573541a7156c55efc19b34672c26db8  /tmp/array-browser.mjs
+{"format":"mithril.native-js/artifact-v1","target":"js","module":"cosmokit.misc","required-imports":["Object","Array","Reflect"],"exports":["noop","isNullable","isNonNullable","isPlainObject","filterKeys","mapValues","valueMap","pick","omit","defineProperty"],"output":"/tmp/misc.mjs"}
+JVM launcher marker absent; workspace source classpath.
+actual TypeScript array baseline: 30 complete array runtime contract groups passed.
+Mithril array candidate linked to generated Mithril misc: 30 complete array runtime contract groups passed.

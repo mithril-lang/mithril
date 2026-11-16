@@ -1,0 +1,27 @@
+(ns mithril.native-abstract-equality-test
+ (:require [cljs.test :refer [deftest is]] [mithril.native-js :as native] [mithril.form :as form]
+           ["node:fs" :as fs] ["node:os" :as os] ["node:path" :as path] ["node:child_process" :as child]))
+(deftest abstract-equality-admission-and-operator-guards
+ (let [text (fs/readFileSync "examples/native-js-abstract-equality.mith" "utf8") d (form/parse text)]
+  (is (= (native/compile-text text) (native/compile-document d)))
+  (is (= [:mithril.native-js/operator :mithril.native-js/operator :mithril.native-js/shape :mithril.native-js/local]
+       (mapv (fn [bad] (try (native/check-document bad) :admitted (catch :default e (:mithril/error (ex-data e)))))
+        [(assoc-in d ["functions" 0 "body" "operator"] "=")
+         (assoc-in d ["functions" 0 "body" "operator"] "<>")
+         (assoc-in d ["functions" 0 "body" "source"] "left == right")
+         (assoc-in d ["functions" 0 "body" "left" "name"] "missing")])))))
+(deftest abstract-equality-original-paired-actual-cli-contract
+ (let [dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-abstract-equality-"))
+       config (path/join dir "offline.edn") engine (.-MITHRIL_NATIVE_ENGINE js/process.env)]
+  (try
+   (fs/writeFileSync config "{:paths [\"src\"]}\n")
+   (doseq [target ["js" "js-browser"]]
+    (let [r (child/spawnSync js/process.execPath
+               (clj->js [engine "--config" config "-cp" "src" "bin/mithril-native-js.cljk"
+                         "examples/native-js-abstract-equality.mith" "--target" target "--output" (path/join dir (str target ".mjs"))])
+               #js {:encoding "utf8" :timeout 30000})]
+     (when-not (= 0 (.-status r)) (throw (js/Error. (str (.-stdout r) (.-stderr r)))))))
+   (let [r (child/spawnSync js/process.execPath (clj->js ["test/fixtures/native-abstract-equality-contract.mjs" dir])
+                           #js {:encoding "utf8" :timeout 30000})]
+    (is (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r)))
+   (finally (fs/rmSync dir #js {:recursive true :force true})))))

@@ -1,0 +1,114 @@
+{
+  "format": "mithril.code-refactor-verification/v1",
+  "verified": true,
+  "verification_scope": "Declared checks on selected baseline and candidate snapshots only; not whole-repository or universal API equivalence.",
+  "input_sha256": "c52d33c39a546b95f6cb766b788e3c8b32c247d6f1803fde92fe08a37e2218e2",
+  "proposal_sha256": "616144bd61e814df6e54bc25aef5b7e9cb44064db1e65c2a194ab31cb8f83768",
+  "candidate_sha256": "64fb24a2d8e915be05d8b436ef33839494184bbcdca3c85932e7228733935adc",
+  "image": "sha256:199ed7b0684d4903d2042759240d935a9d87ca1444a1134d4066028c978e5025",
+  "plan": {
+    "image": "sha256:199ed7b0684d4903d2042759240d935a9d87ca1444a1134d4066028c978e5025",
+    "seed_directory": "/opt/mithril-refactor-base",
+    "timeout_seconds": 180,
+    "checks": [
+      {
+        "id": "retained-source-84-434",
+        "argv": [
+          "node",
+          "/opt/spreads-controls/run-check.mjs",
+          "test/run_modules.cljk"
+        ]
+      },
+      {
+        "id": "object-spreads-reference",
+        "argv": [
+          "node",
+          "/opt/spreads-controls/spreads-runtime.mjs",
+          "/opt/spreads-controls/spreads-reference.mjs"
+        ]
+      },
+      {
+        "id": "native-object-spreads",
+        "variant": "candidate",
+        "argv": [
+          "node",
+          "/opt/spreads-controls/run-check.mjs",
+          "/opt/spreads-controls/spreads.cljk"
+        ]
+      }
+    ]
+  },
+  "checks": [
+    {
+      "variant": "baseline",
+      "id": "retained-source-84-434",
+      "argv": [
+        "node",
+        "/opt/spreads-controls/run-check.mjs",
+        "test/run_modules.cljk"
+      ],
+      "wall_seconds": 25.039580083,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "\nTesting mithril.module-test\n\nTesting mithril.module-lower-test\n\nTesting mithril.form-test\n\nTesting mithril.compiler-test\n\nTesting mithril.conditional-test\n\nTesting mithril.branding-test\n\nTesting mithril.undefined-test\n\nTesting mithril.library-test\n\nTesting mithril.module-bindings-test\n\nTesting mithril.module-guest-closure-test\n\nTesting mithril.native-js-test\n\nTesting mithril.native-misc-test\nNative primitive runtime: strict comparison/raw logical values/spread/assignment/for-of checked.\n11 primitive admissions, 9 refusals, all 8 Form tags checked.\n\nTesting mithril.native-array-test\nNative array primitives: 20 runtime contract groups passed.\n4 admissions / 13 malformed refusals / 2 budget refusals / 3 Form tags passed.\n\nTesting mithril.native-volatile-test\nNamed-function/generated-binding collision regression passed.\nNative volatile prerequisites: 15 runtime contract groups passed.\n7 admissions / 15 malformed refusals / 2 budget refusals / 4 Form tags passed.\n\nTesting mithril.native-types-test\nNative type prerequisites: 16 runtime contract groups passed.\n6 admissions / 6 malformed or scope refusals / 2 budget refusals / 1 Form tag passed.\nNative arguments Let scope: 3 runtime boundary groups passed.\n4 additional scope refusals and normal/default/LocalFunction Let capture groups passed.\n\nTesting mithril.native-blocks-test\nNative export/loop/string prerequisites: 18 runtime contract groups passed.\n3 admissions / 12 malformed or scope refusals / 3 budget refusals / 2 Form tags passed.\n\nRan 84 tests containing 434 assertions.\n0 failures, 0 errors.\nJVM launcher marker absent; workspace source classpath.\n"
+    },
+    {
+      "variant": "baseline",
+      "id": "object-spreads-reference",
+      "argv": [
+        "node",
+        "/opt/spreads-controls/spreads-runtime.mjs",
+        "/opt/spreads-controls/spreads-reference.mjs"
+      ],
+      "wall_seconds": 1.5989425840000004,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "Native ordered object spreads:18 runtime groups passed.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "retained-source-84-434",
+      "argv": [
+        "node",
+        "/opt/spreads-controls/run-check.mjs",
+        "test/run_modules.cljk"
+      ],
+      "wall_seconds": 21.612171749999998,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "\nTesting mithril.module-test\n\nTesting mithril.module-lower-test\n\nTesting mithril.form-test\n\nTesting mithril.compiler-test\n\nTesting mithril.conditional-test\n\nTesting mithril.branding-test\n\nTesting mithril.undefined-test\n\nTesting mithril.library-test\n\nTesting mithril.module-bindings-test\n\nTesting mithril.module-guest-closure-test\n\nTesting mithril.native-js-test\n\nTesting mithril.native-misc-test\nNative primitive runtime: strict comparison/raw logical values/spread/assignment/for-of checked.\n11 primitive admissions, 9 refusals, all 8 Form tags checked.\n\nTesting mithril.native-array-test\nNative array primitives: 20 runtime contract groups passed.\n4 admissions / 13 malformed refusals / 2 budget refusals / 3 Form tags passed.\n\nTesting mithril.native-volatile-test\nNamed-function/generated-binding collision regression passed.\nNative volatile prerequisites: 15 runtime contract groups passed.\n7 admissions / 15 malformed refusals / 2 budget refusals / 4 Form tags passed.\n\nTesting mithril.native-types-test\nNative type prerequisites: 16 runtime contract groups passed.\n6 admissions / 6 malformed or scope refusals / 2 budget refusals / 1 Form tag passed.\nNative arguments Let scope: 3 runtime boundary groups passed.\n4 additional scope refusals and normal/default/LocalFunction Let capture groups passed.\n\nTesting mithril.native-blocks-test\nNative export/loop/string prerequisites: 18 runtime contract groups passed.\n3 admissions / 12 malformed or scope refusals / 3 budget refusals / 2 Form tags passed.\n\nRan 84 tests containing 434 assertions.\n0 failures, 0 errors.\nJVM launcher marker absent; workspace source classpath.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "object-spreads-reference",
+      "argv": [
+        "node",
+        "/opt/spreads-controls/spreads-runtime.mjs",
+        "/opt/spreads-controls/spreads-reference.mjs"
+      ],
+      "wall_seconds": 0.7574452910000037,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "Native ordered object spreads:18 runtime groups passed.\n"
+    },
+    {
+      "variant": "candidate",
+      "id": "native-object-spreads",
+      "argv": [
+        "node",
+        "/opt/spreads-controls/run-check.mjs",
+        "/opt/spreads-controls/spreads.cljk"
+      ],
+      "wall_seconds": 2.3358386660000034,
+      "exit_code": 0,
+      "timed_out": false,
+      "output_budget_exceeded": false,
+      "output": "Native ordered object spreads:18 runtime groups passed.\n3 admissions / 5 malformed refusals / 2 shared budget refusals / 1 Form tag passed.\nJVM launcher marker absent; workspace source classpath.\n"
+    }
+  ],
+  "wall_seconds": 51.758948458
+}

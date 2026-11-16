@@ -1,0 +1,469 @@
+; Complete original Cordis runtime with native index star order; checked Mithril source.
+(mithril/native-js-esm-package
+ :name "cordis"
+ :imports ["Array"
+"Set"
+"Object"
+"TypeError"
+"Symbol"
+"globalThis"
+"ArrayBuffer"
+"Uint8Array"
+"Buffer"
+"String"
+"btoa"
+"atob"
+"parseInt"
+"Date"
+"RegExp"
+"Map"
+"Reflect"
+"Math"
+"parseFloat"
+"JSON"
+"Proxy"
+"Function"
+"WeakMap"
+"Error"
+"Infinity"
+"Number"
+"WeakRef"
+"Promise"
+"AggregateError"
+"Boolean"]
+ :modules [(rdf/node
+   :name "cosmokit.array"
+   :source "native-js-array.mith"
+   :links [(rdf/node
+     :import "isNullable"
+     :module "cosmokit.misc"
+     :export "isNullable")]
+   :dependencies ["cosmokit.misc"])
+(rdf/node
+   :name "cosmokit.types"
+   :source "native-js-types.mith"
+   :links [(rdf/node
+     :import "isNullable"
+     :module "cosmokit.misc"
+     :export "isNullable")
+(rdf/node
+     :import "isVolatile"
+     :module "cosmokit.volatile"
+     :export "isVolatile")]
+   :dependencies ["cosmokit.misc"
+"cosmokit.volatile"])
+(rdf/node
+   :name "cosmokit.misc"
+   :source "native-js-misc.mith"
+   :links []
+   :dependencies [])
+(rdf/node
+   :name "cosmokit.string"
+   :source "native-js-string.mith"
+   :links []
+   :dependencies [])
+(rdf/node
+   :name "cosmokit.time"
+   :source "native-js-time.mith"
+   :links []
+   :dependencies [])
+(rdf/node
+   :name "cosmokit.volatile"
+   :source "native-js-volatile.mith"
+   :links []
+   :dependencies [])
+(rdf/node
+   :name "cosmokit"
+   :source "native-js-cosmokit-index.mith"
+   :dependencies ["cosmokit.array"
+"cosmokit.types"
+"cosmokit.misc"
+"cosmokit.string"
+"cosmokit.time"
+"cosmokit.volatile"]
+   :links [(rdf/node
+     :import "contain"
+     :module "cosmokit.array"
+     :export "contain")
+(rdf/node
+     :import "intersection"
+     :module "cosmokit.array"
+     :export "intersection")
+(rdf/node
+     :import "difference"
+     :module "cosmokit.array"
+     :export "difference")
+(rdf/node
+     :import "union"
+     :module "cosmokit.array"
+     :export "union")
+(rdf/node
+     :import "deduplicate"
+     :module "cosmokit.array"
+     :export "deduplicate")
+(rdf/node
+     :import "remove"
+     :module "cosmokit.array"
+     :export "remove")
+(rdf/node
+     :import "makeArray"
+     :module "cosmokit.array"
+     :export "makeArray")
+(rdf/node
+     :import "is"
+     :module "cosmokit.types"
+     :export "is")
+(rdf/node
+     :import "Binary"
+     :module "cosmokit.types"
+     :export "Binary")
+(rdf/node
+     :import "base64ToArrayBuffer"
+     :module "cosmokit.types"
+     :export "base64ToArrayBuffer")
+(rdf/node
+     :import "arrayBufferToBase64"
+     :module "cosmokit.types"
+     :export "arrayBufferToBase64")
+(rdf/node
+     :import "hexToArrayBuffer"
+     :module "cosmokit.types"
+     :export "hexToArrayBuffer")
+(rdf/node
+     :import "arrayBufferToHex"
+     :module "cosmokit.types"
+     :export "arrayBufferToHex")
+(rdf/node
+     :import "clone"
+     :module "cosmokit.types"
+     :export "clone")
+(rdf/node
+     :import "deepEqual"
+     :module "cosmokit.types"
+     :export "deepEqual")
+(rdf/node
+     :import "noop"
+     :module "cosmokit.misc"
+     :export "noop")
+(rdf/node
+     :import "isNullable"
+     :module "cosmokit.misc"
+     :export "isNullable")
+(rdf/node
+     :import "isNonNullable"
+     :module "cosmokit.misc"
+     :export "isNonNullable")
+(rdf/node
+     :import "isPlainObject"
+     :module "cosmokit.misc"
+     :export "isPlainObject")
+(rdf/node
+     :import "filterKeys"
+     :module "cosmokit.misc"
+     :export "filterKeys")
+(rdf/node
+     :import "mapValues"
+     :module "cosmokit.misc"
+     :export "mapValues")
+(rdf/node
+     :import "valueMap"
+     :module "cosmokit.misc"
+     :export "valueMap")
+(rdf/node
+     :import "pick"
+     :module "cosmokit.misc"
+     :export "pick")
+(rdf/node
+     :import "omit"
+     :module "cosmokit.misc"
+     :export "omit")
+(rdf/node
+     :import "defineProperty"
+     :module "cosmokit.misc"
+     :export "defineProperty")
+(rdf/node
+     :import "camelCase"
+     :module "cosmokit.string"
+     :export "camelCase")
+(rdf/node
+     :import "camelize"
+     :module "cosmokit.string"
+     :export "camelize")
+(rdf/node
+     :import "capitalize"
+     :module "cosmokit.string"
+     :export "capitalize")
+(rdf/node
+     :import "formatProperty"
+     :module "cosmokit.string"
+     :export "formatProperty")
+(rdf/node
+     :import "hyphenate"
+     :module "cosmokit.string"
+     :export "hyphenate")
+(rdf/node
+     :import "paramCase"
+     :module "cosmokit.string"
+     :export "paramCase")
+(rdf/node
+     :import "sanitize"
+     :module "cosmokit.string"
+     :export "sanitize")
+(rdf/node
+     :import "snakeCase"
+     :module "cosmokit.string"
+     :export "snakeCase")
+(rdf/node
+     :import "trimSlash"
+     :module "cosmokit.string"
+     :export "trimSlash")
+(rdf/node
+     :import "uncapitalize"
+     :module "cosmokit.string"
+     :export "uncapitalize")
+(rdf/node
+     :import "Time"
+     :module "cosmokit.time"
+     :export "Time")
+(rdf/node
+     :import "createVolatile"
+     :module "cosmokit.volatile"
+     :export "createVolatile")
+(rdf/node
+     :import "isVolatile"
+     :module "cosmokit.volatile"
+     :export "isVolatile")
+(rdf/node
+     :import "volatileEntries"
+     :module "cosmokit.volatile"
+     :export "volatileEntries")
+(rdf/node
+     :import "updateVolatile"
+     :module "cosmokit.volatile"
+     :export "updateVolatile")])
+(rdf/node
+   :name "cordis.utils"
+   :source "native-js-cordis-utils.mith"
+   :dependencies ["cosmokit"]
+   :links [(rdf/node
+     :import "defineProperty"
+     :module "cosmokit"
+     :export "defineProperty")])
+(rdf/node
+   :name "cordis.logger"
+   :source "native-js-cordis-logger.mith"
+   :dependencies ["cosmokit"
+"cordis.utils"]
+   :links [(rdf/node
+     :import "defineProperty"
+     :module "cosmokit"
+     :export "defineProperty")
+(rdf/node
+     :import "hyphenate"
+     :module "cosmokit"
+     :export "hyphenate")
+(rdf/node
+     :import "createCallable"
+     :module "cordis.utils"
+     :export "createCallable")
+(rdf/node
+     :import "joinPrototype"
+     :module "cordis.utils"
+     :export "joinPrototype")
+(rdf/node
+     :import "symbols"
+     :module "cordis.utils"
+     :export "symbols")])
+(rdf/node
+   :name "cordis.reflect"
+   :source "native-js-cordis-reflect.mith"
+   :dependencies ["cosmokit"
+"cordis.utils"]
+   :links [(rdf/node
+     :import "defineProperty"
+     :module "cosmokit"
+     :export "defineProperty")
+(rdf/node
+     :import "isNullable"
+     :module "cosmokit"
+     :export "isNullable")
+(rdf/node
+     :import "getTraceable"
+     :module "cordis.utils"
+     :export "getTraceable")
+(rdf/node
+     :import "symbols"
+     :module "cordis.utils"
+     :export "symbols")
+(rdf/node
+     :import "withProps"
+     :module "cordis.utils"
+     :export "withProps")])
+(rdf/node
+   :name "cordis.context"
+   :source "native-js-cordis-context.mith"
+   :dependencies ["cordis.events"
+"cordis.logger"
+"cordis.reflect"
+"cordis.registry"
+"cordis.utils"
+"cordis.fiber"]
+   :links [(rdf/node
+     :import "EventsService"
+     :module "cordis.events"
+     :export "EventsService")
+(rdf/node
+     :import "LoggerService"
+     :module "cordis.logger"
+     :export "LoggerService")
+(rdf/node
+     :import "ReflectService"
+     :module "cordis.reflect"
+     :export "ReflectService")
+(rdf/node
+     :import "RegistryService"
+     :module "cordis.registry"
+     :export "RegistryService")
+(rdf/node
+     :import "getTraceable"
+     :module "cordis.utils"
+     :export "getTraceable")
+(rdf/node
+     :import "symbols"
+     :module "cordis.utils"
+     :export "symbols")
+(rdf/node
+     :import "Fiber"
+     :module "cordis.fiber"
+     :export "Fiber")])
+(rdf/node
+   :name "cordis.events"
+   :source "native-js-cordis-events.mith"
+   :dependencies ["cosmokit"
+"cordis.context"
+"cordis.utils"]
+   :links [(rdf/node
+     :import "defineProperty"
+     :module "cosmokit"
+     :export "defineProperty")
+(rdf/node
+     :import "Context"
+     :module "cordis.context"
+     :export "Context")
+(rdf/node
+     :import "DisposableList"
+     :module "cordis.utils"
+     :export "DisposableList")
+(rdf/node
+     :import "symbols"
+     :module "cordis.utils"
+     :export "symbols")])
+(rdf/node
+   :name "cordis.fiber"
+   :source "native-js-cordis-fiber.mith"
+   :dependencies ["cosmokit"
+"cordis.context"
+"cordis.utils"]
+   :links [(rdf/node
+     :import "defineProperty"
+     :module "cosmokit"
+     :export "defineProperty")
+(rdf/node
+     :import "isNullable"
+     :module "cosmokit"
+     :export "isNullable")
+(rdf/node
+     :import "Context"
+     :module "cordis.context"
+     :export "Context")
+(rdf/node
+     :import "buildOuterStack"
+     :module "cordis.utils"
+     :export "buildOuterStack")
+(rdf/node
+     :import "composeError"
+     :module "cordis.utils"
+     :export "composeError")
+(rdf/node
+     :import "DisposableList"
+     :module "cordis.utils"
+     :export "DisposableList")
+(rdf/node
+     :import "getTraceable"
+     :module "cordis.utils"
+     :export "getTraceable")
+(rdf/node
+     :import "isConstructor"
+     :module "cordis.utils"
+     :export "isConstructor")
+(rdf/node
+     :import "isObject"
+     :module "cordis.utils"
+     :export "isObject")
+(rdf/node
+     :import "symbols"
+     :module "cordis.utils"
+     :export "symbols")])
+(rdf/node
+   :name "cordis.registry"
+   :source "native-js-cordis-registry.mith"
+   :dependencies ["cosmokit"
+"cordis.fiber"
+"cordis.utils"]
+   :links [(rdf/node
+     :import "defineProperty"
+     :module "cosmokit"
+     :export "defineProperty")
+(rdf/node
+     :import "Fiber"
+     :module "cordis.fiber"
+     :export "Fiber")
+(rdf/node
+     :import "buildOuterStack"
+     :module "cordis.utils"
+     :export "buildOuterStack")
+(rdf/node
+     :import "DisposableList"
+     :module "cordis.utils"
+     :export "DisposableList")
+(rdf/node
+     :import "symbols"
+     :module "cordis.utils"
+     :export "symbols")
+(rdf/node
+     :import "withProps"
+     :module "cordis.utils"
+     :export "withProps")])
+(rdf/node
+   :name "cordis.service"
+   :source "native-js-cordis-service.mith"
+   :dependencies ["cosmokit"
+"cordis.context"
+"cordis.utils"]
+   :links [(rdf/node
+     :import "defineProperty"
+     :module "cosmokit"
+     :export "defineProperty")
+(rdf/node
+     :import "Context"
+     :module "cordis.context"
+     :export "Context")
+(rdf/node
+     :import "createCallable"
+     :module "cordis.utils"
+     :export "createCallable")
+(rdf/node
+     :import "joinPrototype"
+     :module "cordis.utils"
+     :export "joinPrototype")
+(rdf/node
+     :import "symbols"
+     :module "cordis.utils"
+     :export "symbols")])]
+ :reexports ["cordis.context"
+"cordis.events"
+"cordis.fiber"
+"cordis.logger"
+"cordis.registry"
+"cordis.service"
+"cordis.utils"])

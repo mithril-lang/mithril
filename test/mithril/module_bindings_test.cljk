@@ -1,0 +1,53 @@
+(ns mithril.module-bindings-test
+  (:require [cljs.test :refer [deftest is]]
+            [clojure.string :as str]
+            [mithril.module :as module]
+            [mithril.module-lower :as lower]
+            [mithril.module-lower-test :refer [literal local call function document]]))
+(defn binding-node [name value] {"name" name "value" value})
+(defn let-node [bindings body] {"@type" "Let" "bindings" bindings "body" body})
+(defn sequence-node [expressions] {"@type" "Sequence" "expressions" expressions})
+(defn doc [body returns] (document [(function "keep" [{"name" "v" "datatype" "js-value"}] returns body)] ["keep"]))
+(defn refusal [d] (try (module/check-document d) nil (catch :default e (:mithril/error (ex-data e)))))
+(deftest sequential-bindings-infer-types-and-shadow-without-erasure
+  (let [d (doc (let-node [(binding-node "v" (local "v"))
+                         (binding-node "alias" (local "v"))
+                         (binding-node "v" (literal "i64" 7))]
+                        (sequence-node [(call "add" [(local "v") (literal "i64" 1)]) (local "alias")])) "js-value")
+        checked (module/check-document d)
+        body (get-in checked [:functions 0 :body])]
+    (is (= [:js-value :js-value :i64] (mapv :type (:bindings body))))
+    (is (= :js-value (:type body)))
+    (is (= checked (module/check-document d)))
+    (is (str/includes? (:source (lower/lower-document d)) "(let [__mithril_l1 __mithril_p0 __mithril_l2 __mithril_l1 __mithril_l3 7] (do (+ __mithril_l3 1) __mithril_l2))"))))
+(deftest lexical-scope-and-shape-refusals-remain-explicit
+  (doseq [body [(let-node [(binding-node "x" (local "x"))] (local "x"))
+               (let-node [(binding-node "x" (local "y")) (binding-node "y" (local "v"))] (local "x"))
+               (sequence-node [(let-node [(binding-node "x" (local "v"))] (local "x")) (local "x")])
+               (let-node [(binding-node "x" (literal "bool" true))] (call "add" [(local "x") (literal "i64" 1)]))
+               (sequence-node [])
+               (assoc (let-node [] (local "v")) "extra" true)]]
+    (is (some? (refusal (doc body "js-value"))))))
+(deftest source-form-and-nested-empty-bindings-lower-deterministically
+  (let [text "(mithril/module :name \"bindings\" :exports [\"keep\"] :functions [(mithril/function :name \"keep\" :params [(rdf/node :name \"v\" :datatype \"js-value\")] :returns \"js-value\" :body (mithril/let :bindings [(rdf/node :name \"let\" :value (mithril/local :name \"v\"))] :body (mithril/sequence :expressions [(mithril/call :name \"js_truthy\" :args [(mithril/local :name \"let\")]) (mithril/let :bindings [] :body (mithril/local :name \"let\"))])) )])"
+        result (lower/lower-text text)]
+    (is (str/includes? (:source result) "(let [__mithril_l1 __mithril_p0] (do (js-truthy? __mithril_l1) (let [] __mithril_l1)))"))
+    (is (= result (lower/lower-text text)))))
+(deftest library-budgets-charge-every-initializer-and-sequence-call
+  (let [d (document [(function "id" [{"name" "v" "datatype" "i64"}] "i64" (local "v"))
+                    (function "keep" [{"name" "v" "datatype" "i64"}] "i64"
+                      (let-node [(binding-node "x" (call "id" [(local "v")]))]
+                                (sequence-node [(call "id" [(local "x")]) (call "id" [(local "x")])])))] ["keep"])]
+    (is (= {:fuel 4 :frames 2} (:budgets (lower/js-library-document d "./artifact.mjs"))))
+    (is (= {"id" [] "keep" ["id"]} (:call-graph (module/check-document d))))))
+(deftest unused-binding-call-cycle-cannot-enter-public-library-profile
+  (let [d (document [(function "keep" [] "i64"
+                      (let-node [(binding-node "unused" (call "keep" []))] (literal "i64" 7)))] ["keep"])]
+    (is (= :mithril.module/library-cycle
+           (try (lower/js-library-document d "./artifact.mjs") nil
+                (catch :default e (:mithril/error (ex-data e))))))))
+(deftest new-nodes-share-the-existing-depth-and-node-budgets
+  (is (= :mithril.module/budget
+         (refusal (doc (reduce (fn [body _] (let-node [] body)) (local "v") (range 65)) "js-value"))))
+  (is (= :mithril.module/budget
+         (refusal (doc (sequence-node (vec (repeat 4096 (literal "i64" 1)))) "i64")))))

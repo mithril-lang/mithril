@@ -1,0 +1,37 @@
+{
+  "format": "mithril.native-logger-prerequisites-qualification/v1",
+  "qualified_at": "2026-10-08T12:19:06.250734+00:00",
+  "base_main": "52ea83241c12f9edf52d2d10ddad84008847fba9",
+  "implementation": "operator",
+  "new_model_requests": 0,
+  "model_metrics": null,
+  "source_tests": 34,
+  "source_assertions": 140,
+  "runtime_groups": 38,
+  "actual_cli_runtime_groups": 34,
+  "isolated_vm_runtime_groups": 4,
+  "refusals": 26,
+  "actual_cli_targets": [
+    "js",
+    "js-browser"
+  ],
+  "source_hashes": {
+    "src/mithril/native_js.cljk": "b259623d59b0456e22af2db319c24c059ca32768ec11c6a8141f80ef393a81fa",
+    "examples/native-js-logger-prerequisites.mith": "e3d4341ffdcece0e4670bb8cb89eda3974bb5823600093fea39bda5e8099fcfe",
+    "test/mithril/native_logger_prerequisites_test.cljk": "5041cecc69438265c5a343b816794858aa119f218d9142184803ad0fa178c19f",
+    "test/fixtures/native-logger-prerequisites-contract.mjs": "0406a36cef3404e0c38ca0d413bf640e703d6857f82550ff3e651b063f650430"
+  },
+  "prerequisites": [
+    "NativeClass static-block",
+    "NativeLambda rest/default name and array patterns",
+    "native bitwise/greater-than operators",
+    "opt-in full module lexical scope with native TDZ"
+  ],
+  "retained_package_runtime_groups_per_target": 15,
+  "retained_type_consumers_per_target": {
+    "positive": 10,
+    "negative": 12,
+    "skipLibCheck": false
+  },
+  "scope": "Finite native syntax/semantics controls. Complete logger runtime, Cordis public types/package/SCC/Harness/Session/browser/native/Q9 pending."
+}

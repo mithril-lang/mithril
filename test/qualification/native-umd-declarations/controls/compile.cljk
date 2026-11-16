@@ -1,0 +1,48 @@
+(ns qualify-umd
+ (:require [mithril.native-declarations :as declarations] [mithril.native-declaration-emit :as emit]
+           [mithril.native-declaration-program :as program] [mithril.native-esm :as esm]
+           ["node:fs" :as fs] ["node:os" :as os] ["node:child_process" :as child]))
+(defn ensure [p label] (when-not p (throw (js/Error. label))))
+(defn read-example [name] (fs/readFileSync (str "examples/" name) "utf8"))
+(def rt (read-example "native-js-umd-esm.mith"))
+(def runtime (esm/check-text rt {"native-js-umd-runtime.mith" (read-example "native-js-umd-runtime.mith")}))
+(def doc (declarations/parse-text (read-example "native-js-umd-types.mith")))
+(def md (declarations/parse-text (read-example "native-js-umd-module-types.mith")))
+(def artifact (emit/compile-document doc runtime))
+(def pt (read-example "native-js-umd-program.mith"))
+(def ds {"native-js-umd-module-types.mith" (read-example "native-js-umd-module-types.mith")})
+(def pa (program/compile-text pt ds runtime))
+(defn refuse [f code]
+ (let [actual (try (f) nil (catch :default e (:mithril/error (ex-data e))))]
+  (ensure (= code actual) (str "UMD refusal expected " code " actual " actual))))
+(doseq [name [nil false [] {} "" "jsyaml.member" "default" "jsyaml; injected()" (apply str (repeat 129 "a"))]]
+ (refuse #(emit/compile-document (assoc doc "umd-namespace" name) runtime) :mithril.native-declarations/name)
+ (refuse #(declarations/check-module-program [(assoc md "umd-namespace" name)] [] runtime "umd.api") :mithril.native-declarations/name))
+(refuse #(emit/compile-document (assoc doc "umd-extra" "injected") runtime) :mithril.native-declarations/shape)
+(refuse #(declarations/check-module-program [(assoc md "umd-extra" "injected")] [] runtime "umd.api") :mithril.native-declarations/shape)
+(ensure (= (:source (emit/compile-document (dissoc doc "umd-namespace") runtime))
+           (.replace (:source artifact) "export as namespace jsyaml;\n" "")) "UMD changed ordinary declaration bytes")
+(ensure (= ["count" "bump"] (:exports artifact)) "UMD polluted value exports")
+(ensure (= ["Options"] (:type-exports artifact)) "UMD polluted type exports")
+(def dir (fs/mkdtempSync (str (os/tmpdir) "/mithril-umd-declarations-")))
+(defn run [args]
+ (let [r (child/spawnSync js/process.execPath (clj->js args) #js {:encoding "utf8" :timeout 240000})]
+  (ensure (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r))))
+(try
+ (fs/writeFileSync (str dir "/offline.edn") "{:paths [\"src\"]}")
+ (doseq [target ["js" "js-browser"]]
+  (let [single (str dir "/" target ".d.mts") output (str dir "/" target) runtime-output (str dir "/" target "-runtime")]
+   (run [(.-MITHRIL_DECLARATIONS_ENGINE js/process.env) "--config" (str dir "/offline.edn") "-cp" "src"
+         "bin/mithril-native-declarations.cljk" "examples/native-js-umd-types.mith" "--target" target "--output" single])
+   (ensure (= (:source artifact) (fs/readFileSync single "utf8")) "UMD single CLI bytes differ")
+   (run [(.-MITHRIL_DECLARATIONS_ENGINE js/process.env) "--config" (str dir "/offline.edn") "-cp" "src"
+         "bin/mithril-native-declaration-program.cljk" "examples/native-js-umd-program.mith" "--target" target "--output-directory" output])
+   (doseq [[file source] (:files pa)] (ensure (= source (fs/readFileSync (str output "/" file) "utf8")) (str "UMD program bytes differ " file)))
+   (run [(.-MITHRIL_DECLARATIONS_ENGINE js/process.env) "--config" (str dir "/offline.edn") "-cp" "src"
+         "bin/mithril-native-esm.cljk" "examples/native-js-umd-esm.mith" "--target" target "--output-directory" runtime-output])
+   (doseq [[file source] (:files (esm/compile-text rt {"native-js-umd-runtime.mith" (read-example "native-js-umd-runtime.mith")}))]
+    (ensure (= source (fs/readFileSync (str runtime-output "/" file) "utf8")) (str "UMD runtime bytes differ " file)))
+   (run ["test/qualification/native-umd-declarations/controls/types.mjs" single (str output "/index.d.mts")
+         (str runtime-output "/index.mjs") (.-MITHRIL_DECLARATIONS_TYPESCRIPT js/process.env)])))
+ (println "UMD declarations: single and program actual CLI artifacts, 20 exact-code refusals, unchanged runtime and ordinary declaration bytes; Node execution only.")
+ (finally (fs/rmSync dir #js {:recursive true :force true})))

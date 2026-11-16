@@ -1,0 +1,77 @@
+(ns mithril.native-function-namespace-test
+  (:require [cljs.test :refer [deftest is]] [mithril.native-js :as native] [mithril.native-esm :as esm]
+            [mithril.native-esm-test :as e] [mithril.native-class-test :as c] [mithril.form :as form]
+            ["node:fs" :as fs] ["node:os" :as os] ["node:path" :as path] ["node:child_process" :as child]))
+(def fixture "test/fixtures/native-function-namespace/")
+(defn read [n] (fs/readFileSync (str fixture n ".mith") "utf8"))
+(defn setx [v] {"@type" "FunctionSet" "name" "Inject" "value" v})
+(defn doc [expr]
+  {"@context" "https://mithril.fund/context/native-js-module/v1" "@type" "NativeJsModule" "name" "mutable.control"
+   "imports" [] "functions" [{"@type" "Function" "name" "Inject" "mutable" true "params" [] "returns" "js-value" "body" expr}]
+   "exports" ["Inject"]})
+(defn refused? [d] (try (native/compile-document d) false (catch :default _ true)))
+(deftest explicit-mutable-function-admission
+  (let [set (setx c/undef) d (doc set)
+        shadow (fn [name value] {"@type" "Let" "bindings" [{"name" name "value" value "mutable" true}] "body" set})
+        await {"@type" "HostAwait" "value" c/undef} yield {"@type" "HostYield" "value" c/undef}
+        bad [(update-in d ["functions" 0] dissoc "mutable") (assoc-in d ["functions" 0 "mutable"] false)
+             (assoc-in d ["functions" 0 "mutable"] 1) (assoc-in d ["functions" 0 "mutable"] nil)
+             (assoc-in d ["functions" 0 "mutable"] "true")
+             (doc (assoc set "name" "unknown")) (doc (assoc set "extra" "source")) (doc (dissoc set "value"))
+             (doc (assoc set "name" "bad-name")) (doc (assoc set "name" nil))
+             (doc (setx (c/local "missing")))
+             (assoc-in d ["functions" 0 "params"] [(c/param "Inject")])
+             (doc (shadow "Inject" c/undef))
+             (doc (assoc (c/normal set) "name" "Inject"))
+             (doc (c/klass "Inject" nil nil [(c/meth "write" set)]))
+             (doc {"@type" "HostTryCatch" "body" c/undef "binding" "Inject" "handler" set})
+             (doc {"@type" "HostForOf" "iterable" (c/arr) "binding" "Inject" "body" set "result" c/undef})
+             (doc (assoc (c/normal set) "params" [(c/param "Inject")]))
+             (doc (assoc (c/arrow set) "params" ["Inject"]))
+             (doc (setx await)) (doc (setx yield))
+             (doc (setx {"@type" "HostReturn" "value" c/undef}))
+             (assoc d "functions" [] "imports" ["Inject"] "exports" [{"name" "value" "value" set}])
+             (assoc d "functions" [] "bindings" [{"name" "Inject" "mutable" true "value" c/undef}]
+                    "exports" [{"name" "value" "value" set}])]
+        good [d (doc (c/arrow set)) (doc (c/normal set))
+              (doc (assoc (c/normal (setx await)) "async" true))
+              (doc (assoc (c/normal (setx yield)) "generator" true))
+              (doc (shadow "other" c/undef))
+              (assoc-in d ["functions" 0 "params"] [(assoc (c/param "value") "default" set)])]]
+    (is (= (form/parse "(mithril/function-set :name \"Inject\" :value (mithril/host-undefined))") set))
+    (is (and (= 24 (count bad)) (every? refused? bad)))
+    (is (every? (complement refused?) good))))
+(deftest genuine-mutable-namespace-cli
+  (let [text (read "cycle") sources (e/sources-for text fixture) artifact (esm/compile-text text sources)
+        dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-function-namespace-"))]
+    (is (= artifact (esm/compile-document (form/parse text) sources)))
+    (is (and (.includes (get-in artifact [:files "module-0.mjs"]) "function Inject(")
+             (not (.includes (get-in artifact [:files "module-0.mjs"]) "let Inject="))))
+    (try
+      (let [engine (.-MITHRIL_NATIVE_ENGINE js/process.env) config (path/join dir "offline.edn")]
+        (fs/writeFileSync config "{:paths [\"src\"]}\n")
+        (doseq [target ["js" "js-browser"]]
+          (let [cli (e/cli! engine config (str fixture "cycle.mith") target (path/join dir (str target "-cli")))
+                files (into {} (map #(vector % (fs/readFileSync (path/join dir (str target "-cli") %) "utf8"))
+                                    (keys (:files artifact))))]
+            (when-not (= (set (get cli "exports")) (set (:exports artifact))) (throw (js/Error. "CLI export mismatch")))
+            (e/save! dir target (assoc artifact :files files)))))
+      (let [r (child/spawnSync js/process.execPath (clj->js [(str fixture "contract.mjs") dir]) #js {:encoding "utf8" :timeout 30000})]
+        (is (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r)))
+      (finally (fs/rmSync dir #js {:recursive true :force true})))))
+(deftest mutable-factory-initialization-and-snapshot-export
+  (let [d (doc {"@type" "FunctionRef" "name" "Inject"})
+        d (assoc d "bindings" [{"name" "assigned" "value" (setx (c/normal (c/lit 7)))}]
+                 "functions" (conj (get d "functions")
+                    {"@type" "Function" "name" "read" "params" [] "returns" "js-value" "body" {"@type" "FunctionRef" "name" "Inject"}}
+                    {"@type" "Function" "name" "write" "params" [(c/param "value")] "returns" "js-value" "body" (setx (c/local "value"))})
+                 "exports" ["Inject" "read" "write"])
+        source (:source (native/compile-document d))
+        script (str (subs source 0 (.indexOf source "export function"))
+                    (subs source (+ 7 (.indexOf source "export function")))
+                    "\nconst m=instantiateMithrilNative({});if(m.Inject()!==7||m.read()!==m.Inject)throw Error('initializer');"
+                    "const old=m.Inject,next=()=>9;if(m.write(next)!==next||m.read()!==next||m.Inject!==old)throw Error('snapshot');")
+        r (child/spawnSync js/process.execPath #js ["--input-type=module" "-e" script] #js {:encoding "utf8" :timeout 30000})]
+    (is (.includes source "let __mithril_native_f0=function Inject"))
+    (is (< (.indexOf source "let __mithril_native_f0=") (.indexOf source "const __mithril_native_v")))
+    (is (= 0 (.-status r)) (str (.-stdout r) (.-stderr r)))))

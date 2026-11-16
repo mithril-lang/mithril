@@ -331,6 +331,14 @@
   (let [inst (get-instance! store instance-key)]
     (require-active! inst "fail-job")
     (let [job (find-job! inst job-key)
+          _ (when (and (:worker-id job) (not= worker-id (:worker-id job)))
+              (fail! :CONFLICT :mithril.camunda/job-locked
+                     "job is locked by another worker"
+                     {:job-key job-key :locked-by (:worker-id job)}))
+          _ (when-not (= :locked (:status job))
+              (fail! :CONFLICT :mithril.camunda/job-not-locked
+                     "job is not fail-able in its status"
+                     {:job-key job-key :status (:status job)}))
           runtime (:runtime inst)
           pending (:pending runtime)
           runtime1 (if (and pending (= (:type job) (:action pending)))
@@ -392,7 +400,12 @@
         (fail! :INVALID_ARGUMENT :mithril.bpmn/action-not-enabled
                "user task is not enabled by the BPMN token state"
                {:instance-key instance-key :task-key task-key}))
-      (let [[store1 n] (next-seq store)
+      (let [existing (get-in inst [:tasks task-key])
+            _ (when (and (:assignee existing) (not= caller (:assignee existing)))
+                (fail! :CONFLICT :mithril.camunda/task-assigned
+                       "user task is claimed by another principal"
+                       {:task-key task-key :assignee (:assignee existing)}))
+            [store1 n] (next-seq store)
             task {:key task-key :kind :user-task :action action
                   :instance-key instance-key :assignee caller
                   :status :claimed :claimed-seq n}

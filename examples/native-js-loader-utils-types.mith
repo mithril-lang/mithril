@@ -1,0 +1,65 @@
+(mithril/native-js-declaration-module :name "loader.utils"
+:runtime "loader.utils"
+:ambient-types []
+:ambient-values []
+:imports []
+:declarations [(rdf/node :kind "const"
+:name "evaluate"
+:exported true
+:datatype (rdf/node :op "function"
+:abstract false
+:type-params []
+:params [(rdf/node :name "ctx"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "object"))
+(rdf/node :name "expr"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))]
+:returns (rdf/node :op "keyword"
+:name "any")))
+(rdf/node :kind "function"
+:name "interpolate"
+:exported true
+:type-params []
+:params [(rdf/node :name "ctx"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "object"))
+(rdf/node :name "value"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "any"))]
+:returns (rdf/node :op "keyword"
+:name "any"))
+(rdf/node :kind "function"
+:name "isJsExpr"
+:exported true
+:type-params []
+:params [(rdf/node :name "value"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "any"))]
+:returns (rdf/node :op "predicate"
+:name "value"
+:datatype (rdf/node :op "name"
+:name "JsExpr"
+:args [])))
+(rdf/node :kind "interface"
+:name "JsExpr"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "__jsExpr"
+:optional false
+:readonly false
+:datatype (rdf/node :op "keyword"
+:name "string"))])]
+:reexports [])

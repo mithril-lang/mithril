@@ -1,0 +1,55 @@
+{
+  "format": "mithril.native-class-declarations-qualification/v1",
+  "source_tests": 59,
+  "source_assertions": 209,
+  "actual_cli_targets": [
+    "js",
+    "js-browser"
+  ],
+  "profile": "native-esm",
+  "original_declaration_structures": 14,
+  "complete_original_classes": [
+    "Service",
+    "DisposableList"
+  ],
+  "original_class_members": 23,
+  "public_names": 13,
+  "runtime_values": 12,
+  "type_bindings": 3,
+  "positive_paired_groups_per_target": 13,
+  "negative_paired_groups_per_target": 14,
+  "generic_class_groups_per_target": 21,
+  "logical_type_groups_total": 96,
+  "admission_refusals": 37,
+  "original_declaration_structure_comparison": "Every non-import Service/Utils declaration; normalize only name quoting/parentheses/import adapters",
+  "context_binding_adapter": "Pinned original Context import prepended only by consumer qualification; Context module/class/interface/augmentation graph not implemented here",
+  "guards": "Exact class/member/variance/key fields, static generic and this scope, unique symbol positions, computed declared values, private/protected static owner rules/inherited members, overload consistency/inheritance cycle/node/depth/collection checks; bounded value member query depth32; qualified queries cannot borrow shadowed outer values; value query cycles refuse",
+  "type_script_protected_computed_bracket_access": "Original accepts bracket access; modifier and original behavior preserved, named protected access still rejected",
+  "retained": {
+    "global_type_node_budget": 16384,
+    "type_depth_budget": 64,
+    "cosmokit_type_nodes": 446,
+    "old_emitted_type_bytes_identical": true,
+    "named_tuple_groups": 72,
+    "original_full_cordis_type_oracle_groups": 31,
+    "original_core_runtime_groups": 48,
+    "original_service_index_runtime_groups": 36,
+    "frozen_package_artifacts": 7
+  },
+  "source_sha256": {
+    "src/mithril/native_declarations.cljk": "6fc738c1384e41b8d95bc64d1f8abf5ea745fe4f1ba2c1b6bd579866e53e14e4",
+    "src/mithril/native_declaration_emit.cljk": "5b5a8af43622dd8951fe1f83a70ad8582ec6877bab8b697c67c28345b6c9d7f5",
+    "examples/native-js-cordis-service-utils-esm.mith": "b0a0bbf09e2fa77ed2943bf7ab371d57689cf7a8ccdf1f35b12da78ac52409a3",
+    "examples/native-js-cordis-service-utils-declarations.mith": "9c1472df90d5d053e1b7d9a71cd919e7da207f60a5cbe1adc43fa6f7fb3c8352",
+    "test/qualification/native-class-declarations/controls/compile.cljk": "4902c4e2f65c0eda67f0cb0e5c21f299b6f0de4b387e2e416006f9038261e44c",
+    "test/qualification/native-class-declarations/controls/type-contract.mjs": "319deb4718aff6c3c3f38584d8afb59d6df77470a58116cc9ad976655907def2",
+    "test/qualification/native-js-declarations/controls/compile-declarations.cljk": "be89753e8b3efd2499f803cba5843fc219e83b7eeb14ea9a3f404e5519870e64"
+  },
+  "system_one": {
+    "new_inferences": 0,
+    "repairs": 0,
+    "model_code_adoption": false,
+    "coding_gain_claimed": false
+  },
+  "next": "Class/interface/namespace merging, interface heritage/computed/call/construct/receiver signatures and module imports/type-only reexports/augmentations/erased enums; full Cordis typing and full Harness parity"
+}

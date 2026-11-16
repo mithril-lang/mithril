@@ -1,0 +1,32 @@
+(ns mithril.native-array-test
+  (:require [cljs.test :refer [deftest is]] [mithril.native-js :as native]
+            [mithril.module :as guest] [mithril.native-array-primitives :as primitives]
+            ["node:fs" :as fs] ["node:os" :as os] ["node:path" :as path]
+            ["node:child_process" :as child] ["node:crypto" :as crypto]))
+(deftest complete-array-source-with-real-mithril-dependency
+  (let [text (fs/readFileSync "examples/native-js-array.mith" "utf8")
+        artifact (native/compile-text text)
+        misc (native/compile-text (fs/readFileSync "examples/native-js-misc.mith" "utf8"))
+        dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-array-"))
+        file (path/join dir "array.mjs") dependency (path/join dir "misc.mjs")]
+    (try
+      (is (= artifact (native/compile-text text)))
+      (is (= :mithril.native-js/artifact-v1 (:format artifact)))
+      (is (= "cosmokit.array" (:module artifact)))
+      (is (= #{"Array" "Set" "isNullable"} (set (:required-imports artifact))))
+      (is (= #{"contain" "intersection" "difference" "union" "deduplicate" "remove" "makeArray"}
+             (set (:exports artifact))))
+      (is (try (guest/check-text text) false (catch :default _ true)))
+      (is (= "b2e52089674875efa3b5a8c135e4fccd37b258c8d5d72adcfc05338f38c0a4fb"
+             (-> (crypto/createHash "sha256") (.update (:source misc)) (.digest "hex"))))
+      (fs/writeFileSync file (:source artifact)) (fs/writeFileSync dependency (:source misc))
+      (let [r (child/spawnSync js/process.execPath #js ["test/fixtures/array-contract.mjs" file dependency]
+                               #js {:encoding "utf8" :timeout 30000})]
+        (is (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))))
+      (finally (fs/rmSync dir #js {:recursive true :force true})))))
+(deftest generic-constructor-spread-optional-method-and-comparison
+  (let [dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-array-primitives-"))]
+    (try
+      (is (nil? (primitives/verify (path/join dir "primitives.mjs")
+                                  (path/resolve "test/fixtures/array-primitives-runtime.mjs"))))
+      (finally (fs/rmSync dir #js {:recursive true :force true})))))

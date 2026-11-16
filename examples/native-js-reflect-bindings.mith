@@ -1,0 +1,65 @@
+(mithril/native-js-module
+ :name "native.reflectBindings"
+ :imports ["mark" "object" "key" "Promise"] :functions []
+ :exports
+ [(rdf/node :name "erase"
+   :value (mithril/native-function :name nil :rest nil
+    :params [(rdf/node :name "object" :datatype "js-value") (rdf/node :name "key" :datatype "js-value")]
+    :body (mithril/host-delete :object (mithril/local :name "object") :key (mithril/local :name "key"))))
+  (rdf/node :name "eraseEvaluated"
+   :value (mithril/native-function :name nil :rest nil :params []
+    :body (mithril/host-delete
+     :object (mithril/host-invoke :function (mithril/host-import :name "object") :args [])
+     :key (mithril/host-invoke :function (mithril/host-import :name "key") :args []))))
+  (rdf/node :name "collect"
+   :value (mithril/native-function :name nil :rest nil :statements true :params [(rdf/node :name "rows" :datatype "js-value")]
+    :body (mithril/let :bindings [(rdf/node :name "pairs" :value (mithril/host-array :items []))]
+     :body (mithril/host-for-of :iterable (mithril/local :name "rows") :binding (rdf/node :array ["key" "value"])
+      :body (mithril/host-method :object (mithril/local :name "pairs") :key (mithril/literal :datatype "js-value" :value "push")
+       :args [(mithril/host-array :items [(mithril/local :name "key") (mithril/local :name "value")])])
+      :result (mithril/local :name "pairs")))))
+  (rdf/node :name "closures"
+   :value (mithril/native-function :name nil :rest nil :statements true :params [(rdf/node :name "rows" :datatype "js-value")]
+    :body (mithril/let :bindings [(rdf/node :name "pairs" :value (mithril/host-array :items []))]
+     :body (mithril/host-for-of :iterable (mithril/local :name "rows") :binding (rdf/node :array ["key" "value"])
+      :body (mithril/host-method :object (mithril/local :name "pairs") :key (mithril/literal :datatype "js-value" :value "push")
+       :args [(mithril/native-lambda :params [] :body (mithril/host-array :items [(mithril/local :name "key") (mithril/local :name "value")]))])
+      :result (mithril/local :name "pairs")))))
+  (rdf/node :name "first"
+   :value (mithril/native-function :name nil :rest nil :statements true :params [(rdf/node :name "rows" :datatype "js-value")]
+    :body (mithril/host-for-of :iterable (mithril/local :name "rows") :binding (rdf/node :array ["key" "value"])
+     :body (mithril/host-return :value (mithril/host-array :items [(mithril/local :name "key") (mithril/local :name "value")]))
+     :result (mithril/host-undefined))))
+  (rdf/node :name "empty"
+   :value (mithril/native-function :name nil :rest nil :statements true :params [(rdf/node :name "rows" :datatype "js-value")]
+    :body (mithril/host-for-of :iterable (mithril/local :name "rows") :binding (rdf/node :array [])
+     :body (mithril/host-invoke :function (mithril/host-import :name "mark") :args []) :result (mithril/host-undefined))))
+  (rdf/node :name "expression"
+   :value (mithril/native-function :name nil :rest nil :params [(rdf/node :name "rows" :datatype "js-value")]
+    :body (mithril/host-for-of :iterable (mithril/local :name "rows") :binding (rdf/node :array ["key" "value"])
+     :body (mithril/host-invoke :function (mithril/host-import :name "mark") :args [(mithril/local :name "key") (mithril/local :name "value")])
+     :result (mithril/literal :datatype "js-value" :value 42))))
+  (rdf/node :name "generate"
+   :value (mithril/native-function :name nil :rest nil :generator true :statements true :params [(rdf/node :name "rows" :datatype "js-value")]
+    :body (mithril/host-for-of :iterable (mithril/local :name "rows") :binding (rdf/node :array ["key" "value"])
+     :body (mithril/host-yield :value (mithril/native-lambda :params [] :body (mithril/host-array :items [(mithril/local :name "key") (mithril/local :name "value")])))
+     :result (mithril/host-undefined))))
+  (rdf/node :name "control"
+   :value (mithril/native-function :name nil :rest nil :statements true
+    :params [(rdf/node :name "rows" :datatype "js-value") (rdf/node :name "mode" :datatype "js-value")]
+    :body (mithril/host-for-of :iterable (mithril/local :name "rows") :binding (rdf/node :array ["key" "value"])
+     :body (mithril/host-try-finally
+      :body (mithril/if :condition (mithril/host-binary :operator "===" :left (mithril/local :name "mode") :right (mithril/literal :datatype "js-value" :value "continue"))
+       :then (mithril/host-continue)
+       :else (mithril/if :condition (mithril/host-binary :operator "===" :left (mithril/local :name "mode") :right (mithril/literal :datatype "js-value" :value "break"))
+        :then (mithril/host-break) :else (mithril/host-throw :value (mithril/local :name "value"))))
+      :finally (mithril/host-invoke :function (mithril/host-import :name "mark") :args [(mithril/local :name "key")]))
+     :result (mithril/literal :datatype "js-value" :value 42))))
+  (rdf/node :name "cleanup"
+   :value (mithril/native-lambda :async true :statements true :params ["store" "fiberStore" "key" "pending"]
+    :body (mithril/sequence :expressions
+     [(mithril/host-delete :object (mithril/local :name "store") :key (mithril/local :name "key"))
+      (mithril/host-await :value (mithril/host-method :object (mithril/host-import :name "Promise")
+       :key (mithril/literal :datatype "js-value" :value "allSettled") :args [(mithril/local :name "pending")]))
+      (mithril/host-delete :object (mithril/local :name "fiberStore") :key (mithril/local :name "key"))
+      (mithril/host-undefined)])))])

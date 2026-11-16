@@ -1,0 +1,69 @@
+
+Testing mithril.module-test
+
+Testing mithril.module-lower-test
+
+Testing mithril.form-test
+
+Testing mithril.compiler-test
+
+Testing mithril.conditional-test
+
+Testing mithril.branding-test
+
+Testing mithril.undefined-test
+
+Testing mithril.library-test
+
+Testing mithril.module-bindings-test
+
+Testing mithril.module-guest-closure-test
+
+Testing mithril.native-js-test
+
+Testing mithril.native-misc-test
+Native primitive runtime: strict comparison/raw logical values/spread/assignment/for-of checked.
+11 primitive admissions, 9 refusals, all 8 Form tags checked.
+
+Testing mithril.native-array-test
+Native array primitives: 20 runtime contract groups passed.
+4 admissions / 13 malformed refusals / 2 budget refusals / 3 Form tags passed.
+
+Testing mithril.native-volatile-test
+Named-function/generated-binding collision regression passed.
+Native volatile prerequisites: 15 runtime contract groups passed.
+7 admissions / 15 malformed refusals / 2 budget refusals / 4 Form tags passed.
+
+Testing mithril.native-types-test
+Native type prerequisites: 16 runtime contract groups passed.
+6 admissions / 6 malformed or scope refusals / 2 budget refusals / 1 Form tag passed.
+Native arguments Let scope: 3 runtime boundary groups passed.
+4 additional scope refusals and normal/default/LocalFunction Let capture groups passed.
+
+Testing mithril.native-blocks-test
+Native export/loop/string prerequisites: 18 runtime contract groups passed.
+3 admissions / 12 malformed or scope refusals / 3 budget refusals / 2 Form tags passed.
+
+Ran 84 tests containing 434 assertions.
+0 failures, 0 errors.
+JVM launcher marker absent; workspace source classpath.
+node:internal/modules/esm/resolve:272
+    throw new ERR_MODULE_NOT_FOUND(
+          ^
+
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/opt/spreads-controls/object-spreads-reference.mjs' imported from /opt/spreads-controls/spreads-runtime.mjs
+    at finalizeResolution (node:internal/modules/esm/resolve:272:11)
+    at moduleResolve (node:internal/modules/esm/resolve:879:10)
+    at defaultResolve (node:internal/modules/esm/resolve:1006:11)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:705:20)
+    at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:725:38)
+    at ModuleLoader.resolveSync (node:internal/modules/esm/loader:763:56)
+    at #resolve (node:internal/modules/esm/loader:687:17)
+    at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:607:35)
+    at node:internal/modules/esm/loader:636:32
+    at TracingChannel.tracePromise (node:diagnostics_channel:362:14) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///opt/spreads-controls/object-spreads-reference.mjs'
+}
+
+Node.js v24.21.0

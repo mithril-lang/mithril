@@ -1,0 +1,402 @@
+; Real native optional chains; extracted Fiber initialization/cleanup expressions are controls, not whole core.
+(mithril/native-js-module
+ :name "cordis.optionalChains"
+ :imports []
+ :functions []
+ :exports [(rdf/node
+   :name "chain"
+   :value (mithril/native-function
+    :name "chain"
+    :params [(rdf/node
+      :name "base"
+      :datatype "js-value")
+(rdf/node
+      :name "key"
+      :datatype "js-value")
+(rdf/node
+      :name "arg"
+      :datatype "js-value")
+(rdf/node
+      :name "tail"
+      :datatype "js-value")]
+    :rest nil
+    :body (mithril/host-optional-chain
+     :base (mithril/local
+      :name "base")
+     :steps [(rdf/node
+       :kind "get"
+       :optional true
+       :key (mithril/host-invoke
+        :function (mithril/local
+         :name "key")
+        :args []))
+(rdf/node
+       :kind "call"
+       :optional true
+       :items [(rdf/node
+         :value (mithril/host-invoke
+          :function (mithril/local
+           :name "arg")
+          :args []))])
+(rdf/node
+       :kind "get"
+       :optional false
+       :key (mithril/host-invoke
+        :function (mithril/local
+         :name "tail")
+        :args []))])))
+(rdf/node
+   :name "method"
+   :value (mithril/native-function
+    :name "method"
+    :params [(rdf/node
+      :name "base"
+      :datatype "js-value")
+(rdf/node
+      :name "key"
+      :datatype "js-value")
+(rdf/node
+      :name "arg"
+      :datatype "js-value")]
+    :rest nil
+    :body (mithril/host-optional-chain
+     :base (mithril/local
+      :name "base")
+     :steps [(rdf/node
+       :kind "get"
+       :optional false
+       :key (mithril/host-invoke
+        :function (mithril/local
+         :name "key")
+        :args []))
+(rdf/node
+       :kind "call"
+       :optional true
+       :items [(rdf/node
+         :value (mithril/host-invoke
+          :function (mithril/local
+           :name "arg")
+          :args []))])])))
+(rdf/node
+   :name "receiver"
+   :value (mithril/native-function
+    :name "receiver"
+    :params [(rdf/node
+      :name "base"
+      :datatype "js-value")
+(rdf/node
+      :name "key"
+      :datatype "js-value")
+(rdf/node
+      :name "arg"
+      :datatype "js-value")]
+    :rest nil
+    :body (mithril/host-optional-chain
+     :base (mithril/local
+      :name "base")
+     :steps [(rdf/node
+       :kind "get"
+       :optional true
+       :key (mithril/host-invoke
+        :function (mithril/local
+         :name "key")
+        :args []))
+(rdf/node
+       :kind "call"
+       :optional false
+       :items [(rdf/node
+         :value (mithril/host-invoke
+          :function (mithril/local
+           :name "arg")
+          :args []))])])))
+(rdf/node
+   :name "valueCall"
+   :value (mithril/native-function
+    :name "valueCall"
+    :params [(rdf/node
+      :name "base"
+      :datatype "js-value")
+(rdf/node
+      :name "arg"
+      :datatype "js-value")]
+    :rest nil
+    :body (mithril/host-optional-chain
+     :base (mithril/local
+      :name "base")
+     :steps [(rdf/node
+       :kind "call"
+       :optional true
+       :items [(rdf/node
+         :value (mithril/host-invoke
+          :function (mithril/local
+           :name "arg")
+          :args []))])])))
+(rdf/node
+   :name "spread"
+   :value (mithril/native-function
+    :name "spread"
+    :params [(rdf/node
+      :name "base"
+      :datatype "js-value")
+(rdf/node
+      :name "key"
+      :datatype "js-value")
+(rdf/node
+      :name "arg"
+      :datatype "js-value")
+(rdf/node
+      :name "iter"
+      :datatype "js-value")]
+    :rest nil
+    :body (mithril/host-optional-chain
+     :base (mithril/local
+      :name "base")
+     :steps [(rdf/node
+       :kind "get"
+       :optional true
+       :key (mithril/host-invoke
+        :function (mithril/local
+         :name "key")
+        :args []))
+(rdf/node
+       :kind "call"
+       :optional true
+       :items [(rdf/node
+         :value (mithril/host-invoke
+          :function (mithril/local
+           :name "arg")
+          :args []))
+(rdf/node
+         :spread (mithril/host-invoke
+          :function (mithril/local
+           :name "iter")
+          :args []))])])))
+(rdf/node
+   :name "grouped"
+   :value (mithril/native-function
+    :name "grouped"
+    :params [(rdf/node
+      :name "base"
+      :datatype "js-value")
+(rdf/node
+      :name "key"
+      :datatype "js-value")
+(rdf/node
+      :name "arg"
+      :datatype "js-value")]
+    :rest nil
+    :body (mithril/host-get
+     :object (mithril/host-optional-chain
+      :base (mithril/local
+       :name "base")
+      :steps [(rdf/node
+        :kind "get"
+        :optional true
+        :key (mithril/host-invoke
+         :function (mithril/local
+          :name "key")
+         :args []))
+(rdf/node
+        :kind "call"
+        :optional true
+        :items [(rdf/node
+          :value (mithril/host-invoke
+           :function (mithril/local
+            :name "arg")
+           :args []))])])
+     :key (mithril/literal
+      :datatype "js-value"
+      :value "tail"))))
+(rdf/node
+   :name "awaitKey"
+   :value (mithril/native-function
+    :name "awaitKey"
+    :params [(rdf/node
+      :name "base"
+      :datatype "js-value")
+(rdf/node
+      :name "key"
+      :datatype "js-value")
+(rdf/node
+      :name "arg"
+      :datatype "js-value")]
+    :rest nil
+    :body (mithril/host-optional-chain
+     :base (mithril/local
+      :name "base")
+     :steps [(rdf/node
+       :kind "get"
+       :optional true
+       :key (mithril/host-await
+        :value (mithril/host-invoke
+         :function (mithril/local
+          :name "key")
+         :args [])))
+(rdf/node
+       :kind "call"
+       :optional true
+       :items [(rdf/node
+         :value (mithril/host-await
+          :value (mithril/host-invoke
+           :function (mithril/local
+            :name "arg")
+           :args [])))])])
+    :async true))
+(rdf/node
+   :name "yieldKey"
+   :value (mithril/native-function
+    :name "yieldKey"
+    :params [(rdf/node
+      :name "base"
+      :datatype "js-value")]
+    :rest nil
+    :body (mithril/host-optional-chain
+     :base (mithril/local
+      :name "base")
+     :steps [(rdf/node
+       :kind "get"
+       :optional true
+       :key (mithril/host-yield
+        :value (mithril/literal
+         :datatype "js-value"
+         :value "key")))
+(rdf/node
+       :kind "call"
+       :optional true
+       :items [(rdf/node
+         :value (mithril/host-yield
+          :value (mithril/literal
+           :datatype "js-value"
+           :value "arg")))])])
+    :generator true))
+(rdf/node
+   :name "initialize"
+   :value (mithril/native-function
+    :name "initialize"
+    :params [(rdf/node
+      :name "instance"
+      :datatype "js-value")
+(rdf/node
+      :name "initKey"
+      :datatype "js-value")]
+    :rest nil
+    :body (mithril/host-optional-chain
+     :base (mithril/local
+      :name "instance")
+     :steps [(rdf/node
+       :kind "get"
+       :optional true
+       :key (mithril/local
+        :name "initKey"))
+(rdf/node
+       :kind "call"
+       :optional true
+       :items [])])))
+(rdf/node
+   :name "taskCleanup"
+   :value (mithril/native-function
+    :name "taskCleanup"
+    :params [(rdf/node
+      :name "task"
+      :datatype "js-value")
+(rdf/node
+      :name "runner"
+      :datatype "js-value")
+(rdf/node
+      :name "dispose"
+      :datatype "js-value")
+(rdf/node
+      :name "finalizeDisposal"
+      :datatype "js-value")]
+    :rest nil
+    :body (mithril/host-optional-chain
+     :base (mithril/local
+      :name "task")
+     :steps [(rdf/node
+       :kind "get"
+       :optional true
+       :key (mithril/literal
+        :datatype "js-value"
+        :value "catch"))
+(rdf/node
+       :kind "call"
+       :optional false
+       :items [(rdf/node
+         :value (mithril/native-lambda
+          :params []
+          :body (mithril/if
+           :condition (mithril/host-unary
+            :operator "!"
+            :value (mithril/host-get
+             :object (mithril/local
+              :name "runner")
+             :key (mithril/literal
+              :datatype "js-value"
+              :value "epoch")))
+           :then (mithril/host-return
+            :value (mithril/host-invoke
+             :function (mithril/local
+              :name "dispose")
+             :args []))
+           :else (mithril/host-return
+            :value (mithril/host-invoke
+             :function (mithril/local
+              :name "finalizeDisposal")
+             :args [(mithril/local
+               :name "dispose")])))
+          :statements true))])
+(rdf/node
+       :kind "get"
+       :optional false
+       :key (mithril/literal
+        :datatype "js-value"
+        :value "catch"))
+(rdf/node
+       :kind "call"
+       :optional false
+       :items [(rdf/node
+         :value (mithril/native-lambda
+          :params ["error"]
+          :body (mithril/host-method
+           :object (mithril/host-get
+            :object (mithril/host-get
+             :object (mithril/host-this)
+             :key (mithril/literal
+              :datatype "js-value"
+              :value "ctx"))
+            :key (mithril/literal
+             :datatype "js-value"
+             :value "logger"))
+           :key (mithril/literal
+            :datatype "js-value"
+            :value "error")
+           :args [(mithril/local
+             :name "error")])))])])))
+(rdf/node
+   :name "returnedCall"
+   :value (mithril/native-function
+    :name "returnedCall"
+    :params [(rdf/node
+      :name "base"
+      :datatype "js-value")]
+    :rest nil
+    :body (mithril/host-optional-chain
+     :base (mithril/local
+      :name "base")
+     :steps [(rdf/node
+       :kind "get"
+       :optional false
+       :key (mithril/literal
+        :datatype "js-value"
+        :value "get"))
+(rdf/node
+       :kind "call"
+       :optional false
+       :items [])
+(rdf/node
+       :kind "call"
+       :optional true
+       :items [(rdf/node
+         :value (mithril/literal
+          :datatype "js-value"
+          :value 1))])])))])

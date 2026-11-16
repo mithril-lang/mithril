@@ -1,0 +1,20 @@
+(ns mithril.native-types-scope (:require [mithril.native-js :as n] ["node:fs" :as fs] ["node:child_process" :as child]))
+(def argc {"@type" "HostArgumentsLength"})
+(defn lit [v] {"@type" "Literal" "datatype" "js-value" "value" v})
+(defn local [n] {"@type" "Local" "name" n})
+(defn letcount [result] {"@type" "Let" "bindings" [{"name" "seen" "value" argc}] "body" result})
+(defn fun [name params body] {"@type" "Function" "name" name "params" params "returns" "js-value" "body" body})
+(defn doc [body] {"@context" "https://mithril.fund/context/native-js-module/v1" "@type" "NativeJsModule" "name" "types.scope" "imports" [] "functions" [(fun "scope" [] body)] "exports" ["scope"]})
+(def module-result {"@type" "LocalFunction" "name" "inside" "params" [] "body" argc "result" argc})
+(def loop-body {"@type" "HostForOf" "iterable" {"@type" "HostArray" "items" [(lit 1)]} "binding" "item" "body" argc "result" (lit 0)})
+(defn verify [file runtime-file]
+ (doseq [body [(letcount (local "seen")) loop-body module-result {"@type" "NativeLambda" "params" [] "body" (letcount (local "seen"))}]]
+  (when-not (try (n/compile-document (assoc (doc (lit 0)) "bindings" [{"name" "outside" "value" body}])) false (catch :default _ true)) (throw (js/Error. "Non-function initializer scope admitted"))))
+ (let [inside {"@type" "LocalFunction" "name" "inner" "params" ["a"] "body" (letcount {"@type" "NativeLambda" "params" [] "body" (local "seen")}) "result" (local "inner")}
+       functions [(fun "capture" [] (letcount {"@type" "NativeLambda" "params" [] "body" (local "seen")}))
+                  (fun "nested" [] inside)
+                  (fun "defaultCount" [{"name" "value" "datatype" "js-value" "default" (letcount (local "seen"))}] (local "value"))]
+       artifact (n/compile-document (assoc (doc (lit 0)) "functions" functions "exports" ["capture" "nested" "defaultCount"]))]
+  (fs/writeFileSync file (:source artifact))
+  (let [result (child/spawnSync js/process.execPath #js [runtime-file file] #js {:stdio "inherit" :timeout 30000})] (when-not (= 0 (.-status result)) (js/process.exit 1))))
+ (println "4 additional scope refusals and normal/default/LocalFunction Let capture groups passed."))

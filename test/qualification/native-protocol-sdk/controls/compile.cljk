@@ -1,0 +1,53 @@
+(ns compile-protocol-sdk
+ (:require [mithril.native-esm :as esm] [mithril.native-declaration-program :as program]
+           ["node:fs" :as fs] ["node:os" :as os] ["node:path" :as path] ["node:child_process" :as child]))
+(defn ensure [p label] (when-not p (throw (js/Error. label))))
+(def engine (.-MITHRIL_DECLARATIONS_ENGINE js/process.env))
+(def compiler (.-MITHRIL_DECLARATIONS_TYPESCRIPT js/process.env))
+(def type-roots (.-MITHRIL_DECLARATIONS_TYPE_ROOTS js/process.env))
+(def tsx (or (.-MITHRIL_DECLARATIONS_TSX js/process.env) (path/resolve (path/dirname compiler) "../../tsx")))
+(defn contract [pkg]
+ (let [runtime-text (fs/readFileSync (str "examples/native-js-" pkg "-esm.mith") "utf8")
+       runtime-sources (into {} (map #(vector % (fs/readFileSync (str "examples/" %) "utf8")) (esm/source-basenames runtime-text)))
+       checked (esm/check-text runtime-text runtime-sources) runtime (esm/compile-text runtime-text runtime-sources)
+       text (fs/readFileSync (str "examples/native-js-" pkg "-program.mith") "utf8")
+       sources (into {} (map #(vector % (fs/readFileSync (str "examples/" %) "utf8")) (:sources (program/read-plan text))))
+       declarations (program/compile-text text sources checked)]
+  {:runtime runtime :types declarations}))
+(def types-runtime-text (fs/readFileSync "examples/native-js-protocol-types-esm.mith" "utf8"))
+(def types-runtime-sources {"native-js-protocol-types.mith" (fs/readFileSync "examples/native-js-protocol-types.mith" "utf8")})
+(def types-runtime (esm/compile-text types-runtime-text types-runtime-sources))
+(ensure (empty? (:exports types-runtime)) "The original types-only subpath has no runtime exports")
+(def contracts {"protocol" (contract "protocol") "brand" (contract "brand")})
+(let [c (get contracts "protocol")]
+ (ensure (= 20 (count (:module-files (:runtime c)))) "Complete four-module Protocol and 16-module canonical Cordis runtime")
+ (ensure (= 16 (count (:module-files (:types c)))) "Complete five-module Protocol declarations and 11 canonical dependency owners")
+ (ensure (= 13 (count (:exports (:runtime c))) (count (:exports (:types c)))) "All original public runtime exports")
+ (ensure (= 56 (count (:type-exports (:types c)))) "All original public types"))
+(def dir (fs/mkdtempSync (str (os/tmpdir) "/mithril-protocol-sdk-")))
+(def config (str dir "/offline.edn"))
+(fs/writeFileSync config (str "{:paths [" (js/JSON.stringify (fs/realpathSync "src")) "]}"))
+(defn run [args]
+ (let [r (child/spawnSync js/process.execPath (clj->js args) #js {:encoding "utf8" :timeout 240000 :maxBuffer 4194304})]
+  (ensure (= 0 (.-status r)) (str "Control exit=" (.-status r) " signal=" (.-signal r) " error=" (some-> (.-error r) .-message) "\n" (.-stdout r) (.-stderr r))) (print (.-stdout r)) (.-stdout r)))
+(try
+ (doseq [target ["js" "js-browser"]]
+  (let [output (str dir "/" target "-types-runtime")]
+   (fs/writeFileSync (str output ".log") (run [engine "--config" config "-cp" "src" "bin/mithril-native-esm.cljk"
+    "examples/native-js-protocol-types-esm.mith" "--target" target "--output-directory" output]))
+   (doseq [[file bytes] (:files types-runtime)] (ensure (= bytes (fs/readFileSync (str output "/" file) "utf8")) "Exact empty type-subpath CLI bytes")))
+  (doseq [pkg ["protocol" "brand"]]
+   (let [output (str dir "/" target "-" pkg) typed (str output "-types") c (get contracts pkg)]
+    (fs/writeFileSync (str output ".log") (run [engine "--config" config "-cp" "src" "bin/mithril-native-esm.cljk"
+     (str "examples/native-js-" pkg "-esm.mith") "--target" target "--output-directory" output]))
+    (doseq [[file bytes] (:files (:runtime c))] (ensure (= bytes (fs/readFileSync (str output "/" file) "utf8")) "Exact complete SDK runtime CLI bytes"))
+    (fs/writeFileSync (str typed ".log") (run [engine "--config" config "-cp" "src" "bin/mithril-native-declaration-program.cljk"
+     (str "examples/native-js-" pkg "-program.mith") "--target" target "--output-directory" typed]))
+    (doseq [[file bytes] (:files (:types c))] (ensure (= bytes (fs/readFileSync (str typed "/" file) "utf8")) "Exact complete SDK declaration CLI bytes"))))
+  (let [runtime (str dir "/" target "-protocol") typed (str runtime "-types") brand (str dir "/" target "-brand") brand-types (str brand "-types")]
+   (run ["test/qualification/native-protocol-sdk/controls/original-emission.mjs" compiler type-roots])
+   (run ["test/qualification/native-protocol-sdk/controls/runtime.mjs" compiler runtime])
+   (run ["test/qualification/native-protocol-sdk/controls/types.mjs" compiler type-roots typed brand-types])
+   (run ["test/qualification/native-protocol-sdk/controls/tests.mjs" compiler runtime tsx])
+   (run ["test/qualification/native-protocol-sdk/controls/package.mjs" compiler type-roots runtime typed brand brand-types (str dir "/" target "-types-runtime")])) )
+ (finally (fs/rmSync dir #js {:recursive true :force true})))

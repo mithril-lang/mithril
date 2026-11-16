@@ -1,0 +1,351 @@
+{
+  "profile": "mithril.computable-segments/reference-v1",
+  "measuredAt": "2026-10-09T06:31:32.650Z",
+  "node": "v26.7.0",
+  "platform": "darwin",
+  "arch": "arm64",
+  "cpu": "Apple M4",
+  "implementationDigests": {
+    "resources/datalake/runtime.cjs": "sha256:ea9ccf32c9dcb8888d46a95b6dc40aecc965a4f4141531400083fd8c05f00b76",
+    "scripts/bench-datalake.mjs": "sha256:4498986c42d0ccabcedd5f4861f79e096c3207daf1499b7ae42a61b5af79c581",
+    "scripts/bench-datalake-parquet.py": "sha256:55977b4d3ad24da6c95c1a9c1f24aae7a747ac4bcf30c1411e36ec6c2022a440"
+  },
+  "segmentSubjects": 2048,
+  "codec": "zstd-level-6",
+  "verification": "exact tuple-set reconstruction; canonical RDF verification recorded separately",
+  "queryScope": "warm in-memory validated handle; full JSON bundle loaded and validated before queries; fetched bytes are segment payload bytes, not measured network IO",
+  "datasets": [
+    {
+      "name": "regular-20000",
+      "quads": 60000,
+      "subjects": 20000,
+      "sourceQuads": 60000,
+      "originalCanonicalGraphDigest": null,
+      "bytes": {
+        "mith": 6297849,
+        "mithGzip": 111920,
+        "mithZstd": 40273,
+        "tupleJSONZstd": 73731,
+        "literalSegments": 172290,
+        "selectedSegments": 6316,
+        "parquetQuadTable": 134946,
+        "mithNativeWriter": 5257850,
+        "mithNativeWriterZstd": 38370,
+        "mithZstdBest": 38370
+      },
+      "selected": {
+        "model": 10,
+        "literal": 0
+      },
+      "milliseconds": {
+        "encodeModelCandidates": 2300.962792,
+        "encodeLiteral": 1075.4859579999998,
+        "decodeSelectedVerified": 510.1460420000003,
+        "decodeLiteralVerified": 309.1649580000003,
+        "openValidated": 456.30924999999934,
+        "querySubjectWarm": {
+          "p50": 0.0834580000000642,
+          "p95": 0.2371659999998883,
+          "samples": 25
+        },
+        "fullTupleScanWarm": {
+          "p50": 30.1884170000003,
+          "p95": 35.99670799999967,
+          "samples": 25
+        },
+        "parquetEncode": 112.87762499705423,
+        "parquetDecodeToPythonVerified": 268.4365839959355
+      },
+      "query": {
+        "resultQuads": 3,
+        "segmentsRead": 1,
+        "totalSegments": 10,
+        "segmentPayloadBytes": 220
+      },
+      "tupleDigest": "sha256:1bdb7f6b009bef81518cfc76dce38b1440a78f3e963ed818ea534f6f8e5f6eb5",
+      "physicalDigest": "sha256:a15a4e1d3d8592681cad02be756c370eb62d3611b5d5a97924f6c415334b8a83",
+      "canonicalRoundTrip": {
+        "verified": true,
+        "canonicalGraphDigest": "sha256:dcc49993cd217b0b0c5e83c812d67e8b4aa930434c059b1393b2cd4e68a68585",
+        "quads": 60000
+      }
+    },
+    {
+      "name": "regular-100000",
+      "quads": 300000,
+      "subjects": 100000,
+      "sourceQuads": 300000,
+      "originalCanonicalGraphDigest": null,
+      "bytes": {
+        "mith": 31577849,
+        "mithGzip": 571893,
+        "mithZstd": 194780,
+        "tupleJSONZstd": 374577,
+        "literalSegments": 852304,
+        "selectedSegments": 29859,
+        "parquetQuadTable": 673203,
+        "mithNativeWriter": 26377850,
+        "mithNativeWriterZstd": 192975,
+        "mithZstdBest": 192975
+      },
+      "selected": {
+        "model": 49,
+        "literal": 0
+      },
+      "milliseconds": {
+        "encodeModelCandidates": 11257.475708999998,
+        "encodeLiteral": 9328.304957999997,
+        "decodeSelectedVerified": 9881.362000000001,
+        "decodeLiteralVerified": 6166.341625000001,
+        "openValidated": 8361.625542000002,
+        "querySubjectWarm": {
+          "p50": 0.08212499999353895,
+          "p95": 0.16545799999585142,
+          "samples": 25
+        },
+        "fullTupleScanWarm": {
+          "p50": 248.5004160000026,
+          "p95": 369.98295799999323,
+          "samples": 25
+        },
+        "parquetEncode": 233.7776659987867,
+        "parquetDecodeToPythonVerified": 73.99641700612847
+      },
+      "query": {
+        "resultQuads": 3,
+        "segmentsRead": 1,
+        "totalSegments": 49,
+        "segmentPayloadBytes": 219
+      },
+      "tupleDigest": "sha256:a58d5725a6d01aae2d2037faa7bdfc5f85536341885654210d05a020156e296b",
+      "physicalDigest": "sha256:a1fd63ffab7140ed7d6c37b5eafce84392a00dc48c0600a9674f88fc62fc2df5",
+      "canonicalRoundTrip": {
+        "verified": true,
+        "canonicalGraphDigest": "sha256:3a285768102271ca2c9ca335d9c67ae8d59b493f22e34a63403065d10ec33420",
+        "quads": 300000
+      }
+    },
+    {
+      "name": "exceptions-20000",
+      "quads": 60000,
+      "subjects": 20000,
+      "sourceQuads": 60000,
+      "originalCanonicalGraphDigest": null,
+      "bytes": {
+        "mith": 6297093,
+        "mithGzip": 113058,
+        "mithZstd": 58737,
+        "tupleJSONZstd": 97029,
+        "literalSegments": 184110,
+        "selectedSegments": 10152,
+        "parquetQuadTable": 136567,
+        "mithNativeWriter": 5257094,
+        "mithNativeWriterZstd": 57117,
+        "mithZstdBest": 57117
+      },
+      "selected": {
+        "model": 10,
+        "literal": 0
+      },
+      "milliseconds": {
+        "encodeModelCandidates": 3038.264166000001,
+        "encodeLiteral": 2033.187917000003,
+        "decodeSelectedVerified": 1111.5055830000056,
+        "decodeLiteralVerified": 522.6858749999956,
+        "openValidated": 888.4704580000107,
+        "querySubjectWarm": {
+          "p50": 0.3930419999960577,
+          "p95": 2.6601669999945443,
+          "samples": 25
+        },
+        "fullTupleScanWarm": {
+          "p50": 51.965832999994745,
+          "p95": 130.40625,
+          "samples": 25
+        },
+        "parquetEncode": 42.79745800886303,
+        "parquetDecodeToPythonVerified": 27.92691699869465
+      },
+      "query": {
+        "resultQuads": 3,
+        "segmentsRead": 1,
+        "totalSegments": 10,
+        "segmentPayloadBytes": 465
+      },
+      "tupleDigest": "sha256:38367ad6370d09bb7d4c11c436e01965b97200fa22b14489d6f96563c6fea87a",
+      "physicalDigest": "sha256:5c7012756d2fdf4a5d37d9c4272efb94f5ca46c86bd9f17d91fff8077a6af63b",
+      "canonicalRoundTrip": {
+        "verified": true,
+        "canonicalGraphDigest": "sha256:dbc2df2b85f56b9ec163cf040c91e24a6e50ea653435119fc78aa38ebde9ac7b",
+        "quads": 60000
+      }
+    },
+    {
+      "name": "observations-20000",
+      "quads": 80000,
+      "subjects": 20000,
+      "sourceQuads": 80000,
+      "originalCanonicalGraphDigest": null,
+      "bytes": {
+        "mith": 9737849,
+        "mithGzip": 942875,
+        "mithZstd": 912151,
+        "tupleJSONZstd": 1041627,
+        "literalSegments": 1365982,
+        "selectedSegments": 1046806,
+        "parquetQuadTable": 925938,
+        "mithNativeWriter": 7657850,
+        "mithNativeWriterZstd": 899135,
+        "mithZstdBest": 899135
+      },
+      "selected": {
+        "model": 10,
+        "literal": 0
+      },
+      "milliseconds": {
+        "encodeModelCandidates": 13375.082832999993,
+        "encodeLiteral": 7546.58379199999,
+        "decodeSelectedVerified": 1562.857999999993,
+        "decodeLiteralVerified": 1058.8881660000043,
+        "openValidated": 1997.732124999995,
+        "querySubjectWarm": {
+          "p50": 4.195332999996026,
+          "p95": 8.495541000011144,
+          "samples": 25
+        },
+        "fullTupleScanWarm": {
+          "p50": 56.104249999989406,
+          "p95": 108.34370800000033,
+          "samples": 25
+        },
+        "parquetEncode": 93.98787500686012,
+        "parquetDecodeToPythonVerified": 22.11204101331532
+      },
+      "query": {
+        "resultQuads": 4,
+        "segmentsRead": 1,
+        "totalSegments": 10,
+        "segmentPayloadBytes": 60836
+      },
+      "tupleDigest": "sha256:d2f145428c0665aeee4809562236da6100a86c7c69d6891b441262d20431697e",
+      "physicalDigest": "sha256:027c6b85560f822a4edb6571180b9ab88cabeafccef4305fee6a0c500cc1c87d",
+      "canonicalRoundTrip": {
+        "verified": true,
+        "canonicalGraphDigest": "sha256:344271e8a5931ebb56b4e75fb95969e0c81c054e047c16154eaa9aa49dffaac1",
+        "quads": 80000
+      }
+    },
+    {
+      "name": "mithril-datalake-codegraph",
+      "quads": 12000,
+      "subjects": 1200,
+      "sourceQuads": 149385,
+      "originalCanonicalGraphDigest": "sha256:100a15d26849dc7a15ab56b09b29fa3259b3980d0e4e7882c0a7a04307c9b51d",
+      "bytes": {
+        "mith": 2013501,
+        "mithGzip": 182925,
+        "mithZstd": 97293,
+        "tupleJSONZstd": 146854,
+        "literalSegments": 144235,
+        "selectedSegments": 144235,
+        "parquetQuadTable": 116666,
+        "mithNativeWriter": 1763902,
+        "mithNativeWriterZstd": 96840,
+        "mithZstdBest": 96840
+      },
+      "selected": {
+        "model": 0,
+        "literal": 1
+      },
+      "milliseconds": {
+        "encodeModelCandidates": 529.8484590000007,
+        "encodeLiteral": 293.7642909999995,
+        "decodeSelectedVerified": 102.17937499999243,
+        "decodeLiteralVerified": 101.0884580000129,
+        "openValidated": 102.1187920000084,
+        "querySubjectWarm": {
+          "p50": 4.067874999993364,
+          "p95": 7.372958000007202,
+          "samples": 25
+        },
+        "fullTupleScanWarm": {
+          "p50": 8.891583000004175,
+          "p95": 10.960500000001048,
+          "samples": 25
+        },
+        "parquetEncode": 15.670167005737312,
+        "parquetDecodeToPythonVerified": 9.8803750006482
+      },
+      "query": {
+        "resultQuads": 10,
+        "segmentsRead": 1,
+        "totalSegments": 1,
+        "segmentPayloadBytes": 107590
+      },
+      "tupleDigest": "sha256:b7189f59fd9c71afb783c59208e5fabd0ce6ce453f9e041d33b3630511029a5d",
+      "physicalDigest": "sha256:feae48bde009f945b927e747eae4ddb08ad9d2ef9b2b2551c8591cd0a825ec51",
+      "canonicalRoundTrip": {
+        "verified": true,
+        "canonicalGraphDigest": "sha256:100a15d26849dc7a15ab56b09b29fa3259b3980d0e4e7882c0a7a04307c9b51d",
+        "quads": 12000
+      }
+    },
+    {
+      "name": "mithril-datalake-ontology",
+      "quads": 139,
+      "subjects": 43,
+      "sourceQuads": 139,
+      "originalCanonicalGraphDigest": "sha256:c362b0f569c0e8251d6b9769513c49be82827cfb2a6725764337f7bf4211e5eb",
+      "bytes": {
+        "mith": 17870,
+        "mithGzip": 857,
+        "mithZstd": 822,
+        "tupleJSONZstd": 1035,
+        "literalSegments": 1845,
+        "selectedSegments": 1845,
+        "parquetQuadTable": 2910,
+        "mithNativeWriter": 17871,
+        "mithNativeWriterZstd": 823,
+        "mithZstdBest": 822
+      },
+      "selected": {
+        "model": 0,
+        "literal": 1
+      },
+      "milliseconds": {
+        "encodeModelCandidates": 6.551665999999386,
+        "encodeLiteral": 1.1612920000043232,
+        "decodeSelectedVerified": 0.6671249999926658,
+        "decodeLiteralVerified": 1.293334000001778,
+        "openValidated": 2.0914170000032755,
+        "querySubjectWarm": {
+          "p50": 0.07379199999559205,
+          "p95": 0.12683299998752773,
+          "samples": 25
+        },
+        "fullTupleScanWarm": {
+          "p50": 0.03770800000347663,
+          "p95": 0.20670900000550319,
+          "samples": 25
+        },
+        "parquetEncode": 1.7106669984059408,
+        "parquetDecodeToPythonVerified": 2.0880840020254254
+      },
+      "query": {
+        "resultQuads": 11,
+        "segmentsRead": 1,
+        "totalSegments": 1,
+        "segmentPayloadBytes": 909
+      },
+      "tupleDigest": "sha256:010525326cf6b11ee7beafe36db1ef4fa6c7ddd9ff7767e7d7edaf5c08c75590",
+      "physicalDigest": "sha256:fa8728f9dce25e7395a86581cab818775bb51a48afb02d4c8324d874391a2b69",
+      "canonicalRoundTrip": {
+        "verified": true,
+        "canonicalGraphDigest": "sha256:c362b0f569c0e8251d6b9769513c49be82827cfb2a6725764337f7bf4211e5eb",
+        "quads": 139
+      }
+    }
+  ],
+  "processPeakRSSKiB": 1348928,
+  "pyarrow": "25.0.1"
+}

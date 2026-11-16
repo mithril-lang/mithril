@@ -60,6 +60,25 @@
   (try (f) nil
        (catch :default e (:mithril/error (ex-data e)))))
 
+(deftest raw-owl-ontology-source-is-closed-and-pinned
+  (let [path "ontology/app-agent-v1.mith"
+        doc (compiler/parse-source (read-text path))
+        artifact (compiler/compile-raw-owl-ontology-document path doc)]
+    (is (= ["sha256:a8d21164d99278f517181b06d063ea8a63249bff57e8e1a5e72aed5758a28f47"
+            :mithril/unpinned-context
+            :mithril/unknown-source-key
+            :mithril/invalid-identifier
+            :mithril/empty-ontology]
+           [(:graph-digest artifact)
+            (error-code #(compiler/compile-raw-owl-ontology-document
+                          path (assoc doc "@context" "https://example.com/context")))
+            (error-code #(compiler/compile-raw-owl-ontology-document
+                          path (assoc doc "extra" true)))
+            (error-code #(compiler/compile-raw-owl-ontology-document
+                          path (assoc doc compiler/owl-imports-iri {"@id" "https://example.com/core"})))
+            (error-code #(compiler/compile-raw-owl-ontology-document
+                          path (assoc doc "@graph" [])))]))))
+
 (deftest web-library-compiles-and-executes
   (let [published-context (compiler/parse-json (read-text "resources/context-v1.jsonld"))
         library-doc (compiler/parse-json (read-text "lib/web/v1.mith"))

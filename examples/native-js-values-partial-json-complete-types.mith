@@ -1,0 +1,429 @@
+(mithril/native-js-declaration-module :name "values.partial_json"
+:runtime "values.partial_json"
+:ambient-types [(rdf/node :name "ReadonlySet"
+:min 1
+:max 1)]
+:ambient-values []
+:imports [(rdf/node :module "values.index"
+:type-only true
+:names [(rdf/node :import "JsonValue"
+:local "JsonValue")])]
+:declarations [(rdf/node :kind "interface"
+:name "LengthReadOptions"
+:exported true
+:type-params []
+:extends []
+:members [(rdf/node :kind "property"
+:name "step"
+:optional true
+:readonly true
+:datatype (rdf/node :op "keyword"
+:name "number"))
+(rdf/node :kind "property"
+:name "offset"
+:optional true
+:readonly true
+:datatype (rdf/node :op "keyword"
+:name "number"))])
+(rdf/node :kind "class"
+:name "PartialArguments"
+:exported true
+:abstract false
+:type-params []
+:extends nil
+:implements []
+:members [(rdf/node :kind "private-brand")
+(rdf/node :kind "property"
+:key (rdf/node :kind "name"
+:name "EMPTY")
+:visibility "public"
+:static true
+:readonly true
+:optional false
+:datatype (rdf/node :op "name"
+:name "PartialArguments"
+:args []))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "fromText")
+:visibility "public"
+:static true
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "text"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))]
+:returns (rdf/node :op "name"
+:name "PartialArguments"
+:args []))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "fromObject")
+:visibility "public"
+:static true
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "value"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "unknown"))]
+:returns (rdf/node :op "name"
+:name "PartialArguments"
+:args []))
+(rdf/node :kind "opaque"
+:key (rdf/node :kind "name"
+:name "chunks")
+:visibility "private"
+:static false)
+(rdf/node :kind "opaque"
+:key (rdf/node :kind "name"
+:name "object")
+:visibility "private"
+:static false)
+(rdf/node :kind "opaque"
+:key (rdf/node :kind "name"
+:name "sealed")
+:visibility "private"
+:static false)
+(rdf/node :kind "getter"
+:key (rdf/node :kind "name"
+:name "isSealed")
+:visibility "public"
+:static false
+:datatype (rdf/node :op "keyword"
+:name "boolean"))
+(rdf/node :kind "getter"
+:key (rdf/node :kind "name"
+:name "invalid")
+:visibility "public"
+:static false
+:datatype (rdf/node :op "keyword"
+:name "boolean"))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "append")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "fragment"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))]
+:returns (rdf/node :op "keyword"
+:name "void"))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "settle")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "text"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))]
+:returns (rdf/node :op "name"
+:name "PartialArguments"
+:args []))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "refresh")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params []
+:returns (rdf/node :op "keyword"
+:name "boolean"))
+(rdf/node :kind "opaque"
+:key (rdf/node :kind "name"
+:name "refreshRead")
+:visibility "private"
+:static false)
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "closed")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params []
+:returns (rdf/node :op "keyword"
+:name "boolean"))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "keys")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params []
+:returns (rdf/node :op "readonly"
+:datatype (rdf/node :op "array"
+:item (rdf/node :op "keyword"
+:name "string"))))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "has")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "key"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))]
+:returns (rdf/node :op "keyword"
+:name "boolean"))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "complete")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "key"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))]
+:returns (rdf/node :op "keyword"
+:name "boolean"))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "stringLength")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "key"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :name "options"
+:optional true
+:rest false
+:datatype (rdf/node :op "name"
+:name "LengthReadOptions"
+:args []))]
+:returns (rdf/node :op "union"
+:items [(rdf/node :op "keyword"
+:name "number")
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "stringExceeds")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "key"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :name "maxLength"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "number"))]
+:returns (rdf/node :op "keyword"
+:name "boolean"))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "text")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "key"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))]
+:returns (rdf/node :op "union"
+:items [(rdf/node :op "keyword"
+:name "string")
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "textPrefix")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "key"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))
+(rdf/node :name "maxLength"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "number"))]
+:returns (rdf/node :op "union"
+:items [(rdf/node :op "keyword"
+:name "string")
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "method"
+:key (rdf/node :kind "name"
+:name "value")
+:visibility "public"
+:static false
+:abstract false
+:optional false
+:type-params []
+:params [(rdf/node :name "key"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))]
+:returns (rdf/node :op "union"
+:items [(rdf/node :op "name"
+:name "JsonValue"
+:args [])
+(rdf/node :op "keyword"
+:name "undefined")]))
+(rdf/node :kind "opaque"
+:key (rdf/node :kind "name"
+:name "remember")
+:visibility "private"
+:static false)
+(rdf/node :kind "opaque"
+:key (rdf/node :kind "name"
+:name "closedNow")
+:visibility "private"
+:static false)
+(rdf/node :kind "opaque"
+:key (rdf/node :kind "name"
+:name "keysNow")
+:visibility "private"
+:static false)
+(rdf/node :kind "opaque"
+:key (rdf/node :kind "name"
+:name "hasNow")
+:visibility "private"
+:static false)
+(rdf/node :kind "opaque"
+:key (rdf/node :kind "name"
+:name "completeNow")
+:visibility "private"
+:static false)
+(rdf/node :kind "opaque"
+:key (rdf/node :kind "name"
+:name "lengthNow")
+:visibility "private"
+:static false)
+(rdf/node :kind "opaque"
+:key (rdf/node :kind "name"
+:name "textNow")
+:visibility "private"
+:static false)
+(rdf/node :kind "opaque"
+:key (rdf/node :kind "name"
+:name "textPrefixNow")
+:visibility "private"
+:static false)
+(rdf/node :kind "opaque"
+:key (rdf/node :kind "name"
+:name "valueNow")
+:visibility "private"
+:static false)
+(rdf/node :kind "opaque"
+:key (rdf/node :kind "name"
+:name "chunkAt")
+:visibility "private"
+:static false)
+(rdf/node :kind "opaque"
+:key (rdf/node :kind "name"
+:name "slice")
+:visibility "private"
+:static false)
+(rdf/node :kind "opaque"
+:key (rdf/node :kind "name"
+:name "readString")
+:visibility "private"
+:static false)
+(rdf/node :kind "opaque"
+:key (rdf/node :kind "name"
+:name "scan")
+:visibility "private"
+:static false)
+(rdf/node :kind "opaque"
+:key (rdf/node :kind "name"
+:name "stringBoundary")
+:visibility "private"
+:static false)
+(rdf/node :kind "opaque"
+:key (rdf/node :kind "name"
+:name "step")
+:visibility "private"
+:static false)
+(rdf/node :kind "opaque"
+:key (rdf/node :kind "name"
+:name "fail")
+:visibility "private"
+:static false)
+(rdf/node :kind "opaque"
+:key (rdf/node :kind "name"
+:name "beginKey")
+:visibility "private"
+:static false)
+(rdf/node :kind "opaque"
+:key (rdf/node :kind "name"
+:name "stepKey")
+:visibility "private"
+:static false)
+(rdf/node :kind "opaque"
+:key (rdf/node :kind "name"
+:name "open")
+:visibility "private"
+:static false)
+(rdf/node :kind "opaque"
+:key (rdf/node :kind "name"
+:name "beginValue")
+:visibility "private"
+:static false)
+(rdf/node :kind "opaque"
+:key (rdf/node :kind "name"
+:name "stepScalar")
+:visibility "private"
+:static false)
+(rdf/node :kind "opaque"
+:key (rdf/node :kind "name"
+:name "stepNested")
+:visibility "private"
+:static false)
+(rdf/node :kind "opaque"
+:key (rdf/node :kind "name"
+:name "closeValue")
+:visibility "private"
+:static false)])]
+:reexports []
+:augmentations []
+:local-exports [])

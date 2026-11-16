@@ -1,0 +1,39 @@
+{
+  "name": "fund.mithril.lib.graph-viewer",
+  "version": "0.1.1",
+  "description": "Mithril graph presentation: semantic overview, focus orbits, workflow lanes and recorded-step history.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mithril-lang/fund.mithril.lib.graph-viewer.git"
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./src/index.js"
+    },
+    "./layout": {
+      "types": "./src/layout.d.ts",
+      "import": "./src/layout.js"
+    },
+    "./viewer.css": "./src/viewer.css"
+  },
+  "files": [
+    "src",
+    "library.mith",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test",
+    "check": "node --check src/index.js && node --check src/presentation.js && node --check src/layout.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "jsdom": "26.1.0"
+  },
+  "types": "./src/index.d.ts"
+}

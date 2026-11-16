@@ -1,0 +1,3 @@
+(mithril/module :name "alias.probe" :exports ["keep" (mithril/export :name "alsoKeep" :function "keep")]
+ :functions [(mithril/function :name "keep" :params [(rdf/node :name "v" :datatype "js-value")]
+ :returns "js-value" :body (mithril/local :name "v"))])

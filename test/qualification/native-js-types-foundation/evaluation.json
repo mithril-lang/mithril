@@ -1,0 +1,44 @@
+{
+  "format": "mithril.system-one-types-foundation-evaluation/v1",
+  "source_main": "f78ce5756261131509aca0a5f417923eb0c4447d",
+  "model": "qwen/qwen3.8-27b",
+  "input_sha256": "f7aebab41effb8f774d45334d50a563acd6e87b4bd3803a3cc172016e3287602",
+  "wall_seconds": 70.186,
+  "prompt_tokens": 23962,
+  "completion_tokens": 3251,
+  "attempts": 1,
+  "model_repair_budget": 0,
+  "api_cost_usd": null,
+  "raw_unassisted_acceptance": false,
+  "raw_native_runtime_groups_passed": 16,
+  "raw_retained_source": {
+    "tests": 81,
+    "assertions": 431,
+    "failures": 2,
+    "errors": 0
+  },
+  "raw_failure": "old misc/array/volatile artifact bytes changed",
+  "additional_scope_control_created_after_inference": true,
+  "additional_raw_scope_result": "valid arguments read inside Let initializer wrongly refused",
+  "operator_edits": [
+    "pass existing arguments scope into Let initializer checking",
+    "preserve old binary emission bytes; space only in/instanceof/+/-/%/<"
+  ],
+  "operator_same_fixed_plan_verified": true,
+  "native_final_suite": {
+    "tests": 18,
+    "assertions": 82
+  },
+  "registered_final_suite": {
+    "tests": 83,
+    "assertions": 433
+  },
+  "complete_types_runtime_qualified": false,
+  "remaining_blockers": [
+    "namespace/data exports with stable alias identity",
+    "native indexed loop with early-exit behavior",
+    "native string/template coercion",
+    "whole Binary/clone/deepEqual source port with generated Mithril misc/volatile dependencies",
+    "public types/package linking/full Harness API/plugin/Session and Q9/native targets"
+  ]
+}

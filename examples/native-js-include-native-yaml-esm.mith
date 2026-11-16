@@ -1,0 +1,676 @@
+(mithril/native-js-esm-package :name "include"
+:imports ["Array"
+"Set"
+"Object"
+"TypeError"
+"Symbol"
+"globalThis"
+"ArrayBuffer"
+"Uint8Array"
+"Buffer"
+"String"
+"btoa"
+"atob"
+"parseInt"
+"Date"
+"RegExp"
+"Map"
+"Reflect"
+"Math"
+"parseFloat"
+"JSON"
+"Proxy"
+"Function"
+"WeakMap"
+"Error"
+"Infinity"
+"Number"
+"WeakRef"
+"Promise"
+"AggregateError"
+"Boolean"
+"process"
+"URL"
+"structuredClone"
+"clearTimeout"
+"setTimeout"]
+:modules [(rdf/node :name "cosmokit.array"
+:source "native-js-array.mith"
+:links [(rdf/node :import "isNullable"
+:module "cosmokit.misc"
+:export "isNullable")]
+:dependencies ["cosmokit.misc"])
+(rdf/node :name "cosmokit.types"
+:source "native-js-types.mith"
+:links [(rdf/node :import "isNullable"
+:module "cosmokit.misc"
+:export "isNullable")
+(rdf/node :import "isVolatile"
+:module "cosmokit.volatile"
+:export "isVolatile")]
+:dependencies ["cosmokit.misc"
+"cosmokit.volatile"])
+(rdf/node :name "cosmokit.misc"
+:source "native-js-misc.mith"
+:links []
+:dependencies [])
+(rdf/node :name "cosmokit.string"
+:source "native-js-string.mith"
+:links []
+:dependencies [])
+(rdf/node :name "cosmokit.time"
+:source "native-js-time.mith"
+:links []
+:dependencies [])
+(rdf/node :name "cosmokit.volatile"
+:source "native-js-volatile.mith"
+:links []
+:dependencies [])
+(rdf/node :name "cosmokit"
+:source "native-js-cosmokit-index.mith"
+:dependencies ["cosmokit.array"
+"cosmokit.types"
+"cosmokit.misc"
+"cosmokit.string"
+"cosmokit.time"
+"cosmokit.volatile"]
+:links [(rdf/node :import "contain"
+:module "cosmokit.array"
+:export "contain")
+(rdf/node :import "intersection"
+:module "cosmokit.array"
+:export "intersection")
+(rdf/node :import "difference"
+:module "cosmokit.array"
+:export "difference")
+(rdf/node :import "union"
+:module "cosmokit.array"
+:export "union")
+(rdf/node :import "deduplicate"
+:module "cosmokit.array"
+:export "deduplicate")
+(rdf/node :import "remove"
+:module "cosmokit.array"
+:export "remove")
+(rdf/node :import "makeArray"
+:module "cosmokit.array"
+:export "makeArray")
+(rdf/node :import "is"
+:module "cosmokit.types"
+:export "is")
+(rdf/node :import "Binary"
+:module "cosmokit.types"
+:export "Binary")
+(rdf/node :import "base64ToArrayBuffer"
+:module "cosmokit.types"
+:export "base64ToArrayBuffer")
+(rdf/node :import "arrayBufferToBase64"
+:module "cosmokit.types"
+:export "arrayBufferToBase64")
+(rdf/node :import "hexToArrayBuffer"
+:module "cosmokit.types"
+:export "hexToArrayBuffer")
+(rdf/node :import "arrayBufferToHex"
+:module "cosmokit.types"
+:export "arrayBufferToHex")
+(rdf/node :import "clone"
+:module "cosmokit.types"
+:export "clone")
+(rdf/node :import "deepEqual"
+:module "cosmokit.types"
+:export "deepEqual")
+(rdf/node :import "noop"
+:module "cosmokit.misc"
+:export "noop")
+(rdf/node :import "isNullable"
+:module "cosmokit.misc"
+:export "isNullable")
+(rdf/node :import "isNonNullable"
+:module "cosmokit.misc"
+:export "isNonNullable")
+(rdf/node :import "isPlainObject"
+:module "cosmokit.misc"
+:export "isPlainObject")
+(rdf/node :import "filterKeys"
+:module "cosmokit.misc"
+:export "filterKeys")
+(rdf/node :import "mapValues"
+:module "cosmokit.misc"
+:export "mapValues")
+(rdf/node :import "valueMap"
+:module "cosmokit.misc"
+:export "valueMap")
+(rdf/node :import "pick"
+:module "cosmokit.misc"
+:export "pick")
+(rdf/node :import "omit"
+:module "cosmokit.misc"
+:export "omit")
+(rdf/node :import "defineProperty"
+:module "cosmokit.misc"
+:export "defineProperty")
+(rdf/node :import "camelCase"
+:module "cosmokit.string"
+:export "camelCase")
+(rdf/node :import "camelize"
+:module "cosmokit.string"
+:export "camelize")
+(rdf/node :import "capitalize"
+:module "cosmokit.string"
+:export "capitalize")
+(rdf/node :import "formatProperty"
+:module "cosmokit.string"
+:export "formatProperty")
+(rdf/node :import "hyphenate"
+:module "cosmokit.string"
+:export "hyphenate")
+(rdf/node :import "paramCase"
+:module "cosmokit.string"
+:export "paramCase")
+(rdf/node :import "sanitize"
+:module "cosmokit.string"
+:export "sanitize")
+(rdf/node :import "snakeCase"
+:module "cosmokit.string"
+:export "snakeCase")
+(rdf/node :import "trimSlash"
+:module "cosmokit.string"
+:export "trimSlash")
+(rdf/node :import "uncapitalize"
+:module "cosmokit.string"
+:export "uncapitalize")
+(rdf/node :import "Time"
+:module "cosmokit.time"
+:export "Time")
+(rdf/node :import "createVolatile"
+:module "cosmokit.volatile"
+:export "createVolatile")
+(rdf/node :import "isVolatile"
+:module "cosmokit.volatile"
+:export "isVolatile")
+(rdf/node :import "volatileEntries"
+:module "cosmokit.volatile"
+:export "volatileEntries")
+(rdf/node :import "updateVolatile"
+:module "cosmokit.volatile"
+:export "updateVolatile")])
+(rdf/node :name "cordis.utils"
+:source "native-js-cordis-utils.mith"
+:dependencies ["cosmokit"]
+:links [(rdf/node :import "defineProperty"
+:module "cosmokit"
+:export "defineProperty")])
+(rdf/node :name "cordis.logger"
+:source "native-js-cordis-logger.mith"
+:dependencies ["cosmokit"
+"cordis.utils"]
+:links [(rdf/node :import "defineProperty"
+:module "cosmokit"
+:export "defineProperty")
+(rdf/node :import "hyphenate"
+:module "cosmokit"
+:export "hyphenate")
+(rdf/node :import "createCallable"
+:module "cordis.utils"
+:export "createCallable")
+(rdf/node :import "joinPrototype"
+:module "cordis.utils"
+:export "joinPrototype")
+(rdf/node :import "symbols"
+:module "cordis.utils"
+:export "symbols")])
+(rdf/node :name "cordis.reflect"
+:source "native-js-cordis-reflect.mith"
+:dependencies ["cosmokit"
+"cordis.utils"]
+:links [(rdf/node :import "defineProperty"
+:module "cosmokit"
+:export "defineProperty")
+(rdf/node :import "isNullable"
+:module "cosmokit"
+:export "isNullable")
+(rdf/node :import "getTraceable"
+:module "cordis.utils"
+:export "getTraceable")
+(rdf/node :import "symbols"
+:module "cordis.utils"
+:export "symbols")
+(rdf/node :import "withProps"
+:module "cordis.utils"
+:export "withProps")])
+(rdf/node :name "cordis.context"
+:source "native-js-cordis-context.mith"
+:dependencies ["cordis.events"
+"cordis.logger"
+"cordis.reflect"
+"cordis.registry"
+"cordis.utils"
+"cordis.fiber"]
+:links [(rdf/node :import "EventsService"
+:module "cordis.events"
+:export "EventsService")
+(rdf/node :import "LoggerService"
+:module "cordis.logger"
+:export "LoggerService")
+(rdf/node :import "ReflectService"
+:module "cordis.reflect"
+:export "ReflectService")
+(rdf/node :import "RegistryService"
+:module "cordis.registry"
+:export "RegistryService")
+(rdf/node :import "getTraceable"
+:module "cordis.utils"
+:export "getTraceable")
+(rdf/node :import "symbols"
+:module "cordis.utils"
+:export "symbols")
+(rdf/node :import "Fiber"
+:module "cordis.fiber"
+:export "Fiber")])
+(rdf/node :name "cordis.events"
+:source "native-js-cordis-events.mith"
+:dependencies ["cosmokit"
+"cordis.context"
+"cordis.utils"]
+:links [(rdf/node :import "defineProperty"
+:module "cosmokit"
+:export "defineProperty")
+(rdf/node :import "Context"
+:module "cordis.context"
+:export "Context")
+(rdf/node :import "DisposableList"
+:module "cordis.utils"
+:export "DisposableList")
+(rdf/node :import "symbols"
+:module "cordis.utils"
+:export "symbols")])
+(rdf/node :name "cordis.fiber"
+:source "native-js-cordis-fiber.mith"
+:dependencies ["cosmokit"
+"cordis.context"
+"cordis.utils"]
+:links [(rdf/node :import "defineProperty"
+:module "cosmokit"
+:export "defineProperty")
+(rdf/node :import "isNullable"
+:module "cosmokit"
+:export "isNullable")
+(rdf/node :import "Context"
+:module "cordis.context"
+:export "Context")
+(rdf/node :import "buildOuterStack"
+:module "cordis.utils"
+:export "buildOuterStack")
+(rdf/node :import "composeError"
+:module "cordis.utils"
+:export "composeError")
+(rdf/node :import "DisposableList"
+:module "cordis.utils"
+:export "DisposableList")
+(rdf/node :import "getTraceable"
+:module "cordis.utils"
+:export "getTraceable")
+(rdf/node :import "isConstructor"
+:module "cordis.utils"
+:export "isConstructor")
+(rdf/node :import "isObject"
+:module "cordis.utils"
+:export "isObject")
+(rdf/node :import "symbols"
+:module "cordis.utils"
+:export "symbols")])
+(rdf/node :name "cordis.registry"
+:source "native-js-cordis-registry.mith"
+:dependencies ["cosmokit"
+"cordis.fiber"
+"cordis.utils"]
+:links [(rdf/node :import "defineProperty"
+:module "cosmokit"
+:export "defineProperty")
+(rdf/node :import "Fiber"
+:module "cordis.fiber"
+:export "Fiber")
+(rdf/node :import "buildOuterStack"
+:module "cordis.utils"
+:export "buildOuterStack")
+(rdf/node :import "DisposableList"
+:module "cordis.utils"
+:export "DisposableList")
+(rdf/node :import "symbols"
+:module "cordis.utils"
+:export "symbols")
+(rdf/node :import "withProps"
+:module "cordis.utils"
+:export "withProps")])
+(rdf/node :name "cordis.service"
+:source "native-js-cordis-service.mith"
+:dependencies ["cosmokit"
+"cordis.context"
+"cordis.utils"]
+:links [(rdf/node :import "defineProperty"
+:module "cosmokit"
+:export "defineProperty")
+(rdf/node :import "Context"
+:module "cordis.context"
+:export "Context")
+(rdf/node :import "createCallable"
+:module "cordis.utils"
+:export "createCallable")
+(rdf/node :import "joinPrototype"
+:module "cordis.utils"
+:export "joinPrototype")
+(rdf/node :import "symbols"
+:module "cordis.utils"
+:export "symbols")])
+(rdf/node :name "cordis"
+:source "native-js-loader-cordis-index.mith"
+:links [(rdf/node :export "Context"
+:import "Context"
+:module "cordis.context")
+(rdf/node :export "isBailed"
+:import "isBailed"
+:module "cordis.events")
+(rdf/node :export "EventsService"
+:import "EventsService"
+:module "cordis.events")
+(rdf/node :export "ValidationError"
+:import "ValidationError"
+:module "cordis.fiber")
+(rdf/node :export "resolveConfig"
+:import "resolveConfig"
+:module "cordis.fiber")
+(rdf/node :export "CordisError"
+:import "CordisError"
+:module "cordis.fiber")
+(rdf/node :export "Fiber"
+:import "Fiber"
+:module "cordis.fiber")
+(rdf/node :export "defaultFormatters"
+:import "defaultFormatters"
+:module "cordis.logger")
+(rdf/node :export "Logger"
+:import "Logger"
+:module "cordis.logger")
+(rdf/node :export "c16"
+:import "c16"
+:module "cordis.logger")
+(rdf/node :export "c256"
+:import "c256"
+:module "cordis.logger")
+(rdf/node :export "LoggerService"
+:import "LoggerService"
+:module "cordis.logger")
+(rdf/node :export "Inject"
+:import "Inject"
+:module "cordis.registry")
+(rdf/node :export "RegistryService"
+:import "RegistryService"
+:module "cordis.registry")
+(rdf/node :export "Service"
+:import "Service"
+:module "cordis.service")
+(rdf/node :export "DisposableList"
+:import "DisposableList"
+:module "cordis.utils")
+(rdf/node :export "symbols"
+:import "symbols"
+:module "cordis.utils")
+(rdf/node :export "isConstructor"
+:import "isConstructor"
+:module "cordis.utils")
+(rdf/node :export "joinPrototype"
+:import "joinPrototype"
+:module "cordis.utils")
+(rdf/node :export "isObject"
+:import "isObject"
+:module "cordis.utils")
+(rdf/node :export "getPropertyDescriptor"
+:import "getPropertyDescriptor"
+:module "cordis.utils")
+(rdf/node :export "getTraceable"
+:import "getTraceable"
+:module "cordis.utils")
+(rdf/node :export "withProps"
+:import "withProps"
+:module "cordis.utils")
+(rdf/node :export "createCallable"
+:import "createCallable"
+:module "cordis.utils")
+(rdf/node :export "composeError"
+:import "composeError"
+:module "cordis.utils")
+(rdf/node :export "buildOuterStack"
+:import "buildOuterStack"
+:module "cordis.utils")]
+:dependencies ["cordis.context"
+"cordis.events"
+"cordis.fiber"
+"cordis.logger"
+"cordis.registry"
+"cordis.service"
+"cordis.utils"])
+(rdf/node :name "loader.utils"
+:source "native-js-loader-utils.mith"
+:dependencies ["cosmokit"]
+:links [(rdf/node :import "valueMap"
+:module "cosmokit"
+:export "valueMap")])
+(rdf/node :name "loader.diff"
+:source "native-js-loader-diff.mith"
+:dependencies ["cosmokit"
+"loader.utils"]
+:links [(rdf/node :import "deepEqual"
+:module "cosmokit"
+:export "deepEqual")
+(rdf/node :import "isJsExpr"
+:module "loader.utils"
+:export "isJsExpr")])
+(rdf/node :name "loader.internal"
+:source "native-js-loader-internal.mith"
+:dependencies ["node.module"]
+:links [(rdf/node :import "createRequire"
+:module "node.module"
+:export "createRequire")])
+(rdf/node :name "loader.index"
+:source "native-js-loader-index.mith"
+:links [(rdf/node :import "GlobalRealm"
+:module "loader.isolate"
+:export "GlobalRealm")
+(rdf/node :import "Group"
+:module "loader.group"
+:export "Group")
+(rdf/node :import "LocalRealm"
+:module "loader.isolate"
+:export "LocalRealm")
+(rdf/node :import "Realm"
+:module "loader.isolate"
+:export "Realm")
+(rdf/node :import "evaluate"
+:module "loader.utils"
+:export "evaluate")
+(rdf/node :import "isJsExpr"
+:module "loader.utils"
+:export "isJsExpr")
+(rdf/node :import "Inject"
+:module "cordis"
+:export "Inject")
+(rdf/node :import "Service"
+:module "cordis"
+:export "Service")
+(rdf/node :import "defineProperty"
+:module "cosmokit"
+:export "defineProperty")
+(rdf/node :import "isNullable"
+:module "cosmokit"
+:export "isNullable")
+(rdf/node :import "ModuleLoader"
+:module "loader.internal"
+:export "ModuleLoader")
+(rdf/node :import "Entry"
+:module "loader.entry"
+:export "Entry")
+(rdf/node :import "EntryGroup"
+:module "loader.group"
+:export "EntryGroup")
+(rdf/node :import "isolate"
+:module "loader.isolate"
+:export "default")
+(rdf/node :import "EntryTree"
+:module "loader.tree"
+:export "EntryTree")
+(rdf/node :import "interpolate"
+:module "loader.utils"
+:export "interpolate")]
+:dependencies ["cordis"
+"cosmokit"
+"loader.internal"
+"loader.entry"
+"loader.group"
+"loader.isolate"
+"loader.tree"
+"loader.utils"])
+(rdf/node :name "loader.entry"
+:source "native-js-loader-entry.mith"
+:links [(rdf/node :import "Context"
+:module "cordis"
+:export "Context")
+(rdf/node :import "resolveConfig"
+:module "cordis"
+:export "resolveConfig")
+(rdf/node :import "deepEqual"
+:module "cosmokit"
+:export "deepEqual")
+(rdf/node :import "isNullable"
+:module "cosmokit"
+:export "isNullable")
+(rdf/node :import "updateVolatile"
+:module "cosmokit"
+:export "updateVolatile")
+(rdf/node :import "volatileEntries"
+:module "cosmokit"
+:export "volatileEntries")
+(rdf/node :import "EntryTree"
+:module "loader.tree"
+:export "EntryTree")
+(rdf/node :import "evaluate"
+:module "loader.utils"
+:export "evaluate")
+(rdf/node :import "isJsExpr"
+:module "loader.utils"
+:export "isJsExpr")
+(rdf/node :import "equalExceptVolatile"
+:module "loader.diff"
+:export "equalExceptVolatile")]
+:dependencies ["cordis"
+"cosmokit"
+"loader.tree"
+"loader.utils"
+"loader.diff"])
+(rdf/node :name "loader.group"
+:source "native-js-loader-group.mith"
+:links [(rdf/node :import "Service"
+:module "cordis"
+:export "Service")
+(rdf/node :import "Entry"
+:module "loader.entry"
+:export "Entry")]
+:dependencies ["cordis"
+"loader.entry"])
+(rdf/node :name "loader.isolate"
+:source "native-js-loader-isolate.mith"
+:links [(rdf/node :import "Context"
+:module "cordis"
+:export "Context")]
+:dependencies ["cordis"])
+(rdf/node :name "loader.tree"
+:source "native-js-loader-tree.mith"
+:links [(rdf/node :import "composeError"
+:module "cordis"
+:export "composeError")
+(rdf/node :import "isNonNullable"
+:module "cosmokit"
+:export "isNonNullable")
+(rdf/node :import "EntryGroup"
+:module "loader.group"
+:export "EntryGroup")]
+:dependencies ["cordis"
+"cosmokit"
+"loader.group"])
+(rdf/node :name "include"
+:source "native-js-include.mith"
+:links [(rdf/node :export "EntryGroup"
+:import "EntryGroup"
+:module "loader.index")
+(rdf/node :export "EntryTree"
+:import "EntryTree"
+:module "loader.index")
+(rdf/node :export "isJsExpr"
+:import "isJsExpr"
+:module "loader.index")
+(rdf/node :export "Service"
+:import "Service"
+:module "cordis")
+(rdf/node :export "extname"
+:import "extname"
+:module "node.path")
+(rdf/node :export "access"
+:import "access"
+:module "node.fs.promises")
+(rdf/node :export "constants"
+:import "constants"
+:module "node.fs.promises")
+(rdf/node :export "readFile"
+:import "readFile"
+:module "node.fs.promises")
+(rdf/node :export "rename"
+:import "rename"
+:module "node.fs.promises")
+(rdf/node :export "writeFile"
+:import "writeFile"
+:module "node.fs.promises")
+(rdf/node :export "setTimeout"
+:import "delay"
+:module "node.timers.promises")
+(rdf/node :export "fileURLToPath"
+:import "fileURLToPath"
+:module "node.url")
+(rdf/node :export "pathToFileURL"
+:import "pathToFileURL"
+:module "node.url")
+(rdf/node :export "*"
+:import "yaml"
+:module "js.yaml")]
+:dependencies ["loader.index"
+"cordis"
+"node.path"
+"node.fs.promises"
+"node.timers.promises"
+"node.url"
+"js.yaml"])]
+:externals [(rdf/node :name "node.module"
+:specifier "node:module"
+:exports ["createRequire"])
+(rdf/node :name "node.path"
+:specifier "node:path"
+:exports ["extname"])
+(rdf/node :name "node.fs.promises"
+:specifier "node:fs/promises"
+:exports ["access"
+"constants"
+"readFile"
+"rename"
+"writeFile"])
+(rdf/node :name "node.timers.promises"
+:specifier "node:timers/promises"
+:exports ["setTimeout"])
+(rdf/node :name "node.url"
+:specifier "node:url"
+:exports ["fileURLToPath"
+"pathToFileURL"])
+(rdf/node :name "js.yaml"
+:specifier "@mithril/native-yaml"
+:exports [])]
+:reexports ["include"]
+:entry-exports [(rdf/node :module "include"
+:import "default"
+:export "default")])

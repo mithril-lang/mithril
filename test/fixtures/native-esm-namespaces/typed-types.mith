@@ -1,0 +1,5 @@
+(mithril/native-js-declaration-module :name "namespace.typed" :runtime "namespace.typed"
+ :ambient-types [] :ambient-values []
+ :imports [(rdf/node :module "external.fixture" :type-only false :names [(rdf/node :import "*" :local "ns")])]
+ :declarations [(rdf/node :kind "const" :name "view" :exported true :datatype (rdf/node :op "typeof" :name "ns"))]
+ :reexports [(rdf/node :module "external.fixture" :type-only false :names [(rdf/node :import "count" :export "count")])])

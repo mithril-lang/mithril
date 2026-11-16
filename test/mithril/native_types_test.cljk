@@ -1,0 +1,11 @@
+(ns mithril.native-types-test
+ (:require [cljs.test :refer [deftest is]] [mithril.native-types-primitives :as primitives]
+           [mithril.native-types-scope :as scope] ["node:fs" :as fs] ["node:os" :as os] ["node:path" :as path]))
+(deftest generic-native-arguments-and-type-operators
+ (let [dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-types-primitives-"))]
+  (try (is (nil? (primitives/verify (path/join dir "primitives.mjs") (path/resolve "test/fixtures/types-primitives-runtime.mjs"))))
+   (finally (fs/rmSync dir #js {:recursive true :force true})))))
+(deftest arguments-scope-through-let-defaults-and-local-functions
+ (let [dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-types-scope-"))]
+  (try (is (nil? (scope/verify (path/join dir "scope.mjs") (path/resolve "test/fixtures/types-scope-runtime.mjs"))))
+   (finally (fs/rmSync dir #js {:recursive true :force true})))))

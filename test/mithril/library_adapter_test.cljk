@@ -1,0 +1,36 @@
+(ns mithril.library-adapter-test
+  (:require [cljs.test :refer [deftest is]]
+            [mithril.library-adapter :as library]
+            [fund.mithril.lib.xml :as xml]
+            [fund.mithril.lib.siso.link16 :as link16]
+            [mithril.compiler :as compiler]))
+(def config {:python (.-MITHRIL_INTEROP_PYTHON js/process.env)
+             :adapter-root (.-MITHRIL_INTEROP_ROOT js/process.env)})
+(def transport (library/transport config))
+(defn parse [x] (compiler/parse-source (.stringify js/JSON (clj->js x))))
+(deftest matching-repository-id-is-required-and-imported
+  (let [binding (xml/resolve transport)]
+    (is (= "fund.mithril.lib.xml" (get binding "libraryId")))
+    (is (= "https://github.com/mithril-lang/fund.mithril.lib.xml" (get binding "repository")))
+    (is (true? (get (link16/invoke! transport "link16-loopback" {}) "binaryReadBack")))))
+(deftest cross-library-operation-and-routing-overwrite-refused
+  (doseq [[op args] [["hla-exercise" {}] ["xml-import" {"libraryId" "fund.mithril.lib.ieee.hla"}]]]
+    (is (thrown? js/Error (xml/invoke! transport op args)))))
+(deftest mithril-import-alias-retains-canonical-graph-digest
+  (let [b (library/resolve! config xml/library-id)
+        artifact (:artifact b)
+        source {"@context" compiler/context-uri "@id" "https://mithril.fund/id/app/native-library-demo"
+                "@type" "WebApplication" "goal" compiler/web-goal
+                "ontology" (get-in artifact [:library :ontology])
+                "imports" [{"library" xml/library-id "digest" (:graph-digest artifact)}]
+                "routes" [{"method" "GET" "path" "/" "operation" (get-in artifact [:library :exports 0 :symbol])
+                           "status" 200 "contentType" "text/plain" "body" "native library bound"}]}
+        registry {xml/library-id b}
+        resolved (library/resolve-imports source registry)
+        compiled (library/compile-web-text "demo.mith" (.stringify js/JSON (clj->js source)) registry)]
+    (is (= (get-in artifact [:library :id]) (get-in resolved ["imports" 0 "library"])))
+    (is (= (:graph-digest artifact) (get-in resolved ["imports" 0 "digest"])))
+    (is (= "https://mithril.fund/artifact/web-application-v1" (:format compiled)))
+    (is (thrown? js/Error (library/resolve-imports (assoc-in source ["imports" 0 "digest"] (str "sha256:" (apply str (repeat 64 "0")))) registry)))
+    (is (thrown? js/Error (library/resolve-imports source {})))
+    (is (thrown? js/Error (library/resolve-imports source (assoc-in registry [xml/library-id :artifact :graph-digest] "forged"))))))

@@ -1,0 +1,52 @@
+(mithril/native-js-declaration-module :name "attachment.brand"
+:runtime "attachment.brand"
+:ambient-types []
+:ambient-values ["Error"
+"Symbol.dispose"]
+:imports [(rdf/node :module "brand.index"
+:type-only true
+:names [(rdf/node :import "Branded"
+:local "Branded")])]
+:declarations [(rdf/node :kind "alias"
+:name "AttachmentId"
+:exported true
+:type-params []
+:datatype (rdf/node :op "name"
+:name "Branded"
+:args [(rdf/node :op "literal"
+:value "AttachmentId")]))
+(rdf/node :kind "function"
+:name "AttachmentId"
+:exported true
+:type-params []
+:params [(rdf/node :name "value"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))]
+:returns (rdf/node :op "name"
+:name "AttachmentId"
+:args []))
+(rdf/node :kind "alias"
+:name "ImageVariantId"
+:exported true
+:type-params []
+:datatype (rdf/node :op "name"
+:name "Branded"
+:args [(rdf/node :op "literal"
+:value "ImageVariantId")]))
+(rdf/node :kind "function"
+:name "ImageVariantId"
+:exported true
+:type-params []
+:params [(rdf/node :name "value"
+:optional false
+:rest false
+:datatype (rdf/node :op "keyword"
+:name "string"))]
+:returns (rdf/node :op "name"
+:name "ImageVariantId"
+:args []))]
+:reexports []
+:augmentations []
+:local-exports [])

@@ -1,0 +1,40 @@
+{
+  "format": "mithril.native-function-kinds-qualification/v1",
+  "qualified_at": "2026-10-08T11:12:06.744020+00:00",
+  "base_main": "594c5ecf1576b0413b6ca2b3539c5fc5a3d172e9",
+  "implementation": "operator",
+  "new_model_requests": 0,
+  "model_metrics": null,
+  "source_tests": 32,
+  "source_assertions": 133,
+  "runtime_groups": 42,
+  "malformed_flag_scope_refusals": 10,
+  "actual_cli_targets": [
+    "js",
+    "js-browser"
+  ],
+  "source_hashes": {
+    "src/mithril/native_js.cljk": "6a8587b6d87301b80ab8778342fd33daff6ff299ef4c092ee1242a7c8ed490e6",
+    "examples/native-js-is-constructor.mith": "2338dc2fa307a65d1a144209752b86c389d3f11301017c05718dd31ccfa481e3",
+    "test/mithril/native_function_kinds_test.cljk": "2642ae975c025a82b610e74fabf1cab527b79128aa11e75d6ae034f11c0b1952",
+    "test/fixtures/native-function-kinds-contract.mjs": "35d26c7af88a7acf4ded53ae735cc0bab0849bb262676809fc001723e32b0e5a",
+    "test/fixtures/cordis-is-constructor/original.ts": "120808b51716e3e3cb2c3de90971abacb0dc7e2267f7226fa5106ed8267cd4e3",
+    "test/fixtures/cordis-is-constructor/original.mjs": "6eb288c30fc0953d0721b7305a547c0339768520997badf4c3d6a512ca4c43b6"
+  },
+  "native_function_kinds": [
+    "normal",
+    "generator",
+    "async",
+    "async-generator"
+  ],
+  "await_or_yield_nodes_supported": false,
+  "polyfill_control": "Isolated VM changes native async-generator prototype constructor to local Function; original and candidate skip guarded instanceof; not an actual browser polyfill deployment.",
+  "classifier": "Entire original three-declaration source, native prototype/instanceof/polyfill algorithm unchanged.",
+  "retained_package_runtime_groups_per_target": 15,
+  "retained_type_consumers_per_target": {
+    "positive": 10,
+    "negative": 12,
+    "skipLibCheck": false
+  },
+  "scope": "Native function creation/return semantics and full original isConstructor source. Finite Node/isolated-realm controls, not whole utils/async syntax/class typing/Session/Harness/browser/Q9."
+}

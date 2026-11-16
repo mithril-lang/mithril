@@ -1,0 +1,45 @@
+(mithril/native-js-declaration-program
+ :name "loader"
+ :runtime-source "native-js-loader-esm.mith"
+ :modules [(rdf/node
+   :name "cordis.context"
+   :source "native-js-cordis-context-complete-types.mith")
+  (rdf/node
+   :name "cordis.events"
+   :source "native-js-cordis-events-complete-types.mith")
+  (rdf/node
+   :name "cordis.fiber"
+   :source "native-js-cordis-fiber-complete-types.mith")
+  (rdf/node
+   :name "cordis.logger"
+   :source "native-js-cordis-logger-complete-types.mith")
+  (rdf/node
+   :name "cordis.reflect"
+   :source "native-js-cordis-reflect-complete-types.mith")
+  (rdf/node
+   :name "cordis.registry"
+   :source "native-js-cordis-registry-complete-types.mith")
+  (rdf/node
+   :name "cordis.service"
+   :source "native-js-cordis-service-complete-types.mith")
+  (rdf/node
+   :name "cordis.utils"
+   :source "native-js-cordis-utils-complete-types.mith")
+  (rdf/node
+   :name "cordis.index"
+   :source "native-js-loader-cordis-complete-types.mith")
+  (rdf/node
+   :name "cosmokit"
+   :source "native-js-cosmokit-complete-types.mith")
+  (rdf/node
+   :name "standard.schema"
+   :source "native-js-standard-schema-complete-types.mith")
+(rdf/node :name "loader.index" :source "native-js-loader-index-complete-types.mith")
+(rdf/node :name "loader.internal" :source "native-js-loader-internal-complete-types.mith")
+(rdf/node :name "loader.entry" :source "native-js-loader-entry-complete-types.mith")
+(rdf/node :name "loader.group" :source "native-js-loader-group-complete-types.mith")
+(rdf/node :name "loader.isolate" :source "native-js-loader-isolate-complete-types.mith")
+(rdf/node :name "loader.tree" :source "native-js-loader-tree-complete-types.mith")
+(rdf/node :name "loader.utils" :source "native-js-loader-utils-complete-types.mith")]
+ :externals [(rdf/node :name "node.module" :specifier "node:module" :types [(rdf/node :name "LoadHookContext" :min 0 :max 0)] :values [])]
+ :entry "loader.index")
