@@ -230,15 +230,28 @@
       {:store (assoc-in store1 [:camunda/instances instance-key] inst1)
        :instance inst1})))
 
+(defn- require-no-competing-work!
+  "Only one channel may own a governed token; same-task claims may repeat."
+  [inst op allowed-task-key]
+  (when (or (some #(= :locked (:status %)) (vals (:jobs inst)))
+            (some #(and (= :claimed (:status %))
+                        (not= allowed-task-key (:key %)))
+                  (vals (:tasks inst))))
+    (fail! :CONFLICT :mithril.camunda/work-in-flight
+           "another job or user task already owns this instance's enabled work"
+           {:instance-key (:key inst) :op op})))
+
 (defn activate-jobs
   "Camunda jobs activation + C7 fetchAndLock.
-  :type filters by bound action id; nil means all enabled."
+  :type filters by bound action id; nil considers enabled actions.
+  At most one job is issued for this governed instance at a time."
   [store {:keys [instance-key type max-jobs worker-id] :as args}]
   (when (blank? worker-id)
     (fail! :INVALID_ARGUMENT :mithril.camunda/invalid-worker
            "worker-id must be a non-blank string" {:args (keys args)}))
   (let [inst (get-instance! store instance-key)]
     (require-active! inst "activate-jobs")
+    (require-no-competing-work! inst "activate-jobs" nil)
     (when (:pending (:runtime inst))
       (fail! :CONFLICT :mithril.bpmn/effect-in-flight
              "a BPMN service task is already pending" {:instance-key instance-key}))
@@ -267,7 +280,7 @@
                                             :created-seq s})
                                 st1]))
                            [[] store1]
-                           (take n wanted))
+                           (take (min n 1) wanted))
             inst1 (update inst :jobs (fnil merge {}) (into {} (map (juxt :key identity) jobs)))
             store3 (assoc-in store2 [:camunda/instances instance-key] inst1)]
         {:store store3 :jobs jobs}))))
@@ -394,6 +407,7 @@
            "caller must be a non-blank string" {:instance-key instance-key}))
   (let [inst (get-instance! store instance-key)]
     (require-active! inst "claim-user-task")
+    (require-no-competing-work! inst "claim-user-task" task-key)
     (let [enabled (set (bpmn/enabled-action-ids (:runtime inst)))
           action (some #(when (= (user-task-key instance-key %) task-key) %) enabled)]
       (when-not action
@@ -434,6 +448,11 @@
         (fail! :CONFLICT :mithril.camunda/task-assigned
                "user task is claimed by another principal"
                {:task-key task-key :assignee (:assignee task)}))
+      (when-not (= :claimed (:status task))
+        (fail! :CONFLICT :mithril.camunda/task-not-claimed
+               "user task is not claimed in its status"
+               {:task-key task-key :status (:status task)}))
+      (require-no-competing-work! inst "complete-user-task" task-key)
       (let [vars (or variables {})
             _ (when-not (map? vars)
                 (fail! :INVALID_ARGUMENT :mithril.camunda/invalid-variables
@@ -470,6 +489,7 @@
            "message-name must be a non-blank string" {:instance-key instance-key}))
   (let [inst (get-instance! store instance-key)]
     (require-active! inst "correlate-message")
+    (require-no-competing-work! inst "correlate-message" nil)
     (let [enabled (set (bpmn/enabled-action-ids (:runtime inst)))]
       (when-not (contains? enabled message-name)
         (fail! :INVALID_ARGUMENT :mithril.bpmn/action-not-enabled

@@ -209,3 +209,67 @@
     (is (= :completed (get-in (camunda/complete-user-task state
                                                        {:instance-key ik :task-key tk :caller "owner"})
                               [:task :status])))))
+
+(deftest activation-and-cross-channel-ownership-are-exclusive
+  (let [started (camunda/start-instance (:store (deploy-fixture))
+                                       {:definition-key "order" :caller "starter"})
+        ik (get-in started [:instance :key])
+        state (:store started)
+        tasks (:tasks (camunda/search-user-tasks state {:instance-key ik}))
+        ta (:key (first (filter #(= action-a (:action %)) tasks)))
+        tb (:key (first (filter #(= action-b (:action %)) tasks)))
+        act (camunda/activate-jobs state {:instance-key ik :worker-id "owner"})
+        locked (:store act)
+        jk (:key (first (:jobs act)))
+        claim (camunda/claim-user-task state {:instance-key ik :task-key ta :caller "owner"})
+        claimed (:store claim)
+        conflict [:CONFLICT :mithril.camunda/work-in-flight]]
+    (is (= 1 (count (:jobs act))))
+    (doseq [worker ["owner" "other"]]
+      (is (= conflict (error-type #(camunda/activate-jobs locked
+                                        {:instance-key ik :type action-a :worker-id worker}))))
+      (is (= conflict (error-type #(camunda/activate-jobs claimed
+                                        {:instance-key ik :type action-a :worker-id worker})))))
+    (doseq [action [action-a action-b]]
+      (is (= conflict (error-type #(camunda/correlate-message locked
+                                        {:instance-key ik :message-name action :caller "other"}))))
+      (is (= conflict (error-type #(camunda/correlate-message claimed
+                                        {:instance-key ik :message-name action :caller "other"})))))
+    (doseq [caller ["owner" "other"] tk [ta tb]]
+      (is (= conflict (error-type #(camunda/claim-user-task locked
+                                        {:instance-key ik :task-key tk :caller caller})))))
+    (doseq [caller ["owner" "other"]]
+      (is (= conflict (error-type #(camunda/claim-user-task claimed
+                                        {:instance-key ik :task-key tb :caller caller})))))
+    (is (= "owner" (:assignee (:task (camunda/claim-user-task claimed
+                                        {:instance-key ik :task-key ta :caller "owner"})))))
+    (is (= 3 (get-in locked [:camunda/instances ik :jobs jk :retries])))
+    (let [failed (camunda/fail-job locked {:instance-key ik :job-key jk :worker-id "owner"})]
+      (is (= 2 (:retries (:job failed))))
+      (is (= conflict (error-type #(camunda/activate-jobs (:store failed)
+                                        {:instance-key ik :worker-id "other"}))))
+      (is (= :completed (get-in (camunda/complete-job (:store failed)
+                                        {:instance-key ik :job-key jk :worker-id "owner"})
+                               [:instance :status]))))
+    (is (= :completed (get-in (camunda/complete-user-task claimed
+                                        {:instance-key ik :task-key ta :caller "owner"})
+                             [:instance :status])))))
+
+(deftest stale-or-competing-task-completion-is-rejected
+  ;; Constructed active states test the guards, not a loop migration or E2E.
+  (let [started (camunda/start-instance (:store (deploy-fixture))
+                                       {:definition-key "order" :caller "starter"})
+        ik (get-in started [:instance :key])
+        tk (:key (first (:tasks (camunda/search-user-tasks (:store started) {:instance-key ik}))))
+        claimed (:store (camunda/claim-user-task (:store started)
+                            {:instance-key ik :task-key tk :caller "owner"}))
+        complete #(camunda/complete-user-task % {:instance-key ik :task-key tk :caller "owner"})]
+    (doseq [status [:completed :unclaimed nil]]
+      (let [stale (assoc-in claimed [:camunda/instances ik :tasks tk :status] status)]
+        (is (= [:CONFLICT :mithril.camunda/task-not-claimed] (error-type #(complete stale))))
+        (is (= :active (get-in stale [:camunda/instances ik :status])))))
+    (doseq [competing [(assoc-in claimed [:camunda/instances ik :jobs "other"]
+                                {:key "other" :status :locked :worker-id "other"})
+                      (assoc-in claimed [:camunda/instances ik :tasks "other"]
+                                {:key "other" :status :claimed :assignee "other"})]]
+      (is (= [:CONFLICT :mithril.camunda/work-in-flight] (error-type #(complete competing)))))))
