@@ -1,10 +1,10 @@
 name: Mithril CodeGraph conformance
 on:
   pull_request:
-    paths: ['src/mithril/**', 'bin/**', 'ontology/**', 'lib/**', 'resources/codegraph/**', 'test/**', 'scripts/run-sci.mjs', 'scripts/test-codegraph-web.mjs', 'deps.edn', '.github/workflows/codegraph.yml']
+    paths: ['src/mithril/**', 'bin/**', 'ontology/**', 'lib/**', 'resources/codegraph/**', 'test/**', 'vendor/**', 'scripts/run-sci.mjs', 'scripts/test-codegraph-web.mjs', 'deps.edn', 'nbb.edn', '.github/workflows/codegraph.yml']
   push:
     branches: [main]
-    paths: ['src/mithril/**', 'bin/**', 'ontology/**', 'lib/**', 'resources/codegraph/**', 'test/**', 'scripts/run-sci.mjs', 'scripts/test-codegraph-web.mjs', 'deps.edn', '.github/workflows/codegraph.yml']
+    paths: ['src/mithril/**', 'bin/**', 'ontology/**', 'lib/**', 'resources/codegraph/**', 'test/**', 'vendor/**', 'scripts/run-sci.mjs', 'scripts/test-codegraph-web.mjs', 'deps.edn', 'nbb.edn', '.github/workflows/codegraph.yml']
 permissions:
   contents: read
 jobs:
