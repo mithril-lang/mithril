@@ -92,7 +92,7 @@
      [(shacl/property-shape
         :sh/path "https://mithril.fund/lib/twin/v1#datasetKind"
         :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
-        :sh/in [(rdf/literal "synthetic-demo") (rdf/literal "workshop-export")]
+        :sh/in [(rdf/literal "synthetic-demo") (rdf/literal "workshop-export") (rdf/literal "public-registry-snapshot")]
         :sh/min-count 1 :sh/max-count 1)
        (shacl/property-shape
         :sh/path "https://mithril.fund/lib/twin/v1#title"

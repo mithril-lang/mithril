@@ -1,0 +1,34 @@
+(ns mithril.world-test
+  (:require [cljs.test :refer [deftest is testing]]
+            [clojure.string :as str]
+            [mithril.compiler :as compiler]
+            [mithril.reason :as reason]))
+
+(def fs (js/require "node:fs"))
+(defn- text [file] (.readFileSync fs file "utf8"))
+(def base "https://mithril.fund/ns/world/v1#")
+(def ontology-path "ontology/world-v1.mith")
+(defn- ontology [] (compiler/compile-ontology-text ontology-path (text ontology-path)))
+(defn- data [file] (let [path (str "test/fixtures/world/" file)] (reason/parse-data path (text path))))
+
+(deftest the-world-ontology-is-a-compiled-rdf-owl-shacl-artifact
+  (let [artifact (ontology)
+        graph (get-in artifact [:rdf-dataset "@graph"])]
+    (is (= "https://mithril.fund/artifact/ontology-v1" (:format artifact)))
+    (is (re-matches #"sha256:[0-9a-f]{64}" (:graph-digest artifact)))
+    (testing "every node is in the world namespace, so it cannot collide with dm2 or twin terms"
+      (is (every? #(str/starts-with? (get % "@id" "") base) (filter #(get % "@id") graph))))))
+
+(deftest a-sourced-public-role-fact-conforms
+  (is (= :conforms (:status (reason/reason (ontology) (data "valid.nt") {})))))
+
+(deftest person-scope-provenance-and-dates-are-enforced
+  (let [r (reason/reason (ontology) (data "invalid.nt") {})
+        constraints (set (map :constraint (:violations r)))]
+    (is (= :violations (:status r)))
+    (testing "a person node is closed: an address from a register is refused"
+      (is (contains? constraints "sh:closed")))
+    (testing "valid-time text must be ISO 8601 (year, month or day)"
+      (is (contains? constraints "sh:pattern")))
+    (testing "a fact without a pinned source is refused"
+      (is (contains? constraints "sh:minCount")))))

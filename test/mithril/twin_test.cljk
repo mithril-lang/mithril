@@ -83,7 +83,11 @@
     (is (= :mithril.twin/nested-id
            (code #(twin/admit (form/parse (with ":entities [(rdf/node :id \"https://mithril.fund/x\")]")))))))
   (testing "only the closed, non-live datasetKind labels and display-only twins are admitted"
-    (is (= ["synthetic-demo" "workshop-export"] twin/dataset-kinds))
+    (is (= ["synthetic-demo" "workshop-export" "public-registry-snapshot"] twin/dataset-kinds))
+    (testing "real public data must cite its sources"
+      (is (= :mithril.twin/unsourced-public-data
+             (code #(twin/admit (form/parse (str/replace (with "") "synthetic-demo" "public-registry-snapshot"))))))
+      (is (map? (twin/admit (form/parse (str/replace (with ":citations [(rdf/node :type \"Citation\" :source \"gleif-golden-copy\")]") "synthetic-demo" "public-registry-snapshot"))))))
     (is (map? (twin/admit (form/parse (str/replace (with "") "synthetic-demo" "workshop-export")))))
     (doseq [label ["production" "live" "customer" "real" "live-export" "" "Synthetic-Demo"]]
       (is (= :mithril.twin/not-synthetic
@@ -148,3 +152,8 @@
     (is (= :mithril.twin/invalid-view
            (code #(twin/admit (form/parse (with (str ":diagram (rdf/node :type \"Diagram\" " bad ")"))))))
         bad)))
+
+(deftest time-and-provenance-terms-survive-rdf-lowering
+  (let [doc (:rdf-dataset (twin/compile-twin-text "world.mith" (with ":entities [(rdf/node :type \"Entity\" :key \"jp\" :label \"Japan\" :valid-from \"1947-05\" :date-precision \"month\" :assertion \"asserted\" :licence \"CC0-1.0\" :jurisdiction \"JP\")]")))]
+    (is (every? (predicates doc)
+                (map #(str twin/base %) ["validFrom" "datePrecision" "assertion" "licence" "jurisdiction"])))))

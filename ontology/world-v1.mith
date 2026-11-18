@@ -1,0 +1,330 @@
+(mithril/ontology
+  :id "https://mithril.fund/ns/world/v1"
+  :profile
+  ["https://www.w3.org/TR/rdf11-concepts/"
+   "https://www.w3.org/TR/owl2-profiles/#OWL_2_RL"
+   "https://www.w3.org/TR/shacl/"]
+  :graph
+  [;; Mithril Twin World: a global, time-aware ontology of jurisdictions,
+   ;; government bodies, legal entities and public-role persons.
+   ;; Every time-bounded claim is a Fact with a valid interval, an assertion
+   ;; class, at least one pinned source and a licence. Facts are never
+   ;; deleted: an ended fact gets validTo, a wrong fact is superseded.
+   ;; Dates are ISO 8601 text with explicit precision, so years before 1970,
+   ;; BCE years ("-0044") and partial dates ("1991", "1991-12") survive.
+
+   ;; ---- Entities -------------------------------------------------------
+   (owl/class :id "https://mithril.fund/ns/world/v1#Entity")
+   (owl/class :id "https://mithril.fund/ns/world/v1#Jurisdiction"
+     :rdfs/sub-class-of "https://mithril.fund/ns/world/v1#Entity")
+   (owl/class :id "https://mithril.fund/ns/world/v1#Country"
+     :rdfs/sub-class-of "https://mithril.fund/ns/world/v1#Jurisdiction")
+   (owl/class :id "https://mithril.fund/ns/world/v1#Subdivision"
+     :rdfs/sub-class-of "https://mithril.fund/ns/world/v1#Jurisdiction")
+   (owl/class :id "https://mithril.fund/ns/world/v1#HistoricalState"
+     :rdfs/sub-class-of "https://mithril.fund/ns/world/v1#Jurisdiction")
+   (owl/class :id "https://mithril.fund/ns/world/v1#Supranational"
+     :rdfs/sub-class-of "https://mithril.fund/ns/world/v1#Jurisdiction")
+   (owl/class :id "https://mithril.fund/ns/world/v1#Organization"
+     :rdfs/sub-class-of "https://mithril.fund/ns/world/v1#Entity")
+   (owl/class :id "https://mithril.fund/ns/world/v1#GovernmentBody"
+     :rdfs/sub-class-of "https://mithril.fund/ns/world/v1#Organization")
+   (owl/class :id "https://mithril.fund/ns/world/v1#Legislature"
+     :rdfs/sub-class-of "https://mithril.fund/ns/world/v1#GovernmentBody")
+   (owl/class :id "https://mithril.fund/ns/world/v1#Executive"
+     :rdfs/sub-class-of "https://mithril.fund/ns/world/v1#GovernmentBody")
+   (owl/class :id "https://mithril.fund/ns/world/v1#Ministry"
+     :rdfs/sub-class-of "https://mithril.fund/ns/world/v1#GovernmentBody")
+   (owl/class :id "https://mithril.fund/ns/world/v1#Agency"
+     :rdfs/sub-class-of "https://mithril.fund/ns/world/v1#GovernmentBody")
+   (owl/class :id "https://mithril.fund/ns/world/v1#Regulator"
+     :rdfs/sub-class-of "https://mithril.fund/ns/world/v1#GovernmentBody")
+   (owl/class :id "https://mithril.fund/ns/world/v1#Court"
+     :rdfs/sub-class-of "https://mithril.fund/ns/world/v1#GovernmentBody")
+   (owl/class :id "https://mithril.fund/ns/world/v1#LocalGovernment"
+     :rdfs/sub-class-of "https://mithril.fund/ns/world/v1#GovernmentBody")
+   (owl/class :id "https://mithril.fund/ns/world/v1#LegalEntity"
+     :rdfs/sub-class-of "https://mithril.fund/ns/world/v1#Organization")
+   (owl/class :id "https://mithril.fund/ns/world/v1#Company"
+     :rdfs/sub-class-of "https://mithril.fund/ns/world/v1#LegalEntity")
+   (owl/class :id "https://mithril.fund/ns/world/v1#PublicEnterprise"
+     :rdfs/sub-class-of "https://mithril.fund/ns/world/v1#LegalEntity")
+   (owl/class :id "https://mithril.fund/ns/world/v1#NonProfit"
+     :rdfs/sub-class-of "https://mithril.fund/ns/world/v1#LegalEntity")
+   (owl/class :id "https://mithril.fund/ns/world/v1#Fund"
+     :rdfs/sub-class-of "https://mithril.fund/ns/world/v1#LegalEntity")
+   ;; A natural person, admitted only in a public or accountable role
+   ;; (owner decision 2026-11-18). The node carries the published name
+   ;; only; every role is a separate Role fact with its own source.
+   (owl/class :id "https://mithril.fund/ns/world/v1#Person"
+     :rdfs/sub-class-of "https://mithril.fund/ns/world/v1#Entity")
+
+   ;; ---- Supporting nodes ----------------------------------------------
+   (owl/class :id "https://mithril.fund/ns/world/v1#Identifier")
+   (owl/class :id "https://mithril.fund/ns/world/v1#SourceRef")
+   (owl/class :id "https://mithril.fund/ns/world/v1#Fact")
+   (owl/class :id "https://mithril.fund/ns/world/v1#Role"
+     :rdfs/sub-class-of "https://mithril.fund/ns/world/v1#Fact")
+   (owl/class :id "https://mithril.fund/ns/world/v1#Relationship"
+     :rdfs/sub-class-of "https://mithril.fund/ns/world/v1#Fact")
+   (owl/class :id "https://mithril.fund/ns/world/v1#Event"
+     :rdfs/sub-class-of "https://mithril.fund/ns/world/v1#Fact")
+   (owl/class :id "https://mithril.fund/ns/world/v1#Observation"
+     :rdfs/sub-class-of "https://mithril.fund/ns/world/v1#Fact")
+   (owl/class :id "https://mithril.fund/ns/world/v1#WorldDocument")
+
+   ;; ---- Properties -----------------------------------------------------
+   (owl/datatype-property :id "https://mithril.fund/ns/world/v1#name"
+     :rdfs/domain "https://mithril.fund/ns/world/v1#Entity")
+   (owl/object-property :id "https://mithril.fund/ns/world/v1#identifier"
+     :rdfs/domain "https://mithril.fund/ns/world/v1#Entity"
+     :rdfs/range "https://mithril.fund/ns/world/v1#Identifier")
+   (owl/datatype-property :id "https://mithril.fund/ns/world/v1#scheme"
+     :rdfs/domain "https://mithril.fund/ns/world/v1#Identifier")
+   (owl/datatype-property :id "https://mithril.fund/ns/world/v1#value"
+     :rdfs/domain "https://mithril.fund/ns/world/v1#Identifier")
+   (owl/object-property :id "https://mithril.fund/ns/world/v1#jurisdiction"
+     :rdfs/domain "https://mithril.fund/ns/world/v1#Organization"
+     :rdfs/range "https://mithril.fund/ns/world/v1#Jurisdiction")
+   (owl/object-property :id "https://mithril.fund/ns/world/v1#subject"
+     :rdfs/domain "https://mithril.fund/ns/world/v1#Fact"
+     :rdfs/range "https://mithril.fund/ns/world/v1#Entity")
+   (owl/object-property :id "https://mithril.fund/ns/world/v1#object"
+     :rdfs/domain "https://mithril.fund/ns/world/v1#Relationship"
+     :rdfs/range "https://mithril.fund/ns/world/v1#Entity")
+   (owl/datatype-property :id "https://mithril.fund/ns/world/v1#relation"
+     :rdfs/domain "https://mithril.fund/ns/world/v1#Relationship")
+   (owl/datatype-property :id "https://mithril.fund/ns/world/v1#share"
+     :rdfs/domain "https://mithril.fund/ns/world/v1#Relationship")
+   (owl/object-property :id "https://mithril.fund/ns/world/v1#holder"
+     :rdfs/domain "https://mithril.fund/ns/world/v1#Role"
+     :rdfs/range "https://mithril.fund/ns/world/v1#Person")
+   (owl/object-property :id "https://mithril.fund/ns/world/v1#organization"
+     :rdfs/domain "https://mithril.fund/ns/world/v1#Role"
+     :rdfs/range "https://mithril.fund/ns/world/v1#Organization")
+   (owl/datatype-property :id "https://mithril.fund/ns/world/v1#roleKind"
+     :rdfs/domain "https://mithril.fund/ns/world/v1#Role")
+   (owl/datatype-property :id "https://mithril.fund/ns/world/v1#roleTitle"
+     :rdfs/domain "https://mithril.fund/ns/world/v1#Role")
+   (owl/datatype-property :id "https://mithril.fund/ns/world/v1#eventKind"
+     :rdfs/domain "https://mithril.fund/ns/world/v1#Event")
+   (owl/datatype-property :id "https://mithril.fund/ns/world/v1#indicator"
+     :rdfs/domain "https://mithril.fund/ns/world/v1#Observation")
+   (owl/datatype-property :id "https://mithril.fund/ns/world/v1#observedValue"
+     :rdfs/domain "https://mithril.fund/ns/world/v1#Observation")
+   (owl/datatype-property :id "https://mithril.fund/ns/world/v1#unit"
+     :rdfs/domain "https://mithril.fund/ns/world/v1#Observation")
+   (owl/datatype-property :id "https://mithril.fund/ns/world/v1#validFrom"
+     :rdfs/domain "https://mithril.fund/ns/world/v1#Fact")
+   (owl/datatype-property :id "https://mithril.fund/ns/world/v1#validTo"
+     :rdfs/domain "https://mithril.fund/ns/world/v1#Fact")
+   (owl/datatype-property :id "https://mithril.fund/ns/world/v1#datePrecision"
+     :rdfs/domain "https://mithril.fund/ns/world/v1#Fact")
+   (owl/datatype-property :id "https://mithril.fund/ns/world/v1#assertion"
+     :rdfs/domain "https://mithril.fund/ns/world/v1#Fact")
+   (owl/object-property :id "https://mithril.fund/ns/world/v1#source"
+     :rdfs/range "https://mithril.fund/ns/world/v1#SourceRef")
+   (owl/datatype-property :id "https://mithril.fund/ns/world/v1#licence")
+   (owl/object-property :id "https://mithril.fund/ns/world/v1#supersedes"
+     :rdfs/domain "https://mithril.fund/ns/world/v1#Fact"
+     :rdfs/range "https://mithril.fund/ns/world/v1#Fact")
+   (owl/datatype-property :id "https://mithril.fund/ns/world/v1#correctionReason"
+     :rdfs/domain "https://mithril.fund/ns/world/v1#Fact")
+   (owl/datatype-property :id "https://mithril.fund/ns/world/v1#sourceId"
+     :rdfs/domain "https://mithril.fund/ns/world/v1#SourceRef")
+   (owl/datatype-property :id "https://mithril.fund/ns/world/v1#snapshotSha256"
+     :rdfs/domain "https://mithril.fund/ns/world/v1#SourceRef")
+   (owl/datatype-property :id "https://mithril.fund/ns/world/v1#recordId"
+     :rdfs/domain "https://mithril.fund/ns/world/v1#SourceRef")
+   (owl/datatype-property :id "https://mithril.fund/ns/world/v1#datasetKind"
+     :rdfs/domain "https://mithril.fund/ns/world/v1#WorldDocument")
+   (owl/datatype-property :id "https://mithril.fund/ns/world/v1#title"
+     :rdfs/domain "https://mithril.fund/ns/world/v1#WorldDocument")
+
+   ;; ---- Shapes ---------------------------------------------------------
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/world/v1#WorldDocumentShape"
+     :sh/target-class "https://mithril.fund/ns/world/v1#WorldDocument"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/world/v1#datasetKind"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/in [(rdf/literal "public-registry-snapshot") (rdf/literal "synthetic-demo")]
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/world/v1#title"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/world/v1#EntityShape"
+     :sh/target-class "https://mithril.fund/ns/world/v1#Entity"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/world/v1#name"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/world/v1#identifier"
+        :sh/class "https://mithril.fund/ns/world/v1#Identifier")])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/world/v1#IdentifierShape"
+     :sh/target-class "https://mithril.fund/ns/world/v1#Identifier"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/world/v1#scheme"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/pattern "^[a-z][a-z0-9-]{1,63}$"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/world/v1#value"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-length 1 :sh/max-length 128
+        :sh/min-count 1 :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/world/v1#OrganizationShape"
+     :sh/target-class "https://mithril.fund/ns/world/v1#Organization"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/world/v1#jurisdiction"
+        :sh/class "https://mithril.fund/ns/world/v1#Jurisdiction"
+        :sh/min-count 1)])
+   ;; Person scope: closed shape, so registers' addresses, contact details,
+   ;; ID numbers and birth dates cannot be stored on a person node.
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/world/v1#PersonShape"
+     :sh/target-class "https://mithril.fund/ns/world/v1#Person"
+     :sh/closed true
+     :sh/ignored-properties ["http://www.w3.org/1999/02/22-rdf-syntax-ns#type"]
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/world/v1#name"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/world/v1#source"
+        :sh/class "https://mithril.fund/ns/world/v1#SourceRef"
+        :sh/min-count 1)])
+   ;; Every fact: valid interval, precision, assertion class, source, licence.
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/world/v1#FactShape"
+     :sh/target-class "https://mithril.fund/ns/world/v1#Fact"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/world/v1#subject"
+        :sh/class "https://mithril.fund/ns/world/v1#Entity"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/world/v1#validFrom"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/pattern "^-?[0-9]{4}(-[0-9]{2}(-[0-9]{2})?)?$"
+        :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/world/v1#validTo"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/pattern "^-?[0-9]{4}(-[0-9]{2}(-[0-9]{2})?)?$"
+        :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/world/v1#datePrecision"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/in [(rdf/literal "year") (rdf/literal "month") (rdf/literal "day") (rdf/literal "approximate")]
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/world/v1#assertion"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/in [(rdf/literal "asserted") (rdf/literal "inferred") (rdf/literal "proposed")]
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/world/v1#source"
+        :sh/class "https://mithril.fund/ns/world/v1#SourceRef"
+        :sh/min-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/world/v1#licence"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/world/v1#supersedes"
+        :sh/class "https://mithril.fund/ns/world/v1#Fact"
+        :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/world/v1#RoleShape"
+     :sh/target-class "https://mithril.fund/ns/world/v1#Role"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/world/v1#holder"
+        :sh/class "https://mithril.fund/ns/world/v1#Person"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/world/v1#organization"
+        :sh/class "https://mithril.fund/ns/world/v1#Organization"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/world/v1#roleKind"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/in [(rdf/literal "public-office") (rdf/literal "legal-representative") (rdf/literal "director") (rdf/literal "officer")]
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/world/v1#roleTitle"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/world/v1#RelationshipShape"
+     :sh/target-class "https://mithril.fund/ns/world/v1#Relationship"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/world/v1#object"
+        :sh/class "https://mithril.fund/ns/world/v1#Entity"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/world/v1#relation"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/in [(rdf/literal "parent-of") (rdf/literal "owns") (rdf/literal "controls") (rdf/literal "regulates") (rdf/literal "member-of") (rdf/literal "successor-of") (rdf/literal "part-of")]
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/world/v1#share"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#decimal"
+        :sh/min-inclusive (rdf/literal "0" :datatype "http://www.w3.org/2001/XMLSchema#decimal")
+        :sh/max-inclusive (rdf/literal "100" :datatype "http://www.w3.org/2001/XMLSchema#decimal")
+        :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/world/v1#EventShape"
+     :sh/target-class "https://mithril.fund/ns/world/v1#Event"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/world/v1#eventKind"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/in [(rdf/literal "founded") (rdf/literal "dissolved") (rdf/literal "renamed") (rdf/literal "merged") (rdf/literal "split") (rdf/literal "succession") (rdf/literal "regime-change")]
+        :sh/min-count 1 :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/world/v1#ObservationShape"
+     :sh/target-class "https://mithril.fund/ns/world/v1#Observation"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/world/v1#indicator"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/world/v1#observedValue"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#decimal"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/world/v1#unit"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/world/v1#SourceRefShape"
+     :sh/target-class "https://mithril.fund/ns/world/v1#SourceRef"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/world/v1#sourceId"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/pattern "^[a-z0-9][a-z0-9-]{1,63}$"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/world/v1#snapshotSha256"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/pattern "^[0-9a-f]{64}$"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/world/v1#recordId"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/max-count 1)])])
