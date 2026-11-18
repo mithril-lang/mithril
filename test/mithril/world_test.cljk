@@ -22,11 +22,16 @@
 (deftest a-sourced-public-role-fact-conforms
   (is (= :conforms (:status (reason/reason (ontology) (data "valid.nt") {})))))
 
+(deftest public-person-contact-details-conform-when-sourced
+  ;; Owner decision 2026-11-18: published address and contact details of a
+  ;; named public-role person are admitted, pinned by the node's SourceRef.
+  (is (= :conforms (:status (reason/reason (ontology) (data "valid-public-contact.nt") {})))))
+
 (deftest person-scope-provenance-and-dates-are-enforced
   (let [r (reason/reason (ontology) (data "invalid.nt") {})
         constraints (set (map :constraint (:violations r)))]
     (is (= :violations (:status r)))
-    (testing "a person node is closed: an address from a register is refused"
+    (testing "an undeclared personal field is still refused by the closed shape"
       (is (contains? constraints "sh:closed")))
     (testing "valid-time text must be ISO 8601 (year, month or day)"
       (is (contains? constraints "sh:pattern")))
