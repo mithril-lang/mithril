@@ -31,8 +31,16 @@
   - `workshop-export`: an illustrative diagram hand-authored in a workshop and
     exported from the viewer; not collected from live systems or customer
     records.
+  - `public-registry-snapshot`: facts taken from pinned snapshots of public,
+    licensed registers and records (Twin World, owner decision 2026-11-18).
+    Still display-only; a document with this label must cite its sources.
   Anything else (for example `live`, `production`, `customer`) is refused."
-  ["synthetic-demo" "workshop-export"])
+  ["synthetic-demo" "workshop-export" "public-registry-snapshot"])
+
+(def sourced-dataset-kinds
+  "datasetKind labels that describe real public data and therefore require a
+  non-empty `citations`."
+  #{"public-registry-snapshot"})
 
 (def diagram-lenses
   "Closed set of `diagram.lens` values: the lens a viewer restores on open."
@@ -76,6 +84,9 @@
    "arrangement" "camera" "mode" "tilt" "yaw" "zoom" "focusPlane"
    "selection" "planes" "transform" "x" "y" "z" "placements" "entity"
    "tone" "showLabel" "crossLinks" "lens" "frame"
+   ;; time and provenance (Twin World)
+   "validFrom" "validTo" "datePrecision" "recordedAt" "assertion" "licence"
+   "sourceId" "snapshotSha256" "recordId" "jurisdiction"
    ;; inference
    "vizOnly" "noRunners" "hypotheses" "summary" "category" "honesty"
    "observationCount" "relativeScore" "scoreNote" "nodeIds" "steps"])
@@ -164,6 +175,10 @@
   (when-not (contains? (set dataset-kinds) (get document "datasetKind"))
     (refuse! :mithril.twin/not-synthetic
              (str "twin datasetKind must be one of " (str/join ", " dataset-kinds))))
+  (when (and (contains? sourced-dataset-kinds (get document "datasetKind"))
+             (not (seq (let [c (get document "citations")] (if (vector? c) c (when c [c]))))))
+    (refuse! :mithril.twin/unsourced-public-data
+             "a public-registry-snapshot twin must cite its sources in :citations"))
   (let [diagram (get document "diagram")]
     (doseq [[term allowed] [["lens" diagram-lenses] ["frame" diagram-frames]]]
       (when (and (map? diagram) (contains? diagram term)
