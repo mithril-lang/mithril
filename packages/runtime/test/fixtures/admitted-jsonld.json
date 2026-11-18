@@ -1,0 +1,161 @@
+{
+  "status": "admitted",
+  "artifact": {
+    "format": "https://mithril.fund/artifact/app-agent-v1",
+    "media-type": "application/ld+json",
+    "graph-digest": "sha256:fea2302f51b8915e341197e59c76dcff15a8b80775545cbbb5684d428e693fb1",
+    "app-ir": {
+      "version": "v1",
+      "goal": "compile-test-deploy-app",
+      "ontology": "a8d21164d99278f517181b06d063ea8a63249bff57e8e1a5e72aed5758a28f47",
+      "import": {
+        "library": "https://mithril.fund/lib/app/agent-loop-v1",
+        "digest": "sha256:b7d1290a2fe8d8f6f0a17c49d2774b9396e9389fb5d070e98335d8d5517266ce"
+      },
+      "budget": {
+        "max-steps": 6,
+        "max-source-bytes": 8192
+      },
+      "operations": {
+        "reasoner": "https://mithril.fund/lib/app/agent-loop-v1/reasoner/owl2-rl",
+        "query": "https://mithril.fund/lib/app/agent-loop-v1/query/component-catalog",
+        "validator": "https://mithril.fund/lib/app/agent-loop-v1/validator/shacl-core",
+        "compiler": "https://mithril.fund/lib/app/agent-loop-v1/compiler/web-ir",
+        "tester": "https://mithril.fund/lib/app/agent-loop-v1/tester/conformance",
+        "deployer": "https://mithril.fund/lib/app/agent-loop-v1/deployer/self-contained-url",
+        "governor": "https://mithril.fund/lib/app/agent-loop-v1/governor/static-read-only"
+      },
+      "app": {
+        "name": "Mithril Observatory",
+        "description": "A bounded ontology application compiled without generated source text.",
+        "headline": "Signals become an inspectable graph.",
+        "summary": "OWL closes the component set, SHACL validates the source, SPARQL selects facts, and Web IR renders the admitted result.",
+        "template": "https://mithril.fund/id/template/dashboard",
+        "data-shape": "https://mithril.fund/id/shape/metric-cards"
+      },
+      "effects": [
+        "static-document",
+        "self-contained-url"
+      ]
+    }
+  },
+  "semanticRun": {
+    "format": "https://mithril.fund/receipt/semantic-execution-v1",
+    "status": "executed",
+    "artifact-digest": "sha256:fea2302f51b8915e341197e59c76dcff15a8b80775545cbbb5684d428e693fb1",
+    "state-digest": "sha256:4b5f37d089fb93df1f94c9889a93959a3b5a4eb8e559fde0dfc7cc91be405ced",
+    "receipts": [
+      {
+        "id": "infer",
+        "operation": "OWL 2 RL materialization",
+        "status": "executed",
+        "engine": "materialize-owl2-rl",
+        "input-digest": "sha256:e6770eec9d0188c0195a0ad6819593bd8f6b47c911a74c1f5ce13b6ac9a4ccd5",
+        "output-digest": "sha256:bc8c95092fac9d224c6ec048b2dc8a91402f993eec73f74c90987f87631d761c",
+        "metrics": {
+          "asserted-triples": 4,
+          "derived-triples": 1
+        }
+      },
+      {
+        "id": "query",
+        "operation": "SPARQL algebra",
+        "status": "executed",
+        "engine": "select",
+        "input-digest": "sha256:7ec85b9d27183bfdb28c1b3161ba7a5ac170c7ed45f3087901abafb055f95cc7",
+        "output-digest": "sha256:44940fa68eb529aef48d2ced741bcf8db36c3fb26738d445864ab65f7b1b6281",
+        "metrics": {
+          "rows": 1
+        }
+      },
+      {
+        "id": "validate",
+        "operation": "SHACL bounded validation",
+        "status": "executed",
+        "engine": "shacl-edge-adapter",
+        "input-digest": "sha256:32ffde5592797bad2d726010bc1dd429a1548723cf789c81a379f53a66c51bad",
+        "output-digest": "sha256:adfc5c3d5f487ad7a36294d016050df206aad3d00bd4ed063d87c236049e61aa",
+        "metrics": {
+          "violations": 0,
+          "constraints": [
+            "min-count",
+            "max-count",
+            "datatype",
+            "in"
+          ]
+        }
+      }
+    ]
+  },
+  "trace": [
+    {
+      "id": "infer",
+      "operation": "OWL 2 RL materialization",
+      "status": "executed",
+      "engine": "materialize-owl2-rl",
+      "input-digest": "sha256:e6770eec9d0188c0195a0ad6819593bd8f6b47c911a74c1f5ce13b6ac9a4ccd5",
+      "output-digest": "sha256:bc8c95092fac9d224c6ec048b2dc8a91402f993eec73f74c90987f87631d761c",
+      "metrics": {
+        "asserted-triples": 4,
+        "derived-triples": 1
+      }
+    },
+    {
+      "id": "query",
+      "operation": "SPARQL algebra",
+      "status": "executed",
+      "engine": "select",
+      "input-digest": "sha256:7ec85b9d27183bfdb28c1b3161ba7a5ac170c7ed45f3087901abafb055f95cc7",
+      "output-digest": "sha256:44940fa68eb529aef48d2ced741bcf8db36c3fb26738d445864ab65f7b1b6281",
+      "metrics": {
+        "rows": 1
+      }
+    },
+    {
+      "id": "validate",
+      "operation": "SHACL bounded validation",
+      "status": "executed",
+      "engine": "shacl-edge-adapter",
+      "input-digest": "sha256:32ffde5592797bad2d726010bc1dd429a1548723cf789c81a379f53a66c51bad",
+      "output-digest": "sha256:adfc5c3d5f487ad7a36294d016050df206aad3d00bd4ed063d87c236049e61aa",
+      "metrics": {
+        "violations": 0,
+        "constraints": [
+          "min-count",
+          "max-count",
+          "datatype",
+          "in"
+        ]
+      }
+    },
+    {
+      "id": "compile",
+      "operation": "Mithril App IR",
+      "status": "executed",
+      "engine": "compile-text",
+      "input-digest": "sha256:fea2302f51b8915e341197e59c76dcff15a8b80775545cbbb5684d428e693fb1",
+      "output-digest": "sha256:82889c42b140f3817561ea37f8ae212b82cceec23b8b02690dd42fb32232927a",
+      "metrics": {
+        "operations": 7
+      }
+    },
+    {
+      "id": "test",
+      "operation": "bounded artifact conformance",
+      "status": "executed",
+      "engine": "artifact-check",
+      "input-digest": "sha256:82889c42b140f3817561ea37f8ae212b82cceec23b8b02690dd42fb32232927a",
+      "output-digest": "sha256:d22d6fa78e5b4c8e058648567a266b3287cc358c90700a0007b3ea7caf8874b6",
+      "metrics": {
+        "checks": 2,
+        "failures": 0
+      }
+    },
+    {
+      "id": "deploy",
+      "operation": "self-contained URL",
+      "status": "not-run",
+      "detail": "deployment requires the separate user action"
+    }
+  ]
+}
