@@ -1,0 +1,29 @@
+<https://mithril.fund/id/src/1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/world/v1#SourceRef> .
+<https://mithril.fund/id/src/1> <https://mithril.fund/ns/world/v1#sourceId> "eu-whoiswho-directory"^^<http://www.w3.org/2001/XMLSchema#string> .
+<https://mithril.fund/id/src/1> <https://mithril.fund/ns/world/v1#snapshotSha256> "0000000000000000000000000000000000000000000000000000000000000002"^^<http://www.w3.org/2001/XMLSchema#string> .
+<https://mithril.fund/id/jp> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/world/v1#Country> .
+<https://mithril.fund/id/jp> <https://mithril.fund/ns/world/v1#name> "Japan"^^<http://www.w3.org/2001/XMLSchema#string> .
+<https://mithril.fund/id/co/1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/world/v1#Company> .
+<https://mithril.fund/id/co/1> <https://mithril.fund/ns/world/v1#name> "Example KK"^^<http://www.w3.org/2001/XMLSchema#string> .
+<https://mithril.fund/id/co/1> <https://mithril.fund/ns/world/v1#jurisdiction> <https://mithril.fund/id/jp> .
+<https://mithril.fund/id/co/1> <https://mithril.fund/ns/world/v1#identifier> <https://mithril.fund/id/co/1/lei> .
+<https://mithril.fund/id/co/1/lei> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/world/v1#Identifier> .
+<https://mithril.fund/id/co/1/lei> <https://mithril.fund/ns/world/v1#scheme> "lei"^^<http://www.w3.org/2001/XMLSchema#string> .
+<https://mithril.fund/id/co/1/lei> <https://mithril.fund/ns/world/v1#value> "5299000000000000AB12"^^<http://www.w3.org/2001/XMLSchema#string> .
+<https://mithril.fund/id/p/1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/world/v1#Person> .
+<https://mithril.fund/id/p/1> <https://mithril.fund/ns/world/v1#name> "Taro Example"^^<http://www.w3.org/2001/XMLSchema#string> .
+<https://mithril.fund/id/p/1> <https://mithril.fund/ns/world/v1#source> <https://mithril.fund/id/src/1> .
+<https://mithril.fund/id/p/1> <https://mithril.fund/ns/world/v1#address> "1 Example St, Tokyo"^^<http://www.w3.org/2001/XMLSchema#string> .
+<https://mithril.fund/id/p/1> <https://mithril.fund/ns/world/v1#email> "taro.example@example.go.jp"^^<http://www.w3.org/2001/XMLSchema#string> .
+<https://mithril.fund/id/p/1> <https://mithril.fund/ns/world/v1#phone> "+81-3-0000-0000"^^<http://www.w3.org/2001/XMLSchema#string> .
+<https://mithril.fund/id/p/1> <https://mithril.fund/ns/world/v1#website> "https://example.go.jp/profile"^^<http://www.w3.org/2001/XMLSchema#string> .
+<https://mithril.fund/id/role/1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/world/v1#Role> .
+<https://mithril.fund/id/role/1> <https://mithril.fund/ns/world/v1#subject> <https://mithril.fund/id/p/1> .
+<https://mithril.fund/id/role/1> <https://mithril.fund/ns/world/v1#holder> <https://mithril.fund/id/p/1> .
+<https://mithril.fund/id/role/1> <https://mithril.fund/ns/world/v1#organization> <https://mithril.fund/id/co/1> .
+<https://mithril.fund/id/role/1> <https://mithril.fund/ns/world/v1#roleKind> "director"^^<http://www.w3.org/2001/XMLSchema#string> .
+<https://mithril.fund/id/role/1> <https://mithril.fund/ns/world/v1#validFrom> "2019-04"^^<http://www.w3.org/2001/XMLSchema#string> .
+<https://mithril.fund/id/role/1> <https://mithril.fund/ns/world/v1#datePrecision> "month"^^<http://www.w3.org/2001/XMLSchema#string> .
+<https://mithril.fund/id/role/1> <https://mithril.fund/ns/world/v1#assertion> "asserted"^^<http://www.w3.org/2001/XMLSchema#string> .
+<https://mithril.fund/id/role/1> <https://mithril.fund/ns/world/v1#source> <https://mithril.fund/id/src/1> .
+<https://mithril.fund/id/role/1> <https://mithril.fund/ns/world/v1#licence> "CC0-1.0"^^<http://www.w3.org/2001/XMLSchema#string> .

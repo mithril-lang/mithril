@@ -54,8 +54,9 @@
    (owl/class :id "https://mithril.fund/ns/world/v1#Fund"
      :rdfs/sub-class-of "https://mithril.fund/ns/world/v1#LegalEntity")
    ;; A natural person, admitted only in a public or accountable role
-   ;; (owner decision 2026-11-18). The node carries the published name
-   ;; only; every role is a separate Role fact with its own source.
+   ;; (owner decision 2026-11-18). The node carries the published name and,
+   ;; per the same owner decision, published address and contact details.
+   ;; Every role is a separate Role fact with its own source.
    (owl/class :id "https://mithril.fund/ns/world/v1#Person"
      :rdfs/sub-class-of "https://mithril.fund/ns/world/v1#Entity")
 
@@ -106,6 +107,16 @@
      :rdfs/domain "https://mithril.fund/ns/world/v1#Role")
    (owl/datatype-property :id "https://mithril.fund/ns/world/v1#roleTitle"
      :rdfs/domain "https://mithril.fund/ns/world/v1#Role")
+   ;; Published contact details of a named person (owner decision 2026-11-18).
+   ;; Admitted only on a Person whose SourceRef pins a public source.
+   (owl/datatype-property :id "https://mithril.fund/ns/world/v1#address"
+     :rdfs/domain "https://mithril.fund/ns/world/v1#Person")
+   (owl/datatype-property :id "https://mithril.fund/ns/world/v1#email"
+     :rdfs/domain "https://mithril.fund/ns/world/v1#Person")
+   (owl/datatype-property :id "https://mithril.fund/ns/world/v1#phone"
+     :rdfs/domain "https://mithril.fund/ns/world/v1#Person")
+   (owl/datatype-property :id "https://mithril.fund/ns/world/v1#website"
+     :rdfs/domain "https://mithril.fund/ns/world/v1#Person")
    (owl/datatype-property :id "https://mithril.fund/ns/world/v1#eventKind"
      :rdfs/domain "https://mithril.fund/ns/world/v1#Event")
    (owl/datatype-property :id "https://mithril.fund/ns/world/v1#indicator"
@@ -188,8 +199,10 @@
         :sh/path "https://mithril.fund/ns/world/v1#jurisdiction"
         :sh/class "https://mithril.fund/ns/world/v1#Jurisdiction"
         :sh/min-count 1)])
-   ;; Person scope: closed shape, so registers' addresses, contact details,
-   ;; ID numbers and birth dates cannot be stored on a person node.
+   ;; Person scope: closed shape with an explicit allow-list. Owner decision
+   ;; 2026-11-18 admits published address and contact details; ID numbers and
+   ;; birth dates remain out of scope. The node's SourceRef pins the public
+   ;; source for every admitted field.
    (shacl/node-shape
      :id "https://mithril.fund/ns/world/v1#PersonShape"
      :sh/target-class "https://mithril.fund/ns/world/v1#Person"
@@ -203,7 +216,23 @@
       (shacl/property-shape
         :sh/path "https://mithril.fund/ns/world/v1#source"
         :sh/class "https://mithril.fund/ns/world/v1#SourceRef"
-        :sh/min-count 1)])
+        :sh/min-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/world/v1#address"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/world/v1#email"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/world/v1#phone"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/world/v1#website"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/max-count 1)])
    ;; Every fact: valid interval, precision, assertion class, source, licence.
    (shacl/node-shape
      :id "https://mithril.fund/ns/world/v1#FactShape"
