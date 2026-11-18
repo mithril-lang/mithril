@@ -83,12 +83,19 @@
 
 ;; ── the OWL capability set ──────────────────────────────────────────────────
 
+(def ^:private owl-rules-exports
+  ;; owl.rules is vendored at one revision (vendor/PROVENANCE.json), which
+  ;; defines all three. A static table replaces the old runtime `resolve`,
+  ;; which compiled ClojureScript (packages/runtime) cannot evaluate.
+  {'supported-rules owl.rules/supported-rules
+   'vocabulary-status owl.rules/vocabulary-status
+   'supported-vocabulary owl.rules/supported-vocabulary})
+
 (defn- owl-rules-export
-  "The value of `owl.rules/<sym>` when the pinned org-w3-owl2 defines it
-  (a zero-arity fn is called), else nil. This is the seam a pin bump widens."
+  "The value of `owl.rules/<sym>` (a zero-arity fn is called), else nil."
   [sym]
-  (when-let [v (resolve (symbol "owl.rules" (name sym)))]
-    (let [x @v] (if (fn? x) (x) x))))
+  (when-some [x (get owl-rules-exports sym)]
+    (if (fn? x) (x) x)))
 
 (def rules
   "The rule ids `reason` evaluates, sorted: `owl.rules/supported-rules`
