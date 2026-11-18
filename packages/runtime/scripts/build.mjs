@@ -57,7 +57,10 @@ writeFileSync(join(shim, 'mithril/runtime/build_info.cljs'), `(ns mithril.runtim
 `);
 
 const out = check ? join(pkg, 'build/check') : join(pkg, 'dist');
+// Closure's renaming depends on incremental compilation history, so every build
+// starts from an empty shadow-cljs cache. That makes the bytes reproducible.
 rmSync(join(pkg, 'build/esm'), { recursive: true, force: true });
+rmSync(join(pkg, '.shadow-cljs'), { recursive: true, force: true });
 const build = spawnSync(join(pkg, 'node_modules/.bin/shadow-cljs'), ['release', 'runtime'], { cwd: pkg, stdio: 'inherit' });
 if (build.status !== 0) process.exit(build.status ?? 1);
 
