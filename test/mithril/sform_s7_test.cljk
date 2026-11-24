@@ -1,0 +1,131 @@
+(ns mithril.sform-s7-test
+  (:require [cljs.test :refer [deftest is testing]]
+            [clojure.string :as str]
+            [mithril.module :as module]
+            [mithril.module-lower :as lower]
+            [mithril.form :as form]
+            [mithril.compiler :as compiler]))
+;; --- fixtures (S-form §7) ---
+
+(defn literal [type value] {"@type" "Literal" "datatype" type "value" value})
+(defn local [name] {"@type" "Local" "name" name})
+(def outcome {"@type" "SumType" "name" "Outcome" "cases" ["ok" "err"]})
+(defn enum-case [sum c] {"@type" "EnumCase" "sum" sum "case" c})
+(defn function [name params returns body]
+  {"@type" "Function" "name" name "params" params "returns" returns "body" body})
+(defn document [functions exports]
+  {"@context" "https://mithril.fund/context/module/v1" "@type" "Module"
+   "name" "example" "functions" functions "exports" exports})
+(defn code [doc]
+  (try (module/check-document doc) nil
+    (catch :default e (:mithril/error (ex-data e)))))
+(defn form-code [source opts]
+  (try (form/parse-with-meta source opts) nil
+    (catch :default e (:mithril/error (ex-data e)))))
+
+;; --- §7.1 data conditionals (opt-in, data profile) ---
+
+(deftest data-conditionals-resolve-first-match-with-default
+  (testing "explicit feature set selects the matching clause"
+    (let [result (form/parse-with-meta
+                   "(mithril/form:v1) (mithril/program :id #?(:js \"js\" :default \"def\"))"
+                   {:features #{:js}})]
+      (is (= "js" (get (:document result) "@id")))
+      (is (= "mithril.form/v1" (:version result)))))
+  (testing "default matches when nothing else does"
+    (let [result (form/parse-with-meta
+                   "(mithril/form:v1) (mithril/program :id #?(:mithril \"m\" :default \"d\"))"
+                   {:features #{:kotoba}})]
+      (is (= "d" (get (:document result) "@id")))))
+  (testing "vector feature tests admit any-match"
+    (let [result (form/parse-with-meta
+                   "(mithril/form:v1) (mithril/program :id #?([:rust :py] \"r\" :default \"d\"))"
+                   {:features #{:py}})]
+      (is (= "r" (get (:document result) "@id")))))
+  (testing "the marker alone is trivia for the digest"
+    (is (= (form/parse "(mithril/program :id \"p\")")
+           (form/parse "(mithril/form:v1) (mithril/program :id \"p\")")))))
+
+(deftest data-conditionals-refuse-by-name
+  (testing "no marker, no opt-in"
+    (is (= :mithril.form/reader-cond
+           (form-code "(mithril/program :id #?(:js \"x\"))" {}))))
+  (testing "empty feature set"
+    (is (= :mithril.form/reader-cond
+           (form-code "(mithril/form:v1) (mithril/program :id #?(:js \"x\"))" {}))))
+  (testing "unknown feature"
+    (is (= :mithril.feature/unknown-feature
+           (form-code "(mithril/form:v1) (mithril/program :id #?(:java \"x\"))"
+                      {:features #{:mithril}}))))
+  (testing "no match"
+    (is (= :mithril.feature/no-match
+           (form-code "(mithril/form:v1) (mithril/program :id #?(:js \"x\"))"
+                      {:features #{:mithril}})))))
+
+(deftest data-conditionals-splice-sequential-branches
+  (let [result (form/parse-with-meta
+                 "(mithril/form:v1) (mithril/program :id \"p\" :graph [#?@(:mithril [(owl/class :id \"a\")] :default [])])"
+                 {:features #{:mithril}})]
+    (is (= 1 (count (get (:document result) "@graph")))))
+  (is (= :mithril.feature/splice-arity
+         (form-code "(mithril/form:v1) (mithril/program :id \"p\" :graph [#?@(:mithril \"scalar\" :default [])])"
+                    {:features #{:mithril}}))))
+
+;; --- §7.2 :sum spelling / encoding ---
+
+(deftest sum-type-checks-and-lowers
+  (let [doc (document [(function "main" [] outcome (enum-case outcome "ok"))] ["main"])
+        checked (module/check-document doc)
+        result (lower/lower-document doc)]
+    (is (= [:sum "Outcome" ["ok" "err"]] (get-in checked [:functions 0 :returns])))
+    (is (= :enum-case (get-in checked [:functions 0 :body :op])))
+    (is (str/includes? (:source result) "(variant-new :Outcome :ok)"))
+    (is (str/includes? (:source result) "[:sum Outcome ok err]"))
+    (is (= (:definition-cids checked) (:definition-cids result)))))
+
+(deftest sum-refusals-are-closed
+  (is (= :mithril.module/unknown-case
+         (code (document [(function "main" [] outcome (enum-case outcome "nope"))] []))))
+  (is (= :mithril.module/duplicate-sum-case
+         (code (document [(function "main" [] {"@type" "SumType" "name" "S" "cases" ["a" "a"]}
+                                    (enum-case {"@type" "SumType" "name" "S" "cases" ["a" "a"]} "a"))] []))))
+  (let [match {"@type" "VariantMatch" "scrutinee" (enum-case outcome "ok")
+               "cases" [{"case" "ok" "body" (literal "i64" 1)}]}]
+    (is (= :mithril.module/non-exhaustive-match
+           (code (document [(function "main" [] "i64" match)] []))))
+    (let [ex {"@type" "VariantMatch" "scrutinee" (enum-case outcome "ok")
+              "cases" [{"case" "ok" "body" (literal "i64" 1)}
+                       {"case" "err" "body" (literal "i64" 2)}]}
+          checked (module/check-document (document [(function "main" [] "i64" ex)] ["main"]))
+          result (lower/lower-document (document [(function "main" [] "i64" ex)] ["main"]))]
+      (is (= :i64 (get-in checked [:functions 0 :body :type])))
+      (is (str/includes? (:source result) "(variant-tag"))))
+  (testing "native Amu refuses sums"
+    (is (= :mithril.module/amu-native-type
+           (try (lower/lower-native-document
+                  (document [(function "main" [] outcome (enum-case outcome "ok"))] []))
+                nil
+                (catch :default error (:mithril/error (ex-data error))))))))
+
+;; --- §7.3 Definition CID + receipt pairs ---
+
+(deftest definition-cid-is-over-checked-ir-not-source
+  (let [a (module/check-text "(mithril/module :name \"example\" :exports [\"main\"] :functions [(mithril/function :name \"main\" :params [] :returns \"i64\" :body (mithril/literal :datatype \"i64\" :value 1))])")
+        b (module/check-text "; only whitespace changes\n(mithril/module  :name \"example\"   :exports [\"main\"] :functions [(mithril/function :name \"main\" :params [] :returns \"i64\" :body (mithril/literal :datatype \"i64\" :value 1))])")
+        c (module/check-text "(mithril/module :name \"example\" :exports [\"main\"] :functions [(mithril/function :name \"main\" :params [] :returns \"i64\" :body (mithril/literal :datatype \"i64\" :value 2))])")]
+    (is (= (:definition-cids a) (:definition-cids b)))
+    (is (not= (:definition-cids a) (:definition-cids c)))
+    (is (re-matches #"sha256:[0-9a-f]{64}" (-> a :definition-cids first :cid)))))
+
+(deftest receipts-pair-digest-and-definition-cids
+  (let [result (compiler/run-compiler-stage
+                 "emit-transaction"
+                 {:graph-digest "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                  :goal :goal/test :ontology "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                  :choices [] :definition-cids [{:name "main" :cid "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}]})
+        artifact (:artifact result)]
+    (is (= "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" (:graph-digest artifact)))
+    (is (= [{:name "main" :cid "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}]
+           (:definition-cids artifact)))))
+
+;; --- pure-core / host endgame: documented, no behavior ---

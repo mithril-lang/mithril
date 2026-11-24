@@ -1,7 +1,8 @@
 (ns mithril.module
   "Check inert Mithril modules before lowering. No source evaluation or code emission."
   (:require [clojure.string :as str]
-            [mithril.form :as form]))
+            [mithril.form :as form]
+            [rdf-canon.core :as rc]))
 
 (def ^:private max-depth 64)
 (def ^:private max-nodes 4096)
@@ -46,19 +47,34 @@
 (defn- callable-type? [type]
   (and (vector? type) (= :fn (first type))))
 
+(defn- sum-type? [type]
+  (and (vector? type) (= :sum (first type))))
+
 (defn- type! [value]
   (let [nodes (atom 0)]
     (letfn [(check [value depth]
               (when (or (> depth 16) (> (swap! nodes inc) 64))
                 (fail! :mithril.module/budget "Module type budget exceeded"))
               (if (map? value)
-                (do (shape! value ["@type" "params" "returns"])
-                    (when-not (= "FunctionType" (get value "@type"))
-                      (fail! :mithril.module/unsupported-type "Expected a FunctionType"))
-                    (let [params (get value "params")]
-                      (vector! params 4)
-                      [:fn [(mapv #(check % (inc depth)) params)
-                            (check (get value "returns") (inc depth))]]))
+                (case (get value "@type")
+                  "FunctionType" (do (shape! value ["@type" "params" "returns"])
+                                     (let [params (get value "params")]
+                                       (vector! params 4)
+                                       [:fn [(mapv #(check % (inc depth)) params)
+                                             (check (get value "returns") (inc depth))]]))
+                  "SumType" (do (shape! value ["@type" "name" "cases"])
+                               (let [n (name! (get value "name") false)
+                                     cases (get value "cases")]
+                                 (vector! cases 32)
+                                 (when (empty? cases)
+                                   (fail! :mithril.module/unsupported-type "SumType requires at least one case"))
+                                 (doseq [c cases]
+                                   (when-not (and (string? c) (re-matches #"[A-Za-z_][A-Za-z0-9_]*" c))
+                                     (fail! :mithril.module/unsupported-type "Sum case must be an identifier")))
+                                 (when-not (= (count cases) (count (set cases)))
+                                   (fail! :mithril.module/duplicate-sum-case "Duplicate sum case"))
+                                 [:sum n (vec cases)]))
+                  (fail! :mithril.module/unsupported-type "Expected a FunctionType or SumType"))
                 (or (get {"i64" :i64 "bool" :bool "string" :string "js-value" :js-value} value)
                     (fail! :mithril.module/unsupported-type "Unsupported module type"))))]
       (check value 1))))
@@ -223,6 +239,46 @@
             (fail! :mithril.module/type-mismatch "Module if branch type mismatch"))
           {:op :if :type (:type checked-then) :condition checked-condition
            :then checked-then :else checked-else}))
+    "EnumCase"
+    (do (shape! expr ["@type" "sum" "case"])
+        (let [sum (type! (get expr "sum"))
+              c (name! (get expr "case") false)]
+          (when-not (contains? (set (nth sum 2)) c)
+            (fail! :mithril.module/unknown-case "Enum case is not part of the sum type"))
+          {:op :enum-case :sum sum :case c :type sum}))
+    "VariantMatch"
+    (do (when-not (and (map? expr)
+                       (contains? (set (keys expr)) "@type")
+                       (contains? (set (keys expr)) "scrutinee")
+                       (contains? (set (keys expr)) "cases")
+                       (every? #{"@type" "scrutinee" "cases" "default"} (keys expr)))
+          (fail! :mithril.module/invalid-shape "Unexpected or missing VariantMatch fields"))
+        (let [matched (check-expression (get expr "scrutinee") signatures locals (inc depth) nodes calls)
+              sum (:type matched)]
+          (when-not (sum-type? sum)
+            (fail! :mithril.module/type-mismatch "VariantMatch scrutinee must have a sum type"))
+          (let [raw-cases (get expr "cases")]
+            (vector! raw-cases 32)
+            (let [checked-cases (mapv (fn [c]
+                                        (shape! c ["case" "body"])
+                                        (let [n (name! (get c "case") false)]
+                                          (when-not (contains? (set (nth sum 2)) n)
+                                            (fail! :mithril.module/unknown-case "Match case is not part of the sum type"))
+                                          {:case n :body (check-expression (get c "body") signatures locals (inc depth) nodes calls)})) raw-cases)]
+              (when-not (= (count checked-cases) (count (set (mapv :case checked-cases))))
+                (fail! :mithril.module/duplicate-case "Duplicate match case"))
+              (let [checked-default (when (contains? expr "default")
+                                        (check-expression (get expr "default") signatures locals (inc depth) nodes calls))
+                    body-types (mapv (comp :type :body) checked-cases)
+                    result-type (if (seq body-types) (first body-types) (:type checked-default))]
+                (when-not (every? #(= result-type %) body-types)
+                  (fail! :mithril.module/type-mismatch "VariantMatch branch type mismatch"))
+                (when (and checked-default (not= result-type (:type checked-default)))
+                  (fail! :mithril.module/type-mismatch "VariantMatch default type mismatch"))
+                (when-not (or checked-default (every? (fn [c] (contains? (set (mapv :case checked-cases)) c)) (nth sum 2)))
+                  (fail! :mithril.module/non-exhaustive-match "VariantMatch without a default must cover every sum case"))
+                {:op :variant-match :type result-type :scrutinee matched
+                 :cases checked-cases :default checked-default})))))
     (fail! :mithril.module/invalid-shape "Unknown module expression type")))
 
 (defn- check-export [export]
@@ -231,6 +287,16 @@
         {:name (name! (get export "name") false)
          :target (name! (get export "function") false)})
     (let [name (name! export false)] {:name name :target name})))
+
+(defn- definition-cid
+  "Definition CID over the checked typed IR of one definition (never source
+  bytes, never spans). Two spellings of the same checked definition share a
+  CID; the data tier keeps its sha256 graph digest instead (S-form §7)."
+  [declaration]
+  (str "sha256:" (rc/sha256-hex (str "mithril.definition/v1\n" (:name declaration) "\n"
+                                      (pr-str (:params declaration)) "\n"
+                                      (pr-str (:returns declaration)) "\n"
+                                      (pr-str (:body declaration))))))
 
 (defn check-document
   "Validate all signatures, then bounded bodies, and return deterministic typed IR."
@@ -266,7 +332,8 @@
                             (swap! graph assoc (:name declaration) (vec (sort @calls)))
                             (assoc declaration :body body))) functions declarations)]
           (cond-> {:format :mithril.module/checked-v1 :name module-name :exports public-names
-                   :functions checked :call-graph @graph}
+                   :functions checked :call-graph @graph
+                   :definition-cids (mapv (fn [f] {:name (:name f) :cid (definition-cid f)}) checked)}
             (some map? exports)
             (assoc :export-targets (into {} (map (juxt :name :target) checked-exports))))))))))
 

@@ -33,3 +33,40 @@ line-break        = "\n" | "\r\n" ;
 digit             = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
 hex-digit         = digit | "a"…"f" | "A"…"F" ;
 letter            = "a"…"z" | "A"…"Z" ;
+(* S-form canonical spec §7 (approved package) — additions. The S-form/kir
+   grammar is the canonical spec authority; the EDN catalog is a pinned,
+   machine-checked mirror of this EBNF, never the spec itself.
+   Token layer: the closed Mithril token rules govern (exact bigints, named
+   refusals); this EBNF does not delegate tokens away. IR stays
+   mithril.ir/v1 (additive-only, no bump). *)
+
+versioned-source  = trivia, [ version-marker, trivia ], tagged-form, trivia ;
+version-marker    = "(mithril/form:v1)" ;
+(* The marker is trivia for identity: it never reaches the lowered document
+   or the graph digest. Absence means mithril.form/v0 (existing digests). *)
+
+conditional        = "#?", "(", feature-test, value, { feature-test, value }, ")"
+                   | "#?@", "(", feature-test, value, { feature-test, value }, ")" ;
+feature-test       = keyword | "[", keyword, { keyword }, "]" ;
+(* Data profile only, opt-in: admitted only with the version marker and an
+   explicit feature set; first matching clause wins; :default may also carry
+   other keywords. Native (Amu) profile refuses by name
+   (:mithril.form/reader-cond). @-splicing selects a vector/list branch
+   whose elements splice; never at top level. *)
+
+sum-type           = "[", ":sum", sum-name, sum-case, { sum-case }, "]" ;
+sum-name           = ? identifier naming the sum ? ;
+sum-case           = ? identifier naming one case ? ;
+(* Code-profile type form; sugar over variant-new/variant-match with the
+   same Definition CID. JSON-LD module tier: {"@type":"SumType","name":N,
+   "cases":[C…]}; construction {"@type":"EnumCase","sum":S,"case":C} and
+   matching {"@type":"VariantMatch",…} lower to the v1 EnumCase node.
+   Unknown/duplicate cases and non-exhaustive matches without a default
+   are refused. Native Amu and public-library profiles refuse sums. *)
+
+(* Identity (see docs/language/README.md §7): data identity is the sha256
+   canonical-RDF graph digest; code identity is the Definition CID
+   (sha256 over checked typed IR) — receipts pair CID→digest by name.
+   Pure core: guest surface (defn/call) now; (lam)/(app)/(ref) prospective
+   with a known desugar contract. host-*: capability-typed defn wrappers;
+   FFI stays an IR/backend concern, never a source form. *)
