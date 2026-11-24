@@ -57,13 +57,17 @@ the sum) are refused. Native Amu and public-library profiles refuse sums
 
 Two identities, scoped: data (ontology blocks, data-profile files) keeps
 the `sha256:` canonical-RDF graph digest; each code definition takes a
-Definition CID (`sha256:` over the checked typed IR of the definition —
-parse shape, desugars, types; never source bytes or trivia). Receipts
-(`emit-transaction`) carry both side by side — `:graph-digest` for the data
-tier, `:definition-cids` (`{:name … :cid …}` per definition) for the code
-tier. No unlabeled hash field means one thing on one side and the other on
-the other. Checked modules and their lowerings expose `:definition-cids`;
-digests of existing data files are untouched.
+Definition CID (`sha256:` over the key-sorted canonical projection of the
+checked typed IR of the definition — parse shape, desugars, types; never
+source bytes or trivia). Receipts carry both side by side —
+`:graph-digest` for the data tier, `:definition-cids` (`{:name … :cid …}`
+per definition) for the code tier, attached by `compiler/pair-definition-cids`
+outside the closed bootstrap pipeline (whose `emit-transaction` stage keeps
+its inputs). No unlabeled hash field means one thing on one side and the
+other on the other. Checked modules and their lowerings expose
+`:definition-cids`; digests of existing data files are untouched. A
+Definition CID does not yet fold in its callees' CIDs (a call names its
+callee), so it is not a Merkle identity; that is a follow-up.
 
 ### Pure-core posture
 
