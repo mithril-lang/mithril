@@ -115,17 +115,25 @@
         c (module/check-text "(mithril/module :name \"example\" :exports [\"main\"] :functions [(mithril/function :name \"main\" :params [] :returns \"i64\" :body (mithril/literal :datatype \"i64\" :value 2))])")]
     (is (= (:definition-cids a) (:definition-cids b)))
     (is (not= (:definition-cids a) (:definition-cids c)))
-    (is (re-matches #"sha256:[0-9a-f]{64}" (-> a :definition-cids first :cid)))))
+    (is (re-matches #"sha256:[0-9a-f]{64}" (-> a :definition-cids first :cid))))
+  (testing "field order in the source does not move the CID"
+    (let [a (module/check-text "(mithril/module :name \"example\" :exports [\"main\"] :functions [(mithril/function :name \"main\" :params [] :returns \"i64\" :body (mithril/literal :datatype \"i64\" :value 1))])")
+          b (module/check-text "(mithril/module :functions [(mithril/function :body (mithril/literal :value 1 :datatype \"i64\") :returns \"i64\" :params [] :name \"main\")] :exports [\"main\"] :name \"example\")")]
+      (is (= (:definition-cids a) (:definition-cids b))))))
 
 (deftest receipts-pair-digest-and-definition-cids
-  (let [result (compiler/run-compiler-stage
-                 "emit-transaction"
-                 {:graph-digest "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-                  :goal :goal/test :ontology "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-                  :choices [] :definition-cids [{:name "main" :cid "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}]})
-        artifact (:artifact result)]
+  (let [facts {:graph-digest "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+               :goal :goal/test :ontology "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+               :choices []}
+        emitted (:artifact (compiler/run-compiler-stage "emit-transaction" facts))
+        cids [{:name "main" :cid "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}]
+        artifact (compiler/pair-definition-cids emitted cids)]
+    (testing "the closed pipeline stage keeps its declared inputs"
+      (is (= #{:graph-digest :goal :ontology :choices}
+             (get-in compiler/compiler-stages ["emit-transaction" :inputs])))
+      (is (not (contains? emitted :definition-cids))))
     (is (= "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" (:graph-digest artifact)))
-    (is (= [{:name "main" :cid "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}]
-           (:definition-cids artifact)))))
+    (is (= cids (:definition-cids artifact)))
+    (is (= emitted (compiler/pair-definition-cids emitted [])))))
 
 ;; --- pure-core / host endgame: documented, no behavior ---

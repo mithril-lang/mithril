@@ -1,8 +1,7 @@
 (ns mithril.module
   "Check inert Mithril modules before lowering. No source evaluation or code emission."
   (:require [clojure.string :as str]
-            [mithril.form :as form]
-            [rdf-canon.core :as rc]))
+            [mithril.form :as form]))
 
 (def ^:private max-depth 64)
 (def ^:private max-nodes 4096)
@@ -288,15 +287,27 @@
          :target (name! (get export "function") false)})
     (let [name (name! export false)] {:name name :target name})))
 
+(defn- canonical-value
+  "Order-independent projection of checked IR: maps become key-sorted maps,
+  sets become sorted vectors, so pr-str never depends on construction order."
+  [value]
+  (cond
+    (map? value) (into (sorted-map-by #(compare (pr-str %1) (pr-str %2)))
+                       (map (fn [[k v]] [k (canonical-value v)])) value)
+    (set? value) (mapv canonical-value (sort-by pr-str value))
+    (sequential? value) (mapv canonical-value value)
+    :else value))
+
 (defn- definition-cid
   "Definition CID over the checked typed IR of one definition (never source
   bytes, never spans). Two spellings of the same checked definition share a
-  CID; the data tier keeps its sha256 graph digest instead (S-form §7)."
+  CID; the data tier keeps its sha256 graph digest instead (S-form §7).
+  The IR is canonicalized before hashing. Callee CIDs are not yet folded in
+  (a call names its callee), so this is not a Merkle identity."
   [declaration]
-  (str "sha256:" (rc/sha256-hex (str "mithril.definition/v1\n" (:name declaration) "\n"
-                                      (pr-str (:params declaration)) "\n"
-                                      (pr-str (:returns declaration)) "\n"
-                                      (pr-str (:body declaration))))))
+  (let [text (str "mithril.definition/v1\n"
+                  (pr-str (canonical-value (select-keys declaration [:name :params :returns :body]))))]
+    (str "sha256:" (.digest (.update (.createHash (js/require "crypto") "sha256") text "utf8") "hex"))))
 
 (defn check-document
   "Validate all signatures, then bounded bodies, and return deterministic typed IR."

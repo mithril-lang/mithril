@@ -389,7 +389,16 @@
    "project-jsonld" {:inputs #{:document} :outputs #{:dataset}}
    "canonicalize-rdf" {:inputs #{:dataset} :outputs #{:graph-digest}}
    "admit-vocabulary" {:inputs #{:document} :outputs #{:goal :ontology :choices}}
-   "emit-transaction" {:inputs #{:graph-digest :goal :ontology :choices :definition-cids} :outputs #{:artifact}}})
+   "emit-transaction" {:inputs #{:graph-digest :goal :ontology :choices} :outputs #{:artifact}}})
+
+(defn pair-definition-cids
+  "Receipts carry the two identities of S-form §7 side by side: the data graph
+  digest and, when a code tier was compiled, its per-definition Definition
+  CIDs. No silent dual identity: both keys are named. Kept outside the closed
+  bootstrap pipeline, whose stages never produce Definition CIDs."
+  [artifact definition-cids]
+  (cond-> artifact
+    (seq definition-cids) (assoc :definition-cids (vec definition-cids))))
 
 (defn run-compiler-stage
   "Execute one closed bootstrap primitive; the .mith kernel supplies ordering."
@@ -412,13 +421,9 @@
       (require-ontology! ontology)
       {:goal (short-id goal-iri) :ontology ontology :choices choices})
     "emit-transaction"
-    ;; Receipts carry the two identities of §7 side by side: the data
-    ;; graph digest and, when a code tier was compiled, the per-definition
-    ;; Definition CIDs. No silent dual identity: both keys are named.
-    {:artifact (cond-> {:format "https://mithril.fund/artifact/v1" :media-type media-type
-                        :graph-digest (:graph-digest facts)
-                        :transaction [:oak.transaction/v1 (:goal facts) (:ontology facts) (:choices facts)]}
-                 (:definition-cids facts) (assoc :definition-cids (:definition-cids facts)))}
+    {:artifact {:format "https://mithril.fund/artifact/v1" :media-type media-type
+                :graph-digest (:graph-digest facts)
+                :transaction [:oak.transaction/v1 (:goal facts) (:ontology facts) (:choices facts)]}}
     (fail! :mithril/unknown-compiler-stage "unknown bootstrap compiler stage")))
 
 (defn- compile-export [entry]
