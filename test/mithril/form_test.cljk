@@ -138,7 +138,10 @@
                           ["(mithril/module :score 0x20000000000001)" :mithril.form/i64-string]
                           ["(mithril/module :score 0377)" :mithril.form/unsupported-numeric-literal]
                           ["(mithril/module :score 2r1010)" :mithril.form/unsupported-numeric-literal]
-                          ["(mithril/module :score 0N)" :mithril.form/unsupported-numeric-literal]]]
+                          ["(mithril/module :score 0N)" :mithril.form/unsupported-numeric-literal]
+                          ["(mithril/module :tags [9007199254740993])" :mithril.form/i64-string]
+                          ["(mithril/module :name \"a\" ; note\n :score +0377)" :mithril.form/unsupported-numeric-literal]
+                          ["(mithril/module :name \"a;\",:score 0377)" :mithril.form/unsupported-numeric-literal]]]
     (is (= expected (error-code #(form/parse text))) text))
   (testing "a js-value literal keeps the native double (existing shape)"
     (is (= 1.5 (get (form/parse "(mithril/literal :datatype \"js-value\" :value 1.5)") "value")))
@@ -175,6 +178,16 @@
              ["(mithril/form:v1) (mithril/module :name #? (:js \"j\"))" #{:rust} :mithril.feature/no-match]
              ["(mithril/form:v1) (mithril/module :name #?@ (:js \"not-seq\" :default [\"d\"]))" #{:js} :mithril.feature/splice-arity]]]
       (is (= expected (error-code #(form/parse src {:features features}))) src)))
+  (testing "a comment with no trailing newline inside #?( terminates as unbalanced"
+    (doseq [src ["(mithril/form:v1) #?(:js \"x\" ;)"
+                 "(mithril/form:v1) (mithril/module :name #?(:js \"x\" ;)"]]
+      (is (= :mithril.feature/bad-clause
+             (error-code #(form/parse src {:features #{:js}}))) src)))
+  (testing "comments and strings inside a clause list are skipped, not read"
+    (is (= "x" (get (form/parse "(mithril/form:v1) (mithril/module :name #?(:js \"x\" ; ) \"#?\"\n :default \"d\"))"
+                                {:features #{:js}})
+                    "name")))
+    (is (= "#?(" (get (form/parse "(mithril/module :name \"#?(\") ; #?(:js\n") "name"))))
   (testing "top-level expansion to the wrong form count is named"
     (is (= :mithril.feature/multi-document
            (error-code #(form/parse "(mithril/form:v1) #?@ (:js [(mithril/module :name \"a\") (mithril/module :name \"b\")] :default (mithril/module :name \"d\"))"

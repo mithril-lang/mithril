@@ -611,8 +611,9 @@
             (trivia-char? ch) (recur (inc i))
             :else i))))))
 
-(defn- string-end [text from]
+(defn- string-end
   "Index just past the closing quote at from, or nil when unterminated."
+  [text from]
   (let [n (count text)]
     (loop [j (inc from)]
       (cond (>= j n) nil
@@ -620,9 +621,10 @@
             (= (.charAt text j) "\"") (inc j)
             :else (recur (inc j))))))
 
-(defn- balanced-end [text from]
+(defn- balanced-end
   "Index just past the closer matching the opener at from, or nil. Strings and
   comments inside are skipped, not interpreted."
+  [text from]
   (let [n (count text)]
     (loop [j (inc from) depth 1]
       (if (>= j n) nil
@@ -630,8 +632,8 @@
           (cond
             (= ch "\"") (if-let [e (string-end text j)]
                           (recur e depth) nil)
-            (= ch ";") (recur (if-let [nl (.indexOf text "\n" j)]
-                                (inc nl) n) depth)
+            (= ch ";") (let [nl (.indexOf text "\n" j)]
+                         (recur (if (neg? nl) n (inc nl)) depth))
             (or (= ch "(") (= ch "[") (= ch "{")) (recur (inc j) (inc depth))
             (or (= ch ")") (= ch "]") (= ch "}"))
             (let [d (dec depth)] (if (zero? d) (inc j) (recur (inc j) d)))
@@ -647,9 +649,10 @@
                   (= ch "{") (= ch "}") (= ch "\"") (= ch ";"))
             j (recur (inc j))))))))
 
-(defn- split-top-forms [text from limit]
+(defn- split-top-forms
   "Source substrings of the top-level forms in text[from, limit). A #?/#?@
   conditional is one element, however deeply its clause list nests."
+  [text from limit]
   (loop [i from acc []]
     (let [i (skip-trivia text i)]
       (if (>= i limit) acc
@@ -674,9 +677,10 @@
             :else (let [e (token-end text i limit)]
                     (recur e (conj acc (subs text i e))))))))))
 
-(defn- take-version-marker [text]
+(defn- take-version-marker
   "Strip an optional leading (mithril/form:vN) marker. Returns [version rest].
   The marker is trivia: it never reaches the lowered document or the digest."
+  [text]
   (let [n (count text)
         i (skip-trivia text 0)]
     (if (and (> n (+ i 14)) (= "(mithril/form:" (subs text i (+ i 14))))
@@ -688,21 +692,24 @@
                  (str "unknown Mithril form version: " tag))))
       [legacy-language-version text])))
 
-(defn- find-conditional [text]
-  "Index of the first #? outside strings/comments, or nil."
-  (let [n (count text)]
-    (loop [i 0]
-      (if (>= i (dec n)) nil
-        (let [ch (.charAt text i)]
-          (cond
-            (= ch "\"") (recur (or (string-end text i) n))
-            (= ch ";") (let [nl (.indexOf text "\n" i)]
-                         (recur (if (neg? nl) n (inc nl))))
-            (and (= ch "#") (= (.charAt text (inc i)) "?")) i
-            :else (recur (inc i))))))))
+(def ^:private skipped-text-source
+  "\"(?:[^\"\\\\]|\\\\[\\s\\S])*\"?|;[^\\n]*")
+;; One string literal (to its closing quote, or to the end when unterminated)
+;; or one comment (to the end of its line). Every surface scan skips these
+;; with one native regex pass instead of a per-character loop.
 
-(defn- feature-keywords [src]
+(defn- find-conditional
+  "Index of the first #? outside strings/comments, or nil."
+  [text]
+  (when-not (neg? (.indexOf text "#?"))
+    (let [re (js/RegExp. (str skipped-text-source "|#\\?") "g")]
+      (loop []
+        (when-let [m (.exec re text)]
+          (if (= "#?" (aget m 0)) (.-index m) (recur)))))))
+
+(defn- feature-keywords
   "Keyword vector for one feature-test source; fails on closed-vocab violations."
+  [src]
   (let [parsed (try (reader/read-string src)
                     (catch :default e
                       (fail! :mithril.feature/bad-clause
@@ -718,10 +725,10 @@
     keywords))
 
 (defn- conditional-replacement
-  [text hash-i version features]
   "Resolve the #? or #?@ conditional at hash-i to source text, or refuse.
   Clause list is (test form)*, first matching clause wins, :default matches.
   Returns [replacement close-end]."
+  [text hash-i version features]
   (when-not (= version language-version)
     (fail! :mithril.form/reader-cond
            "reader conditionals (#?) require the (mithril/form:v1) version marker; the native profile refuses them"))
@@ -759,8 +766,10 @@
                  (subs form-src (inc fs) (dec (count form-src))))
                form-src)
              close-end]))))))
-(defn- expand-conditionals [text version features]
+
+(defn- expand-conditionals
   "Expand every #?/#?@ in text against features. Returns [text expanded?]."
+  [text version features]
   (loop [src text expanded? false]
     (let [pos (find-conditional src)]
       (if-not pos [src expanded?]
@@ -768,8 +777,9 @@
           (recur (str (subs src 0 pos) replacement (subs src close-end))
                  true))))))
 
-(defn- over-limit? [digits limit]
+(defn- over-limit?
   "True when the magnitude digit string is strictly greater than limit."
+  [digits limit]
   (or (> (count digits) (count limit))
       (and (= (count digits) (count limit))
            (pos? (compare digits limit)))))
@@ -808,48 +818,49 @@
    "\"" "regex literal (#\"…\")"
    "j" "host literal (#js)"})
 
-(defn- check-surface [text]
+(def ^:private surface-suspect-source
+  (str "(?:^|(?<=[ \\t\\n\\r,(\\[{]))"
+       "(?:[\\^#'`~@]|[+-]?(?:0[0-9xX]|[0-9]+[rRN]|[0-9]{16}))"))
+;; A token start (start of text, or after trivia or an opener, exactly as
+;; trivia-char? and the readers see it) carrying a refused reader idiom or a
+;; numeric literal that check-numeric-token may refuse: leading zero, hex,
+;; radix, N suffix, or at least 16 digits (2^53 has 16; 15 digits are safe).
+
+(defn- check-surface
   "Refuse ^, reader idioms, and wide/malformed integers outside strings and
   comments. Floats pass through: general fields already refuse them via
-  unsupported-value, while a js-value literal keeps native doubles."
-  (let [n (count text)]
-    (loop [i 0]
-      (when (< i n)
-        (let [ch (.charAt text i)
-              token-start? (or (zero? i)
-                               (trivia-char? (.charAt text (dec i)))
-                               (contains? #{"(" "[" "{"} (.charAt text (dec i))))]
-          (cond
-            (= ch "\"") (recur (or (string-end text i) n))
-            (= ch ";") (let [nl (.indexOf text "\n" i)]
-                         (recur (if (neg? nl) n (inc nl))))
-            (and token-start? (= ch "^"))
-            (fail! :mithril.form/metadata
-                   "^-metadata is refused in the fenced data profile; the metadata spelling is :keyword value pairs inside the tagged form")
-            (and token-start? (= ch "#"))
-            (let [nxt (.charAt text (inc i))]
-              (fail! :mithril.form/unsupported-dispatch
-                     (str "reader idiom " (or (get dispatch-idioms nxt) (str "#" nxt))
-                          " is refused in the fenced data profile: no macros, no reader evaluation, no ambient reading")))
-            (and token-start? (= ch "'"))
-            (fail! :mithril.form/unsupported-dispatch
-                   "quote (') is refused in the fenced data profile")
-            (and token-start? (= ch "`"))
-            (fail! :mithril.form/unsupported-dispatch
-                   "syntax-quote (`) is refused in the fenced data profile")
-            (and token-start? (= ch "~"))
-            (fail! :mithril.form/unsupported-dispatch
-                   "unquote (~) is refused in the fenced data profile")
-            (and token-start? (= ch "@"))
-            (fail! :mithril.form/unsupported-dispatch
-                   "deref (@) is refused in the fenced data profile")
-            token-start?
-            (let [e (token-end text i n)]
-              (if (= e i)
-                (recur (inc i))
-                (do (check-numeric-token (subs text i e))
-                    (recur e))))
-            :else (recur (inc i))))))))
+  unsupported-value, while a js-value literal keeps native doubles.
+  Strings and comments are first masked to their opening character (so the
+  token-start context of what follows them is unchanged), then one regex
+  finds the few suspect token starts; ordinary source costs two native
+  regex passes, not a per-character interpreted loop."
+  [text]
+  (let [masked (.replace text (js/RegExp. (str "(?=([\";]))(?:" skipped-text-source ")") "g")
+                         "$1")
+        re (js/RegExp. surface-suspect-source "g")]
+    (loop []
+      (when-let [m (.exec re masked)]
+        (let [i (.-index m)
+              ch (.charAt masked i)]
+          (case ch
+            "^" (fail! :mithril.form/metadata
+                       "^-metadata is refused in the fenced data profile; the metadata spelling is :keyword value pairs inside the tagged form")
+            "#" (let [nxt (.charAt masked (inc i))]
+                  (fail! :mithril.form/unsupported-dispatch
+                         (str "reader idiom " (or (get dispatch-idioms nxt) (str "#" nxt))
+                              " is refused in the fenced data profile: no macros, no reader evaluation, no ambient reading")))
+            "'" (fail! :mithril.form/unsupported-dispatch
+                       "quote (') is refused in the fenced data profile")
+            "`" (fail! :mithril.form/unsupported-dispatch
+                       "syntax-quote (`) is refused in the fenced data profile")
+            "~" (fail! :mithril.form/unsupported-dispatch
+                       "unquote (~) is refused in the fenced data profile")
+            "@" (fail! :mithril.form/unsupported-dispatch
+                       "deref (@) is refused in the fenced data profile")
+            (let [e (token-end masked i (count masked))]
+              (check-numeric-token (subs masked i e))
+              (set! (.-lastIndex re) e)
+              (recur))))))))
 
 (defn parse-with-meta
   "Read exactly one inert Mithril form and lower it to the JSON-LD document
