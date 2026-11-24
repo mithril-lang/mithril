@@ -1,13 +1,65 @@
 (ns mithril.form
-  "Fail-closed Kotoba-shaped S-expression surface for Mithril.
+  "Fail-closed Kotoba-shaped S-expression surface for Mithril (fenced data
+  profile, mithril.form/v1).
 
   Forms are inert data. They lower to the same pinned JSON-LD document used by
   the compatibility reader; no form is evaluated and no host namespace is
-  resolved."
+  resolved.
+
+  Named reader refusals (fail-closed, never silent; pinned by form_test):
+   - ^-metadata                 :mithril.form/metadata
+                                Metadata is :keyword value pairs inside the
+                                tagged form; ^ attaches nothing at lower time.
+   - wide / malformed integers  :mithril.form/i64-string,
+                                :mithril.form/unsupported-numeric-literal
+                                Integers are exactly representable JS numbers
+                                in [-2^53, 2^53]; wider i64 spells decimal
+                                strings (module i64! precedent).
+   - #?/#?@ in the native       :mithril.form/reader-cond
+     profile                    Admitted only under the (mithril/form:v1)
+                                version marker with an explicit feature set;
+                                resolved at read time, never by backends.
+   - .cljc idioms the native    :mithril.form/unsupported-dispatch
+     (kotoba) profile refuses   Reader evaluation (#=), discard (#_),
+                                fn/var/regex shorthand (#(, #', #\", #js),
+                                quote/syntax-quote/unquote (#', `, ~, ~@)
+                                and deref (@). Ambient Clojure heads
+                                (defmacro, require/use/import/load/eval) fail
+                                unknown-tag like any unlisted tag: there is
+                                no macro system, no host require, no eval.
+
+  The data profile admits only .mith (this surface) and JSON-LD; it is never
+  .cljc/.cljk/.clj/.cljs source and never pretends to be (Amu native admits
+  only .kotoba; those extensions are :retired-source there)."
   (:require [cljs.reader :as reader]
             [clojure.string :as str]))
 
 (def media-type "application/vnd.mithril.form")
+
+(def language-version "mithril.form/v1")
+;; v1 is Mithril form 1.0: additive-only within v1; a new top-level tag,
+;; a new field on a tag, or a new type constructor is a major change (v2).
+
+(def legacy-language-version "mithril.form/v0")
+;; Absence of the version marker: every shipped corpus file, unchanged digest.
+
+(def kotoba-profile-version 6)
+;; guest-grammar profile-version this surface lowers to (lowering contract:
+;; docs/lowering-contract.md).
+
+(def version-marker "(mithril/form:v1)")
+
+(def ^:private feature-vocabulary #{:mithril :js :rust :py :kotoba :default})
+;; Closed reader-conditional features. A test is a keyword or a sequence of
+;; keywords (any-match); :default always matches. First match wins.
+
+(def ^:private safe-int-limit "9007199254740992")
+;; 2^53: every integer in [-2^53, 2^53] is exactly representable as the JS
+;; number cljs.reader produces; anything wider rounds and is refused by name.
+
+(def ^:private safe-int-limit-hex "20000000000000")
+;; Same bound for 0x integers (2^53 in hex).
+
 
 (def ^:private top-level-tags
   {'mithril/program "Program"
@@ -545,16 +597,294 @@
 
       :else (fail! :mithril.form/unknown-tag (str "unknown Mithril form tag: " tag)))))
 
+(defn- trivia-char? [ch]
+  (or (= ch " ") (= ch "\t") (= ch "\n") (= ch "\r") (= ch ",")))
+
+(defn- skip-trivia [text from]
+  (let [n (count text)]
+    (loop [i from]
+      (if (>= i n) i
+        (let [ch (.charAt text i)]
+          (cond
+            (= ch ";") (let [nl (.indexOf text "\n" i)]
+                         (recur (if (neg? nl) n (inc nl))))
+            (trivia-char? ch) (recur (inc i))
+            :else i))))))
+
+(defn- string-end [text from]
+  "Index just past the closing quote at from, or nil when unterminated."
+  (let [n (count text)]
+    (loop [j (inc from)]
+      (cond (>= j n) nil
+            (= (.charAt text j) "\\") (recur (+ j 2))
+            (= (.charAt text j) "\"") (inc j)
+            :else (recur (inc j))))))
+
+(defn- balanced-end [text from]
+  "Index just past the closer matching the opener at from, or nil. Strings and
+  comments inside are skipped, not interpreted."
+  (let [n (count text)]
+    (loop [j (inc from) depth 1]
+      (if (>= j n) nil
+        (let [ch (.charAt text j)]
+          (cond
+            (= ch "\"") (if-let [e (string-end text j)]
+                          (recur e depth) nil)
+            (= ch ";") (recur (if-let [nl (.indexOf text "\n" j)]
+                                (inc nl) n) depth)
+            (or (= ch "(") (= ch "[") (= ch "{")) (recur (inc j) (inc depth))
+            (or (= ch ")") (= ch "]") (= ch "}"))
+            (let [d (dec depth)] (if (zero? d) (inc j) (recur (inc j) d)))
+            :else (recur (inc j) depth)))))))
+
+(defn- token-end [text from limit]
+  (let [n (min limit (count text))]
+    (loop [j from]
+      (if (>= j n) j
+        (let [ch (.charAt text j)]
+          (if (or (trivia-char? ch)
+                  (= ch "(") (= ch ")") (= ch "[") (= ch "]")
+                  (= ch "{") (= ch "}") (= ch "\"") (= ch ";"))
+            j (recur (inc j))))))))
+
+(defn- split-top-forms [text from limit]
+  "Source substrings of the top-level forms in text[from, limit). A #?/#?@
+  conditional is one element, however deeply its clause list nests."
+  (loop [i from acc []]
+    (let [i (skip-trivia text i)]
+      (if (>= i limit) acc
+        (let [ch (.charAt text i)]
+          (cond
+            (and (= ch "#") (< (inc i) limit) (= "?" (.charAt text (inc i))))
+            (let [splicing? (= "@" (.charAt text (+ i 2)))
+                  open (skip-trivia text (+ i (if splicing? 3 2)))
+                  e (balanced-end text open)]
+              (when-not (and e (<= e limit))
+                (fail! :mithril.feature/bad-clause "unbalanced conditional clause"))
+              (recur e (conj acc (subs text i e))))
+            (or (= ch "(") (= ch "[") (= ch "{"))
+            (let [e (balanced-end text i)]
+              (when-not (and e (<= e limit))
+                (fail! :mithril.feature/bad-clause "unbalanced conditional clause"))
+              (recur e (conj acc (subs text i e))))
+            (= ch "\"")
+            (let [e (string-end text i)]
+              (when-not e (fail! :mithril.form/read-error "unterminated string"))
+              (recur e (conj acc (subs text i e))))
+            :else (let [e (token-end text i limit)]
+                    (recur e (conj acc (subs text i e))))))))))
+
+(defn- take-version-marker [text]
+  "Strip an optional leading (mithril/form:vN) marker. Returns [version rest].
+  The marker is trivia: it never reaches the lowered document or the digest."
+  (let [n (count text)
+        i (skip-trivia text 0)]
+    (if (and (> n (+ i 14)) (= "(mithril/form:" (subs text i (+ i 14))))
+      (let [close (.indexOf text ")" i)
+            tag (when (pos? close) (subs text (inc i) close))]
+        (if (= "mithril/form:v1" tag)
+          [language-version (subs text (inc close))]
+          (fail! :mithril.form/unknown-version
+                 (str "unknown Mithril form version: " tag))))
+      [legacy-language-version text])))
+
+(defn- find-conditional [text]
+  "Index of the first #? outside strings/comments, or nil."
+  (let [n (count text)]
+    (loop [i 0]
+      (if (>= i (dec n)) nil
+        (let [ch (.charAt text i)]
+          (cond
+            (= ch "\"") (recur (or (string-end text i) n))
+            (= ch ";") (let [nl (.indexOf text "\n" i)]
+                         (recur (if (neg? nl) n (inc nl))))
+            (and (= ch "#") (= (.charAt text (inc i)) "?")) i
+            :else (recur (inc i))))))))
+
+(defn- feature-keywords [src]
+  "Keyword vector for one feature-test source; fails on closed-vocab violations."
+  (let [parsed (try (reader/read-string src)
+                    (catch :default e
+                      (fail! :mithril.feature/bad-clause
+                             (str "malformed feature test: " src))))
+        keywords (cond (keyword? parsed) [parsed]
+                       (sequential? parsed) (vec parsed)
+                       :else nil)]
+    (when-not (and keywords (seq keywords) (every? keyword? keywords))
+      (fail! :mithril.feature/bad-clause (str "malformed feature test: " src)))
+    (doseq [k keywords]
+      (when-not (contains? feature-vocabulary k)
+        (fail! :mithril.feature/unknown-feature (str "unknown feature test: " k))))
+    keywords))
+
+(defn- conditional-replacement
+  [text hash-i version features]
+  "Resolve the #? or #?@ conditional at hash-i to source text, or refuse.
+  Clause list is (test form)*, first matching clause wins, :default matches.
+  Returns [replacement close-end]."
+  (when-not (= version language-version)
+    (fail! :mithril.form/reader-cond
+           "reader conditionals (#?) require the (mithril/form:v1) version marker; the native profile refuses them"))
+  (when (empty? features)
+    (fail! :mithril.form/reader-cond
+           "reader conditionals (#?) require an explicit feature set, e.g. {:features #{:js}}; the native profile refuses them"))
+  (let [splicing? (= "@" (.charAt text (+ hash-i 2)))
+        open (skip-trivia text (+ hash-i (if splicing? 3 2)))]
+    (when-not (and (< open (count text)) (= "(" (.charAt text open)))
+      (fail! :mithril.feature/bad-clause "reader conditional must be followed by a clause list"))
+    (let [close-end (balanced-end text open)]
+      (when-not close-end
+        (fail! :mithril.feature/bad-clause "unbalanced reader conditional"))
+      (let [elements (split-top-forms text (inc open) (dec close-end))]
+        (when-not (and (seq elements) (even? (count elements)))
+          (fail! :mithril.feature/bad-clause
+                 "reader conditional requires feature/expression pairs"))
+        (let [pairs (partition 2 elements)
+              tests (mapv #(feature-keywords (first %)) pairs)
+              match-idx (first (filter (fn [i]
+                                         (let [ks (nth tests i)]
+                                           (or (some #(= :default %) ks)
+                                               (some features ks))))
+                                       (range (count pairs))))]
+          (when-not match-idx
+            (fail! :mithril.feature/no-match
+                   "no reader-conditional clause matches the selected feature set"))
+          (let [form-src (second (nth pairs match-idx))]
+            [(if splicing?
+               (let [fs (skip-trivia form-src 0)]
+                 (when-not (and (< fs (count form-src))
+                               (contains? #{"[" "("} (.charAt form-src fs)))
+                   (fail! :mithril.feature/splice-arity
+                          "#?@ selected form must be a vector or list whose elements splice"))
+                 (subs form-src (inc fs) (dec (count form-src))))
+               form-src)
+             close-end]))))))
+(defn- expand-conditionals [text version features]
+  "Expand every #?/#?@ in text against features. Returns [text expanded?]."
+  (loop [src text expanded? false]
+    (let [pos (find-conditional src)]
+      (if-not pos [src expanded?]
+        (let [[replacement close-end] (conditional-replacement src pos version features)]
+          (recur (str (subs src 0 pos) replacement (subs src close-end))
+                 true))))))
+
+(defn- over-limit? [digits limit]
+  "True when the magnitude digit string is strictly greater than limit."
+  (or (> (count digits) (count limit))
+      (and (= (count digits) (count limit))
+           (pos? (compare digits limit)))))
+
+(defn- check-numeric-token [token]
+  (cond
+    (re-matches #"^[+-]?0[xX][0-9a-fA-F]+$" token)
+    (let [digits (str/upper-case (subs token (if (contains? #{"+" "-"} (subs token 0 1)) 3 2)))
+          digits (loop [d digits]
+                   (if (and (> (count d) 1) (= "0" (subs d 0 1))) (recur (subs d 1)) d))]
+      (when (over-limit? digits safe-int-limit-hex)
+        (fail! :mithril.form/i64-string
+               (str "integer literal " token " is outside the safe range [-2^53, 2^53]; write i64 values as canonical decimal strings"))))
+    (re-matches #"^[+-]?0[0-9]+$" token)
+    (fail! :mithril.form/unsupported-numeric-literal
+           "a leading zero is not an octal prefix in Mithril form")
+    (re-matches #"^[0-9]+[rR][0-9A-Za-z]+$" token)
+    (fail! :mithril.form/unsupported-numeric-literal
+           (str "unsupported numeric literal: " token))
+    (re-matches #"^[0-9]+N$" token)
+    (fail! :mithril.form/unsupported-numeric-literal
+           (str "unsupported numeric literal: " token))
+    (re-matches #"^[+-]?[0-9]+$" token)
+    (let [digits (cond-> token
+                   (contains? #{"+" "-"} (subs token 0 1)) (subs 1))]
+      (when (over-limit? digits safe-int-limit)
+        (fail! :mithril.form/i64-string
+               (str "integer literal " token " is outside the safe range [-2^53, 2^53]; write i64 values as canonical decimal strings"))))
+    :else nil))
+
+(def dispatch-idioms
+  {"=" "reader evaluation (#=)"
+   "_" "discard (#_)"
+   "(" "fn shorthand (#()"
+   "'" "var-quote (#')"
+   "\"" "regex literal (#\"…\")"
+   "j" "host literal (#js)"})
+
+(defn- check-surface [text]
+  "Refuse ^, reader idioms, and wide/malformed integers outside strings and
+  comments. Floats pass through: general fields already refuse them via
+  unsupported-value, while a js-value literal keeps native doubles."
+  (let [n (count text)]
+    (loop [i 0]
+      (when (< i n)
+        (let [ch (.charAt text i)
+              token-start? (or (zero? i)
+                               (trivia-char? (.charAt text (dec i)))
+                               (contains? #{"(" "[" "{"} (.charAt text (dec i))))]
+          (cond
+            (= ch "\"") (recur (or (string-end text i) n))
+            (= ch ";") (let [nl (.indexOf text "\n" i)]
+                         (recur (if (neg? nl) n (inc nl))))
+            (and token-start? (= ch "^"))
+            (fail! :mithril.form/metadata
+                   "^-metadata is refused in the fenced data profile; the metadata spelling is :keyword value pairs inside the tagged form")
+            (and token-start? (= ch "#"))
+            (let [nxt (.charAt text (inc i))]
+              (fail! :mithril.form/unsupported-dispatch
+                     (str "reader idiom " (or (get dispatch-idioms nxt) (str "#" nxt))
+                          " is refused in the fenced data profile: no macros, no reader evaluation, no ambient reading")))
+            (and token-start? (= ch "'"))
+            (fail! :mithril.form/unsupported-dispatch
+                   "quote (') is refused in the fenced data profile")
+            (and token-start? (= ch "`"))
+            (fail! :mithril.form/unsupported-dispatch
+                   "syntax-quote (`) is refused in the fenced data profile")
+            (and token-start? (= ch "~"))
+            (fail! :mithril.form/unsupported-dispatch
+                   "unquote (~) is refused in the fenced data profile")
+            (and token-start? (= ch "@"))
+            (fail! :mithril.form/unsupported-dispatch
+                   "deref (@) is refused in the fenced data profile")
+            token-start?
+            (let [e (token-end text i n)]
+              (if (= e i)
+                (recur (inc i))
+                (do (check-numeric-token (subs text i e))
+                    (recur e))))
+            :else (recur (inc i))))))))
+
+(defn parse-with-meta
+  "Read exactly one inert Mithril form and lower it to the JSON-LD document
+  model. Wrapping in a vector makes trailing second forms observable.
+  Returns {:document doc :version language-version :kotoba-profile 6
+  :features #{...}}. The document never carries the version marker: dead
+  digests stay dead. opts {:features #{:js ...}} is the opt-in that admits
+  reader conditionals (with the (mithril/form:v1) marker); default is the
+  native profile, which refuses them."
+  ([text] (parse-with-meta text {}))
+  ([text opts]
+   (try
+     (let [[version rest] (take-version-marker text)
+           features (set (or (:features opts) []))
+           [expanded expanded?] (expand-conditionals rest version features)
+           _ (check-surface expanded)
+           forms (reader/read-string (str "[" expanded "\n]"))]
+       (cond
+         (and expanded? (zero? (count forms)))
+         (fail! :mithril.feature/empty-document "reader conditional resolved to zero top-level forms")
+         (and expanded? (> (count forms) 1))
+         (fail! :mithril.feature/multi-document "reader conditional resolved to more than one top-level form")
+         (not= 1 (count forms))
+         (fail! :mithril.form/form-count "Mithril source must contain exactly one form")
+         :else {:document (lower-form (first forms))
+                :version version
+                :kotoba-profile kotoba-profile-version
+                :features features}))
+     (catch :default error
+       (if (:mithril/error (ex-data error))
+         (throw error)
+         (fail! :mithril.form/read-error (or (.-message error) "invalid Mithril form")))))))
+
 (defn parse
   "Read exactly one inert Mithril form and lower it to the JSON-LD document
   model. Wrapping in a vector makes trailing second forms observable."
-  [text]
-  (try
-    (let [forms (reader/read-string (str "[" text "\n]"))]
-      (when-not (= 1 (count forms))
-        (fail! :mithril.form/form-count "Mithril source must contain exactly one form"))
-      (lower-form (first forms)))
-    (catch :default error
-      (if (:mithril/error (ex-data error))
-        (throw error)
-        (fail! :mithril.form/read-error (or (.-message error) "invalid Mithril form"))))))
+  ([text] (parse text {}))
+  ([text opts] (:document (parse-with-meta text opts))))

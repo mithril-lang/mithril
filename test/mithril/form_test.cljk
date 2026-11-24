@@ -76,3 +76,109 @@
   (testing "duplicate fields are rejected"
     (is (= :mithril.form/duplicate-field
            (error-code #(compiler/parse-source "(mithril/app :name \"a\" :name \"b\")"))))))
+
+(deftest language-version-marker-and-provenance
+  (testing "absent marker parses as mithril.form/v0"
+    (is (= "mithril.form/v0"
+           (:version (form/parse-with-meta "(mithril/module :name \"x\")"))))
+    (is (= 6 (:kotoba-profile (form/parse-with-meta "(mithril/module :name \"x\")")))))
+  (testing "present marker parses as mithril.form/v1 and is trivia"
+    (let [bare (form/parse "(mithril/program :id \"https://mithril.fund/id/p\")")
+          marked (form/parse-with-meta "(mithril/form:v1)\n(mithril/program :id \"https://mithril.fund/id/p\")")]
+      (is (= "mithril.form/v1" (:version marked)))
+      (is (= bare (:document marked)))
+      (is (= (compiler/graph-digest bare)
+             (compiler/graph-digest (:document marked)))
+          "the marker never moves the graph digest")))
+  (testing "unknown versions refuse, never best-guess"
+    (is (= :mithril.form/unknown-version
+           (error-code #(form/parse "(mithril/form:v2) (mithril/module)")))))
+  (testing "marker does not license a second form"
+    (is (= :mithril.form/form-count
+           (error-code #(form/parse "(mithril/form:v1) (mithril/module) (mithril/module)")))))
+  (testing "marker with trivia around it still counts"
+    (is (= "mithril.form/v1"
+           (:version (form/parse-with-meta "; lead-in\n(mithril/form:v1) ; marker\n(mithril/module :name \"x\")"))))))
+
+(deftest native-profile-reader-refusals
+  ;; The native (default) profile refuses every ambient reader idiom by name.
+  (doseq [[text expected] [["^:private (mithril/module :name \"x\")" :mithril.form/metadata]
+                          ["(mithril/module :body ^x foo)" :mithril.form/metadata]
+                          ["(mithril/module :body 'x)" :mithril.form/unsupported-dispatch]
+                          ["(mithril/module :body `x)" :mithril.form/unsupported-dispatch]
+                          ["(mithril/module :body ~x)" :mithril.form/unsupported-dispatch]
+                          ["@x" :mithril.form/unsupported-dispatch]
+                          ["(mithril/module :body #=x)" :mithril.form/unsupported-dispatch]
+                          ["(mithril/module :body #(%1))" :mithril.form/unsupported-dispatch]
+                          ["(mithril/module #_ :name :name \"x\")" :mithril.form/unsupported-dispatch]
+                          ["(read-cond :js (mithril/module :name \"x\"))" :mithril.form/unknown-tag]
+                          ["(mithril/form:v1) (mithril/module :name #? (:js \"j\" :default \"d\"))" :mithril.form/reader-cond]
+                          ["(mithril/module :name #? (:js \"j\" :default \"d\"))" :mithril.form/reader-cond]]]
+    (is (= expected (error-code #(form/parse text))) text))
+  (testing "idiom text inside strings and comments is inert data"
+    (is (= "a^b #? (~)"
+           (get (form/parse "(mithril/module :name \"a^b #? (~)\")") "name")))
+    (is (= "x" (get (form/parse "(mithril/module :name \"x\") ; ^:private #? foo") "name"))))
+  (testing "opt-in features without the marker still refuse"
+    (is (= :mithril.form/reader-cond
+           (error-code #(form/parse "(mithril/module :name #? (:js \"j\" :default \"d\"))"
+                                  {:features #{:js}}))))
+  (testing "the marker without a feature set still refuses"
+    (is (= :mithril.form/reader-cond
+           (error-code #(form/parse "(mithril/form:v1) (mithril/module :name #? (:js \"j\" :default \"d\"))"
+                                  {:features #{}})))))))
+
+(deftest integer-width-and-numeric-literals
+  (testing "every exactly representable integer parses"
+    (is (= 9007199254740992 (get (form/parse "(mithril/module :score 9007199254740992)") "score")))
+    (is (= -9007199254740992 (get (form/parse "(mithril/module :score -9007199254740992)") "score")))
+    (is (= 255 (get (form/parse "(mithril/module :score 0xFF)") "score"))))
+  (doseq [[text expected] [["(mithril/module :score 9007199254740993)" :mithril.form/i64-string]
+                          ["(mithril/module :score -9007199254740993)" :mithril.form/i64-string]
+                          ["(mithril/module :score 0x20000000000001)" :mithril.form/i64-string]
+                          ["(mithril/module :score 0377)" :mithril.form/unsupported-numeric-literal]
+                          ["(mithril/module :score 2r1010)" :mithril.form/unsupported-numeric-literal]
+                          ["(mithril/module :score 0N)" :mithril.form/unsupported-numeric-literal]]]
+    (is (= expected (error-code #(form/parse text))) text))
+  (testing "a js-value literal keeps the native double (existing shape)"
+    (is (= 1.5 (get (form/parse "(mithril/literal :datatype \"js-value\" :value 1.5)") "value")))
+    (is (= :mithril.form/unsupported-value
+           (error-code #(form/parse "(mithril/module :score 1.5)")))))
+  (testing "digits inside strings are data, never literals"
+    (is (= "9007199254740993" (get (form/parse "(mithril/module :name \"9007199254740993\")") "name")))))
+
+(deftest opt-in-reader-conditionals
+  (testing "first match wins; :default is the fallthrough"
+    (let [src "(mithril/form:v1) (mithril/module :name #? (:js \"j\" :default \"d\"))"]
+      (is (= "j" (get (form/parse src {:features #{:js}}) "name")))
+      (is (= "d" (get (form/parse src {:features #{:rust}}) "name")))))
+  (testing "sequence tests match on any member"
+    (let [src "(mithril/form:v1) (mithril/module :name #? ([:js :rust] \"x\" :default \"y\"))"]
+      (is (= "x" (get (form/parse src {:features #{:rust :py}}) "name")))
+      (is (= "y" (get (form/parse src {:features #{:py}}) "name")))))
+  (testing "top-level and nested conditionals resolve at read time"
+    (let [src "(mithril/form:v1) #? (:js (mithril/module :name \"j\") :default (mithril/module :name \"d\"))"]
+      (is (= "j" (get (form/parse src {:features #{:js}}) "name")))
+      (is (= "d" (get (form/parse src {:features #{:kotoba}}) "name"))))
+    (let [src "(mithril/form:v1) (mithril/module :name #? (:js #? (:rust \"in\" :default \"j\") :default \"d\"))"]
+      (is (= "in" (get (form/parse src {:features #{:js :rust}}) "name")))
+      (is (= "j" (get (form/parse src {:features #{:js}}) "name")))))
+  (testing "#?@ splices the selected vector's elements"
+    (let [src "(mithril/form:v1) (mithril/module :name \"x\" :exports [ #?@ (:js [\"a\" \"b\"] :default [\"d\"]) ])"]
+      (is (= ["a" "b"] (get (form/parse src {:features #{:js}}) "exports")))
+      (is (= ["d"] (get (form/parse src {:features #{:py}}) "exports")))))
+  (testing "clause and feature vocabulary failures are named"
+    (doseq [[src features expected]
+            [["(mithril/form:v1) (mithril/module :name #? (:js \"j\" :default))" #{:js} :mithril.feature/bad-clause]
+             ["(mithril/form:v1) (mithril/module :name #? ())" #{:js} :mithril.feature/bad-clause]
+             ["(mithril/form:v1) (mithril/module :name #? (:cobol \"j\" :default \"d\"))" #{:js} :mithril.feature/unknown-feature]
+             ["(mithril/form:v1) (mithril/module :name #? (:js \"j\"))" #{:rust} :mithril.feature/no-match]
+             ["(mithril/form:v1) (mithril/module :name #?@ (:js \"not-seq\" :default [\"d\"]))" #{:js} :mithril.feature/splice-arity]]]
+      (is (= expected (error-code #(form/parse src {:features features}))) src)))
+  (testing "top-level expansion to the wrong form count is named"
+    (is (= :mithril.feature/multi-document
+           (error-code #(form/parse "(mithril/form:v1) #?@ (:js [(mithril/module :name \"a\") (mithril/module :name \"b\")] :default (mithril/module :name \"d\"))"
+                                 {:features #{:js}}))))
+    (is (= :mithril.feature/empty-document
+           (error-code #(form/parse "(mithril/form:v1) #?@ (:js [] :default (mithril/module :name \"d\"))"
+                                  {:features #{:js}}))))))
