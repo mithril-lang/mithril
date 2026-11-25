@@ -1,0 +1,145 @@
+# workspace-ops-v1 P3 FIRST REALISTIC EXAMPLE: ZDR on api.mithril.fund.
+# `mithril reason` must exit 0 (CONFORMS). This is a NEW file; it does NOT
+# replace test/fixtures/workspace-ops/conforming.nq (the P0 skeleton).
+# Scope: workspace fund-mithril (organization), staging environment only.
+# No contract bodies (Agreement names are human-approved SUMMARY labels only),
+# no PII (Parties are legal entities; humans are PartyRole role kinds only),
+# no secret values (SecretRef is name + location only; names are illustrative
+# and must be confirmed from wrangler.jsonc before any staging ingestion).
+# Owner decisions encoded below (Item 321, 2026-11-25): safety retention
+# recognized as ZDR-with-exception (NOT ZDR-only; account not set to ZDR-only),
+# qwen3.8-27b switched off as a default target, Norbert (Xiaomi-pinned) only
+# via DeepInfra/PrimaLabs under ZDR, DeepInfra preferred with ZDR-only
+# fallback, non-ZDR routes and fallbacks fail-closed.
+# UNCERTAIN (not measured, must not be read as proof):
+#  - Evidence nodes are kind-assertions (slots), NOT measurement records.
+#    Their names say "unmeasured". No ZDR measurement exists in this repo.
+#  - Term dates 2026-01-01 / 2027-01-01 are illustrative placeholders
+#    (same values as conforming.nq); steward must confirm real dates.
+#  - Deployment gitSha is a 40-hex placeholder, not a real deployment.
+<urn:wops-zdr:ws-fund-mithril> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Workspace> .
+<urn:wops-zdr:ws-fund-mithril> <https://mithril.fund/ns/workspace-ops/v1#workspaceId> "fund-mithril" .
+<urn:wops-zdr:ws-fund-mithril> <https://mithril.fund/ns/workspace-ops/v1#workspaceKind> "organization" .
+<urn:wops-zdr:ws-fund-mithril> <https://mithril.fund/ns/workspace-ops/v1#billingAccountRef> "billing-ref-0001" .
+# Private named graph for this workspace only.
+<urn:wops-zdr:graph> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#WorkspaceGraph> .
+<urn:wops-zdr:graph> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops-zdr:ws-fund-mithril> .
+<urn:wops-zdr:graph> <https://mithril.fund/ns/workspace-ops/v1#graphIri> "graph/fund-mithril" .
+<urn:wops-zdr:graph> <https://mithril.fund/ns/workspace-ops/v1#visibility> "private" .
+# Staging environment + placeholder deployment (gitSha is illustrative).
+<urn:wops-zdr:env-staging> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Environment> .
+<urn:wops-zdr:env-staging> <https://mithril.fund/ns/workspace-ops/v1#environmentCode> "staging" .
+<urn:wops-zdr:dep-staging> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Deployment> .
+<urn:wops-zdr:dep-staging> <https://mithril.fund/ns/workspace-ops/v1#gitSha> "0123456789abcdef0123456789abcdef01234567" .
+<urn:wops-zdr:dep-staging> <https://mithril.fund/ns/workspace-ops/v1#deployVersion> "2026.11.25" .
+<urn:wops-zdr:dep-staging> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops-zdr:ws-fund-mithril> .
+# Inference service behind api.mithril.fund (Implementation).
+<urn:wops-zdr:svc-inference> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Service> .
+<urn:wops-zdr:svc-inference> <https://mithril.fund/ns/workspace-ops/v1#name> "api.mithril.fund inference service" .
+<urn:wops-zdr:svc-inference> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops-zdr:ws-fund-mithril> .
+<urn:wops-zdr:svc-inference> <https://mithril.fund/ns/workspace-ops/v1#environment> <urn:wops-zdr:env-staging> .
+<urn:wops-zdr:svc-inference> <https://mithril.fund/ns/workspace-ops/v1#deployment> <urn:wops-zdr:dep-staging> .
+# Inference route (Implementation). Host is a public hostname, not PII.
+<urn:wops-zdr:route-inference> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Route> .
+<urn:wops-zdr:route-inference> <https://mithril.fund/ns/workspace-ops/v1#routeHost> "api.mithril.fund" .
+<urn:wops-zdr:route-inference> <https://mithril.fund/ns/workspace-ops/v1#routePath> "/v1" .
+<urn:wops-zdr:route-inference> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops-zdr:ws-fund-mithril> .
+<urn:wops-zdr:route-inference> <https://mithril.fund/ns/workspace-ops/v1#targetService> <urn:wops-zdr:svc-inference> .
+# Inference operation (Implementation).
+<urn:wops-zdr:op-inference> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#ApiOperation> .
+<urn:wops-zdr:op-inference> <https://mithril.fund/ns/workspace-ops/v1#name> "Inference (chat completions)" .
+<urn:wops-zdr:op-inference> <https://mithril.fund/ns/workspace-ops/v1#operationId> "inferChat" .
+<urn:wops-zdr:op-inference> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops-zdr:ws-fund-mithril> .
+# Names only: SecretRef must NOT carry a value property (closed shape).
+<urn:wops-zdr:secret-deepinfra> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#SecretRef> .
+<urn:wops-zdr:secret-deepinfra> <https://mithril.fund/ns/workspace-ops/v1#secretName> "DEEPINFRA_API_KEY" .
+<urn:wops-zdr:secret-deepinfra> <https://mithril.fund/ns/workspace-ops/v1#secretLocation> "cloudflare-secret" .
+<urn:wops-zdr:secret-deepinfra> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops-zdr:ws-fund-mithril> .
+# Agreement: human-approved SUMMARY label only; no contract body.
+<urn:wops-zdr:agreement-dpa> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Agreement> .
+<urn:wops-zdr:agreement-dpa> <https://mithril.fund/ns/workspace-ops/v1#name> "Inference provider DPA (summary only)" .
+<urn:wops-zdr:agreement-dpa> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops-zdr:ws-fund-mithril> .
+# Parties: legal entities only (sub-processors + the workspace owner). No personal names.
+<urn:wops-zdr:party-deepinfra> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Party> .
+<urn:wops-zdr:party-deepinfra> <https://mithril.fund/ns/workspace-ops/v1#name> "DeepInfra" .
+<urn:wops-zdr:party-deepinfra> <https://mithril.fund/ns/workspace-ops/v1#partyKind> "sub-processor" .
+<urn:wops-zdr:party-deepinfra> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops-zdr:ws-fund-mithril> .
+<urn:wops-zdr:party-openrouter> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Party> .
+<urn:wops-zdr:party-openrouter> <https://mithril.fund/ns/workspace-ops/v1#name> "OpenRouter" .
+<urn:wops-zdr:party-openrouter> <https://mithril.fund/ns/workspace-ops/v1#partyKind> "sub-processor" .
+<urn:wops-zdr:party-openrouter> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops-zdr:ws-fund-mithril> .
+<urn:wops-zdr:party-xiaomi> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Party> .
+<urn:wops-zdr:party-xiaomi> <https://mithril.fund/ns/workspace-ops/v1#name> "Xiaomi" .
+<urn:wops-zdr:party-xiaomi> <https://mithril.fund/ns/workspace-ops/v1#partyKind> "sub-processor" .
+<urn:wops-zdr:party-xiaomi> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops-zdr:ws-fund-mithril> .
+<urn:wops-zdr:party-primalabs> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Party> .
+<urn:wops-zdr:party-primalabs> <https://mithril.fund/ns/workspace-ops/v1#name> "PrimaLabs" .
+<urn:wops-zdr:party-primalabs> <https://mithril.fund/ns/workspace-ops/v1#partyKind> "sub-processor" .
+<urn:wops-zdr:party-primalabs> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops-zdr:ws-fund-mithril> .
+<urn:wops-zdr:party-fund> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Party> .
+<urn:wops-zdr:party-fund> <https://mithril.fund/ns/workspace-ops/v1#name> "Mithril Fund (workspace owner)" .
+<urn:wops-zdr:party-fund> <https://mithril.fund/ns/workspace-ops/v1#partyKind> "organization" .
+<urn:wops-zdr:party-fund> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops-zdr:ws-fund-mithril> .
+# Role-only human references: no PII (holder is a Party, never an individual).
+<urn:wops-zdr:role-steward> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#PartyRole> .
+<urn:wops-zdr:role-steward> <https://mithril.fund/ns/workspace-ops/v1#roleKind> "steward" .
+<urn:wops-zdr:role-steward> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops-zdr:ws-fund-mithril> .
+<urn:wops-zdr:role-steward> <https://mithril.fund/ns/workspace-ops/v1#holder> <urn:wops-zdr:party-fund> .
+<urn:wops-zdr:role-approver> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#PartyRole> .
+<urn:wops-zdr:role-approver> <https://mithril.fund/ns/workspace-ops/v1#roleKind> "approver" .
+<urn:wops-zdr:role-approver> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops-zdr:ws-fund-mithril> .
+<urn:wops-zdr:role-approver> <https://mithril.fund/ns/workspace-ops/v1#holder> <urn:wops-zdr:party-fund> .
+# Obligations: ZDR duty states its safety-retention exception (not ZDR-only).
+<urn:wops-zdr:obl-zdr> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Obligation> .
+<urn:wops-zdr:obl-zdr> <https://mithril.fund/ns/workspace-ops/v1#name> "Zero data retention on inference routes (safety retention exception; not ZDR-only)" .
+<urn:wops-zdr:obl-zdr> <https://mithril.fund/ns/workspace-ops/v1#obligationKind> "zdr" .
+<urn:wops-zdr:obl-zdr> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops-zdr:ws-fund-mithril> .
+<urn:wops-zdr:obl-zdr> <https://mithril.fund/ns/workspace-ops/v1#agreement> <urn:wops-zdr:agreement-dpa> .
+<urn:wops-zdr:obl-retention> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Obligation> .
+<urn:wops-zdr:obl-retention> <https://mithril.fund/ns/workspace-ops/v1#name> "Prompt safety retention up to 90 days; flag-classifier only; not ZDR-only" .
+<urn:wops-zdr:obl-retention> <https://mithril.fund/ns/workspace-ops/v1#obligationKind> "retention" .
+<urn:wops-zdr:obl-retention> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops-zdr:ws-fund-mithril> .
+<urn:wops-zdr:obl-retention> <https://mithril.fund/ns/workspace-ops/v1#agreement> <urn:wops-zdr:agreement-dpa> .
+<urn:wops-zdr:obl-subproc> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Obligation> .
+<urn:wops-zdr:obl-subproc> <https://mithril.fund/ns/workspace-ops/v1#name> "Sub-processor allowlist and DPA coverage for inference providers" .
+<urn:wops-zdr:obl-subproc> <https://mithril.fund/ns/workspace-ops/v1#obligationKind> "sub-processor" .
+<urn:wops-zdr:obl-subproc> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops-zdr:ws-fund-mithril> .
+<urn:wops-zdr:obl-subproc> <https://mithril.fund/ns/workspace-ops/v1#agreement> <urn:wops-zdr:agreement-dpa> .
+# Term: illustrative validity window; steward must confirm real dates on approval.
+<urn:wops-zdr:term-dpa> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Term> .
+<urn:wops-zdr:term-dpa> <https://mithril.fund/ns/workspace-ops/v1#agreement> <urn:wops-zdr:agreement-dpa> .
+<urn:wops-zdr:term-dpa> <https://mithril.fund/ns/workspace-ops/v1#validFrom> "2026-01-01" .
+<urn:wops-zdr:term-dpa> <https://mithril.fund/ns/workspace-ops/v1#validTo> "2027-01-01" .
+<urn:wops-zdr:term-dpa> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops-zdr:ws-fund-mithril> .
+# Policies: one per obligation (addresses is exactly 1). Names record owner decisions.
+<urn:wops-zdr:pol-zdr> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Policy> .
+<urn:wops-zdr:pol-zdr> <https://mithril.fund/ns/workspace-ops/v1#name> "ZDR by default; DeepInfra preferred; fallback ZDR-only; non-ZDR fail-closed" .
+<urn:wops-zdr:pol-zdr> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops-zdr:ws-fund-mithril> .
+<urn:wops-zdr:pol-zdr> <https://mithril.fund/ns/workspace-ops/v1#addresses> <urn:wops-zdr:obl-zdr> .
+<urn:wops-zdr:pol-zdr> <https://mithril.fund/ns/workspace-ops/v1#implementedBy> <urn:wops-zdr:svc-inference> .
+<urn:wops-zdr:pol-zdr> <https://mithril.fund/ns/workspace-ops/v1#implementedBy> <urn:wops-zdr:route-inference> .
+<urn:wops-zdr:pol-zdr> <https://mithril.fund/ns/workspace-ops/v1#implementedBy> <urn:wops-zdr:op-inference> .
+<urn:wops-zdr:pol-retention> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Policy> .
+<urn:wops-zdr:pol-retention> <https://mithril.fund/ns/workspace-ops/v1#name> "Safety retention exception documented; account not ZDR-only" .
+<urn:wops-zdr:pol-retention> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops-zdr:ws-fund-mithril> .
+<urn:wops-zdr:pol-retention> <https://mithril.fund/ns/workspace-ops/v1#addresses> <urn:wops-zdr:obl-retention> .
+<urn:wops-zdr:pol-retention> <https://mithril.fund/ns/workspace-ops/v1#implementedBy> <urn:wops-zdr:svc-inference> .
+<urn:wops-zdr:pol-subproc> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Policy> .
+<urn:wops-zdr:pol-subproc> <https://mithril.fund/ns/workspace-ops/v1#name> "Provider allowlist: DeepInfra primary; OpenRouter gateway; Xiaomi non-ZDR only; PrimaLabs ZDR fallback" .
+<urn:wops-zdr:pol-subproc> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops-zdr:ws-fund-mithril> .
+<urn:wops-zdr:pol-subproc> <https://mithril.fund/ns/workspace-ops/v1#addresses> <urn:wops-zdr:obl-subproc> .
+<urn:wops-zdr:pol-subproc> <https://mithril.fund/ns/workspace-ops/v1#implementedBy> <urn:wops-zdr:svc-inference> .
+<urn:wops-zdr:pol-subproc> <https://mithril.fund/ns/workspace-ops/v1#implementedBy> <urn:wops-zdr:route-inference> .
+# Evidence SLOTS (unmeasured): CI for the service/operation check, read-back
+# for the route check. Kind assertions only; no measurement exists behind them.
+<urn:wops-zdr:ev-ci> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Evidence> .
+<urn:wops-zdr:ev-ci> <https://mithril.fund/ns/workspace-ops/v1#name> "ZDR CI check slot (unmeasured)" .
+<urn:wops-zdr:ev-ci> <https://mithril.fund/ns/workspace-ops/v1#evidenceKind> "ci" .
+<urn:wops-zdr:ev-ci> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops-zdr:ws-fund-mithril> .
+<urn:wops-zdr:ev-readback> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Evidence> .
+<urn:wops-zdr:ev-readback> <https://mithril.fund/ns/workspace-ops/v1#name> "ZDR read-back slot (unmeasured)" .
+<urn:wops-zdr:ev-readback> <https://mithril.fund/ns/workspace-ops/v1#evidenceKind> "production-verification" .
+<urn:wops-zdr:ev-readback> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops-zdr:ws-fund-mithril> .
+<urn:wops-zdr:svc-inference> <https://mithril.fund/ns/workspace-ops/v1#provenBy> <urn:wops-zdr:ev-ci> .
+<urn:wops-zdr:op-inference> <https://mithril.fund/ns/workspace-ops/v1#provenBy> <urn:wops-zdr:ev-ci> .
+<urn:wops-zdr:route-inference> <https://mithril.fund/ns/workspace-ops/v1#provenBy> <urn:wops-zdr:ev-readback> .
