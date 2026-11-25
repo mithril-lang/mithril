@@ -1,8 +1,47 @@
+# Item 224 Phase1 FREEZE (Jun approved 2026-11-25): native-js is maintenance-only.
+# - No new stages; corpus is archived as-is; unfreeze is free (revert this filter).
+# - PRs run the 10-stage representative set (NATIVE_DECLARATIONS_STAGE_SET=representative);
+#   push to main and the nightly schedule (02:00 UTC) run the full 37 stages.
+# - Guest path is the development axis; this workflow only guards the frozen corpus.
 name: Native JS host module
 on:
   pull_request:
+    paths:
+      - 'src/mithril/native-*.cljk'
+      - 'src/mithril/form.cljk'
+      - 'src/mithril/compiler.cljk'
+      - 'examples/native-js-*'
+      - 'test/qualification/native-*'
+      - 'scripts/test-native-*'
+      - 'bin/mithril-native-*.cljk'
+      - '.github/workflows/native-js.yml'
   push:
     branches: [main]
+    paths:
+      - 'src/mithril/native-*.cljk'
+      - 'src/mithril/form.cljk'
+      - 'src/mithril/compiler.cljk'
+      - 'examples/native-js-*'
+      - 'test/qualification/native-*'
+      - 'scripts/test-native-*'
+      - 'bin/mithril-native-*.cljk'
+      - '.github/workflows/native-js.yml'
+  schedule:
+    # Nightly full 37-stage run (cron is UTC).
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      stage_set:
+        description: 'Stage set for the declaration qualification'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - representative
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 permissions:
   contents: read
 jobs:
@@ -27,5 +66,10 @@ jobs:
         run: node scripts/test-native-package.mjs --engine .test-engine/cli.js
       - name: Install pinned declaration oracle tools without build scripts
         run: npm install --prefix .type-tools --ignore-scripts --no-audit --no-fund --package-lock=false --no-save typescript@6.0.3 @types/node@26.6.3 undici-types@8.9.0 tsx@4.22.4
+      # PRs: 10-stage representative set. main pushes, nightly schedule and
+      # workflow_dispatch (default): full 37 stages. The flag is also available
+      # to the split declarations job if #175 lands.
       - name: Check Mithril type AST and original strict consumer contracts
-        run: node scripts/test-native-declarations.mjs --engine .test-engine/cli.js --typescript .type-tools/node_modules/typescript/lib/typescript.js --type-roots .type-tools/node_modules/@types
+        env:
+          NATIVE_DECLARATIONS_STAGE_SET: ${{ (github.event_name == 'pull_request' && 'representative') || (github.event_name == 'workflow_dispatch' && inputs.stage_set) || 'all' }}
+        run: node scripts/test-native-declarations.mjs --engine .test-engine/cli.js --typescript .type-tools/node_modules/typescript/lib/typescript.js --type-roots .type-tools/node_modules/@types --stage-set ${{ env.NATIVE_DECLARATIONS_STAGE_SET }}
