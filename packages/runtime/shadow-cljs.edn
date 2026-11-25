@@ -18,4 +18,32 @@
             ;; :parallel-build false keeps gensym numbering, and so the bytes, reproducible.
             :compiler-options {:output-feature-set :es2020 :optimizations :simple
                                :parallel-build false}
-            :release {:compiler-options {:optimizations :simple}}}}}
+            :release {:compiler-options {:optimizations :simple}}}
+  :compiler {:target :esm
+             :output-dir "build/compiler-esm"
+             :js-options {:js-provider :import}
+             :modules {:compiler {:exports {compileNativeJs mithril.runtime.compiler-api/compileNativeJs
+                                             checkNativeJs mithril.runtime.compiler-api/checkNativeJs
+                                             compileNativeEsm mithril.runtime.compiler-api/compileNativeEsm
+                                             checkNativeEsm mithril.runtime.compiler-api/checkNativeEsm
+                                             esmSourceBasenames mithril.runtime.compiler-api/esmSourceBasenames
+                                             compileNativePackage mithril.runtime.compiler-api/compileNativePackage
+                                             checkNativePackage mithril.runtime.compiler-api/checkNativePackage
+                                             packageSourceBasenames mithril.runtime.compiler-api/packageSourceBasenames
+                                             compileNativeDeclarations mithril.runtime.compiler-api/compileNativeDeclarations
+                                             declarationsRuntimeBasename mithril.runtime.compiler-api/declarationsRuntimeBasename
+                                             parseForm mithril.runtime.compiler-api/parseForm
+                                             compileDeclarationProgram mithril.runtime.compiler-api/compileDeclarationProgram
+                                             readDeclarationPlan mithril.runtime.compiler-api/readDeclarationPlan
+                                             compileDeclarationComposition mithril.runtime.compiler-api/compileDeclarationComposition
+                                             readCompositionPlan mithril.runtime.compiler-api/readCompositionPlan
+                                             readCompositionSourcePlan mithril.runtime.compiler-api/readCompositionSourcePlan
+                                             lowerNativeText mithril.runtime.compiler-api/lowerNativeText
+                                             lowerText mithril.runtime.compiler-api/lowerText
+                                             checkModuleText mithril.runtime.compiler-api/checkModuleText
+                                             version mithril.runtime.compiler-api/version
+                                             sourceSha mithril.runtime.compiler-api/sourceSha}}}
+             :compiler-options {:output-feature-set :es2020 :optimizations :simple
+                                :parallel-build false}
+             :release {:compiler-options {:optimizations :simple}}}}
+}
