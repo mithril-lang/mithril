@@ -46,3 +46,13 @@
       (is (contains? by-focus "urn:wops-bad:draft")))
     (testing "DriftCheck carries bot-domain-v1 Run fields (missing runId)"
       (is (contains? by-focus "urn:wops-bad:drift")))))
+
+(deftest contract-zdr-fund-mithril-conforms
+  "P3 first realistic example (Item 323 P3): ZDR chain
+  Obligation <- Policy -> Service/Route/ApiOperation -> Evidence on
+  fund-mithril. Conformance only: chain completeness is NOT SHACL-enforced
+  (implementedBy/provenBy are 0..8192) and Evidence nodes are unmeasured
+  kind slots (see docs/design/contract-ledger-p3.md section 7)."
+  (let [r (reason/reason (ontology) (data "contract-zdr-fund-mithril.nq") {})]
+    (is (= :conforms (:status r)))
+    (is (= [] (:violations r)))))
