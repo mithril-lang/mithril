@@ -1,0 +1,136 @@
+# workspace-ops-v1 POSITIVE example. `mithril reason` must exit 0
+# (CONFORMS). One full chain: Obligation <- Policy -> Service -->
+# Evidence, plus drift snapshots. All nodes workspace-scoped.
+# SecretRef carries a NAME only. No PII. No secret values.
+<urn:wops:ws-fund-mithril> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Workspace> .
+<urn:wops:ws-fund-mithril> <https://mithril.fund/ns/workspace-ops/v1#workspaceId> "fund-mithril" .
+<urn:wops:ws-fund-mithril> <https://mithril.fund/ns/workspace-ops/v1#workspaceKind> "organization" .
+<urn:wops:ws-fund-mithril> <https://mithril.fund/ns/workspace-ops/v1#billingAccountRef> "billing-ref-0001" .
+<urn:wops:graph> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#WorkspaceGraph> .
+<urn:wops:graph> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops:ws-fund-mithril> .
+<urn:wops:graph> <https://mithril.fund/ns/workspace-ops/v1#graphIri> "graph/fund-mithril" .
+<urn:wops:graph> <https://mithril.fund/ns/workspace-ops/v1#visibility> "private" .
+<urn:wops:perm> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Permission> .
+<urn:wops:perm> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops:ws-fund-mithril> .
+<urn:wops:perm> <https://mithril.fund/ns/workspace-ops/v1#permissionScope> "consumer" .
+<urn:wops:draft> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#ExtensionDraft> .
+<urn:wops:draft> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops:ws-fund-mithril> .
+<urn:wops:draft> <https://mithril.fund/ns/workspace-ops/v1#draftDigest> "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" .
+<urn:wops:draft> <https://mithril.fund/ns/workspace-ops/v1#draftStatus> "draft" .
+<urn:wops:product> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Product> .
+<urn:wops:product> <https://mithril.fund/ns/workspace-ops/v1#name> "Mithril Workspace" .
+<urn:wops:product> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops:ws-fund-mithril> .
+<urn:wops:cap> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Capability> .
+<urn:wops:cap> <https://mithril.fund/ns/workspace-ops/v1#name> "Configuration drift detection" .
+<urn:wops:cap> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops:ws-fund-mithril> .
+<urn:wops:req> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Requirement> .
+<urn:wops:req> <https://mithril.fund/ns/workspace-ops/v1#name> "Detect binding drift daily" .
+<urn:wops:req> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops:ws-fund-mithril> .
+<urn:wops:adr> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Decision> .
+<urn:wops:adr> <https://mithril.fund/ns/workspace-ops/v1#name> "Adopt workspace-ops vocab" .
+<urn:wops:adr> <https://mithril.fund/ns/workspace-ops/v1#decisionId> "0044" .
+<urn:wops:adr> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops:ws-fund-mithril> .
+<urn:wops:env> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Environment> .
+<urn:wops:env> <https://mithril.fund/ns/workspace-ops/v1#environmentCode> "staging" .
+<urn:wops:dep> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Deployment> .
+<urn:wops:dep> <https://mithril.fund/ns/workspace-ops/v1#gitSha> "0123456789abcdef0123456789abcdef01234567" .
+<urn:wops:dep> <https://mithril.fund/ns/workspace-ops/v1#deployVersion> "2026.11.25" .
+<urn:wops:dep> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops:ws-fund-mithril> .
+<urn:wops:svc> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Service> .
+<urn:wops:svc> <https://mithril.fund/ns/workspace-ops/v1#name> "staging-worker" .
+<urn:wops:svc> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops:ws-fund-mithril> .
+<urn:wops:svc> <https://mithril.fund/ns/workspace-ops/v1#environment> <urn:wops:env> .
+<urn:wops:svc> <https://mithril.fund/ns/workspace-ops/v1#deployment> <urn:wops:dep> .
+<urn:wops:svc> <https://mithril.fund/ns/workspace-ops/v1#product> <urn:wops:product> .
+<urn:wops:svc> <https://mithril.fund/ns/workspace-ops/v1#provides> <urn:wops:cap> .
+<urn:wops:bind> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Binding> .
+<urn:wops:bind> <https://mithril.fund/ns/workspace-ops/v1#bindingName> "DB" .
+<urn:wops:bind> <https://mithril.fund/ns/workspace-ops/v1#bindingKind> "d1" .
+<urn:wops:bind> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops:ws-fund-mithril> .
+<urn:wops:bind> <https://mithril.fund/ns/workspace-ops/v1#targetService> <urn:wops:svc> .
+<urn:wops:route> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Route> .
+<urn:wops:route> <https://mithril.fund/ns/workspace-ops/v1#routeHost> "staging.example.invalid" .
+<urn:wops:route> <https://mithril.fund/ns/workspace-ops/v1#routePath> "/v1" .
+<urn:wops:route> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops:ws-fund-mithril> .
+<urn:wops:route> <https://mithril.fund/ns/workspace-ops/v1#targetService> <urn:wops:svc> .
+# Names only: SecretRef must NOT carry a value property (closed shape).
+<urn:wops:secret> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#SecretRef> .
+<urn:wops:secret> <https://mithril.fund/ns/workspace-ops/v1#secretName> "OPENROUTER_API_KEY" .
+<urn:wops:secret> <https://mithril.fund/ns/workspace-ops/v1#secretLocation> "cloudflare-secret" .
+<urn:wops:secret> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops:ws-fund-mithril> .
+<urn:wops:sched> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Schedule> .
+<urn:wops:sched> <https://mithril.fund/ns/workspace-ops/v1#cronExpression> "0 3 * * *" .
+<urn:wops:sched> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops:ws-fund-mithril> .
+<urn:wops:auto> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Automation> .
+<urn:wops:auto> <https://mithril.fund/ns/workspace-ops/v1#name> "drift-automation" .
+<urn:wops:auto> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops:ws-fund-mithril> .
+# Created stopped: explicitly false, never implied true.
+<urn:wops:auto> <https://mithril.fund/ns/workspace-ops/v1#automationEnabled> "false"^^<http://www.w3.org/2001/XMLSchema#boolean> .
+<urn:wops:auto> <https://mithril.fund/ns/workspace-ops/v1#schedule> <urn:wops:sched> .
+<urn:wops:auto> <https://mithril.fund/ns/workspace-ops/v1#targetService> <urn:wops:svc> .
+<urn:wops:bot> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Bot> .
+<urn:wops:bot> <https://mithril.fund/ns/workspace-ops/v1#name> "drift-watcher" .
+<urn:wops:bot> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops:ws-fund-mithril> .
+<urn:wops:bot> <https://mithril.fund/ns/workspace-ops/v1#runsAutomation> <urn:wops:auto> .
+<urn:wops:op> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#ApiOperation> .
+<urn:wops:op> <https://mithril.fund/ns/workspace-ops/v1#name> "List statements" .
+<urn:wops:op> <https://mithril.fund/ns/workspace-ops/v1#operationId> "listStatements" .
+<urn:wops:op> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops:ws-fund-mithril> .
+<urn:wops:tool> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#McpTool> .
+<urn:wops:tool> <https://mithril.fund/ns/workspace-ops/v1#name> "ontology-consumer" .
+<urn:wops:tool> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops:ws-fund-mithril> .
+<urn:wops:contract> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#DataContract> .
+<urn:wops:contract> <https://mithril.fund/ns/workspace-ops/v1#name> "statement-table" .
+<urn:wops:contract> <https://mithril.fund/ns/workspace-ops/v1#tableName> "statements" .
+<urn:wops:contract> <https://mithril.fund/ns/workspace-ops/v1#contractVersion> "v1" .
+<urn:wops:contract> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops:ws-fund-mithril> .
+# Contract chain: Obligation <- Policy -> Service ; Service -> Evidence.
+<urn:wops:agreement> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Agreement> .
+<urn:wops:agreement> <https://mithril.fund/ns/workspace-ops/v1#name> "Supplier DPA (sub-processor)" .
+<urn:wops:agreement> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops:ws-fund-mithril> .
+<urn:wops:party> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Party> .
+<urn:wops:party> <https://mithril.fund/ns/workspace-ops/v1#name> "Example Processor BV" .
+<urn:wops:party> <https://mithril.fund/ns/workspace-ops/v1#partyKind> "sub-processor" .
+<urn:wops:party> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops:ws-fund-mithril> .
+# Role-only person reference: no PII.
+<urn:wops:role> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#PartyRole> .
+<urn:wops:role> <https://mithril.fund/ns/workspace-ops/v1#roleKind> "steward" .
+<urn:wops:role> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops:ws-fund-mithril> .
+<urn:wops:role> <https://mithril.fund/ns/workspace-ops/v1#holder> <urn:wops:party> .
+# ZDR trace: obligation -> policy -> service -> evidence (CI).
+<urn:wops:obligation> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Obligation> .
+<urn:wops:obligation> <https://mithril.fund/ns/workspace-ops/v1#name> "ZDR on inference routes" .
+<urn:wops:obligation> <https://mithril.fund/ns/workspace-ops/v1#obligationKind> "zdr" .
+<urn:wops:obligation> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops:ws-fund-mithril> .
+<urn:wops:obligation> <https://mithril.fund/ns/workspace-ops/v1#agreement> <urn:wops:agreement> .
+<urn:wops:policy> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Policy> .
+<urn:wops:policy> <https://mithril.fund/ns/workspace-ops/v1#name> "ZDR by default" .
+<urn:wops:policy> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops:ws-fund-mithril> .
+<urn:wops:policy> <https://mithril.fund/ns/workspace-ops/v1#addresses> <urn:wops:obligation> .
+<urn:wops:policy> <https://mithril.fund/ns/workspace-ops/v1#implementedBy> <urn:wops:svc> .
+<urn:wops:term> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Term> .
+<urn:wops:term> <https://mithril.fund/ns/workspace-ops/v1#agreement> <urn:wops:agreement> .
+<urn:wops:term> <https://mithril.fund/ns/workspace-ops/v1#validFrom> "2026-01-01" .
+<urn:wops:term> <https://mithril.fund/ns/workspace-ops/v1#validTo> "2027-01-01" .
+<urn:wops:term> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops:ws-fund-mithril> .
+<urn:wops:evidence> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Evidence> .
+<urn:wops:evidence> <https://mithril.fund/ns/workspace-ops/v1#name> "ZDR verification CI run" .
+<urn:wops:evidence> <https://mithril.fund/ns/workspace-ops/v1#evidenceKind> "ci" .
+<urn:wops:evidence> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops:ws-fund-mithril> .
+<urn:wops:svc> <https://mithril.fund/ns/workspace-ops/v1#provenBy> <urn:wops:evidence> .
+# Drift snapshots (state-graph RootState subclasses) + DriftCheck run
+# (bot-domain Run subclass: runId/status/step/profileDigest/taskDigest).
+<urn:wops:declared> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#DeclaredConfig> .
+<urn:wops:declared> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops:ws-fund-mithril> .
+<urn:wops:observed> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#ObservedState> .
+<urn:wops:observed> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops:ws-fund-mithril> .
+<urn:wops:drift> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#DriftCheck> .
+<urn:wops:drift> <https://mithril.fund/ns/bot-domain/v1#runId> "drift-20261125-run1" .
+<urn:wops:drift> <https://mithril.fund/ns/bot-domain/v1#status> "ok" .
+<urn:wops:drift> <https://mithril.fund/ns/bot-domain/v1#step> "1"^^<http://www.w3.org/2001/XMLSchema#integer> .
+<urn:wops:drift> <https://mithril.fund/ns/bot-domain/v1#profileDigest> "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" .
+<urn:wops:drift> <https://mithril.fund/ns/bot-domain/v1#taskDigest> "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" .
+<urn:wops:drift> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops:ws-fund-mithril> .
+<urn:wops:drift> <https://mithril.fund/ns/workspace-ops/v1#driftStatus> "drifted" .
+<urn:wops:drift> <https://mithril.fund/ns/workspace-ops/v1#declaredConfig> <urn:wops:declared> .
+<urn:wops:drift> <https://mithril.fund/ns/workspace-ops/v1#observedState> <urn:wops:observed> .
