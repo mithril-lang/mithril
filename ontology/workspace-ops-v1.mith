@@ -1,0 +1,786 @@
+(mithril/ontology
+  :id "https://mithril.fund/ontology/workspace-ops-v1"
+  :profile
+  ["https://www.w3.org/TR/rdf11-concepts/"
+   "https://www.w3.org/TR/owl2-profiles/#OWL_2_RL"
+   "https://www.w3.org/TR/shacl/"]
+  :graph
+  [;; ================================================================
+   ;; workspace-ops-v1: common SaaS vocabulary for Mithril Workspace.
+  ;;
+   ;; Premises (Organizer Item 323 P0, plan 2026-11-25 appendix):
+   ;;  - SaaS binding: D1 `workspaces` (migration 0075): kind personal /
+   ;;    organization, `billing_account_id` always present. mithril.fund
+   ;;    itself is the first tenant (`fund_mithril`), dogfooding.
+   ;;  - First area: configuration drift detection (declared vs observed).
+   ;;  - Staging only, no production writes. Automation created stopped.
+   ;;    Secrets by NAME only, never values. No PII (see PartyRole).
+   ;;
+   ;; Namespace: https://mithril.fund/ns/workspace-ops/v1# (WOPS) is a
+   ;; FRESH namespace shared by all tenants. Zero collisions: the IRI
+   ;; `https://mithril.fund/ns/workspace-ops/v1#...` appears nowhere else
+   ;; in this repository (check: grep -r "workspace-ops" ontology/ src/
+   ;; test/). Ontology IRI: https://mithril.fund/ontology/workspace-ops-v1 .
+   ;;
+   ;; Reuse (referenced, NEVER redefined here):
+   ;;  - bot-domain-v1 `Activity` / `Run` / `Fact`:
+   ;;      WOPS:Automation                      -> Activity
+   ;;      WOPS:DriftCheck                      -> Run
+   ;;      WOPS:Evidence                        -> Fact
+   ;;    Subclassing gives IS-A entailment (a DriftCheck IS a Run,
+   ;;    typed by inference), but this SHACL engine's sh:target-class
+   ;;    does NOT climb subclasses (verified: a DriftCheck without
+   ;;    runId raised no violation through RunShape alone). So the
+   ;;    bot-domain Run/Fact required properties are mirrored as
+   ;;    explicit property shapes on DriftCheckShape / EvidenceShape.
+   ;;  - state-graph-v1 `RootState`:
+   ;;      WOPS:DeclaredConfig / WOPS:ObservedState -> RootState
+   ;;    (hence MapNode entries; drift = snapshot difference).
+   ;; DM2 2.02 alignment is by metamodel TERM NAME. No pinned DM2 .mith
+   ;; exists in this repo (only `test/fixtures/reason/dm2-mini.mith`,
+   ;; which uses example.org IRIs), so there is NOTHING to import;
+   ;; WOPS classes below map to DM2 terms in comments and add no new
+   ;; DM2-vocab IRIs:
+   ;;   Capability  -> WOPS:Capability          (DM2 Capability)
+   ;;   Service     -> WOPS:Service             (DM2 System / Service)
+   ;;   Bot         -> WOPS:Bot                 (DM2 Performer)
+   ;;   Policy      -> WOPS:Policy              (DM2 Rule)
+   ;;   Agreement   -> WOPS:Agreement           (DM2 Agreement)
+   ;;   Party       -> WOPS:Party               (DM2 Performer role:
+   ;;                     organizations and sub-processors only)
+   ;;   Product     -> WOPS:Product             (DM2 System, commercial
+   ;;                     packaging carved out for catalog use)
+   ;; Terms with no DM2/bot-domain/state-graph counterpart in this repo
+   ;; are defined once here as WOPS extensions (allowed by Item 323):
+   ;; Workspace, WorkspaceGraph, Permission, ExtensionDraft, Decision,
+   ;; Requirement, ApiOperation, McpTool, DataContract,
+   ;; Binding, Environment, Deployment, Route, SecretRef,
+   ;; Automation, Schedule, PartyRole, Obligation, Term, drift fields.
+   ;; Note: bot-agent-v1 `BotProfile` (ns/v1#) is NOT subclassed: it
+   ;; models an agent profile, not a workspace-deployed bot identity.
+   ;;
+   ;; Obligation -> Policy -> Implementation -> Evidence chain:
+   ;;   Obligation <- Policy (WOPS:addresses)
+   ;;   Policy     -> Implementation (WOPS:implementedBy; Service /
+   ;;                 ApiOperation / Route subclass Implementation)
+   ;;   Impl.      -> Evidence (WOPS:provenBy; Evidence subclasses
+   ;;                 bot-domain:Fact)
+   ;; Example (ZDR): obligation "ZDR on inference routes" addressed by
+   ;; policy "ZDR by default", implemented by a Service, proven by
+   ;; Evidence(kind=ci).
+   ;;
+   ;; TENANT-EXTENSION RULES (decision, Item 323 appendix):
+   ;;  1. Common vocabulary is NEVER rewritten. This file is the pinned
+   ;;     common vocabulary: changed only by git PR + compile-ontology.
+   ;;  2. Tenant extensions are workspace-scoped DRAFTS: held per
+   ;;     workspace (WOPS:ExtensionDraft rows with workspace,
+   ;;     draftDigest, draftStatus in {draft, promoted, deprecated}),
+   ;;     never merged into the common graph. A draft MUST NOT
+   ;;     redefine any IRI declared in this file.
+   ;;  3. Booking: a draft's status starts at `draft`; `promoted` means
+   ;;     adoption via git PR (the only path into common vocabulary).
+   ;; SHACL cannot check subject namespaces, so rule 2 is encoded as
+   ;; comments + the ExtensionDraftShape lifecycle envelope (draft
+   ;; requires workspace + digest, status is a closed enum), NOT as
+   ;; fake "no-override" axioms. The digest pins the exact draft
+   ;; artifact bytes somebody reviewed.
+   ;;
+   ;; Privacy / secrets:
+   ;;  - SecretRef carries NAME + LOCATION only. Its shape is
+   ;;    sh:closed: any value-carrying property (e.g. a secretValue)
+   ;;    is a SHACL violation, not just a convention.
+   ;;  - Party = organizations / sub-processors. Persons appear only
+   ;;    as PartyRole (role-kind strings; no names, IDs, birth dates,
+   ;;    addresses, or contact details — cf. world-v1 Person scope).
+   ;;  - Party.name / Service.name etc. are employment-contract-free
+   ;;    labels, not personal data.
+   ;;
+   ;; Sandbox: this file is schema + SHACL only. No ingestion, no
+   ;; statements, no automations, no production writes.
+   ;; Positive/negative SHACL examples: test/fixtures/workspace-ops/
+   ;;   conforming.nq  (must validate: mithril reason, exit 0)
+   ;;   violating.nq   (must fail: Closed/MinCount/In/Pattern/Datatype)
+   ;;   also exercised by test/mithril/workspace_ops_test.cljk.
+   ;;
+   ;; ---- Tenant / workspace scaffolding ----
+   (owl/class :id "https://mithril.fund/ns/workspace-ops/v1#Workspace")
+   (owl/class :id "https://mithril.fund/ns/workspace-ops/v1#WorkspaceGraph")
+   (owl/class :id "https://mithril.fund/ns/workspace-ops/v1#Permission")
+   (owl/class :id "https://mithril.fund/ns/workspace-ops/v1#ExtensionDraft")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-ops/v1#name")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-ops/v1#workspaceId"
+     :rdfs/domain "https://mithril.fund/ns/workspace-ops/v1#Workspace")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-ops/v1#workspaceKind"
+     :rdfs/domain "https://mithril.fund/ns/workspace-ops/v1#Workspace")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-ops/v1#billingAccountRef"
+     :rdfs/domain "https://mithril.fund/ns/workspace-ops/v1#Workspace")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-ops/v1#graphIri"
+     :rdfs/domain "https://mithril.fund/ns/workspace-ops/v1#WorkspaceGraph")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-ops/v1#visibility"
+     :rdfs/domain "https://mithril.fund/ns/workspace-ops/v1#WorkspaceGraph")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-ops/v1#permissionScope"
+     :rdfs/domain "https://mithril.fund/ns/workspace-ops/v1#Permission")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-ops/v1#draftDigest"
+     :rdfs/domain "https://mithril.fund/ns/workspace-ops/v1#ExtensionDraft")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-ops/v1#draftStatus"
+     :rdfs/domain "https://mithril.fund/ns/workspace-ops/v1#ExtensionDraft")
+   (owl/object-property :id "https://mithril.fund/ns/workspace-ops/v1#workspace"
+     :rdfs/range "https://mithril.fund/ns/workspace-ops/v1#Workspace")
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/workspace-ops/v1#WorkspaceShape"
+     :sh/target-class "https://mithril.fund/ns/workspace-ops/v1#Workspace"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#workspaceId"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/pattern "^[a-z0-9][a-z0-9-]{1,63}$"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#workspaceKind"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/in [(rdf/literal "personal") (rdf/literal "organization")]
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#billingAccountRef"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/workspace-ops/v1#WorkspaceGraphShape"
+     :sh/target-class "https://mithril.fund/ns/workspace-ops/v1#WorkspaceGraph"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#workspace"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Workspace"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#graphIri"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/pattern "^graph/[a-z0-9][a-z0-9-]{1,63}$"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#visibility"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/in [(rdf/literal "private")]
+        :sh/min-count 1 :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/workspace-ops/v1#PermissionShape"
+     :sh/target-class "https://mithril.fund/ns/workspace-ops/v1#Permission"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#workspace"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Workspace"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#permissionScope"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/in [(rdf/literal "consumer") (rdf/literal "builder")]
+        :sh/min-count 1 :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/workspace-ops/v1#ExtensionDraftShape"
+     :sh/target-class "https://mithril.fund/ns/workspace-ops/v1#ExtensionDraft"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#workspace"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Workspace"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#draftDigest"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/pattern "^[0-9a-f]{64}$"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#draftStatus"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/in [(rdf/literal "draft") (rdf/literal "promoted") (rdf/literal "deprecated")]
+        :sh/min-count 1 :sh/max-count 1)])
+
+   ;; ---- Spec ----
+   (owl/class :id "https://mithril.fund/ns/workspace-ops/v1#Product")
+   (owl/class :id "https://mithril.fund/ns/workspace-ops/v1#Capability")
+   (owl/class :id "https://mithril.fund/ns/workspace-ops/v1#Requirement")
+   (owl/class :id "https://mithril.fund/ns/workspace-ops/v1#Decision")
+   (owl/class :id "https://mithril.fund/ns/workspace-ops/v1#ApiOperation"
+     :rdfs/sub-class-of "https://mithril.fund/ns/workspace-ops/v1#Implementation")
+   (owl/class :id "https://mithril.fund/ns/workspace-ops/v1#Implementation")
+   (owl/class :id "https://mithril.fund/ns/workspace-ops/v1#McpTool")
+   (owl/class :id "https://mithril.fund/ns/workspace-ops/v1#DataContract")
+   (owl/class :id "https://mithril.fund/ns/workspace-ops/v1#Policy")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-ops/v1#operationId"
+     :rdfs/domain "https://mithril.fund/ns/workspace-ops/v1#ApiOperation")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-ops/v1#tableName"
+     :rdfs/domain "https://mithril.fund/ns/workspace-ops/v1#DataContract")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-ops/v1#contractVersion"
+     :rdfs/domain "https://mithril.fund/ns/workspace-ops/v1#DataContract")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-ops/v1#decisionId"
+     :rdfs/domain "https://mithril.fund/ns/workspace-ops/v1#Decision")
+   (owl/object-property :id "https://mithril.fund/ns/workspace-ops/v1#addresses"
+     :rdfs/domain "https://mithril.fund/ns/workspace-ops/v1#Policy"
+     :rdfs/range "https://mithril.fund/ns/workspace-ops/v1#Obligation")
+   (owl/object-property :id "https://mithril.fund/ns/workspace-ops/v1#implementedBy"
+     :rdfs/domain "https://mithril.fund/ns/workspace-ops/v1#Policy"
+     :rdfs/range "https://mithril.fund/ns/workspace-ops/v1#Implementation")
+   (owl/object-property :id "https://mithril.fund/ns/workspace-ops/v1#provenBy"
+     :rdfs/domain "https://mithril.fund/ns/workspace-ops/v1#Implementation"
+     :rdfs/range "https://mithril.fund/ns/workspace-ops/v1#Evidence")
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/workspace-ops/v1#ProductShape"
+     :sh/target-class "https://mithril.fund/ns/workspace-ops/v1#Product"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#name"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#workspace"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Workspace"
+        :sh/min-count 1 :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/workspace-ops/v1#CapabilityShape"
+     :sh/target-class "https://mithril.fund/ns/workspace-ops/v1#Capability"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#name"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#workspace"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Workspace"
+        :sh/min-count 1 :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/workspace-ops/v1#RequirementShape"
+     :sh/target-class "https://mithril.fund/ns/workspace-ops/v1#Requirement"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#name"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#workspace"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Workspace"
+        :sh/min-count 1 :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/workspace-ops/v1#DecisionShape"
+     :sh/target-class "https://mithril.fund/ns/workspace-ops/v1#Decision"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#name"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#decisionId"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/pattern "^[0-9]{4}$"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#workspace"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Workspace"
+        :sh/min-count 1 :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/workspace-ops/v1#ApiOperationShape"
+     :sh/target-class "https://mithril.fund/ns/workspace-ops/v1#ApiOperation"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#name"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#operationId"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/pattern "^[A-Za-z][A-Za-z0-9_]{1,80}$"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#workspace"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Workspace"
+        :sh/min-count 1 :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/workspace-ops/v1#McpToolShape"
+     :sh/target-class "https://mithril.fund/ns/workspace-ops/v1#McpTool"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#name"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#workspace"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Workspace"
+        :sh/min-count 1 :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/workspace-ops/v1#DataContractShape"
+     :sh/target-class "https://mithril.fund/ns/workspace-ops/v1#DataContract"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#name"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#tableName"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#contractVersion"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#workspace"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Workspace"
+        :sh/min-count 1 :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/workspace-ops/v1#PolicyShape"
+     :sh/target-class "https://mithril.fund/ns/workspace-ops/v1#Policy"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#name"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#workspace"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Workspace"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#addresses"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Obligation"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#implementedBy"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Implementation"
+        :sh/min-count 0 :sh/max-count 8192)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/workspace-ops/v1#ImplementationShape"
+     :sh/target-class "https://mithril.fund/ns/workspace-ops/v1#Implementation"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#provenBy"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Evidence"
+        :sh/min-count 0 :sh/max-count 8192)])
+
+   ;; ---- Configuration ----
+   (owl/class :id "https://mithril.fund/ns/workspace-ops/v1#Service"
+     :rdfs/sub-class-of "https://mithril.fund/ns/workspace-ops/v1#Implementation")
+   (owl/class :id "https://mithril.fund/ns/workspace-ops/v1#Binding")
+   (owl/class :id "https://mithril.fund/ns/workspace-ops/v1#Environment")
+   (owl/class :id "https://mithril.fund/ns/workspace-ops/v1#Deployment")
+   (owl/class :id "https://mithril.fund/ns/workspace-ops/v1#Route"
+     :rdfs/sub-class-of "https://mithril.fund/ns/workspace-ops/v1#Implementation")
+   (owl/class :id "https://mithril.fund/ns/workspace-ops/v1#SecretRef")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-ops/v1#environmentCode"
+     :rdfs/domain "https://mithril.fund/ns/workspace-ops/v1#Environment")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-ops/v1#deployVersion"
+     :rdfs/domain "https://mithril.fund/ns/workspace-ops/v1#Deployment")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-ops/v1#gitSha"
+     :rdfs/domain "https://mithril.fund/ns/workspace-ops/v1#Deployment")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-ops/v1#bindingName"
+     :rdfs/domain "https://mithril.fund/ns/workspace-ops/v1#Binding")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-ops/v1#bindingKind"
+     :rdfs/domain "https://mithril.fund/ns/workspace-ops/v1#Binding")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-ops/v1#routeHost"
+     :rdfs/domain "https://mithril.fund/ns/workspace-ops/v1#Route")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-ops/v1#routePath"
+     :rdfs/domain "https://mithril.fund/ns/workspace-ops/v1#Route")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-ops/v1#secretName"
+     :rdfs/domain "https://mithril.fund/ns/workspace-ops/v1#SecretRef")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-ops/v1#secretLocation"
+     :rdfs/domain "https://mithril.fund/ns/workspace-ops/v1#SecretRef")
+   (owl/object-property :id "https://mithril.fund/ns/workspace-ops/v1#environment"
+     :rdfs/domain "https://mithril.fund/ns/workspace-ops/v1#Service"
+     :rdfs/range "https://mithril.fund/ns/workspace-ops/v1#Environment")
+   (owl/object-property :id "https://mithril.fund/ns/workspace-ops/v1#deployment"
+     :rdfs/domain "https://mithril.fund/ns/workspace-ops/v1#Service"
+     :rdfs/range "https://mithril.fund/ns/workspace-ops/v1#Deployment")
+   (owl/object-property :id "https://mithril.fund/ns/workspace-ops/v1#product"
+     :rdfs/domain "https://mithril.fund/ns/workspace-ops/v1#Service"
+     :rdfs/range "https://mithril.fund/ns/workspace-ops/v1#Product")
+   (owl/object-property :id "https://mithril.fund/ns/workspace-ops/v1#provides"
+     :rdfs/domain "https://mithril.fund/ns/workspace-ops/v1#Service"
+     :rdfs/range "https://mithril.fund/ns/workspace-ops/v1#Capability")
+   (owl/object-property :id "https://mithril.fund/ns/workspace-ops/v1#targetService"
+     :rdfs/range "https://mithril.fund/ns/workspace-ops/v1#Service")
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/workspace-ops/v1#ServiceShape"
+     :sh/target-class "https://mithril.fund/ns/workspace-ops/v1#Service"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#name"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#workspace"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Workspace"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#environment"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Environment"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#deployment"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Deployment"
+        :sh/min-count 0 :sh/max-count 8192)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#product"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Product"
+        :sh/min-count 0 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#provides"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Capability"
+        :sh/min-count 0 :sh/max-count 8192)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/workspace-ops/v1#BindingShape"
+     :sh/target-class "https://mithril.fund/ns/workspace-ops/v1#Binding"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#bindingName"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#bindingKind"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/in [(rdf/literal "d1") (rdf/literal "r2") (rdf/literal "kv") (rdf/literal "service-binding") (rdf/literal "var")]
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#workspace"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Workspace"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#targetService"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Service"
+        :sh/min-count 0 :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/workspace-ops/v1#EnvironmentShape"
+     :sh/target-class "https://mithril.fund/ns/workspace-ops/v1#Environment"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#environmentCode"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/in [(rdf/literal "staging") (rdf/literal "production")]
+        :sh/min-count 1 :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/workspace-ops/v1#DeploymentShape"
+     :sh/target-class "https://mithril.fund/ns/workspace-ops/v1#Deployment"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#gitSha"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/pattern "^[0-9a-f]{40}$"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#deployVersion"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#workspace"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Workspace"
+        :sh/min-count 1 :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/workspace-ops/v1#RouteShape"
+     :sh/target-class "https://mithril.fund/ns/workspace-ops/v1#Route"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#routeHost"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#routePath"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 0 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#workspace"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Workspace"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#targetService"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Service"
+        :sh/min-count 0 :sh/max-count 1)])
+   ;; Names only, never values: closed shape; any value property is a
+   ;; violation (world-v1 PersonShape pattern: closed + ignored type).
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/workspace-ops/v1#SecretRefShape"
+     :sh/target-class "https://mithril.fund/ns/workspace-ops/v1#SecretRef"
+     :sh/closed true
+     :sh/ignored-properties ["http://www.w3.org/1999/02/22-rdf-syntax-ns#type"]
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#secretName"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/pattern "^[A-Z][A-Z0-9_]{2,63}$"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#secretLocation"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/in [(rdf/literal "wrangler-var") (rdf/literal "cloudflare-secret") (rdf/literal "github-secret") (rdf/literal "external-vault")]
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#workspace"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Workspace"
+        :sh/min-count 1 :sh/max-count 1)])
+
+   ;; ---- Automation / drift detection ----
+   ;; Bots and automations are tenant workload; the automation is
+   ;; created STOPPED (automationEnabled recorded explicitly, never
+   ;; implied true; P2 creates them disabled by default).
+   (owl/class :id "https://mithril.fund/ns/workspace-ops/v1#Bot")
+   (owl/class :id "https://mithril.fund/ns/workspace-ops/v1#Automation"
+     :rdfs/sub-class-of "https://mithril.fund/ns/bot-domain/v1#Activity")
+   (owl/class :id "https://mithril.fund/ns/workspace-ops/v1#Schedule")
+   (owl/class :id "https://mithril.fund/ns/workspace-ops/v1#DriftCheck"
+     :rdfs/sub-class-of "https://mithril.fund/ns/bot-domain/v1#Run")
+   (owl/class :id "https://mithril.fund/ns/workspace-ops/v1#DeclaredConfig"
+     :rdfs/sub-class-of "https://mithril.fund/ns/state-graph/v1#RootState")
+   (owl/class :id "https://mithril.fund/ns/workspace-ops/v1#ObservedState"
+     :rdfs/sub-class-of "https://mithril.fund/ns/state-graph/v1#RootState")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-ops/v1#automationEnabled"
+     :rdfs/domain "https://mithril.fund/ns/workspace-ops/v1#Automation")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-ops/v1#cronExpression"
+     :rdfs/domain "https://mithril.fund/ns/workspace-ops/v1#Schedule")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-ops/v1#driftStatus"
+     :rdfs/domain "https://mithril.fund/ns/workspace-ops/v1#DriftCheck")
+   (owl/object-property :id "https://mithril.fund/ns/workspace-ops/v1#runsAutomation"
+     :rdfs/domain "https://mithril.fund/ns/workspace-ops/v1#Bot"
+     :rdfs/range "https://mithril.fund/ns/workspace-ops/v1#Automation")
+   (owl/object-property :id "https://mithril.fund/ns/workspace-ops/v1#schedule"
+     :rdfs/domain "https://mithril.fund/ns/workspace-ops/v1#Automation"
+     :rdfs/range "https://mithril.fund/ns/workspace-ops/v1#Schedule")
+   (owl/object-property :id "https://mithril.fund/ns/workspace-ops/v1#declaredConfig"
+     :rdfs/domain "https://mithril.fund/ns/workspace-ops/v1#DriftCheck"
+     :rdfs/range "https://mithril.fund/ns/workspace-ops/v1#DeclaredConfig")
+   (owl/object-property :id "https://mithril.fund/ns/workspace-ops/v1#observedState"
+     :rdfs/domain "https://mithril.fund/ns/workspace-ops/v1#DriftCheck"
+     :rdfs/range "https://mithril.fund/ns/workspace-ops/v1#ObservedState")
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/workspace-ops/v1#BotShape"
+     :sh/target-class "https://mithril.fund/ns/workspace-ops/v1#Bot"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#name"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#workspace"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Workspace"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#runsAutomation"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Automation"
+        :sh/min-count 0 :sh/max-count 8192)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/workspace-ops/v1#AutomationShape"
+     :sh/target-class "https://mithril.fund/ns/workspace-ops/v1#Automation"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#name"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#workspace"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Workspace"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#automationEnabled"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#boolean"
+        :sh/min-count 0 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#schedule"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Schedule"
+        :sh/min-count 0 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#targetService"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Service"
+        :sh/min-count 0 :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/workspace-ops/v1#ScheduleShape"
+     :sh/target-class "https://mithril.fund/ns/workspace-ops/v1#Schedule"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#cronExpression"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#workspace"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Workspace"
+        :sh/min-count 1 :sh/max-count 1)])
+   ;; DriftCheck IS-A bot-domain Run by entailment; its Run-fields
+   ;; are pinned explicitly below (see reuse note). This shape adds
+   ;; the drift fields.
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/workspace-ops/v1#DriftCheckShape"
+     :sh/target-class "https://mithril.fund/ns/workspace-ops/v1#DriftCheck"
+     :sh/property
+    ;; Bot-domain-v1 Run-fields (RunShape equivalents, pinned here
+     ;; because target-class does not climb subclasses).
+    [(shacl/property-shape
+       :sh/path "https://mithril.fund/ns/bot-domain/v1#runId"
+       :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+       :sh/min-count 1 :sh/max-count 1)
+     (shacl/property-shape
+       :sh/path "https://mithril.fund/ns/bot-domain/v1#status"
+       :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+       :sh/min-count 1 :sh/max-count 1)
+     (shacl/property-shape
+       :sh/path "https://mithril.fund/ns/bot-domain/v1#step"
+       :sh/datatype "http://www.w3.org/2001/XMLSchema#integer"
+       :sh/min-count 1 :sh/max-count 1)
+     (shacl/property-shape
+       :sh/path "https://mithril.fund/ns/bot-domain/v1#profileDigest"
+       :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+       :sh/min-count 1 :sh/max-count 1)
+     (shacl/property-shape
+       :sh/path "https://mithril.fund/ns/bot-domain/v1#taskDigest"
+       :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+       :sh/min-count 1 :sh/max-count 1)
+     (shacl/property-shape
+       :sh/path "https://mithril.fund/ns/workspace-ops/v1#workspace"
+       :sh/class "https://mithril.fund/ns/workspace-ops/v1#Workspace"
+       :sh/min-count 1 :sh/max-count 1)
+     (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#driftStatus"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/in [(rdf/literal "none") (rdf/literal "drifted") (rdf/literal "unknown")]
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#declaredConfig"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#DeclaredConfig"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#observedState"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#ObservedState"
+        :sh/min-count 1 :sh/max-count 1)])
+
+   ;; ---- Contract ----
+   ;; Legal/business agreements. Bodies stay in private storage;
+   ;; the graph carries summaries + obligations only (Plan constraint).
+   ;; Persons are role-only (PartyRole); no PII.
+   (owl/class :id "https://mithril.fund/ns/workspace-ops/v1#Agreement")
+   (owl/class :id "https://mithril.fund/ns/workspace-ops/v1#Party")
+   (owl/class :id "https://mithril.fund/ns/workspace-ops/v1#PartyRole")
+   (owl/class :id "https://mithril.fund/ns/workspace-ops/v1#Obligation")
+   (owl/class :id "https://mithril.fund/ns/workspace-ops/v1#Term")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-ops/v1#partyKind"
+     :rdfs/domain "https://mithril.fund/ns/workspace-ops/v1#Party")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-ops/v1#roleKind"
+     :rdfs/domain "https://mithril.fund/ns/workspace-ops/v1#PartyRole")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-ops/v1#obligationKind"
+     :rdfs/domain "https://mithril.fund/ns/workspace-ops/v1#Obligation")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-ops/v1#validFrom"
+     :rdfs/domain "https://mithril.fund/ns/workspace-ops/v1#Term")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-ops/v1#validTo"
+     :rdfs/domain "https://mithril.fund/ns/workspace-ops/v1#Term")
+   (owl/object-property :id "https://mithril.fund/ns/workspace-ops/v1#agreement"
+     :rdfs/range "https://mithril.fund/ns/workspace-ops/v1#Agreement")
+   (owl/object-property :id "https://mithril.fund/ns/workspace-ops/v1#holder"
+     :rdfs/domain "https://mithril.fund/ns/workspace-ops/v1#PartyRole"
+     :rdfs/range "https://mithril.fund/ns/workspace-ops/v1#Party")
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/workspace-ops/v1#AgreementShape"
+     :sh/target-class "https://mithril.fund/ns/workspace-ops/v1#Agreement"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#name"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#workspace"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Workspace"
+        :sh/min-count 1 :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/workspace-ops/v1#PartyShape"
+     :sh/target-class "https://mithril.fund/ns/workspace-ops/v1#Party"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#name"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#partyKind"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/in [(rdf/literal "organization") (rdf/literal "sub-processor")]
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#workspace"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Workspace"
+        :sh/min-count 1 :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/workspace-ops/v1#PartyRoleShape"
+     :sh/target-class "https://mithril.fund/ns/workspace-ops/v1#PartyRole"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#roleKind"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/in [(rdf/literal "agreement-owner") (rdf/literal "steward") (rdf/literal "approver")]
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#workspace"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Workspace"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#holder"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Party"
+        :sh/min-count 0 :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/workspace-ops/v1#ObligationShape"
+     :sh/target-class "https://mithril.fund/ns/workspace-ops/v1#Obligation"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#name"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#obligationKind"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/in [(rdf/literal "zdr") (rdf/literal "retention") (rdf/literal "sla") (rdf/literal "sub-processor")]
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#workspace"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Workspace"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#agreement"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Agreement"
+        :sh/min-count 0 :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/workspace-ops/v1#TermShape"
+     :sh/target-class "https://mithril.fund/ns/workspace-ops/v1#Term"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#agreement"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Agreement"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#validFrom"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/pattern "^-?[0-9]{4}(-[0-9]{2}(-[0-9]{2})?)?$"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#validTo"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/pattern "^-?[0-9]{4}(-[0-9]{2}(-[0-9]{2})?)?$"
+        :sh/min-count 0 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#workspace"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Workspace"
+        :sh/min-count 1 :sh/max-count 1)])
+
+   ;; ---- Evidence ----
+   ;; Subclasses bot-domain:Fact; the Fact `name` field is pinned
+   ;; explicitly below (target-class does not climb subclasses).
+   ;; evidenceKind + workspace are the added constraints. Evidence
+   ;; values are CI/test/production-verification outcomes, never
+   ;; secret values.
+   (owl/class :id "https://mithril.fund/ns/workspace-ops/v1#Evidence"
+     :rdfs/sub-class-of "https://mithril.fund/ns/bot-domain/v1#Fact")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-ops/v1#evidenceKind"
+     :rdfs/domain "https://mithril.fund/ns/workspace-ops/v1#Evidence")
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/workspace-ops/v1#EvidenceShape"
+     :sh/target-class "https://mithril.fund/ns/workspace-ops/v1#Evidence"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#name"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#evidenceKind"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/in [(rdf/literal "ci") (rdf/literal "test") (rdf/literal "production-verification") (rdf/literal "manual-approval")]
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#workspace"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Workspace"
+        :sh/min-count 1 :sh/max-count 1)])])

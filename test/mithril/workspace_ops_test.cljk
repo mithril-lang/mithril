@@ -1,0 +1,48 @@
+(ns mithril.workspace-ops-test
+  "workspace-ops-v1 (Organizer Item 323 P0): the common SaaS workspace
+  vocabulary. compile-ontology succeeds and SHACL positive/negative
+  fixtures pin the shape contract (workspace scope on every tenant
+  node, closed enums, SecretRef names-only, closed draft lifecycle)."
+  (:require [cljs.test :refer [deftest is testing]]
+            [mithril.compiler :as compiler]
+            [mithril.reason :as reason]))
+
+(defn- read-text [path] (.readFileSync (js/require "fs") path "utf8"))
+
+(def dir "test/fixtures/workspace-ops/")
+(defn- ontology []
+  (compiler/compile-ontology-text "ontology/workspace-ops-v1.mith"
+                                  (read-text "ontology/workspace-ops-v1.mith")))
+(defn- data [f] (reason/parse-data (str dir f) (read-text (str dir f))))
+
+(deftest workspace-ops-v1-compiles
+  (let [a (ontology)]
+    (is (= "https://mithril.fund/ontology/workspace-ops-v1"
+           (get-in a [:rdf-dataset "@id"])))
+    (is (some? (:graph-digest a)))))
+
+(deftest conforming-fixture-conforms
+  (let [r (reason/reason (ontology) (data "conforming.nq") {})]
+    (is (= :conforms (:status r)))
+    (is (= [] (:violations r)))))
+
+(deftest violating-fixture-fails-per-constraint
+  (let [r (reason/reason (ontology) (data "violating.nq") {})
+        by-focus (group-by :focus (:violations r))]
+    (is (= :violations (:status r)))
+    (testing "closed SecretRef: a value property is forbidden"
+      (is (contains? by-focus "urn:wops-bad:secret")))
+    (testing "workspace scope is mandatory (Service without workspace)"
+      (is (contains? by-focus "urn:wops-bad:svc")))
+    (testing "closed enum: workspaceKind outside personal|organization"
+      (is (contains? by-focus "urn:wops-bad:ws2")))
+    (testing "gitSha pattern (40 hex)"
+      (is (contains? by-focus "urn:wops-bad:dep")))
+    (testing "a Policy must address an Obligation"
+      (is (contains? by-focus "urn:wops-bad:policy")))
+    (testing "automationEnabled must be a boolean"
+      (is (contains? by-focus "urn:wops-bad:auto")))
+    (testing "draft status is a closed lifecycle enum"
+      (is (contains? by-focus "urn:wops-bad:draft")))
+    (testing "DriftCheck carries bot-domain-v1 Run fields (missing runId)"
+      (is (contains? by-focus "urn:wops-bad:drift")))))

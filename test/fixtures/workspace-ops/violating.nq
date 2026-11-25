@@ -1,0 +1,54 @@
+# workspace-ops-v1 NEGATIVE examples. `mithril reason` must exit 1
+# with violations from Closed / MinCount / In / Pattern / Datatype.
+# Each broken node isolates one defect; names only, no PII.
+# SecretRef carrying a VALUE property -> sh:closed violation.
+<urn:wops-bad:secret> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#SecretRef> .
+<urn:wops-bad:secret> <https://mithril.fund/ns/workspace-ops/v1#secretName> "OPENROUTER_API_KEY" .
+<urn:wops-bad:secret> <https://mithril.fund/ns/workspace-ops/v1#secretLocation> "cloudflare-secret" .
+<urn:wops-bad:ws> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Workspace> .
+<urn:wops-bad:secret> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops-bad:ws> .
+<urn:wops-bad:secret> <https://mithril.fund/ns/workspace-ops/v1#secretValue> "sk-fake-value" .
+# Service without workspace -> MinCount violation.
+<urn:wops-bad:svc> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Service> .
+<urn:wops-bad:svc> <https://mithril.fund/ns/workspace-ops/v1#name> "orphan-worker" .
+<urn:wops-bad:env> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Environment> .
+<urn:wops-bad:env> <https://mithril.fund/ns/workspace-ops/v1#environmentCode> "staging" .
+<urn:wops-bad:svc> <https://mithril.fund/ns/workspace-ops/v1#environment> <urn:wops-bad:env> .
+# Workspace with unknown kind -> In violation.
+<urn:wops-bad:ws2> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Workspace> .
+<urn:wops-bad:ws2> <https://mithril.fund/ns/workspace-ops/v1#workspaceId> "bad-ws" .
+<urn:wops-bad:ws2> <https://mithril.fund/ns/workspace-ops/v1#workspaceKind> "enterprise" .
+<urn:wops-bad:ws2> <https://mithril.fund/ns/workspace-ops/v1#billingAccountRef> "billing-ref-9999" .
+# Deployment with malformed sha -> Pattern violation.
+<urn:wops-bad:dep> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Deployment> .
+<urn:wops-bad:dep> <https://mithril.fund/ns/workspace-ops/v1#gitSha> "xyz" .
+<urn:wops-bad:dep> <https://mithril.fund/ns/workspace-ops/v1#deployVersion> "2026.11.25" .
+<urn:wops-bad:dep> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops-bad:ws> .
+# Policy without addressed obligation -> MinCount violation.
+<urn:wops-bad:policy> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Policy> .
+<urn:wops-bad:policy> <https://mithril.fund/ns/workspace-ops/v1#name> "unlinked-policy" .
+<urn:wops-bad:policy> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops-bad:ws> .
+# Automation with non-boolean enabled flag -> Datatype violation.
+<urn:wops-bad:auto> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Automation> .
+<urn:wops-bad:auto> <https://mithril.fund/ns/workspace-ops/v1#name> "bad-automation" .
+<urn:wops-bad:auto> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops-bad:ws> .
+<urn:wops-bad:auto> <https://mithril.fund/ns/workspace-ops/v1#automationEnabled> "yes" .
+# ExtensionDraft in a live status (never "draft"/"promoted"/"deprecated") -> In violation.
+<urn:wops-bad:draft> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#ExtensionDraft> .
+<urn:wops-bad:draft> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops-bad:ws> .
+<urn:wops-bad:draft> <https://mithril.fund/ns/workspace-ops/v1#draftDigest> "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" .
+<urn:wops-bad:draft> <https://mithril.fund/ns/workspace-ops/v1#draftStatus> "live" .
+# DriftCheck missing inherited bot-domain Run.runId -> MinCount violation.
+<urn:wops-bad:drift> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#DriftCheck> .
+<urn:wops-bad:drift> <https://mithril.fund/ns/bot-domain/v1#status> "ok" .
+<urn:wops-bad:drift> <https://mithril.fund/ns/bot-domain/v1#step> "1"^^<http://www.w3.org/2001/XMLSchema#integer> .
+<urn:wops-bad:drift> <https://mithril.fund/ns/bot-domain/v1#profileDigest> "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" .
+<urn:wops-bad:drift> <https://mithril.fund/ns/bot-domain/v1#taskDigest> "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" .
+<urn:wops-bad:drift> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops-bad:ws> .
+<urn:wops-bad:drift> <https://mithril.fund/ns/workspace-ops/v1#driftStatus> "drifted" .
+<urn:wops-bad:declared> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#DeclaredConfig> .
+<urn:wops-bad:declared> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops-bad:ws> .
+<urn:wops-bad:observed> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#ObservedState> .
+<urn:wops-bad:observed> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:wops-bad:ws> .
+<urn:wops-bad:drift> <https://mithril.fund/ns/workspace-ops/v1#declaredConfig> <urn:wops-bad:declared> .
+<urn:wops-bad:drift> <https://mithril.fund/ns/workspace-ops/v1#observedState> <urn:wops-bad:observed> .
