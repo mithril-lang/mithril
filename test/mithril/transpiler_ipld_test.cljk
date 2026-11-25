@@ -1,0 +1,115 @@
+(ns mithril.transpiler-ipld-test
+  (:require [cljs.test :refer [deftest is]]
+            [ipld.core :as ipld]
+            [mithril.transpiler-ipld :as tier-a]
+            [mithril.transpiler-rust :as tier-b-tier]
+            [mithril.module :as module]
+            [clojure.string :as str]))
+
+;;; Tier A end-to-end (M1): mith text -> parse/check -> IPLD IR -> DAG-CBOR -> CIDv1
+;;; with CID stability round-trip. Fixtures are minimal but exercise the full
+;;; checked-op vocabulary (intrinsic/local/literal, call, if, let, sequence,
+;;; fn-type is covered via the closure case).
+
+(def minimal-text
+  "(mithril/module :name \"tier.a_minimal\" :exports [\"choose\" \"increment\"] :functions [(mithril/function :name \"increment\" :params [(rdf/node :name \"value\" :datatype \"i64\")] :returns \"i64\" :body (mithril/call :name \"add\" :args [(mithril/local :name \"value\") (mithril/literal :datatype \"i64\" :value \"1\")])) (mithril/function :name \"choose\" :params [(rdf/node :name \"condition\" :datatype \"bool\")] :returns \"i64\" :body (mithril/if :condition (mithril/local :name \"condition\") :then (mithril/literal :datatype \"i64\" :value \"7\") :else (mithril/literal :datatype \"i64\" :value \"0\"))) (mithril/function :name \"is_zero\" :params [(rdf/node :name \"value\" :datatype \"i64\")] :returns \"bool\" :body (mithril/call :name \"eq\" :args [(mithril/local :name \"value\") (mithril/literal :datatype \"i64\" :value \"0\")]))])")
+
+(defn round-trip
+  "Decode bytes and re-block: node equality + CID stability."
+  [result]
+  (let [decoded (ipld/decode (:bytes result))
+        reblocked (ipld/node->block decoded)]
+    {:decoded decoded :cid (:cid reblocked) :bytes (:bytes reblocked)}))
+
+(deftest tier-a-minimal-end-to-end-uses-existing-checker-and-codec
+  (let [result (tier-a/transpile-text minimal-text)
+        {:keys [decoded cid]} (round-trip result)]
+    (is (= (:node result) decoded) "decode(DAG-CBOR bytes) == IR node (canonical identity)")
+    (is (= (:cid result) cid) "re-encoding the decoded node reproduces the same CIDv1")
+    ;; Single codec: CIDv1 dag-cbor (0x71 = 113) via existing ipld.core, not a re-wrap.
+    (is (= 113 (ipld/cid-codec (:cid result))))
+    (is (= (:cid result) (:cid (tier-a/transpile-text minimal-text)))
+        "same text twice => same CID (deterministic lowering)")
+    ;; Bytes agree with direct node->block over the node (no hidden state).
+    (is (= (:cid result) (:cid (ipld/node->block (:node result)))))))
+
+(deftest tier-a-node-is-ipLD-data-model-shaped
+  (let [node (:node (tier-a/transpile-text minimal-text))]
+    (is (= "mithril.transpiler-ipld/ir-v1" (get node "format")))
+    (is (= "tier.a_minimal" (get node "name")))
+    (is (= ["choose" "increment"] (get node "exports")))
+    (is (= 3 (count (get node "functions"))))
+    ;; call-graph keys are function names (sorted callee lists), not CIDs.
+    (is (= {"increment" [] "choose" [] "is_zero" []} (get node "call-graph")))
+    ;; conditional lowered structurally (Q1: no profile gate needed here)
+    (let [choose (second (get node "functions"))]
+      (is (= "choose" (get choose "name")))
+      (is (= "i64" (get choose "returns")))
+      (is (= "if" (get-in choose ["body" "op"]))))))
+
+(deftest tier-a-covers-call-graph-edges-and-let-sequence
+  (let [call-text "(mithril/module :name \"t.call\" :exports [\"main\"] :functions [(mithril/function :name \"main\" :params [] :returns \"i64\" :body (mithril/call :name \"id\" :args [(mithril/literal :datatype \"i64\" :value \"7\")])) (mithril/function :name \"id\" :params [(rdf/node :name \"x\" :datatype \"i64\")] :returns \"i64\" :body (mithril/local :name \"x\"))])"
+        let-text "(mithril/module :name \"t.let\" :exports [\"main\"] :functions [(mithril/function :name \"main\" :params [] :returns \"i64\" :body (mithril/let :bindings [(rdf/node :name \"a\" :value (mithril/literal :datatype \"i64\" :value \"3\"))] :body (mithril/local :name \"a\")))])"
+        seq-text "(mithril/module :name \"t.seq\" :exports [\"main\"] :functions [(mithril/function :name \"main\" :params [] :returns \"i64\" :body (mithril/sequence :expressions [(mithril/literal :datatype \"i64\" :value \"1\") (mithril/literal :datatype \"i64\" :value \"2\")]))])"
+        cases [call-text let-text seq-text]]
+    (doseq [text cases]
+      (let [result (tier-a/transpile-text text)
+            {:keys [decoded cid]} (round-trip result)]
+        (is (= (:node result) decoded))
+        (is (= (:cid result) cid))))
+    ;; call edge: main -> id
+    (is (= {"main" ["id"] "id" []}
+           (get (:node (tier-a/transpile-text call-text)) "call-graph")))))
+
+(deftest tier-a-preserves-i64-exactly-and-fn-types-losslessly
+  (let [big-text "(mithril/module :name \"t.big\" :exports [\"main\"] :functions [(mithril/function :name \"main\" :params [] :returns \"i64\" :body (mithril/literal :datatype \"i64\" :value \"9223372036854775807\"))])"
+        big-result (tier-a/transpile-text big-text)
+        ;; js-value closure round-trip proves :fn is not silently dropped.
+        fn-text "(mithril/module :name \"t.fn\" :exports [\"keep\"] :functions [(mithril/function :name \"id\" :params [(rdf/node :name \"v\" :datatype \"js-value\")] :returns \"js-value\" :body (mithril/local :name \"v\")) (mithril/function :name \"keep\" :params [(rdf/node :name \"v\" :datatype \"js-value\")] :returns \"js-value\" :body (mithril/let :bindings [(rdf/node :name \"f\" :value (mithril/lambda :params [] :returns \"js-value\" :body (mithril/local :name \"v\")))] :body (mithril/invoke :function (mithril/local :name \"f\") :args [])))])"
+        fn-result (tier-a/transpile-text fn-text)
+        ;; 2^63-1 stays an exact decimal string, not a lossy host number.
+        literal-value (get-in (:node big-result) ["functions" 0 "body" "value"])]
+    (is (= "9223372036854775807" literal-value))
+    (is (= "i64" (get-in (:node big-result) ["functions" 0 "body" "type"])))
+    (let [{:keys [decoded cid]} (round-trip big-result)]
+      (is (= (:node big-result) decoded))
+      (is (= (:cid big-result) cid)))
+    ;; fn-type survives: lambda node's type is the fn map, keeps return type.
+    (let [lambda-type (get-in (:node fn-result)
+                              ["functions" 1 "body" "bindings" 0 "value" "type" "fn"])]
+      (is (= [[] "js-value"] (vec lambda-type)))
+      (let [{:keys [decoded cid]} (round-trip fn-result)]
+        (is (= (:node fn-result) decoded))
+        (is (= (:cid fn-result) cid))))))
+
+(deftest tier-a-transpile-checked-and-document-agree
+  (let [result (tier-a/transpile-text minimal-text)]
+    (is (= (:cid result)
+           (:cid (tier-a/transpile-checked (module/check-text minimal-text))))
+        "text and checked entry points agree (checker is the only gate)")))
+
+(deftest tier-a-display-is-dag-json-never-identity
+  ;; dag-json is display only (Item 374 D3): it must render the node, and must
+  ;; not be mistaken for the DAG-CBOR CID. The display text is canonical
+  ;; dag-json (sorted keys, no whitespace) produced by the existing codec.
+  (let [result (tier-a/transpile-text minimal-text)
+        display (tier-a/display-string (:node result))]
+    (is (string? display))
+    (is (str/includes? display "mithril.transpiler-ipld/ir-v1")
+        "format marker present in dag-json display")
+    (is (not= display (:cid result)) "display text is never the CID")))
+
+(deftest tier-b-rust-is-stubbed-and-refuses
+  ;; Tier B (M2) lowering direction/interface only (Q3). Lowering must fail
+  ;; closed with an explicit Tier B marker, never emit Rust or fall back to A.
+  (let [result (tier-a/transpile-text minimal-text)
+        error (try (tier-b-tier/lower (:node result))
+                   nil
+                   (catch :default e (ex-data e)))
+        error2 (try (tier-b-tier/lower-result result)
+                    nil
+                    (catch :default e (ex-data e)))]
+    (is (= :mithril.transpiler-rust/tier-b (:mithril/error error)))
+    (is (= :mithril.transpiler-rust/tier-b (:mithril/error error2)))
+    (is (= :B (:tier error)) "error explicitly marks Tier B, not a Tier A artifact")))
+

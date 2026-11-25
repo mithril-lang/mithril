@@ -1,0 +1,230 @@
+(ns mithril.transpiler-ipld
+  "Transpiler M1 Tier A: checked Mithril modules -> canonical IPLD IR -> DAG-CBOR -> CIDv1.
+
+  Tier A scope (Owner decisions 2026-11-25, Organizer Item 22 §10; Q2: Tier A = M1,
+  Tier B = M2; Q4: IR canonical = IPLD Data Model, bytes = DAG-CBOR -> CIDv1,
+  JSON = dag-json display only, Item 374 D3):
+
+    mith text -> module/check-text -> IPLD Data Model node -> DAG-CBOR bytes -> CIDv1
+
+  This module consumes the existing checker (`mithril.module/check-text` /
+  `check-document`) and the existing lowerer shape (`module-lower`,
+  `artifact-lower`, `program-lower`, `web-lower` all lower *after* the checker),
+  and reuses the repo's single IPLD codec (`ipld.core/node->block`,
+  `ipld.dag-json/encode-string` for display). It does not invent a canonical
+  JSON form: identity is DAG-CBOR bytes hashed to CIDv1, nothing else.
+
+  Canonical-form decisions (deterministic, round-trippable):
+
+    * Map keys are IPLD strings; DAG-CBOR encodes maps in canonical sorted order
+      regardless of Clojure map iteration order, so builder order is irrelevant.
+      Verified via `ipld.core/decode` round-trip (decode refuses non-canonical
+      bytes, so node equality + CID stability are checked together).
+    * `:i64` literals keep the checker's canonical decimal string (the checker
+      already normalizes via `i64!`); DAG-CBOR ints are bounded differently, so
+      the string is stored as Data Model string, losslessly, for all i64.
+    * Types are strings (Data Model has no keywords): e.g. \"i64\", \"bool\",
+      \"string\", \"js-value\", or a function-type map
+      `{\"fn\": [[param-type ...] return-type]}` (1-element map keeps the shape).
+      Note: `[:fn [param-vec return]]` cannot be a bare LED — vectors are lists
+      in the IPLD Data Model, so `[:fn ...]` would decode as a list whose first
+      element is a string; the map form is unambiguous and canonical.
+    * Callable (`:fn`) IR nodes are preserved rather than rejected: Tier A is a
+      structural lowering of *checked* modules, not a native-scalar profile
+      (the native-Amu scalar-only refusal lives in `module-lower` and does not
+      apply here). Tier B (Rust borrow-elaboration) is a separate, M2 concern;
+      see `mithril.transpiler-rust` stub.
+
+  Q1 (conditionals opt-in, #173 data profile): this module introduces no profile
+  gate; `:if` lowering is structural and works on any checked expression. When
+  #173 lands, no change is needed here — the checker remains the single authority
+  on what is checkable. Stack note: if #173 merges first, this PR rebases cleanly;
+  if this PR merges first, #173 is unaffected (different vocabulary surface).
+
+  Out of scope (Tier B / M2, explicitly not claimed): Rust code generation,
+  borrow elaboration, AOT artifacts, `program-lower`/`web-lower` IPLD paths.
+  Those lowerers keep their current behavior; this module adds a new, opt-in
+  Tier A entry point alongside them (no monkey-patching, no behavior change to
+  existing callers).
+
+  Public API:
+    (transpile-text text)        -> {:node node :cid cid :bytes bytes}
+    (transpile-checked checked)  -> {:node node :cid cid :bytes bytes}
+    (transpile-document doc)     -> {:node node :cid cid :bytes bytes}
+  "
+  (:require [ipld.core :as ipld]
+            [ipld.dag-json :as dag-json]
+            [mithril.module :as module]))
+
+(def ^:private refuse!
+  (fn [code detail]
+    (throw (ex-info "Mithril transpiler-ipld refused"
+                    {:mithril/error code :detail detail}))))
+
+;; ---------------------------------------------------------------------------
+;; Type name encoding (TypeSystem -> Data Model string | fn map)
+;; ---------------------------------------------------------------------------
+
+(def ^:private scalar-type-names #{:i64 :bool :string :js-value :scalar})
+
+(defn- type-node [type]
+  (cond
+    (contains? scalar-type-names type)
+    (name type)
+
+    (and (vector? type) (= 2 (count type)) (= :fn (first type))
+         (vector? (first (second type))))
+    ;; Callable type [:fn [[param-type ...] return-type]].
+    (let [[params returns] (second type)]
+      {"fn" [(mapv type-node params) (type-node returns)]})
+
+    :else
+    (refuse! :mithril.transpiler-ipld/unknown-type
+             (str "Unknown checked type: " (pr-str type)))))
+
+;; ---------------------------------------------------------------------------
+;; Checked-expression -> Data Model node
+;; ---------------------------------------------------------------------------
+;; Checked IR shapes come from `mithril.module/check-expression`:
+;;   {:op :literal   :type <t> :value <v>}
+;;   {:op :local     :name <s> :type <t>}
+;;   {:op :call/:intrinsic :name <s> :type <t> :args [...]}
+;;   {:op :lambda    :params [{:name <s> :type <t>}] :returns <t> :body <e> :type <t>}
+;;   {:op :function-ref :name <s> :type <t>}
+;;   {:op :invoke    :function <e> :function-type <t> :args [...] :type <t>}
+;;   {:op :let       :bindings [{:name <s> :value <e> :type <t>}] :body <e> :type <t>}
+;;   {:op :sequence  :expressions [<e> ...] :type <t>}
+;;   {:op :if        :condition <e> :then <e> :else <e> :type <t>}
+
+(defn- expr-node [expr]
+  (case (:op expr)
+    :literal
+    (let [value (:value expr)]
+      ;; Checked literal values are Data Model scalars already:
+      ;; i64 -> canonical decimal string, bool -> boolean, string -> string.
+      ;; Anything else is a checker bug or non-Data-Model future literal kind.
+      (when-not (or (string? value) (boolean? value))
+        (refuse! :mithril.transpiler-ipld/literal
+                 (str "Literal value is not Data Model data: " (pr-str value))))
+      {"op" "literal" "type" (type-node (:type expr)) "value" value})
+
+    :local
+    {"op" "local" "name" (:name expr) "type" (type-node (:type expr))}
+
+    (:call :intrinsic)
+    {"op" (name (:op expr)) "name" (:name expr) "type" (type-node (:type expr))
+     "args" (mapv expr-node (:args expr))}
+
+    :lambda
+    {"op" "lambda"
+     "params" (mapv (fn [param] {"name" (:name param) "type" (type-node (:type param))})
+                    (:params expr))
+     "returns" (type-node (:returns expr))
+     "body" (expr-node (:body expr))
+     "type" (type-node (:type expr))}
+
+    :function-ref
+    {"op" "function-ref" "name" (:name expr) "type" (type-node (:type expr))}
+
+    :invoke
+    {"op" "invoke"
+     "function" (expr-node (:function expr))
+     "function-type" (type-node (:function-type expr))
+     "args" (mapv expr-node (:args expr))
+     "type" (type-node (:type expr))}
+
+    :let
+    {"op" "let"
+     "bindings" (mapv (fn [binding] {"name" (:name binding)
+                                     "value" (expr-node (:value binding))
+                                     "type" (type-node (:type binding))})
+                      (:bindings expr))
+     "body" (expr-node (:body expr))
+     "type" (type-node (:type expr))}
+
+    :sequence
+    {"op" "sequence" "expressions" (mapv expr-node (:expressions expr))
+     "type" (type-node (:type expr))}
+
+    :if
+    {"op" "if"
+     "condition" (expr-node (:condition expr))
+     "then" (expr-node (:then expr))
+     "else" (expr-node (:else expr))
+     "type" (type-node (:type expr))}
+
+    (refuse! :mithril.transpiler-ipld/expression
+             (str "Unknown checked op: " (:op expr)))))
+
+(defn- function-node [declaration]
+  {"name" (:name declaration)
+   "params" (mapv (fn [param] {"name" (:name param) "type" (type-node (:type param))})
+                  (:params declaration))
+   "returns" (type-node (:returns declaration))
+   "body" (expr-node (:body declaration))})
+
+;; ---------------------------------------------------------------------------
+;; Checked module -> Data Model node (canonical root)
+;; ---------------------------------------------------------------------------
+
+(defn ir-node
+  "Lower a checked module map (from `mithril.module/check-document` /
+  `check-text`) to a canonical IPLD Data Model node.
+
+  Root shape (all string keys, all values Data Model):
+    {\"format\" \"mithril.transpiler-ipld/ir-v1\"
+     \"name\" \"<module name>\"
+     \"exports\" [\"<public name>\" ...]
+     \"functions\" [{\"name\" \"params\" \"returns\" \"body\"} ...]
+     \"call-graph\" {[\"<fn>\" [...]] ...}}
+  No `Link` values here (single self-contained block); `call-graph` keys are
+  function *names*, not CIDs."
+  [checked]
+  (let [graph (:call-graph checked)]
+    {"format" "mithril.transpiler-ipld/ir-v1"
+     "name" (:name checked)
+     "exports" (vec (:exports checked))
+     "functions" (mapv function-node (:functions checked))
+     "call-graph" (into {}
+                        (map (fn [[fname callees]] [fname (vec callees)]))
+                        graph)}))
+
+(defn transpile-checked
+  "Lower a checked module to {:node :cid :bytes} (DAG-CBOR -> CIDv1)."
+  [checked]
+  (let [node (ir-node checked)
+        {:keys [cid bytes]} (ipld/node->block node)]
+    {:node node :cid cid :bytes bytes}))
+
+(defn transpile-document
+  "Check a module document map, then lower to IPLD IR + DAG-CBOR + CIDv1."
+  [doc]
+  (transpile-checked (module/check-document doc)))
+
+(defn transpile-text
+  "Parse + check Mithril module text, then lower to IPLD IR + DAG-CBOR + CIDv1.
+
+  Example (minimal, exercises conditional + intrinsic + local + literal):
+    (transpile-text
+      \"(mithril/module :name \\\"tier.a_minimal\\\" :exports [\\\"choose\\\" \\\"increment\\\"] :functions [ ... ])\")
+    ;=> {:node {...} :cid \"bafyrei...\" :bytes <Uint8Array>}
+
+  Round-trip invariant (tested): `ipld/decode bytes` == `node`, and
+  re-encoding that decoded node reproduces the exact same `bytes` and `cid`
+  (DAG-CBOR canonical bytes are the identity; see `ipld.core/decode`)."
+  [text]
+  (transpile-checked (module/check-text text)))
+
+;; ---------------------------------------------------------------------------
+;; Display (dag-json) — NEVER identity (Item 374 D3, Q4)
+;; ---------------------------------------------------------------------------
+
+(defn display-string
+  "Canonical DAG-JSON *display* text for a Tier A node.
+
+  DAG-JSON is a display codec only: it is NOT the addressing/identity form.
+  Identity is always DAG-CBOR -> CIDv1 (see `transpile-*`). This helper is for
+  logs, HTTP debug payloads, and diffs — the same node rendered as dag-json.
+  Never put this string (or a dag-json CID) where a DAG-CBOR CID is expected."
+  [node]
+  (dag-json/encode-string node))
