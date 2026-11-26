@@ -69,7 +69,7 @@
   KEYWORD keys (:format, :name, :modules, :checked…); :modules' KEYS are
   STRING module names (\"cordis.service\") — the checker looks them up with
   string `n` via (get-in runtime [:modules n]). Nested :document / :checked
-  values use STRING keys (JSON-LD Form model, (get doc \"name\)).
+  values use STRING keys (JSON-LD Form model, (get doc \"name\")).
 
   So: keywordize top level only; keywordize each :modules entry's keys;
   KEEP module-name keys as strings; keep all other nested maps string-keyed.
