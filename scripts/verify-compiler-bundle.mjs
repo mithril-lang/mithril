@@ -23,7 +23,7 @@ const nbb = resolve(args[nbbIdx + 1]);
 if (!existsSync(nbb)) throw Error('nbb engine does not exist');
 const dir = mkdtempSync(join(tmpdir(), 'compiler-verify-'));
 const config = join(dir, 'offline.edn');
-writeFileSync(config, `{:paths [${JSON.stringify(join(repo, 'src'))}]}`);
+writeFileSync(config, `{:paths [${JSON.stringify(join(repo, 'src'))} ${JSON.stringify(join(repo, 'vendor/src'))}]}`);
 let failures = 0;
 const fail = (name, msg) => { console.log(`FAIL ${name}: ${msg}`); failures++; };
 const ok = (name, msg) => console.log(`ok ${name}: ${msg}`);
