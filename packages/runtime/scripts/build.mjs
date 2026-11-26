@@ -61,7 +61,8 @@ const out = check ? join(pkg, 'build/check') : join(pkg, 'dist');
 // starts from an empty shadow-cljs cache. That makes the bytes reproducible.
 rmSync(join(pkg, 'build/esm'), { recursive: true, force: true });
 rmSync(join(pkg, '.shadow-cljs'), { recursive: true, force: true });
-const build = spawnSync(join(pkg, 'node_modules/.bin/shadow-cljs'), ['release', 'runtime'], { cwd: pkg, stdio: 'inherit' });
+rmSync(join(pkg, 'build/compiler-esm'), { recursive: true, force: true });
+const build = spawnSync(join(pkg, 'node_modules/.bin/shadow-cljs'), ['release', 'runtime', 'compiler'], { cwd: pkg, stdio: 'inherit' });
 if (build.status !== 0) process.exit(build.status ?? 1);
 
 const bundle = readFileSync(join(pkg, 'build/esm/runtime.js'));
@@ -69,8 +70,15 @@ mkdirSync(out, { recursive: true });
 writeFileSync(join(out, 'runtime.mjs'), bundle);
 const manifest = { name: '@mithril-lang/runtime', version, sourceSha, sha256: sha256(bundle), bytes: bundle.length, mirroredCljk: mirrored };
 writeFileSync(join(out, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
+// Second entrypoint: the AOT compiler bundle for bin/mithril-native-* CLIs.
+const compilerBundle = readFileSync(join(pkg, 'build/compiler-esm/compiler.js'));
+writeFileSync(join(out, 'compiler.mjs'), compilerBundle);
+const compilerManifest = { compilerSha256: sha256(compilerBundle), compilerBytes: compilerBundle.length };
+writeFileSync(join(out, 'compiler-manifest.json'), JSON.stringify(compilerManifest, null, 2) + '\n');
 if (check) {
   const committed = readFileSync(join(pkg, 'dist/runtime.mjs'));
   if (sha256(committed) !== manifest.sha256) throw new Error(`dist/runtime.mjs is not reproducible: committed ${sha256(committed)}, rebuilt ${manifest.sha256}`);
+  const committedCompiler = readFileSync(join(pkg, 'dist/compiler.mjs'));
+  if (sha256(committedCompiler) !== compilerManifest.compilerSha256) throw new Error(`dist/compiler.mjs is not reproducible: committed ${sha256(committedCompiler)}, rebuilt ${compilerManifest.compilerSha256}`);
 }
 console.log(JSON.stringify(manifest));

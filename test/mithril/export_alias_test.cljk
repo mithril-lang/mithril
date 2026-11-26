@@ -6,7 +6,7 @@
             [mithril.module-lower-test :as f]))
 (defn alias [name target] {"name" name "function" target})
 (defn keep [name]
-  (f/function name [{"name" "v" "datatype" "js-value"}] "js-value" (f/local "v")))
+  (f/function name [{"name" "v" "datatype" "i64"}] "i64" (f/local "v")))
 (defn code [doc]
   (try (module/check-document doc) nil (catch :default e (:mithril/error (ex-data e)))))
 (deftest aliases-normalize-public-names-and-validate-declared-targets
@@ -28,7 +28,7 @@
     (is (= 2 (count (re-seq #"function __mithril_public_[0-9]+\(" (:source (lower/js-library-document doc "./artifact.mjs"))))))))
 (deftest alias-library-budgets-follow-the-actual-declaration
   (let [doc (f/document [(keep "inner")
-                        (f/function "keep" [{"name" "v" "datatype" "js-value"}] "js-value"
+                        (f/function "keep" [{"name" "v" "datatype" "i64"}] "i64"
                                     (f/call "inner" [(f/local "v")]))]
                        [(alias "default" "keep") "keep"])
         result (lower/js-library-document doc "./artifact.mjs")]
@@ -58,7 +58,7 @@
     (is (= [{:name "public" :symbol "__mithril_f0"}] (:exports result)))
     (is (str/includes? (:source result) "(defn __mithril_f2 [] :js-value (__mithril_f1))"))))
 (deftest existing-form-export-syntax-is-sufficient
-  (let [text "(mithril/module :name \"alias.probe\" :exports [(mithril/export :name \"alsoKeep\" :function \"keep\") \"keep\"] :functions [(mithril/function :name \"keep\" :params [(rdf/node :name \"v\" :datatype \"js-value\")] :returns \"js-value\" :body (mithril/local :name \"v\"))])"
+  (let [text "(mithril/module :name \"alias.probe\" :exports [(mithril/export :name \"alsoKeep\" :function \"keep\") \"keep\"] :functions [(mithril/function :name \"keep\" :params [(rdf/node :name \"v\" :datatype \"i64\")] :returns \"i64\" :body (mithril/local :name \"v\"))])"
         checked (module/check-text text)]
     (is (= {"alsoKeep" "keep" "keep" "keep"} (:export-targets checked)))
     (is (= [{:name "alsoKeep" :symbol "__mithril_f0"} {:name "keep" :symbol "__mithril_f0"}]
