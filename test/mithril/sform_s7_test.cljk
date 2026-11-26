@@ -133,7 +133,7 @@
         c (module/check-text "(mithril/module :name \"example\" :exports [\"main\"] :functions [(mithril/function :name \"main\" :params [] :returns \"i64\" :body (mithril/literal :datatype \"i64\" :value 2))])")]
     (is (= (:definition-cids a) (:definition-cids b)))
     (is (not= (:definition-cids a) (:definition-cids c)))
-    (is (re-matches #"sha256:[0-9a-f]{64}" (-> a :definition-cids first :cid))))
+    (is (re-matches #"bafyrei[a-z2-7]{52}" (-> a :definition-cids first :cid))))
   (testing "field order in the source does not move the CID"
     (let [a (module/check-text "(mithril/module :name \"example\" :exports [\"main\"] :functions [(mithril/function :name \"main\" :params [] :returns \"i64\" :body (mithril/literal :datatype \"i64\" :value 1))])")
           b (module/check-text "(mithril/module :functions [(mithril/function :body (mithril/literal :value 1 :datatype \"i64\") :returns \"i64\" :params [] :name \"main\")] :exports [\"main\"] :name \"example\")")]
@@ -144,7 +144,7 @@
                :goal :goal/test :ontology "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
                :choices []}
         emitted (:artifact (compiler/run-compiler-stage "emit-transaction" facts))
-        cids [{:name "main" :cid "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}]
+        cids [{:name "main" :cid "bafyreibdqjrny5eerkzsrn6524xi26otx73hxrsd25isptlwi6poyrivs4"}]
         artifact (compiler/pair-definition-cids emitted cids)]
     (testing "the closed pipeline stage keeps its declared inputs"
       (is (= #{:graph-digest :goal :ontology :choices}

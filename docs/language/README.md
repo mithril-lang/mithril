@@ -57,20 +57,21 @@ the sum) are refused. Native Amu and public-library profiles refuse sums
 ### Identity: Definition CID for code, graph digest for data
 
 Two identities, scoped: data (ontology blocks, data-profile files) keeps
-the `sha256:` canonical-RDF graph digest; each code definition takes a
-Definition CID (`sha256:` over the key-sorted canonical projection of the
-checked typed IR of the definition — parse shape, desugars, types; never
-source bytes or trivia). Receipts carry both side by side —
-`:graph-digest` for the data tier, `:definition-cids` (`{:name … :cid …}`
-per definition) for the code tier, attached by `compiler/pair-definition-cids`
-outside the closed bootstrap pipeline (whose `emit-transaction` stage keeps
-its inputs). No unlabeled hash field means one thing on one side and the
-other on the other. Checked modules and their lowerings expose
-`:definition-cids`; digests of existing data files are untouched. A
-Definition CID does not yet fold in its callees' CIDs (a call names its
-callee), so it is not a Merkle identity. This provisional digest is not a
-real DAG-CBOR CIDv1; Item 381 owns that follow-up under the
-[program identity specification](spec/ipld-identity.md).
+the `sha256:` canonical-RDF graph digest, and `compiler/graph-identity`
+pairs it with a `:dataset-cid` (CIDv1 of the canonical quad list, from the
+same RDFC-1.0 run); each code definition takes a Definition CID, a
+CIDv1 (dag-cbor, sha2-256, `bafyrei…`) over the α-normalized checked typed
+IR of the definition encoded as DAG-CBOR — never source bytes, printed text
+or trivia. Receipts carry both side by side — `:graph-digest` for the data
+tier, `:definition-cids` (`{:name … :cid …}` per definition) for the code
+tier, attached by `compiler/pair-definition-cids` outside the closed
+bootstrap pipeline (whose `emit-transaction` stage keeps its inputs). No
+unlabeled hash field means one thing on one side and the other on the
+other. Checked modules and their lowerings expose `:definition-cids`;
+digests of existing data files are untouched. A Definition CID does not yet
+fold in its callees' CIDs (a call names its callee), so it is not yet a
+Merkle identity; see the
+[program identity specification](spec/ipld-identity.md) §10.
 
 ### Pure-core posture
 
