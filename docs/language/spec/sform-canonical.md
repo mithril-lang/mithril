@@ -197,8 +197,8 @@ total function into it.
 | Spec rule | Code today | Gap |
 |---|---|---|
 | Canonical S-form has no vectors (§3.1) | `mithril.form/parse` returns host vectors. Data-profile tagged forms are host lists. | The `vec` head is not materialized. Identity today goes through the RDF projection (data) or the checked IR (code), so this does not move any existing digest. |
-| Maps and sets desugar to sorted `(map …)` and `(set …)` (§3.2–3.3) | The data profile refuses `{}` and `#{}`. #173 (open) `canonical-value` sorts map keys, and sorts sets by `pr-str`. | `pr-str` order is not §2.3 order. P-CID (ipld-identity.md §8) must switch to encoding order. |
-| Keywords desugar to IRIs (§3.4) | Field keywords resolve through the compiler key table (`compiler.cljk`) into the JSON-LD projection. Keyword values are refused in the data profile. | A general keyword→IRI desugar for the code profile is not implemented. |
+| Maps and sets desugar to sorted `(map …)` and `(set …)` (§3.2–3.3) | The data profile refuses `{}` and `#{}`. `mithril.ipld-identity/term->ipld` desugars maps and sets to sorted `map` / `set` lists in §2.3 encoding order and refuses duplicate map keys. | The reader does not yet route sugar through it, because no identity is computed over S-form terms today. |
+| Keywords desugar to IRIs (§3.4) | Field keywords resolve through the compiler key table (`compiler.cljk`) into the JSON-LD projection. Keyword values are refused in the data profile. `ipld-identity/term->ipld` desugars keywords to IRI atoms (built-in prefixes, declared prefixes, default base). | The code profile has no prefix declaration form yet (open point 2), so declared prefixes are passed as an option. |
 | Term order is DAG-CBOR byte order (§2.3) | `rdf_form.cljk` sorts by `pr-str` for display. | Display-only, so no identity impact. |
 | Duplicate map key is refused | Not reachable today: there are no map literals. | — |
 

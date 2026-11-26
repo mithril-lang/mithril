@@ -216,18 +216,19 @@ the step-4 sort.
 
 | Spec rule | Code today | Gap |
 |---|---|---|
-| DAG-CBOR + CIDv1 codec (§4) | `vendor/src/ipld/core.cljc` (`node->block`, strict `decode`, tag 42 only, string keys) and `multiformats.core`. This is already used by `checkpoint_ipld.cljk` and `reason_ipld.cljk`. | Matches. The vendor data model admits floats. Mithril blocks must not use them (§3). |
-| Symbol and IRI atoms (§3) | `ipld.data-model/kind` refuses host keywords and symbols (fail closed). Callers turn them into strings ad hoc. | The `{"sym"}` and `{"iri"}` encoding is not implemented anywhere. |
-| Data tier `graph-digest` (§5) | `compiler/graph-digest`, guarded by `test/fixtures/digest-baseline.edn`. | Matches. `dataset-cid` is not implemented. |
-| Definition CID is a CIDv1 (§6.1) | #173 (open): `module/definition-cid` = `"sha256:" ++ SHA-256(pr-str(canonical-value(select-keys decl [:name :params :returns :body])))`. | It is not a CID. It hashes `pr-str`. It includes `:name` and local names (so there is no α-normalization). Sets are sorted by `pr-str`. Callees are named, not linked (not Merkle). This is the P-CID follow-up below. |
+| DAG-CBOR + CIDv1 codec (§4) | `vendor/src/ipld/core.cljc` (`node->block`, strict `decode`, tag 42 only, string keys) and `multiformats.core`, used by `checkpoint_ipld.cljk`, `reason_ipld.cljk` and `mithril.ipld-identity`. The vendored CBOR codec carries a local change so a `js/BigInt` encodes and decodes exactly (vendor/PROVENANCE.md, "Local modifications"). | Matches. The vendor data model admits floats; `ipld-identity/term->ipld` and `check-term!` refuse them (§3). |
+| Symbol and IRI atoms (§3) | `mithril.ipld-identity/term->ipld`: symbol → `{"sym"}`, `(iri "…")` and keywords (sform-canonical.md §3.4, built-in and declared prefixes, default base) → `{"iri"}`, vectors → `vec` lists, sets → sorted (§2.3 encoding order) deduplicated `set` lists, maps → sorted `map` pair lists with duplicate keys refused. `check-term!` refuses any other map in a decoded term block. | No reader path produces S-form terms for identity yet: the code tier hashes typed IR records (§7) and the data tier hashes the quad list below. |
+| Data tier `graph-digest` and `dataset-cid` (§5) | `ipld-identity/dataset-identity` runs RDFC-1.0 once and returns both. `compiler/graph-identity` exposes the pair for a source document. `compiler/graph-digest` is unchanged, and the test suite checks every `test/fixtures/digest-baseline.edn` entry against the pair's digest. | Artifacts and receipts do not carry `dataset-cid` yet: bootstrap artifacts must equal the `.mith` kernel pipeline output, whose `canonicalize-rdf` stage declares only `graph-digest`, so adding it is a kernel change. A literal without a datatype is written `(lit v (iri xsd:string))`, as RDF 1.1 defines it. |
+| Definition CID is a CIDv1 (§6.1) | `module/check-document` `:definition-cids` = `[{:name … :cid "bafyrei…"}]`, computed by `ipld-identity/definition-cid` over `definition-node`: the checked IR of one definition as a `lambda` record (§7), α-normalized (§2.1). The definition's own name and all local names are absent. Locals are `{"op":"local","index":i}` with indices in pre-order (parameters first; a `let` binder after its value; lambda parameters on entry). Integer literals are IPLD int, exact over the whole i64 range. A self-call is `[{"sym":"self"}]` (§6.2 step 3). `VariantMatch` cases are sorted by case name before the walk, because they form a map. | Calls to other definitions are the callee's `{"sym"}` atom, not a link to its CID, and there is no SCC hashing (§2.1 step 2, §6.2 steps 2 and 4) and no names block (§6.3). Choices this spec does not fix yet and the code makes: sum types are `{"sum":[name,[case…]]}` with cases in declared order; intrinsic calls keep `"op":"intrinsic"` with a `"name"` string. |
 | Program IR over IPLD (§7) | #180 (open) `mithril.transpiler-ipld`: whole checked module → **one** DAG-CBOR block, `format "mithril.transpiler-ipld/ir-v1"`, CIDv1 dag-cbor sha2-256, dag-json for display only. | Matches D11 for the codec and the display rule. It differs in three ways: i64 literals are **decimal strings**, not IPLD int; local and function names are in the identity block (no α-normalization, no names block); there are no per-definition blocks, links or SCCs. |
 | Evaluation on checked IR (§8) | There is no IR evaluator yet (M1). Checkpoint and reason blocks are decoded before use. | — |
 
-**P-CID follow-up.** This is the planned change that closes the code-tier gaps
-above. It stacks on #173. Its acceptance checks: existing `graph-digest`
-values do not move; the same checked IR always gets the same CID, regardless of
-key order, whitespace or α-renaming; the encoding matches the vendor DAG-CBOR
-corpus. It waits for the owner's go-ahead.
+**P-CID.** The first step has landed: the Definition CID is a CIDv1 over
+α-normalized DAG-CBOR, the §3 atoms are fixed, and the dataset CID sits next
+to an unchanged `graph-digest`. `test/mithril/ipld_identity_test.cljc` checks
+key-order, whitespace and α-renaming invariance, round trips through the
+vendored verifying decoder, the vendor DAG-CBOR corpus, and the digest
+baseline. Still open: callee links with SCC hashing and the names block.
 
 ## 11. Open points
 

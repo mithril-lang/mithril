@@ -214,9 +214,32 @@
   #?(:clj (bytes? x)
      :cljs (or (instance? js/Uint8Array x) (instance? js/Int8Array x))))
 
+#?(:cljs
+   (defn- bigint? [x] (identical? js/BigInt (type x))))
+
+;; Integers beyond Number.MAX_SAFE_INTEGER arrive on :cljs as js/BigInt (an
+;; i64 needs 64 bits; a Number holds 53). A BigInt inside the safe range is
+;; written as the Number it equals, so the shortest-form rule still holds; one
+;; outside it needs the 8-byte argument (info 27) by definition. Local mithril
+;; modification (vendor/PROVENANCE.md, "Local modifications").
+#?(:cljs
+   (defn- write-bigint [o x]
+     (let [negative? (< x (js/BigInt 0))
+           major (if negative? 1 0)
+           arg (if negative? (- (js/BigInt -1) x) x)]
+       (when (> arg (js/BigInt "18446744073709551615"))
+         (throw (ex-info "cbor: integer exceeds 64 bits" {:value (str x)})))
+       (if (<= arg (js/BigInt js/Number.MAX_SAFE_INTEGER))
+         (write-head o major (js/Number arg))
+         (let [buffer (js/ArrayBuffer. 8)]
+           (.setBigUint64 (js/DataView. buffer) 0 arg false)
+           (write-byte! o (bit-or (bit-shift-left major 5) 27))
+           (write-bytes! o (js/Uint8Array. buffer)))))))
+
 (defn- encode-into [o x]
   (cond
     (nil? x)            (write-byte! o 0xf6)
+    #?@(:cljs [(bigint? x) (write-bigint o x)])
     (true? x)           (write-byte! o 0xf5)
     (false? x)          (write-byte! o 0xf4)
     (integer? x)        (if (neg? x) (write-head o 1 (- (- x) 1)) (write-head o 0 x))
@@ -261,7 +284,12 @@
         (= info 24) (read-byte! in)
         (= info 25) (read-n in 2)
         (= info 26) (read-n in 4)
-        (= info 27) (read-n in 8)
+        (= info 27) #?(:clj (read-n in 8)
+                       ;; Above 2^53 a Number would round; return the exact
+                       ;; BigInt instead (see write-bigint).
+                       :cljs (let [b (read-bytes! in 8)
+                                   n (.getBigUint64 (js/DataView. (.-buffer b) (.-byteOffset b) 8) 0 false)]
+                               (if (<= n (js/BigInt js/Number.MAX_SAFE_INTEGER)) (js/Number n) n)))
         :else (throw (ex-info "cbor: indefinite/reserved length unsupported" {:info info}))))
 
 (declare decode-from)
@@ -272,7 +300,9 @@
     (let [major (bit-shift-right ib 5) info (bit-and ib 0x1f)]
       (case (int major)
         0 (read-arg in info)
-        1 (- (- (read-arg in info)) 1)
+        1 (let [arg (read-arg in info)]
+            #?(:clj (- (- arg) 1)
+               :cljs (if (bigint? arg) (- (js/BigInt -1) arg) (- (- arg) 1))))
         2 (read-bytes! in (read-arg in info))
         3 (bytes->str (read-bytes! in (read-arg in info)))
         4 (vec (repeatedly (read-arg in info) #(decode-from in)))

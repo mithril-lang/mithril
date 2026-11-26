@@ -123,7 +123,7 @@ meta-theorems when the owner asks. It is not a prerequisite for v1.
 | L1 | There is no SMT integration in the repository | All of it (milestone V1) |
 | L2 | `test/fixtures/digest-baseline.edn` golden digests. #180 tests the IPLD round trip and CID stability. | No emitter goldens with a CID header. No differential harness. No HTML round trip. |
 | L3 | Declared host imports in native-js lowering. Guest js-value fail-closed in #179 (open). | No capability list in receipts. |
-| L4 | Artifacts carry `graph-digest`. #173 (open) pairs `definition-cids` on artifacts. | No receipt block with CIDv1 links from source to IR to outputs. |
+| L4 | Artifacts carry `graph-digest` (`compiler/graph-identity` computes the `dataset-cid` beside it). `pair-definition-cids` pairs CIDv1 `definition-cids` on artifacts. | No receipt block with CIDv1 links from source to IR to outputs. |
 | Lean | None | Later, by owner decision |
 
 ## 9. Open points

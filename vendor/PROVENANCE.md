@@ -152,6 +152,17 @@ path, and SHA-256 in [`PROVENANCE.json`](PROVENANCE.json).
 | `github.com/kotoba-lang/walk-walk-depth-exceeded` | `f76e98cf1920` | 1 | 497 |
 | **total** | | **203** | **1,398,783** |
 
+## Local modifications
+
+Two files differ from their upstream snapshot. `PROVENANCE.json` records the current
+`sha256` and `bytes` of each, plus `upstream_sha256` and a `local_modification` note; the
+snapshot table above still lists upstream sizes.
+
+| file | change | why |
+|---|---|---|
+| `vendor/src/cbor/core.cljc` | On `:cljs`, `encode` writes a `js/BigInt` as a CBOR integer (shortest form when it fits 2^53, else the 8-byte argument), and `decode` returns a `js/BigInt` for an 8-byte integer above 2^53 instead of a rounded Number. `:clj` is unchanged. | Mithril i64 literals are IPLD ints in identity blocks (`docs/language/spec/ipld-identity.md` §3); a JS Number cannot hold the i64 range, so ±2^63 boundaries rounded or were unencodable. |
+| `vendor/src/ipld/data_model.cljc` | `kind` reports a `js/BigInt` as `:int`. | Same; without it `validate!` refused the value as host-only data. |
+
 ## Resolution of overlapping classpath paths
 
 One classpath path, `kotobase/datom_plan.cljk`, shipped in two of the pinned repositories.

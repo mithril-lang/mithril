@@ -514,6 +514,7 @@ def main():
         "src/mithril/codegraph_store.cljs",
         "src/mithril/execution.cljk",
         "deps.edn",
+        "src/mithril/ipld_identity.cljc",
         "nbb.edn",
     ]
     receipt = {

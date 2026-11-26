@@ -13,11 +13,12 @@
             [mithril.native-js-test]
             [mithril.native-misc-test]
             [mithril.native-array-test] [mithril.native-volatile-test] [mithril.native-types-test] [mithril.native-blocks-test] [mithril.native-spreads-test] [mithril.native-types-module-test] [mithril.native-string-time-test] [mithril.native-string-module-test] [mithril.native-module-init-test] [mithril.native-time-module-test]
-            [mithril.sform-s7-test]))
+            [mithril.sform-s7-test]
+            [mithril.ipld-identity-test]))
 (defmethod t/report [::t/default :end-run-tests] [m]
-  (when (or (not= 114 (:test m)) (not= 607 (:pass m))
+  (when (or (not= 125 (:test m)) (not= 781 (:pass m))
             (pos? (+ (:fail m) (:error m))))
     (js/process.exit 1)))
 (t/run-tests 'mithril.module-test 'mithril.module-lower-test 'mithril.form-test
              'mithril.compiler-test 'mithril.conditional-test 'mithril.branding-test
-             'mithril.undefined-test 'mithril.library-test 'mithril.module-bindings-test 'mithril.module-guest-closure-test 'mithril.native-js-test 'mithril.native-misc-test 'mithril.native-array-test 'mithril.native-volatile-test 'mithril.native-types-test 'mithril.native-blocks-test 'mithril.native-spreads-test 'mithril.native-types-module-test 'mithril.native-string-time-test 'mithril.native-string-module-test 'mithril.native-module-init-test 'mithril.native-time-module-test 'mithril.sform-s7-test)
+             'mithril.undefined-test 'mithril.library-test 'mithril.module-bindings-test 'mithril.module-guest-closure-test 'mithril.native-js-test 'mithril.native-misc-test 'mithril.native-array-test 'mithril.native-volatile-test 'mithril.native-types-test 'mithril.native-blocks-test 'mithril.native-spreads-test 'mithril.native-types-module-test 'mithril.native-string-time-test 'mithril.native-string-module-test 'mithril.native-module-init-test 'mithril.native-time-module-test 'mithril.sform-s7-test 'mithril.ipld-identity-test)
