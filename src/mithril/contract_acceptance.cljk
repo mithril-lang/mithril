@@ -1,0 +1,168 @@
+(ns mithril.contract-acceptance
+  "Answers contract-acceptance questions for ONE case, entirely from
+  `ontology/contract-acceptance-v1.mith` (Organizer Item 471).
+
+  The ontology is the source of truth: the rules (CA:PolicyRule, with the
+  shapes that enforce them under CA:enforcedBy) and the questions
+  (CA:DecisionQuestion: subject class, state-claim class, gate shapes,
+  approval shapes) are read from its RDF, never restated here. This
+  namespace only evaluates them.
+
+    (decide (policy ontology-artifact) case-quads)
+    -> {:case {:status :violations [...]}
+        :answers [{:question :key :label :subject :verdict :may-proceed
+                   :owner-approval :violated-shapes :rules ...}]}
+
+  How a question is answered. For every node of the question's
+  CA:subjectClass in the case, the question's CA:claimClass type is added
+  to that node -- the state the action would create (\"this quote is
+  sent\", \"this invoice is issued\", \"this NDA is in force\", ...) -- and
+  the case is reasoned again (`mithril.reason/reason`, OWL 2 RL + SHACL
+  Core). Only violations whose focus is that node count:
+
+    a CA:gateShape violated      -> :verdict :blocked, :rules = the rules
+                                    enforcing the violated shapes
+    no gate shape violated       -> :verdict :allowed
+    CA:approvalShape (R11)       -> :owner-approval :recorded | :pending,
+                                    or :not-required without one
+
+  The owner approval is reported beside the verdict, never folded into it:
+  R11 requires the owner's approval for sending, signature requests and
+  billing even when every other rule allows the action. `:may-proceed` is
+  true only when the verdict is :allowed and no approval is pending.
+
+  All claims of one case are added in ONE hypothetical run. That is sound
+  for this ontology because every claim shape focuses on the claimed node
+  itself and no claim class is a gate of another question's subject; a new
+  question that breaks this must not be added without revisiting it.
+
+  Description and validation only: nothing here sends, signs or bills."
+  (:require [clojure.string :as str]
+            [mithril.compiler :as compiler]
+            [mithril.reason :as reason]
+            [nquads.core :as nq]))
+
+(def ontology-path "ontology/contract-acceptance-v1.mith")
+(def ca "https://mithril.fund/ns/contract-acceptance/v1#")
+(def ^:private rdf-type "http://www.w3.org/1999/02/22-rdf-syntax-ns#type")
+(defn- ca* [local] (str ca local))
+
+;; ── reading the policy out of the ontology ─────────────────────────────────
+
+(defn- term-value [t]
+  (case (:type t)
+    :literal (cond-> {:literal (:value t)}
+               (:language t) (assoc :language (:language t))
+               (:datatype t) (assoc :datatype (:datatype t)))
+    (:value t)))
+
+(defn- index [quads]
+  (reduce (fn [m q]
+            (update-in m [(:value (:subject q)) (:value (:predicate q))]
+                       (fnil conj []) (term-value (:object q))))
+          {} quads))
+
+(defn- lit [v] (if (map? v) (:literal v) v))
+(defn- by-lang [vs] (into (sorted-map) (map (fn [v] [(keyword (or (:language v) "und")) (:literal v)]) vs)))
+(defn- iris [node p] (vec (sort (remove map? (get node p)))))
+
+(defn policy
+  "The rules and questions of a compiled contract-acceptance ontology."
+  [artifact]
+  (let [g (index (compiler/ontology-quads artifact))
+        typed (fn [cls] (sort (for [[s ps] g :when (some #{cls} (get ps rdf-type))] s)))
+        rules (into (sorted-map)
+                    (for [s (typed (ca* "PolicyRule")) :let [n (get g s)]]
+                      [s {:rule s
+                          :rule-id (lit (first (get n (ca* "ruleId"))))
+                          :label (by-lang (get n (ca* "label")))
+                          :enforced-by (iris n (ca* "enforcedBy"))}]))
+        questions (vec
+                   (sort-by :key
+                            (for [s (typed (ca* "DecisionQuestion")) :let [n (get g s)]]
+                              {:question s
+                               :key (lit (first (get n (ca* "questionKey"))))
+                               :label (by-lang (get n (ca* "label")))
+                               :subject-class (first (iris n (ca* "subjectClass")))
+                               :claim-class (first (iris n (ca* "claimClass")))
+                               :gate-shapes (set (iris n (ca* "gateShape")))
+                               :approval-shapes (set (iris n (ca* "approvalShape")))
+                               :based-on (iris n (ca* "basedOnRule"))
+                               :requires-change-order
+                               (= "true" (lit (first (get n (ca* "requiresChangeOrder")))))})))
+        shape->rules (reduce (fn [m {:keys [rule enforced-by]}]
+                               (reduce #(update %1 %2 (fnil conj (sorted-set)) rule) m enforced-by))
+                             {} (vals rules))]
+    {:artifact artifact :rules rules :questions questions :shape->rules shape->rules}))
+
+(defn load-policy
+  "Read and compile `ontology/contract-acceptance-v1.mith` (or `path`)."
+  ([] (load-policy ontology-path))
+  ([path]
+   (policy (compiler/compile-ontology-text
+            path (.readFileSync (js/require "fs") path "utf8")))))
+
+;; ── deciding ────────────────────────────────────────────────────────────────
+
+(defn- rules-of [{:keys [shape->rules]} shapes]
+  (vec (into (sorted-set) (mapcat #(get shape->rules %) shapes))))
+
+(defn- claim-quads [claims]
+  (if (empty? claims)
+    []
+    (nq/parse (str/join (for [[s c] (sort claims)]
+                          (str "<" s "> <" rdf-type "> <" c "> .\n"))))))
+
+(defn- case-violation [pol v]
+  (cond-> (select-keys v [:focus :shape :constraint])
+    (seq (get (:shape->rules pol) (:shape v))) (assoc :rules (rules-of pol [(:shape v)]))))
+
+(defn decide
+  "pol: `policy` / `load-policy`. case-data: quads (`mithril.reason/parse-data`).
+  Returns {:case {...} :answers [...]} (see the namespace doc)."
+  [{:keys [artifact questions] :as pol} case-data]
+  (let [base (reason/reason artifact case-data {})
+        subjects (fn [cls] (vec (sort (distinct (for [t (:types base) :when (= cls (:o t))] (:s t))))))
+        plan (for [q questions] [q (subjects (:subject-class q))])
+        claims (set (for [[q ss] plan :when (:claim-class q) s ss] [s (:claim-class q)]))
+        hypo (if (#{:conforms :violations} (:status base))
+               (reason/reason artifact (into (vec case-data) (claim-quads claims)) {})
+               base)
+        on-node (group-by :focus (:violations hypo))
+        usable? (#{:conforms :violations} (:status hypo))
+        answer (fn [q s]
+                 (let [vs (get on-node s)
+                       gate (vec (sort (distinct (keep #(when ((:gate-shapes q) (:shape %)) (:shape %)) vs))))
+                       appr (vec (sort (distinct (keep #(when ((:approval-shapes q) (:shape %)) (:shape %)) vs))))
+                       verdict (cond (not usable?) :unknown (seq gate) :blocked :else :allowed)
+                       approval (cond (empty? (:approval-shapes q)) :not-required
+                                      (seq appr) :pending
+                                      :else :recorded)]
+                   (cond-> {:question (:question q)
+                            :key (:key q)
+                            :label (:label q)
+                            :subject s
+                            :verdict verdict
+                            :may-proceed (and (= :allowed verdict) (not= :pending approval))
+                            :owner-approval approval
+                            :violated-shapes gate
+                            :rules (rules-of pol gate)
+                            :based-on (:based-on q)}
+                     (= :pending approval) (assoc :approval-rules (rules-of pol appr))
+                     (:requires-change-order q) (assoc :change-order-required true)
+                     (not usable?) (assoc :reason (or (:refusal hypo) (:status hypo))))))]
+    {:case (cond-> {:status (:status base)
+                    :violations (mapv #(case-violation pol %) (:violations base))}
+             (:refusal base) (assoc :refusal (:refusal base)))
+     :answers (vec (mapcat (fn [[q ss]]
+                             (if (seq ss)
+                               (map #(answer q %) ss)
+                               [{:question (:question q) :key (:key q) :label (:label q)
+                                 :verdict :no-subject :may-proceed false
+                                 :based-on (:based-on q)}]))
+                           plan))}))
+
+(defn decide-text
+  "Convenience: `path` + case text (N-Quads / N-Triples / .mith / JSON-LD)."
+  [pol path text]
+  (decide pol (reason/parse-data path text)))
