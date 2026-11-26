@@ -17,7 +17,7 @@ console.log(version.stdout.trim());
 const dir=mkdtempSync(join(tmpdir(),'mithril-smt-tests-'));
 try{
   const config=join(dir,'offline.edn');
-  writeFileSync(config,`{:paths [${JSON.stringify(join(root,'src'))} ${JSON.stringify(join(root,'test'))}]}`);
+  writeFileSync(config,`{:paths [${JSON.stringify(join(root,'src'))} ${JSON.stringify(join(root,'vendor/src'))} ${JSON.stringify(join(root,'test'))}]}`);
   const result=spawnSync(process.execPath,[engine,'--config',config,'test/run_verify.cljk'],
     {cwd:root,stdio:'inherit',timeout:300000});
   if(result.error||result.status!==0)throw result.error||Error(`SMT contract suite exited ${result.status}`);
