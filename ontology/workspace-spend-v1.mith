@@ -552,6 +552,12 @@
    ;; validTo is exclusive. A claim is not valid at its validTo boundary.
    ;; These bounds do not describe when a revision was recorded.
    ;; SHACL checks the form of the bounds; readers apply the time filter.
+   ;; Workspace Spend P0 input profile: when supplied, each bound must
+   ;; be a valid calendar date in YYYY-MM-DD form. Keep the original
+   ;; xsd:string date in the projection and compare at 00:00:00 UTC on
+   ;; that date. Reject year-only and year-month input at P0 ingest;
+   ;; never round or fill in missing components.
+   ;; Revision/recordedAt timestamps are not projected as claim bounds.
    (shacl/node-shape
      :id "https://mithril.fund/ns/workspace-spend/v1#CsfLabelShape"
      :sh/target-class "https://mithril.fund/ns/workspace-spend/v1#CsfLabel"
