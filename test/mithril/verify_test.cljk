@@ -1,0 +1,175 @@
+(ns mithril.verify-test
+  (:require [cljs.test :refer [deftest is testing]]
+            [clojure.string :as str]
+            [mithril.form :as form]
+            [mithril.module :as module]
+            [mithril.verify :as verify]
+            [mithril.verify-z3 :as z3]))
+
+(defn literal [type value] {"@type" "Literal" "datatype" type "value" value})
+(defn local [name] {"@type" "Local" "name" name})
+(defn call [name & args] {"@type" "Call" "name" name "args" (vec args)})
+(defn if* [c t e] {"@type" "If" "condition" c "then" t "else" e})
+(defn let-in [bindings body]
+  {"@type" "Let" "bindings" (mapv (fn [[n v]] {"name" n "value" v}) bindings) "body" body})
+(defn or* [a b] (if* a (literal "bool" true) b))
+(defn param [name type] {"name" name "datatype" type})
+(defn function [fname params returns body & contract]
+  (into {"@type" "Function" "name" fname "params" params "returns" returns "body" body}
+        (map (fn [[k v]] [(name k) v])) (partition 2 contract)))
+(defn document [functions]
+  {"@context" "https://mithril.fund/context/module/v1" "@type" "Module"
+   "name" "contracts" "functions" functions "exports" []})
+(defn i64 [value] (literal "i64" value))
+(def max-i64 "9223372036854775807")
+(defn error-code [f]
+  (try (f) nil (catch :default e (:mithril/error (ex-data e)))))
+
+(defn verify-one
+  ([functions name] (verify-one functions name {}))
+  ([functions name opts]
+   (first (:results (z3/verify-document (document functions) (assoc opts :functions [name]))))))
+
+(def safe-inc
+  (function "safe_inc" [(param "x" "i64")] "i64" (call "add" (local "x") (i64 1))
+            :requires (call "not" (call "eq" (local "x") (i64 max-i64)))
+            :ensures (call "not" (call "eq" (local "result") (local "x")))))
+
+(def countdown
+  (function "countdown" [(param "n" "i64")] "i64"
+            (if* (call "eq" (local "n") (i64 0)) (i64 0) (call "countdown" (call "sub" (local "n") (i64 1))))
+            :requires (or* (call "eq" (local "n") (i64 0))
+                           (or* (call "eq" (local "n") (i64 1))
+                                (or* (call "eq" (local "n") (i64 2)) (call "eq" (local "n") (i64 3)))))
+            :ensures (call "eq" (local "result") (i64 0))))
+
+(deftest solver-is-available
+  (is (some? (z3/z3-version)) "z3 must be installed for the SMT contract suite"))
+
+(deftest contract-free-modules-check-exactly-as-before
+  (let [doc (document [(function "main" [] "i64" (call "id" (i64 7)))
+                       (function "id" [(param "x" "i64")] "i64" (local "x"))])]
+    (is (= (module/check-document doc) (verify/check-contract-document doc))))
+  (testing "module/check-document itself still refuses contract fields"
+    (is (= :mithril.module/invalid-shape (error-code #(module/check-document (document [safe-inc])))))))
+
+(deftest contracts-are-checked-as-module-expressions
+  (let [checked (verify/check-contract-document (document [safe-inc]))
+        f (first (:functions checked))]
+    (is (= [:bool :bool] [(:type (:requires f)) (:type (:ensures f))]))
+    (is (= {"safe_inc" []} (:call-graph checked)))
+    (is (= 1 (count (:functions checked)))))
+  (doseq [[doc code]
+          [[(document [(function "f" [] "i64" (i64 1) :requires (i64 1))]) :mithril.module/type-mismatch]
+           [(document [(function "f" [] "i64" (i64 1) :ensures (local "y"))]) :mithril.module/unknown-local]
+           [(document [(function "f" [(param "result" "i64")] "i64" (i64 1) :ensures (literal "bool" true))])
+            :mithril.verify/reserved-name]
+           [(document [(function "__mithril_x" [] "i64" (i64 1) :ensures (literal "bool" true))])
+            :mithril.verify/reserved-name]
+           [(document [(function "f" [] "bool" (call "__mithril_requires_f") :requires (literal "bool" true))])
+            :mithril.verify/reserved-name]]]
+    (is (= code (error-code #(verify/check-contract-document doc))))))
+
+(deftest form-text-carries-contract-fields
+  (let [doc (form/parse
+              "(mithril/module :name \"c\" :exports [] :functions [(mithril/function :name \"f\" :params [(rdf/node :name \"x\" :datatype \"i64\")] :returns \"i64\" :body (mithril/local :name \"x\") :ensures (mithril/call :name \"eq\" :args [(mithril/local :name \"result\") (mithril/local :name \"x\")]))])")]
+    (is (= :proved (:status (first (:results (z3/verify-document doc))))))))
+
+(deftest proved-cases
+  (let [result (verify-one [safe-inc] "safe_inc")]
+    (is (= :proved (:status result)))
+    (is (not (:vacuous result))))
+  (testing "an unsatisfiable requires is reported as vacuous"
+    (let [result (verify-one [(function "never" [(param "x" "i64")] "i64" (call "add" (local "x") (i64 1))
+                                        :requires (call "eq" (local "x") (call "add" (local "x") (i64 1))))] "never")]
+      (is (= [:proved true] ((juxt :status :vacuous) result)))))
+  (testing "callee requires discharged by a guard, callee inlined"
+    (is (= :proved (:status (verify-one [safe-inc (function "caller" [(param "y" "i64")] "i64"
+                                                            (if* (call "eq" (local "y") (i64 max-i64)) (i64 0)
+                                                                 (call "safe_inc" (local "y")))
+                                                            :ensures (call "not" (call "eq" (local "result") (local "y"))))]
+                                        "caller")))))
+  (testing "let, sequence and bool"
+    (is (= :proved (:status (verify-one [(function "f" [(param "b" "bool")] "bool"
+                                                   (let-in [["c" (call "not" (local "b"))]]
+                                                         {"@type" "Sequence" "expressions" [(local "b") (call "not" (local "c"))]})
+                                                   :ensures (call "eq" (local "result") (local "b")))]
+                                        "f")))))
+  (testing "strings, including escapes and non-ASCII literals"
+    (is (= :proved (:status (verify-one [(function "g" [(param "s" "string")] "string"
+                                                   (if* (call "eq" (local "s") (literal "string" "admin"))
+                                                        (literal "string" "a\"b\\c 日本語") (local "s"))
+                                                   :ensures (call "not" (call "eq" (local "result") (literal "string" "admin"))))]
+                                        "g")))))
+  (testing "bounded recursion that provably stays inside the bound"
+    (let [result (verify-one [countdown] "countdown")]
+      (is (= :proved (:status result)))
+      (is (seq (:cuts result)) "cut points exist but are unreachable"))))
+
+(deftest counterexample-cases
+  (testing "i64 overflow"
+    (let [result (verify-one [(function "inc" [(param "x" "i64")] "i64" (call "add" (local "x") (i64 1)))] "inc")]
+      (is (= :counterexample (:status result)))
+      (is (= {"x" max-i64} (:model result)))
+      (is (= [:overflow] (mapv :kind (:violations result))))
+      (is (= {:outcome :fault :fault {:kind :overflow :op "add" :function "inc"}} (:replay result)))))
+  (testing "multiplication overflow at the negative boundary"
+    (let [result (verify-one [(function "neg" [(param "x" "i64")] "i64" (call "mul" (local "x") (i64 -1)))] "neg")]
+      (is (= {"x" "-9223372036854775808"} (:model result)))
+      (is (= :fault (get-in result [:replay :outcome])))))
+  (testing "ensures violated"
+    (let [result (verify-one [(function "flip" [(param "b" "bool")] "bool" (local "b")
+                                        :ensures (call "not" (call "eq" (local "result") (local "b"))))] "flip")]
+      (is (= :counterexample (:status result)))
+      (is (= [:ensures] (mapv :kind (:violations result))))
+      (is (= :ensures-false (get-in result [:replay :outcome])))))
+  (testing "callee precondition not established"
+    (let [result (verify-one [safe-inc (function "caller" [(param "y" "i64")] "i64" (call "safe_inc" (local "y")))] "caller")]
+      (is (= {"y" max-i64} (:model result)))
+      (is (= :call-requires (:kind (first (:violations result)))))
+      (is (= :call-requires (get-in result [:replay :fault :kind])))))
+  (testing "string model round-trips escapes and astral code points"
+    (let [secret "a\"b\\c 日😀"
+          result (verify-one [(function "is_secret" [(param "s" "string")] "bool"
+                                        (call "eq" (local "s") (literal "string" secret))
+                                        :ensures (call "not" (local "result")))] "is_secret")]
+      (is (= {"s" secret} (:model result)))
+      (is (= :ensures-false (get-in result [:replay :outcome])))))
+  (testing "a fault before a reachable cut is confirmed by concrete replay"
+    (let [result (verify-one [(dissoc countdown "requires")] "countdown")]
+      (is (= :counterexample (:status result)))
+      (is (= :replay (:confirmed-by result)))
+      (is (= :fault (get-in result [:replay :outcome]))))))
+
+(deftest unknown-cases
+  (testing "unbounded recursion is never proved"
+    (let [spin (function "spin" [(param "n" "i64")] "i64"
+                         (if* (call "eq" (local "n") (i64 0)) (i64 0) (call "spin" (local "n")))
+                         :ensures (call "eq" (local "result") (i64 0)))
+          result (verify-one [spin] "spin")]
+      (is (= [:unknown :bound] [(:status result) (:reason result)]))))
+  (testing "a bound smaller than the needed unrolling is unknown, not proved"
+    (is (= [:unknown :bound] ((juxt :status :reason) (verify-one [countdown] "countdown" {:bound 2})))))
+  (testing "fuel exhaustion is unknown"
+    (is (= [:unknown :bound] ((juxt :status :reason) (verify-one [countdown] "countdown" {:fuel 1})))))
+  (testing "host values are outside the translated subset"
+    (is (= [:unknown :unsupported]
+           ((juxt :status :reason)
+            (verify-one [(function "h" [(param "v" "js-value")] "bool" (call "js_truthy" (local "v"))
+                                   :ensures (literal "bool" true))] "h")))))
+  (testing "no solver means unknown, never proved"
+    (let [checked (verify/check-contract-document (document [safe-inc]))]
+      (is (= [:unknown :solver-unavailable]
+             ((juxt :status :reason) (verify/verify-function checked "safe_inc" {:solve (constantly nil)}))))))
+  (testing "budgets are enforced on options"
+    (is (= :mithril.verify/invalid-option
+           (error-code #(verify-one [safe-inc] "safe_inc" {:bound 65}))))))
+
+(deftest smt-text-shape
+  (let [checked (verify/check-contract-document (document [safe-inc]))
+        vc (verify/function-vc checked "safe_inc" {})
+        text (verify/counterexample-query vc)]
+    (is (str/includes? text "(declare-const p0 (_ BitVec 64))"))
+    (is (str/includes? text "#x7fffffffffffffff"))
+    (is (str/includes? text "((_ sign_extend 1)"))
+    (is (= [:overflow :ensures] (mapv :kind (:obligations vc))))))
