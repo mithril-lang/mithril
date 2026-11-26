@@ -62,18 +62,43 @@
     (into {} (map (fn [[k v]] [(if (string? k) (keyword k) k) v]) m))
     m))
 
+(defn- migrate-checked
+  "Keywordize a module's :checked map: its top level (:bindings, :functions…)
+  and each binding/function entry's keys (:name, :mutable). Deeper :value AST
+  nodes and raw default forms keep string keys."
+  [c]
+  (if (map? c)
+    (let [t (keywordize-top c)]
+      (cond-> t
+        (vector? (:bindings t)) (assoc :bindings (mapv keywordize-top (:bindings t)))
+        (vector? (:functions t)) (assoc :functions (mapv keywordize-top (:functions t)))))
+    c))
+
+(defn- migrate-module-entry
+  "Keywordize a :modules entry's keys and its nested :checked levels."
+  [m]
+  (if (map? m)
+    (let [e (keywordize-top m)]
+      (if (map? (:checked e)) (assoc e :checked (migrate-checked (:checked e))) e))
+    m))
+
 (defn- migrate-runtime
   "Restore a checked-runtime map after its JS round-trip.
 
   Structure (verified, not guessed): top-level and :modules ENTRY maps use
   KEYWORD keys (:format, :name, :modules, :checked…); :modules' KEYS are
   STRING module names (\"cordis.service\") — the checker looks them up with
-  string `n` via (get-in runtime [:modules n]). Nested :document / :checked
-  values use STRING keys (JSON-LD Form model, (get doc \"name\")).
+  string `n` via (get-in runtime [:modules n]). Top-level :exports entries
+  ({:name :module [:export]}) and :external-modules entries (:specifier,
+  :exports) use keyword keys too. A module's :checked restores keyword keys
+  on :bindings/:functions entries (:name, :mutable) — the mutable-runtime
+  export check reads exactly those. Nested :document / :checked :value nodes
+  keep STRING keys (JSON-LD Form model, (get doc \"name\")).
 
-  So: keywordize top level only; keywordize each :modules entry's keys;
-  KEEP module-name keys as strings; keep all other nested maps string-keyed.
-  :format is repaired to its namespaced keyword.
+  So: keywordize top level; keywordize each :modules entry and its :checked;
+  keywordize each :exports and :external-modules entry; KEEP module-name keys
+  and all other nested maps string-keyed. :format is repaired to its
+  namespaced keyword.
 
   Both package and ESM checkers accept :mithril.native-esm/checked-v1|v2,
   and the declaration checker accepts all three formats, so the ESM tag
@@ -82,13 +107,14 @@
   (if (map? m)
     (let [top (keywordize-top m)
           modules (:modules top)
-          modules (if (map? modules)
-                    (into {} (map (fn [[k v]] [k (keywordize-top v)]) modules))
-                    modules)
+          exports (:exports top)
+          externals (:external-modules top)
           f (:format top)]
-      (cond-> (assoc top :modules modules)
-        (and (string? f) (contains? format-words f))
-        (assoc :format (get format-words f))))
+      (cond-> top
+        (map? modules) (assoc :modules (into {} (map (fn [[k v]] [k (migrate-module-entry v)]) modules)))
+        (vector? exports) (assoc :exports (mapv keywordize-top exports))
+        (map? externals) (assoc :external-modules (into {} (map (fn [[k v]] [k (keywordize-top v)]) externals)))
+        (and (string? f) (contains? format-words f)) (assoc :format (get format-words f))))
     m))
 
 ;; --- native-js ---
