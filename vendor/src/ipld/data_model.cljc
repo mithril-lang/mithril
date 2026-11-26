@@ -33,6 +33,8 @@
     (nil? node) :null
     (boolean? node) :bool
     (integer? node) :int
+    ;; Local mithril modification: an i64 beyond 2^53 is a js/BigInt on :cljs.
+    #?@(:cljs [(identical? js/BigInt (type node)) :int])
     (number? node) (if (finite-number? node)
                      :float
                      (throw (ex-info "ipld: non-finite float is not Data Model data"
