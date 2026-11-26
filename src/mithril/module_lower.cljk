@@ -27,6 +27,16 @@
     "js_bool_value" "js-bool-value"
     "js_undefined" "js-undefined"))
 
+(defn- kw-spelling [s]
+  (str ":" s))
+
+(defn- type-source [type]
+  ;; [:sum Name Case...] is the surface spelling of a SumType; all other
+  ;; types keep their established pr-str encoding.
+  (if (and (vector? type) (= :sum (first type)))
+    (str "[:sum " (second type) (apply str (map #(str " " %) (nth type 2))) "]")
+    (str type)))
+
 (defn- literal-source [type value]
   (case type
     :i64 (str value)
@@ -70,12 +80,27 @@
                                              (:expressions expr))) ")")
     :if (str "(if " (expression-source (:condition expr) function-indexes parameter-indexes binding-counter contract-indexes)
             " " (expression-source (:then expr) function-indexes parameter-indexes binding-counter contract-indexes)
-            " " (expression-source (:else expr) function-indexes parameter-indexes binding-counter contract-indexes) ")")))
+            " " (expression-source (:else expr) function-indexes parameter-indexes binding-counter contract-indexes) ")")
+    :enum-case (str "(variant-new " (kw-spelling (second (:sum expr))) " " (kw-spelling (:case expr)) ")")
+    :variant-match (let [scrut (expression-source (:scrutinee expr) function-indexes parameter-indexes binding-counter contract-indexes)
+                         bound (str "__mithril_l" (swap! binding-counter inc))
+                         cases (:cases expr)
+                         kept (if (:default expr) cases (butlast cases))
+                         fallback-expr (if (:default expr) (:default expr) (:body (last cases)))
+                         fallback (expression-source fallback-expr function-indexes parameter-indexes binding-counter contract-indexes)
+                         branches (loop [remaining (seq kept) acc fallback]
+                                    (if-let [c (first remaining)]
+                                      (recur (next remaining)
+                                             (str "(if (= (variant-tag " bound ") " (kw-spelling (:case c)) ") "
+                                                  (expression-source (:body c) function-indexes parameter-indexes binding-counter contract-indexes)
+                                                  " " acc ")"))
+                                      acc))]
+                     (str "(let [" bound " " scrut "] " branches ")"))))
 
 (defn- function-source [declaration index function-indexes contract-indexes]
-  (let [params (mapv (fn [param i] (str (parameter-symbol i) " " (str (:type param)))) (:params declaration) (range (count (:params declaration))))
+  (let [params (mapv (fn [param i] (str (parameter-symbol i) " " (type-source (:type param)))) (:params declaration) (range (count (:params declaration))))
         body (expression-source (:body declaration) function-indexes (zipmap (mapv :name (:params declaration)) (mapv parameter-symbol (range (count (:params declaration))))) (atom 0) contract-indexes)]
-    (str "(defn " (export-symbol index) " [" (str/join " " params) "] " (str (:returns declaration)) " " body ")\n")))
+    (str "(defn " (export-symbol index) " [" (str/join " " params) "] " (type-source (:returns declaration)) " " body ")\n")))
 
 (defn- export-target [checked public-name]
   (get (:export-targets checked) public-name public-name))
@@ -94,17 +119,20 @@
                    :let (conj (mapv :value (:bindings expr)) (:body expr))
                    :sequence (:expressions expr)
                    :if [(:condition expr) (:then expr) (:else expr)]
+                   :variant-match (into [(:scrutinee expr)]
+                                        (into (vals (select-keys expr [:default]))
+                                              (mapv :body (:cases expr))))
                    [])]
     (into own (mapcat contract-uses children))))
 
 (defn- contract-source [[kind type] index]
   (let [[params returns] (second type)]
     (case kind
-      :construct (str "(defn __mithril_contract" index " [__mithril_value " type "] " type " __mithril_value)\n")
+      :construct (str "(defn __mithril_contract" index " [__mithril_value " (type-source type) "] " (type-source type) " __mithril_value)\n")
       :invoke (let [symbols (mapv parameter-symbol (range (count params)))]
-                (str "(defn __mithril_invoke" index " [__mithril_callable " type
-                     (apply str (map (fn [name type] (str " " name " " type)) symbols params))
-                     "] " returns " (__mithril_callable"
+                (str "(defn __mithril_invoke" index " [__mithril_callable " (type-source type)
+                     (apply str (map (fn [name type] (str " " name " " (type-source type))) symbols params))
+                     "] " (type-source returns) " (__mithril_callable"
                      (apply str (map #(str " " %) symbols)) "))\n")))))
 
 (defn- source [checked]
@@ -124,6 +152,7 @@
   {:format :mithril.module/amu-source-v1
    :name (:name checked)
    :source (source checked)
+   :definition-cids (:definition-cids checked)
    :exports (mapv (fn [export] {:name export :symbol (export-symbol (get (zipmap (mapv :name (:functions checked)) (range (count (:functions checked)))) (export-target checked export)))}) (:exports checked))})
 
 (defn lower-document
@@ -156,6 +185,12 @@
                                     :intrinsic (:name expr)})))
                  (doseq [arg (:args expr)] (native-amu-expression! arg)))
     :call (doseq [arg (:args expr)] (native-amu-expression! arg))
+    :enum-case (throw (ex-info "Sum values are not in the native Amu module vocabulary"
+                               {:mithril/error :mithril.module/amu-native-type
+                                :type (:type expr)}))
+    :variant-match (throw (ex-info "Sum values are not in the native Amu module vocabulary"
+                                   {:mithril/error :mithril.module/amu-native-type
+                                    :type (:type expr)}))
     :lambda (throw (ex-info "Guest callables are not in the native Amu module vocabulary"
                             {:mithril/error :mithril.module/amu-native-callable}))
     :function-ref (throw (ex-info "Guest callables are not in the native Amu module vocabulary"
@@ -224,10 +259,15 @@
         memo (atom {})]
     ;; Guest closure words need the separate host-callable bridge. They must
     ;; not escape through the existing scalar, acyclic pure JS facade.
+    ;; Fail-closed guest re-target (Item 224 §B): opaque js-value and the js_*
+    ;; intrinsics have no guest representation; refuse with a dedicated code
+    ;; instead of passing host values through the pure facade.
     (doseq [declaration (:functions checked)
             type (cons (:returns declaration) (map :type (:params declaration)))]
       (when (vector? type)
-        (library-fail! :mithril.module/library-vocabulary "Guest callable types require a host-callable profile")))
+        (library-fail! :mithril.module/library-vocabulary "Guest callable types require a host-callable profile"))
+      (when (= :js-value type)
+        (library-fail! :mithril.module/guest-js-value "Guest target refuses opaque js-value; use the native JS host backend")))
     (letfn [(sum-fuel [a b] (library-integer! (+ a b)))
             (sequence-budget [expressions]
               (reduce (fn [[fuel frames] expression]
@@ -238,12 +278,14 @@
               (case (:op expression)
                 :literal [0 0]
                 :local [0 0]
-                :intrinsic (if (contains? #{"add" "sub" "mul" "eq" "not"
-                                           "js_nullish" "js_truthy" "js_strict_equal"
-                                           "js_typeof" "js_array" "js_bool_value" "js_undefined"}
-                                         (:name expression))
+                :intrinsic (if (contains? #{"add" "sub" "mul" "eq" "not"} (:name expression))
                              (sequence-budget (:args expression))
-                             (library-fail! :mithril.module/library-vocabulary "Unsupported public library intrinsic"))
+                             (if (contains? #{"js_nullish" "js_truthy" "js_strict_equal"
+                                               "js_typeof" "js_array" "js_bool_value" "js_undefined"}
+                                            (:name expression))
+                               (library-fail! :mithril.module/guest-js-value
+                                               (str "Guest target refuses js_* intrinsic " (:name expression)))
+                               (library-fail! :mithril.module/library-vocabulary "Unsupported public library intrinsic")))
                 :call (let [[args-fuel args-frames] (sequence-budget (:args expression))
                             [callee-fuel callee-frames] (function-budget (:name expression))]
                         [(sum-fuel args-fuel callee-fuel) (max args-frames callee-frames)])

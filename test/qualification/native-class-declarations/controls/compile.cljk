@@ -109,7 +109,7 @@
 (println (str "Class declarations:" (count all-refusals) " shape/scope/visibility/heritage/overload/variance/unique/this/budget refusals."))
 (def dir (fs/mkdtempSync "/tmp/mithril-class-types-"))
 (try
- (fs/writeFileSync (str dir "/offline.edn") "{:paths [\"src\"]}\n")
+ (fs/writeFileSync (str dir "/offline.edn") (pr-str {:paths [(fs/realpathSync "src") (fs/realpathSync "vendor/src")]}))
  (fs/writeFileSync (str dir "/controls.d.mts") (:source control-artifact))
  (doseq [target ["js" "js-browser"]]
   (let [folder (str dir "/" target) output (str folder "/index.d.mts") config (str dir "/offline.edn")]

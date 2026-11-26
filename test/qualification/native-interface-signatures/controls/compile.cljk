@@ -73,7 +73,7 @@
 (println (str "Interface signature admission:" (count all-refusals) " exact-code shape/scope/receiver/overload/heritage/budget refusals."))
 (def dir (fs/mkdtempSync "/tmp/mithril-interface-types-"))
 (try
- (fs/writeFileSync (str dir "/offline.edn") "{:paths [\"src\"]}\n")
+ (fs/writeFileSync (str dir "/offline.edn") (pr-str {:paths [(fs/realpathSync "src") (fs/realpathSync "vendor/src")]}))
  (fs/writeFileSync (str dir "/controls.d.mts") (:source control-artifact))
  (doseq [target ["js" "js-browser"]]
   (let [output (str dir "/" target ".d.mts")]

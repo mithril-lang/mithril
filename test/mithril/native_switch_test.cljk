@@ -51,7 +51,7 @@
  (let [dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-switch-"))]
   (try
    (let [engine (.-MITHRIL_NATIVE_ENGINE js/process.env) config (path/join dir "offline.edn")]
-    (fs/writeFileSync config "{:paths [\"src\"]}\n")
+    (fs/writeFileSync config (pr-str {:paths [(fs/realpathSync "src") (fs/realpathSync "vendor/src")]}))
     (doseq [target ["js" "js-browser"]
             [input output] [["native-js-switch.mith" (str "switch-" target)] ["native-js-schema-switch.mith" (str "schema-switch-" target)]]]
      (let [r (child/spawnSync js/process.execPath

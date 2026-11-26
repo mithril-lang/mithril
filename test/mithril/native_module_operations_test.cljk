@@ -27,7 +27,7 @@
  (let [dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-module-operations-"))
        config (path/join dir "offline.edn") engine (aget (.-argv js/process) 1)]
   (try
-   (fs/writeFileSync config "{:paths []}")
+   (fs/writeFileSync config (pr-str {:paths [(fs/realpathSync "vendor/src")]}))
    (doseq [target ["js" "js-browser"] mode ["standalone" "esm" "library" "explicit-package"]]
     (let [out (path/join dir (str target "-" mode))
           file (if (= mode "esm") (path/join out "index.mjs") (str out ".mjs"))

@@ -25,7 +25,7 @@
   (is (= ["ReflectService"] (mapv :name (:exports checked))))
   (try
    (let [engine (.-MITHRIL_NATIVE_ENGINE js/process.env) config (path/join dir "offline.edn")]
-    (fs/writeFileSync config "{:paths [\"src\"]}\n")
+    (fs/writeFileSync config (pr-str {:paths [(fs/realpathSync "src") (fs/realpathSync "vendor/src")]}))
     (doseq [target ["js" "js-browser"] [cli input prefix] [["bin/mithril-native-js.cljk" "examples/native-js-cordis-reflect.mith" "reflect"] ["bin/mithril-native-js.cljk" "examples/native-js-cordis-utils.mith" "utils"] ["bin/mithril-native-package.cljk" "examples/native-js-cosmokit.mith" "cosmokit"]]]
      (let [r (child/spawnSync js/process.execPath (clj->js [engine "--config" config "-cp" "src" cli input "--target" target "--output" (path/join dir (str prefix "-" target ".mjs"))]) #js {:encoding "utf8" :timeout 30000})]
       (when-not (= 0 (.-status r)) (throw (js/Error. (str (.-stdout r) (.-stderr r))))))))

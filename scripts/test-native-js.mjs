@@ -11,7 +11,7 @@ if(!existsSync(engine))throw Error('Pinned bootstrap engine does not exist');
 const dir=mkdtempSync(join(tmpdir(),'mithril-native-js-tests-'));
 const marker=join(dir,'jvm.marker'),config=join(dir,'offline.edn');
 try{
-  writeFileSync(config,`{:paths [${JSON.stringify(join(root,'src'))} ${JSON.stringify(join(root,'test'))}]}`);
+  writeFileSync(config,`{:paths [${JSON.stringify(join(root,'src'))} ${JSON.stringify(join(root,'vendor/src'))} ${JSON.stringify(join(root,'test'))}]}`);
   for(const name of ['java','javac','clojure','clj'])writeFileSync(join(dir,name),
     '#!/bin/sh\n: > "$MITHRIL_NATIVE_JVM_MARKER"\nexit 97\n',{mode:0o755});
   const result=spawnSync(process.execPath,[engine,'--config',config,'test/run_native_js.cljk'],

@@ -122,7 +122,7 @@
       (let [ordered (read "ordered")]
         (save! dir "ordered" (esm/compile-text ordered (sources-for ordered fixture))))
       (let [engine (.-MITHRIL_NATIVE_ENGINE js/process.env) config (path/join dir "offline.edn")]
-        (fs/writeFileSync config "{:paths [\"src\"]}\n")
+        (fs/writeFileSync config (pr-str {:paths [(fs/realpathSync "src") (fs/realpathSync "vendor/src")]}))
         (doseq [target ["js" "js-browser"]]
           (let [output (path/join dir (str "cycle-" target)) result (cli! engine config (str fixture "cycle.mith") target output)]
             (when-not (= (get result "exports") (:exports artifact)) (throw (js/Error. "CLI export mismatch")))
@@ -156,7 +156,7 @@
     (is (and (= 57 (count (:exports artifact))) (= 10 (count (:module-files artifact)))))
     (try
       (let [engine (.-MITHRIL_NATIVE_ENGINE js/process.env) config (path/join dir "offline.edn")]
-        (fs/writeFileSync config "{:paths [\"src\"]}\n")
+        (fs/writeFileSync config (pr-str {:paths [(fs/realpathSync "src") (fs/realpathSync "vendor/src")]}))
         (doseq [target ["js" "js-browser"]]
           (let [output (path/join dir target) result (cli! engine config "examples/native-js-cordis-leaves-esm.mith" target output)]
             (fs/writeFileSync (path/join dir (str target ".json")) (js/JSON.stringify (clj->js result)))

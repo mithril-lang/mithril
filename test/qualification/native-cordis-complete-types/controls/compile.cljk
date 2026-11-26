@@ -19,7 +19,7 @@
 (ensure (= 35 (count (:type-exports artifact))) "Type public surface")
 (def dir (fs/mkdtempSync (str (os/tmpdir) "/mithril-cordis-complete-types-")))
 (def config (str dir "/offline.edn"))
-(fs/writeFileSync config (str "{:paths [" (js/JSON.stringify (fs/realpathSync "src")) "]}"))
+(fs/writeFileSync config (str "{:paths [" (js/JSON.stringify (fs/realpathSync "src")) " " (js/JSON.stringify (fs/realpathSync "vendor/src")) "]}"))
 (try
  (doseq [target ["js" "js-browser"]]
   (let [out (str dir "/" target "-types") rout (str dir "/" target "-runtime") meta (str dir "/" target ".json")]

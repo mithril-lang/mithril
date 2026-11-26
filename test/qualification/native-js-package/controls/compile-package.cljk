@@ -4,7 +4,7 @@
 (defn ensure [value label] (when-not value (throw (js/Error. label))))
 (defn refused [thunk label] (ensure (try (thunk) false (catch :default _ true)) label))
 (defn run [args] (let [r (child/spawnSync js/process.execPath (clj->js args) #js {:encoding "utf8" :timeout 60000 :env (js/Object.assign #js {} js/process.env #js {:TZ "UTC"})})] (ensure (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r))))
-(fs/writeFileSync "/tmp/mithril-package-offline.edn" "{:paths [\"src\"]}\n")
+(fs/writeFileSync "/tmp/mithril-package-offline.edn" (pr-str {:paths [(fs/realpathSync "src") (fs/realpathSync "vendor/src")]}))
 (def package-text (fs/readFileSync "examples/native-js-cosmokit.mith" "utf8"))
 (def doc (f/parse package-text))
 (def sources (into {} (map #(vector (get % "source") (fs/readFileSync (str "examples/" (get % "source")) "utf8")) (get doc "modules"))))

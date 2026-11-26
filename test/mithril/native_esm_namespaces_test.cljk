@@ -33,7 +33,7 @@
  (let [dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-esm-namespaces-"))
        config (path/join dir "offline.edn") engine (aget (.-argv js/process) 1)]
   (try
-   (fs/writeFileSync config "{:paths []}")
+   (fs/writeFileSync config (pr-str {:paths [(fs/realpathSync "vendor/src")]}))
    (doseq [target ["js" "js-browser"]]
     (let [out (path/join dir target)
           result (child/spawnSync js/process.execPath (clj->js [engine "--config" config "-cp" "src" "bin/mithril-native-esm.cljk" (str fixture "package.mith") "--target" target "--output-directory" out]) #js {:encoding "utf8" :timeout 30000})]

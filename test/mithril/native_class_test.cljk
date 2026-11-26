@@ -94,7 +94,7 @@
   (try
    (fs/writeFileSync (path/join dir "artifacts.json") (js/JSON.stringify (clj->js artifacts)))
    (let [engine (.-MITHRIL_NATIVE_ENGINE js/process.env) config (path/join dir "offline.edn")]
-    (fs/writeFileSync config "{:paths [\"src\"]}\n")
+    (fs/writeFileSync config (pr-str {:paths [(fs/realpathSync "src") (fs/realpathSync "vendor/src")]}))
     (doseq [target ["js" "js-browser"]]
      (let [r (child/spawnSync js/process.execPath
               (clj->js [engine "--config" config "-cp" "src" "bin/mithril-native-js.cljk" "examples/native-js-disposable-list.mith" "--target" target "--output" (path/join dir (str target ".mjs"))])

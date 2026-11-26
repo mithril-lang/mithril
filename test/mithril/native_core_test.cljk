@@ -15,7 +15,7 @@
  (let [dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-core-runtime-"))]
   (try
    (let [engine (.-MITHRIL_NATIVE_ENGINE js/process.env) config (path/join dir "offline.edn")]
-    (fs/writeFileSync config "{:paths [\"src\"]}\n")
+    (fs/writeFileSync config (pr-str {:paths [(fs/realpathSync "src") (fs/realpathSync "vendor/src")]}))
     (doseq [target ["js" "js-browser"]]
      (let [meta (e/cli! engine config source target (path/join dir target))]
       (fs/writeFileSync (path/join dir (str target ".json")) (js/JSON.stringify (clj->js meta))))))

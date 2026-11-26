@@ -391,6 +391,15 @@
    "admit-vocabulary" {:inputs #{:document} :outputs #{:goal :ontology :choices}}
    "emit-transaction" {:inputs #{:graph-digest :goal :ontology :choices} :outputs #{:artifact}}})
 
+(defn pair-definition-cids
+  "Receipts carry the two identities of S-form §7 side by side: the data graph
+  digest and, when a code tier was compiled, its per-definition Definition
+  CIDs. No silent dual identity: both keys are named. Kept outside the closed
+  bootstrap pipeline, whose stages never produce Definition CIDs."
+  [artifact definition-cids]
+  (cond-> artifact
+    (seq definition-cids) (assoc :definition-cids (vec definition-cids))))
+
 (defn run-compiler-stage
   "Execute one closed bootstrap primitive; the .mith kernel supplies ordering."
   [stage facts]
