@@ -1,0 +1,58 @@
+# contract-acceptance-v1 FAILING fixture (fail-nda-form-only). Exactly ONE defect against
+# pass-prospect-b-nda-and-self-serve.nq: the NDA is booked as in force on the form submission alone (no authority check, no explicit acceptance).
+# Conforms to workspace-ops-v1 (base vocabulary); fails contract-acceptance-v1 ONLY on the
+# shapes pinned in test/mithril/contract_acceptance_test.cljk. Anonymised.
+<urn:ca-b:ws> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Workspace> .
+<urn:ca-b:ws> <https://mithril.fund/ns/workspace-ops/v1#workspaceId> "kotoba-labs" .
+<urn:ca-b:ws> <https://mithril.fund/ns/workspace-ops/v1#workspaceKind> "organization" .
+<urn:ca-b:ws> <https://mithril.fund/ns/workspace-ops/v1#billingAccountRef> "billing-ref-0001" .
+<urn:ca-b:provider> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Party> .
+<urn:ca-b:provider> <https://mithril.fund/ns/workspace-ops/v1#name> "Kotoba Labs, Inc." .
+<urn:ca-b:provider> <https://mithril.fund/ns/workspace-ops/v1#partyKind> "organization" .
+<urn:ca-b:provider> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:ca-b:ws> .
+<urn:ca-b:provider> <https://mithril.fund/ns/contract-acceptance/v1#contractSide> "provider" .
+<urn:ca-b:prospect> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Party> .
+<urn:ca-b:prospect> <https://mithril.fund/ns/workspace-ops/v1#name> "Prospect B (anonymized)" .
+<urn:ca-b:prospect> <https://mithril.fund/ns/workspace-ops/v1#partyKind> "organization" .
+<urn:ca-b:prospect> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:ca-b:ws> .
+<urn:ca-b:prospect> <https://mithril.fund/ns/contract-acceptance/v1#contractSide> "customer" .
+<urn:ca-b:provider-signatory> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#PartyRole> .
+<urn:ca-b:provider-signatory> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/contract-acceptance/v1#AuthorizedSignatory> .
+<urn:ca-b:provider-signatory> <https://mithril.fund/ns/workspace-ops/v1#roleKind> "approver" .
+<urn:ca-b:provider-signatory> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:ca-b:ws> .
+<urn:ca-b:provider-signatory> <https://mithril.fund/ns/workspace-ops/v1#holder> <urn:ca-b:provider> .
+<urn:ca-b:provider-signatory> <https://mithril.fund/ns/contract-acceptance/v1#signingAuthorityConfirmed> "true"^^<http://www.w3.org/2001/XMLSchema#boolean> .
+<urn:ca-b:nda> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Agreement> .
+<urn:ca-b:nda> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/contract-acceptance/v1#MutualNda> .
+<urn:ca-b:nda> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/contract-acceptance/v1#EffectiveNda> .
+<urn:ca-b:nda> <https://mithril.fund/ns/workspace-ops/v1#name> "Mutual NDA v2.0 (Prospect B)" .
+<urn:ca-b:nda> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:ca-b:ws> .
+<urn:ca-b:nda> <https://mithril.fund/ns/contract-acceptance/v1#documentVersion> "2.0" .
+<urn:ca-b:nda> <https://mithril.fund/ns/contract-acceptance/v1#versionStatus> "final" .
+<urn:ca-b:nda> <https://mithril.fund/ns/contract-acceptance/v1#documentLanguage> "en" .
+<urn:ca-b:nda> <https://mithril.fund/ns/contract-acceptance/v1#executedCopyStored> "true"^^<http://www.w3.org/2001/XMLSchema#boolean> .
+<urn:ca-b:nda> <https://mithril.fund/ns/contract-acceptance/v1#executedBy> <urn:ca-b:nda-acceptance> .
+<urn:ca-b:nda-form> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Evidence> .
+<urn:ca-b:nda-form> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/contract-acceptance/v1#NdaFormConsent> .
+<urn:ca-b:nda-form> <https://mithril.fund/ns/workspace-ops/v1#name> "HubSpot NDA form submission with required consent (Prospect B)" .
+<urn:ca-b:nda-form> <https://mithril.fund/ns/workspace-ops/v1#evidenceKind> "manual-approval" .
+<urn:ca-b:nda-form> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:ca-b:ws> .
+<urn:ca-b:nda-form> <https://mithril.fund/ns/contract-acceptance/v1#formSystem> "hubspot-form" .
+<urn:ca-b:nda-form> <https://mithril.fund/ns/contract-acceptance/v1#requiredConsentChecked> "true"^^<http://www.w3.org/2001/XMLSchema#boolean> .
+<urn:ca-b:nda-form> <https://mithril.fund/ns/contract-acceptance/v1#consentedVersion> "2.0" .
+<urn:ca-b:nda-acceptance> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Evidence> .
+<urn:ca-b:nda-acceptance> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/contract-acceptance/v1#NdaAcceptance> .
+<urn:ca-b:nda-acceptance> <https://mithril.fund/ns/workspace-ops/v1#name> "Kotoba Labs acceptance of mutual NDA v2.0 (Prospect B)" .
+<urn:ca-b:nda-acceptance> <https://mithril.fund/ns/workspace-ops/v1#evidenceKind> "manual-approval" .
+<urn:ca-b:nda-acceptance> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:ca-b:ws> .
+<urn:ca-b:nda-acceptance> <https://mithril.fund/ns/contract-acceptance/v1#consentForm> <urn:ca-b:nda-form> .
+<urn:ca-b:terms> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Agreement> .
+<urn:ca-b:terms> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/contract-acceptance/v1#PublicTermsOfService> .
+<urn:ca-b:terms> <https://mithril.fund/ns/workspace-ops/v1#name> "Public Terms of Service" .
+<urn:ca-b:terms> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:ca-b:ws> .
+<urn:ca-b:terms> <https://mithril.fund/ns/contract-acceptance/v1#documentVersion> "1.0" .
+<urn:ca-b:terms> <https://mithril.fund/ns/contract-acceptance/v1#versionStatus> "final" .
+<urn:ca-b:terms> <https://mithril.fund/ns/contract-acceptance/v1#documentLanguage> "en" .
+<urn:ca-b:self-serve> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/contract-acceptance/v1#SelfServeAccount> .
+<urn:ca-b:self-serve> <https://mithril.fund/ns/workspace-ops/v1#workspace> <urn:ca-b:ws> .
+<urn:ca-b:self-serve> <https://mithril.fund/ns/contract-acceptance/v1#acceptedTerms> <urn:ca-b:terms> .

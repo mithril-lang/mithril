@@ -1,0 +1,1150 @@
+(mithril/ontology
+  :id "https://mithril.fund/ontology/contract-acceptance-v1"
+  :profile
+  ["https://www.w3.org/TR/rdf11-concepts/"
+   "https://www.w3.org/TR/owl2-profiles/#OWL_2_RL"
+   "https://www.w3.org/TR/shacl/"]
+  :graph
+  [;; ================================================================
+   ;; contract-acceptance-v1: how Kotoba Labs, Inc. concludes customer
+   ;; contracts (Organizer Item 471, Owner decision 2026-11-26).
+   ;;
+   ;; THIS FILE IS THE SOURCE OF TRUTH. It holds, in order:
+   ;;   1. the rules  (CA:PolicyRule individuals R1..R11: id, label,
+   ;;      statement in Japanese and English, rationale, enforcing shapes),
+   ;;   2. the vocabulary (classes / properties on top of workspace-ops-v1),
+   ;;   3. the SHACL shapes that check a case against the rules,
+   ;;   4. the procedures (bpmn/* process descriptions; gateway conditions
+   ;;      name a shape or rule IRI),
+   ;;   5. the decision questions (CA:DecisionQuestion individuals) that
+   ;;      `mithril.contract-acceptance/decide` answers for one case.
+   ;; docs/design/contract-acceptance-policy.md is a summary + mapping
+   ;; table generated from reading this file; it does not restate rules.
+   ;;
+   ;; Namespace CA = https://mithril.fund/ns/contract-acceptance/v1#
+   ;; (fresh; zero collisions). workspace-ops-v1 (WOPS,
+   ;; ontology/workspace-ops-v1.mith) is REUSED, never rewritten:
+   ;;   CA:ContractDocument   -> WOPS:Agreement   (versioned contract text)
+   ;;   CA:EnterpriseExecution, CA:NdaFormConsent, CA:NdaAcceptance
+   ;;                         -> WOPS:Evidence    (evidenceKind
+   ;;                            "manual-approval": a human acceptance
+   ;;                            record, never a fabricated measurement)
+   ;;   CA:AuthorizedSignatory, CA:OwnerApprover
+   ;;                         -> WOPS:PartyRole   (roleKind "approver";
+   ;;                            holder -> the legal-entity Party; NO PII)
+   ;;   Customer / provider   =  WOPS:Party + CA:contractSide
+   ;;   MSA validity          =  WOPS:Term (own Term, independent of orders)
+   ;; Why an extension and not a WOPS edit: WOPS has no notion of document
+   ;; version, quote, signature, invoice or change order, and its enums
+   ;; (roleKind, obligationKind, evidenceKind) are closed. Widening them
+   ;; would change the common vocabulary for every tenant; a separate
+   ;; ontology keeps WOPS and its conforming.nq byte-for-byte unchanged.
+   ;; owl:imports is not resolved by the compiler, so a case is checked
+   ;; twice: against workspace-ops-v1 (base shape) and against this file
+   ;; (policy). Fixtures therefore assert the WOPS supertypes explicitly.
+   ;;
+   ;; STATE CLAIMS ARE CLASSES. SHACL Core cannot branch on a value, so a
+   ;; state that carries legal weight is asserted as a class and the class
+   ;; is checked: ExecutedDocument ("this is the executed version"),
+   ;; SentFormalQuote ("sent to the customer / signature requested"),
+   ;; IssuedInvoice ("billed"), AppliedScopeChange ("reflected"),
+   ;; EffectiveNda ("in force"). The decision function asks "may X?" by
+   ;; hypothetically adding the claim and checking the claim's shapes.
+   ;; For the same reason CA properties carry NO rdfs:domain/rdfs:range:
+   ;; OWL 2 RL prp-dom/prp-rng would infer the claim (e.g. "billed
+   ;; document is executed") and the check would pass vacuously.
+   ;;
+   ;; Privacy: persons appear only as PartyRole (role + holding legal
+   ;; entity). No names, e-mail, phone, HubSpot quote ids, document ids.
+   ;; Sandbox: description + validation only. Nothing here sends, signs,
+   ;; bills or writes to HubSpot / Dropbox Sign / DocuSign / Stripe.
+   ;; ================================================================
+
+   ;; ---- 1. Rules (Owner decision 2026-11-26) ----
+   (owl/class :id "https://mithril.fund/ns/contract-acceptance/v1#PolicyRule")
+   (owl/datatype-property :id "https://mithril.fund/ns/contract-acceptance/v1#ruleId")
+   (owl/datatype-property :id "https://mithril.fund/ns/contract-acceptance/v1#label")
+   (owl/datatype-property :id "https://mithril.fund/ns/contract-acceptance/v1#statement")
+   (owl/datatype-property :id "https://mithril.fund/ns/contract-acceptance/v1#rationale")
+   (owl/datatype-property :id "https://mithril.fund/ns/contract-acceptance/v1#decidedOn")
+   (owl/object-property :id "https://mithril.fund/ns/contract-acceptance/v1#enforcedBy")
+   (rdf/description "https://mithril.fund/ns/contract-acceptance/v1#R1"
+     (rdf/property "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#PolicyRule"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#ruleId" (rdf/literal "R1"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#label"
+       (rdf/literal "正式見積の電子署名で締結" :language "ja")
+       (rdf/literal "Execute via e-signature on the formal quote" :language "en"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#statement"
+       (rdf/literal "法人の正式契約は、版を確定した英文 MSA・注文書・SOW を HubSpot の正式見積に添付し、見積の電子署名（HubSpot e-signature = Dropbox Sign）で締結する。見積本文に対象文書と版を明記する。" :language "ja")
+       (rdf/literal "Enterprise contracts are executed by attaching the version-fixed English MSA, Order Form and SOW to a HubSpot formal quote and signing that quote with HubSpot e-signature (Dropbox Sign). The quote text names each document and its version." :language "en"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#rationale" (rdf/literal "Owner decision 2026-11-26, Organizer Item 471, policy item 1."))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#decidedOn" (rdf/literal "2026-11-26" :datatype "http://www.w3.org/2001/XMLSchema#date"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#enforcedBy"
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R1-QuoteOnHubSpot")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R1-QuoteSignatureEnabled")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R1-QuoteStatesFixedVersions")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R1-QuoteAttachesStatedDocuments")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R1-ExecutedViaEnterpriseExecution")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R1-StatedInFormalQuote")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R1-EnglishText")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R1-ExecutionViaSentFormalQuote")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R1-ExecutionChannel")))
+   (rdf/description "https://mithril.fund/ns/contract-acceptance/v1#R2"
+     (rdf/property "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#PolicyRule"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#ruleId" (rdf/literal "R2"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#label"
+       (rdf/literal "双方署名" :language "ja")
+       (rdf/literal "Both parties sign" :language "en"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#statement"
+       (rdf/literal "署名は顧客側の署名権限者と Kotoba Labs, Inc. 側の権限者の双方。片方だけでは締結にならない。" :language "ja")
+       (rdf/literal "An authorised signatory of the customer and an authorised signatory of Kotoba Labs, Inc. both sign. One signature alone does not execute the contract." :language "en"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#rationale" (rdf/literal "Owner decision 2026-11-26, Organizer Item 471, policy item 2."))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#decidedOn" (rdf/literal "2026-11-26" :datatype "http://www.w3.org/2001/XMLSchema#date"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#enforcedBy"
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R2-CustomerSigned")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R2-ProviderSigned")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R2-SignatoryAuthorityConfirmed")))
+   (rdf/description "https://mithril.fund/ns/contract-acceptance/v1#R3"
+     (rdf/property "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#PolicyRule"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#ruleId" (rdf/literal "R3"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#label"
+       (rdf/literal "DocuSign は必須ではない" :language "ja")
+       (rdf/literal "DocuSign is not required" :language "en"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#statement"
+       (rdf/literal "R1 の方式なら DocuSign は不要。使っても違反ではない。" :language "ja")
+       (rdf/literal "With the R1 method DocuSign is not needed; using it as well is not a violation." :language "en"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#rationale" (rdf/literal "Owner decision 2026-11-26, Organizer Item 471, policy item 3. Enforced as a permission: R1-ExecutionChannel admits docusign as an additional channel and no shape requires it."))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#decidedOn" (rdf/literal "2026-11-26" :datatype "http://www.w3.org/2001/XMLSchema#date"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#enforcedBy"
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R1-ExecutionChannel")))
+   (rdf/description "https://mithril.fund/ns/contract-acceptance/v1#R4"
+     (rdf/property "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#PolicyRule"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#ruleId" (rdf/literal "R4"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#label"
+       (rdf/literal "利用規約 URL だけで法人契約にしない" :language "ja")
+       (rdf/literal "No enterprise contract by public terms URL alone" :language "en"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#statement"
+       (rdf/literal "公開利用規約の URL だけで法人契約を成立させない。締結対象は双方が同意した版付きの契約本文で、締結版として保存する。" :language "ja")
+       (rdf/literal "A public terms-of-service URL never forms an enterprise contract. What is executed is the versioned contract text both parties agreed, stored as the executed version." :language "en"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#rationale" (rdf/literal "Owner decision 2026-11-26, Organizer Item 471, policy item 4."))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#decidedOn" (rdf/literal "2026-11-26" :datatype "http://www.w3.org/2001/XMLSchema#date"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#enforcedBy"
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R4-EnterpriseGovernedByExecutedMsa")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R4-ExecutedEnterpriseNotPublicTerms")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R4-ExecutedVersionFinal")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R4-ExecutedVersionStated")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R4-ExecutedCopyStored")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R4-ExecutedThroughRecognisedPath")))
+   (rdf/description "https://mithril.fund/ns/contract-acceptance/v1#R5"
+     (rdf/property "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#PolicyRule"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#ruleId" (rdf/literal "R5"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#label"
+       (rdf/literal "MSA は注文をまたいで継続" :language "ja")
+       (rdf/literal "MSA survives between orders" :language "en"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#statement"
+       (rdf/literal "MSA は注文と注文の間も継続し、注文書の終了で消えない。既存の NDA・DPA・注文書との関係を持つ。" :language "ja")
+       (rdf/literal "The MSA continues between orders and does not end with an Order Form. It records its relation to existing NDAs, DPAs and Order Forms." :language "en"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#rationale" (rdf/literal "Owner decision 2026-11-26, Organizer Item 471, policy item 5."))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#decidedOn" (rdf/literal "2026-11-26" :datatype "http://www.w3.org/2001/XMLSchema#date"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#enforcedBy"
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R5-OrderUnderMsa")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R5-SowUnderOrder")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R5-MsaHasOwnTerm")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R5-MsaRelatedAgreements")))
+   (rdf/description "https://mithril.fund/ns/contract-acceptance/v1#R6"
+     (rdf/property "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#PolicyRule"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#ruleId" (rdf/literal "R6"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#label"
+       (rdf/literal "正式見積の前に対象・環境・納期を確認" :language "ja")
+       (rdf/literal "Confirm scope, environment and delivery before a formal quote" :language "en"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#statement"
+       (rdf/literal "正式見積の前に対象・環境・納期を確認する。概算見積（ドラフト・署名欄オフ）は契約ではない。" :language "ja")
+       (rdf/literal "Scope, environment and delivery date are confirmed before a formal quote. An estimate (draft, signature off) is not a contract." :language "en"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#rationale" (rdf/literal "Owner decision 2026-11-26, Organizer Item 471, policy item 6."))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#decidedOn" (rdf/literal "2026-11-26" :datatype "http://www.w3.org/2001/XMLSchema#date"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#enforcedBy"
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R6-PreQuoteConfirmed")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R6-EstimateHasNoSignature")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R1-ExecutionViaSentFormalQuote")))
+   (rdf/description "https://mithril.fund/ns/contract-acceptance/v1#R7"
+     (rdf/property "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#PolicyRule"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#ruleId" (rdf/literal "R7"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#label"
+       (rdf/literal "締結後に合意条件どおり請求" :language "ja")
+       (rdf/literal "Bill only after execution, per agreed terms" :language "en"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#statement"
+       (rdf/literal "請求（Stripe）は MSA・注文書・SOW の締結後、合意条件どおりにのみ行う。締結前の請求・送付は違反。" :language "ja")
+       (rdf/literal "Billing (Stripe) happens only after the MSA, Order Form and SOW are executed, and only per the agreed terms. Billing or sending an invoice before execution is a violation." :language "en"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#rationale" (rdf/literal "Owner decision 2026-11-26, Organizer Item 471, policy item 7."))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#decidedOn" (rdf/literal "2026-11-26" :datatype "http://www.w3.org/2001/XMLSchema#date"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#enforcedBy"
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R7-InvoiceViaStripe")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R7-InvoiceBillsExecutedOrder")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R7-InvoiceMsaExecuted")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R7-InvoiceSowsExecuted")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R7-InvoiceMatchesAgreedTerms")))
+   (rdf/description "https://mithril.fund/ns/contract-acceptance/v1#R8"
+     (rdf/property "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#PolicyRule"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#ruleId" (rdf/literal "R8"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#label"
+       (rdf/literal "発注済み範囲の変更は Change Order" :language "ja")
+       (rdf/literal "Changes to ordered scope need a Change Order" :language "en"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#statement"
+       (rdf/literal "発注済みの範囲・工数・トークンの変更は、既存注文を参照し追加料金・日程・承認を記録した Change Order で行う。" :language "ja")
+       (rdf/literal "A change to ordered scope, effort or tokens is made by a Change Order that references the existing order and records the added fee, schedule and approval." :language "en"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#rationale" (rdf/literal "Owner decision 2026-11-26, Organizer Item 471, policy item 8."))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#decidedOn" (rdf/literal "2026-11-26" :datatype "http://www.w3.org/2001/XMLSchema#date"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#enforcedBy"
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R8-ChangeOrderAmendsOrder")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R8-ChangeOrderRecordsFee")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R8-ChangeOrderRecordsSchedule")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R8-ScopeChangeKind")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R8-ScopeChangeTargetsOrder")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R8-AppliedChangeAuthorizedByChangeOrder")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R8-ChangeOrderAmendsSameOrder")))
+   (rdf/description "https://mithril.fund/ns/contract-acceptance/v1#R9"
+     (rdf/property "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#PolicyRule"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#ruleId" (rdf/literal "R9"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#label"
+       (rdf/literal "NDA はフォーム同意＋当社受諾で発効" :language "ja")
+       (rdf/literal "NDA takes effect on form consent plus our acceptance" :language "en"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#statement"
+       (rdf/literal "次回以降の NDA は HubSpot フォームと版付き英文相互 NDA。必須同意欄で相手の同意を記録し、当社が署名権限を確認して明示的に受諾した時点で発効する。フォーム送信だけでは発効しない。既に締結済みの NDA はそのまま有効。" :language "ja")
+       (rdf/literal "New NDAs use a HubSpot form and a versioned English mutual NDA. The counterparty's consent is recorded by a required consent field; the NDA takes effect when we confirm signing authority and explicitly accept. A form submission alone does not make it effective. NDAs already executed stay valid." :language "en"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#rationale" (rdf/literal "Owner decision 2026-11-26, Organizer Item 471, policy item 9. Already-executed agreements are CA:PreExistingExecutedDocument (executedOn before 2026-11-26)."))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#decidedOn" (rdf/literal "2026-11-26" :datatype "http://www.w3.org/2001/XMLSchema#date"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#enforcedBy"
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R9-NdaEnglish")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R9-NdaAcceptedByProvider")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R9-PreExistingBeforePolicy")))
+   (rdf/description "https://mithril.fund/ns/contract-acceptance/v1#R10"
+     (rdf/property "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#PolicyRule"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#ruleId" (rdf/literal "R10"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#label"
+       (rdf/literal "自己申込は公開利用規約への同意で足りる" :language "ja")
+       (rdf/literal "Self-serve use rests on accepting the public terms" :language "en"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#statement"
+       (rdf/literal "自己申込（self-serve）の利用は公開利用規約への同意で足りる。法人の署名済み注文書がある取引とは区別する。" :language "ja")
+       (rdf/literal "Self-serve use only needs acceptance of the public terms of service, and is kept distinct from enterprise deals with a signed Order Form." :language "en"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#rationale" (rdf/literal "Owner decision 2026-11-26, Organizer Item 471, policy item 10."))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#decidedOn" (rdf/literal "2026-11-26" :datatype "http://www.w3.org/2001/XMLSchema#date"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#enforcedBy"
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R10-SelfServeAcceptsPublicTerms")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R10-SelfServeNotEnterprise")))
+   (rdf/description "https://mithril.fund/ns/contract-acceptance/v1#R11"
+     (rdf/property "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#PolicyRule"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#ruleId" (rdf/literal "R11"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#label"
+       (rdf/literal "対外送付・署名依頼・請求はオーナー承認" :language "ja")
+       (rdf/literal "Owner approval for sending, signature requests and billing" :language "en"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#statement"
+       (rdf/literal "顧客への対外送付・署名依頼・請求にはオーナー（Kawasaki）の承認が必要。他の規則で可となっても、この承認は別に要る。" :language "ja")
+       (rdf/literal "Sending to a customer, requesting signatures and billing need the owner's (Kawasaki) approval, separately from every other rule passing." :language "en"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#rationale" (rdf/literal "Existing policy, restated by Owner decision 2026-11-26 (Organizer Item 471, policy item 11). The approver is modelled as CA:OwnerApprover (a PartyRole held by the provider), never as a named person."))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#decidedOn" (rdf/literal "2026-11-26" :datatype "http://www.w3.org/2001/XMLSchema#date"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#enforcedBy"
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R11-QuoteSendApproved")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R11-InvoiceApproved")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R11-ApproverIsProviderOwner")))
+
+   ;; ---- 2. Vocabulary ----
+   ;; Documents. A ContractDocument is one versioned contract text (a
+   ;; summary label in WOPS:name; the body stays in private storage).
+   (owl/class :id "https://mithril.fund/ns/contract-acceptance/v1#ContractDocument"
+     :rdfs/sub-class-of "https://mithril.fund/ns/workspace-ops/v1#Agreement")
+   (owl/class :id "https://mithril.fund/ns/contract-acceptance/v1#MasterServicesAgreement"
+     :rdfs/sub-class-of "https://mithril.fund/ns/contract-acceptance/v1#ContractDocument")
+   (owl/class :id "https://mithril.fund/ns/contract-acceptance/v1#OrderForm"
+     :rdfs/sub-class-of "https://mithril.fund/ns/contract-acceptance/v1#ContractDocument")
+   (owl/class :id "https://mithril.fund/ns/contract-acceptance/v1#StatementOfWork"
+     :rdfs/sub-class-of "https://mithril.fund/ns/contract-acceptance/v1#ContractDocument")
+   (owl/class :id "https://mithril.fund/ns/contract-acceptance/v1#ChangeOrder"
+     :rdfs/sub-class-of "https://mithril.fund/ns/contract-acceptance/v1#ContractDocument")
+   (owl/class :id "https://mithril.fund/ns/contract-acceptance/v1#NonDisclosureAgreement"
+     :rdfs/sub-class-of "https://mithril.fund/ns/contract-acceptance/v1#ContractDocument")
+   (owl/class :id "https://mithril.fund/ns/contract-acceptance/v1#MutualNda"
+     :rdfs/sub-class-of "https://mithril.fund/ns/contract-acceptance/v1#NonDisclosureAgreement")
+   (owl/class :id "https://mithril.fund/ns/contract-acceptance/v1#DataProcessingAgreement"
+     :rdfs/sub-class-of "https://mithril.fund/ns/contract-acceptance/v1#ContractDocument")
+   (owl/class :id "https://mithril.fund/ns/contract-acceptance/v1#PublicTermsOfService"
+     :rdfs/sub-class-of "https://mithril.fund/ns/contract-acceptance/v1#ContractDocument")
+   ;; State claims on documents.
+   (owl/class :id "https://mithril.fund/ns/contract-acceptance/v1#ExecutedDocument"
+     :rdfs/sub-class-of "https://mithril.fund/ns/contract-acceptance/v1#ContractDocument")
+   (owl/class :id "https://mithril.fund/ns/contract-acceptance/v1#ExecutedEnterpriseDocument"
+     :rdfs/sub-class-of "https://mithril.fund/ns/contract-acceptance/v1#ExecutedDocument")
+   (owl/class :id "https://mithril.fund/ns/contract-acceptance/v1#EffectiveNda"
+     :rdfs/sub-class-of ["https://mithril.fund/ns/contract-acceptance/v1#ExecutedDocument"
+                         "https://mithril.fund/ns/contract-acceptance/v1#MutualNda"])
+   (owl/class :id "https://mithril.fund/ns/contract-acceptance/v1#PreExistingExecutedDocument"
+     :rdfs/sub-class-of "https://mithril.fund/ns/contract-acceptance/v1#ExecutedDocument")
+   ;; Quotes. An estimate and a formal quote are never the same quote.
+   (owl/class :id "https://mithril.fund/ns/contract-acceptance/v1#Quote")
+   (owl/class :id "https://mithril.fund/ns/contract-acceptance/v1#FormalQuote"
+     :rdfs/sub-class-of "https://mithril.fund/ns/contract-acceptance/v1#Quote"
+     :owl/disjoint-with "https://mithril.fund/ns/contract-acceptance/v1#EstimateQuote")
+   (owl/class :id "https://mithril.fund/ns/contract-acceptance/v1#SentFormalQuote"
+     :rdfs/sub-class-of "https://mithril.fund/ns/contract-acceptance/v1#FormalQuote")
+   (owl/class :id "https://mithril.fund/ns/contract-acceptance/v1#EstimateQuote"
+     :rdfs/sub-class-of "https://mithril.fund/ns/contract-acceptance/v1#Quote")
+   (owl/class :id "https://mithril.fund/ns/contract-acceptance/v1#PreQuoteConfirmation")
+   ;; Acceptance records (human acceptance = WOPS manual-approval Evidence).
+   (owl/class :id "https://mithril.fund/ns/contract-acceptance/v1#EnterpriseExecution"
+     :rdfs/sub-class-of "https://mithril.fund/ns/workspace-ops/v1#Evidence")
+   (owl/class :id "https://mithril.fund/ns/contract-acceptance/v1#NdaFormConsent"
+     :rdfs/sub-class-of "https://mithril.fund/ns/workspace-ops/v1#Evidence")
+   (owl/class :id "https://mithril.fund/ns/contract-acceptance/v1#NdaAcceptance"
+     :rdfs/sub-class-of "https://mithril.fund/ns/workspace-ops/v1#Evidence")
+   ;; Roles (no PII: role + holding legal entity only).
+   (owl/class :id "https://mithril.fund/ns/contract-acceptance/v1#AuthorizedSignatory"
+     :rdfs/sub-class-of "https://mithril.fund/ns/workspace-ops/v1#PartyRole")
+   (owl/class :id "https://mithril.fund/ns/contract-acceptance/v1#OwnerApprover"
+     :rdfs/sub-class-of "https://mithril.fund/ns/workspace-ops/v1#PartyRole")
+   ;; Deals, billing, change.
+   (owl/class :id "https://mithril.fund/ns/contract-acceptance/v1#EnterpriseEngagement")
+   (owl/class :id "https://mithril.fund/ns/contract-acceptance/v1#SelfServeAccount")
+   (owl/class :id "https://mithril.fund/ns/contract-acceptance/v1#Invoice")
+   (owl/class :id "https://mithril.fund/ns/contract-acceptance/v1#IssuedInvoice"
+     :rdfs/sub-class-of "https://mithril.fund/ns/contract-acceptance/v1#Invoice")
+   (owl/class :id "https://mithril.fund/ns/contract-acceptance/v1#ScopeChange")
+   (owl/class :id "https://mithril.fund/ns/contract-acceptance/v1#AppliedScopeChange"
+     :rdfs/sub-class-of "https://mithril.fund/ns/contract-acceptance/v1#ScopeChange")
+   ;; Properties (deliberately no domain/range; see header).
+   (owl/datatype-property :id "https://mithril.fund/ns/contract-acceptance/v1#documentVersion")
+   (owl/datatype-property :id "https://mithril.fund/ns/contract-acceptance/v1#versionStatus")
+   (owl/datatype-property :id "https://mithril.fund/ns/contract-acceptance/v1#documentLanguage")
+   (owl/datatype-property :id "https://mithril.fund/ns/contract-acceptance/v1#executedCopyStored")
+   (owl/datatype-property :id "https://mithril.fund/ns/contract-acceptance/v1#executedOn")
+   (owl/datatype-property :id "https://mithril.fund/ns/contract-acceptance/v1#contractSide")
+   (owl/datatype-property :id "https://mithril.fund/ns/contract-acceptance/v1#signingAuthorityConfirmed")
+   (owl/datatype-property :id "https://mithril.fund/ns/contract-acceptance/v1#quoteSystem")
+   (owl/datatype-property :id "https://mithril.fund/ns/contract-acceptance/v1#signatureEnabled")
+   (owl/datatype-property :id "https://mithril.fund/ns/contract-acceptance/v1#scopeConfirmed")
+   (owl/datatype-property :id "https://mithril.fund/ns/contract-acceptance/v1#environmentConfirmed")
+   (owl/datatype-property :id "https://mithril.fund/ns/contract-acceptance/v1#deliveryConfirmed")
+   (owl/datatype-property :id "https://mithril.fund/ns/contract-acceptance/v1#signatureChannel")
+   (owl/datatype-property :id "https://mithril.fund/ns/contract-acceptance/v1#billingSystem")
+   (owl/datatype-property :id "https://mithril.fund/ns/contract-acceptance/v1#matchesAgreedTerms")
+   (owl/datatype-property :id "https://mithril.fund/ns/contract-acceptance/v1#feeChange")
+   (owl/datatype-property :id "https://mithril.fund/ns/contract-acceptance/v1#scheduleChange")
+   (owl/datatype-property :id "https://mithril.fund/ns/contract-acceptance/v1#changeKind")
+   (owl/datatype-property :id "https://mithril.fund/ns/contract-acceptance/v1#formSystem")
+   (owl/datatype-property :id "https://mithril.fund/ns/contract-acceptance/v1#requiredConsentChecked")
+   (owl/datatype-property :id "https://mithril.fund/ns/contract-acceptance/v1#consentedVersion")
+   (owl/datatype-property :id "https://mithril.fund/ns/contract-acceptance/v1#explicitProviderAcceptance")
+   (owl/object-property :id "https://mithril.fund/ns/contract-acceptance/v1#statesDocument")
+   (owl/object-property :id "https://mithril.fund/ns/contract-acceptance/v1#attachesDocument")
+   (owl/object-property :id "https://mithril.fund/ns/contract-acceptance/v1#preQuoteConfirmation")
+   (owl/object-property :id "https://mithril.fund/ns/contract-acceptance/v1#sendApprovedBy")
+   (owl/object-property :id "https://mithril.fund/ns/contract-acceptance/v1#executedBy")
+   (owl/object-property :id "https://mithril.fund/ns/contract-acceptance/v1#viaQuote")
+   (owl/object-property :id "https://mithril.fund/ns/contract-acceptance/v1#signedBy")
+   (owl/object-property :id "https://mithril.fund/ns/contract-acceptance/v1#underMsa")
+   (owl/object-property :id "https://mithril.fund/ns/contract-acceptance/v1#underOrderForm")
+   (owl/object-property :id "https://mithril.fund/ns/contract-acceptance/v1#relatedAgreement")
+   (owl/object-property :id "https://mithril.fund/ns/contract-acceptance/v1#governedBy")
+   (owl/object-property :id "https://mithril.fund/ns/contract-acceptance/v1#customer")
+   (owl/object-property :id "https://mithril.fund/ns/contract-acceptance/v1#acceptedTerms")
+   (owl/object-property :id "https://mithril.fund/ns/contract-acceptance/v1#bills")
+   (owl/object-property :id "https://mithril.fund/ns/contract-acceptance/v1#amendsOrder")
+   (owl/object-property :id "https://mithril.fund/ns/contract-acceptance/v1#changesOrder")
+   (owl/object-property :id "https://mithril.fund/ns/contract-acceptance/v1#authorizedBy")
+   (owl/object-property :id "https://mithril.fund/ns/contract-acceptance/v1#consentForm")
+   (owl/object-property :id "https://mithril.fund/ns/contract-acceptance/v1#acceptedBy")
+
+   ;; ---- 3. Shapes ----
+   ;; Rule-bearing property shapes carry an IRI (R<n>-...) so a violation
+   ;; names the rule; rules list them under CA:enforcedBy. Shapes without
+   ;; an R prefix are structural (well-formedness), not policy.
+
+   ;; Reusable helper shapes (untargeted; used via sh:node / sh:property).
+   (shacl/property-shape
+     :id "https://mithril.fund/ns/contract-acceptance/v1#InWorkspace"
+     :sh/path "https://mithril.fund/ns/workspace-ops/v1#workspace"
+     :sh/class "https://mithril.fund/ns/workspace-ops/v1#Workspace"
+     :sh/min-count 1 :sh/max-count 1)
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/contract-acceptance/v1#IsExecutedEnterpriseDocument"
+     :sh/class "https://mithril.fund/ns/contract-acceptance/v1#ExecutedEnterpriseDocument")
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/contract-acceptance/v1#VersionedDocument"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#documentVersion"
+        :sh/min-count 1 :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/contract-acceptance/v1#FixedVersionDocument"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#documentVersion"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#versionStatus"
+        :sh/has-value (rdf/literal "final"))])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/contract-acceptance/v1#CustomerSignatory"
+     :sh/class "https://mithril.fund/ns/contract-acceptance/v1#AuthorizedSignatory"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path (path/sequence "https://mithril.fund/ns/workspace-ops/v1#holder"
+                                "https://mithril.fund/ns/contract-acceptance/v1#contractSide")
+        :sh/has-value (rdf/literal "customer"))])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/contract-acceptance/v1#ProviderSignatory"
+     :sh/class "https://mithril.fund/ns/contract-acceptance/v1#AuthorizedSignatory"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path (path/sequence "https://mithril.fund/ns/workspace-ops/v1#holder"
+                                "https://mithril.fund/ns/contract-acceptance/v1#contractSide")
+        :sh/has-value (rdf/literal "provider"))
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#signingAuthorityConfirmed"
+        :sh/has-value true)])
+
+   ;; Structural.
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/contract-acceptance/v1#ContractDocumentShape"
+     :sh/target-class "https://mithril.fund/ns/contract-acceptance/v1#ContractDocument"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#versionStatus"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/in [(rdf/literal "draft") (rdf/literal "final")]
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#documentVersion"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/pattern "^[0-9]+\\.[0-9]+(\\.[0-9]+)?$"
+        :sh/min-count 0 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#documentLanguage"
+        :sh/in [(rdf/literal "en") (rdf/literal "ja")]
+        :sh/min-count 0 :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/contract-acceptance/v1#PartySideShape"
+     :sh/target-class "https://mithril.fund/ns/workspace-ops/v1#Party"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#contractSide"
+        :sh/in [(rdf/literal "customer") (rdf/literal "provider")]
+        :sh/min-count 0 :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/contract-acceptance/v1#QuoteShape"
+     :sh/target-class "https://mithril.fund/ns/contract-acceptance/v1#Quote"
+     :sh/property [(rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#InWorkspace")])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/contract-acceptance/v1#PreQuoteConfirmationShape"
+     :sh/target-class "https://mithril.fund/ns/contract-acceptance/v1#PreQuoteConfirmation"
+     :sh/property [(rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#InWorkspace")])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/contract-acceptance/v1#NdaAcceptanceShape"
+     :sh/target-class "https://mithril.fund/ns/contract-acceptance/v1#NdaAcceptance"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#consentForm"
+        :sh/class "https://mithril.fund/ns/contract-acceptance/v1#NdaFormConsent"
+        :sh/min-count 1 :sh/max-count 1)])
+
+   ;; R1 + R6 + R11: the formal quote.
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/contract-acceptance/v1#FormalQuoteShape"
+     :sh/target-class "https://mithril.fund/ns/contract-acceptance/v1#FormalQuote"
+     :sh/property
+     [(shacl/property-shape
+        :id "https://mithril.fund/ns/contract-acceptance/v1#R1-QuoteOnHubSpot"
+        :sh/message "R1: a formal quote is a HubSpot quote"
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#quoteSystem"
+        :sh/has-value (rdf/literal "hubspot")
+        :sh/max-count 1)
+      (shacl/property-shape
+        :id "https://mithril.fund/ns/contract-acceptance/v1#R1-QuoteSignatureEnabled"
+        :sh/message "R1: the formal quote carries the e-signature"
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#signatureEnabled"
+        :sh/has-value true
+        :sh/max-count 1)
+      (shacl/property-shape
+        :id "https://mithril.fund/ns/contract-acceptance/v1#R1-QuoteStatesFixedVersions"
+        :sh/message "R1/R4: the quote text names each document with a fixed (final) version"
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#statesDocument"
+        :sh/class "https://mithril.fund/ns/contract-acceptance/v1#ContractDocument"
+        :sh/node "https://mithril.fund/ns/contract-acceptance/v1#FixedVersionDocument"
+        :sh/min-count 1)
+      (shacl/property-shape
+        :id "https://mithril.fund/ns/contract-acceptance/v1#R1-QuoteAttachesStatedDocuments"
+        :sh/message "R1: exactly the documents the quote names are attached"
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#attachesDocument"
+        :sh/equals "https://mithril.fund/ns/contract-acceptance/v1#statesDocument"
+        :sh/min-count 1)
+      (shacl/property-shape
+        :id "https://mithril.fund/ns/contract-acceptance/v1#R6-PreQuoteConfirmed"
+        :sh/message "R6: scope, environment and delivery are confirmed before the formal quote"
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#preQuoteConfirmation"
+        :sh/class "https://mithril.fund/ns/contract-acceptance/v1#PreQuoteConfirmation"
+        :sh/node "https://mithril.fund/ns/contract-acceptance/v1#PreQuoteConfirmationComplete"
+        :sh/min-count 1 :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/contract-acceptance/v1#PreQuoteConfirmationComplete"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#scopeConfirmed"
+        :sh/has-value true)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#environmentConfirmed"
+        :sh/has-value true)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#deliveryConfirmed"
+        :sh/has-value true)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/contract-acceptance/v1#EstimateQuoteShape"
+     :sh/target-class "https://mithril.fund/ns/contract-acceptance/v1#EstimateQuote"
+     :sh/property
+     [(shacl/property-shape
+        :id "https://mithril.fund/ns/contract-acceptance/v1#R6-EstimateHasNoSignature"
+        :sh/message "R6: an estimate is a draft with the signature off; it is not a contract"
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#signatureEnabled"
+        :sh/has-value false
+        :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/contract-acceptance/v1#SentFormalQuoteShape"
+     :sh/target-class "https://mithril.fund/ns/contract-acceptance/v1#SentFormalQuote"
+     :sh/property
+     [(shacl/property-shape
+        :id "https://mithril.fund/ns/contract-acceptance/v1#R11-QuoteSendApproved"
+        :sh/message "R11: sending the quote / requesting signatures needs the owner's approval"
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#sendApprovedBy"
+        :sh/class "https://mithril.fund/ns/contract-acceptance/v1#OwnerApprover"
+        :sh/min-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/contract-acceptance/v1#OwnerApproverShape"
+     :sh/target-class "https://mithril.fund/ns/contract-acceptance/v1#OwnerApprover"
+     :sh/property
+     [(shacl/property-shape
+        :id "https://mithril.fund/ns/contract-acceptance/v1#R11-ApproverIsProviderOwner"
+        :sh/message "R11: the approver is the provider's owner role"
+        :sh/path (path/sequence "https://mithril.fund/ns/workspace-ops/v1#holder"
+                                "https://mithril.fund/ns/contract-acceptance/v1#contractSide")
+        :sh/has-value (rdf/literal "provider"))])
+
+   ;; R1 + R2: execution of enterprise documents.
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/contract-acceptance/v1#EnterpriseExecutionShape"
+     :sh/target-class "https://mithril.fund/ns/contract-acceptance/v1#EnterpriseExecution"
+     :sh/property
+     [(shacl/property-shape
+        :id "https://mithril.fund/ns/contract-acceptance/v1#R1-ExecutionViaSentFormalQuote"
+        :sh/message "R1/R6: execution happens on a formal quote that was sent (never on an estimate)"
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#viaQuote"
+        :sh/class "https://mithril.fund/ns/contract-acceptance/v1#SentFormalQuote"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :id "https://mithril.fund/ns/contract-acceptance/v1#R1-ExecutionChannel"
+        :sh/message "R1/R3: signed with HubSpot quote e-signature; DocuSign may be added, never required"
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#signatureChannel"
+        :sh/in [(rdf/literal "hubspot-quote-esignature") (rdf/literal "docusign")]
+        :sh/has-value (rdf/literal "hubspot-quote-esignature"))
+      (shacl/property-shape
+        :id "https://mithril.fund/ns/contract-acceptance/v1#R2-CustomerSigned"
+        :sh/message "R2: an authorised signatory of the customer signed"
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#signedBy"
+        :sh/qualified-value-shape "https://mithril.fund/ns/contract-acceptance/v1#CustomerSignatory"
+        :sh/qualified-min-count 1)
+      (shacl/property-shape
+        :id "https://mithril.fund/ns/contract-acceptance/v1#R2-ProviderSigned"
+        :sh/message "R2: an authorised signatory of Kotoba Labs, Inc. signed"
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#signedBy"
+        :sh/qualified-value-shape "https://mithril.fund/ns/contract-acceptance/v1#ProviderSignatory"
+        :sh/qualified-min-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/contract-acceptance/v1#AuthorizedSignatoryShape"
+     :sh/target-class "https://mithril.fund/ns/contract-acceptance/v1#AuthorizedSignatory"
+     :sh/property
+     [(shacl/property-shape
+        :id "https://mithril.fund/ns/contract-acceptance/v1#R2-SignatoryAuthorityConfirmed"
+        :sh/message "R2: a signatory's signing authority is confirmed and tied to one party"
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#signingAuthorityConfirmed"
+        :sh/has-value true
+        :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#holder"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Party"
+        :sh/min-count 1 :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/contract-acceptance/v1#ExecutedEnterpriseDocumentShape"
+     :sh/target-class "https://mithril.fund/ns/contract-acceptance/v1#ExecutedEnterpriseDocument"
+     :sh/property
+     [(shacl/property-shape
+        :id "https://mithril.fund/ns/contract-acceptance/v1#R1-ExecutedViaEnterpriseExecution"
+        :sh/message "R1: an executed enterprise document has a signing record"
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#executedBy"
+        :sh/class "https://mithril.fund/ns/contract-acceptance/v1#EnterpriseExecution"
+        :sh/min-count 1)
+      (shacl/property-shape
+        :id "https://mithril.fund/ns/contract-acceptance/v1#R1-StatedInFormalQuote"
+        :sh/message "R1: an executed enterprise document is named in a formal quote"
+        :sh/path (path/inverse "https://mithril.fund/ns/contract-acceptance/v1#statesDocument")
+        :sh/qualified-value-shape (shacl/node-shape
+                                    :sh/class "https://mithril.fund/ns/contract-acceptance/v1#FormalQuote")
+        :sh/qualified-min-count 1)
+      (shacl/property-shape
+        :id "https://mithril.fund/ns/contract-acceptance/v1#R1-EnglishText"
+        :sh/message "R1: enterprise contract text is English"
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#documentLanguage"
+        :sh/has-value (rdf/literal "en"))])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/contract-acceptance/v1#R4-ExecutedEnterpriseNotPublicTerms"
+     :sh/message "R4: public terms of service are never an executed enterprise contract"
+     :sh/target-class "https://mithril.fund/ns/contract-acceptance/v1#ExecutedEnterpriseDocument"
+     :sh/not (shacl/node-shape
+               :sh/class "https://mithril.fund/ns/contract-acceptance/v1#PublicTermsOfService"))
+
+   ;; R4 (+ R9 legacy): every executed document.
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/contract-acceptance/v1#ExecutedDocumentShape"
+     :sh/target-class "https://mithril.fund/ns/contract-acceptance/v1#ExecutedDocument"
+     :sh/property
+     [(shacl/property-shape
+        :id "https://mithril.fund/ns/contract-acceptance/v1#R4-ExecutedVersionFinal"
+        :sh/message "R4: the executed version is a fixed (final) version"
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#versionStatus"
+        :sh/has-value (rdf/literal "final"))
+      (shacl/property-shape
+        :id "https://mithril.fund/ns/contract-acceptance/v1#R4-ExecutedVersionStated"
+        :sh/message "R4: the executed version carries its version"
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#documentVersion"
+        :sh/min-count 1)
+      (shacl/property-shape
+        :id "https://mithril.fund/ns/contract-acceptance/v1#R4-ExecutedCopyStored"
+        :sh/message "R4: the executed version is stored"
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#executedCopyStored"
+        :sh/has-value true
+        :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/contract-acceptance/v1#R4-ExecutedThroughRecognisedPath"
+     :sh/message "R4/R1/R9: executed through exactly one recognised path: quote e-signature, NDA acceptance, or pre-existing"
+     :sh/target-class "https://mithril.fund/ns/contract-acceptance/v1#ExecutedDocument"
+     :sh/xone [(shacl/node-shape :sh/class "https://mithril.fund/ns/contract-acceptance/v1#ExecutedEnterpriseDocument")
+               (shacl/node-shape :sh/class "https://mithril.fund/ns/contract-acceptance/v1#EffectiveNda")
+               (shacl/node-shape :sh/class "https://mithril.fund/ns/contract-acceptance/v1#PreExistingExecutedDocument")])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/contract-acceptance/v1#PreExistingExecutedDocumentShape"
+     :sh/target-class "https://mithril.fund/ns/contract-acceptance/v1#PreExistingExecutedDocument"
+     :sh/property
+     [(shacl/property-shape
+        :id "https://mithril.fund/ns/contract-acceptance/v1#R9-PreExistingBeforePolicy"
+        :sh/message "R9: only agreements executed before the 2026-11-26 decision stay valid as-is"
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#executedOn"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#date"
+        :sh/max-exclusive (rdf/literal "2026-11-26" :datatype "http://www.w3.org/2001/XMLSchema#date")
+        :sh/min-count 1 :sh/max-count 1)])
+
+   ;; R4: an enterprise engagement rests on an executed MSA, never on ToS.
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/contract-acceptance/v1#ExecutedMsa"
+     :sh/class "https://mithril.fund/ns/contract-acceptance/v1#MasterServicesAgreement"
+     :sh/node "https://mithril.fund/ns/contract-acceptance/v1#IsExecutedEnterpriseDocument")
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/contract-acceptance/v1#EnterpriseEngagementShape"
+     :sh/target-class "https://mithril.fund/ns/contract-acceptance/v1#EnterpriseEngagement"
+     :sh/property
+     [(rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#InWorkspace")
+      (shacl/property-shape
+        :id "https://mithril.fund/ns/contract-acceptance/v1#R4-EnterpriseGovernedByExecutedMsa"
+        :sh/message "R4: an enterprise engagement is governed by an executed MSA, not by the public terms"
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#governedBy"
+        :sh/not (shacl/node-shape
+                  :sh/class "https://mithril.fund/ns/contract-acceptance/v1#PublicTermsOfService")
+        :sh/qualified-value-shape "https://mithril.fund/ns/contract-acceptance/v1#ExecutedMsa"
+        :sh/qualified-min-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#customer"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Party"
+        :sh/min-count 1 :sh/max-count 1)])
+
+   ;; R5: MSA / Order Form / SOW relations.
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/contract-acceptance/v1#OrderFormShape"
+     :sh/target-class "https://mithril.fund/ns/contract-acceptance/v1#OrderForm"
+     :sh/property
+     [(shacl/property-shape
+        :id "https://mithril.fund/ns/contract-acceptance/v1#R5-OrderUnderMsa"
+        :sh/message "R5: an Order Form sits under exactly one MSA"
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#underMsa"
+        :sh/class "https://mithril.fund/ns/contract-acceptance/v1#MasterServicesAgreement"
+        :sh/min-count 1 :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/contract-acceptance/v1#StatementOfWorkShape"
+     :sh/target-class "https://mithril.fund/ns/contract-acceptance/v1#StatementOfWork"
+     :sh/property
+     [(shacl/property-shape
+        :id "https://mithril.fund/ns/contract-acceptance/v1#R5-SowUnderOrder"
+        :sh/message "R5: a SOW sits under exactly one Order Form"
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#underOrderForm"
+        :sh/class "https://mithril.fund/ns/contract-acceptance/v1#OrderForm"
+        :sh/min-count 1 :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/contract-acceptance/v1#MasterServicesAgreementShape"
+     :sh/target-class "https://mithril.fund/ns/contract-acceptance/v1#MasterServicesAgreement"
+     :sh/property
+     [(shacl/property-shape
+        :id "https://mithril.fund/ns/contract-acceptance/v1#R5-MsaHasOwnTerm"
+        :sh/message "R5: the MSA has its own Term, independent of any Order Form"
+        :sh/path (path/inverse "https://mithril.fund/ns/workspace-ops/v1#agreement")
+        :sh/qualified-value-shape (shacl/node-shape
+                                    :sh/class "https://mithril.fund/ns/workspace-ops/v1#Term")
+        :sh/qualified-min-count 1)
+      (shacl/property-shape
+        :id "https://mithril.fund/ns/contract-acceptance/v1#R5-MsaRelatedAgreements"
+        :sh/message "R5: the MSA's related agreements (NDA, DPA, ...) are contract documents"
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#relatedAgreement"
+        :sh/class "https://mithril.fund/ns/contract-acceptance/v1#ContractDocument")])
+
+   ;; R7 + R11: billing.
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/contract-acceptance/v1#InvoiceShape"
+     :sh/target-class "https://mithril.fund/ns/contract-acceptance/v1#Invoice"
+     :sh/property
+     [(rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#InWorkspace")
+      (shacl/property-shape
+        :id "https://mithril.fund/ns/contract-acceptance/v1#R7-InvoiceViaStripe"
+        :sh/message "R7: billing is done in Stripe"
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#billingSystem"
+        :sh/has-value (rdf/literal "stripe")
+        :sh/max-count 1)
+      (shacl/property-shape
+        :id "https://mithril.fund/ns/contract-acceptance/v1#R7-InvoiceBillsExecutedOrder"
+        :sh/message "R7: an invoice bills one executed Order Form"
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#bills"
+        :sh/class "https://mithril.fund/ns/contract-acceptance/v1#OrderForm"
+        :sh/node "https://mithril.fund/ns/contract-acceptance/v1#IsExecutedEnterpriseDocument"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :id "https://mithril.fund/ns/contract-acceptance/v1#R7-InvoiceMsaExecuted"
+        :sh/message "R7: the billed order's MSA is executed"
+        :sh/path (path/sequence "https://mithril.fund/ns/contract-acceptance/v1#bills"
+                                "https://mithril.fund/ns/contract-acceptance/v1#underMsa")
+        :sh/node "https://mithril.fund/ns/contract-acceptance/v1#IsExecutedEnterpriseDocument"
+        :sh/min-count 1)
+      (shacl/property-shape
+        :id "https://mithril.fund/ns/contract-acceptance/v1#R7-InvoiceSowsExecuted"
+        :sh/message "R7: the billed order's SOWs are executed"
+        :sh/path (path/sequence "https://mithril.fund/ns/contract-acceptance/v1#bills"
+                                (path/inverse "https://mithril.fund/ns/contract-acceptance/v1#underOrderForm"))
+        :sh/node "https://mithril.fund/ns/contract-acceptance/v1#IsExecutedEnterpriseDocument"
+        :sh/min-count 1)
+      (shacl/property-shape
+        :id "https://mithril.fund/ns/contract-acceptance/v1#R7-InvoiceMatchesAgreedTerms"
+        :sh/message "R7: the invoice follows the agreed terms"
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#matchesAgreedTerms"
+        :sh/has-value true
+        :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/contract-acceptance/v1#IssuedInvoiceShape"
+     :sh/target-class "https://mithril.fund/ns/contract-acceptance/v1#IssuedInvoice"
+     :sh/property
+     [(shacl/property-shape
+        :id "https://mithril.fund/ns/contract-acceptance/v1#R11-InvoiceApproved"
+        :sh/message "R11: issuing an invoice needs the owner's approval"
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#sendApprovedBy"
+        :sh/class "https://mithril.fund/ns/contract-acceptance/v1#OwnerApprover"
+        :sh/min-count 1)])
+
+   ;; R8: change orders.
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/contract-acceptance/v1#ChangeOrderShape"
+     :sh/target-class "https://mithril.fund/ns/contract-acceptance/v1#ChangeOrder"
+     :sh/property
+     [(shacl/property-shape
+        :id "https://mithril.fund/ns/contract-acceptance/v1#R8-ChangeOrderAmendsOrder"
+        :sh/message "R8: a Change Order references the existing Order Form"
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#amendsOrder"
+        :sh/class "https://mithril.fund/ns/contract-acceptance/v1#OrderForm"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :id "https://mithril.fund/ns/contract-acceptance/v1#R8-ChangeOrderRecordsFee"
+        :sh/message "R8: a Change Order records the added fee (or none)"
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#feeChange"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :id "https://mithril.fund/ns/contract-acceptance/v1#R8-ChangeOrderRecordsSchedule"
+        :sh/message "R8: a Change Order records the schedule change (or none)"
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#scheduleChange"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/contract-acceptance/v1#ScopeChangeShape"
+     :sh/target-class "https://mithril.fund/ns/contract-acceptance/v1#ScopeChange"
+     :sh/property
+     [(rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#InWorkspace")
+      (shacl/property-shape
+        :id "https://mithril.fund/ns/contract-acceptance/v1#R8-ScopeChangeKind"
+        :sh/message "R8: a change to ordered scope, effort or tokens"
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#changeKind"
+        :sh/in [(rdf/literal "scope") (rdf/literal "effort") (rdf/literal "tokens")]
+        :sh/min-count 1)
+      (shacl/property-shape
+        :id "https://mithril.fund/ns/contract-acceptance/v1#R8-ScopeChangeTargetsOrder"
+        :sh/message "R8: the change targets one existing Order Form"
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#changesOrder"
+        :sh/class "https://mithril.fund/ns/contract-acceptance/v1#OrderForm"
+        :sh/min-count 1 :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/contract-acceptance/v1#AppliedScopeChangeShape"
+     :sh/target-class "https://mithril.fund/ns/contract-acceptance/v1#AppliedScopeChange"
+     :sh/property
+     [(shacl/property-shape
+        :id "https://mithril.fund/ns/contract-acceptance/v1#R8-AppliedChangeAuthorizedByChangeOrder"
+        :sh/message "R8: a change is reflected only under an executed Change Order"
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#authorizedBy"
+        :sh/class "https://mithril.fund/ns/contract-acceptance/v1#ChangeOrder"
+        :sh/node "https://mithril.fund/ns/contract-acceptance/v1#IsExecutedEnterpriseDocument"
+        :sh/min-count 1)
+      (shacl/property-shape
+        :id "https://mithril.fund/ns/contract-acceptance/v1#R8-ChangeOrderAmendsSameOrder"
+        :sh/message "R8: the authorising Change Order amends the order being changed"
+        :sh/path (path/sequence "https://mithril.fund/ns/contract-acceptance/v1#authorizedBy"
+                                "https://mithril.fund/ns/contract-acceptance/v1#amendsOrder")
+        :sh/equals "https://mithril.fund/ns/contract-acceptance/v1#changesOrder")])
+
+   ;; R9: NDA in force.
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/contract-acceptance/v1#EffectiveNdaShape"
+     :sh/target-class "https://mithril.fund/ns/contract-acceptance/v1#EffectiveNda"
+     :sh/property
+     [(shacl/property-shape
+        :id "https://mithril.fund/ns/contract-acceptance/v1#R9-NdaEnglish"
+        :sh/message "R9: the mutual NDA text is English"
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#documentLanguage"
+        :sh/has-value (rdf/literal "en"))
+      (shacl/property-shape
+        :id "https://mithril.fund/ns/contract-acceptance/v1#R9-NdaAcceptedByProvider"
+        :sh/message "R9: in force only after form consent AND our authority check and explicit acceptance"
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#executedBy"
+        :sh/class "https://mithril.fund/ns/contract-acceptance/v1#NdaAcceptance"
+        :sh/node "https://mithril.fund/ns/contract-acceptance/v1#NdaAcceptanceComplete"
+        :sh/min-count 1 :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/contract-acceptance/v1#NdaAcceptanceComplete"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#consentForm"
+        :sh/node "https://mithril.fund/ns/contract-acceptance/v1#NdaFormConsentComplete"
+        :sh/min-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#acceptedBy"
+        :sh/qualified-value-shape "https://mithril.fund/ns/contract-acceptance/v1#ProviderSignatory"
+        :sh/qualified-min-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#explicitProviderAcceptance"
+        :sh/has-value true)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/contract-acceptance/v1#NdaFormConsentComplete"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#formSystem"
+        :sh/has-value (rdf/literal "hubspot-form"))
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#requiredConsentChecked"
+        :sh/has-value true)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#consentedVersion"
+        :sh/min-count 1 :sh/max-count 1)])
+
+   ;; R10: self-serve.
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/contract-acceptance/v1#SelfServeAccountShape"
+     :sh/target-class "https://mithril.fund/ns/contract-acceptance/v1#SelfServeAccount"
+     :sh/property
+     [(rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#InWorkspace")
+      (shacl/property-shape
+        :id "https://mithril.fund/ns/contract-acceptance/v1#R10-SelfServeAcceptsPublicTerms"
+        :sh/message "R10: self-serve use rests on accepting a versioned public terms of service"
+        :sh/path "https://mithril.fund/ns/contract-acceptance/v1#acceptedTerms"
+        :sh/class "https://mithril.fund/ns/contract-acceptance/v1#PublicTermsOfService"
+        :sh/node "https://mithril.fund/ns/contract-acceptance/v1#VersionedDocument"
+        :sh/min-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/contract-acceptance/v1#R10-SelfServeNotEnterprise"
+     :sh/message "R10: a self-serve account is not an enterprise engagement"
+     :sh/target-class "https://mithril.fund/ns/contract-acceptance/v1#SelfServeAccount"
+     :sh/not (shacl/node-shape
+               :sh/class "https://mithril.fund/ns/contract-acceptance/v1#EnterpriseEngagement"))
+
+   ;; ---- 4. Procedures (descriptive; bpmn/* tags only) ----
+   ;; No timers, parallel gateways or intermediate events. A conditional
+   ;; flow's condition is the IRI of the shape (or rule) whose conformance
+   ;; takes that branch; the gateway's default flow (condition "always")
+   ;; is the "not yet" branch.
+   (bpmn/process
+     :id "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/process"
+     :label "Enterprise contract acceptance (estimate -> formal quote -> e-sign -> store -> bill -> change order)"
+     :nodes
+     [(bpmn/start-event :id "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/start" :label "Enterprise inquiry")
+      (bpmn/service-task :id "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/estimate"
+        :label "R6: send estimate (draft, signature off; not a contract)"
+        :action "https://mithril.fund/id/action/contract-acceptance/issue-estimate")
+      (bpmn/service-task :id "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/confirm"
+        :label "R6: confirm scope, environment and delivery date"
+        :action "https://mithril.fund/id/action/contract-acceptance/confirm-scope-environment-delivery")
+      (bpmn/exclusive-gateway :id "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/g-confirmed"
+        :label "Confirmed?"
+        :default "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/f-g-confirmed-back")
+      (bpmn/service-task :id "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/formal-quote"
+        :label "R1: HubSpot formal quote; attach version-fixed English MSA / Order Form / SOW; name each document and version"
+        :action "https://mithril.fund/id/action/contract-acceptance/prepare-formal-quote")
+      (bpmn/exclusive-gateway :id "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/g-quote-ready"
+        :label "Documents named with fixed versions and attached?"
+        :default "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/f-g-quote-ready-back")
+      (bpmn/service-task :id "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/approve-send"
+        :label "R11: owner approves sending the quote and requesting signatures"
+        :action "https://mithril.fund/id/action/contract-acceptance/owner-approve-send")
+      (bpmn/exclusive-gateway :id "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/g-send-approved"
+        :label "Owner approved?"
+        :default "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/f-g-send-approved-stop")
+      (bpmn/service-task :id "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/esign"
+        :label "R1/R2/R3: HubSpot quote e-signature (Dropbox Sign); customer signatory and Kotoba Labs signatory both sign"
+        :action "https://mithril.fund/id/action/contract-acceptance/request-quote-esignature")
+      (bpmn/exclusive-gateway :id "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/g-both-signed"
+        :label "Both parties signed?"
+        :default "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/f-g-both-signed-back")
+      (bpmn/service-task :id "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/store"
+        :label "R4: store the executed versions"
+        :action "https://mithril.fund/id/action/contract-acceptance/store-executed-version")
+      (bpmn/service-task :id "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/approve-invoice"
+        :label "R11: owner approves the invoice"
+        :action "https://mithril.fund/id/action/contract-acceptance/owner-approve-invoice")
+      (bpmn/exclusive-gateway :id "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/g-may-bill"
+        :label "Executed MSA / Order Form / SOW, agreed terms, owner approved?"
+        :default "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/f-g-may-bill-stop")
+      (bpmn/service-task :id "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/invoice"
+        :label "R7: Stripe invoice per agreed terms"
+        :action "https://mithril.fund/id/action/contract-acceptance/issue-stripe-invoice")
+      (bpmn/exclusive-gateway :id "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/g-change"
+        :label "Change to ordered scope, effort or tokens?"
+        :default "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/f-g-change-done")
+      (bpmn/service-task :id "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/change-order"
+        :label "R8: Change Order referencing the order; fee, schedule; executed through a formal quote"
+        :action "https://mithril.fund/id/action/contract-acceptance/prepare-change-order")
+      (bpmn/end-event :id "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/end-active" :label "Contract in force")
+      (bpmn/end-event :id "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/end-stopped" :label "Stopped: owner approval missing")]
+     :flows
+     [(bpmn/sequence-flow :id "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/f-start"
+        :source "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/start"
+        :target "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/estimate" :condition "always")
+      (bpmn/sequence-flow :id "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/f-estimate"
+        :source "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/estimate"
+        :target "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/confirm" :condition "always")
+      (bpmn/sequence-flow :id "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/f-confirm"
+        :source "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/confirm"
+        :target "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/g-confirmed" :condition "always")
+      (bpmn/sequence-flow :id "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/f-g-confirmed-quote"
+        :source "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/g-confirmed"
+        :target "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/formal-quote"
+        :condition "https://mithril.fund/ns/contract-acceptance/v1#R6-PreQuoteConfirmed")
+      (bpmn/sequence-flow :id "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/f-g-confirmed-back"
+        :source "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/g-confirmed"
+        :target "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/confirm" :condition "always")
+      (bpmn/sequence-flow :id "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/f-formal-quote"
+        :source "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/formal-quote"
+        :target "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/g-quote-ready" :condition "always")
+      (bpmn/sequence-flow :id "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/f-g-quote-ready-approve"
+        :source "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/g-quote-ready"
+        :target "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/approve-send"
+        :condition "https://mithril.fund/ns/contract-acceptance/v1#R1")
+      (bpmn/sequence-flow :id "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/f-g-quote-ready-back"
+        :source "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/g-quote-ready"
+        :target "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/formal-quote" :condition "always")
+      (bpmn/sequence-flow :id "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/f-approve-send"
+        :source "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/approve-send"
+        :target "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/g-send-approved" :condition "always")
+      (bpmn/sequence-flow :id "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/f-g-send-approved-esign"
+        :source "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/g-send-approved"
+        :target "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/esign"
+        :condition "https://mithril.fund/ns/contract-acceptance/v1#R11-QuoteSendApproved")
+      (bpmn/sequence-flow :id "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/f-g-send-approved-stop"
+        :source "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/g-send-approved"
+        :target "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/end-stopped" :condition "always")
+      (bpmn/sequence-flow :id "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/f-esign"
+        :source "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/esign"
+        :target "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/g-both-signed" :condition "always")
+      (bpmn/sequence-flow :id "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/f-g-both-signed-store"
+        :source "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/g-both-signed"
+        :target "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/store"
+        :condition "https://mithril.fund/ns/contract-acceptance/v1#R2")
+      (bpmn/sequence-flow :id "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/f-g-both-signed-back"
+        :source "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/g-both-signed"
+        :target "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/esign" :condition "always")
+      (bpmn/sequence-flow :id "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/f-store"
+        :source "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/store"
+        :target "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/approve-invoice" :condition "always")
+      (bpmn/sequence-flow :id "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/f-approve-invoice"
+        :source "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/approve-invoice"
+        :target "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/g-may-bill" :condition "always")
+      (bpmn/sequence-flow :id "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/f-g-may-bill-invoice"
+        :source "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/g-may-bill"
+        :target "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/invoice"
+        :condition "https://mithril.fund/ns/contract-acceptance/v1#R7")
+      (bpmn/sequence-flow :id "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/f-g-may-bill-stop"
+        :source "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/g-may-bill"
+        :target "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/end-stopped" :condition "always")
+      (bpmn/sequence-flow :id "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/f-invoice"
+        :source "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/invoice"
+        :target "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/g-change" :condition "always")
+      (bpmn/sequence-flow :id "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/f-g-change-co"
+        :source "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/g-change"
+        :target "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/change-order"
+        :condition "https://mithril.fund/ns/contract-acceptance/v1#R8")
+      (bpmn/sequence-flow :id "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/f-g-change-done"
+        :source "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/g-change"
+        :target "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/end-active" :condition "always")
+      (bpmn/sequence-flow :id "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/f-change-order"
+        :source "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/change-order"
+        :target "https://mithril.fund/id/bpmn/contract-acceptance/enterprise/formal-quote" :condition "always")])
+   (bpmn/process
+     :id "https://mithril.fund/id/bpmn/contract-acceptance/nda/process"
+     :label "Mutual NDA (form consent -> authority check and explicit acceptance -> in force)"
+     :nodes
+     [(bpmn/start-event :id "https://mithril.fund/id/bpmn/contract-acceptance/nda/start" :label "NDA requested")
+      (bpmn/service-task :id "https://mithril.fund/id/bpmn/contract-acceptance/nda/form"
+        :label "R9: HubSpot form with the versioned English mutual NDA; required consent field"
+        :action "https://mithril.fund/id/action/contract-acceptance/send-nda-form")
+      (bpmn/service-task :id "https://mithril.fund/id/bpmn/contract-acceptance/nda/accept"
+        :label "R9: confirm the counterparty's signing authority; Kotoba Labs signatory explicitly accepts"
+        :action "https://mithril.fund/id/action/contract-acceptance/accept-nda")
+      (bpmn/exclusive-gateway :id "https://mithril.fund/id/bpmn/contract-acceptance/nda/g-effective"
+        :label "Consent recorded AND explicitly accepted?"
+        :default "https://mithril.fund/id/bpmn/contract-acceptance/nda/f-g-effective-pending")
+      (bpmn/service-task :id "https://mithril.fund/id/bpmn/contract-acceptance/nda/store"
+        :label "R4: store the executed NDA version"
+        :action "https://mithril.fund/id/action/contract-acceptance/store-executed-version")
+      (bpmn/end-event :id "https://mithril.fund/id/bpmn/contract-acceptance/nda/end-effective" :label "NDA in force")
+      (bpmn/end-event :id "https://mithril.fund/id/bpmn/contract-acceptance/nda/end-pending" :label "Form submitted only: NOT in force")]
+     :flows
+     [(bpmn/sequence-flow :id "https://mithril.fund/id/bpmn/contract-acceptance/nda/f-start"
+        :source "https://mithril.fund/id/bpmn/contract-acceptance/nda/start"
+        :target "https://mithril.fund/id/bpmn/contract-acceptance/nda/form" :condition "always")
+      (bpmn/sequence-flow :id "https://mithril.fund/id/bpmn/contract-acceptance/nda/f-form"
+        :source "https://mithril.fund/id/bpmn/contract-acceptance/nda/form"
+        :target "https://mithril.fund/id/bpmn/contract-acceptance/nda/accept" :condition "always")
+      (bpmn/sequence-flow :id "https://mithril.fund/id/bpmn/contract-acceptance/nda/f-accept"
+        :source "https://mithril.fund/id/bpmn/contract-acceptance/nda/accept"
+        :target "https://mithril.fund/id/bpmn/contract-acceptance/nda/g-effective" :condition "always")
+      (bpmn/sequence-flow :id "https://mithril.fund/id/bpmn/contract-acceptance/nda/f-g-effective-store"
+        :source "https://mithril.fund/id/bpmn/contract-acceptance/nda/g-effective"
+        :target "https://mithril.fund/id/bpmn/contract-acceptance/nda/store"
+        :condition "https://mithril.fund/ns/contract-acceptance/v1#R9-NdaAcceptedByProvider")
+      (bpmn/sequence-flow :id "https://mithril.fund/id/bpmn/contract-acceptance/nda/f-g-effective-pending"
+        :source "https://mithril.fund/id/bpmn/contract-acceptance/nda/g-effective"
+        :target "https://mithril.fund/id/bpmn/contract-acceptance/nda/end-pending" :condition "always")
+      (bpmn/sequence-flow :id "https://mithril.fund/id/bpmn/contract-acceptance/nda/f-store"
+        :source "https://mithril.fund/id/bpmn/contract-acceptance/nda/store"
+        :target "https://mithril.fund/id/bpmn/contract-acceptance/nda/end-effective" :condition "always")])
+
+   ;; ---- 5. Decision questions ----
+   ;; mithril.contract-acceptance/decide answers each question for every
+   ;; node of CA:subjectClass in one case: it adds the CA:claimClass type
+   ;; to that node (the state the action would create), reasons, and
+   ;; reads the violations ON THAT NODE:
+   ;;   any CA:gateShape violated     -> verdict :blocked (rules cited)
+   ;;   none                          -> verdict :allowed
+   ;;   CA:approvalShape (R11) is reported separately as
+   ;;   :owner-approval :recorded / :pending -- never folded into the
+   ;;   verdict, because R11 needs the owner's approval even when allowed.
+   ;; CA:requiresChangeOrder true means a Change Order is always required
+   ;; for that subject (R8); the verdict then says whether one is in place.
+   (owl/class :id "https://mithril.fund/ns/contract-acceptance/v1#DecisionQuestion")
+   (owl/datatype-property :id "https://mithril.fund/ns/contract-acceptance/v1#questionKey")
+   (owl/datatype-property :id "https://mithril.fund/ns/contract-acceptance/v1#requiresChangeOrder")
+   (owl/object-property :id "https://mithril.fund/ns/contract-acceptance/v1#subjectClass")
+   (owl/object-property :id "https://mithril.fund/ns/contract-acceptance/v1#claimClass")
+   (owl/object-property :id "https://mithril.fund/ns/contract-acceptance/v1#gateShape")
+   (owl/object-property :id "https://mithril.fund/ns/contract-acceptance/v1#approvalShape")
+   (owl/object-property :id "https://mithril.fund/ns/contract-acceptance/v1#basedOnRule")
+   (rdf/description "https://mithril.fund/ns/contract-acceptance/v1#Q-may-issue-formal-quote"
+     (rdf/property "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#DecisionQuestion"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#questionKey" (rdf/literal "may-issue-formal-quote"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#label"
+       (rdf/literal "正式見積を出してよいか" :language "ja")
+       (rdf/literal "May we issue the formal quote?" :language "en"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#subjectClass" (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#FormalQuote"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#claimClass" (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#SentFormalQuote"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#gateShape"
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R6-PreQuoteConfirmed")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R1-QuoteOnHubSpot")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R1-QuoteStatesFixedVersions"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#approvalShape" (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R11-QuoteSendApproved"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#basedOnRule"
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R6")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R1")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R11")))
+   (rdf/description "https://mithril.fund/ns/contract-acceptance/v1#Q-may-request-signature"
+     (rdf/property "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#DecisionQuestion"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#questionKey" (rdf/literal "may-request-signature"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#label"
+       (rdf/literal "署名依頼を送ってよいか" :language "ja")
+       (rdf/literal "May we send the signature request?" :language "en"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#subjectClass" (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#FormalQuote"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#claimClass" (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#SentFormalQuote"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#gateShape"
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R6-PreQuoteConfirmed")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R1-QuoteOnHubSpot")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R1-QuoteStatesFixedVersions")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R1-QuoteAttachesStatedDocuments")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R1-QuoteSignatureEnabled"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#approvalShape" (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R11-QuoteSendApproved"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#basedOnRule"
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R1")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R6")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R11")))
+   (rdf/description "https://mithril.fund/ns/contract-acceptance/v1#Q-may-invoice"
+     (rdf/property "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#DecisionQuestion"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#questionKey" (rdf/literal "may-invoice"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#label"
+       (rdf/literal "請求してよいか" :language "ja")
+       (rdf/literal "May we bill?" :language "en"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#subjectClass" (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#Invoice"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#claimClass" (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#IssuedInvoice"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#gateShape"
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R7-InvoiceViaStripe")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R7-InvoiceBillsExecutedOrder")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R7-InvoiceMsaExecuted")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R7-InvoiceSowsExecuted")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R7-InvoiceMatchesAgreedTerms"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#approvalShape" (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R11-InvoiceApproved"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#basedOnRule"
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R7")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R11")))
+   (rdf/description "https://mithril.fund/ns/contract-acceptance/v1#Q-nda-effective"
+     (rdf/property "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#DecisionQuestion"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#questionKey" (rdf/literal "nda-effective"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#label"
+       (rdf/literal "NDA は発効済みか" :language "ja")
+       (rdf/literal "Is the NDA in force?" :language "en"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#subjectClass" (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#MutualNda"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#claimClass" (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#EffectiveNda"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#gateShape"
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R9-NdaEnglish")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R9-NdaAcceptedByProvider")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R4-ExecutedVersionFinal")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R4-ExecutedVersionStated")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R4-ExecutedCopyStored")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R4-ExecutedThroughRecognisedPath"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#basedOnRule"
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R9")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R4")))
+   (rdf/description "https://mithril.fund/ns/contract-acceptance/v1#Q-change-order-required"
+     (rdf/property "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#DecisionQuestion"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#questionKey" (rdf/literal "change-order-required"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#label"
+       (rdf/literal "この変更は Change Order が要るか（反映してよいか）" :language "ja")
+       (rdf/literal "Does this change need a Change Order (and may it be reflected)?" :language "en"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#subjectClass" (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#ScopeChange"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#claimClass" (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#AppliedScopeChange"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#requiresChangeOrder" (rdf/literal "true" :datatype "http://www.w3.org/2001/XMLSchema#boolean"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#gateShape"
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R8-ScopeChangeKind")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R8-ScopeChangeTargetsOrder")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R8-AppliedChangeAuthorizedByChangeOrder")
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R8-ChangeOrderAmendsSameOrder"))
+     (rdf/property "https://mithril.fund/ns/contract-acceptance/v1#basedOnRule"
+       (rdf/iri "https://mithril.fund/ns/contract-acceptance/v1#R8")))])
