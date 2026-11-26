@@ -1,8 +1,14 @@
 # Archive (Item 224 §B)
 
-Moved here (NOT deleted): legacy `native_*` + `bin/` `.cljk` guest-path references used only by the pre-§B guest tests (`.mjs`/`.d.mts` oracles).
+Nothing has been moved into this directory yet. This note records the intended
+§B end-state and the CURRENT status of each reference:
 
-- `bin/mithril-native-*.cljk` — superseded by `bin/compiler/mithril-native-*.mjs` (AOT bundle); kept frozen as the CLI contract reference, not executed.
-- `test/qualification/native-*` — frozen corpus + oracles, not deleted; guest-path tests now assert Amu receipts (`:mithril.module/amu-native-source-v1`) instead.
+- `bin/mithril-native-*.cljk` — still in `bin/` and still EXECUTED: CI runs them
+  through nbb as the parity oracle for `bin/compiler/mithril-native-*.mjs`
+  (see `scripts/test-native-*.mjs`, `test/qualification/*/controls/*.cljk` and
+  `scripts/verify-compiler-bundle.mjs`). Do not delete or treat as frozen until
+  the bundle parity job is the only consumer.
+- `test/qualification/native-*` — live qualification corpus, executed by CI;
+  not deleted, not frozen.
 
-The `examples/native-js-*.mith` corpus stays frozen, never deleted.
+The `examples/native-js-*.mith` corpus stays in place, never deleted.

@@ -40,7 +40,7 @@
 (defn- error->js [error]
   (let [data (ex-data error)
         refused (js/Error. (or (.-message error) "compile-error"))]
-    (set! (.-code refused) (str (or (:mithril/error data) :mithril/compile-error)))
+    (set! (.-code refused) (name (or (:mithril/error data) :mithril/compile-error)))
     (set! (.-detail refused) (or (:detail data) (.-message error)))
     (set! (.-cause refused) error)
     refused))
