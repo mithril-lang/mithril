@@ -38,10 +38,11 @@ per target.
 
 ### `:sum` spelling and encoding
 
-`[:sum Name Case…]` is code-profile sugar over the variant descriptor
-(`variant-new`/`variant-match`); the two spellings share one Definition
-CID (the CID is over checked typed IR, so the sugar itself never moves a
-CID). In the JSON-LD module tier the type is spelled as a map
+`[:sum Name Case…]` is intended code-profile sugar over the variant
+descriptor (`variant-new`/`variant-match`), with equivalent checked IR
+intended to share identity. This PR checks module-tier sum nodes and lowers
+them to textual variant operations; it does not add an executable backend
+or prove surface-sugar CID equivalence. In the JSON-LD module tier the type is spelled as a map
 (mirroring `FunctionType`):
 `{"@type":"SumType","name":"Outcome","cases":["ok","err"]}`; construction
 is `{"@type":"EnumCase","sum":<SumType>,"case":"ok"}` (lowers to
@@ -51,7 +52,7 @@ an `if`/`variant-tag` chain — `variant-new`/`variant-match`/`variant-tag`
 are the IR-side spelling of the v1 `EnumCase` node). Unknown cases,
 duplicate cases, and non-exhaustive matches (no default, cases not covering
 the sum) are refused. Native Amu and public-library profiles refuse sums
-(scalar-only vocabulary); the pure code profile carries them end to end.
+(scalar-only vocabulary); this package exercises checking and textual lowering only.
 
 ### Identity: Definition CID for code, graph digest for data
 
@@ -67,7 +68,9 @@ its inputs). No unlabeled hash field means one thing on one side and the
 other on the other. Checked modules and their lowerings expose
 `:definition-cids`; digests of existing data files are untouched. A
 Definition CID does not yet fold in its callees' CIDs (a call names its
-callee), so it is not a Merkle identity; that is a follow-up.
+callee), so it is not a Merkle identity. This provisional digest is not a
+real DAG-CBOR CIDv1; Item 381 owns that follow-up under the
+[program identity specification](spec/ipld-identity.md).
 
 ### Pure-core posture
 

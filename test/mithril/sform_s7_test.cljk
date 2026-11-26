@@ -84,6 +84,11 @@
     (is (= (:definition-cids checked) (:definition-cids result)))))
 
 (deftest sum-refusals-are-closed
+  (is (= :mithril.module/type-mismatch
+         (code (document [(function "main" [] outcome (enum-case "i64" "ok"))] []))))
+  (is (= :mithril.module/type-mismatch
+         (code (document [(function "main" [] outcome
+                                    (enum-case {"@type" "FunctionType" "params" [] "returns" "i64"} "ok"))] []))))
   (is (= :mithril.module/unknown-case
          (code (document [(function "main" [] outcome (enum-case outcome "nope"))] []))))
   (is (= :mithril.module/duplicate-sum-case
@@ -108,6 +113,19 @@
                 (catch :default error (:mithril/error (ex-data error))))))))
 
 ;; --- §7.3 Definition CID + receipt pairs ---
+
+(deftest variant-match-binds-scrutinee-once
+  (let [match {"@type" "VariantMatch" "scrutinee" (enum-case outcome "ok")
+               "cases" [{"case" "ok" "body" (literal "i64" 1)}
+                        {"case" "err" "body" (literal "i64" 2)}]
+               "default" (literal "i64" 0)}
+        source (:source (lower/lower-document (document [(function "main" [] "i64" match)] ["main"])))]
+    (is (= 1 (count (re-seq #"\(variant-new :Outcome :ok\)" source))))
+    (is (= 2 (count (re-seq #"\(= \(variant-tag " source)))))
+  (let [match {"@type" "VariantMatch" "scrutinee" (enum-case outcome "ok")
+               "cases" [] "default" (literal "i64" 0)}
+        source (:source (lower/lower-document (document [(function "main" [] "i64" match)] ["main"])))]
+    (is (= 1 (count (re-seq #"\(variant-new :Outcome :ok\)" source))))))
 
 (deftest definition-cid-is-over-checked-ir-not-source
   (let [a (module/check-text "(mithril/module :name \"example\" :exports [\"main\"] :functions [(mithril/function :name \"main\" :params [] :returns \"i64\" :body (mithril/literal :datatype \"i64\" :value 1))])")

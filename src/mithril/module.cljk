@@ -1,7 +1,8 @@
 (ns mithril.module
   "Check inert Mithril modules before lowering. No source evaluation or code emission."
   (:require [clojure.string :as str]
-            [mithril.form :as form]))
+            [mithril.form :as form]
+            [multiformats.core :as mf]))
 
 (def ^:private max-depth 64)
 (def ^:private max-nodes 4096)
@@ -242,6 +243,8 @@
     (do (shape! expr ["@type" "sum" "case"])
         (let [sum (type! (get expr "sum"))
               c (name! (get expr "case") false)]
+          (when-not (sum-type? sum)
+            (fail! :mithril.module/type-mismatch "EnumCase sum must be a sum type"))
           (when-not (contains? (set (nth sum 2)) c)
             (fail! :mithril.module/unknown-case "Enum case is not part of the sum type"))
           {:op :enum-case :sum sum :case c :type sum}))
@@ -307,7 +310,7 @@
   [declaration]
   (let [text (str "mithril.definition/v1\n"
                   (pr-str (canonical-value (select-keys declaration [:name :params :returns :body]))))]
-    (str "sha256:" (.digest (.update (.createHash (js/require "crypto") "sha256") text "utf8") "hex"))))
+    (str "sha256:" (mf/hexify (mf/sha256 (.encode (js/TextEncoder.) text))))))
 
 (defn check-document
   "Validate all signatures, then bounded bodies, and return deterministic typed IR."

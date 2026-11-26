@@ -83,17 +83,19 @@
             " " (expression-source (:else expr) function-indexes parameter-indexes binding-counter contract-indexes) ")")
     :enum-case (str "(variant-new " (kw-spelling (second (:sum expr))) " " (kw-spelling (:case expr)) ")")
     :variant-match (let [scrut (expression-source (:scrutinee expr) function-indexes parameter-indexes binding-counter contract-indexes)
+                         bound (str "__mithril_l" (swap! binding-counter inc))
                          cases (:cases expr)
                          kept (if (:default expr) cases (butlast cases))
                          fallback-expr (if (:default expr) (:default expr) (:body (last cases)))
-                         fallback (expression-source fallback-expr function-indexes parameter-indexes binding-counter contract-indexes)]
-                     (loop [remaining (seq kept) acc fallback]
-                       (if-let [c (first remaining)]
-                         (recur (next remaining)
-                                (str "(if (= (variant-tag " scrut ") " (kw-spelling (:case c)) ") "
-                                     (expression-source (:body c) function-indexes parameter-indexes binding-counter contract-indexes)
-                                     " " acc ")"))
-                         acc)))))
+                         fallback (expression-source fallback-expr function-indexes parameter-indexes binding-counter contract-indexes)
+                         branches (loop [remaining (seq kept) acc fallback]
+                                    (if-let [c (first remaining)]
+                                      (recur (next remaining)
+                                             (str "(if (= (variant-tag " bound ") " (kw-spelling (:case c)) ") "
+                                                  (expression-source (:body c) function-indexes parameter-indexes binding-counter contract-indexes)
+                                                  " " acc ")"))
+                                      acc))]
+                     (str "(let [" bound " " scrut "] " branches ")"))))
 
 (defn- function-source [declaration index function-indexes contract-indexes]
   (let [params (mapv (fn [param i] (str (parameter-symbol i) " " (type-source (:type param)))) (:params declaration) (range (count (:params declaration))))

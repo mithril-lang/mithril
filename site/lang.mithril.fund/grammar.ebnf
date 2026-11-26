@@ -57,10 +57,13 @@ feature-test       = keyword | "[", keyword, { keyword }, "]" ;
 sum-type           = "[", ":sum", sum-name, sum-case, { sum-case }, "]" ;
 sum-name           = ? identifier naming the sum ? ;
 sum-case           = ? identifier naming one case ? ;
-(* Code-profile type form; sugar over variant-new/variant-match with the
-   same Definition CID. JSON-LD module tier: {"@type":"SumType","name":N,
-   "cases":[C…]}; construction {"@type":"EnumCase","sum":S,"case":C} and
-   matching {"@type":"VariantMatch",…} lower to the v1 EnumCase node.
+(* Intended code-profile sugar over variant-new/variant-match with shared
+   identity for equivalent checked IR. This PR checks module-tier sum nodes
+   and lowers to textual variant operations; it adds no executable backend
+   and does not prove surface-sugar CID equivalence. JSON-LD module tier:
+   {"@type":"SumType","name":N,"cases":[C…]}; construction
+   {"@type":"EnumCase","sum":S,"case":C} lowers to variant-new and
+   matching {"@type":"VariantMatch",…} to an if/variant-tag chain.
    Unknown/duplicate cases and non-exhaustive matches without a default
    are refused. Native Amu and public-library profiles refuse sums. *)
 
