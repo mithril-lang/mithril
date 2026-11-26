@@ -1,0 +1,43 @@
+(ns mithril.transpiler-rust
+  "Transpiler Tier B / M2 STUB — Rust borrow-elaboration lowering. DO NOT USE.
+
+  Tier B is explicitly out of scope for M1 Tier A (Owner decisions 2026-11-25,
+  Item 22 §10 Q2/Q3). This namespace defines only the future lowering
+  *interface* (direction + surface) so the Tier A IPLD IR
+  (`mithril.transpiler-ipld` node) has an obvious downstream consumer. No Rust
+  code is emitted; no borrow checking, lifetimes, or ownership analysis exists.
+
+  FUTURE INTERFACE (Tier B / M2, not implemented):
+    (lower tier-a-node) -> Rust source string (or richer artifact)
+    Input:  a Tier A IPLD IR node: (+? (ipld.core/decode (:bytes tier-a-result)))
+    Output: Rust text whose items map 1:1 to IR functions, with borrow
+            elaboration (explicit lifetimes/ownership) derived from the
+            checked call-graph + parameter/body shapes.
+    Consumer: a later M2 diff replaces `tier-b-unimplemented!` below; it must
+            NOT change the Tier A node shape (additive, if anything).
+
+  Until then every entry point throws :mithril.transpiler-rust/tier-b. Callers
+  must branch on Tier A vs Tier B *before* reaching here; there is no silent
+  fallback to Tier A semantics (e.g. a Rust artifact that is really Amu source
+  would be a lie about its borrow guarantees)."
+  (:require [mithril.transpiler-ipld :as tier-a]))
+
+(defn- tier-b-unimplemented! [operation]
+  (throw (ex-info "Mithril Tier B (Rust borrow-elaboration) is not implemented in M1"
+                  {:mithril/error :mithril.transpiler-rust/tier-b
+                   :operation operation
+                   :tier :B :milestone :M2})))
+
+(defn lower
+  "FUTURE Tier B: lower a Tier A IPLD IR node to Rust source with borrow
+  elaboration. STUB — always throws :mithril.transpiler-rust/tier-b.
+  `tier-a-node` is accepted (and ignored) only so call sites can be written
+  against the final signature now."
+  [tier-a-node]
+  (tier-b-unimplemented! :lower))
+
+(defn lower-result
+  "FUTURE Tier B: lower a `transpile-*` result map ({:node :cid :bytes}).
+  STUB — always throws :mithril.transpiler-rust/tier-b."
+  [tier-a-result]
+  (tier-b-unimplemented! :lower-result))
