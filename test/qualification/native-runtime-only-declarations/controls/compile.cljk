@@ -49,7 +49,7 @@
   (doseq [[file source] (:files artifact)] (ensure (= source (fs/readFileSync (str output "/" file) "utf8")) (str "Declaration bytes " file)))
   artifact))
 (try
- (fs/writeFileSync (str dir "/offline.edn") "{:paths [\"src\"]}")
+ (fs/writeFileSync (str dir "/offline.edn") (pr-str {:paths [(fs/realpathSync "src") (fs/realpathSync "vendor/src")]}))
  (doseq [target ["js" "js-browser"]]
   (let [single-file (str dir "/" target ".d.mts") types (str dir "/" target "-types") runtime-out (str dir "/" target "-runtime")
         yaml-types (str dir "/" target "-yaml-types") yaml-runtime (str dir "/" target "-yaml-runtime")]

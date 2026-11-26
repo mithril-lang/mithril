@@ -117,7 +117,7 @@
 (def dir (fs/mkdtempSync "/tmp/mithril-declarations-control-"))
 (try
  (fs/writeFileSync (str dir "/generic.d.mts") (:source toy-artifact))
- (fs/writeFileSync (str dir "/offline.edn") "{:paths [\"src\"]}\n")
+ (fs/writeFileSync (str dir "/offline.edn") (pr-str {:paths [(fs/realpathSync "src") (fs/realpathSync "vendor/src")]}))
  (doseq [target ["js" "js-browser"]]
   (let [output (str dir "/" target ".d.mts") library (str dir "/" target ".mjs") config (str dir "/offline.edn")]
    (run [engine "--config" config "-cp" "src" "bin/mithril-native-package.cljk" "examples/native-js-cosmokit.mith" "--target" target "--output" library])

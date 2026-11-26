@@ -42,7 +42,7 @@
  (let [dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-binding-patterns-"))]
   (try
    (let [engine (.-MITHRIL_NATIVE_ENGINE js/process.env) config (path/join dir "offline.edn")]
-    (fs/writeFileSync config "{:paths [\"src\"]}\n")
+    (fs/writeFileSync config (pr-str {:paths [(fs/realpathSync "src") (fs/realpathSync "vendor/src")]}))
     (doseq [target ["js" "js-browser"]
             [source output] [["native-js-binding-patterns.mith" "binding-patterns"] ["native-js-schema-binding-patterns.mith" "schema-binding-patterns"] ["native-js-binding-patterns-esm.mith" "binding-patterns-esm"]]]
      (let [r (child/spawnSync js/process.execPath
