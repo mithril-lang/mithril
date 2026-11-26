@@ -257,10 +257,15 @@
         memo (atom {})]
     ;; Guest closure words need the separate host-callable bridge. They must
     ;; not escape through the existing scalar, acyclic pure JS facade.
+    ;; Fail-closed guest re-target (Item 224 §B): opaque js-value and the js_*
+    ;; intrinsics have no guest representation; refuse with a dedicated code
+    ;; instead of passing host values through the pure facade.
     (doseq [declaration (:functions checked)
             type (cons (:returns declaration) (map :type (:params declaration)))]
       (when (vector? type)
-        (library-fail! :mithril.module/library-vocabulary "Guest callable types require a host-callable profile")))
+        (library-fail! :mithril.module/library-vocabulary "Guest callable types require a host-callable profile"))
+      (when (= :js-value type)
+        (library-fail! :mithril.module/guest-js-value "Guest target refuses opaque js-value; use the native JS host backend")))
     (letfn [(sum-fuel [a b] (library-integer! (+ a b)))
             (sequence-budget [expressions]
               (reduce (fn [[fuel frames] expression]
@@ -271,12 +276,14 @@
               (case (:op expression)
                 :literal [0 0]
                 :local [0 0]
-                :intrinsic (if (contains? #{"add" "sub" "mul" "eq" "not"
-                                           "js_nullish" "js_truthy" "js_strict_equal"
-                                           "js_typeof" "js_array" "js_bool_value" "js_undefined"}
-                                         (:name expression))
+                :intrinsic (if (contains? #{"add" "sub" "mul" "eq" "not"} (:name expression))
                              (sequence-budget (:args expression))
-                             (library-fail! :mithril.module/library-vocabulary "Unsupported public library intrinsic"))
+                             (if (contains? #{"js_nullish" "js_truthy" "js_strict_equal"
+                                               "js_typeof" "js_array" "js_bool_value" "js_undefined"}
+                                            (:name expression))
+                               (library-fail! :mithril.module/guest-js-value
+                                               (str "Guest target refuses js_* intrinsic " (:name expression)))
+                               (library-fail! :mithril.module/library-vocabulary "Unsupported public library intrinsic")))
                 :call (let [[args-fuel args-frames] (sequence-budget (:args expression))
                             [callee-fuel callee-frames] (function-budget (:name expression))]
                         [(sum-fuel args-fuel callee-fuel) (max args-frames callee-frames)])

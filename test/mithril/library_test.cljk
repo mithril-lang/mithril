@@ -6,7 +6,15 @@
   (try (lower/js-library-document doc specifier) nil
        (catch :default e (:mithril/error (ex-data e)))))
 (defn identity-function [name]
-  (f/function name [{"name" "v" "datatype" "js-value"}] "js-value" (f/local "v")))
+  (f/function name [{"name" "v" "datatype" "i64"}] "i64" (f/local "v")))
+(deftest guest-library-refuses-js-value-fail-closed
+  (doseq [doc [(f/document [(f/function "keep" [{"name" "v" "datatype" "js-value"}] "js-value" (f/local "v"))] ["keep"])
+               (f/document [(f/function "noop" [] "js-value" (f/call "js_undefined" []))] ["noop"])
+               (f/document [(f/function "observe" [{"name" "v" "datatype" "js-value"}] "bool" (f/call "js_truthy" [(f/local "v")]))] ["observe"])]]
+    (is (= :mithril.module/guest-js-value (failure doc "./artifact.mjs"))))
+  (let [scalar (f/document [(f/function "keep" [{"name" "v" "datatype" "i64"}] "i64" (f/local "v"))] ["keep"])]
+    (is (= :mithril.module/js-library-facade-v1 (:format (lower/js-library-document scalar "./artifact.mjs"))))
+    (is (string? (:source (lower/js-library-document scalar "./artifact.mjs"))))))
 (deftest public-contract-and-default-lowering-stability
   (let [doc (f/document [(identity-function "keep")] ["keep"])
         before (lower/lower-document doc)
@@ -19,17 +27,17 @@
     (is (= result (lower/js-library-document doc "./artifact.mjs")))))
 (deftest arguments-are-evaluated-before-the-callee-within-one-call-budget
   (let [doc (f/document [(identity-function "keep")
-                        (f/function "twice" [{"name" "v" "datatype" "js-value"}] "js-value"
+                        (f/function "twice" [{"name" "v" "datatype" "i64"}] "i64"
                           (f/call "keep" [(f/call "keep" [(f/local "v")])]))] ["twice"])]
     (is (= {:fuel 3 :frames 2} (:budgets (lower/js-library-document doc "./artifact.mjs"))))))
 (deftest lazy-branches-use-maximum-rather-than-sum
   (let [condition (f/function "condition" [] "bool" (f/literal "bool" true))
-        branch (f/function "branch" [] "js-value" (f/call "js_undefined" []))
-        main (f/function "choose" [] "js-value"
+        branch (f/function "branch" [] "i64" (f/literal "i64" 7))
+        main (f/function "choose" [] "i64"
                {"@type" "If" "condition" (f/call "condition" [])
                 "then" (f/call "branch" []) "else" (f/call "branch" [])})]
     (is (= {:fuel 3 :frames 2}
-           (:budgets (lower/js-library-document (f/document [condition branch main] ["choose"]) "./artifact.mjs"))))))
+          (:budgets (lower/js-library-document (f/document [condition branch main] ["choose"]) "./artifact.mjs"))))))
 (deftest cyclic-library-refusal-preserves-restricted-recursive-lowering
   (let [doc (f/document [(f/function "loop" [] "bool" (f/call "loop" []))] ["loop"])]
     (is (= :mithril.module/library-cycle (failure doc "./artifact.mjs")))
@@ -48,14 +56,14 @@
     (is (= :mithril.module/library-specifier (failure (f/document [] []) specifier))))
   (is (= {:fuel 1 :frames 1}
          (:budgets (lower/js-library-document (f/document [] []) "./artifact-1.mjs")))))
-(deftest reserved-public-names-and-noop-use-the-same-checked-contract
-  (let [doc (f/document [(f/function "default" [] "js-value" (f/call "js_undefined" []))
+(deftest reserved-public-names-and-scalar-noop-use-the-same-checked-contract
+  (let [doc (f/document [(f/function "default" [] "i64" (f/literal "i64" 0))
                         (identity-function "class")] ["class" "default"])
         result (lower/js-library-document doc "./artifact.mjs")]
     (is (= [{:name "class" :symbol "__mithril_f1"} {:name "default" :symbol "__mithril_f0"}] (:exports result)))
     (is (= {:fuel 1 :frames 1} (:budgets result)))
     (is (string? (:source result)))))
 (deftest inert-form-text-entry-reuses-validation
-  (let [text "(mithril/module :name \"public.noop\" :exports [\"noop\"] :functions [(mithril/function :name \"noop\" :params [] :returns \"js-value\" :body (mithril/call :name \"js_undefined\" :args []))])"]
+  (let [text "(mithril/module :name \"public.noop\" :exports [\"noop\"] :functions [(mithril/function :name \"noop\" :params [] :returns \"i64\" :body (mithril/literal :datatype \"i64\" :value 0))])"]
     (is (= "public.noop" (:name (lower/js-library-text text "./artifact.mjs"))))
     (is (= {:fuel 1 :frames 1} (:budgets (lower/js-library-text text "./artifact.mjs"))))))

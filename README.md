@@ -2184,6 +2184,12 @@ provide escaping JavaScript callbacks or complete harness API/plugin parity.
 Qualification receipts are under `test/qualification/module-guest-closures`.
 
 ## Native JS host modules
+> **Item 224 Phase1 FREEZE (Jun approved 2026-11-25):** native-js is maintenance-only.
+> No new stages; the corpus below is archived as-is and `native-js.yml` runs a
+> 10-stage representative set on PRs (full 37 stages nightly at 02:00 UTC and on
+> main). Unfreeze is free — revert the paths filter. The guest path is the
+> development axis.
+
 
 `mithril/native-js-module` is a separate, explicitly granted native JS interop
 context. `mithril.native-js/check-text` validates inert source and

@@ -1,0 +1,492 @@
+(ns mithril.verify
+  "Prototype L1 contract verification for checked Mithril modules.
+
+  Explicit entry point only: nothing in mithril.module, module-lower or any
+  existing pipeline calls this namespace.
+
+  Contract surface (additive, optional) on a module Function:
+    \"requires\"  bool expression over the parameters
+    \"ensures\"   bool expression over the parameters and `result`
+  Both are ordinary module expressions, checked by mithril.module itself via
+  synthetic `__mithril_requires_<f>` / `__mithril_ensures_<f>` declarations,
+  so a module without contracts is checked by exactly module/check-document.
+
+  The translator covers the scalar subset (i64 / bool / string literals and
+  locals, add / sub / mul / eq / not, if, let, sequence, declared calls).
+  i64 is a 64-bit bitvector; every add / sub / mul carries an overflow
+  obligation. Declared calls are inlined up to a depth bound and a call fuel
+  budget; a call beyond either becomes a cut point. A result is `proved` only
+  when no cut point is reachable, so a bound never yields `proved`.
+
+  The solver is injected as a function (smt-text -> solver stdout) so this
+  namespace stays host-neutral; mithril.verify-z3 supplies the z3 binary."
+  (:require [clojure.string :as str]
+            [mithril.module :as module]))
+
+(def default-bound 8)
+(def max-bound 64)      ; module expression depth budget
+(def default-fuel 256)
+(def max-fuel 4096)     ; module expression node budget
+(def ^:private reserved-prefix "__mithril_")
+(def ^:private result-name "result")
+
+(defn- fail! [code detail]
+  (throw (ex-info detail {:mithril/error code :detail detail})))
+
+(defn- unsupported! [detail]
+  (throw (ex-info detail {::unsupported detail})))
+
+;; ---------------------------------------------------------------------------
+;; Contract surface
+
+(defn- contract-function? [function]
+  (and (map? function) (or (contains? function "requires") (contains? function "ensures"))))
+
+(defn- reserved? [value]
+  (and (string? value) (str/starts-with? value reserved-prefix)))
+
+(defn- requires-name [name] (str reserved-prefix "requires_" name))
+(defn- ensures-name [name] (str reserved-prefix "ensures_" name))
+
+(defn check-contract-document
+  "Check a module document that may carry requires/ensures. Without contract
+  fields this is module/check-document unchanged. With them, each checked
+  function gains :requires / :ensures IR (type :bool)."
+  [doc]
+  (let [functions (when (map? doc) (get doc "functions"))]
+    (if-not (and (vector? functions) (some contract-function? functions))
+      (module/check-document doc)
+      (let [plain (mapv #(if (map? %) (dissoc % "requires" "ensures") %) functions)
+            _ (doseq [function plain]
+                (when (and (map? function) (reserved? (get function "name")))
+                  (fail! :mithril.verify/reserved-name "Names starting with __mithril_ are reserved in contract modules")))
+            _ (doseq [export (get doc "exports")]
+                (when (or (reserved? export) (and (map? export) (reserved? (get export "function"))))
+                  (fail! :mithril.verify/reserved-name "Contract declarations cannot be exported")))
+            synthetic (into []
+                            (mapcat
+                              (fn [function]
+                                (if-not (contract-function? function)
+                                  []
+                                  (let [name (get function "name")
+                                        params (get function "params")]
+                                    (cond-> []
+                                      (contains? function "requires")
+                                      (conj {"@type" "Function" "name" (requires-name name) "params" params
+                                             "returns" "bool" "body" (get function "requires")})
+                                      (contains? function "ensures")
+                                      (conj (do (when (and (vector? params)
+                                                           (some #(and (map? %) (= result-name (get % "name"))) params))
+                                                  (fail! :mithril.verify/reserved-name "A function with ensures cannot name a parameter result"))
+                                                {"@type" "Function" "name" (ensures-name name)
+                                                 "params" (conj params {"name" result-name "datatype" (get function "returns")})
+                                                 "returns" "bool" "body" (get function "ensures")})))))))
+                            functions)
+            checked (module/check-document (assoc doc "functions" (into plain synthetic)))
+            by-name (into {} (map (juxt :name identity) (:functions checked)))
+            real (subvec (:functions checked) 0 (count plain))]
+        (doseq [[caller callees] (:call-graph checked)
+                :when (not (reserved? caller))]
+          (when (some reserved? callees)
+            (fail! :mithril.verify/reserved-name "Bodies cannot call contract declarations")))
+        (assoc checked
+               :functions (mapv (fn [function]
+                                  (let [requires (get by-name (requires-name (:name function)))
+                                        ensures (get by-name (ensures-name (:name function)))]
+                                    (cond-> function
+                                      requires (assoc :requires (:body requires))
+                                      ensures (assoc :ensures (:body ensures)))))
+                                real)
+               :call-graph (into {} (remove (comp reserved? key)) (:call-graph checked)))))))
+
+;; ---------------------------------------------------------------------------
+;; SMT-LIB2 translation
+
+(def ^:private bv64 "(_ BitVec 64)")
+
+(defn- smt-sort [type]
+  (case type
+    :i64 bv64
+    :bool "Bool"
+    :string "String"
+    (unsupported! "Only i64, bool and string values are translated")))
+
+(defn- i64-term [decimal]
+  (let [hex (.toString (js/BigInt.asUintN 64 (js/BigInt decimal)) 16)]
+    (str "#x" (apply str (repeat (- 16 (count hex)) "0")) hex)))
+
+(defn- string-term [value]
+  ;; SMT-LIB 2.6 string literal: printable ASCII except backslash stays, "
+  ;; doubles, everything else is \u{hex}. Z3's default alphabet ends at
+  ;; U+2FFFF; beyond it a literal is refused rather than truncated.
+  (str "\""
+       (apply str
+              (map (fn [ch]
+                     (let [cp (.codePointAt ch 0)]
+                       (cond
+                         (> cp 0x2FFFF) (unsupported! "String code point beyond the solver alphabet")
+                         (= ch "\"") "\"\""
+                         (and (<= 0x20 cp 0x7E) (not= ch "\\")) ch
+                         :else (str "\\u{" (.toString cp 16) "}"))))
+                   (js/Array.from value)))
+       "\""))
+
+(defn- literal-term [{:keys [type value]}]
+  (case type
+    :i64 (i64-term value)
+    :bool (if value "true" "false")
+    :string (string-term value)
+    (unsupported! "Unsupported literal type")))
+
+(defn- atomic? [term]
+  (not (str/starts-with? term "(")))
+
+(defn- fresh! [state prefix sort]
+  (let [name (str prefix (:n (swap! state update :n inc)))]
+    (swap! state update :decls conj (str "(declare-const " name " " sort ")"))
+    name))
+
+(defn- define! [state prefix sort term]
+  ;; Name every compound term once so repeated mentions stay linear in size.
+  (if (atomic? term)
+    term
+    (let [name (fresh! state prefix sort)]
+      (swap! state update :asserts conj (str "(assert (= " name " " term "))"))
+      name)))
+
+(defn- conj-guard [state guard condition]
+  (define! state "g" "Bool" (if (= "true" guard) condition (str "(and " guard " " condition ")"))))
+
+(defn- obligation! [state ctx kind op guard condition]
+  (swap! state update :obligations conj
+         {:kind kind :op op :function (:function ctx) :depth (:depth ctx)
+          :guard guard :condition condition}))
+
+(def ^:private overflow-kind
+  {:body :overflow :requires :requires-overflow :ensures :ensures-overflow
+   :callee-requires :requires-overflow})
+
+(declare translate)
+
+(defn- translate-call [state ctx expr env guard]
+  (let [{:keys [fns bound fuel depth]} ctx
+        name (:name expr)
+        callee (get fns name)
+        _ (when-not callee (unsupported! "Call to an unknown function"))
+        sort (smt-sort (:returns callee))
+        args (mapv (fn [arg param]
+                     (define! state "a" (smt-sort (:type param)) (translate state ctx arg env guard)))
+                   (:args expr) (:params callee))
+        callee-env (zipmap (map :name (:params callee)) args)
+        callee-ctx (assoc ctx :depth (inc depth) :function name)]
+    (when-let [requires (:requires callee)]
+      (let [holds (translate state (assoc callee-ctx :role :callee-requires) requires callee-env guard)]
+        (obligation! state ctx :call-requires name guard holds)))
+    (if (or (>= depth bound) (> (:calls (swap! state update :calls inc)) fuel))
+      (let [result (fresh! state "cut" sort)]
+        (swap! state update :cuts conj {:function name :depth depth :guard guard})
+        result)
+      (define! state "r" sort (translate state callee-ctx (:body callee) callee-env guard)))))
+
+(defn- translate [state ctx expr env guard]
+  (case (:op expr)
+    :literal (literal-term expr)
+    :local (or (get env (:name expr)) (unsupported! "Unbound local"))
+    :intrinsic
+    (let [args (mapv #(translate state ctx % env guard) (:args expr))]
+      (case (:name expr)
+        ("add" "sub" "mul")
+        (let [[a b] (mapv #(define! state "t" bv64 %) args)
+              op ({"add" "bvadd" "sub" "bvsub" "mul" "bvmul"} (:name expr))
+              width (if (= "mul" (:name expr)) 64 1)
+              ext #(str "((_ sign_extend " width ") " % ")")
+              value (define! state "t" bv64 (str "(" op " " a " " b ")"))]
+          ;; Exact iff the wider signed result equals the sign-extended wrap.
+          (obligation! state ctx (overflow-kind (:role ctx)) (:name expr) guard
+                       (str "(= " (ext value) " (" op " " (ext a) " " (ext b) "))"))
+          value)
+        "eq" (str "(= " (first args) " " (second args) ")")
+        "not" (str "(not " (first args) ")")
+        (unsupported! "Host intrinsics are not translated")))
+    :let
+    (let [env (reduce (fn [env {:keys [name value type]}]
+                        (assoc env name (define! state "l" (smt-sort type)
+                                                 (translate state ctx value env guard))))
+                      env (:bindings expr))]
+      (translate state ctx (:body expr) env guard))
+    :sequence
+    (peek (mapv #(translate state ctx % env guard) (:expressions expr)))
+    :if
+    (let [condition (define! state "c" "Bool" (translate state ctx (:condition expr) env guard))
+          then (translate state ctx (:then expr) env (conj-guard state guard condition))
+          else (translate state ctx (:else expr) env (conj-guard state guard (str "(not " condition ")")))]
+      (define! state "v" (smt-sort (:type expr)) (str "(ite " condition " " then " " else ")")))
+    :call (translate-call state ctx expr env guard)
+    (unsupported! "Guest callables are not translated")))
+
+(defn- clamp [value default limit]
+  (let [value (if (nil? value) default value)]
+    (when-not (and (integer? value) (<= 0 value limit))
+      (fail! :mithril.verify/invalid-option "Bound and fuel must be integers within the module budgets"))
+    value))
+
+(defn function-vc
+  "Translate one checked function's verification condition. Returns
+  {:base smt :params [{:name :smt :type}] :obligations [...] :cuts [...]}
+  or {:unsupported reason}."
+  [checked function-name opts]
+  (let [fns (into {} (map (juxt :name identity) (:functions checked)))
+        function (or (get fns function-name)
+                     (fail! :mithril.verify/unknown-function "Unknown function"))
+        state (atom {:n 0 :decls [] :asserts [] :obligations [] :cuts [] :calls 0})
+        ctx {:fns fns :bound (clamp (:bound opts) default-bound max-bound)
+             :fuel (clamp (:fuel opts) default-fuel max-fuel)
+             :depth 0 :function function-name :role :body}]
+    (try
+      (let [params (mapv (fn [index {:keys [name type]}]
+                           (let [smt (str "p" index)]
+                             (swap! state update :decls conj (str "(declare-const " smt " " (smt-sort type) ")"))
+                             {:name name :smt smt :type type}))
+                         (range) (:params function))
+            env (into {} (map (juxt :name :smt) params))
+            assumption (when-let [requires (:requires function)]
+                         (translate state (assoc ctx :role :requires) requires env "true"))
+            result (define! state "res" (smt-sort (:returns function))
+                            (translate state ctx (:body function) env "true"))]
+        (when-let [ensures (:ensures function)]
+          (let [holds (translate state (assoc ctx :role :ensures) ensures
+                                 (assoc env result-name result) "true")]
+            (obligation! state ctx :ensures function-name "true" holds)))
+        (let [{:keys [decls asserts obligations cuts]} @state
+              flags (mapv #(str "o" %) (range (count obligations)))]
+          {:params params
+           :obligations (mapv #(dissoc % :guard :condition) obligations)
+           :flags flags
+           :cuts (mapv #(dissoc % :guard) cuts)
+           :base (str/join "\n"
+                           (concat ["(set-logic ALL)"] decls asserts
+                                   (when assumption [(str "(assert " assumption ")")])
+                                   (mapcat (fn [flag {:keys [guard condition]}]
+                                             [(str "(declare-const " flag " Bool)")
+                                              (str "(assert (= " flag " (and " guard " (not " condition "))))")])
+                                           flags obligations)
+                                   [(str "(define-fun violation () Bool "
+                                         (if (seq flags) (str "(or " (str/join " " flags) ")") "false") ")")
+                                    (str "(define-fun reach_cut () Bool "
+                                         (if (seq cuts) (str "(or " (str/join " " (map :guard cuts)) ")") "false") ")")]))}))
+      (catch :default e
+        (if-let [reason (::unsupported (ex-data e))]
+          {:unsupported reason}
+          (throw e))))))
+
+(defn counterexample-query [{:keys [base params flags]}]
+  (str base "\n(assert (not reach_cut))\n(assert violation)\n(check-sat)\n"
+       (let [names (concat (map :smt params) flags)]
+         (when (seq names) (str "(get-value (" (str/join " " names) "))\n")))))
+
+(defn bound-query [{:keys [base]}]
+  (str base "\n(assert (or violation reach_cut))\n(check-sat)\n"))
+
+;; ---------------------------------------------------------------------------
+;; Solver output
+
+(defn- tokens [text]
+  (let [n (count text)]
+    (loop [i 0 out []]
+      (if (>= i n)
+        out
+        (let [ch (nth text i)]
+          (cond
+            (contains? #{\space \newline \tab \return} ch) (recur (inc i) out)
+            (= ch \() (recur (inc i) (conj out :open))
+            (= ch \)) (recur (inc i) (conj out :close))
+            (= ch \")
+            (let [[end value] (loop [j (inc i) acc ""]
+                                (cond
+                                  (>= j n) (fail! :mithril.verify/solver-output "Unterminated solver string")
+                                  (and (= \" (nth text j)) (< (inc j) n) (= \" (nth text (inc j))))
+                                  (recur (+ j 2) (str acc "\""))
+                                  (= \" (nth text j)) [(inc j) acc]
+                                  :else (recur (inc j) (str acc (nth text j)))))]
+              (recur end (conj out {:string value})))
+            :else
+            (let [end (loop [j i]
+                        (if (and (< j n) (not (contains? #{\space \newline \tab \return \( \) \"} (nth text j))))
+                          (recur (inc j)) j))]
+              (recur end (conj out (subs text i end))))))))))
+
+(defn- read-sexp [tokens]
+  (let [token (first tokens)]
+    (if (= :open token)
+      (loop [rest (next tokens) items []]
+        (if (= :close (first rest))
+          [items (next rest)]
+          (let [[item more] (read-sexp rest)] (recur more (conj items item)))))
+      [token (next tokens)])))
+
+(defn- unescape [value]
+  (str/replace value #"\\u\{([0-9a-fA-F]{1,5})\}|\\u([0-9a-fA-F]{4})"
+               (fn [[_ braced plain]] (js/String.fromCodePoint (js/parseInt (or braced plain) 16)))))
+
+(defn- model-value [type value]
+  (case type
+    :i64 (let [digits (cond
+                        (and (string? value) (str/starts-with? value "#x")) (str "0x" (subs value 2))
+                        (and (string? value) (str/starts-with? value "#b")) (str "0b" (subs value 2))
+                        :else (fail! :mithril.verify/solver-output "Unexpected bitvector model value"))]
+           (str (js/BigInt.asIntN 64 (js/BigInt digits))))
+    :bool (= "true" value)
+    :string (if (map? value) (unescape (:string value))
+                (fail! :mithril.verify/solver-output "Unexpected string model value"))))
+
+(defn- status [output]
+  (let [line (str/trim (first (str/split-lines (str output))))]
+    (case line "sat" :sat "unsat" :unsat :unknown)))
+
+(defn- parse-model [vc output]
+  (let [lines (str/split-lines output)
+        [values] (read-sexp (tokens (str/join "\n" (rest lines))))
+        lookup (into {} (map (fn [[name value]] [name value]) values))]
+    {:model (into {} (map (fn [{:keys [name smt type]}] [name (model-value type (get lookup smt))]) (:params vc)))
+     :violations (vec (keep-indexed (fn [index obligation]
+                                      (when (= "true" (get lookup (nth (:flags vc) index))) obligation))
+                                    (:obligations vc)))}))
+
+;; ---------------------------------------------------------------------------
+;; Concrete replay (reference semantics for counterexamples and diff tests)
+
+(defn- fault! [kind detail]
+  (throw (ex-info "fault" {::fault (assoc detail :kind kind)})))
+
+(defn- evaluate-expr [fns expr env budget depth function role]
+  (letfn [(eval* [expr env] (evaluate-expr fns expr env budget depth function role))]
+    (case (:op expr)
+      :literal (if (= :i64 (:type expr)) (js/BigInt (:value expr)) (:value expr))
+      :local (get env (:name expr))
+      :intrinsic
+      (let [args (mapv #(eval* % env) (:args expr))
+            [a b] args]
+        (case (:name expr)
+          ("add" "sub" "mul")
+          (let [exact (case (:name expr) "add" (+ a b) "sub" (- a b) "mul" (* a b))]
+            (when-not (= exact (js/BigInt.asIntN 64 exact))
+              (fault! (overflow-kind role) {:op (:name expr) :function function}))
+            exact)
+          "eq" (= a b)
+          "not" (not a)
+          (fault! :unsupported {:op (:name expr)})))
+      :let (eval* (:body expr)
+                  (reduce (fn [env {:keys [name value]}] (assoc env name (eval* value env))) env (:bindings expr)))
+      :sequence (peek (mapv #(eval* % env) (:expressions expr)))
+      :if (if (eval* (:condition expr) env) (eval* (:then expr) env) (eval* (:else expr) env))
+      :call
+      (let [callee (get fns (:name expr))
+            args (mapv #(eval* % env) (:args expr))
+            callee-env (zipmap (map :name (:params callee)) args)]
+        (when (or (>= depth max-bound) (> (swap! budget inc) max-fuel))
+          (throw (ex-info "exhausted" {::exhausted true})))
+        (when-let [requires (:requires callee)]
+          (when-not (evaluate-expr fns requires callee-env budget (inc depth) (:name callee) :callee-requires)
+            (fault! :call-requires {:op (:name callee) :function function})))
+        (evaluate-expr fns (:body callee) callee-env budget (inc depth) (:name callee) role))
+      (fault! :unsupported {:op (:op expr)}))))
+
+(defn replay
+  "Evaluate function-name on model arguments (decimal strings for i64) with
+  checked i64 arithmetic. Returns {:outcome :requires-false | :fault |
+  :ensures-false | :ok | :exhausted ...}."
+  [checked function-name model]
+  (let [fns (into {} (map (juxt :name identity) (:functions checked)))
+        function (get fns function-name)
+        env (into {} (map (fn [{:keys [name type]}]
+                            (let [value (get model name)]
+                              [name (if (= :i64 type) (js/BigInt value) value)]))
+                          (:params function)))
+        budget (atom 0)
+        run (fn [expr env role] (evaluate-expr fns expr env budget 0 function-name role))]
+    (try
+      (cond
+        (and (:requires function) (not (run (:requires function) env :requires))) {:outcome :requires-false}
+        :else
+        (let [result (run (:body function) env :body)]
+          (if (and (:ensures function) (not (run (:ensures function) (assoc env result-name result) :ensures)))
+            {:outcome :ensures-false :result (str result)}
+            {:outcome :ok :result (str result)})))
+      (catch :default e
+        (let [data (ex-data e)]
+          (cond
+            (::fault data) {:outcome :fault :fault (::fault data)}
+            (::exhausted data) {:outcome :exhausted}
+            :else (throw e)))))))
+
+;; ---------------------------------------------------------------------------
+;; Entry points
+
+(defn- proved
+  "Mark proofs whose requires admits no input: they hold vacuously."
+  [checked function-name vc solve base]
+  (cond-> (assoc base :status :proved)
+    (and (:requires (some #(when (= function-name (:name %)) %) (:functions checked)))
+         (= :unsat (status (solve (str (:base vc) "\n(check-sat)\n")))))
+    (assoc :vacuous true)))
+
+(def ^:private max-candidates 32)
+
+(defn candidate-query [{:keys [base params flags]} flag]
+  (str base "\n(assert " flag ")\n(check-sat)\n"
+       (str "(get-value (" (str/join " " (concat (map :smt params) flags)) "))\n")))
+
+(defn- bounded-candidate
+  "A cut point is reachable. A violation model that crosses a cut is only a
+  candidate; it becomes a counterexample only when concrete replay (the
+  reference semantics, within the module budgets) faults or breaks ensures.
+  One candidate per obligation, in translation order (shallow obligations
+  first), up to max-candidates solver calls."
+  [checked function-name vc solve base]
+  (or (some (fn [flag]
+              (let [output (solve (candidate-query vc flag))]
+                (when (= :sat (status output))
+                  (let [{:keys [model violations]} (parse-model vc output)
+                        outcome (replay checked function-name model)]
+                    (when (contains? #{:fault :ensures-false} (:outcome outcome))
+                      (assoc base :status :counterexample :model model :violations violations
+                             :replay outcome :confirmed-by :replay))))))
+            (take max-candidates (:flags vc)))
+      (assoc base :status :unknown :reason :bound)))
+
+(defn verify-function
+  "Verify one function of a contract-checked module. opts: {:solve f
+  :bound n :fuel n}; (solve smt-text) returns solver stdout or nil when no
+  solver is available. Result :status is :proved, :counterexample or
+  :unknown (with :reason)."
+  [checked function-name {:keys [solve] :as opts}]
+  (let [vc (function-vc checked function-name opts)]
+    (if-let [reason (:unsupported vc)]
+      {:function function-name :status :unknown :reason :unsupported :detail reason}
+      (let [first-output (solve (counterexample-query vc))
+            base {:function function-name :obligations (count (:obligations vc)) :cuts (:cuts vc)}]
+        (if (nil? first-output)
+          (assoc base :status :unknown :reason :solver-unavailable)
+          (case (status first-output)
+            :sat (let [{:keys [model violations]} (parse-model vc first-output)]
+                   (assoc base :status :counterexample :model model :violations violations
+                          :replay (replay checked function-name model)))
+            :unknown (assoc base :status :unknown :reason :solver :detail (str/trim first-output))
+            :unsat (if (empty? (:cuts vc))
+                     (proved checked function-name vc solve base)
+                     (let [second-output (solve (bound-query vc))]
+                       (case (status second-output)
+                         :unsat (proved checked function-name vc solve base)
+                         :sat (bounded-candidate checked function-name vc solve base)
+                         (assoc base :status :unknown :reason :solver :detail (str/trim (str second-output))))))))))))
+
+(defn verify-document
+  "Check a module document with optional contracts and verify the scalar
+  functions named in (:functions opts), or every function with a contract
+  when omitted."
+  [doc opts]
+  (let [checked (check-contract-document doc)
+        names (or (:functions opts)
+                  (mapv :name (filter #(or (:requires %) (:ensures %)) (:functions checked))))]
+    {:module (:name checked)
+     :results (mapv #(verify-function checked % opts) names)}))
