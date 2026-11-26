@@ -1,0 +1,214 @@
+(ns mithril.contract-acceptance-test
+  "contract-acceptance-v1 (Organizer Item 471): the .mith is the source of
+  truth for the enterprise contract acceptance policy. Pins (1) the rule
+  individuals and their enforcing shapes, (2) the bpmn/* procedures,
+  (3) positive fixtures conform to workspace-ops-v1 AND contract-acceptance-v1,
+  (4) each negative fixture has exactly one defect and fails on exactly the
+  expected shapes, and (5) the decision answers computed from the .mith."
+  (:require [cljs.test :refer [deftest is testing]]
+            [mithril.compiler :as compiler]
+            [mithril.contract-acceptance :as ca]
+            [mithril.reason :as reason]))
+
+(defn- read-text [path] (.readFileSync (js/require "fs") path "utf8"))
+
+(def dir "test/fixtures/workspace-ops/contract-acceptance/")
+(def ns-ca "https://mithril.fund/ns/contract-acceptance/v1#")
+(defn- c [local] (str ns-ca local))
+(def rdf-type "http://www.w3.org/1999/02/22-rdf-syntax-ns#type")
+(def bpmn "http://www.omg.org/spec/BPMN/20100524/MODEL#")
+
+(def wops (delay (compiler/compile-ontology-text "ontology/workspace-ops-v1.mith"
+                                                 (read-text "ontology/workspace-ops-v1.mith"))))
+(def pol (delay (ca/load-policy)))
+(defn- data [f] (reason/parse-data (str dir f) (read-text (str dir f))))
+(def decisions (atom {}))
+(defn- decide [f]
+  (or (get @decisions f)
+      (get (swap! decisions assoc f (ca/decide @pol (data f))) f)))
+(defn- answer [r k subject]
+  (first (filter #(and (= k (:key %)) (= subject (:subject %))) (:answers r))))
+
+(defn- ontology-graph []
+  (reduce (fn [m q] (update-in m [(:value (:subject q)) (:value (:predicate q))]
+                               (fnil conj #{}) (:value (:object q))))
+          {} (compiler/ontology-quads (:artifact @pol))))
+
+(deftest rules-are-individuals-in-the-mith
+  (let [{:keys [rules questions]} @pol
+        g (ontology-graph)
+        shape? (fn [iri] (some #{"http://www.w3.org/ns/shacl#PropertyShape"
+                                 "http://www.w3.org/ns/shacl#NodeShape"}
+                               (get-in g [iri rdf-type])))]
+    (is (= (set (map #(c (str "R" %)) (range 1 12))) (set (keys rules))))
+    (doseq [[iri {:keys [rule-id label enforced-by]}] rules]
+      (testing iri
+        (is (= iri (c rule-id)))
+        (is (= #{:ja :en} (set (keys label))) "label in Japanese and English")
+        (is (seq enforced-by) "every rule names its enforcing shapes")
+        (is (every? shape? enforced-by) "every enforcing IRI is a shape in the .mith")))
+    (testing "statement (ja/en) and rationale are present on every rule"
+      (let [quads (compiler/ontology-quads (:artifact @pol))
+            langs (fn [s p] (set (for [q quads :when (and (= s (:value (:subject q)))
+                                                         (= p (:value (:predicate q))))]
+                                   (:language (:object q)))))]
+        (doseq [r (keys rules)]
+          (is (= #{"ja" "en"} (langs r (c "statement"))) r)
+          (is (= #{nil} (langs r (c "rationale"))) r))))
+    (testing "every R-prefixed shape id is claimed by a rule"
+      (let [rshapes (set (for [[s ps] g
+                               :when (and (shape? s) (re-find #"#R[0-9]+-" s))]
+                           s))]
+        (is (= rshapes (set (mapcat :enforced-by (vals rules)))))))
+    (testing "R3 (DocuSign not required) is a permission on the execution channel"
+      (is (= [(c "R1-ExecutionChannel")] (get-in rules [(c "R3") :enforced-by]))))
+    (testing "questions"
+      (is (= ["change-order-required" "may-invoice" "may-issue-formal-quote"
+              "may-request-signature" "nda-effective"]
+             (mapv :key questions)))
+      (doseq [q questions]
+        (is (every? shape? (concat (:gate-shapes q) (:approval-shapes q))) (:key q))
+        (is (every? (set (keys rules)) (:based-on q)) (:key q))))))
+
+(deftest procedures-are-bpmn-in-the-mith
+  (let [g (ontology-graph)
+        {:keys [rules]} @pol
+        types-of (fn [s] (get-in g [s rdf-type]))
+        processes (sort (for [[s ps] g :when (contains? (get ps rdf-type) (str bpmn "Process"))] s))
+        allowed-types (set (map #(str bpmn %) ["StartEvent" "EndEvent" "ExclusiveGateway"
+                                                "ServiceTask" "SequenceFlow"]))
+        shape-or-rule? (fn [iri] (or (contains? rules iri)
+                                     (some #{"http://www.w3.org/ns/shacl#PropertyShape"
+                                             "http://www.w3.org/ns/shacl#NodeShape"}
+                                           (types-of iri))))]
+    (is (= ["https://mithril.fund/id/bpmn/contract-acceptance/enterprise/process"
+            "https://mithril.fund/id/bpmn/contract-acceptance/nda/process"]
+           processes))
+    (doseq [p processes
+            :let [nodes (get-in g [p "https://mithril.fund/ns/v1#node"])
+                  flows (get-in g [p "https://mithril.fund/ns/v1#flow"])]]
+      (testing p
+        (is (every? #(every? allowed-types (types-of %)) (concat nodes flows))
+            "only bpmn/* start, end, exclusive gateway, service task, sequence flow")
+        (is (= 1 (count (filter #(contains? (types-of %) (str bpmn "StartEvent")) nodes))))
+        (doseq [f flows
+                :let [cond* (first (get-in g [f (str bpmn "conditionExpression")]))
+                      src (first (get-in g [f (str bpmn "sourceRef")]))
+                      tgt (first (get-in g [f (str bpmn "targetRef")]))]]
+          (is (contains? nodes src) f)
+          (is (contains? nodes tgt) f)
+          (is (or (= "always" cond*) (shape-or-rule? cond*))
+              (str f ": a condition is \"always\" or a shape / rule IRI")))
+        (doseq [gw nodes :when (contains? (types-of gw) (str bpmn "ExclusiveGateway"))
+                :let [default (first (get-in g [gw (str bpmn "default")]))]]
+          (is (contains? flows default) (str gw ": the default flow is the not-yet branch")))))))
+
+(def positive ["pass-customer-a-enterprise.nq"
+               "pass-customer-a-order2-awaiting-approval.nq"
+               "pass-prospect-b-nda-and-self-serve.nq"])
+
+(def negative
+  "fixture -> the exact set of contract-acceptance shapes it trips (one defect)."
+  {"fail-one-sided-signature.nq" #{(c "R2-ProviderSigned")}
+   "fail-version-not-fixed.nq" #{(c "R1-QuoteStatesFixedVersions") (c "R4-ExecutedVersionFinal")}
+   "fail-terms-url-only.nq" #{(c "R4-EnterpriseGovernedByExecutedMsa")}
+   "fail-billed-before-execution.nq" #{(c "R7-InvoiceBillsExecutedOrder") (c "R7-InvoiceSowsExecuted")}
+   "fail-scope-change-without-change-order.nq" #{(c "R8-AppliedChangeAuthorizedByChangeOrder")
+                                                (c "R8-ChangeOrderAmendsSameOrder")}
+   "fail-nda-form-only.nq" #{(c "R9-NdaAcceptedByProvider")}
+   "fail-quote-unconfirmed.nq" #{(c "R6-PreQuoteConfirmed")}})
+
+(def negative-focus
+  "fixture -> the nodes the single defect surfaces on."
+  {"fail-one-sided-signature.nq" #{"urn:ca-a:execution-1"}
+   "fail-version-not-fixed.nq" #{"urn:ca-a:sow-1" "urn:ca-a:quote-1"}
+   "fail-terms-url-only.nq" #{"urn:ca-a:engagement"}
+   "fail-billed-before-execution.nq" #{"urn:ca-a:invoice-2"}
+   "fail-scope-change-without-change-order.nq" #{"urn:ca-a:change-1"}
+   "fail-nda-form-only.nq" #{"urn:ca-b:nda"}
+   "fail-quote-unconfirmed.nq" #{"urn:ca-a:quote-1"}})
+
+(def negative-rule
+  {"fail-one-sided-signature.nq" #{(c "R2")}
+   "fail-version-not-fixed.nq" #{(c "R1") (c "R4")}
+   "fail-terms-url-only.nq" #{(c "R4")}
+   "fail-billed-before-execution.nq" #{(c "R7")}
+   "fail-scope-change-without-change-order.nq" #{(c "R8")}
+   "fail-nda-form-only.nq" #{(c "R9")}
+   "fail-quote-unconfirmed.nq" #{(c "R6")}})
+
+(deftest positive-fixtures-conform-to-both-ontologies
+  (doseq [f positive]
+    (testing f
+      (let [w (reason/reason @wops (data f) {})
+            r (decide f)]
+        (is (= :conforms (:status w)) "workspace-ops-v1")
+        (is (= [] (:violations w)))
+        (is (= :conforms (get-in r [:case :status])) "contract-acceptance-v1")
+        (is (= [] (get-in r [:case :violations])))))))
+
+(deftest negative-fixtures-fail-on-exactly-the-expected-shapes
+  (doseq [[f shapes] negative]
+    (testing f
+      (let [w (reason/reason @wops (data f) {})
+            r (decide f)
+            vs (get-in r [:case :violations])]
+        (is (= :conforms (:status w)) "the defect is a policy defect, not a base-vocabulary one")
+        (is (= :violations (get-in r [:case :status])))
+        (is (= shapes (set (map :shape vs))))
+        (is (= (get negative-rule f) (set (mapcat :rules vs))))
+        (is (= (get negative-focus f) (set (map :focus vs))))))))
+
+(def ok {:verdict :allowed :may-proceed true})
+
+(deftest decisions-customer-a
+  (let [r (decide "pass-customer-a-enterprise.nq")]
+    (doseq [[k s approval] [["may-issue-formal-quote" "urn:ca-a:quote-1" :recorded]
+                            ["may-request-signature" "urn:ca-a:quote-1" :recorded]
+                            ["may-request-signature" "urn:ca-a:quote-2" :recorded]
+                            ["may-invoice" "urn:ca-a:invoice-1" :recorded]
+                            ["change-order-required" "urn:ca-a:change-1" :not-required]]]
+      (is (= (assoc ok :owner-approval approval :rules [])
+             (select-keys (answer r k s) [:verdict :may-proceed :owner-approval :rules]))
+          (str k " " s)))
+    (is (true? (:change-order-required (answer r "change-order-required" "urn:ca-a:change-1"))))
+    (is (= :no-subject (:verdict (first (filter #(= "nda-effective" (:key %)) (:answers r))))))))
+
+(deftest decisions-owner-approval-is-separate-from-the-verdict
+  (testing "R11: a ready quote is allowed, but owner approval is still pending"
+    (let [r (decide "pass-customer-a-order2-awaiting-approval.nq")]
+      (doseq [k ["may-issue-formal-quote" "may-request-signature"]]
+        (is (= {:verdict :allowed :may-proceed false :owner-approval :pending
+                :approval-rules [(c "R11")] :rules []}
+               (select-keys (answer r k "urn:ca-a:quote-3")
+                            [:verdict :may-proceed :owner-approval :approval-rules :rules]))
+            k)))))
+
+(deftest decisions-from-negative-cases
+  (testing "may-issue / may-request-signature blocked by R6 without confirmation"
+    (let [r (decide "fail-quote-unconfirmed.nq")]
+      (doseq [k ["may-issue-formal-quote" "may-request-signature"]]
+        (is (= {:verdict :blocked :may-proceed false :rules [(c "R6")]
+                :violated-shapes [(c "R6-PreQuoteConfirmed")]}
+               (select-keys (answer r k "urn:ca-a:quote-1") [:verdict :may-proceed :rules :violated-shapes]))))
+      (is (= :allowed (:verdict (answer r "may-request-signature" "urn:ca-a:quote-2"))))))
+  (testing "may-request-signature blocked by R1 when a named document is still a draft"
+    (let [r (decide "fail-version-not-fixed.nq")]
+      (is (= [(c "R1")] (:rules (answer r "may-request-signature" "urn:ca-a:quote-1"))))))
+  (testing "may-invoice blocked by R7 before execution (other invoice unaffected)"
+    (let [r (decide "fail-billed-before-execution.nq")]
+      (is (= {:verdict :blocked :rules [(c "R7")] :owner-approval :recorded}
+             (select-keys (answer r "may-invoice" "urn:ca-a:invoice-2") [:verdict :rules :owner-approval])))
+      (is (= :allowed (:verdict (answer r "may-invoice" "urn:ca-a:invoice-1"))))))
+  (testing "change-order-required: required, and not in place"
+    (let [a (answer (decide "fail-scope-change-without-change-order.nq")
+                    "change-order-required" "urn:ca-a:change-1")]
+      (is (= {:change-order-required true :verdict :blocked :rules [(c "R8")]}
+             (select-keys a [:change-order-required :verdict :rules])))))
+  (testing "nda-effective: yes after form consent + our acceptance; no on the form alone"
+    (is (= (assoc ok :owner-approval :not-required)
+           (select-keys (answer (decide "pass-prospect-b-nda-and-self-serve.nq") "nda-effective" "urn:ca-b:nda")
+                        [:verdict :may-proceed :owner-approval])))
+    (is (= {:verdict :blocked :rules [(c "R9")]}
+           (select-keys (answer (decide "fail-nda-form-only.nq") "nda-effective" "urn:ca-b:nda")
+                        [:verdict :rules])))))
