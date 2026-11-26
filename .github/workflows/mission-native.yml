@@ -2,9 +2,9 @@ name: Mission native plugins
 on:
   push:
     branches: [main]
-    paths: ["src/mithril/mission*", "src/mithril/library*", "bin/mithril-library.cljk", "test/*library*", "test/mithril/library*", "test/*mission*", "test/mithril/mission*", "scripts/run-mission-sci.mjs", "scripts/prepare-amu-deps.py", ".github/workflows/mission-native.yml"]
+    paths: ["src/mithril/mission*", "src/mithril/library*", "bin/mithril-library.cljk", "test/*library*", "test/mithril/library*", "test/*mission*", "test/mithril/mission*", "scripts/run-mission-sci.mjs", "scripts/prepare-amu-deps.py", "lib/fund/mithril/**", ".github/workflows/mission-native.yml"]
   pull_request:
-    paths: ["src/mithril/mission*", "src/mithril/library*", "bin/mithril-library.cljk", "test/*library*", "test/mithril/library*", "test/*mission*", "test/mithril/mission*", "scripts/run-mission-sci.mjs", "scripts/prepare-amu-deps.py", ".github/workflows/mission-native.yml"]
+    paths: ["src/mithril/mission*", "src/mithril/library*", "bin/mithril-library.cljk", "test/*library*", "test/mithril/library*", "test/*mission*", "test/mithril/mission*", "scripts/run-mission-sci.mjs", "scripts/prepare-amu-deps.py", "lib/fund/mithril/**", ".github/workflows/mission-native.yml"]
 permissions:
   contents: read
 jobs:
@@ -24,17 +24,18 @@ jobs:
           cli: 1.12.5.1654
           bb: 1.12.218
       - run: npm install --global nbb@1.5.212
+      # fund.mithril.lib.* v0.4.0 is vendored under lib/fund/mithril (12beedb).
+      # The standalone fund.mithril.lib.* repos are no longer reachable from CI,
+      # and their pyproject deps still point at those git URLs, so install the
+      # vendored copies with --no-deps and add the third-party pins explicitly.
       - run: |
-          git clone --branch v0.4.0 https://github.com/mithril-lang/fund.mithril.lib.interop.git /tmp/interop
-          git clone --branch v0.4.0 https://github.com/mithril-lang/fund.mithril.lib.xml.git /tmp/xml
-          git clone --branch v0.4.0 https://github.com/mithril-lang/fund.mithril.lib.siso.link16.git /tmp/link16
-          git clone --branch v0.4.0 https://github.com/mithril-lang/fund.mithril.lib.ieee.hla.git /tmp/hla
-          python -m pip install 'git+https://github.com/mithril-lang/fund.mithril.lib.ieee.hla.git@v0.4.0' 'git+https://github.com/mithril-lang/fund.mithril.lib.siso.link16.git@v0.4.0' 'git+https://github.com/mithril-lang/fund.mithril.lib.siso.c2sim.git@v0.4.0' 'git+https://github.com/mithril-lang/fund.mithril.lib.siso.msdl.git@v0.4.0'
-          python -m pip install --no-deps -e /tmp/hla
-          /tmp/hla/scripts/build-hla.sh
+          python -m pip install 'lxml==6.1.3' 'xmlschema==4.3.2'
+          python -m pip install --no-deps ./lib/fund/mithril/interop ./lib/fund/mithril/xml ./lib/fund/mithril/siso.link16 ./lib/fund/mithril/siso.c2sim ./lib/fund/mithril/siso.msdl
+          python -m pip install --no-deps -e ./lib/fund/mithril/ieee.hla
+          ./lib/fund/mithril/ieee.hla/scripts/build-hla.sh
       - run: node scripts/run-mission-sci.mjs test/run_mission.cljk
-      - run: MITHRIL_INTEROP_PYTHON="$(command -v python)" MITHRIL_INTEROP_ROOT=/tmp/interop MITHRIL_XML_ROOT=/tmp/xml node scripts/run-mission-sci.mjs test/run_mission_native.cljk
-      - run: MITHRIL_INTEROP_PYTHON="$(command -v python)" MITHRIL_INTEROP_ROOT=/tmp/interop node scripts/run-mission-sci.mjs --classpath /tmp/interop/src:/tmp/xml/src:/tmp/link16/src test/run_library_adapter.cljk
+      - run: MITHRIL_INTEROP_PYTHON="$(command -v python)" MITHRIL_INTEROP_ROOT="$GITHUB_WORKSPACE/lib/fund/mithril/interop" MITHRIL_XML_ROOT="$GITHUB_WORKSPACE/lib/fund/mithril/xml" node scripts/run-mission-sci.mjs test/run_mission_native.cljk
+      - run: MITHRIL_INTEROP_PYTHON="$(command -v python)" MITHRIL_INTEROP_ROOT="$GITHUB_WORKSPACE/lib/fund/mithril/interop" node scripts/run-mission-sci.mjs --classpath lib/fund/mithril/interop/src:lib/fund/mithril/xml/src:lib/fund/mithril/siso.link16/src test/run_library_adapter.cljk
       - run: |
           python -m pip install hy==1.3.0
           hy -c '(import fund.mithril.lib.xml :as xml fund.mithril.lib.siso.link16 :as link16) (assert (= (get (xml.resolve) "libraryId") "fund.mithril.lib.xml")) (assert (get (link16.invoke "link16-loopback") "binaryReadBack"))'
@@ -45,4 +46,4 @@ jobs:
           npm ci --ignore-scripts
           export GITLIBS="$RUNNER_TEMP/amu-gitlibs"
           python "$GITHUB_WORKSPACE/scripts/prepare-amu-deps.py" --amu-root /tmp/amu --gitlibs "$GITLIBS"
-          python /tmp/interop/scripts/test-kotoba-library.py --amu-root /tmp/amu --source-root /tmp/link16/src --library-id fund.mithril.lib.siso.link16 --member link16-loopback --invoke
+          python "$GITHUB_WORKSPACE/lib/fund/mithril/interop/scripts/test-kotoba-library.py" --amu-root /tmp/amu --source-root "$GITHUB_WORKSPACE/lib/fund/mithril/siso.link16/src" --library-id fund.mithril.lib.siso.link16 --member link16-loopback --invoke
