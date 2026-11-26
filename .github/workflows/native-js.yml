@@ -3,28 +3,37 @@
 # - PRs run the 10-stage representative set (NATIVE_DECLARATIONS_STAGE_SET=representative);
 #   push to main and the nightly schedule (02:00 UTC) run the full 37 stages.
 # - Guest path is the development axis; this workflow only guards the frozen corpus.
+# - Coverage filters track every frozen native surface: the src/mithril/native_*.cljk
+#   implementation namespaces, the nested test/qualification/native-*/ controls+oracles,
+#   the nbb bin/mithril-native-*.cljk CLIs and the AOT replacements
+#   bin/compiler/mithril-native-*.mjs plus packages/runtime compiler_api.cljs
+#   (Item 224 Phase2+3 bundle; present once feat-item-224-aot lands).
 name: Native JS host module
 on:
   pull_request:
     paths:
-      - 'src/mithril/native-*.cljk'
+      - 'src/mithril/native_*.cljk'
       - 'src/mithril/form.cljk'
       - 'src/mithril/compiler.cljk'
       - 'examples/native-js-*'
-      - 'test/qualification/native-*'
+      - 'test/qualification/native-*/**'
       - 'scripts/test-native-*'
       - 'bin/mithril-native-*.cljk'
+      - 'bin/compiler/mithril-native-*.mjs'
+      - 'packages/runtime/src/mithril/runtime/compiler_api.cljs'
       - '.github/workflows/native-js.yml'
   push:
     branches: [main]
     paths:
-      - 'src/mithril/native-*.cljk'
+      - 'src/mithril/native_*.cljk'
       - 'src/mithril/form.cljk'
       - 'src/mithril/compiler.cljk'
       - 'examples/native-js-*'
-      - 'test/qualification/native-*'
+      - 'test/qualification/native-*/**'
       - 'scripts/test-native-*'
       - 'bin/mithril-native-*.cljk'
+      - 'bin/compiler/mithril-native-*.mjs'
+      - 'packages/runtime/src/mithril/runtime/compiler_api.cljs'
       - '.github/workflows/native-js.yml'
   schedule:
     # Nightly full 37-stage run (cron is UTC).

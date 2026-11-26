@@ -9,6 +9,8 @@ if(stageSet!=='all'&&stageSet!=='representative')throw Error('Unknown stage set:
 const mainArgs=args.filter(a=>a!=='--dry-run'&&a!=='--stage-set'&&a!==stageSet);
 if(!dryRun&&(mainArgs.length!==6||mainArgs[0]!=='--engine'||mainArgs[2]!=='--typescript'||mainArgs[4]!=='--type-roots'))throw Error('usage: test-native-declarations --engine <nbb cli.js> --typescript <typescript.js> --type-roots <@types directory> [--stage-set all|representative] [--dry-run]');
 const [engine,compiler,typeRoots]=dryRun?['dry-run','dry-run','dry-run']:[resolve(mainArgs[1]),resolve(mainArgs[3]),resolve(mainArgs[5])];
+if(!dryRun){for(const p of [engine,compiler,typeRoots])if(!existsSync(p))throw Error('Pinned toolchain not found');
+if(JSON.parse(readFileSync(join(typeRoots,'node/package.json'),'utf8')).version!=='26.6.3')throw Error('Ambient Node type version drift');}
 const dir=mkdtempSync(join(tmpdir(),'mithril-declaration-tests-')),marker=join(dir,'launcher'),config=join(dir,'offline.edn');
 try{
  if(!dryRun){
