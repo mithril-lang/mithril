@@ -145,7 +145,7 @@ const inherited=Object.create({Object:current});assert.throws(()=>m.instantiateM
         engine (aget (.-argv js/process) 1)
         output (path/join dir "library.mjs")
         run (fn [args] (child/spawnSync js/process.execPath
-                        (clj->js (concat [engine "--config" config "--classpath" "src" "bin/mithril-native-js.cljk"] args))
+                        (clj->js (concat [engine "--config" config "--classpath" (str "src" path/delimiter "vendor/src") "bin/mithril-native-js.cljk"] args))
                         #js {:encoding "utf8" :timeout 30000}))]
     (try
       (fs/writeFileSync config "{:paths []}")
@@ -171,7 +171,7 @@ const inherited=Object.create({Object:current});assert.throws(()=>m.instantiateM
       (fs/writeFileSync config "{:paths []}")
       (doseq [target ["js" "js-browser"]]
         (let [compiled (child/spawnSync js/process.execPath
-                        #js [engine "--config" config "--classpath" "src" "bin/mithril-native-js.cljk"
+                        #js [engine "--config" config "--classpath" (str "src" path/delimiter "vendor/src") "bin/mithril-native-js.cljk"
                              "examples/native-js-numeric-literals.mith" "--target" target "--output" output]
                         #js {:encoding "utf8" :timeout 30000})]
           (is (= 0 (.-status compiled)) (.-stderr compiled))

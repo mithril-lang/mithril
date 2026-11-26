@@ -55,7 +55,7 @@
 (ensure (empty? (:exports legacy-artifact)) "Legacy const generic runtime surface")
 (def dir (fs/mkdtempSync (str (os/tmpdir) "/mithril-const-generics-")))
 (def config (str dir "/offline.edn"))
-(fs/writeFileSync config (str "{:paths [" (js/JSON.stringify (fs/realpathSync "src")) "]}"))
+(fs/writeFileSync config (str "{:paths [" (js/JSON.stringify (fs/realpathSync "src")) " " (js/JSON.stringify (fs/realpathSync "vendor/src")) "]}"))
 (try
  (doseq [[file source] (merge runtime-sources {(:runtime-source plan) runtime-text "legacy.mith" (render legacy-doc)})] (fs/writeFileSync (str dir "/" file) source))
  (doseq [target ["js" "js-browser"]]

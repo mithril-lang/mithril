@@ -37,7 +37,7 @@
  (let [dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-for-in-"))]
   (try
    (let [engine (.-MITHRIL_NATIVE_ENGINE js/process.env) config (path/join dir "offline.edn")]
-    (fs/writeFileSync config "{:paths [\"src\"]}\n")
+    (fs/writeFileSync config (pr-str {:paths [(fs/realpathSync "src") (fs/realpathSync "vendor/src")]}))
     (doseq [target ["js" "js-browser"]
             [input output] [["native-js-for-in.mith" target] ["native-js-schema-for-in.mith" (str "schema-" target)]]]
      (let [r (child/spawnSync js/process.execPath

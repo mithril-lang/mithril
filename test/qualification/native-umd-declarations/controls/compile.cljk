@@ -29,7 +29,7 @@
  (let [r (child/spawnSync js/process.execPath (clj->js args) #js {:encoding "utf8" :timeout 240000})]
   (ensure (= 0 (.-status r)) (str (.-stdout r) (.-stderr r))) (print (.-stdout r))))
 (try
- (fs/writeFileSync (str dir "/offline.edn") "{:paths [\"src\"]}")
+ (fs/writeFileSync (str dir "/offline.edn") (pr-str {:paths [(fs/realpathSync "src") (fs/realpathSync "vendor/src")]}))
  (doseq [target ["js" "js-browser"]]
   (let [single (str dir "/" target ".d.mts") output (str dir "/" target) runtime-output (str dir "/" target "-runtime")]
    (run [(.-MITHRIL_DECLARATIONS_ENGINE js/process.env) "--config" (str dir "/offline.edn") "-cp" "src"

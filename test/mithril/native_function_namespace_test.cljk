@@ -49,7 +49,7 @@
              (not (.includes (get-in artifact [:files "module-0.mjs"]) "let Inject="))))
     (try
       (let [engine (.-MITHRIL_NATIVE_ENGINE js/process.env) config (path/join dir "offline.edn")]
-        (fs/writeFileSync config "{:paths [\"src\"]}\n")
+        (fs/writeFileSync config (pr-str {:paths [(fs/realpathSync "src") (fs/realpathSync "vendor/src")]}))
         (doseq [target ["js" "js-browser"]]
           (let [cli (e/cli! engine config (str fixture "cycle.mith") target (path/join dir (str target "-cli")))
                 files (into {} (map #(vector % (fs/readFileSync (path/join dir (str target "-cli") %) "utf8"))

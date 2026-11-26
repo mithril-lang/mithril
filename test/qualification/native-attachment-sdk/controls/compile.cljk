@@ -26,7 +26,7 @@
  (ensure (= 24 (count (:type-exports (:types c)))) "All original public types"))
 (def dir (fs/mkdtempSync (str (os/tmpdir) "/mithril-attachment-sdk-")))
 (def config (str dir "/offline.edn"))
-(fs/writeFileSync config (str "{:paths [" (js/JSON.stringify (fs/realpathSync "src")) "]}"))
+(fs/writeFileSync config (str "{:paths [" (js/JSON.stringify (fs/realpathSync "src")) " " (js/JSON.stringify (fs/realpathSync "vendor/src")) "]}"))
 (defn run [args]
  (let [r (child/spawnSync js/process.execPath (clj->js args) #js {:encoding "utf8" :timeout 240000 :maxBuffer 4194304})]
   (ensure (= 0 (.-status r)) (str "Control exit=" (.-status r) " signal=" (.-signal r) " error=" (some-> (.-error r) .-message) "\n" (.-stdout r) (.-stderr r))) (print (.-stdout r)) (.-stdout r)))

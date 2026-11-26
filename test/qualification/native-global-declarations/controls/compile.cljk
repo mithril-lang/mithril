@@ -57,7 +57,7 @@
 (println "Global admission:14 exact shape/declaration/name/arity/duplicate/collection/depth/shared-total/scope/owner refusals; missing/empty globals retain ordinary bytes and checked shape.")
 (def dir (fs/mkdtempSync (str (os/tmpdir) "/mithril-global-declarations-")))
 (def config (str dir "/offline.edn"))
-(fs/writeFileSync config (str "{:paths [" (js/JSON.stringify (fs/realpathSync "src")) "]}"))
+(fs/writeFileSync config (str "{:paths [" (js/JSON.stringify (fs/realpathSync "src")) " " (js/JSON.stringify (fs/realpathSync "vendor/src")) "]}"))
 (try
  (fs/writeFileSync (str dir "/legacy.mith") (render legacy-doc))
  (doseq [[file source] (assoc (:runtime-sources mechanics) (:runtime-source (:plan mechanics)) (:runtime-text mechanics))] (fs/writeFileSync (str dir "/" file) source))

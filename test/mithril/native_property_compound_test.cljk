@@ -30,7 +30,7 @@
  (let [dir (fs/mkdtempSync (path/join (os/tmpdir) "mithril-compound-"))
        config (path/join dir "offline.edn") engine (aget (.-argv js/process) 1)]
   (try
-   (fs/writeFileSync config "{:paths []}")
+   (fs/writeFileSync config (pr-str {:paths [(fs/realpathSync "vendor/src")]}))
    (doseq [target ["js" "js-browser"] mode ["standalone" "esm" "library" "explicit-package"]]
     (let [out (path/join dir (str target "-" mode)) file (if (= mode "esm") (path/join out "index.mjs") (str out ".mjs"))
           args (case mode
@@ -57,7 +57,7 @@
   (is (= "761889adfb6b8a164fb12a0cec49a6ef439598b9267e85073000cfa9b7d682c8" (.digest (.update (crypto/createHash "sha256") original) "hex")))
   (is (= (native/compile-text text) (native/compile-document (form/parse text))))
   (try
-   (fs/writeFileSync config "{:paths []}")
+   (fs/writeFileSync config (pr-str {:paths [(fs/realpathSync "vendor/src")]}))
    (doseq [target ["js" "js-browser"]]
     (let [r (run engine config ["bin/mithril-native-js.cljk" "examples/native-js-loader-tree.mith" "--target" target "--output" (path/join dir (str target ".mjs"))])]
      (is (= 0 (.-status r)) (str (.-stdout r) (.-stderr r)))

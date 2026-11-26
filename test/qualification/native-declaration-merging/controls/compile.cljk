@@ -99,7 +99,7 @@
 (println (str "Declaration merging admission:" (count refusals) " exact-code collision/visibility/generic/private-scope/heritage/budget refusals."))
 (def dir (fs/mkdtempSync "/tmp/mithril-merge-types-"))
 (try
- (fs/writeFileSync (str dir "/offline.edn") "{:paths [\"src\"]}\n")
+ (fs/writeFileSync (str dir "/offline.edn") (pr-str {:paths [(fs/realpathSync "src") (fs/realpathSync "vendor/src")]}))
  (fs/writeFileSync (str dir "/controls.d.mts") (:source control-artifact))
  (doseq [target ["js" "js-browser"]]
   (let [folder (str dir "/" target) output (str folder "/index.d.mts")]

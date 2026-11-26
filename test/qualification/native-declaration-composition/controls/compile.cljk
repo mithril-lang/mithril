@@ -5,7 +5,7 @@
 (def engine (.-MITHRIL_DECLARATIONS_ENGINE js/process.env))
 (def dir (fs/mkdtempSync (str (os/tmpdir) "/mithril-declaration-composition-")))
 (def config (str dir "/offline.edn"))
-(fs/writeFileSync config (str "{:paths [" (js/JSON.stringify (fs/realpathSync "src")) "]}"))
+(fs/writeFileSync config (str "{:paths [" (js/JSON.stringify (fs/realpathSync "src")) " " (js/JSON.stringify (fs/realpathSync "vendor/src")) "]}"))
 (def env (into {} (map #(vector % (aget js/process.env %)) (js/Object.keys js/process.env))))
 (defn result [args env]
  (child/spawnSync js/process.execPath (clj->js args) (clj->js {:encoding "utf8" :timeout 120000 :maxBuffer 4194304 :env env})))

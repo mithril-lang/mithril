@@ -14,7 +14,7 @@ if(JSON.parse(readFileSync(join(typeRoots,'node/package.json'),'utf8')).version!
 const dir=mkdtempSync(join(tmpdir(),'mithril-declaration-tests-')),marker=join(dir,'launcher'),config=join(dir,'offline.edn');
 try{
  if(!dryRun){
- writeFileSync(config,`{:paths [${JSON.stringify(join(root,'src'))}]}`);
+ writeFileSync(config,`{:paths [${JSON.stringify(join(root,'src'))} ${JSON.stringify(join(root,'vendor/src'))}]}`);
  for(const n of ['java','javac','clojure','clj','bb'])writeFileSync(join(dir,n),'#!/bin/sh\n: > "$MITHRIL_DECLARATIONS_LAUNCHER"\nexit 97\n',{mode:0o755});
  }
  // Independent qualifications keep their own bounded process and the same offline guards.

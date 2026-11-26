@@ -132,7 +132,7 @@
 (println (str "Declaration program admission:" (inc (count refusals)) " exact-code source/identity/import/visibility/arity/erasure/graph refusals."))
 (def dir (fs/mkdtempSync "/tmp/mithril-program-controls-"))
 (try
- (fs/writeFileSync (str dir "/offline.edn") "{:paths [\"src\"]}\n")
+ (fs/writeFileSync (str dir "/offline.edn") (pr-str {:paths [(fs/realpathSync "src") (fs/realpathSync "vendor/src")]}))
  (doseq [[file contents] (merge sources runtime-sources)] (fs/writeFileSync (str dir "/" file) contents))
  (fs/writeFileSync (str dir "/" (:runtime-source plan)) runtime-text)
  (fs/writeFileSync (str dir "/program.mith") text)
