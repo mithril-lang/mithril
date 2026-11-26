@@ -1,0 +1,173 @@
+# workspace-spend-v1 POSITIVE example. Validated together with the
+# workspace-ops-v1 shapes: `mithril reason` must exit 0 (CONFORMS).
+# One full spend chain (SupplierAccount -> Agreement -> Commitment /
+# Renewal; UsageRecord -> CostLine -> Allocation; Invoice -> Payment),
+# detection + proposed remediation, a portfolio item of each usable
+# kind, and CsfLabels referencing all six canonical NIST CSF v2 functions
+# and all three subject types without optional taxonomy metadata.
+# Labels use containing named-graph scope, not ops:workspace assertions;
+# the remaining entity workspace links are unchanged. References use
+# canonical function IRIs or opaque example.org IRIs.
+# Fictitious data only: no secrets, instrument values, contract text
+# or PII.
+<https://example.org/wspend/ws> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Workspace> .
+<https://example.org/wspend/ws> <https://mithril.fund/ns/workspace-ops/v1#workspaceId> "wspend-example" .
+<https://example.org/wspend/ws> <https://mithril.fund/ns/workspace-ops/v1#workspaceKind> "organization" .
+<https://example.org/wspend/ws> <https://mithril.fund/ns/workspace-ops/v1#billingAccountRef> "billing-ref-example-0001" .
+<https://example.org/wspend/party> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Party> .
+<https://example.org/wspend/party> <https://mithril.fund/ns/workspace-ops/v1#name> "Example Vendor Ltd" .
+<https://example.org/wspend/party> <https://mithril.fund/ns/workspace-ops/v1#partyKind> "organization" .
+<https://example.org/wspend/party> <https://mithril.fund/ns/workspace-ops/v1#workspace> <https://example.org/wspend/ws> .
+<https://example.org/wspend/agr> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Agreement> .
+<https://example.org/wspend/agr> <https://mithril.fund/ns/workspace-ops/v1#name> "Example vendor agreement" .
+<https://example.org/wspend/agr> <https://mithril.fund/ns/workspace-ops/v1#workspace> <https://example.org/wspend/ws> .
+<https://example.org/wspend/obl> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Obligation> .
+<https://example.org/wspend/obl> <https://mithril.fund/ns/workspace-ops/v1#name> "Uptime commitment" .
+<https://example.org/wspend/obl> <https://mithril.fund/ns/workspace-ops/v1#obligationKind> "sla" .
+<https://example.org/wspend/obl> <https://mithril.fund/ns/workspace-ops/v1#workspace> <https://example.org/wspend/ws> .
+<https://example.org/wspend/obl> <https://mithril.fund/ns/workspace-ops/v1#agreement> <https://example.org/wspend/agr> .
+<https://example.org/wspend/ev1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Evidence> .
+<https://example.org/wspend/ev1> <https://mithril.fund/ns/workspace-ops/v1#name> "Manual label approval record" .
+<https://example.org/wspend/ev1> <https://mithril.fund/ns/workspace-ops/v1#evidenceKind> "manual-approval" .
+<https://example.org/wspend/ev1> <https://mithril.fund/ns/workspace-ops/v1#workspace> <https://example.org/wspend/ws> .
+<https://example.org/wspend/env> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Environment> .
+<https://example.org/wspend/env> <https://mithril.fund/ns/workspace-ops/v1#environmentCode> "staging" .
+<https://example.org/wspend/prod> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Product> .
+<https://example.org/wspend/prod> <https://mithril.fund/ns/workspace-ops/v1#name> "Example Console" .
+<https://example.org/wspend/prod> <https://mithril.fund/ns/workspace-ops/v1#workspace> <https://example.org/wspend/ws> .
+<https://example.org/wspend/cap> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Capability> .
+<https://example.org/wspend/cap> <https://mithril.fund/ns/workspace-ops/v1#name> "Spend visibility" .
+<https://example.org/wspend/cap> <https://mithril.fund/ns/workspace-ops/v1#workspace> <https://example.org/wspend/ws> .
+<https://example.org/wspend/req> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Requirement> .
+<https://example.org/wspend/req> <https://mithril.fund/ns/workspace-ops/v1#name> "Quarterly cost review" .
+<https://example.org/wspend/req> <https://mithril.fund/ns/workspace-ops/v1#workspace> <https://example.org/wspend/ws> .
+<https://example.org/wspend/svc> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Service> .
+<https://example.org/wspend/svc> <https://mithril.fund/ns/workspace-ops/v1#name> "example-scanner" .
+<https://example.org/wspend/svc> <https://mithril.fund/ns/workspace-ops/v1#workspace> <https://example.org/wspend/ws> .
+<https://example.org/wspend/svc> <https://mithril.fund/ns/workspace-ops/v1#environment> <https://example.org/wspend/env> .
+<https://example.org/wspend/svc> <https://mithril.fund/ns/workspace-ops/v1#product> <https://example.org/wspend/prod> .
+<https://example.org/wspend/svc> <https://mithril.fund/ns/workspace-ops/v1#provides> <https://example.org/wspend/cap> .
+
+# Spend chain.
+<https://example.org/wspend/acct> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-spend/v1#SupplierAccount> .
+<https://example.org/wspend/acct> <https://mithril.fund/ns/workspace-spend/v1#accountRef> "acct-example-0001" .
+<https://example.org/wspend/acct> <https://mithril.fund/ns/workspace-spend/v1#owner> <https://example.org/wspend/party> .
+<https://example.org/wspend/acct> <https://mithril.fund/ns/workspace-ops/v1#agreement> <https://example.org/wspend/agr> .
+<https://example.org/wspend/acct> <https://mithril.fund/ns/workspace-ops/v1#workspace> <https://example.org/wspend/ws> .
+<https://example.org/wspend/cost> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-spend/v1#CostLine> .
+<https://example.org/wspend/cost> <https://mithril.fund/ns/workspace-spend/v1#currency> "USD" .
+<https://example.org/wspend/cost> <https://mithril.fund/ns/workspace-spend/v1#amountMinor> "12500"^^<http://www.w3.org/2001/XMLSchema#integer> .
+<https://example.org/wspend/cost> <https://mithril.fund/ns/workspace-spend/v1#period> "2026-11" .
+<https://example.org/wspend/cost> <https://mithril.fund/ns/workspace-spend/v1#sourceRef> <https://example.org/source/billing-export-1> .
+<https://example.org/wspend/cost> <https://mithril.fund/ns/workspace-ops/v1#workspace> <https://example.org/wspend/ws> .
+<https://example.org/wspend/usage> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-spend/v1#UsageRecord> .
+<https://example.org/wspend/usage> <https://mithril.fund/ns/workspace-spend/v1#sourceRef> <https://example.org/source/usage-meter-1> .
+<https://example.org/wspend/usage> <https://mithril.fund/ns/workspace-spend/v1#period> "2026-11" .
+<https://example.org/wspend/usage> <https://mithril.fund/ns/workspace-spend/v1#unit> "seat" .
+<https://example.org/wspend/usage> <https://mithril.fund/ns/workspace-spend/v1#quantity> "42.0"^^<http://www.w3.org/2001/XMLSchema#decimal> .
+<https://example.org/wspend/usage> <https://mithril.fund/ns/workspace-spend/v1#costRef> <https://example.org/wspend/cost> .
+<https://example.org/wspend/usage> <https://mithril.fund/ns/workspace-ops/v1#workspace> <https://example.org/wspend/ws> .
+<https://example.org/wspend/inv> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-spend/v1#Invoice> .
+<https://example.org/wspend/inv> <https://mithril.fund/ns/workspace-spend/v1#invoiceNumber> "INV-EX-0001" .
+<https://example.org/wspend/inv> <https://mithril.fund/ns/workspace-spend/v1#issuedAt> "2026-11-01" .
+<https://example.org/wspend/inv> <https://mithril.fund/ns/workspace-spend/v1#dueAt> "2026-12-01" .
+<https://example.org/wspend/inv> <https://mithril.fund/ns/workspace-spend/v1#status> "issued" .
+<https://example.org/wspend/inv> <https://mithril.fund/ns/workspace-spend/v1#sourceRef> <https://example.org/source/invoice-pdf-ref-1> .
+<https://example.org/wspend/inv> <https://mithril.fund/ns/workspace-ops/v1#agreement> <https://example.org/wspend/agr> .
+<https://example.org/wspend/inv> <https://mithril.fund/ns/workspace-spend/v1#costLine> <https://example.org/wspend/cost> .
+<https://example.org/wspend/inv> <https://mithril.fund/ns/workspace-ops/v1#workspace> <https://example.org/wspend/ws> .
+<https://example.org/wspend/pay> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-spend/v1#Payment> .
+<https://example.org/wspend/pay> <https://mithril.fund/ns/workspace-spend/v1#status> "settled" .
+<https://example.org/wspend/pay> <https://mithril.fund/ns/workspace-spend/v1#paidAt> "2026-11-15" .
+<https://example.org/wspend/pay> <https://mithril.fund/ns/workspace-spend/v1#invoice> <https://example.org/wspend/inv> .
+# Opaque method reference only -- never an instrument value.
+<https://example.org/wspend/pay> <https://mithril.fund/ns/workspace-spend/v1#methodRef> <https://example.org/method/ref-0001> .
+<https://example.org/wspend/pay> <https://mithril.fund/ns/workspace-ops/v1#workspace> <https://example.org/wspend/ws> .
+<https://example.org/wspend/commit> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-spend/v1#Commitment> .
+<https://example.org/wspend/commit> <https://mithril.fund/ns/workspace-ops/v1#agreement> <https://example.org/wspend/agr> .
+<https://example.org/wspend/commit> <https://mithril.fund/ns/workspace-spend/v1#obligation> <https://example.org/wspend/obl> .
+<https://example.org/wspend/commit> <https://mithril.fund/ns/workspace-spend/v1#commitmentKind> "minimum-commit" .
+<https://example.org/wspend/commit> <https://mithril.fund/ns/workspace-spend/v1#quantity> "120000"^^<http://www.w3.org/2001/XMLSchema#decimal> .
+<https://example.org/wspend/commit> <https://mithril.fund/ns/workspace-spend/v1#unit> "usd-minor-per-year" .
+<https://example.org/wspend/commit> <https://mithril.fund/ns/workspace-ops/v1#workspace> <https://example.org/wspend/ws> .
+<https://example.org/wspend/renew> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-spend/v1#Renewal> .
+<https://example.org/wspend/renew> <https://mithril.fund/ns/workspace-ops/v1#agreement> <https://example.org/wspend/agr> .
+<https://example.org/wspend/renew> <https://mithril.fund/ns/workspace-spend/v1#renewalDate> "2027-03-01" .
+<https://example.org/wspend/renew> <https://mithril.fund/ns/workspace-spend/v1#noticeDeadline> "2027-01-30" .
+<https://example.org/wspend/renew> <https://mithril.fund/ns/workspace-spend/v1#autoRenew> "true"^^<http://www.w3.org/2001/XMLSchema#boolean> .
+<https://example.org/wspend/renew> <https://mithril.fund/ns/workspace-spend/v1#owner> <https://example.org/wspend/party> .
+<https://example.org/wspend/renew> <https://mithril.fund/ns/workspace-spend/v1#decisionState> "undecided" .
+<https://example.org/wspend/renew> <https://mithril.fund/ns/workspace-ops/v1#workspace> <https://example.org/wspend/ws> .
+<https://example.org/wspend/alloc> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-spend/v1#Allocation> .
+<https://example.org/wspend/alloc> <https://mithril.fund/ns/workspace-spend/v1#item> <https://example.org/wspend/cost> .
+<https://example.org/wspend/alloc> <https://mithril.fund/ns/workspace-spend/v1#product> <https://example.org/wspend/prod> .
+<https://example.org/wspend/alloc> <https://mithril.fund/ns/workspace-spend/v1#service> <https://example.org/wspend/svc> .
+<https://example.org/wspend/alloc> <https://mithril.fund/ns/workspace-spend/v1#environment> <https://example.org/wspend/env> .
+<https://example.org/wspend/alloc> <https://mithril.fund/ns/workspace-ops/v1#workspace> <https://example.org/wspend/ws> .
+# Detection record and proposed decision -- no action is taken here.
+<https://example.org/wspend/finding> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-spend/v1#WasteFinding> .
+<https://example.org/wspend/finding> <https://mithril.fund/ns/workspace-spend/v1#findingKind> "unallocated" .
+<https://example.org/wspend/finding> <https://mithril.fund/ns/workspace-spend/v1#subject> <https://example.org/wspend/cost> .
+<https://example.org/wspend/finding> <https://mithril.fund/ns/workspace-spend/v1#evidence> <https://example.org/wspend/ev1> .
+<https://example.org/wspend/finding> <https://mithril.fund/ns/workspace-spend/v1#detectedAt> "2026-11-20" .
+<https://example.org/wspend/finding> <https://mithril.fund/ns/workspace-ops/v1#workspace> <https://example.org/wspend/ws> .
+<https://example.org/wspend/action> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-spend/v1#RemediationAction> .
+<https://example.org/wspend/action> <https://mithril.fund/ns/workspace-spend/v1#actionKind> "assign-owner" .
+<https://example.org/wspend/action> <https://mithril.fund/ns/workspace-spend/v1#wasteFinding> <https://example.org/wspend/finding> .
+<https://example.org/wspend/action> <https://mithril.fund/ns/workspace-spend/v1#decisionState> "proposed" .
+<https://example.org/wspend/action> <https://mithril.fund/ns/workspace-ops/v1#workspace> <https://example.org/wspend/ws> .
+
+# Portfolio items: a product-linked entry and a platform entry that is
+# intentionally neither a Product nor a Service.
+<https://example.org/wspend/item-console> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-spend/v1#PortfolioItem> .
+<https://example.org/wspend/item-console> <https://mithril.fund/ns/workspace-ops/v1#name> "Example Console" .
+<https://example.org/wspend/item-console> <https://mithril.fund/ns/workspace-spend/v1#catalogKey> "example-console" .
+<https://example.org/wspend/item-console> <https://mithril.fund/ns/workspace-spend/v1#portfolioKind> "product" .
+<https://example.org/wspend/item-console> <https://mithril.fund/ns/workspace-spend/v1#product> <https://example.org/wspend/prod> .
+<https://example.org/wspend/item-console> <https://mithril.fund/ns/workspace-ops/v1#workspace> <https://example.org/wspend/ws> .
+<https://example.org/wspend/item-platform> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-spend/v1#PortfolioItem> .
+<https://example.org/wspend/item-platform> <https://mithril.fund/ns/workspace-ops/v1#name> "Example Platform" .
+<https://example.org/wspend/item-platform> <https://mithril.fund/ns/workspace-spend/v1#catalogKey> "example-platform" .
+<https://example.org/wspend/item-platform> <https://mithril.fund/ns/workspace-spend/v1#portfolioKind> "platform" .
+<https://example.org/wspend/item-platform> <https://mithril.fund/ns/workspace-ops/v1#workspace> <https://example.org/wspend/ws> .
+
+# CsfLabels: all six functions, all three subject types. `approved`
+# labels carry provenance (one source-only, one evidence-only); the
+# proposed label deliberately has none.
+<https://example.org/wspend/label-govern> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-spend/v1#CsfLabel> .
+<https://example.org/wspend/label-govern> <https://mithril.fund/ns/workspace-spend/v1#subject> <https://example.org/wspend/item-console> .
+<https://example.org/wspend/label-govern> <https://mithril.fund/ns/workspace-spend/v1#function> <https://mithril.fund/ns/workspace-spend/v1#govern> .
+<https://example.org/wspend/label-govern> <https://mithril.fund/ns/workspace-spend/v1#coverage> "primary" .
+<https://example.org/wspend/label-govern> <https://mithril.fund/ns/workspace-spend/v1#reviewState> "approved" .
+<https://example.org/wspend/label-govern> <https://mithril.fund/ns/workspace-spend/v1#rationale> "Console is the catalog of record for spend governance." .
+<https://example.org/wspend/label-govern> <https://mithril.fund/ns/workspace-spend/v1#sourceRef> <https://example.org/source/product-spec-1> .
+<https://example.org/wspend/label-govern> <https://mithril.fund/ns/workspace-spend/v1#validFrom> "2026-11-26" .
+<https://example.org/wspend/label-identify> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-spend/v1#CsfLabel> .
+<https://example.org/wspend/label-identify> <https://mithril.fund/ns/workspace-spend/v1#subject> <https://example.org/wspend/item-platform> .
+<https://example.org/wspend/label-identify> <https://mithril.fund/ns/workspace-spend/v1#function> <https://mithril.fund/ns/workspace-spend/v1#identify> .
+<https://example.org/wspend/label-identify> <https://mithril.fund/ns/workspace-spend/v1#coverage> "supporting" .
+<https://example.org/wspend/label-identify> <https://mithril.fund/ns/workspace-spend/v1#reviewState> "approved" .
+<https://example.org/wspend/label-identify> <https://mithril.fund/ns/workspace-spend/v1#evidence> <https://example.org/wspend/ev1> .
+<https://example.org/wspend/label-protect> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-spend/v1#CsfLabel> .
+<https://example.org/wspend/label-protect> <https://mithril.fund/ns/workspace-spend/v1#subject> <https://example.org/wspend/prod> .
+<https://example.org/wspend/label-protect> <https://mithril.fund/ns/workspace-spend/v1#function> <https://mithril.fund/ns/workspace-spend/v1#protect> .
+<https://example.org/wspend/label-protect> <https://mithril.fund/ns/workspace-spend/v1#coverage> "primary" .
+<https://example.org/wspend/label-protect> <https://mithril.fund/ns/workspace-spend/v1#reviewState> "proposed" .
+<https://example.org/wspend/label-protect> <https://mithril.fund/ns/workspace-spend/v1#rationale> "Proposed by catalog review; awaiting source." .
+<https://example.org/wspend/label-detect> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-spend/v1#CsfLabel> .
+<https://example.org/wspend/label-detect> <https://mithril.fund/ns/workspace-spend/v1#subject> <https://example.org/wspend/svc> .
+<https://example.org/wspend/label-detect> <https://mithril.fund/ns/workspace-spend/v1#function> <https://mithril.fund/ns/workspace-spend/v1#detect> .
+<https://example.org/wspend/label-detect> <https://mithril.fund/ns/workspace-spend/v1#coverage> "primary" .
+<https://example.org/wspend/label-detect> <https://mithril.fund/ns/workspace-spend/v1#reviewState> "reviewed" .
+<https://example.org/wspend/label-respond> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-spend/v1#CsfLabel> .
+<https://example.org/wspend/label-respond> <https://mithril.fund/ns/workspace-spend/v1#subject> <https://example.org/wspend/svc> .
+<https://example.org/wspend/label-respond> <https://mithril.fund/ns/workspace-spend/v1#function> <https://mithril.fund/ns/workspace-spend/v1#respond> .
+<https://example.org/wspend/label-respond> <https://mithril.fund/ns/workspace-spend/v1#coverage> "supporting" .
+<https://example.org/wspend/label-respond> <https://mithril.fund/ns/workspace-spend/v1#reviewState> "proposed" .
+<https://example.org/wspend/label-recover> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-spend/v1#CsfLabel> .
+<https://example.org/wspend/label-recover> <https://mithril.fund/ns/workspace-spend/v1#subject> <https://example.org/wspend/item-platform> .
+<https://example.org/wspend/label-recover> <https://mithril.fund/ns/workspace-spend/v1#function> <https://mithril.fund/ns/workspace-spend/v1#recover> .
+<https://example.org/wspend/label-recover> <https://mithril.fund/ns/workspace-spend/v1#coverage> "not-covered" .
+<https://example.org/wspend/label-recover> <https://mithril.fund/ns/workspace-spend/v1#reviewState> "deprecated" .
+<https://example.org/wspend/label-recover> <https://mithril.fund/ns/workspace-spend/v1#validFrom> "2026-05-01" .
+<https://example.org/wspend/label-recover> <https://mithril.fund/ns/workspace-spend/v1#validTo> "2026-11-01" .
