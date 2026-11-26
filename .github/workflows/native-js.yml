@@ -25,6 +25,8 @@ jobs:
         run: node scripts/test-native-js.mjs --engine .test-engine/cli.js
       - name: Check package linking, original ESM runtime oracle and both actual CLI targets
         run: node scripts/test-native-package.mjs --engine .test-engine/cli.js
+      - name: Verify AOT compiler bundle parity for all six native CLIs
+        run: node scripts/verify-compiler-bundle.mjs --nbb .test-engine/cli.js
   native-js-declarations:
     runs-on: ubuntu-latest
     timeout-minutes: 25

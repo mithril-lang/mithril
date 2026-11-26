@@ -24,6 +24,8 @@ Build: `MITHRIL_RUNTIME_ALLOW_DIRTY=1 node packages/runtime/scripts/build.mjs`
 Reproducibility: `node packages/runtime/scripts/build.mjs --check`
 compares both `dist/runtime.mjs` and `dist/compiler.mjs` hashes.
 
-**Rebase risk:** PR #174's perf fix (`form.cljk` regex scan, 56da43c) is NOT
-in main. The bundle is built from main's `form.cljk`; after #174 merges, re-run
-`build.mjs` (the hash will change; no CLI contract changes).
+PR #174's `form.cljk` metadata refusal is merged and baked into the bundle;
+`^:`-prefixed sources REFUSE `metadata` through both pipelines.
+Parity gate: `node scripts/verify-compiler-bundle.mjs --nbb <nbb-cli.js>`
+runs all six CLIs against the legacy `.cljk` oracle and is wired into
+`.github/workflows/native-js.yml`.
