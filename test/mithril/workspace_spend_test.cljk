@@ -1,0 +1,143 @@
+(ns mithril.workspace-spend-test
+  "workspace-spend-v1 (MITHRIL-2827, Organizer Item 560 P1): Workspace
+  Spend & Contract Ops vocabulary compiled together with
+  workspace-ops-v1. Zero declaration-IRI collisions across every shipped
+  ontology; SHACL positive/negative fixtures pin the CsfLabel contract
+  (six canonical CSF functions, three subject types, provenance or) and
+  the spend/contract chain shapes."
+  (:require [cljs.test :refer [deftest is testing]]
+            [clojure.string :as str]
+            [mithril.compiler :as compiler]
+            [mithril.reason :as reason]))
+
+(def fs (js/require "fs"))
+(defn- read-text [path] (.readFileSync fs path "utf8"))
+(defn- list-dir [path] (vec (.readdirSync fs path)))
+
+(def dir "test/fixtures/workspace-spend/")
+(def ops-path "ontology/workspace-ops-v1.mith")
+(def spend-path "ontology/workspace-spend-v1.mith")
+
+(defn- compile-file [path]
+  (compiler/compile-ontology-text path (read-text path)))
+
+(defn- ontology
+  "The spend vocabulary evaluated together with workspace-ops-v1: one
+  artifact whose @graph is both graphs, so ops: shapes apply to the
+  ops: nodes the spend shapes reference."
+  []
+  (let [spend (compile-file spend-path)
+        ops (compile-file ops-path)]
+    (update-in spend [:rdf-dataset "@graph"]
+               into (get-in ops [:rdf-dataset "@graph"]))))
+
+(defn- data [f] (reason/parse-data (str dir f) (read-text (str dir f))))
+
+(defn- declared-ids [artifact]
+  (keep #(get % "@id") (get-in artifact [:rdf-dataset "@graph"])))
+
+(def spend-ns "https://mithril.fund/ns/workspace-spend/v1#")
+(def ops-ns "https://mithril.fund/ns/workspace-ops/v1#")
+(def sh-ns "http://www.w3.org/ns/shacl#")
+(def rdf-type "http://www.w3.org/1999/02/22-rdf-syntax-ns#type")
+
+(defn- component? [suffix violation]
+  (str/ends-with? (:component violation) suffix))
+
+(deftest workspace-spend-v1-compiles
+  (let [a (compile-file spend-path)]
+    (is (= "https://mithril.fund/ontology/workspace-spend-v1"
+           (get-in a [:rdf-dataset "@id"])))
+    (is (some? (:graph-digest a)))))
+
+(deftest no-declaration-iri-collisions
+  (testing "every shipped mithril/ontology: declaration @ids are disjoint,
+            and spend declares only IRIs inside its own namespace"
+    (let [files (filter #(str/ends-with? % ".mith") (list-dir "ontology"))
+          artifacts (for [f files
+                          :let [path (str "ontology/" f)
+                                text (read-text path)]
+                          :when (str/starts-with? (str/triml text) "(mithril/ontology")]
+                      [f (compile-file path)])
+          by-file (into {} (map (fn [[f a]] [f (set (declared-ids a))]) artifacts))
+          all (mapcat declared-ids artifacts)]
+      (is (every? #(str/starts-with? % spend-ns)
+                  (get by-file "workspace-spend-v1.mith")))
+      (is (empty? (filter (get by-file "workspace-ops-v1.mith")
+                          (get by-file "workspace-spend-v1.mith"))))
+      (is (= (count all) (count (set all)))))))
+
+(deftest conforming-fixture-conforms
+  (let [r (reason/reason (ontology) (data "conforming.nq") {})]
+    (is (= :conforms (:status r)))
+    (is (= [] (:violations r)))))
+
+(deftest conforming-fixture-covers-the-vocabulary
+  (testing "all six canonical functions and all three subject types appear"
+    (let [quads (data "conforming.nq")
+          obj-iri (fn [q] (let [o (:object q)] (when (= :iri (:type o)) (:value o))))
+          label-subjects (set (for [q quads
+                                    :when (and (= rdf-type (get-in q [:predicate :value]))
+                                               (= (str spend-ns "CsfLabel") (obj-iri q)))]
+                                (get-in q [:subject :value])))
+          functions (set (for [q quads
+                               :when (= (get-in q [:predicate :value]) (str spend-ns "function"))]
+                           (obj-iri q)))
+          subject-types (set (for [q quads
+                                   :let [s (get-in q [:subject :value])
+                                         p (get-in q [:predicate :value])
+                                         o (obj-iri q)]
+                                   :when (and (= p rdf-type)
+                                              (some #(= s %)
+                                                    (for [q2 quads
+                                                          :when (= (get-in q2 [:predicate :value]) (str spend-ns "subject"))]
+                                                      (obj-iri q2))))]
+                               o))]
+      (is (seq label-subjects))
+      (is (not-any? #(and (contains? label-subjects (get-in % [:subject :value]))
+                          (= (str ops-ns "workspace") (get-in % [:predicate :value])))
+                    quads))
+      (is (= #{(str spend-ns "govern") (str spend-ns "identify")
+               (str spend-ns "protect") (str spend-ns "detect")
+               (str spend-ns "respond") (str spend-ns "recover")}
+             functions))
+      (is (contains? subject-types (str spend-ns "PortfolioItem")))
+      (is (contains? subject-types (str ops-ns "Product")))
+      (is (contains? subject-types (str ops-ns "Service"))))))
+
+(deftest violating-fixture-fails-per-constraint
+  (let [r (reason/reason (ontology) (data "violating.nq") {})
+        vs (:violations r)
+        has? (fn [focus suffix path]
+               (some #(and (= focus (:focus %))
+                           (component? suffix %)
+                           (= path (:path %))) vs))]
+    (is (= :violations (:status r)))
+    (is (= 9 (count vs)))
+    (testing "subject is required"
+      (is (has? "https://example.org/wspend-bad/label-no-subject"
+                "MinCountConstraintComponent" (str spend-ns "subject"))))
+    (testing "function is required"
+      (is (has? "https://example.org/wspend-bad/label-no-function"
+                "MinCountConstraintComponent" (str spend-ns "function"))))
+    (testing "coverage is required"
+      (is (has? "https://example.org/wspend-bad/label-no-coverage"
+                "MinCountConstraintComponent" (str spend-ns "coverage"))))
+    (testing "reviewState is required"
+      (is (has? "https://example.org/wspend-bad/label-no-state"
+                "MinCountConstraintComponent" (str spend-ns "reviewState"))))
+    (testing "`response` is not a canonical CSF function"
+      (is (has? "https://example.org/wspend-bad/label-bad-function"
+                "InConstraintComponent" (str spend-ns "function"))))
+    (testing "coverage is a closed enum"
+      (is (has? "https://example.org/wspend-bad/label-bad-coverage"
+                "InConstraintComponent" (str spend-ns "coverage"))))
+    (testing "reviewState is a closed enum"
+      (is (has? "https://example.org/wspend-bad/label-bad-state"
+                "InConstraintComponent" (str spend-ns "reviewState"))))
+    (testing "approved without source/evidence fails the node-level or"
+      (is (has? "https://example.org/wspend-bad/label-unproven"
+                "OrConstraintComponent" nil)))
+    (testing "subject must be PortfolioItem, Product or Service"
+      (is (has? "https://example.org/wspend-bad/label-bad-subject"
+                "OrConstraintComponent" (str spend-ns "subject"))))))

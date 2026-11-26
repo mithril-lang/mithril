@@ -1,0 +1,634 @@
+(mithril/ontology
+  :id "https://mithril.fund/ontology/workspace-spend-v1"
+  :profile
+  ["https://www.w3.org/TR/rdf11-concepts/"
+   "https://www.w3.org/TR/owl2-profiles/#OWL_2_RL"
+   "https://www.w3.org/TR/shacl/"]
+  :graph
+  [;; ================================================================
+   ;; workspace-spend-v1: Workspace Spend & Contract Ops vocabulary
+   ;; (Organizer Item 560, design 2026-11-26; MITHRIL-2827, phase P1).
+  ;;
+   ;; Scope: workspace-scoped spend/contract/label RECORDS only. No
+   ;; operational behavior: no payment execution, no auto-cancel, no
+   ;; ingestion, no automations. WasteFinding is a detection record,
+   ;; RemediationAction a proposed decision -- neither acts.
+  ;;
+   ;; Namespace: https://mithril.fund/ns/workspace-spend/v1# (WSPEND) is
+   ;; FRESH: only declaration IRIs under it appear in this file. Nothing
+   ;; here redefines a workspace-ops-v1 (WOPS) IRI; WOPS terms are
+   ;; referenced only (zero collision check: every @id below starts with
+   ;; the WSPEND namespace).
+  ;;
+   ;; Reuse (referenced, NEVER redefined here):
+   ;;  - WOPS:Workspace / Product / Service / Capability / Environment /
+   ;;    Requirement / Agreement / Party / Obligation / Evidence:
+   ;;    class targets and link endpoints.
+   ;;  - WOPS `workspace`, `name`, `agreement` properties: domain-free
+   ;;    (WOPS declares range only) so reuse adds no RDFS domain
+   ;;    intersection. WOPS `validFrom` / `validTo` are NOT reused: their
+   ;;    rdfs:domain is WOPS:Term, so spend declares its own domain-free
+   ;;    validity pair instead (same string+ISO-pattern convention).
+  ;;
+   ;; Shared-property rule: common WSPEND properties (subject, status,
+   ;; sourceRef, owner, costLine, ...) are declared domain-free once and
+   ;; narrowed per node inside the SHACL shapes -- never duplicated per
+   ;; domain and never given an rdfs:domain that would silently merge
+   ;; classes by intersection. Object links carry :rdfs/range only where
+   ;; the range is one unambiguous class.
+  ;;
+   ;; Privacy / secrets (design boundary):
+   ;;  - References are OPAQUE: accountRef / sourceRef / methodRef /
+   ;;    catalogKey carry no account numbers, card or bank instrument
+   ;;    data, contract text, secrets or PII. Payment.methodRef is at
+   ;;    most one opaque IRI; instrument data is a modelling error, not
+   ;;    something SHACL can sanitize out of an arbitrary payload.
+   ;;  - Party stays WOPS Party (organizations / sub-processors only;
+   ;;    persons appear only as WOPS PartyRole). No PII here either.
+   ;;  - Money is minor units + ISO 4217 currency; quantities are
+   ;;    xsd:decimal; dates are the repo's ISO-8601 partial-date string
+   ;;    convention (TermShape pattern). No temporal comparisons in P1.
+  ;;
+   ;; NIST CSF v2 controlled vocabulary: exactly six top-level functions
+   ;; as canonical IRIs (named individuals of CsfFunction). The Owner's
+   ;; word `response` normalizes to NIST `Respond` (RS); no `response`
+   ;; term exists here. Optional taxonomy metadata (ops:name + csfPrefix)
+   ;; is in ontology/workspace-spend-v1-csf-functions.nq; it is never a
+   ;; label-validation prerequisite. Mithril declarations carry types only.
+  ;;
+   ;; Positive/negative SHACL examples: test/fixtures/workspace-spend/
+   ;;   conforming.nq  (must validate: mithril reason, exit 0)
+   ;;   violating.nq   (must fail: MinCount / In / Or / NodeKind / Class)
+   ;;   exercised by test/mithril/workspace_spend_test.cljk.
+
+   ;; ---- Spend chain: SupplierAccount -> Agreement -> Commitment /
+   ;;      Renewal; UsageRecord -> CostLine -> Allocation;
+   ;;      Invoice -> Payment ----
+   (owl/class :id "https://mithril.fund/ns/workspace-spend/v1#SupplierAccount")
+   (owl/class :id "https://mithril.fund/ns/workspace-spend/v1#UsageRecord")
+   (owl/class :id "https://mithril.fund/ns/workspace-spend/v1#CostLine")
+   (owl/class :id "https://mithril.fund/ns/workspace-spend/v1#Invoice")
+   (owl/class :id "https://mithril.fund/ns/workspace-spend/v1#Payment")
+   (owl/class :id "https://mithril.fund/ns/workspace-spend/v1#Commitment")
+   (owl/class :id "https://mithril.fund/ns/workspace-spend/v1#Renewal")
+   (owl/class :id "https://mithril.fund/ns/workspace-spend/v1#Allocation")
+   ;; Detection record, never an action.
+   (owl/class :id "https://mithril.fund/ns/workspace-spend/v1#WasteFinding")
+   ;; Proposed decision, never executable.
+   (owl/class :id "https://mithril.fund/ns/workspace-spend/v1#RemediationAction")
+   ;; Canonical product/service/platform catalog entry; `platform` kind
+   ;; is allowed without the item being a WOPS Product or Service.
+   (owl/class :id "https://mithril.fund/ns/workspace-spend/v1#PortfolioItem")
+   ;; NIST CSF v2 top-level function class; exactly the six individuals
+   ;; declared below are valid `function` values.
+   (owl/class :id "https://mithril.fund/ns/workspace-spend/v1#CsfFunction")
+   ;; Link record: subject x function with coverage / reviewState /
+   ;; provenance / validity. The containing named graph is authoritative
+   ;; for workspace scope, not a semantic workspace predicate on a label.
+   ;; Serialized graph/workspace context is derived metadata only, never
+   ;; the basis for authorization or visibility.
+   (owl/class :id "https://mithril.fund/ns/workspace-spend/v1#CsfLabel")
+
+   ;; The six canonical CSF v2 functions. NIST names and prefixes are
+   ;; carried as data (ops:name / csfPrefix); `response` is not a term.
+   (owl/named-individual :id "https://mithril.fund/ns/workspace-spend/v1#govern"
+     :rdf/type "https://mithril.fund/ns/workspace-spend/v1#CsfFunction")
+   (owl/named-individual :id "https://mithril.fund/ns/workspace-spend/v1#identify"
+     :rdf/type "https://mithril.fund/ns/workspace-spend/v1#CsfFunction")
+   (owl/named-individual :id "https://mithril.fund/ns/workspace-spend/v1#protect"
+     :rdf/type "https://mithril.fund/ns/workspace-spend/v1#CsfFunction")
+   (owl/named-individual :id "https://mithril.fund/ns/workspace-spend/v1#detect"
+     :rdf/type "https://mithril.fund/ns/workspace-spend/v1#CsfFunction")
+   (owl/named-individual :id "https://mithril.fund/ns/workspace-spend/v1#respond"
+     :rdf/type "https://mithril.fund/ns/workspace-spend/v1#CsfFunction")
+   (owl/named-individual :id "https://mithril.fund/ns/workspace-spend/v1#recover"
+     :rdf/type "https://mithril.fund/ns/workspace-spend/v1#CsfFunction")
+
+   ;; ---- Shared object links (domain-free; narrowed in shapes) ----
+   (owl/object-property :id "https://mithril.fund/ns/workspace-spend/v1#owner"
+     :rdfs/range "https://mithril.fund/ns/workspace-ops/v1#Party")
+   (owl/object-property :id "https://mithril.fund/ns/workspace-spend/v1#customer"
+     :rdfs/range "https://mithril.fund/ns/workspace-ops/v1#Party")
+   (owl/object-property :id "https://mithril.fund/ns/workspace-spend/v1#product"
+     :rdfs/range "https://mithril.fund/ns/workspace-ops/v1#Product")
+   (owl/object-property :id "https://mithril.fund/ns/workspace-spend/v1#service"
+     :rdfs/range "https://mithril.fund/ns/workspace-ops/v1#Service")
+   (owl/object-property :id "https://mithril.fund/ns/workspace-spend/v1#capability"
+     :rdfs/range "https://mithril.fund/ns/workspace-ops/v1#Capability")
+   (owl/object-property :id "https://mithril.fund/ns/workspace-spend/v1#environment"
+     :rdfs/range "https://mithril.fund/ns/workspace-ops/v1#Environment")
+   (owl/object-property :id "https://mithril.fund/ns/workspace-spend/v1#initiative"
+     :rdfs/range "https://mithril.fund/ns/workspace-ops/v1#Requirement")
+   (owl/object-property :id "https://mithril.fund/ns/workspace-spend/v1#obligation"
+     :rdfs/range "https://mithril.fund/ns/workspace-ops/v1#Obligation")
+   (owl/object-property :id "https://mithril.fund/ns/workspace-spend/v1#evidence"
+     :rdfs/range "https://mithril.fund/ns/workspace-ops/v1#Evidence")
+   (owl/object-property :id "https://mithril.fund/ns/workspace-spend/v1#costRef"
+     :rdfs/range "https://mithril.fund/ns/workspace-spend/v1#CostLine")
+   (owl/object-property :id "https://mithril.fund/ns/workspace-spend/v1#costLine"
+     :rdfs/range "https://mithril.fund/ns/workspace-spend/v1#CostLine")
+   (owl/object-property :id "https://mithril.fund/ns/workspace-spend/v1#invoice"
+     :rdfs/range "https://mithril.fund/ns/workspace-spend/v1#Invoice")
+   (owl/object-property :id "https://mithril.fund/ns/workspace-spend/v1#item")
+   (owl/object-property :id "https://mithril.fund/ns/workspace-spend/v1#subject")
+   (owl/object-property :id "https://mithril.fund/ns/workspace-spend/v1#function"
+     :rdfs/range "https://mithril.fund/ns/workspace-spend/v1#CsfFunction")
+   (owl/object-property :id "https://mithril.fund/ns/workspace-spend/v1#wasteFinding"
+     :rdfs/range "https://mithril.fund/ns/workspace-spend/v1#WasteFinding")
+   ;; Opaque references only: an IRI naming a source record / payment
+   ;; method / account, never the referenced value itself.
+   (owl/object-property :id "https://mithril.fund/ns/workspace-spend/v1#sourceRef")
+   (owl/object-property :id "https://mithril.fund/ns/workspace-spend/v1#methodRef")
+
+   ;; ---- Shared datatype fields (domain-free; enums/patterns in shapes) ----
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-spend/v1#accountRef")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-spend/v1#catalogKey")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-spend/v1#portfolioKind")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-spend/v1#period")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-spend/v1#unit")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-spend/v1#quantity")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-spend/v1#currency")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-spend/v1#amountMinor")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-spend/v1#invoiceNumber")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-spend/v1#issuedAt")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-spend/v1#dueAt")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-spend/v1#paidAt")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-spend/v1#renewalDate")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-spend/v1#noticeDeadline")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-spend/v1#detectedAt")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-spend/v1#status")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-spend/v1#autoRenew")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-spend/v1#decisionState")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-spend/v1#commitmentKind")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-spend/v1#findingKind")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-spend/v1#actionKind")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-spend/v1#coverage")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-spend/v1#reviewState")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-spend/v1#rationale")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-spend/v1#validFrom")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-spend/v1#validTo")
+   (owl/datatype-property :id "https://mithril.fund/ns/workspace-spend/v1#csfPrefix")
+
+   ;; ---- SupplierAccount: account ref + owner, never credentials ----
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/workspace-spend/v1#SupplierAccountShape"
+     :sh/target-class "https://mithril.fund/ns/workspace-spend/v1#SupplierAccount"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#accountRef"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#owner"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Party"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#agreement"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Agreement"
+        :sh/min-count 1 :sh/max-count 8192)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#workspace"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Workspace"
+        :sh/min-count 1 :sh/max-count 1)])
+
+   ;; ---- UsageRecord / CostLine / Invoice / Payment ----
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/workspace-spend/v1#UsageRecordShape"
+     :sh/target-class "https://mithril.fund/ns/workspace-spend/v1#UsageRecord"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#sourceRef"
+        :sh/node-kind "http://www.w3.org/ns/shacl#IRI"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#period"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/pattern "^-?[0-9]{4}(-[0-9]{2}(-[0-9]{2})?)?$"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#unit"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#quantity"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#decimal"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#costRef"
+        :sh/class "https://mithril.fund/ns/workspace-spend/v1#CostLine"
+        :sh/min-count 0 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#workspace"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Workspace"
+        :sh/min-count 1 :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/workspace-spend/v1#CostLineShape"
+     :sh/target-class "https://mithril.fund/ns/workspace-spend/v1#CostLine"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#currency"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/pattern "^[A-Z]{3}$"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#amountMinor"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#integer"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#period"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/pattern "^-?[0-9]{4}(-[0-9]{2}(-[0-9]{2})?)?$"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#sourceRef"
+        :sh/node-kind "http://www.w3.org/ns/shacl#IRI"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#workspace"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Workspace"
+        :sh/min-count 1 :sh/max-count 1)])
+   ;; Invoice bodies/PDFs stay in private storage; the graph carries
+   ;; number, dates, status and an opaque sourceRef only.
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/workspace-spend/v1#InvoiceShape"
+     :sh/target-class "https://mithril.fund/ns/workspace-spend/v1#Invoice"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#invoiceNumber"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#issuedAt"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/pattern "^-?[0-9]{4}(-[0-9]{2}(-[0-9]{2})?)?$"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#dueAt"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/pattern "^-?[0-9]{4}(-[0-9]{2}(-[0-9]{2})?)?$"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#status"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/in [(rdf/literal "issued") (rdf/literal "partially-paid") (rdf/literal "paid") (rdf/literal "overdue") (rdf/literal "void")]
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#sourceRef"
+        :sh/node-kind "http://www.w3.org/ns/shacl#IRI"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#agreement"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Agreement"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#costLine"
+        :sh/class "https://mithril.fund/ns/workspace-spend/v1#CostLine"
+        :sh/min-count 0 :sh/max-count 8192)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#workspace"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Workspace"
+        :sh/min-count 1 :sh/max-count 1)])
+   ;; methodRef is at most one opaque IRI; instrument values are outside
+   ;; this vocabulary. SHACL does not sanitize arbitrary payloads.
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/workspace-spend/v1#PaymentShape"
+     :sh/target-class "https://mithril.fund/ns/workspace-spend/v1#Payment"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#status"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/in [(rdf/literal "pending") (rdf/literal "settled") (rdf/literal "failed")]
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#paidAt"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/pattern "^-?[0-9]{4}(-[0-9]{2}(-[0-9]{2})?)?$"
+        :sh/min-count 0 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#invoice"
+        :sh/class "https://mithril.fund/ns/workspace-spend/v1#Invoice"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#methodRef"
+        :sh/node-kind "http://www.w3.org/ns/shacl#IRI"
+        :sh/min-count 0 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#workspace"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Workspace"
+        :sh/min-count 1 :sh/max-count 1)])
+
+   ;; ---- Commitment / Renewal ----
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/workspace-spend/v1#CommitmentShape"
+     :sh/target-class "https://mithril.fund/ns/workspace-spend/v1#Commitment"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#agreement"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Agreement"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#obligation"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Obligation"
+        :sh/min-count 0 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#commitmentKind"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/in [(rdf/literal "minimum-commit") (rdf/literal "use-or-lose") (rdf/literal "credit") (rdf/literal "seat-count") (rdf/literal "usage-cap")]
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#quantity"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#decimal"
+        :sh/min-count 0 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#unit"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 0 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#workspace"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Workspace"
+        :sh/min-count 1 :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/workspace-spend/v1#RenewalShape"
+     :sh/target-class "https://mithril.fund/ns/workspace-spend/v1#Renewal"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#agreement"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Agreement"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#renewalDate"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/pattern "^-?[0-9]{4}(-[0-9]{2}(-[0-9]{2})?)?$"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#noticeDeadline"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/pattern "^-?[0-9]{4}(-[0-9]{2}(-[0-9]{2})?)?$"
+        :sh/min-count 0 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#autoRenew"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#boolean"
+        :sh/min-count 0 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#owner"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Party"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#decisionState"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/in [(rdf/literal "undecided") (rdf/literal "renew") (rdf/literal "renegotiate") (rdf/literal "cancel")]
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#workspace"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Workspace"
+        :sh/min-count 1 :sh/max-count 1)])
+
+   ;; ---- Allocation: a CostLine or UsageRecord assigned to at least one
+   ;;      of product / service / capability / environment / customer /
+   ;;      initiative ----
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/workspace-spend/v1#AllocationShape"
+     :sh/target-class "https://mithril.fund/ns/workspace-spend/v1#Allocation"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#item"
+        :sh/node-kind "http://www.w3.org/ns/shacl#IRI"
+        :sh/min-count 1 :sh/max-count 1
+        :sh/or
+        [(shacl/node-shape :sh/class "https://mithril.fund/ns/workspace-spend/v1#CostLine")
+         (shacl/node-shape :sh/class "https://mithril.fund/ns/workspace-spend/v1#UsageRecord")])
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#product"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Product"
+        :sh/min-count 0 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#service"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Service"
+        :sh/min-count 0 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#capability"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Capability"
+        :sh/min-count 0 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#environment"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Environment"
+        :sh/min-count 0 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#customer"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Party"
+        :sh/min-count 0 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#initiative"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Requirement"
+        :sh/min-count 0 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#workspace"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Workspace"
+        :sh/min-count 1 :sh/max-count 1)]
+     :sh/or
+     [(shacl/node-shape
+        :sh/property
+        [(shacl/property-shape
+           :sh/path "https://mithril.fund/ns/workspace-spend/v1#product"
+           :sh/min-count 1)])
+      (shacl/node-shape
+        :sh/property
+        [(shacl/property-shape
+           :sh/path "https://mithril.fund/ns/workspace-spend/v1#service"
+           :sh/min-count 1)])
+      (shacl/node-shape
+        :sh/property
+        [(shacl/property-shape
+           :sh/path "https://mithril.fund/ns/workspace-spend/v1#capability"
+           :sh/min-count 1)])
+      (shacl/node-shape
+        :sh/property
+        [(shacl/property-shape
+           :sh/path "https://mithril.fund/ns/workspace-spend/v1#environment"
+           :sh/min-count 1)])
+      (shacl/node-shape
+        :sh/property
+        [(shacl/property-shape
+           :sh/path "https://mithril.fund/ns/workspace-spend/v1#customer"
+           :sh/min-count 1)])
+      (shacl/node-shape
+        :sh/property
+        [(shacl/property-shape
+           :sh/path "https://mithril.fund/ns/workspace-spend/v1#initiative"
+           :sh/min-count 1)])])
+
+   ;; ---- WasteFinding / RemediationAction: detection + proposal only ----
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/workspace-spend/v1#WasteFindingShape"
+     :sh/target-class "https://mithril.fund/ns/workspace-spend/v1#WasteFinding"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#findingKind"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/in [(rdf/literal "idle") (rdf/literal "duplicate") (rdf/literal "unallocated") (rdf/literal "unused-license") (rdf/literal "ownerless") (rdf/literal "orphaned-commit") (rdf/literal "contract-mismatch")]
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#subject"
+        :sh/node-kind "http://www.w3.org/ns/shacl#IRI"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#evidence"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Evidence"
+        :sh/min-count 0 :sh/max-count 8192)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#detectedAt"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/pattern "^-?[0-9]{4}(-[0-9]{2}(-[0-9]{2})?)?$"
+        :sh/min-count 0 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#workspace"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Workspace"
+        :sh/min-count 1 :sh/max-count 1)])
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/workspace-spend/v1#RemediationActionShape"
+     :sh/target-class "https://mithril.fund/ns/workspace-spend/v1#RemediationAction"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#actionKind"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/in [(rdf/literal "stop") (rdf/literal "downsize") (rdf/literal "renegotiate") (rdf/literal "assign-owner") (rdf/literal "collect-evidence") (rdf/literal "cancel-renewal")]
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#wasteFinding"
+        :sh/class "https://mithril.fund/ns/workspace-spend/v1#WasteFinding"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#decisionState"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/in [(rdf/literal "proposed") (rdf/literal "approved") (rdf/literal "rejected") (rdf/literal "withdrawn")]
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#workspace"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Workspace"
+        :sh/min-count 1 :sh/max-count 1)])
+
+   ;; ---- PortfolioItem: canonical catalog record. `platform` entries
+   ;;      need no product/service link; product/service kinds SHOULD
+   ;;      link to the matching WOPS node (optional in P1). ----
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/workspace-spend/v1#PortfolioItemShape"
+     :sh/target-class "https://mithril.fund/ns/workspace-spend/v1#PortfolioItem"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#name"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#catalogKey"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/pattern "^[a-z0-9][a-z0-9-]{1,63}$"
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#portfolioKind"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/in [(rdf/literal "product") (rdf/literal "service") (rdf/literal "platform")]
+        :sh/min-count 1 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#product"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Product"
+        :sh/min-count 0 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#service"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Service"
+        :sh/min-count 0 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-ops/v1#workspace"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Workspace"
+        :sh/min-count 1 :sh/max-count 1)])
+
+   ;; ---- CsfLabel: subject x function link with provenance. `approved`
+   ;;      requires a sourceRef or evidence; the first or-branch is an
+   ;;      allowlist so `approved` alone can never satisfy it while the
+   ;;      required-field and enum checks stay independent. The containing
+   ;;      named graph is authoritative for workspace scope, not a label
+   ;;      workspace predicate. Serialized graph/workspace context is derived
+   ;;      metadata only, never the basis for authorization or visibility. ----
+   ;; CsfLabel claim validity is half-open: validFrom is inclusive and
+   ;; validTo is exclusive. A claim is not valid at its validTo boundary.
+   ;; These bounds do not describe when a revision was recorded.
+   ;; SHACL checks the form of the bounds; readers apply the time filter.
+   ;; Workspace Spend P0 input profile: when supplied, each bound must
+   ;; be a valid calendar date in YYYY-MM-DD form. Keep the original
+   ;; xsd:string date in the projection and compare at 00:00:00 UTC on
+   ;; that date. Reject year-only and year-month input at P0 ingest;
+   ;; never round or fill in missing components.
+   ;; Revision/recordedAt timestamps are not projected as claim bounds.
+   (shacl/node-shape
+     :id "https://mithril.fund/ns/workspace-spend/v1#CsfLabelShape"
+     :sh/target-class "https://mithril.fund/ns/workspace-spend/v1#CsfLabel"
+     :sh/property
+     [(shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#subject"
+        :sh/node-kind "http://www.w3.org/ns/shacl#IRI"
+        :sh/min-count 1 :sh/max-count 1
+        :sh/or
+        [(shacl/node-shape :sh/class "https://mithril.fund/ns/workspace-spend/v1#PortfolioItem")
+         (shacl/node-shape :sh/class "https://mithril.fund/ns/workspace-ops/v1#Product")
+         (shacl/node-shape :sh/class "https://mithril.fund/ns/workspace-ops/v1#Service")])
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#function"
+        :sh/node-kind "http://www.w3.org/ns/shacl#IRI"
+        :sh/min-count 1 :sh/max-count 1
+        :sh/in ["https://mithril.fund/ns/workspace-spend/v1#govern"
+                "https://mithril.fund/ns/workspace-spend/v1#identify"
+                "https://mithril.fund/ns/workspace-spend/v1#protect"
+                "https://mithril.fund/ns/workspace-spend/v1#detect"
+                "https://mithril.fund/ns/workspace-spend/v1#respond"
+                "https://mithril.fund/ns/workspace-spend/v1#recover"])
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#coverage"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1
+        :sh/in [(rdf/literal "primary") (rdf/literal "supporting") (rdf/literal "not-covered") (rdf/literal "unknown")])
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#reviewState"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 1 :sh/max-count 1
+        :sh/in [(rdf/literal "proposed") (rdf/literal "reviewed") (rdf/literal "approved") (rdf/literal "deprecated")])
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#rationale"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/min-count 0 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#sourceRef"
+        :sh/node-kind "http://www.w3.org/ns/shacl#IRI"
+        :sh/min-count 0 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#evidence"
+        :sh/node-kind "http://www.w3.org/ns/shacl#IRI"
+        :sh/class "https://mithril.fund/ns/workspace-ops/v1#Evidence"
+        :sh/min-count 0 :sh/max-count 8192)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#validFrom"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/pattern "^-?[0-9]{4}(-[0-9]{2}(-[0-9]{2})?)?$"
+        :sh/min-count 0 :sh/max-count 1)
+      (shacl/property-shape
+        :sh/path "https://mithril.fund/ns/workspace-spend/v1#validTo"
+        :sh/datatype "http://www.w3.org/2001/XMLSchema#string"
+        :sh/pattern "^-?[0-9]{4}(-[0-9]{2}(-[0-9]{2})?)?$"
+        :sh/min-count 0 :sh/max-count 1)]
+     :sh/or
+     [;; Branch 1 (allowlist): every reviewState value is one of
+      ;; proposed / reviewed / deprecated. `approved` fails here, so an
+      ;; approved label can only satisfy the or via provenance.
+      (shacl/node-shape
+        :sh/property
+        [(shacl/property-shape
+           :sh/path "https://mithril.fund/ns/workspace-spend/v1#reviewState"
+           :sh/in [(rdf/literal "proposed") (rdf/literal "reviewed") (rdf/literal "deprecated")])])
+      (shacl/node-shape
+        :sh/property
+        [(shacl/property-shape
+           :sh/path "https://mithril.fund/ns/workspace-spend/v1#sourceRef"
+           :sh/min-count 1)])
+      (shacl/node-shape
+        :sh/property
+        [(shacl/property-shape
+           :sh/path "https://mithril.fund/ns/workspace-spend/v1#evidence"
+           :sh/min-count 1)])])])

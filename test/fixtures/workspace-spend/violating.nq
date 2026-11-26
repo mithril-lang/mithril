@@ -1,0 +1,81 @@
+# workspace-spend-v1 NEGATIVE examples. `mithril reason` must exit 1.
+# Scaffolding (workspace / product / service / portfolio item /
+# agreement) is valid; every CsfLabel below is an otherwise-valid label
+# broken in exactly one field. Expected violations: MinCount on the
+# missing required paths, In on the bad enum/function values,
+# node-level Or for the unproven `approved` label, and Or on `subject`
+# for the wrong subject class. No PII, secrets or instrument values.
+<https://example.org/wspend-bad/ws> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Workspace> .
+<https://example.org/wspend-bad/ws> <https://mithril.fund/ns/workspace-ops/v1#workspaceId> "wspend-bad" .
+<https://example.org/wspend-bad/ws> <https://mithril.fund/ns/workspace-ops/v1#workspaceKind> "organization" .
+<https://example.org/wspend-bad/ws> <https://mithril.fund/ns/workspace-ops/v1#billingAccountRef> "billing-ref-bad-0001" .
+<https://example.org/wspend-bad/prod> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Product> .
+<https://example.org/wspend-bad/prod> <https://mithril.fund/ns/workspace-ops/v1#name> "Bad Example Product" .
+<https://example.org/wspend-bad/prod> <https://mithril.fund/ns/workspace-ops/v1#workspace> <https://example.org/wspend-bad/ws> .
+<https://example.org/wspend-bad/env> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Environment> .
+<https://example.org/wspend-bad/env> <https://mithril.fund/ns/workspace-ops/v1#environmentCode> "staging" .
+<https://example.org/wspend-bad/svc> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Service> .
+<https://example.org/wspend-bad/svc> <https://mithril.fund/ns/workspace-ops/v1#name> "bad-example-worker" .
+<https://example.org/wspend-bad/svc> <https://mithril.fund/ns/workspace-ops/v1#workspace> <https://example.org/wspend-bad/ws> .
+<https://example.org/wspend-bad/svc> <https://mithril.fund/ns/workspace-ops/v1#environment> <https://example.org/wspend-bad/env> .
+<https://example.org/wspend-bad/agr> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-ops/v1#Agreement> .
+<https://example.org/wspend-bad/agr> <https://mithril.fund/ns/workspace-ops/v1#name> "Not a label subject" .
+<https://example.org/wspend-bad/agr> <https://mithril.fund/ns/workspace-ops/v1#workspace> <https://example.org/wspend-bad/ws> .
+<https://example.org/wspend-bad/item> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-spend/v1#PortfolioItem> .
+<https://example.org/wspend-bad/item> <https://mithril.fund/ns/workspace-ops/v1#name> "Bad Example Item" .
+<https://example.org/wspend-bad/item> <https://mithril.fund/ns/workspace-spend/v1#catalogKey> "bad-example-item" .
+<https://example.org/wspend-bad/item> <https://mithril.fund/ns/workspace-spend/v1#portfolioKind> "service" .
+<https://example.org/wspend-bad/item> <https://mithril.fund/ns/workspace-ops/v1#workspace> <https://example.org/wspend-bad/ws> .
+
+# Missing subject -> MinCount on spend:subject.
+<https://example.org/wspend-bad/label-no-subject> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-spend/v1#CsfLabel> .
+<https://example.org/wspend-bad/label-no-subject> <https://mithril.fund/ns/workspace-spend/v1#function> <https://mithril.fund/ns/workspace-spend/v1#govern> .
+<https://example.org/wspend-bad/label-no-subject> <https://mithril.fund/ns/workspace-spend/v1#coverage> "primary" .
+<https://example.org/wspend-bad/label-no-subject> <https://mithril.fund/ns/workspace-spend/v1#reviewState> "proposed" .
+# Missing function -> MinCount on spend:function.
+<https://example.org/wspend-bad/label-no-function> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-spend/v1#CsfLabel> .
+<https://example.org/wspend-bad/label-no-function> <https://mithril.fund/ns/workspace-spend/v1#subject> <https://example.org/wspend-bad/item> .
+<https://example.org/wspend-bad/label-no-function> <https://mithril.fund/ns/workspace-spend/v1#coverage> "primary" .
+<https://example.org/wspend-bad/label-no-function> <https://mithril.fund/ns/workspace-spend/v1#reviewState> "proposed" .
+# Missing coverage -> MinCount on spend:coverage.
+<https://example.org/wspend-bad/label-no-coverage> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-spend/v1#CsfLabel> .
+<https://example.org/wspend-bad/label-no-coverage> <https://mithril.fund/ns/workspace-spend/v1#subject> <https://example.org/wspend-bad/item> .
+<https://example.org/wspend-bad/label-no-coverage> <https://mithril.fund/ns/workspace-spend/v1#function> <https://mithril.fund/ns/workspace-spend/v1#detect> .
+<https://example.org/wspend-bad/label-no-coverage> <https://mithril.fund/ns/workspace-spend/v1#reviewState> "proposed" .
+# Missing reviewState -> MinCount on spend:reviewState.
+<https://example.org/wspend-bad/label-no-state> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-spend/v1#CsfLabel> .
+<https://example.org/wspend-bad/label-no-state> <https://mithril.fund/ns/workspace-spend/v1#subject> <https://example.org/wspend-bad/item> .
+<https://example.org/wspend-bad/label-no-state> <https://mithril.fund/ns/workspace-spend/v1#function> <https://mithril.fund/ns/workspace-spend/v1#identify> .
+<https://example.org/wspend-bad/label-no-state> <https://mithril.fund/ns/workspace-spend/v1#coverage> "supporting" .
+# Non-canonical function IRI (`response` is never a CSF function) -> In on spend:function.
+<https://example.org/wspend-bad/label-bad-function> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-spend/v1#CsfLabel> .
+<https://example.org/wspend-bad/label-bad-function> <https://mithril.fund/ns/workspace-spend/v1#subject> <https://example.org/wspend-bad/item> .
+<https://example.org/wspend-bad/label-bad-function> <https://mithril.fund/ns/workspace-spend/v1#function> <https://mithril.fund/ns/workspace-spend/v1#response> .
+<https://example.org/wspend-bad/label-bad-function> <https://mithril.fund/ns/workspace-spend/v1#coverage> "primary" .
+<https://example.org/wspend-bad/label-bad-function> <https://mithril.fund/ns/workspace-spend/v1#reviewState> "proposed" .
+# Coverage outside the closed enum -> In on spend:coverage.
+<https://example.org/wspend-bad/label-bad-coverage> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-spend/v1#CsfLabel> .
+<https://example.org/wspend-bad/label-bad-coverage> <https://mithril.fund/ns/workspace-spend/v1#subject> <https://example.org/wspend-bad/item> .
+<https://example.org/wspend-bad/label-bad-coverage> <https://mithril.fund/ns/workspace-spend/v1#function> <https://mithril.fund/ns/workspace-spend/v1#protect> .
+<https://example.org/wspend-bad/label-bad-coverage> <https://mithril.fund/ns/workspace-spend/v1#coverage> "partial" .
+<https://example.org/wspend-bad/label-bad-coverage> <https://mithril.fund/ns/workspace-spend/v1#reviewState> "proposed" .
+# reviewState outside the closed enum -> In on spend:reviewState
+# (sourceRef keeps the node-level or satisfied so the defect is isolated).
+<https://example.org/wspend-bad/label-bad-state> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-spend/v1#CsfLabel> .
+<https://example.org/wspend-bad/label-bad-state> <https://mithril.fund/ns/workspace-spend/v1#subject> <https://example.org/wspend-bad/item> .
+<https://example.org/wspend-bad/label-bad-state> <https://mithril.fund/ns/workspace-spend/v1#function> <https://mithril.fund/ns/workspace-spend/v1#govern> .
+<https://example.org/wspend-bad/label-bad-state> <https://mithril.fund/ns/workspace-spend/v1#coverage> "primary" .
+<https://example.org/wspend-bad/label-bad-state> <https://mithril.fund/ns/workspace-spend/v1#reviewState> "accepted" .
+<https://example.org/wspend-bad/label-bad-state> <https://mithril.fund/ns/workspace-spend/v1#sourceRef> <https://example.org/source/bad-state-ref> .
+# `approved` with neither sourceRef nor evidence -> node-level Or.
+<https://example.org/wspend-bad/label-unproven> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-spend/v1#CsfLabel> .
+<https://example.org/wspend-bad/label-unproven> <https://mithril.fund/ns/workspace-spend/v1#subject> <https://example.org/wspend-bad/item> .
+<https://example.org/wspend-bad/label-unproven> <https://mithril.fund/ns/workspace-spend/v1#function> <https://mithril.fund/ns/workspace-spend/v1#govern> .
+<https://example.org/wspend-bad/label-unproven> <https://mithril.fund/ns/workspace-spend/v1#coverage> "primary" .
+<https://example.org/wspend-bad/label-unproven> <https://mithril.fund/ns/workspace-spend/v1#reviewState> "approved" .
+# Subject is an Agreement, not PortfolioItem / Product / Service -> Or on spend:subject.
+<https://example.org/wspend-bad/label-bad-subject> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://mithril.fund/ns/workspace-spend/v1#CsfLabel> .
+<https://example.org/wspend-bad/label-bad-subject> <https://mithril.fund/ns/workspace-spend/v1#subject> <https://example.org/wspend-bad/agr> .
+<https://example.org/wspend-bad/label-bad-subject> <https://mithril.fund/ns/workspace-spend/v1#function> <https://mithril.fund/ns/workspace-spend/v1#identify> .
+<https://example.org/wspend-bad/label-bad-subject> <https://mithril.fund/ns/workspace-spend/v1#coverage> "supporting" .
+<https://example.org/wspend-bad/label-bad-subject> <https://mithril.fund/ns/workspace-spend/v1#reviewState> "proposed" .

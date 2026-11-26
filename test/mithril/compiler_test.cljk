@@ -179,7 +179,7 @@
   (testing "and so does every shipped ontology"
     (doseq [f ["bot-checkpoint-v1" "bot-domain-v1" "bpmn-agent-v1" "edit-proposal-v1"
                "growth-decision-v1" "jev-decision-v2" "semantic-core-v1" "state-graph-v1"
-               "twin-v1" "workspace-ops-v1"]]
+               "twin-v1" "workspace-ops-v1" "workspace-spend-v1"]]
       (let [path (str "ontology/" f ".mith")]
         (is (= [] (unexpanded-predicates
                    (compiler/compile-ontology-text path (read-text path))))
