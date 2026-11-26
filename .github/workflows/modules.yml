@@ -1,0 +1,33 @@
+# Module checker / lowering / guest closure suite (test/run_modules.cljk).
+# The runner exits non-zero on any failure or error and when the test or
+# assertion counts drift from the totals pinned in the runner, so adding or
+# removing tests requires updating those totals in the same change.
+name: Modules
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+permissions:
+  contents: read
+jobs:
+  run-modules:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: kotoba-lang/org-babashka-nbb
+          ref: 829f0ba11016e925001d80e51f12848c4ad58112
+          path: .test-engine
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24.21.0'
+      - name: Install pinned bootstrap runtime dependency without build scripts
+        run: npm install --prefix .test-engine --omit=dev --ignore-scripts --no-audit --no-fund --package-lock=false --no-save import-meta-resolve@4.1.0
+      - name: Run the module suite (test/run_modules.cljk) on the pinned engine
+        run: node .test-engine/cli.js test/run_modules.cljk
