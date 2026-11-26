@@ -1,0 +1,7 @@
+(ns test.run-contract-acceptance
+  (:require [cljs.test :as t]
+            [mithril.workspace-ops-test]
+            [mithril.contract-acceptance-test]))
+
+(let [result (t/run-tests 'mithril.workspace-ops-test 'mithril.contract-acceptance-test)]
+  (when (pos? (+ (:fail result) (:error result))) (js/process.exit 1)))

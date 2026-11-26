@@ -1,0 +1,45 @@
+#!/usr/bin/env kbb
+(ns mithril.contract-acceptance-cli
+  "Bot / human entry point for ontology/contract-acceptance-v1.mith
+  (Organizer Item 471). Read-only: prints a decision, never sends, signs or
+  bills anything.
+
+    node scripts/run-sci.mjs bin/mithril-contract-acceptance.cljk decide <case.nq> [--ontology <path>]
+
+  Prints one JSON object: {case: {status, violations}, answers: [...]}.
+  An answer's verdict is allowed | blocked | no-subject | unknown;
+  owner_approval is recorded | pending | not-required (R11: sending,
+  signature requests and billing need the owner's approval even when the
+  verdict is allowed); may_proceed is true only for allowed with no
+  pending approval. Exit 0 when a decision was computed, 1 when the case
+  could not be reasoned (refused / inconsistent), 2 on usage errors."
+  (:require [clojure.string :as str]
+            [mithril.contract-acceptance :as ca]))
+
+(def fs (js/require "node:fs"))
+
+(defn- usage! []
+  (println "usage: mithril-contract-acceptance decide <case.(nq|nt|mith|jsonld)> [--ontology <contract-acceptance.mith>]")
+  (js/process.exit 2))
+
+(defn- json-key [k] (str/replace (name k) "-" "_"))
+
+(defn- json-safe [v]
+  (cond
+    (keyword? v) (name v)
+    (map? v) (into {} (map (fn [[k x]] [(if (keyword? k) (json-key k) (str k)) (json-safe x)]) v))
+    (or (vector? v) (seq? v) (set? v)) (mapv json-safe v)
+    :else v))
+
+(defn- main [args]
+  (let [[cmd case-path & more] args
+        opts (apply hash-map more)
+        ontology (get opts "--ontology" ca/ontology-path)]
+    (when-not (and (= "decide" cmd) case-path (every? #{"--ontology"} (keys opts)))
+      (usage!))
+    (let [result (ca/decide-text (ca/load-policy ontology) case-path
+                                 (.readFileSync fs case-path "utf8"))]
+      (println (js/JSON.stringify (clj->js (json-safe result)) nil 2))
+      (js/process.exit (if (#{:conforms :violations} (get-in result [:case :status])) 0 1)))))
+
+(main (vec *command-line-args*))
