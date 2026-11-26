@@ -88,6 +88,30 @@
            (:cid (tier-a/transpile-checked (module/check-text minimal-text))))
         "text and checked entry points agree (checker is the only gate)")))
 
+(deftest tier-a-renamed-exports-keep-export-targets-losslessly
+  ;; A module exporting {:name "pub" :function "internal"} must keep the
+  ;; public-name -> target mapping in the IR node, or "pub" cannot resolve to
+  ;; "internal". Plain exports emit no "export-targets" key (unchanged CIDs).
+  (let [internal-fn {"@type" "Function" "name" "internal"
+                     "params" [{"name" "v" "datatype" "i64"}]
+                     "returns" "i64"
+                     "body" {"@type" "Local" "name" "v"}}
+        doc {"@context" "https://mithril.fund/context/module/v1" "@type" "Module"
+             "name" "t.alias" "functions" [internal-fn]
+             "exports" [{"name" "pub" "function" "internal"} "internal"]}
+        result (tier-a/transpile-document doc)
+        plain-result (tier-a/transpile-document
+                       (assoc doc "exports" ["internal"]))]
+    (is (= ["pub" "internal"] (get (:node result) "exports")))
+    (is (= {"pub" "internal" "internal" "internal"}
+           (get (:node result) "export-targets"))
+        "renamed export target survives into the IR node")
+    (is (not (contains? (:node plain-result) "export-targets"))
+        "plain exports keep the original shape (no extra key)")
+    (let [{:keys [decoded cid]} (round-trip result)]
+      (is (= (:node result) decoded) "export-targets round-trips through DAG-CBOR")
+      (is (= (:cid result) cid)))))
+
 (deftest tier-a-display-is-dag-json-never-identity
   ;; dag-json is display only (Item 374 D3): it must render the node, and must
   ;; not be mistaken for the DAG-CBOR CID. The display text is canonical

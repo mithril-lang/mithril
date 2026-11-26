@@ -175,19 +175,25 @@
     {\"format\" \"mithril.transpiler-ipld/ir-v1\"
      \"name\" \"<module name>\"
      \"exports\" [\"<public name>\" ...]
+     \"export-targets\" {\"<public name>\" \"<target fn>\" ...}   ;; only when the
+     ;;                                                      checker emits
+     ;;                                                      :export-targets
+     ;;                                                      (renamed exports)
      \"functions\" [{\"name\" \"params\" \"returns\" \"body\"} ...]
      \"call-graph\" {[\"<fn>\" [...]] ...}}
   No `Link` values here (single self-contained block); `call-graph` keys are
   function *names*, not CIDs."
   [checked]
   (let [graph (:call-graph checked)]
-    {"format" "mithril.transpiler-ipld/ir-v1"
-     "name" (:name checked)
-     "exports" (vec (:exports checked))
-     "functions" (mapv function-node (:functions checked))
-     "call-graph" (into {}
-                        (map (fn [[fname callees]] [fname (vec callees)]))
-                        graph)}))
+    (cond-> {"format" "mithril.transpiler-ipld/ir-v1"
+             "name" (:name checked)
+             "exports" (vec (:exports checked))
+             "functions" (mapv function-node (:functions checked))
+             "call-graph" (into {}
+                                (map (fn [[fname callees]] [fname (vec callees)]))
+                                graph)}
+      (:export-targets checked)
+      (assoc "export-targets" (into {} (:export-targets checked))))))
 
 (defn transpile-checked
   "Lower a checked module to {:node :cid :bytes} (DAG-CBOR -> CIDv1)."
