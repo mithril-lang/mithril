@@ -52,13 +52,21 @@
                           (mapv #(function (str "f" %) [] "i64" (literal "i64" 0)) (range 127))) ["keep"])]
     (is (= :mithril.module/budget
            (try (lower/lower-document d) nil (catch :default e (:mithril/error (ex-data e))))))))
+(defn library-refusal [d]
+  (try (lower/js-library-document d "./artifact.mjs") nil
+       (catch :default e (:mithril/error (ex-data e)))))
 (deftest contextual-callables-cannot-escape-the-pure-public-facade
-  (doseq [d [(doc (invoke-node (lambda-node [] "js-value" (local "v")) []) "js-value")
+  ;; The invoked lambda uses an i64 signature so the refusal comes from the
+  ;; Lambda/Invoke expressions themselves, not from the guest js-value refusal.
+  (doseq [d [(document [(function "keep" [{"name" "v" "datatype" "i64"}] "i64"
+                                  (invoke-node (lambda-node [] "i64" (local "v")) []))] ["keep"])
              (doc (lambda-node [] "js-value" (local "v")) (function-type [] "js-value"))
              (document [(function "keep" [{"name" "f" "datatype" (function-type [] "i64")}] "i64" (literal "i64" 7))] ["keep"])]]
-    (is (= :mithril.module/library-vocabulary
-           (try (lower/js-library-document d "./artifact.mjs") nil
-                (catch :default e (:mithril/error (ex-data e))))))))
+    (is (= :mithril.module/library-vocabulary (library-refusal d))))
+  ;; Guest fail-closed (Item 224 §B): an opaque js-value signature is refused
+  ;; before any closure expression is considered.
+  (is (= :mithril.module/guest-js-value
+         (library-refusal (doc (invoke-node (lambda-node [] "js-value" (local "v")) []) "js-value")))))
 (deftest inert-source-spelling-retains-typed-lambda-arguments
   (let [text "(mithril/module :name \"closures\" :exports [\"keep\"] :functions [(mithril/function :name \"keep\" :params [(rdf/node :name \"v\" :datatype \"js-value\")] :returns \"js-value\" :body (mithril/invoke :function (mithril/lambda :params [(rdf/node :name \"v\" :datatype \"js-value\")] :returns \"js-value\" :body (mithril/local :name \"v\")) :args [(mithril/local :name \"v\")]))])"
         result (lower/lower-text text)]
