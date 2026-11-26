@@ -1,0 +1,8 @@
+(ns test.run-verify
+  "Explicit SMT contract suite (mithril.verify). Requires the z3 binary."
+  (:require [cljs.test :as t]
+            [mithril.verify-test]))
+(defmethod t/report [::t/default :end-run-tests] [m]
+  (when (pos? (+ (:fail m) (:error m)))
+    (js/process.exit 1)))
+(t/run-tests 'mithril.verify-test)
