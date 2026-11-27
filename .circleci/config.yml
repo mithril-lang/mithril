@@ -20,9 +20,12 @@ jobs:
             node --test scripts/test-sd.mjs
   language-site-verify:
     docker:
-      - image: cimg/base:2026.01
+      - image: cimg/python:3.12
     steps:
       - checkout
+      - run:
+          name: Check grammar reachability and token rules
+          command: python3 scripts/check-language-grammar.py site/lang.mithril.fund/grammar.ebnf
       - run:
           name: Check the language reference and record source-bound hashes
           command: |

@@ -13,6 +13,8 @@ value             = string
                   | boolean
                   | nil
                   | vector
+                  | conditional
+                  | sum-type
                   | tagged-form ;
 vector            = "[", [ value, { trivia, value } ], "]" ;
 
@@ -24,26 +26,31 @@ keyword           = ? keyword token of the canonical token layer (report §2.2:
 
 boolean           = "true" | "false" ;
 nil               = "nil" ;
-integer           = [ "-" | "+" ], ( digit, { digit }
-                                   | "0", ( "x" | "X" ), hex-digit, { hex-digit } ) ;
+integer           = [ "-" | "+" ], ( "0", ( "x" | "X" ), hex-digit, { hex-digit }
+                                   | "0"
+                                   | non-zero-digit, { digit } ) ;
+non-zero-digit    = "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
 (* Exact bigint in [-2^63, 2^63-1]; -9223372036854775808 round-trips exactly.
-   js/Number is never used. Refused by name
-   (:mithril.form/unsupported-numeric-literal): a leading zero (0377), radix
-   notation (2r1010), an exponent-only token (1e5), and any other
-   numeric-looking token that is neither an integer nor an admitted float. *)
+   Decimal and hex are both admitted, each with an optional leading sign, so
+   +42 and -0x1f are tokens; there is no octal and no leading zero. js/Number
+   is never used. Refused by name (:mithril.form/unsupported-numeric-literal):
+   a leading zero (0377), radix notation (2r1010), an N suffix (42N), an
+   exponent-only token (1e5), and any other numeric-looking token that is
+   neither an integer nor an admitted float. *)
 string            = '"', { string-character | escape }, '"' ;
+string-character  = ? any character except '"', "\\", and line breaks ? ;
 (* Literal bound 65,536 UTF-8 bytes; value bound 8 MiB (report §2.2). *)
 escape            = "\\", ( '"' | "\\" | "n" | "r" | "t" | "b" | "f"
                   | "u", hex-digit, hex-digit, hex-digit, hex-digit ) ;
 
 trivia            = { whitespace | comma | comment } ;
 comment           = ";", { any-character-except-line-break }, [ line-break ] ;
+any-character-except-line-break = ? any character except a line break ? ;
 whitespace        = " " | "\t" | line-break ;
 comma             = "," ; (* commas are reader whitespace *)
 line-break        = "\n" | "\r\n" ;
 digit             = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
 hex-digit         = digit | "a"…"f" | "A"…"F" ;
-letter            = "a"…"z" | "A"…"Z" ;
 (* S-form canonical spec §7 (approved package) — additions. The S-form/kir
    grammar is the canonical spec authority; the EDN catalog is a pinned,
    machine-checked mirror of this EBNF, never the spec itself.
