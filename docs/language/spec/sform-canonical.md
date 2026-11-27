@@ -14,10 +14,11 @@ This document defines:
 - the **term order** used wherever the spec says "sorted".
 
 It does not redefine the token layer of the reader (integers, strings, escapes,
-comments, refusals by name). That stays with the canonical token layer in
-`site/lang.mithril.fund/grammar.ebnf`, whose table of record is
-`mithril-sform-spec-20261123.md` §2.2 (Organizer report, 2026-11-23). This
-document starts from read tokens.
+comments, refusals by name). That stays with `site/lang.mithril.fund/grammar.ebnf`,
+which is the token layer's table of record and is published at
+`https://lang.mithril.fund/grammar.ebnf`. The design derivation is
+`mithril-sform-spec-20261123.md` §2.2 (Organizer report, 2026-11-23), which is
+background, not normative. This document starts from read tokens.
 
 ## 2. Canonical term algebra
 

@@ -1,8 +1,10 @@
 (* Mithril Form surface grammar, draft. This describes canonical source shape.
-   Token decoding follows the canonical Mithril token layer
-   (mithril-sform-spec-20261123.md §2.2): decimal and hex integers are exact
-   bigints, every refusal is named in the :mithril.form namespace, and no token
-   class delegates to cljs.reader. Each tag has a closed contract. *)
+   Token decoding is defined by the productions below: decimal and hex integers
+   are exact bigints, every refusal is named in the :mithril.form namespace,
+   and no token class delegates to cljs.reader. This file is the token layer's
+   table of record; the design derivation is the Organizer report
+   mithril-sform-spec-20261123.md §2.2, which is background and not normative.
+   Each tag has a closed contract. *)
 
 form-source       = trivia, tagged-form, trivia ;
 tagged-form       = "(", symbol, { trivia, argument }, trivia, ")" ;
@@ -18,11 +20,13 @@ value             = string
                   | tagged-form ;
 vector            = "[", [ value, { trivia, value } ], "]" ;
 
-symbol            = ? symbol token of the canonical token layer (report §2.2:
-                      non-delimiter, non-numeric-looking, at most 128 characters) ? ;
-keyword           = ? keyword token of the canonical token layer (report §2.2:
-                      ":" followed by symbol characters; the data profile admits
-                      field names only) ? ;
+symbol            = ? 1 to 128 characters, none of them trivia, "(", ")", "[",
+                      "]", "{", "}", '"', ";", or a refused dispatch character
+                      (@, ^, `, ~, \\, #); a numeric-looking token is an integer
+                      token, never a symbol; nil, true and false are literals ? ;
+keyword           = ":", ? 1 to 127 characters under the symbol rule ? ;
+(* Code profile: a keyword is a first-class value. Data profile: field names
+   only; any other keyword is refused as an unsupported value. *)
 
 boolean           = "true" | "false" ;
 nil               = "nil" ;
@@ -39,7 +43,7 @@ non-zero-digit    = "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
    neither an integer nor an admitted float. *)
 string            = '"', { string-character | escape }, '"' ;
 string-character  = ? any character except '"', "\\", and line breaks ? ;
-(* Literal bound 65,536 UTF-8 bytes; value bound 8 MiB (report §2.2). *)
+(* Literal bound 65,536 UTF-8 bytes; value bound 8 MiB. *)
 escape            = "\\", ( '"' | "\\" | "n" | "r" | "t" | "b" | "f"
                   | "u", hex-digit, hex-digit, hex-digit, hex-digit ) ;
 
