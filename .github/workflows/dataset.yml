@@ -6,6 +6,11 @@ on:
   pull_request:
     paths: ['spec/**', 'sdk/python/**', 'resources/datalake/**', 'scripts/*dataset*', 'scripts/test-datalake.mjs', 'docs/dataset/**', 'docs/benchmarks/computable-datalake*', 'examples/dataset/**', '.github/workflows/dataset.yml']
   workflow_dispatch:
+    inputs:
+      publish_language_site:
+        description: 'Cutover only: publish the language site at the Pages root and write CNAME'
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
@@ -59,17 +64,40 @@ jobs:
           python-version: '3.12'
       - run: python -m pip install markdown==3.8.2
       - run: python scripts/build-dataset-site.py /tmp/dataset-site
-      - name: Publish under existing Pages demo without replacing it
+      # Dataset publication is unconditional on main. The language site and the
+      # custom-domain CNAME are written only by the gated cutover run described in
+      # docs/operations/lang-mithril-fund-cutover.md.
+      - name: Publish Dataset specification
+        env:
+          PUBLISH_LANGUAGE_SITE: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_language_site || false }}
         run: |
+          set -euo pipefail
           git worktree add /tmp/mithril-pages origin/gh-pages-todo
           mkdir -p /tmp/mithril-pages/dataset
           rsync -a --delete /tmp/dataset-site/ /tmp/mithril-pages/dataset/
           cd /tmp/mithril-pages
+          if [ "$PUBLISH_LANGUAGE_SITE" = "true" ]; then
+            for f in index.html styles.css grammar.ebnf CNAME; do
+              install -m 0644 "$GITHUB_WORKSPACE/site/lang.mithril.fund/$f" "./$f"
+            done
+            # The retired TodoMVC demo shared this root. Remove it; dataset/ and
+            # .nojekyll stay. History keeps the old tree for rollback.
+            git rm -r --quiet --ignore-unmatch \
+              app.js base.css core.js logic.json metrics.json package.json \
+              policy.wasm preview.png style.css todomvc.css \
+              delivery.html delivery.json delivery.mp4 demo.mp4 sources \
+              LICENSE.todomvc LICENSE.mithril-policy README.md
+          fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add dataset
+          git add --all
           if ! git diff --cached --quiet; then
-            git commit -m "Publish Dataset specification from $GITHUB_SHA"
+            if [ "$PUBLISH_LANGUAGE_SITE" = "true" ]; then
+              message="Publish language site and Dataset specification from $GITHUB_SHA"
+            else
+              message="Publish Dataset specification from $GITHUB_SHA"
+            fi
+            git commit -m "$message"
             git push origin HEAD:gh-pages-todo
           fi
       - name: Request the existing branch-based Pages build

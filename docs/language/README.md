@@ -12,9 +12,11 @@ pinned context. This is separate from the Mithril Dataset format specification.
 - [Form reader implementation](../../src/mithril/form.cljk)
 - [Kotoba and Amu architecture](../../README.md#semantic-core-and-execution-core)
 
-The intended public URL is `https://lang.mithril.fund/`. Publishing that host
-requires its own approved static publisher and domain binding; this source tree
-does not imply that the host is live.
+The public URL is `https://lang.mithril.fund/`. Publication of this directory
+at the site root and of the Dataset specification at `/dataset/` is prepared in
+`.github/workflows/dataset.yml`, gated behind the cutover switch. See the
+[cutover runbook](../operations/lang-mithril-fund-cutover.md). The host is not
+live until that checklist runs and its read-back checks pass.
 
 ## S-form canonical spec §7 (approved package)
 
