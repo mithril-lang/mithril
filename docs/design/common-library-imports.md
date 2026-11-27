@@ -39,7 +39,7 @@ through the existing mission compiler admission.
 
 CI covers actual Hy imports, cljk ownership refusal, Mithril digest refusal,
 CID-locked Kotoba native guest output and real UDP read-back. Amu is pinned at
-`771266da033ba451d8154a8e23591445e0c71b17` (bbbdaa9 with its dependency lock
+`7ef6a7e38c005311dde7224bd1534275ee743f98` (bbbdaa9 with its dependency lock
 repinned to lib/<id> trees of one kotoba-lang/kotoba commit, on Amu's
 `compat/bbbdaa9` line); its JVM-free bootstrap compiler is used without
 claiming selfhost evidence. An unreachable dependency pin fails the check; it

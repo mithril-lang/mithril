@@ -3,8 +3,8 @@
 Amu's deps-lock.edn (version 2) pins its libraries as lib/<id> trees of one
 kotoba-lang/kotoba commit. Amu still verifies the lock, dependency paths, the
 checkout's HEAD and each tree itself; this preparation fetches that one
-checkout with full history up front and fails loudly on any disagreement. It
-never changes the lock or compiler.
+checkout (full history, sparse to the locked lib/<id> directories) up front
+and fails loudly on any disagreement. It never changes the lock or compiler.
 """
 import argparse, hashlib, pathlib, re, subprocess
 p=argparse.ArgumentParser()
@@ -27,6 +27,7 @@ def git(*args):return subprocess.run(['git','-C',str(path),*args],check=True,tex
 if not path.exists():
     path.mkdir(parents=True)
     git('init','--quiet')
+    git('sparse-checkout','set','--cone',*sorted({subdir for _,_,_,_,subdir,_ in entries}))
     git('fetch','--quiet',url,sha)
     git('checkout','--quiet','--detach',sha)
 if git('rev-parse','HEAD')!=sha:raise ValueError('dependency revision mismatch')

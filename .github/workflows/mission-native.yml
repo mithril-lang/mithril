@@ -41,7 +41,7 @@ jobs:
           hy -c '(import fund.mithril.lib.xml :as xml fund.mithril.lib.siso.link16 :as link16) (assert (= (get (xml.resolve) "libraryId") "fund.mithril.lib.xml")) (assert (get (link16.invoke "link16-loopback") "binaryReadBack"))'
       - run: |
           git clone https://github.com/kotoba-lang/amu.git /tmp/amu
-          git -C /tmp/amu checkout 771266da033ba451d8154a8e23591445e0c71b17
+          git -C /tmp/amu checkout 7ef6a7e38c005311dde7224bd1534275ee743f98
           cd /tmp/amu
           # Amu's lock (version 2) pins lib/<id> trees of one kotoba-lang/kotoba
           # commit. An unreachable pin or a mismatched tree fails this step;
