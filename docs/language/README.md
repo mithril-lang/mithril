@@ -59,13 +59,13 @@ the sum) are refused. Native Amu and public-library profiles refuse sums
 Two identities, scoped: data (ontology blocks, data-profile files) keeps
 the `sha256:` canonical-RDF graph digest, and `compiler/graph-identity`
 pairs it with a `:dataset-cid` (CIDv1 of the canonical quad list, from the
-same RDFC-1.0 run); each code definition takes a Definition CID, a
+same RDFC-1.0 run; program artifacts carry both); each code definition takes a Definition CID, a
 CIDv1 (dag-cbor, sha2-256, `bafyrei…`) over the α-normalized checked typed
 IR of the definition encoded as DAG-CBOR — never source bytes, printed text
 or trivia. Receipts carry both side by side — `:graph-digest` for the data
 tier, `:definition-cids` (`{:name … :cid …}` per definition) for the code
 tier, attached by `compiler/pair-definition-cids` outside the closed
-bootstrap pipeline (whose `emit-transaction` stage keeps its inputs). No
+bootstrap pipeline (whose stages never produce Definition CIDs). No
 unlabeled hash field means one thing on one side and the other on the
 other. Checked modules and their lowerings expose `:definition-cids`;
 digests of existing data files are untouched. A Definition CID does not yet
