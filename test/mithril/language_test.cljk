@@ -21,6 +21,12 @@
             trace (language/run-compiler kernel path source)
             alternate (language/run-compiler reordered path source)]
         (is (= expected (:artifact trace) (:artifact alternate)))
+        ;; The artifact carries the data-tier pair (ipld-identity.md §5): the
+        ;; unchanged graph-digest and the dataset CID from the same RDFC-1.0 run.
+        (is (= (compiler/graph-identity (compiler/parse-source source))
+               (select-keys expected [:graph-digest :dataset-cid])))
+        (is (= (execution/digest (select-keys expected [:graph-digest :dataset-cid]))
+               (get-in trace [:receipts 2 :output-digest])))
         (is (= (mapv #(str language/base %) (get-in kernel [:language-ir :pipeline]))
                (mapv :operation (:receipts trace))))
         (is (= (str language/base "admit-vocabulary") (get-in alternate [:receipts 1 :operation])))

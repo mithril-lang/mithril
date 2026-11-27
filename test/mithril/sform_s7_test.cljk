@@ -141,13 +141,16 @@
 
 (deftest receipts-pair-digest-and-definition-cids
   (let [facts {:graph-digest "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+               :dataset-cid "bafyreibdqjrny5eerkzsrn6524xi26otx73hxrsd25isptlwi6poyrivs4"
                :goal :goal/test :ontology "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
                :choices []}
         emitted (:artifact (compiler/run-compiler-stage "emit-transaction" facts))
         cids [{:name "main" :cid "bafyreibdqjrny5eerkzsrn6524xi26otx73hxrsd25isptlwi6poyrivs4"}]
         artifact (compiler/pair-definition-cids emitted cids)]
+    ;; The data-tier pair (graph-digest, dataset-cid) is a stage input; Definition
+    ;; CIDs are not: they are paired outside the closed pipeline.
     (testing "the closed pipeline stage keeps its declared inputs"
-      (is (= #{:graph-digest :goal :ontology :choices}
+      (is (= #{:graph-digest :dataset-cid :goal :ontology :choices}
              (get-in compiler/compiler-stages ["emit-transaction" :inputs])))
       (is (not (contains? emitted :definition-cids))))
     (is (= "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" (:graph-digest artifact)))

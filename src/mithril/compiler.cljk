@@ -324,9 +324,9 @@
   "The data-tier identity pair (ipld-identity.md §5) from ONE RDFC-1.0 run:
   `:graph-digest` (the existing `sha256:` digest, equal to `graph-digest`) and
   `:dataset-cid` (CIDv1 dag-cbor sha2-256 of the canonical `(dataset …)` term).
-  The dataset CID sits next to the digest; it replaces it nowhere. Artifacts
-  of the closed bootstrap pipeline do not carry it: their shape is pinned by
-  the .mith kernel, whose canonicalize-rdf stage declares only graph-digest."
+  The dataset CID sits next to the digest; it replaces it nowhere. The closed
+  bootstrap pipeline's canonicalize-rdf stage produces the same pair, so
+  compile-document artifacts carry both."
   [doc]
   (select-keys (ipld-identity/dataset-identity (document-dataset doc))
                [:graph-digest :dataset-cid]))
@@ -386,7 +386,7 @@
   (require-source! path doc)
   (let [expanded (jsonld/expand doc {:contexts {context-uri context-document}})
         dataset (to-rdf/to-rdf expanded)
-        graph-digest (rdf-canon/canonical-hash dataset)
+        {:keys [graph-digest dataset-cid]} (ipld-identity/dataset-identity dataset)
         goal-iri (get doc "goal")
         _ (when-not (contains? goals goal-iri)
             (fail! :mithril/unknown-goal "goal is outside the v1 catalog"))
@@ -396,15 +396,16 @@
     (require-ontology! ontology)
     {:format "https://mithril.fund/artifact/v1"
      :media-type media-type
-     :graph-digest (str "sha256:" graph-digest)
+     :graph-digest graph-digest
+     :dataset-cid dataset-cid
      :transaction [:oak.transaction/v1 goal ontology choices]}))
 
 (def compiler-stages
   {"read-inert" {:inputs #{:path :source} :outputs #{:document :source-format}}
    "project-jsonld" {:inputs #{:document} :outputs #{:dataset}}
-   "canonicalize-rdf" {:inputs #{:dataset} :outputs #{:graph-digest}}
+   "canonicalize-rdf" {:inputs #{:dataset} :outputs #{:graph-digest :dataset-cid}}
    "admit-vocabulary" {:inputs #{:document} :outputs #{:goal :ontology :choices}}
-   "emit-transaction" {:inputs #{:graph-digest :goal :ontology :choices} :outputs #{:artifact}}})
+   "emit-transaction" {:inputs #{:graph-digest :dataset-cid :goal :ontology :choices} :outputs #{:artifact}}})
 
 (defn pair-definition-cids
   "Receipts carry the two identities of S-form §7 side by side: the data graph
@@ -427,7 +428,8 @@
     {:dataset (to-rdf/to-rdf (jsonld/expand (:document facts)
                                           {:contexts {context-uri context-document}}))}
     "canonicalize-rdf"
-    {:graph-digest (str "sha256:" (rdf-canon/canonical-hash (:dataset facts)))}
+    ;; One RDFC-1.0 run yields both data-tier identities (ipld-identity.md §5).
+    (select-keys (ipld-identity/dataset-identity (:dataset facts)) [:graph-digest :dataset-cid])
     "admit-vocabulary"
     (let [doc (:document facts) goal-iri (get doc "goal")
           _ (when-not (contains? goals goal-iri)
@@ -437,7 +439,7 @@
       {:goal (short-id goal-iri) :ontology ontology :choices choices})
     "emit-transaction"
     {:artifact {:format "https://mithril.fund/artifact/v1" :media-type media-type
-                :graph-digest (:graph-digest facts)
+                :graph-digest (:graph-digest facts) :dataset-cid (:dataset-cid facts)
                 :transaction [:oak.transaction/v1 (:goal facts) (:ontology facts) (:choices facts)]}}
     (fail! :mithril/unknown-compiler-stage "unknown bootstrap compiler stage")))
 
