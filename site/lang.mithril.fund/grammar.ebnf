@@ -1,5 +1,8 @@
-(* Mithril Form surface grammar, draft. This describes canonical source shape;
-   token decoding follows cljs.reader, and each tag has a closed contract. *)
+(* Mithril Form surface grammar, draft. This describes canonical source shape.
+   Token decoding follows the canonical Mithril token layer
+   (mithril-sform-spec-20261123.md §2.2): decimal and hex integers are exact
+   bigints, every refusal is named in the :mithril.form namespace, and no token
+   class delegates to cljs.reader. Each tag has a closed contract. *)
 
 form-source       = trivia, tagged-form, trivia ;
 tagged-form       = "(", symbol, { trivia, argument }, trivia, ")" ;
@@ -13,15 +16,23 @@ value             = string
                   | tagged-form ;
 vector            = "[", [ value, { trivia, value } ], "]" ;
 
-symbol            = reader-symbol-token ;
-keyword           = reader-keyword-token ;
-reader-symbol-token  = ? token read by cljs.reader as a symbol ? ;
-reader-keyword-token = ? token read by cljs.reader as a keyword ? ;
+symbol            = ? symbol token of the canonical token layer (report §2.2:
+                      non-delimiter, non-numeric-looking, at most 128 characters) ? ;
+keyword           = ? keyword token of the canonical token layer (report §2.2:
+                      ":" followed by symbol characters; the data profile admits
+                      field names only) ? ;
 
 boolean           = "true" | "false" ;
 nil               = "nil" ;
-integer           = ? token read by cljs.reader as an integer ? ;
+integer           = [ "-" | "+" ], ( digit, { digit }
+                                   | "0", ( "x" | "X" ), hex-digit, { hex-digit } ) ;
+(* Exact bigint in [-2^63, 2^63-1]; -9223372036854775808 round-trips exactly.
+   js/Number is never used. Refused by name
+   (:mithril.form/unsupported-numeric-literal): a leading zero (0377), radix
+   notation (2r1010), an exponent-only token (1e5), and any other
+   numeric-looking token that is neither an integer nor an admitted float. *)
 string            = '"', { string-character | escape }, '"' ;
+(* Literal bound 65,536 UTF-8 bytes; value bound 8 MiB (report §2.2). *)
 escape            = "\\", ( '"' | "\\" | "n" | "r" | "t" | "b" | "f"
                   | "u", hex-digit, hex-digit, hex-digit, hex-digit ) ;
 
@@ -37,13 +48,20 @@ letter            = "a"…"z" | "A"…"Z" ;
    grammar is the canonical spec authority; the EDN catalog is a pinned,
    machine-checked mirror of this EBNF, never the spec itself.
    Token layer: the closed Mithril token rules govern (exact bigints, named
-   refusals); this EBNF does not delegate tokens away. IR stays
-   mithril.ir/v1 (additive-only, no bump). *)
+   refusals); this EBNF does not delegate tokens away. Refusals raised by name:
+   :mithril.form/metadata (^-metadata in the data profile; metadata is
+   :keyword value pairs inside the tagged form), :mithril.form/unknown-version
+   (any marker other than the one below), :mithril.form/reader-cond (native
+   profile), :mithril.form/unsupported-numeric-literal, and
+   :mithril.form/unsupported-dispatch (the .cljc reader idioms the native
+   profile refuses). IR stays mithril.ir/v1 (additive-only, no bump). *)
 
 versioned-source  = trivia, [ version-marker, trivia ], tagged-form, trivia ;
 version-marker    = "(mithril/form:v1)" ;
 (* The marker is trivia for identity: it never reaches the lowered document
-   or the graph digest. Absence means mithril.form/v0 (existing digests). *)
+   or the graph digest. Absence means mithril.form/v0 (existing digests).
+   Any other marker is refused by name (:mithril.form/unknown-version); the
+   reader never best-guesses a version. *)
 
 conditional        = "#?", "(", feature-test, value, { feature-test, value }, ")"
                    | "#?@", "(", feature-test, value, { feature-test, value }, ")" ;

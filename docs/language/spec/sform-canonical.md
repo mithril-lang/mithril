@@ -14,9 +14,10 @@ This document defines:
 - the **term order** used wherever the spec says "sorted".
 
 It does not redefine the token layer of the reader (integers, strings, escapes,
-comments, refusals by name). That stays with the reader specification in
-`site/lang.mithril.fund/grammar.ebnf` and the S-form spec background report. This document starts
-from read tokens.
+comments, refusals by name). That stays with the canonical token layer in
+`site/lang.mithril.fund/grammar.ebnf`, whose table of record is
+`mithril-sform-spec-20261123.md` §2.2 (Organizer report, 2026-11-23). This
+document starts from read tokens.
 
 ## 2. Canonical term algebra
 
@@ -30,7 +31,7 @@ A canonical S-form term is exactly one of:
 | symbol | `name` | Reader symbol rules. `nil`, `true` and `false` are not symbols. |
 | IRI | `(iri "https://…")` | An atom. The printed form looks like a list, but it reads to the IRI atom. The head `iri` is reserved. The string MUST be an absolute IRI (RFC 3987). |
 | string | `"…"` | Unicode scalar values. Encoded as UTF-8. |
-| integer | `-12`, `0`, `42` | Exact, range [−2^63, 2^63−1]. |
+| integer | `-12`, `0`, `42` | Exact bigint, range [−2^63, 2^63−1]. Reader tokens use the same domain; `js/Number` is never used. A decimal string is a typed RDF projection (`xsd:integer`), not a reader escape hatch. |
 | boolean | `true`, `false` | |
 | nil | `nil` | |
 
@@ -200,6 +201,7 @@ total function into it.
 | Maps and sets desugar to sorted `(map …)` and `(set …)` (§3.2–3.3) | The data profile refuses `{}` and `#{}`. #173 (open) `canonical-value` sorts map keys, and sorts sets by `pr-str`. | `pr-str` order is not §2.3 order. P-CID (ipld-identity.md §8) must switch to encoding order. |
 | Keywords desugar to IRIs (§3.4) | Field keywords resolve through the compiler key table (`compiler.cljk`) into the JSON-LD projection. Keyword values are refused in the data profile. | A general keyword→IRI desugar for the code profile is not implemented. |
 | Term order is DAG-CBOR byte order (§2.3) | `rdf_form.cljk` sorts by `pr-str` for display. | Display-only, so no identity impact. |
+| Integer token domain (§2.1) | `form.cljk` reads tokens through `cljs.reader` as `js/Number`, admits [−2^53, 2^53], and refuses wider values as `:mithril.form/i64-string` with a decimal-string workaround. | Implementation deviation from the exact-bigint i64 token layer (report §2.2). Not yet fixed; the reader rewrite is tracked separately. |
 | Duplicate map key is refused | Not reachable today: there are no map literals. | — |
 
 ## 7. Open points
