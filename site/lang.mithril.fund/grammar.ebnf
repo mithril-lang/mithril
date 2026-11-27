@@ -1,5 +1,10 @@
-(* Mithril Form surface grammar, draft. This describes canonical source shape;
-   token decoding follows cljs.reader, and each tag has a closed contract. *)
+(* Mithril Form surface grammar, draft. This describes canonical source shape.
+   Token decoding is defined by the productions below: decimal and hex integers
+   are exact bigints, every refusal is named in the :mithril.form namespace,
+   and no token class delegates to cljs.reader. This file is the token layer's
+   table of record; the design derivation is the Organizer report
+   mithril-sform-spec-20261123.md §2.2, which is background and not normative.
+   Each tag has a closed contract. *)
 
 form-source       = trivia, tagged-form, trivia ;
 tagged-form       = "(", symbol, { trivia, argument }, trivia, ")" ;
@@ -10,40 +15,64 @@ value             = string
                   | boolean
                   | nil
                   | vector
+                  | conditional
+                  | sum-type
                   | tagged-form ;
 vector            = "[", [ value, { trivia, value } ], "]" ;
 
-symbol            = reader-symbol-token ;
-keyword           = reader-keyword-token ;
-reader-symbol-token  = ? token read by cljs.reader as a symbol ? ;
-reader-keyword-token = ? token read by cljs.reader as a keyword ? ;
+symbol            = ? 1 to 128 characters, none of them trivia, "(", ")", "[",
+                      "]", "{", "}", '"', ";", or a refused dispatch character
+                      (@, ^, `, ~, \\, #); a numeric-looking token is an integer
+                      token, never a symbol; nil, true and false are literals ? ;
+keyword           = ":", ? 1 to 127 characters under the symbol rule ? ;
+(* Code profile: a keyword is a first-class value. Data profile: field names
+   only; any other keyword is refused as an unsupported value. *)
 
 boolean           = "true" | "false" ;
 nil               = "nil" ;
-integer           = ? token read by cljs.reader as an integer ? ;
+integer           = [ "-" | "+" ], ( "0", ( "x" | "X" ), hex-digit, { hex-digit }
+                                   | "0"
+                                   | non-zero-digit, { digit } ) ;
+non-zero-digit    = "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
+(* Exact bigint in [-2^63, 2^63-1]; -9223372036854775808 round-trips exactly.
+   Decimal and hex are both admitted, each with an optional leading sign, so
+   +42 and -0x1f are tokens; there is no octal and no leading zero. js/Number
+   is never used. Refused by name (:mithril.form/unsupported-numeric-literal):
+   a leading zero (0377), radix notation (2r1010), an N suffix (42N), an
+   exponent-only token (1e5), and any other numeric-looking token that is
+   neither an integer nor an admitted float. *)
 string            = '"', { string-character | escape }, '"' ;
+string-character  = ? any character except '"', "\\", and line breaks ? ;
+(* Literal bound 65,536 UTF-8 bytes; value bound 8 MiB. *)
 escape            = "\\", ( '"' | "\\" | "n" | "r" | "t" | "b" | "f"
                   | "u", hex-digit, hex-digit, hex-digit, hex-digit ) ;
 
 trivia            = { whitespace | comma | comment } ;
 comment           = ";", { any-character-except-line-break }, [ line-break ] ;
+any-character-except-line-break = ? any character except a line break ? ;
 whitespace        = " " | "\t" | line-break ;
 comma             = "," ; (* commas are reader whitespace *)
 line-break        = "\n" | "\r\n" ;
 digit             = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
 hex-digit         = digit | "a"…"f" | "A"…"F" ;
-letter            = "a"…"z" | "A"…"Z" ;
 (* S-form canonical spec §7 (approved package) — additions. The S-form/kir
    grammar is the canonical spec authority; the EDN catalog is a pinned,
    machine-checked mirror of this EBNF, never the spec itself.
    Token layer: the closed Mithril token rules govern (exact bigints, named
-   refusals); this EBNF does not delegate tokens away. IR stays
-   mithril.ir/v1 (additive-only, no bump). *)
+   refusals); this EBNF does not delegate tokens away. Refusals raised by name:
+   :mithril.form/metadata (^-metadata in the data profile; metadata is
+   :keyword value pairs inside the tagged form), :mithril.form/unknown-version
+   (any marker other than the one below), :mithril.form/reader-cond (native
+   profile), :mithril.form/unsupported-numeric-literal, and
+   :mithril.form/unsupported-dispatch (the .cljc reader idioms the native
+   profile refuses). IR stays mithril.ir/v1 (additive-only, no bump). *)
 
 versioned-source  = trivia, [ version-marker, trivia ], tagged-form, trivia ;
 version-marker    = "(mithril/form:v1)" ;
 (* The marker is trivia for identity: it never reaches the lowered document
-   or the graph digest. Absence means mithril.form/v0 (existing digests). *)
+   or the graph digest. Absence means mithril.form/v0 (existing digests).
+   Any other marker is refused by name (:mithril.form/unknown-version); the
+   reader never best-guesses a version. *)
 
 conditional        = "#?", "(", feature-test, value, { feature-test, value }, ")"
                    | "#?@", "(", feature-test, value, { feature-test, value }, ")" ;

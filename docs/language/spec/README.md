@@ -42,9 +42,15 @@ RFC 2119 and RFC 8174, and only when they appear in capitals.
   then treated as describing the implementation.
 - `spec/v0.1/` is the Mithril Dataset format specification. It is separate and
   is not changed by this directory.
-- Background (design inputs, not normative): Organizer reports
-  `mithril-sform-spec-20261123.md` and `mithril-transpiler-design-20261123.md`,
-  and the design note v0.6 (2026-11-25).
+- Token layer authority: `site/lang.mithril.fund/grammar.ebnf` is the table of
+  record for reader tokens (integer, string, symbol, keyword, float, comment)
+  and their named refusals. It is the file published at
+  `https://lang.mithril.fund/grammar.ebnf`, so the published grammar is
+  self-contained; this directory does not restate the table.
+- Background (design inputs, not normative): `mithril-sform-spec-20261123.md`
+  (including its §2.2 token-layer derivation),
+  `mithril-transpiler-design-20261123.md`, and the design note v0.6
+  (2026-11-25).
 
 ## Versioning
 
