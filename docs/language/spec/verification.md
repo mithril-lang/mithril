@@ -119,7 +119,7 @@ meta-theorems when the owner asks. It is not a prerequisite for v1.
 
 | Layer | Code today | Gap |
 |---|---|---|
-| L0 | `form.cljk` (closed reader, named refusals), `module.cljk` (Check and budgets), `shacl.cljk` (SHACL Core; recursion is refused dynamically, not at admission), `rdf-canon` work limit | The static recursive-shape check, and the desugaring refusals for sugar not yet admitted |
+| L0 | `form.cljk` (closed reader, named refusals), `module.cljk` (Check and budgets), `shacl.cljk` (SHACL Core; recursive shapes refused at admission, runtime guard kept), `rdf-canon` work limit | The desugaring refusals for sugar not yet admitted |
 | L1 | There is no SMT integration in the repository | All of it (milestone V1) |
 | L2 | `test/fixtures/digest-baseline.edn` golden digests. #180 tests the IPLD round trip and CID stability. | No emitter goldens with a CID header. No differential harness. No HTML round trip. |
 | L3 | Declared host imports in native-js lowering. Guest js-value fail-closed in #179 (open). | No capability list in receipts. |

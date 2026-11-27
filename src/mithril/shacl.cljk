@@ -42,9 +42,16 @@
   components (sh:rule, sh:target, sh:parameter, ...) and any other unknown
   sh: term on a shape refuse with `:unsupported-shacl-constraint`; a path
   that is none of the forms above refuses with `:unsupported-shacl-path`; a
-  malformed parameter refuses with `:invalid-shacl-operand`; a shape that
-  reaches itself on the same focus node refuses with `:recursive-shape`
-  (SHACL leaves recursion undefined).
+  malformed parameter refuses with `:invalid-shacl-operand`.
+
+  Recursive shapes (SHACL leaves their validation undefined) refuse with
+  `:recursive-shape` AT ADMISSION: `compile-shapes` builds the shape-reference
+  graph (edges through sh:node, sh:property, sh:qualifiedValueShape, sh:and,
+  sh:or, sh:xone and sh:not) and refuses any cycle before data is seen
+  (spec rdf-owl-shacl-sform §5.3, owner decision 2026-11-27). `validate-shape`
+  keeps a (shape, focus node) guard as defense in depth.
+
+  Every refusal also carries `:mithril/error :mithril.shacl/<reason>`.
 
   Host: kbb / ClojureScript (literal checks use js/BigInt, js/RegExp, js/Date)."
   (:require [clojure.string :as str]
@@ -64,7 +71,9 @@
 
 (defn- refuse! [reason detail]
   (throw (ex-info (str "mithril.shacl refused: " (name reason))
-                  {:mithril.reason/refusal reason :detail detail})))
+                  {:mithril.reason/refusal reason
+                   :mithril/error (keyword "mithril.shacl" (name reason))
+                   :detail detail})))
 
 (defn literal? [v] (map? v))
 (defn blank? [v] (and (string? v) (str/starts-with? v "_:")))
@@ -194,6 +203,40 @@
         (let [new (remove seen (shape-valued g s))]
           (recur (into (vec more) new) (into seen new)))
         seen))))
+
+(defn- shape-cycle
+  "The first cycle in the shape-reference graph over `roots`, as a vector of
+  shape ids [s0 s1 ... s0], or nil. Edges are `shape-valued`. Iterative DFS
+  in sorted order, so the reported cycle is deterministic."
+  [g roots]
+  (let [succ (fn [s] (vec (sort-by pr-str (distinct (shape-valued g s)))))]
+    (loop [color {} todo (vec (sort-by pr-str roots))]
+      (if-let [root (first todo)]
+        (if (color root)
+          (recur color (subvec todo 1))
+          ;; stack frames: [node remaining-successors]; path = nodes on the stack
+          (let [res (loop [color (assoc color root :grey)
+                           stack [[root (succ root)]]]
+                      (if-let [[n more] (peek stack)]
+                        (if-let [m (first more)]
+                          (let [stack (conj (pop stack) [n (rest more)])]
+                            (case (color m)
+                              :grey {:cycle (conj (vec (drop-while #(not= m %) (map first stack))) m)}
+                              :black (recur color stack)
+                              (recur (assoc color m :grey) (conj stack [m (succ m)]))))
+                          (recur (assoc color n :black) (pop stack)))
+                        {:color color}))]
+            (if-let [c (:cycle res)]
+              c
+              (recur (:color res) (subvec todo 1)))))
+        nil))))
+
+(defn- refuse-recursive-shapes!
+  "Admission check (spec §5.3): a shapes graph whose shape-reference graph
+  has a cycle is refused before any data is validated."
+  [g roots]
+  (when-let [cycle (shape-cycle g roots)]
+    (refuse! :recursive-shape {:phase :admission :shape (first cycle) :cycle cycle})))
 
 (declare parse-path)
 
@@ -383,6 +426,7 @@
   [triples]
   (let [g (index triples)
         roots (shape-roots g)
+        _ (refuse-recursive-shapes! g roots)
         owned (volatile! #{})
         inactive (volatile! [])
         shapes (binding [*inactive* inactive]
@@ -658,7 +702,8 @@
     (cond
       (nil? shape) (refuse! :unsupported-shacl-constraint {:shape shape-id :reason "referenced shape was not compiled"})
       (:deactivated shape) []
-      (contains? *stack* [shape-id node]) (refuse! :recursive-shape {:shape shape-id :focus node})
+      ;; defense in depth: compile-shapes already refused every cycle at admission
+      (contains? *stack* [shape-id node]) (refuse! :recursive-shape {:phase :validation :shape shape-id :focus node})
       :else
       (binding [*stack* (conj *stack* [shape-id node])]
         (let [values (if (:path shape) (eval-path g (:path shape) node) #{node})]
