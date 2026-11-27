@@ -7,7 +7,7 @@
 Mithril Dataset 0.1 is an experimental open specification with finite model
 compression, Zstd/gzip, exact RDF-term reconstruction and Arrow/Parquet interchange.
 
-- [Published specification site](https://mithril-lang.github.io/mithril/dataset/)
+- [Published specification site](https://lang.mithril.fund/dataset/)
 - [Versioned specification and conformance vectors](spec/README.md)
 - [Python Quickstart](docs/dataset/quickstart.md)
 - [Data lake comparison article](docs/dataset/comparison.md)

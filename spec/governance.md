@@ -12,6 +12,10 @@ body and claims no endorsement from Apache Arrow or Apache Iceberg.
   frozen when published. Incompatible fields/meaning require a new profile ID.
 - Interchange profile: `mithril.arrow-quads/reference-v1`.
 - Python SDK: `0.1.0`; SDK API versions are independent from stored format IDs.
+- Schema `$id`: the canonical URI of the published schema document. Moving the
+  document to a new host is editorial, not a semantic change: it requires a
+  changelog entry here, the previous URI must keep resolving (redirect), and the
+  publication/profile identifiers do not change.
 
 Unsupported formats/features MUST cause explicit refusal. Recompression may
 change physical identity without changing tuple identity. Current stored files
@@ -45,6 +49,10 @@ independent second reader. Dates or download counts do not satisfy these gates.
 
 ## Changelog
 
+- 0.1 / 2026-11-27: schema `$id` relocated to
+  `https://lang.mithril.fund/dataset/spec/v0.1/bundle.schema.json`; the previous
+  `https://mithril-lang.github.io/mithril/dataset/...` URI redirects. Editorial
+  host move only: publication 0.1, storage profile and vectors unchanged.
 - 0.1 / 2026-10-09: draft reference storage specification; JSON Schema; vectors;
   Python SDK with Arrow and Parquet interchange; proposed lake/Iceberg contract;
   public Quickstart, announcement, status and staged roadmap.

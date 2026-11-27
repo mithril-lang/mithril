@@ -7,6 +7,8 @@ It has no build-time JavaScript, remote assets, or runtime dependencies.
 reader-shape grammar. Keep both aligned with `docs/language/README.md` and the
 implementation in `src/mithril/form.cljk` and `src/mithril/compiler.cljk`.
 
-The custom hostname is not configured by this directory. Use the repository's
-approved standalone publication owner and verify the domain read-back before
-calling the site live.
+`CNAME` binds the custom hostname. It is copied to the Pages publishing branch
+only by the gated cutover step in `.github/workflows/dataset.yml`
+(`publish_language_site=true`), and the host is enabled through the Pages API.
+Nothing here is live until `docs/operations/lang-mithril-fund-cutover.md` is
+executed and its read-back checks pass.
