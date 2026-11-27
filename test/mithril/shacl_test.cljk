@@ -506,3 +506,69 @@
       (let [n (compiler/parse-source (ontology-text "(shacl/node-shape :id \"urn:x:S\" :sh/target-node 7)"))
             s (compiler/parse-source (ontology-text "(shacl/node-shape :id \"urn:x:S\" :sh/target-node \"7\")"))]
         (is (not= (compiler/graph-digest n) (compiler/graph-digest s)))))))
+
+;; ── recursive shapes are refused at admission (spec §5.3) ──────────────────
+
+(defn- tr [s p o] {:s s :p p :o o})
+(defn- sh* [local] (str sh local))
+
+(defn- admission-refusal
+  "The refusal ex-data of compiling `triples`, or nil when they compile."
+  [triples]
+  (try (shacl/compile-shapes triples) nil
+       (catch :default e (ex-data e))))
+
+(deftest recursive-shapes-are-refused-at-admission
+  (testing "direct self-reference through sh:node"
+    (let [d (admission-refusal [(tr "urn:x:S" type* (sh* "NodeShape"))
+                                (tr "urn:x:S" (sh* "node") "urn:x:S")])]
+      (is (= :recursive-shape (:mithril.reason/refusal d)))
+      (is (= :mithril.shacl/recursive-shape (:mithril/error d)))
+      (is (= :admission (get-in d [:detail :phase])))
+      (is (= ["urn:x:S" "urn:x:S"] (get-in d [:detail :cycle])))))
+  (testing "indirect cycle: node shape -> property shape -> sh:or list -> back"
+    (let [d (admission-refusal [(tr "urn:x:A" type* (sh* "NodeShape"))
+                                (tr "urn:x:A" (sh* "targetNode") "urn:x:a")
+                                (tr "urn:x:A" (sh* "property") "_:p")
+                                (tr "_:p" (sh* "path") "urn:x:knows")
+                                (tr "_:p" (sh* "qualifiedValueShape") "urn:x:B")
+                                (tr "_:p" (sh* "qualifiedMinCount") {:literal "1" :datatype (str xsd "integer")})
+                                (tr "urn:x:B" (sh* "or") "_:l1")
+                                (tr "_:l1" (str rdf "first") "urn:x:C")
+                                (tr "_:l1" (str rdf "rest") (str rdf "nil"))
+                                (tr "urn:x:C" (sh* "not") "urn:x:A")])]
+      (is (= :recursive-shape (:mithril.reason/refusal d)))
+      (is (= :admission (get-in d [:detail :phase])))
+      (is (= #{"urn:x:A" "_:p" "urn:x:B" "urn:x:C"} (set (get-in d [:detail :cycle]))))
+      (is (= (first (get-in d [:detail :cycle])) (last (get-in d [:detail :cycle]))))))
+  (testing "cycles through sh:and and sh:xone are refused the same way"
+    (doseq [k ["and" "xone"]]
+      (let [d (admission-refusal [(tr "urn:x:A" (sh* k) "_:l1")
+                                  (tr "_:l1" (str rdf "first") "urn:x:B")
+                                  (tr "_:l1" (str rdf "rest") (str rdf "nil"))
+                                  (tr "urn:x:B" (sh* "node") "urn:x:A")])]
+        (is (= :recursive-shape (:mithril.reason/refusal d)) k))))
+  (testing "the refusal is independent of data: no data graph is needed"
+    (is (some? (admission-refusal [(tr "urn:x:S" (sh* "not") "urn:x:S")]))))
+  (testing "control: deep non-recursive nesting, with a shared (diamond) shape, is accepted"
+    (let [triples [(tr "urn:x:A" type* (sh* "NodeShape"))
+                   (tr "urn:x:A" (sh* "targetNode") "urn:x:a")
+                   (tr "urn:x:A" (sh* "node") "urn:x:B")
+                   (tr "urn:x:A" (sh* "property") "_:p")
+                   (tr "_:p" (sh* "path") "urn:x:p")
+                   (tr "_:p" (sh* "node") "urn:x:C")
+                   (tr "urn:x:B" (sh* "and") "_:l1")
+                   (tr "_:l1" (str rdf "first") "urn:x:C")
+                   (tr "_:l1" (str rdf "rest") (str rdf "nil"))
+                   (tr "urn:x:C" (sh* "not") "urn:x:D")
+                   (tr "urn:x:D" (sh* "minCount") {:literal "1" :datatype (str xsd "integer")})
+                   (tr "urn:x:D" (sh* "path") "urn:x:q")]]
+      (is (nil? (admission-refusal triples)))
+      (is (= #{"urn:x:A" "urn:x:B" "urn:x:C" "urn:x:D" "_:p"}
+             (:shape-ids (shacl/compile-shapes triples))))))
+  (testing "through the whole reason path the refusal surfaces by name"
+    (let [r (run (od [{"@id" "urn:x:S" "@type" "sh:NodeShape" "shTargetNode" "urn:x:a"
+                       "sh:node" {"@id" "urn:x:S"}}])
+                 (t a "urn:x:p" "\"x\""))]
+      (is (= :recursive-shape (get-in r [:refusal :reason])))
+      (is (= :admission (get-in r [:refusal :detail :phase]))))))

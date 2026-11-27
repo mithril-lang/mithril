@@ -493,8 +493,8 @@ That means scalar and string programs compile to idiomatic, borrow-checked Rust
 with a clone report. Closures, records, sums and vectors under
 borrow-elaboration (R-c, R-d) are M3. Until then, Rust refuses those programs
 with `:mithril.transpiler-rust/tier-b` ("not yet"), not with a silent
-move+clone fallback. Proposed M2 exit criterion for Rust: the R-a + R-b subset
-passes the differential suite. Owner question Q2 (§7).
+move+clone fallback. M2 exit criterion for Rust: the R-a + R-b subset
+passes the differential suite. Owner decision Q2, 2026-11-27 (§7).
 
 ---
 
@@ -607,18 +607,17 @@ the R-a + R-b subset; every unhandled node is a named refusal in every backend.
 
 ---
 
-## 7. Open questions for the owner
+## 7. Owner questions: decisions and what stays open
 
-1. **JS i64 representation.** Use `bigint` with a range check (this design,
-   exact) instead of transpiler design §5.1's "refuse unless safe-integer range
-   is provable" (which refuses most arithmetic)?
-2. **Rust M2 exit scope.** Accept "R-a + R-b in M2, R-c/R-d in M3" as the plan
-   of record, given D9's cost?
-3. **Error triple identity.** Use `(code, Definition CID, node path)` rather
-   than source spans, so triples survive reformatting and renames?
-4. **Checker extensions in M2.0.** Records, vectors, `match` and
-   `dispatch-call` need new Check support before any emitter can use them.
-   Confirm that this belongs in M2.0, not in a separate language milestone.
+Jun decided Q2–Q4 on 2026-11-27. Q1 is still open. Where a decision differs
+from the text above, the decision wins.
+
+| # | Question | Status | Decision and effect |
+|---|---|---|---|
+| Q1 | **JS i64 representation.** Use `bigint` with a range check (§3.1, exact) instead of transpiler design §5.1's "refuse unless safe-integer range is provable" (which refuses most arithmetic)? | **Open** | Not decided. §3.1 and M2.1 keep `bigint` as the working assumption. If Q1 is decided otherwise, the M2.1 emitter and its JS goldens change. |
+| Q2 | **Rust M2 exit scope.** | **Decided 2026-11-27** | Rust in M2 covers the **scalar + string** subset (§4.7 R-a and R-b, M2.4). Everything else moves to **M3**: closures (R-c), records / sums / vectors / `match` (R-d) and the optional R-e. In M2 those programs refuse with `:mithril.transpiler-rust/tier-b`, never with a silent fallback (§4.8). |
+| Q3 | **Runtime error identity.** | **Decided 2026-11-27** | A runtime error is identified by the triple **(code, Definition CID, node path)**, not by source spans. Triples survive reformatting and renames. The differential suite compares these triples (§5.1). |
+| Q4 | **Checker extensions.** | **Decided 2026-11-27** | Check support for records, vectors, `match` and `dispatch-call` belongs to **M2.0** (§6), not to a separate language milestone. Emitters depend on it. |
 
 ## Appendix: traceability
 

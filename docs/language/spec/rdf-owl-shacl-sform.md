@@ -284,8 +284,12 @@ rule: **recursive shapes are refused at admission.** The shape-reference graph
 has an edge from a shape to every shape it reaches through `sh:node`,
 `sh:property`, `sh:qualifiedValueShape`, `sh:and`, `sh:or`, `sh:xone` or `sh:not`.
 If that graph has a cycle, the shapes graph MUST be refused
-(`:mithril.shacl/recursive-shape`) before any data is validated. This rule is
-pending owner confirmation.
+(`:mithril.shacl/recursive-shape`) before any data is validated. The check
+depends only on the shapes graph, never on data. Owner decision, 2026-11-27.
+
+A validator MAY also keep a runtime guard that refuses a shape that reaches
+itself on the same focus node. That guard is defense in depth. It does not
+replace the admission check.
 
 ### 5.4 Mapping properties
 
@@ -355,7 +359,7 @@ algebra operator. Expressions are `(op arg…)` with SPARQL function names
     (bgp (triple (var "p") (iri "http://xmlns.com/foaf/0.1/name") (var "n")))))
 ```
 
-## 7. Implementation status (2026-11-26)
+## 7. Implementation status (2026-11-27)
 
 | Spec rule | Code today | Gap |
 |---|---|---|
@@ -366,8 +370,8 @@ algebra operator. Expressions are `(op arg…)` with SPARQL function names
 | `:mithril.rdf/canonicalization-limit` | `rdf-canon` throws `:rdf-canon/work-limit-exceeded`. | Same behaviour, different code name. |
 | OWL Functional-Style S-form (§4) | `vendor/src/owl/functional.cljk` uses the same heads and entity wrappers as EDN vectors (`[:SubClassOf [:Class iri] …]`). There is no text reader. | Same tree shape. A canonical set-ordering rule (§4.2) is not applied. Data-profile `owl/*` tags project through JSON-LD instead. |
 | `:mithril.owl/not-owl2-dl` | Not implemented. | — |
-| SHACL Core coverage (§5) | `src/mithril/shacl.cljk` evaluates SHACL Core and refuses SHACL-SPARQL and advanced features by name (`:unsupported-shacl-sparql`, `:unsupported-shacl-constraint`). | Code names differ (no `mithril.shacl/` namespace). There is no `(shapes …)` sugar reader. |
-| Recursive shapes refused at admission (§5.3) | `shacl.cljk` refuses `:recursive-shape` **during validation**, when a shape reaches itself on the *same focus node*. | The spec is stricter: a static cycle check at admission, independent of data. A recursive shapes graph that today validates some data without revisiting a (shape, node) pair would be refused. |
+| SHACL Core coverage (§5) | `src/mithril/shacl.cljk` evaluates SHACL Core and refuses SHACL-SPARQL and advanced features by name (`:unsupported-shacl-sparql`, `:unsupported-shacl-constraint`). Every refusal also carries `:mithril/error :mithril.shacl/<reason>`. | The `:mithril/error` names (`:mithril.shacl/unsupported-shacl-sparql`, …) keep the `shacl` infix, so they differ from the §5.2 names. There is no `(shapes …)` sugar reader. |
+| Recursive shapes refused at admission (§5.3) | `shacl/compile-shapes` builds the shape-reference graph over every shape root and refuses any cycle with `:recursive-shape` (`:mithril/error :mithril.shacl/recursive-shape`, detail `:phase :admission` and the `:cycle`) before any data is read. `validate-shape` keeps the (shape, focus node) guard as defense in depth (`:phase :validation`). | Matches. All 98 W3C SHACL Core entries still pass. None of them has a cycle in the shape-reference graph. The shacl-shacl shapes reach nested shapes through targets (`sh:targetObjectsOf`), not through reference edges. |
 | SPARQL algebra S-form (§6) | `vendor/src/sparql/core.cljk` evaluates maps keyed `:sparql/op` (`:bgp`, `:filter`, `:join`, `:union`, `:optional`, …). | Same algebra as data maps. It uses `:optional` where SPARQL and SSE use `leftjoin`. There is no S-form reader. |
 
 ## 8. Open points
@@ -376,6 +380,5 @@ algebra operator. Expressions are `(op arg…)` with SPARQL function names
    keeps the lexical tag. This draft keeps tags as written so that no existing
    digest moves. Lowercasing at admission would be a versioned change.
 2. RDF 1.2 (triple terms, base direction) is out of scope for v1.
-3. Recursive shapes. The §5.3 rule is pending owner confirmation, as stated
-   there.
+3. Recursive shapes. Decided 2026-11-27: refused at admission (§5.3).
 4. Whether `xsd:decimal` should get a lexical-space check in v1 (§3, item 4).
