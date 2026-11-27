@@ -64,8 +64,8 @@ the published document, and a host relocation is **editorial**, not a semantic
 change. The publication (`0.1`) and storage profile
 (`mithril.computable-segments/reference-v1`) do not move. The old URI is
 recorded in `$comment` and must keep resolving; step 6 records whether it
-redirects or returns `404`. The
-schema has no `$ref`, so the `$id` change cannot break reference resolution;
+redirects or returns `404`. The schema has no `$ref`, so the `$id` change cannot
+break reference resolution;
 `scripts/check-dataset-schema.py` and the vectors are unaffected.
 
 Do not merge this PR outside the cutover window: `README.md` and the schema
