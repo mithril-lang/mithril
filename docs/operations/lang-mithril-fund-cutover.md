@@ -136,8 +136,15 @@ unresolvable host.
 ```sh
 gh workflow run dataset.yml --repo mithril-lang/mithril --ref main \
   -f publish_language_site=true
-RUN_ID=$(gh run list --repo mithril-lang/mithril --workflow dataset.yml \
-  --limit 1 --json databaseId --jq '.[0].databaseId')
+RUN_ID=""
+for _ in 1 2 3 4 5 6; do
+  RUN_ID=$(gh run list --repo mithril-lang/mithril --workflow dataset.yml \
+    --event workflow_dispatch --branch main --limit 1 \
+    --json databaseId --jq '.[0].databaseId')
+  [ -n "$RUN_ID" ] && break
+  sleep 5
+done
+test -n "$RUN_ID" || { echo "no dispatched run found" >&2; exit 1; }
 gh run watch --repo mithril-lang/mithril "$RUN_ID" --exit-status
 ```
 
