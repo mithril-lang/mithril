@@ -41,20 +41,11 @@ jobs:
           hy -c '(import fund.mithril.lib.xml :as xml fund.mithril.lib.siso.link16 :as link16) (assert (= (get (xml.resolve) "libraryId") "fund.mithril.lib.xml")) (assert (get (link16.invoke "link16-loopback") "binaryReadBack"))'
       - run: |
           git clone https://github.com/kotoba-lang/amu.git /tmp/amu
-          git -C /tmp/amu checkout bbbdaa9cb5ee0ad4ff29e024e4a70c9db4f8c02b
+          git -C /tmp/amu checkout 7ef6a7e38c005311dde7224bd1534275ee743f98
           cd /tmp/amu
-          # Amu's lock pins kotoba-lang repos that may be deleted or private.
-          # Skip this cross-runtime check (with a visible warning) only when a
-          # pinned dependency repo is unreachable; otherwise run it unchanged.
-          missing=""
-          for url in $(grep -oE 'https://github\.com/kotoba-lang/[a-z0-9-]+\.git' deps-lock.edn | sort -u); do
-            GIT_TERMINAL_PROMPT=0 git ls-remote --exit-code "$url" HEAD >/dev/null 2>&1 || missing="$missing ${url#https://github.com/}"
-          done
-          if [ -n "$missing" ]; then
-            count=$(echo $missing | wc -w)
-            echo "::warning title=Amu cross-runtime check skipped::$count Amu lock dependency repo(s) are unreachable:$missing"
-            exit 0
-          fi
+          # Amu's lock (version 2) pins lib/<id> trees of one kotoba-lang/kotoba
+          # commit. An unreachable pin or a mismatched tree fails this step;
+          # it is never skipped.
           npm ci --ignore-scripts
           export GITLIBS="$RUNNER_TEMP/amu-gitlibs"
           python "$GITHUB_WORKSPACE/scripts/prepare-amu-deps.py" --amu-root /tmp/amu --gitlibs "$GITLIBS"
